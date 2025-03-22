@@ -13,6 +13,14 @@ return new class extends Migration
     {
         Schema::create('packages', function (Blueprint $table) {
             $table->id();
+            $table->string('title');
+            $table->string('slug');
+            $table->longText('description')->nullable();
+            $table->integer('msrp')->nullable();
+            $table->string('sku')->nullable();
+            $table->string('upc')->nullable();
+            $table->boolean('is_preassembled')->default(false);
+            $table->date('released_at')->nullable();
             $table->timestamps();
         });
     }

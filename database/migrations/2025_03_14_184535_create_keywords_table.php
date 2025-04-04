@@ -18,6 +18,11 @@ return new class extends Migration
             $table->longText('description')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('keywordables', function (Blueprint $table) {
+            $table->morphs('keywordable');
+            $table->foreignId('keyword_id')->constrained('keywords')->cascadeOnDelete();
+        });
     }
 
     /**

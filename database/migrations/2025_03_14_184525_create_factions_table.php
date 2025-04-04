@@ -20,6 +20,11 @@ return new class extends Migration
             $table->string('hex_color')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('factionables', function (Blueprint $table) {
+            $table->morphs('factionable');
+            $table->foreignId('faction_id')->constrained('factions')->cascadeOnDelete();
+        });
     }
 
     /**

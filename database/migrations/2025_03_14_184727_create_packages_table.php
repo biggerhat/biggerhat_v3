@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\EditionEnum;
+use App\Enums\SculptVersionEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('packages', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
+            $table->string('name');
             $table->string('slug');
             $table->longText('description')->nullable();
             $table->integer('msrp')->nullable();
@@ -23,10 +23,15 @@ return new class extends Migration
             $table->string('distributor_description')->nullable();
             $table->string('front_image')->nullable();
             $table->string('back_image')->nullable();
-            $table->string('edition')->default(EditionEnum::FourthEdition);
+            $table->string('sculpt_version')->default(SculptVersionEnum::FourthEdition->value);
             $table->boolean('is_preassembled')->default(false);
             $table->date('released_at')->nullable();
             $table->timestamps();
+        });
+
+        Schema::create('packageables', function (Blueprint $table) {
+            $table->morphs('packageable');
+            $table->foreignId('package_id')->constrained('packages')->cascadeOnDelete();
         });
     }
 
@@ -35,6 +40,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('packageables');
         Schema::dropIfExists('packages');
     }
 };

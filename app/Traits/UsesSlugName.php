@@ -4,16 +4,16 @@ namespace App\Traits;
 
 use Illuminate\Support\Str;
 
-trait UsesSlugTitle
+trait UsesSlugName
 {
     protected static function bootSlugTitle(): void
     {
         static::creating(function (self $model) {
-            $model->slug = Str::slug($model->title);
+            $model->slug = Str::slug($model->name);
         });
 
         static::updating(function (self $model) {
-            $model->slug = Str::slug($model->title);
+            $model->slug = Str::slug($model->name);
         });
     }
 

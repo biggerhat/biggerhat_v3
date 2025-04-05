@@ -13,15 +13,10 @@ return new class extends Migration
     {
         Schema::create('keywords', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
+            $table->string('name');
             $table->string('slug');
             $table->longText('description')->nullable();
             $table->timestamps();
-        });
-
-        Schema::create('keywordables', function (Blueprint $table) {
-            $table->morphs('keywordable');
-            $table->foreignId('keyword_id')->constrained('keywords')->cascadeOnDelete();
         });
     }
 

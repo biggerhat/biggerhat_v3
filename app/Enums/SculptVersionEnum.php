@@ -6,7 +6,7 @@ use App\Interfaces\HasDefaultEnumMethods;
 use App\Traits\UsesEnumSelectOptions;
 use Illuminate\Support\Str;
 
-enum EditionEnum: string implements HasDefaultEnumMethods
+enum SculptVersionEnum: string implements HasDefaultEnumMethods
 {
     use UsesEnumSelectOptions;
 
@@ -15,6 +15,8 @@ enum EditionEnum: string implements HasDefaultEnumMethods
     case ThirdEdition = 'third_edition';
     case FourthEdition = 'fourth_edition';
     case SpecialEdition = 'special_edition';
+    case Nightmare = 'nightmare';
+    case RottenHarvest = 'rotten_harvest';
 
     public function label(): string
     {
@@ -23,7 +25,6 @@ enum EditionEnum: string implements HasDefaultEnumMethods
             self::SecondEdition => '2nd Edition',
             self::ThirdEdition => '3rd Edition',
             self::FourthEdition => '4th Edition',
-            self::SpecialEdition => 'Special Edition',
             default => Str::headline($this->name),
         };
     }

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('title')->nullable();
             $table->string('display_name');
+            $table->string('slug');
             $table->string('nicknames')->nullable();
             $table->string('station');
             $table->integer('cost');
@@ -34,6 +35,11 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
         });
+
+        Schema::create('characterables', function (Blueprint $table) {
+            $table->morphs('characterable');
+            $table->foreignId('character_id')->constrained('characters')->cascadeOnDelete();
+        });
     }
 
     /**
@@ -41,6 +47,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('characterables');
         Schema::dropIfExists('characters');
     }
 };

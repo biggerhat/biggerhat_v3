@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Enums\MessageTypeEnum;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +14,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        RedirectResponse::macro('withMessage', function (string $message, ?MessageTypeEnum $messageType = MessageTypeEnum::success) {
+            return $this->with('flash', [
+                'messageStyle' => $messageType->value,
+                'message' => $message,
+            ]);
+        });
     }
 
     /**
@@ -19,6 +27,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Model::shouldBeStrict();
     }
 }

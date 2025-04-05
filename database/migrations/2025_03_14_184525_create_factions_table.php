@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('factions', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('slug');
+            $table->longText('description')->nullable();
+            $table->string('logo')->nullable();
+            $table->string('hex_color')->nullable();
             $table->timestamps();
         });
     }

@@ -13,7 +13,18 @@ return new class extends Migration
     {
         Schema::create('triggers', function (Blueprint $table) {
             $table->id();
+            $table->string('suits');
+            $table->string('name');
+            $table->string('slug');
+            $table->longText('description');
+            $table->longText('internal_notes');
+            $table->softDeletes();
             $table->timestamps();
+        });
+
+        Schema::create('action_trigger', function (Blueprint $table) {
+            $table->foreignId('action_id')->constrained('actions')->cascadeOnDelete();
+            $table->foreignId('trigger_id')->constrained('triggers')->cascadeOnDelete();
         });
     }
 
@@ -22,6 +33,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('action_trigger');
         Schema::dropIfExists('triggers');
     }
 };

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BaseSizeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +14,11 @@ return new class extends Migration
     {
         Schema::create('markers', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('slug');
+            $table->longText('description')->nullable();
+            $table->string('base')->default(BaseSizeEnum::ThirtyMM->value);
+            $table->longText('icon')->nullable();
             $table->timestamps();
         });
     }

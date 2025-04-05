@@ -31,6 +31,7 @@ return new class extends Migration
             $table->integer('count')->default(1);
             $table->boolean('is_dead')->default(false);
             $table->boolean('is_unhirable')->default(false);
+            $table->boolean('is_beta')->default(false);
             $table->boolean('is_hidden')->default(false);
             $table->softDeletes();
             $table->timestamps();

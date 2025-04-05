@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 
 trait UsesSlugName
 {
-    protected static function bootSlugTitle(): void
+    protected static function bootSlugName(): void
     {
         static::creating(function (self $model) {
             $model->slug = Str::slug($model->name);

@@ -18,6 +18,11 @@ return new class extends Migration
             $table->longText('description')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('marker_terrain', function (Blueprint $table) {
+            $table->foreignId('marker_id')->constrained('markers')->cascadeOnDelete();
+            $table->foreignId('terrain_id')->constrained('terrains')->cascadeOnDelete();
+        });
     }
 
     /**
@@ -25,6 +30,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('marker_terrain');
         Schema::dropIfExists('terrains');
     }
 };

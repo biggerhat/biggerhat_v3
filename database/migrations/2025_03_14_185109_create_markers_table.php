@@ -21,11 +21,6 @@ return new class extends Migration
             $table->longText('icon')->nullable();
             $table->timestamps();
         });
-
-        Schema::create('markerables', function (Blueprint $table) {
-            $table->morphs('markerable');
-            $table->foreignId('marker_id')->constrained('markers')->cascadeOnDelete();
-        });
     }
 
     /**

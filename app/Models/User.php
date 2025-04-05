@@ -15,6 +15,12 @@ class User extends Authenticatable
 
     use UsesSlugName;
 
+    protected static function boot(): void
+    {
+        parent::boot();
+        self::bootSlugName();
+    }
+
     /**
      * The attributes that are mass assignable.
      *

@@ -2,11 +2,14 @@
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
+import { usePage } from '@inertiajs/vue3';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
+import {type NavItem, SharedData} from '@/types';
 import { Link } from '@inertiajs/vue3';
 import { BookOpen, Folder, LayoutGrid } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
+
+const page = usePage<SharedData>();
 
 const mainNavItems: NavItem[] = [
     {
@@ -20,6 +23,15 @@ const mainNavItems: NavItem[] = [
                 title: 'Explorer\'s Society',
                 href: '/faction/explorers-society',
                 icon: LayoutGrid,
+            },
+        ]
+    }, {
+        title: 'Admin',
+        items: [
+            {
+                title: 'Factions',
+                href: route('admin.factions.index'),
+                icon: BookOpen,
             },
         ]
     }
@@ -40,12 +52,12 @@ const footerNavItems: NavItem[] = [
 </script>
 
 <template>
-    <Sidebar collapsible="offcanvas" variant="inset">
+    <Sidebar collapsible="icon" variant="sidebar">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="route('dashboard')">
+                        <Link :href="route('index')">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
@@ -59,7 +71,7 @@ const footerNavItems: NavItem[] = [
 
         <SidebarFooter>
             <NavFooter :items="footerNavItems" />
-            <NavUser />
+            <NavUser v-if="page.props.auth.user" />
         </SidebarFooter>
     </Sidebar>
     <slot />

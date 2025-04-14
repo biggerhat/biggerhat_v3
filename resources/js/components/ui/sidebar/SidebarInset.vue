@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { cn } from '@/lib/utils';
 import type { HTMLAttributes } from 'vue';
+import AlertMessage from "@/components/AlertMessage.vue";
 
 const props = defineProps<{
     class?: HTMLAttributes['class'];

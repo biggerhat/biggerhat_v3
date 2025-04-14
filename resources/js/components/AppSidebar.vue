@@ -29,8 +29,12 @@ const mainNavItems: NavItem[] = [
         title: 'Admin',
         items: [
             {
-                title: 'Factions',
-                href: route('admin.factions.index'),
+                title: 'Keywords',
+                href: route('admin.keywords.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Characteristics',
+                href: route('admin.characteristics.index'),
                 icon: BookOpen,
             },
         ]
@@ -38,16 +42,16 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    {
-        title: 'Github Repo',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits',
-        icon: BookOpen,
-    },
+    // {
+    //     title: 'Github Repo',
+    //     href: 'https://github.com/laravel/vue-starter-kit',
+    //     icon: Folder,
+    // },
+    // {
+    //     title: 'Documentation',
+    //     href: 'https://laravel.com/docs/starter-kits',
+    //     icon: BookOpen,
+    // },
 ];
 </script>
 

@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('display_name');
             $table->string('slug');
             $table->string('nicknames')->nullable();
+            $table->string('faction');
+            $table->string('second_faction')->nullable();
             $table->string('station');
             $table->integer('cost');
             $table->integer('health');

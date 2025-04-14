@@ -2,6 +2,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
+import AlertMessage from "@/components/AlertMessage.vue";
 
 defineProps<{
     breadcrumbs?: BreadcrumbItemType[];

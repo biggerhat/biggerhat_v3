@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FactionEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -13,6 +14,14 @@ class Character extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'faction' => FactionEnum::class,
+            'second_faction' => FactionEnum::class,
+        ];
+    }
 
     protected static function bootSlugDisplayName(): void
     {
@@ -43,11 +52,6 @@ class Character extends Model
     public function miniatures(): MorphToMany
     {
         return $this->morphedByMany(Miniature::class, 'characterable');
-    }
-
-    public function factions(): MorphToMany
-    {
-        return $this->morphedByMany(Faction::class, 'characterable');
     }
 
     public function keywords(): MorphToMany

@@ -43,6 +43,11 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            'flash' => [
+                'message' => fn () => $request->session()->get('message'),
+                'messageTitle' => fn () => $request->session()->get('messageTitle'),
+                'messageType' => fn () => $request->session()->get('messageType'),
+            ],
             'auth' => [
                 'user' => $request->user() ?? null,
             ],

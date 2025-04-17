@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\UsesCharacters;
+use App\Traits\UsesSelectOptionsScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -14,6 +15,7 @@ class Miniature extends Model
     use HasFactory;
 
     use UsesCharacters;
+    use UsesSelectOptionsScope;
 
     protected $guarded = ['id'];
 

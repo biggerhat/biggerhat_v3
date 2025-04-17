@@ -15,4 +15,5 @@ enum SuitEnum: string implements HasDefaultEnumMethods
     case Mask = 'mask';
     case Ram = 'ram';
     case Tome = 'tome';
+    case Soulstone = 'soulstone';
 }

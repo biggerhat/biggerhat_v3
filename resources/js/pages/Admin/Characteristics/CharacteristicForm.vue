@@ -26,7 +26,6 @@ const props = defineProps({
 
 const formInfo = ref({
     name: null,
-    description: null,
 });
 
 const submit = () => {

@@ -36,6 +36,10 @@ const mainNavItems: NavItem[] = [
                 title: 'Characteristics',
                 href: route('admin.characteristics.index'),
                 icon: BookOpen,
+            }, {
+                title: 'Characters',
+                href: route('admin.characters.index'),
+                icon: BookOpen,
             },
         ]
     }

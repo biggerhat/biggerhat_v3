@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\BaseSizeEnum;
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\SuitEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -13,13 +16,20 @@ class Character extends Model
     /** @use HasFactory<\Database\Factories\CharacterFactory> */
     use HasFactory;
 
-    protected $guarded = ['id'];
+    /**
+     * @var array<string>|bool
+     */
+    protected $guarded = [];
 
     public function casts(): array
     {
         return [
             'faction' => FactionEnum::class,
             'second_faction' => FactionEnum::class,
+            'station' => CharacterStationEnum::class,
+            'base' => BaseSizeEnum::class,
+            'defense_suit' => SuitEnum::class,
+            'willpower_suit' => SuitEnum::class,
         ];
     }
 

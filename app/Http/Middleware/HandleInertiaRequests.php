@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'auth' => [
                 'user' => $request->user() ?? null,
+                'is_super_admin' => $request->user()?->hasRole('super_admin'),
             ],
             'ziggy' => [
                 ...(new Ziggy)->toArray(),

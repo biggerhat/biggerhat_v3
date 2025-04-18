@@ -13,5 +13,5 @@ defineProps<Props>();
 </script>
 
 <template>
-    <img src='/images/hat_cropped.png' :class="className" alt="BiggerHat" />
+    <img src='/images/Factions/M4E-Arcanists.png' :class="className" alt="Arcanists" />
 </template>

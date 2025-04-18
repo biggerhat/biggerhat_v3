@@ -6,6 +6,12 @@ use Illuminate\Support\Str;
 
 trait UsesSlugName
 {
+    protected static function boot(): void
+    {
+        parent::boot();
+        self::bootSlugName();
+    }
+
     protected static function bootSlugName(): void
     {
         static::creating(function (self $model) {

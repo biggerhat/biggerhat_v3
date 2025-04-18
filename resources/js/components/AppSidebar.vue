@@ -1,31 +1,46 @@
 <script setup lang="ts">
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
+import NavSuperAdmin from "@/components/ui/NavSuperAdmin.vue";
 import NavUser from '@/components/NavUser.vue';
 import { usePage } from '@inertiajs/vue3';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, TextSearch } from 'lucide-vue-next';
+import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
 
 const page = usePage<SharedData>();
 
 const mainNavItems: NavItem[] = [
     {
+        items: [
+            {
+                title: 'Advanced Search',
+                href: '/advanced',
+                icon: TextSearch,
+            }
+        ],
+    }, {
         title: 'Factions',
         items: [
             {
                 title: 'Arcanists',
                 href: '/faction/arcanists',
-                icon: LayoutGrid,
+                icon: ArcanistLogo,
+                icon_class: 'w-10 h-10',
             },{
                 title: 'Explorer\'s Society',
                 href: '/faction/explorers-society',
                 icon: LayoutGrid,
             },
         ]
-    }, {
+    }
+];
+
+const superAdminNavItems: NavItem[] = [
+    {
         title: 'Admin',
         items: [
             {
@@ -46,16 +61,11 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    // {
-    //     title: 'Github Repo',
-    //     href: 'https://github.com/laravel/vue-starter-kit',
-    //     icon: Folder,
-    // },
-    // {
-    //     title: 'Documentation',
-    //     href: 'https://laravel.com/docs/starter-kits',
-    //     icon: BookOpen,
-    // },
+    {
+        title: 'Donate on Ko-fi',
+        href: 'https://ko-fi.com/biggerhat',
+        icon: Folder,
+    },
 ];
 </script>
 
@@ -75,6 +85,7 @@ const footerNavItems: NavItem[] = [
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
+            <NavSuperAdmin v-if="page.props.auth.is_super_admin" :items="superAdminNavItems" />
         </SidebarContent>
 
         <SidebarFooter>

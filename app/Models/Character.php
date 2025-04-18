@@ -6,8 +6,11 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Traits\UsesSelectOptionsScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
@@ -15,6 +18,8 @@ class Character extends Model
 {
     /** @use HasFactory<\Database\Factories\CharacterFactory> */
     use HasFactory;
+
+    use UsesSelectOptionsScope;
 
     /**
      * @var array<string>|bool
@@ -92,5 +97,15 @@ class Character extends Model
     public function tokens(): MorphToMany
     {
         return $this->morphedByMany(Token::class, 'characterable');
+    }
+
+    public function crewUpgrade(): HasOne
+    {
+        return $this->hasOne(Upgrade::class, 'master_id', 'id');
+    }
+
+    public function totem(): HasMany
+    {
+        return $this->hasMany(Character::class, 'has_totem_id');
     }
 }

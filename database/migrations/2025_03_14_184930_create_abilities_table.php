@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug');
             $table->string('suits')->nullable();
+            $table->string('defensive_ability_type')->nullable();
+            $table->boolean('costs_stone')->default(false);
             $table->longText('description')->nullable();
             $table->softDeletes();
             $table->timestamps();

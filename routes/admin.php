@@ -5,7 +5,7 @@ use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified'])->middleware(['role:super_admin'])->name('admin.')->group(function () {
     Route::controller(KeywordAdminController::class)->prefix('keywords')->name('keywords.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/edit/{keyword}', 'edit')->name('edit');
@@ -32,4 +32,5 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::post('/update/{character}', 'update')->name('update');
         Route::post('/delete/{character}', 'delete')->name('delete');
     });
+
 });

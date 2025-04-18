@@ -6,6 +6,7 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
@@ -15,6 +16,8 @@ use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Miniature;
 use App\Models\Token;
+use App\Models\Upgrade;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -42,13 +45,17 @@ class CharacterAdminController extends Controller
             'abilities' => Ability::toSelectOptions('name', 'slug'),
             'markers' => Marker::toSelectOptions('name', 'slug'),
             'tokens' => Token::toSelectOptions('name', 'slug'),
+            'totems' => Character::whereHas('characteristics', function (Builder $query) {
+                $query->where('slug', 'totem');
+            })->toSelectOptions('display_name', 'slug'),
+            'crew_upgrades' => Upgrade::where('type', UpgradeTypeEnum::Crew->value)->toSelectOptions('name', 'slug'),
         ]);
     }
 
     public function edit(Request $request, Character $character)
     {
         return inertia('Admin/Characters/CharacterForm', [
-            'character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens']),
+            'character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrade', 'totem']),
             'suits' => SuitEnum::toSelectOptions(),
             'factions' => FactionEnum::toSelectOptions(),
             'stations' => CharacterStationEnum::toSelectOptions(),
@@ -60,6 +67,10 @@ class CharacterAdminController extends Controller
             'abilities' => Ability::toSelectOptions('name', 'slug'),
             'markers' => Marker::toSelectOptions('name', 'slug'),
             'tokens' => Token::toSelectOptions('name', 'slug'),
+            'totems' => Character::whereHas('characteristics', function (Builder $query) {
+                $query->where('slug', 'totem');
+            })->toSelectOptions('display_name', 'slug'),
+            'crew_upgrades' => Upgrade::where('type', UpgradeTypeEnum::Crew->value)->toSelectOptions('name', 'slug'),
         ]);
     }
 
@@ -87,12 +98,15 @@ class CharacterAdminController extends Controller
 
     private function validateAndSave(Request $request, ?Character $character = null)
     {
+        $upgrade = null;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'title' => ['nullable', 'string', 'max:255'],
             'nicknames' => ['nullable', 'string', 'max:255'],
             'station' => ['required', 'string', Rule::enum(CharacterStationEnum::class)],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
+            'totem' => ['nullable', 'string'],
+            'crew_upgrade' => ['nullable', 'string'],
             'keywords' => ['nullable', 'array'],
             'characteristics' => ['nullable', 'array'],
             'miniatures' => ['nullable', 'array'],
@@ -110,8 +124,8 @@ class CharacterAdminController extends Controller
             'defense_suit' => ['nullable', 'string', Rule::enum(SuitEnum::class)],
             'willpower' => ['required', 'integer'],
             'willpower_suit' => ['nullable', 'string', Rule::enum(SuitEnum::class)],
-            'is_unique' => ['required', 'boolean'],
-            'is_dead' => ['required', 'boolean'],
+            'summon_target_number' => ['nullable', 'integer'],
+            'generates_stone' => ['required', 'boolean'],
             'is_unhirable' => ['required', 'boolean'],
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
@@ -122,6 +136,21 @@ class CharacterAdminController extends Controller
             $validated['display_name'] .= ", {$validated['title']}";
         }
         $validated['slug'] = Str::slug($validated['display_name']);
+
+        if ($validated['summon_target_number'] === 0) {
+            unset($validated['summon_target_number']);
+        }
+
+        if ($validated['totem']) {
+            $totem = Character::where('display_name', $validated['totem'])->first();
+            $validated['has_totem_id'] = $totem->id;
+            unset($validated['totem']);
+        }
+
+        if ($validated['crew_upgrade']) {
+            $upgrade = Upgrade::where('name', $validated['crew_upgrade'])->first();
+            unset($validated['crew_upgrade']);
+        }
 
         $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
         unset($validated['keywords']);
@@ -148,6 +177,11 @@ class CharacterAdminController extends Controller
             $character = Character::create($validated);
         } else {
             $character->update($validated);
+        }
+
+        if ($upgrade) {
+            $upgrade->master_id = $character->id;
+            $upgrade->save();
         }
 
         $character->keywords()->sync($keywords->pluck('id'));

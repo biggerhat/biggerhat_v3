@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Characteristic;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class CharacteristicAdminController extends Controller
 {
@@ -33,8 +32,6 @@ class CharacteristicAdminController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
         ]);
-
-        $validated['slug'] = Str::slug($validated['name']);
 
         $characteristic = Characteristic::create($validated);
 

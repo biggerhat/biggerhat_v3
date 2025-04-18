@@ -13,7 +13,6 @@ enum CharacterStationEnum: string implements HasDefaultEnumMethods
 
     case Peon = 'peon';
     case Minion = 'minion';
-    case Enforcer = 'enforcer';
     case Henchman = 'henchman';
     case Master = 'master';
 }

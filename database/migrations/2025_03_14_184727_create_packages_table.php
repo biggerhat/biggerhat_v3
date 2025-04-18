@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('distributor_description')->nullable();
             $table->string('front_image')->nullable();
             $table->string('back_image')->nullable();
+            $table->string('combination_image')->nullable();
             $table->string('sculpt_version')->default(SculptVersionEnum::FourthEdition->value);
             $table->boolean('is_preassembled')->default(false);
             $table->date('released_at')->nullable();

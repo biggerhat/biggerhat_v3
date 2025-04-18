@@ -47,6 +47,20 @@ const props = defineProps({
             return {};
         }
     },
+    totems: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
+    crew_upgrades: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
     stations: {
         type: [Object, Array],
         required: false,
@@ -124,6 +138,8 @@ const formInfo = ref({
     title: null,
     nicknames: null,
     station: null,
+    crew_upgrade: null,
+    totem: null,
     faction: null,
     keywords: [],
     characteristics: [],
@@ -141,9 +157,9 @@ const formInfo = ref({
     willpower: null,
     willpower_suit: null,
     speed: null,
+    summon_target_number: null,
     count: 1,
-    is_unique: false,
-    is_dead: false,
+    generates_stone: true,
     is_unhirable: false,
     is_beta: false,
     is_hidden: false,
@@ -160,6 +176,8 @@ onMounted(() => {
     formInfo.value.title = props.character?.title ?? null;
     formInfo.value.nicknames = props.character?.nicknames ?? null;
     formInfo.value.station = props.character?.station ?? null;
+    formInfo.value.totem = props.character?.has_totem_id ? props.character?.totem.display_name : null;
+    formInfo.value.crew_upgrade = props.character?.crew_upgrade ? props.character?.crew_upgrade.name : null;
     formInfo.value.faction = props.character?.faction ?? null;
     formInfo.value.cost = props.character?.cost ?? null;
     formInfo.value.health = props.character?.health ?? null;
@@ -171,37 +189,37 @@ onMounted(() => {
     formInfo.value.willpower_suit = props.character?.willpower_suit ?? null;
     formInfo.value.speed = props.character?.speed ?? null;
     formInfo.value.count = props.character?.count ?? null;
-    formInfo.value.is_unique = props.character?.is_unique ?? null;
-    formInfo.value.is_dead = props.character?.is_dead ?? null;
-    formInfo.value.is_unhirable = props.character?.is_unhirable ?? null;
-    formInfo.value.is_beta = props.character?.is_beta ?? null;
-    formInfo.value.is_hidden = props.character?.is_hidden ?? null;
+    formInfo.value.summon_target_number = props.character?.summon_target_number ?? null;
+    formInfo.value.generates_stone = props.character?.generates_stone ?? true;
+    formInfo.value.is_unhirable = props.character?.is_unhirable ?? false;
+    formInfo.value.is_beta = props.character?.is_beta ?? false;
+    formInfo.value.is_hidden = props.character?.is_hidden ?? false;
 
-    props.character.keywords.forEach((keyword) => {
+    props.character?.keywords.forEach((keyword) => {
         formInfo.value.keywords.push(keyword.name);
     });
 
-    props.character.characteristics.forEach((characteristic) => {
+    props.character?.characteristics.forEach((characteristic) => {
         formInfo.value.characteristics.push(characteristic.name);
     });
 
-    props.character.miniatures.forEach((miniature) => {
+    props.character?.miniatures.forEach((miniature) => {
         formInfo.value.miniatures.push(miniature.display_name);
     });
 
-    props.character.abilities.forEach((ability) => {
+    props.character?.abilities.forEach((ability) => {
         formInfo.value.abilities.push(ability.name);
     });
 
-    props.character.actions.forEach((action) => {
+    props.character?.actions.forEach((action) => {
         formInfo.value.actions.push(action.name);
     });
 
-    props.character.markers.forEach((marker) => {
+    props.character?.markers.forEach((marker) => {
         formInfo.value.markers.push(marker.name);
     });
 
-    props.character.tokens.forEach((token) => {
+    props.character?.tokens.forEach((token) => {
         formInfo.value.tokens.push(token.name);
     });
 });
@@ -254,6 +272,36 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div class="flex flex-col space-y-1.5" v-if="formInfo.station === 'master'">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="totem">Master Totem</Label>
+                                    <Select id="totem" v-model="formInfo.totem">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Master Totem" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="totem in props.totems" :value="totem.value" :key="totem.value">
+                                                {{ totem.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="crew_upgrade">Crew Upgrade</Label>
+                                    <Select id="crew_upgrade" v-model="formInfo.crew_upgrade">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Crew Upgrade" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="upgrade in props.crew_upgrades" :value="upgrade.value" :key="upgrade.value">
+                                                {{ upgrade.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <CustomMultiselect v-model="formInfo.keywords" comboTitle="Select Keywords" :choiceOptions="props.keywords" />
@@ -319,6 +367,16 @@ onMounted(() => {
                                 <div class="flex flex-col">
                                     <NumberField id="count" v-model="formInfo.count" :default-value="1" :min="1">
                                         <Label for="count">Model Count</Label>
+                                        <NumberFieldContent>
+                                            <NumberFieldDecrement />
+                                            <NumberFieldInput />
+                                            <NumberFieldIncrement />
+                                        </NumberFieldContent>
+                                    </NumberField>
+                                </div>
+                                <div class="flex flex-col">
+                                    <NumberField id="summon_target_number" v-model="formInfo.summon_target_number" :default-value="0" :min="0">
+                                        <Label for="summon_target_number">Summon Target Number</Label>
                                         <NumberFieldContent>
                                             <NumberFieldDecrement />
                                             <NumberFieldInput />
@@ -409,14 +467,8 @@ onMounted(() => {
                             <div class="grid auto-rows-min gap-4 md:grid-cols-4">
                                 <div class="flex flex-col space-y-1.5 items-center">
                                     <div class="flex items-center space-x-2">
-                                        <Switch id="is_unique" v-model="formInfo.is_unique" />
-                                        <Label for="is_unique">Unique</Label>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
-                                    <div class="flex items-center space-x-2">
-                                        <Switch id="is_dead" v-model="formInfo.is_dead" />
-                                        <Label for="is_dead">Dead</Label>
+                                        <Switch id="generates_stone" v-model="formInfo.generates_stone" />
+                                        <Label for="generates_stone">Generates Stone</Label>
                                     </div>
                                 </div>
                                 <div class="flex flex-col space-y-1.5 items-center">

@@ -99,6 +99,7 @@ class CharacterAdminController extends Controller
     private function validateAndSave(Request $request, ?Character $character = null)
     {
         $upgrade = null;
+        $existingMiniatures = null;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'title' => ['nullable', 'string', 'max:255'],
@@ -142,24 +143,21 @@ class CharacterAdminController extends Controller
         }
 
         if ($validated['totem']) {
-            $totem = Character::where('display_name', $validated['totem'])->first();
+            $totem = Character::where('slug', $validated['totem'])->first();
             $validated['has_totem_id'] = $totem->id;
-            unset($validated['totem']);
         }
+        unset($validated['totem']);
 
         if ($validated['crew_upgrade']) {
-            $upgrade = Upgrade::where('name', $validated['crew_upgrade'])->first();
-            unset($validated['crew_upgrade']);
+            $upgrade = Upgrade::where('slug', $validated['crew_upgrade'])->first();
         }
+        unset($validated['crew_upgrade']);
 
         $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
         unset($validated['keywords']);
 
         $characteristics = Characteristic::whereIn('name', $validated['characteristics'])->get();
         unset($validated['characteristics']);
-
-        $miniatures = Miniature::whereIn('display_name', $validated['miniatures'])->get();
-        unset($validated['miniatures']);
 
         $actions = Action::whereIn('id', $validated['actions'])->get();
         unset($validated['actions']);
@@ -186,7 +184,6 @@ class CharacterAdminController extends Controller
 
         $character->keywords()->sync($keywords->pluck('id'));
         $character->characteristics()->sync($characteristics->pluck('id'));
-        $character->miniatures()->sync($miniatures->pluck('id'));
         $character->actions()->sync($actions->pluck('id'));
         $character->abilities()->sync($abilities->pluck('id'));
         $character->markers()->sync($markers->pluck('id'));

@@ -143,7 +143,7 @@ const formInfo = ref({
     faction: null,
     keywords: [],
     characteristics: [],
-    miniatures: [],
+    // miniatures: [],
     actions: [],
     abilities: [],
     markers: [],
@@ -176,8 +176,8 @@ onMounted(() => {
     formInfo.value.title = props.character?.title ?? null;
     formInfo.value.nicknames = props.character?.nicknames ?? null;
     formInfo.value.station = props.character?.station ?? null;
-    formInfo.value.totem = props.character?.has_totem_id ? props.character?.totem.display_name : null;
-    formInfo.value.crew_upgrade = props.character?.crew_upgrade ? props.character?.crew_upgrade.name : null;
+    formInfo.value.totem = props.character?.has_totem_id ? props.character?.totem.slug : null;
+    formInfo.value.crew_upgrade = props.character?.crew_upgrade ? props.character?.crew_upgrade.slug : null;
     formInfo.value.faction = props.character?.faction ?? null;
     formInfo.value.cost = props.character?.cost ?? null;
     formInfo.value.health = props.character?.health ?? null;
@@ -188,7 +188,7 @@ onMounted(() => {
     formInfo.value.willpower = props.character?.willpower ?? null;
     formInfo.value.willpower_suit = props.character?.willpower_suit ?? null;
     formInfo.value.speed = props.character?.speed ?? null;
-    formInfo.value.count = props.character?.count ?? null;
+    formInfo.value.count = props.character?.count ?? 1;
     formInfo.value.summon_target_number = props.character?.summon_target_number ?? null;
     formInfo.value.generates_stone = props.character?.generates_stone ?? true;
     formInfo.value.is_unhirable = props.character?.is_unhirable ?? false;
@@ -203,9 +203,9 @@ onMounted(() => {
         formInfo.value.characteristics.push(characteristic.name);
     });
 
-    props.character?.miniatures.forEach((miniature) => {
-        formInfo.value.miniatures.push(miniature.display_name);
-    });
+    // props.character?.miniatures.forEach((miniature) => {
+    //     formInfo.value.miniatures.push(miniature.display_name);
+    // });
 
     props.character?.abilities.forEach((ability) => {
         formInfo.value.abilities.push(ability.name);
@@ -440,9 +440,9 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
-                        <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choiceOptions="props.miniatures" />
-                        </div>
+<!--                        <div class="flex flex-col space-y-1.5">-->
+<!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choiceOptions="props.miniatures" />-->
+<!--                        </div>-->
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">

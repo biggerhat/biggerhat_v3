@@ -9,6 +9,7 @@ use App\Enums\SuitEnum;
 use App\Traits\UsesSelectOptionsScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -64,9 +65,9 @@ class Character extends Model
         return 'slug';
     }
 
-    public function miniatures(): MorphToMany
+    public function miniatures(): HasMany
     {
-        return $this->morphedByMany(Miniature::class, 'characterable');
+        return $this->hasMany(Miniature::class, 'character_id', 'id');
     }
 
     public function keywords(): MorphToMany
@@ -104,8 +105,13 @@ class Character extends Model
         return $this->hasOne(Upgrade::class, 'master_id', 'id');
     }
 
-    public function totem(): HasMany
+    public function totem(): BelongsTo
     {
-        return $this->hasMany(Character::class, 'has_totem_id');
+        return $this->belongsTo(Character::class, 'has_totem_id', 'id');
+    }
+
+    public function isTotemFor(): BelongsTo
+    {
+        return $this->belongsTo(Character::class, 'id', 'has_totem_id');
     }
 }

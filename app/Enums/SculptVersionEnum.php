@@ -28,4 +28,29 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
             default => Str::headline($this->name),
         };
     }
+
+    /**
+     * @return SculptVersionEnum[]
+     */
+    public function standardEditions(): array
+    {
+        return [
+            self::FirstEdition,
+            self::SecondEdition,
+            self::ThirdEdition,
+            self::FourthEdition,
+        ];
+    }
+
+    /**
+     * @return SculptVersionEnum[]
+     */
+    public function promotionalEditions(): array
+    {
+        return [
+            self::SpecialEdition,
+            self::Nightmare,
+            self::RottenHarvest,
+        ];
+    }
 }

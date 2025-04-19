@@ -7,7 +7,7 @@ import { usePage } from '@inertiajs/vue3';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, TextSearch } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign } from 'lucide-vue-next';
 import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
 
@@ -44,16 +44,32 @@ const superAdminNavItems: NavItem[] = [
         title: 'Admin',
         items: [
             {
+                title: 'Characters',
+                href: route('admin.characters.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Miniatures',
+                href: route('admin.miniatures.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Actions',
+                href: route('admin.actions.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Triggers',
+                href: route('admin.triggers.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Abilities',
+                href: route('admin.abilities.index'),
+                icon: BookOpen,
+            }, {
                 title: 'Keywords',
                 href: route('admin.keywords.index'),
                 icon: BookOpen,
             }, {
                 title: 'Characteristics',
                 href: route('admin.characteristics.index'),
-                icon: BookOpen,
-            }, {
-                title: 'Characters',
-                href: route('admin.characters.index'),
                 icon: BookOpen,
             },
         ]
@@ -64,7 +80,7 @@ const footerNavItems: NavItem[] = [
     {
         title: 'Donate on Ko-fi',
         href: 'https://ko-fi.com/biggerhat',
-        icon: Folder,
+        icon: CircleDollarSign,
     },
 ];
 </script>

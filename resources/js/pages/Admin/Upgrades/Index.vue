@@ -24,45 +24,33 @@ import {
     useVueTable,
 } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Miniatures>[] = [
+const columns: ColumnDef<Upgrades>[] = [
     {
-        accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        accessorKey: 'name',
+        header: () => h('div', {}, 'Upgrade'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('id'))
-        },
-    },{
-        accessorKey: 'display_name',
-        header: () => h('div', {}, 'Miniature'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('display_name'))
-        },
-    },{
-        accessorKey: 'character_name',
-        header: () => h('div', {}, 'Character'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('character_name'))
+            return h('div', {}, row.getValue('name'))
         },
     },{
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
-            const miniature = row.original;
+            const upgrade = row.original;
 
-            return h('div', { class: 'relative' }, h(AdminActions, { name: miniature.display_name, editRoute: route('admin.miniatures.edit', miniature.slug), deleteRoute: route('admin.miniatures.delete', miniature.slug) }))
+            return h('div', { class: 'relative' }, h(AdminActions, { name: upgrade.name, editRoute: route('admin.upgrades.edit', upgrade.slug), deleteRoute: route('admin.upgrades.delete', upgrade.slug) }))
         },
     },
 ];
 
 const props = defineProps<{
-    miniatures: TData[]
+    upgrades: TData[]
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([])
 
 const table = useVueTable({
-    get data() { return props.miniatures },
+    get data() { return props.upgrades },
     get columns() { return columns },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -75,15 +63,15 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Miniatures - Admin" />
+    <Head title="Upgrades - Admin" />
 
     <div class="container mx-auto mt-6">
         <div class="flex items-center justify-between py-4">
-            <Input class="max-w-sm" placeholder="Filter Miniatures"
-                   :model-value="table.getColumn('display_name')?.getFilterValue() as string"
-                   @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />
-            <Button @click="router.get(route('admin.miniatures.create'))">
-                Create New Miniature
+            <Input class="max-w-sm" placeholder="Filter Upgrades"
+                   :model-value="table.getColumn('name')?.getFilterValue() as string"
+                   @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <Button @click="router.get(route('admin.upgrades.create'))">
+                Create New Upgrade
             </Button>
         </div>
         <div class="border rounded-md">

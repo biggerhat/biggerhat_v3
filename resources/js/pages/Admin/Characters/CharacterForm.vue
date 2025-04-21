@@ -329,15 +329,9 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-                                <div class="flex flex-col">
-                                    <NumberField id="cost" v-model="formInfo.cost" :default-value="0" :min="0">
-                                        <Label for="cost">Cost</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="cost">Cost</Label>
+                                    <Input id="cost" v-model="formInfo.cost" type="number" placeholder="Character Cost" />
                                 </div>
                                 <div class="flex flex-col">
                                     <NumberField id="health" v-model="formInfo.health" :default-value="0" :min="0">
@@ -379,15 +373,9 @@ onMounted(() => {
                                         </NumberFieldContent>
                                     </NumberField>
                                 </div>
-                                <div class="flex flex-col">
-                                    <NumberField id="summon_target_number" v-model="formInfo.summon_target_number" :default-value="0" :min="0">
-                                        <Label for="summon_target_number">Summon Target Number</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="summon_target_number">Summon Target Number</Label>
+                                    <Input id="summon_target_number" v-model="formInfo.summon_target_number" type="number" placeholder="Summon Target Number" />
                                 </div>
                             </div>
                         </div>

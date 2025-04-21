@@ -24,45 +24,33 @@ import {
     useVueTable,
 } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Miniatures>[] = [
+const columns: ColumnDef<Tokens>[] = [
     {
-        accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        accessorKey: 'name',
+        header: () => h('div', {}, 'Token'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('id'))
-        },
-    },{
-        accessorKey: 'display_name',
-        header: () => h('div', {}, 'Miniature'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('display_name'))
-        },
-    },{
-        accessorKey: 'character_name',
-        header: () => h('div', {}, 'Character'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('character_name'))
+            return h('div', {}, row.getValue('name'))
         },
     },{
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
-            const miniature = row.original;
+            const token = row.original;
 
-            return h('div', { class: 'relative' }, h(AdminActions, { name: miniature.display_name, editRoute: route('admin.miniatures.edit', miniature.slug), deleteRoute: route('admin.miniatures.delete', miniature.slug) }))
+            return h('div', { class: 'relative' }, h(AdminActions, { name: token.name, editRoute: route('admin.tokens.edit', token.slug), deleteRoute: route('admin.tokens.delete', token.slug) }))
         },
     },
 ];
 
 const props = defineProps<{
-    miniatures: TData[]
+    tokens: TData[]
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([])
 
 const table = useVueTable({
-    get data() { return props.miniatures },
+    get data() { return props.tokens },
     get columns() { return columns },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -75,15 +63,15 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Miniatures - Admin" />
+    <Head title="Tokens - Admin" />
 
     <div class="container mx-auto mt-6">
         <div class="flex items-center justify-between py-4">
-            <Input class="max-w-sm" placeholder="Filter Miniatures"
-                   :model-value="table.getColumn('display_name')?.getFilterValue() as string"
-                   @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />
-            <Button @click="router.get(route('admin.miniatures.create'))">
-                Create New Miniature
+            <Input class="max-w-sm" placeholder="Filter Tokens"
+                   :model-value="table.getColumn('name')?.getFilterValue() as string"
+                   @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <Button @click="router.get(route('admin.tokens.create'))">
+                Create New Token
             </Button>
         </div>
         <div class="border rounded-md">

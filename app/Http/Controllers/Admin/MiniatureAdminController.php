@@ -75,8 +75,8 @@ class MiniatureAdminController extends Controller
 
         if ($validated['name'] && $validated['title']) {
             $displayName .= ', '.$validated['title'];
-        } elseif (!$validated['name'] && $character->title) {
-            $displayName .= ', '. $character->title;
+        } elseif (! $validated['name'] && $character->title) {
+            $displayName .= ', '.$character->title;
         }
 
         $validated['display_name'] = $displayName;

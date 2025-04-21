@@ -77,7 +77,7 @@ class Character extends Model
 
     public function actions(): MorphToMany
     {
-        return $this->morphedByMany(Action::class, 'characterable');
+        return $this->morphedByMany(Action::class, 'characterable')->withPivot('is_signature_action');
     }
 
     public function abilities(): MorphToMany

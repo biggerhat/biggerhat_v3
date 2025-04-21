@@ -36,6 +36,10 @@ class Character extends Model
             'base' => BaseSizeEnum::class,
             'defense_suit' => SuitEnum::class,
             'willpower_suit' => SuitEnum::class,
+            'generates_stone' => 'boolean',
+            'is_beta' => 'boolean',
+            'is_unhirable' => 'boolean',
+            'is_hidden' => 'boolean',
         ];
     }
 

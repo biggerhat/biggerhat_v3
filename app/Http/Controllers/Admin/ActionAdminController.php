@@ -87,6 +87,7 @@ class ActionAdminController extends Controller
             'resisted_by' => ['nullable', 'string', Rule::enum(ResistanceTypeEnum::class)],
             'target_number' => ['nullable', 'integer'],
             'target_suits' => ['nullable', 'string'],
+            'damage' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
             'triggers' => ['nullable', 'array'],

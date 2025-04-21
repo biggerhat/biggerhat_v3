@@ -213,7 +213,11 @@ onMounted(() => {
     });
 
     props.character?.actions.forEach((action) => {
-        formInfo.value.actions.push(action.name);
+        if (action.pivot.is_signature_action) {
+            formInfo.value.signature_actions.push(action.name);
+        } else {
+            formInfo.value.actions.push(action.name);
+        }
     });
 
     props.character?.markers.forEach((marker) => {

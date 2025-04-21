@@ -113,6 +113,7 @@ class CharacterAdminController extends Controller
             'miniatures' => ['nullable', 'array'],
             'abilities' => ['nullable', 'array'],
             'actions' => ['nullable', 'array'],
+            'signature_actions' => ['nullable', 'array'],
             'markers' => ['nullable', 'array'],
             'tokens' => ['nullable', 'array'],
             'cost' => ['required', 'integer'],
@@ -159,8 +160,11 @@ class CharacterAdminController extends Controller
         $characteristics = Characteristic::whereIn('name', $validated['characteristics'])->get();
         unset($validated['characteristics']);
 
-        $actions = Action::whereIn('id', $validated['actions'])->get();
+        $actions = Action::whereIn('name', $validated['actions'])->get();
         unset($validated['actions']);
+
+        $signatureActions = Action::whereIn('name', $validated['signature_actions'])->get();
+        unset($validated['signature_actions']);
 
         $abilities = Ability::whereIn('name', $validated['abilities'])->get();
         unset($validated['abilities']);
@@ -182,9 +186,13 @@ class CharacterAdminController extends Controller
             $upgrade->save();
         }
 
+        // Detach all Current Actions Then Attach All News Ones, including Signature
+        $character->actions()->sync([]);
+        $character->actions()->attach($actions);
+        $character->actions()->attach($signatureActions, ['is_signature_action' => true]);
+
         $character->keywords()->sync($keywords->pluck('id'));
         $character->characteristics()->sync($characteristics->pluck('id'));
-        $character->actions()->sync($actions->pluck('id'));
         $character->abilities()->sync($abilities->pluck('id'));
         $character->markers()->sync($markers->pluck('id'));
         $character->tokens()->sync($tokens->pluck('id'));

@@ -18,6 +18,8 @@ class Miniature extends Model
 
     protected $guarded = ['id'];
 
+    protected $appends = ['character_name'];
+
     //    protected static function bootSlugDisplayName(): void
     //    {
     //        static::creating(function (self $model) {
@@ -38,6 +40,11 @@ class Miniature extends Model
     //            $model->slug = Str::slug($model->display_name);
     //        });
     //    }
+
+    public function getCharacterNameAttribute()
+    {
+        return $this->character?->display_name;
+    }
 
     public function getRouteKeyName(): string
     {

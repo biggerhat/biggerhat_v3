@@ -5,8 +5,11 @@ use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
+use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
+use App\Http\Controllers\Admin\TokenAdminController;
 use App\Http\Controllers\Admin\TriggerAdminController;
+use App\Http\Controllers\Admin\UpgradeAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware(['auth', 'verified'])->middleware(['role:super_admin'])->name('admin.')->group(function () {
@@ -71,6 +74,33 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->middleware(['role:supe
         Route::post('/store', 'store')->name('store');
         Route::post('/update/{miniature}', 'update')->name('update');
         Route::post('/delete/{miniature}', 'delete')->name('delete');
+    });
+
+    Route::controller(UpgradeAdminController::class)->prefix('upgrades')->name('upgrades.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{upgrade}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{upgrade}', 'update')->name('update');
+        Route::post('/delete/{upgrade}', 'delete')->name('delete');
+    });
+
+    Route::controller(TokenAdminController::class)->prefix('tokens')->name('tokens.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{token}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{token}', 'update')->name('update');
+        Route::post('/delete/{token}', 'delete')->name('delete');
+    });
+
+    Route::controller(MarkerAdminController::class)->prefix('markers')->name('markers.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{marker}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{marker}', 'update')->name('update');
+        Route::post('/delete/{marker}', 'delete')->name('delete');
     });
 
 });

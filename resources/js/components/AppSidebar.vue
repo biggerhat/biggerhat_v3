@@ -71,6 +71,18 @@ const superAdminNavItems: NavItem[] = [
                 title: 'Characteristics',
                 href: route('admin.characteristics.index'),
                 icon: BookOpen,
+            }, {
+                title: 'Upgrades',
+                href: route('admin.upgrades.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Tokens',
+                href: route('admin.tokens.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Markers',
+                href: route('admin.markers.index'),
+                icon: BookOpen,
             },
         ]
     }

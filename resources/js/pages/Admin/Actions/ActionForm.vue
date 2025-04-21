@@ -175,29 +175,17 @@ onMounted(() => {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div class="flex flex-col">
-                                    <NumberField id="range" v-model="formInfo.range" :default-value="0" :min="0">
-                                        <Label for="range">Range</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="range">Range</Label>
+                                    <Input id="range" v-model="formInfo.range" placeholder="Range" />
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
                                 <div class="flex flex-col">
-                                    <NumberField id="stat" v-model="formInfo.stat" :default-value="0" :min="0">
-                                        <Label for="stat">Skill</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                    <Label for="stat">Skill</Label>
+                                    <Input id="stat" v-model="formInfo.stat" placeholder="Skill" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="stat_modifier">Skill Modifier</Label>
@@ -234,14 +222,8 @@ onMounted(() => {
                                     </Select>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <NumberField id="target_number" v-model="formInfo.target_number" :default-value="0" :min="0">
-                                        <Label for="target_number">Target Number</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                    <Label for="target_number">Target Number</Label>
+                                    <Input id="target_number" v-model="formInfo.target_number" placeholder="Target Number" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="target_suits">Target Suits</Label>

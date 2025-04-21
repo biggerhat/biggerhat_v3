@@ -58,6 +58,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
+    let formData = new FormData();
     router.post(props.miniature ? route("admin.miniatures.update", props.miniature.slug) : route("admin.miniatures.store"),
         formInfo.value
     );
@@ -67,8 +68,6 @@ onMounted(() => {
     formInfo.value.name = props.miniature?.name ?? null;
     formInfo.value.title = props.miniature?.title ?? null;
     formInfo.value.character_id = props.miniature?.character_id ?? null;
-    formInfo.value.front_image = props.miniature?.front_image ?? null;
-    formInfo.value.back_image = props.miniature?.back_image ?? null;
     formInfo.value.combination_image = props.miniature?.combination_image ?? null;
     formInfo.value.version = props.miniature?.version ?? null;
 });
@@ -128,11 +127,11 @@ onMounted(() => {
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
                                     <Label for="front_image">Front of Card Image</Label>
-                                    <Input id="front_image" v-model="formInfo.front_image" type="file" />
+                                    <Input id="front_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.front_image = $event.target.files[0]" />
                                 </div>
                                 <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
                                     <Label for="back_image">Back of Card Image</Label>
-                                    <Input id="back_image" v-model="formInfo.back_image" type="file" />
+                                    <Input id="back_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.back_image = $event.target.files[0]" />
                                 </div>
                             </div>
                         </div>

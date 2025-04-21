@@ -8,6 +8,7 @@ use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Storage;
 use Str;
 
 class MiniatureAdminController extends Controller
@@ -40,19 +41,19 @@ class MiniatureAdminController extends Controller
     {
         $miniature = $this->validateAndSave($request);
 
-        return redirect()->route('admin.miniatures.index')->withMessage("{$miniature->name} created successfully.");
+        return redirect()->route('admin.miniatures.index')->withMessage("{$miniature->display_name} created successfully.");
     }
 
     public function update(Request $request, Miniature $miniature)
     {
         $miniature = $this->validateAndSave($request, $miniature);
 
-        return redirect()->route('admin.miniatures.index')->withMessage("{$miniature->name} has been updated.");
+        return redirect()->route('admin.miniatures.index')->withMessage("{$miniature->display_name} has been updated.");
     }
 
     public function delete(Request $request, Miniature $miniature)
     {
-        $name = $miniature->name;
+        $name = $miniature->display_name;
         $miniature->delete();
 
         return redirect()->route('admin.miniatures.index')->withMessage("{$name} has been deleted.");
@@ -81,6 +82,29 @@ class MiniatureAdminController extends Controller
 
         $validated['display_name'] = $displayName;
         $validated['slug'] = Str::slug($displayName);
+
+        // Handle Images
+        if ($validated['front_image']) {
+            $extension = $validated['front_image']->extension();
+            $uuid = Str::uuid();
+            $fileName = sprintf('%s_%s_front.%s', $character->id, $uuid, $extension);
+            $filePath = "characters/{$character->id}/{$fileName}";
+            Storage::disk('public')->put($filePath, file_get_contents($validated['front_image']));
+            $validated['front_image'] = $filePath;
+        } else {
+            unset($validated['front_image']);
+        }
+
+        if ($validated['back_image']) {
+            $extension = $validated['back_image']->extension();
+            $uuid = Str::uuid();
+            $fileName = sprintf('%s_%s_back.%s', $character->id, $uuid, $extension);
+            $filePath = "characters/{$character->id}/{$fileName}";
+            Storage::disk('public')->put($filePath, file_get_contents($validated['back_image']));
+            $validated['back_image'] = $filePath;
+        } else {
+            unset($validated['back_image']);
+        }
 
         if (! $miniature) {
             $miniature = Miniature::create($validated);

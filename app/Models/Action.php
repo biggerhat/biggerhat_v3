@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-use App\Traits\UsesCharacters;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
 class Action extends Model
@@ -15,7 +15,6 @@ class Action extends Model
     /** @use HasFactory<\Database\Factories\ActionFactory> */
     use HasFactory;
 
-    use UsesCharacters;
     use UsesSelectOptionsScope;
     use UsesUpgrades;
 
@@ -49,5 +48,10 @@ class Action extends Model
     public function triggers(): BelongsToMany
     {
         return $this->belongsToMany(Trigger::class, 'action_trigger');
+    }
+
+    public function characters(): MorphToMany
+    {
+        return $this->morphToMany(Character::class, 'characterable')->withPivot('is_signature_action');
     }
 }

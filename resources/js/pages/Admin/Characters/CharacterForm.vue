@@ -144,6 +144,7 @@ const formInfo = ref({
     keywords: [],
     characteristics: [],
     // miniatures: [],
+    signature_actions: [],
     actions: [],
     abilities: [],
     markers: [],
@@ -448,8 +449,15 @@ onMounted(() => {
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choiceOptions="props.abilities" />
                                 </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model=formInfo.signature_actions comboTitle="Select Signature Actions" :choice-options="props.actions" />
                                 </div>
                             </div>
                         </div>

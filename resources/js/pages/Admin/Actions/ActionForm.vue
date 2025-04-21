@@ -191,7 +191,7 @@ onMounted(() => {
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
                                 <div class="flex flex-col">
                                     <NumberField id="stat" v-model="formInfo.stat" :default-value="0" :min="0">
-                                        <Label for="stat">Stat</Label>
+                                        <Label for="stat">Skill</Label>
                                         <NumberFieldContent>
                                             <NumberFieldDecrement />
                                             <NumberFieldInput />
@@ -200,10 +200,10 @@ onMounted(() => {
                                     </NumberField>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <Label for="stat_modifier">Stat Modifier</Label>
+                                    <Label for="stat_modifier">Skill Modifier</Label>
                                     <Select id="stat_modifier" v-model="formInfo.stat_modifier">
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Stat Modifier" />
+                                            <SelectValue placeholder="Skill Modifier" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="modifier in props.modifier_types" :value="modifier.value" :key="modifier.value">
@@ -213,8 +213,8 @@ onMounted(() => {
                                     </Select>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <Label for="stat_suits">Stat Suits</Label>
-                                    <Input id="stat_suits" v-model="formInfo.stat_suits" placeholder="Stat Suits" />
+                                    <Label for="stat_suits">Built In Stats</Label>
+                                    <Input id="stat_suits" v-model="formInfo.stat_suits" placeholder="Built In Stats" />
                                 </div>
                             </div>
                         </div>
@@ -252,21 +252,15 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
                                 <div class="flex flex-col space-y-1.5">
-                                    <NumberField id="damage" v-model="formInfo.damage" :default-value="0" :min="0">
-                                        <Label for="damage">Damage</Label>
-                                        <NumberFieldContent>
-                                            <NumberFieldDecrement />
-                                            <NumberFieldInput />
-                                            <NumberFieldIncrement />
-                                        </NumberFieldContent>
-                                    </NumberField>
+                                    <Label for="damage">Damage</Label>
+                                    <Input id="damage" v-model="formInfo.damage" placeholder="Damage" />
                                 </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
-                                    <div class="flex items-center space-x-2">
-                                        <Switch id="is_signature" v-model="formInfo.is_signature" />
-                                        <Label for="is_signature">Is Signature Action</Label>
-                                    </div>
-                                </div>
+<!--                                <div class="flex flex-col space-y-1.5 items-center">-->
+<!--                                    <div class="flex items-center space-x-2">-->
+<!--                                        <Switch id="is_signature" v-model="formInfo.is_signature" />-->
+<!--                                        <Label for="is_signature">Is Signature Action</Label>-->
+<!--                                    </div>-->
+<!--                                </div>-->
                                 <div class="flex flex-col space-y-1.5 items-center">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="costs_stone" v-model="formInfo.costs_stone" />

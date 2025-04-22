@@ -44,6 +44,41 @@
             default() {
                 return [];
             }
+        },
+        tokens: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
+        markers: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
+        triggers: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
+        actions: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
+        abilities: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
         }
     });
 
@@ -56,6 +91,13 @@
         front_image: null,
         back_image: null,
         combination_image: null,
+        plentiful: null,
+        limitations: null,
+        tokens: [],
+        markers: [],
+        triggers: [],
+        actions: [],
+        abilities: [],
     });
 
     const submit = () => {
@@ -70,6 +112,28 @@
         formInfo.value.type = props.upgrade?.type ?? null;
         formInfo.value.description = props.upgrade?.description ?? null;
         formInfo.value.power_bar_count = props.upgrade?.power_bar_count ?? null;
+        formInfo.value.plentiful = props.upgrade?.plentiful ?? null;
+        formInfo.value.limitations = props.upgrade?.limitations ?? null;
+
+        props.upgrade?.markers.forEach((marker) => {
+            formInfo.value.markers.push(marker.name);
+        });
+
+        props.upgrade?.tokens.forEach((token) => {
+            formInfo.value.tokens.push(token.name);
+        });
+
+        props.upgrade?.triggers.forEach((trigger) => {
+            formInfo.value.triggers.push(trigger.name);
+        });
+
+        props.upgrade?.actions.forEach((action) => {
+            formInfo.value.actions.push(action.name);
+        });
+
+        props.upgrade?.abilities.forEach((ability) => {
+            formInfo.value.abilities.push(ability.name);
+        });
     });
 </script>
 
@@ -119,6 +183,14 @@
                                     <Label for="power_bar_count">Power Bar Count</Label>
                                     <Input id="power_bar_count" v-model="formInfo.power_bar_count" type="number" placeholder="Power Bar Count (Optional)" />
                                 </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="plentiful">Plentiful Count</Label>
+                                    <Input id="plentiful" v-model="formInfo.plentiful" type="number" placeholder="Plentiful Count (Optional)" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="limitations">Limitations</Label>
+                                    <Input id="limitations" v-model="formInfo.limitations" placeholder="Limitations (Optional)" />
+                                </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -136,6 +208,33 @@
                                 <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
                                     <Label for="back_image">Back of Card Image</Label>
                                     <Input id="back_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.back_image = $event.target.files[0]" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choiceOptions="props.markers" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choiceOptions="props.tokens" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choiceOptions="props.abilities" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model=formInfo.triggers comboTitle="Select Triggers" :choice-options="props.triggers" />
                                 </div>
                             </div>
                         </div>

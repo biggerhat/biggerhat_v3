@@ -47,7 +47,7 @@ const submit = () => {
 onMounted(() => {
     formInfo.value.name = props.marker?.name ?? null;
     formInfo.value.description = props.marker?.description ?? null;
-    formInfo.value.base = props.marker?.base ?? null;
+    formInfo.value.base = Number(props.marker?.base) ?? null;
 });
 </script>
 

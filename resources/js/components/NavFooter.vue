@@ -27,7 +27,7 @@ defineProps<Props>();
                 </SidebarMenuItem>
                 <SidebarMenuItem v-if="!page.props.auth.user">
                     <SidebarMenuButton class="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100" as-child>
-                        <a :href="route('login')" target="_blank" rel="noopener noreferrer">
+                        <a :href="route('login')" rel="noopener noreferrer">
                             <component :is="BookOpen" />
                             <span>Login</span>
                         </a>

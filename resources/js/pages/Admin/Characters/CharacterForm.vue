@@ -214,9 +214,9 @@ onMounted(() => {
 
     props.character?.actions.forEach((action) => {
         if (action.pivot.is_signature_action) {
-            formInfo.value.signature_actions.push(action.name);
+            formInfo.value.signature_actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
         } else {
-            formInfo.value.actions.push(action.name);
+            formInfo.value.actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
         }
     });
 

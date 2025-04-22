@@ -10,6 +10,13 @@ import { Link } from '@inertiajs/vue3';
 import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign } from 'lucide-vue-next';
 import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
+import ExplorersLogo from "@/components/ExplorersLogo.vue";
+import BayouLogo from "@/components/BayouLogo.vue";
+import GuildLogo from "@/components/GuildLogo.vue";
+import NeverbornLogo from "@/components/NeverbornLogo.vue";
+import OutcastsLogo from "@/components/OutcastsLogo.vue";
+import ResurrectionistsLogo from "@/components/ResurrectionistsLogo.vue";
+import TenThundersLogo from "@/components/TenThundersLogo.vue";
 
 const page = usePage<SharedData>();
 
@@ -29,12 +36,43 @@ const mainNavItems: NavItem[] = [
                 title: 'Arcanists',
                 href: '/faction/arcanists',
                 icon: ArcanistLogo,
-                icon_class: 'w-10 h-10',
-            },{
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Bayou',
+                href: '/faction/bayou',
+                icon: BayouLogo,
+                icon_class: 'w-8 h-8',
+            }, {
                 title: 'Explorer\'s Society',
                 href: '/faction/explorers-society',
-                icon: LayoutGrid,
-            },
+                icon: ExplorersLogo,
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Guild',
+                href: '/faction/guild',
+                icon: GuildLogo,
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Neverborn',
+                href: '/faction/neverborn',
+                icon: NeverbornLogo,
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Outcasts',
+                href: '/faction/outcasts',
+                icon: OutcastsLogo,
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Resurrectionists',
+                href: '/faction/resurrectionists',
+                icon: ResurrectionistsLogo,
+                icon_class: 'w-8 h-8',
+            }, {
+                title: 'Ten Thunders',
+                href: 'faction/ten-thunders',
+                icon: TenThundersLogo,
+                icon_class: 'w-8 h-8',
+            }
         ]
     }
 ];
@@ -98,7 +136,7 @@ const footerNavItems: NavItem[] = [
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible="offcanvas" variant="sidebar">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>

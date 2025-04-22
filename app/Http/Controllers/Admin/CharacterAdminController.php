@@ -41,7 +41,12 @@ class CharacterAdminController extends Controller
             'keywords' => Keyword::toSelectOptions('name', 'slug'),
             'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
             'miniatures' => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => Action::toSelectOptions('name', 'slug'),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
             'abilities' => Ability::toSelectOptions('name', 'slug'),
             'markers' => Marker::toSelectOptions('name', 'slug'),
             'tokens' => Token::toSelectOptions('name', 'slug'),
@@ -63,7 +68,12 @@ class CharacterAdminController extends Controller
             'keywords' => Keyword::toSelectOptions('name', 'slug'),
             'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
             'miniatures' => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => Action::toSelectOptions('name', 'slug'),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
             'abilities' => Ability::toSelectOptions('name', 'slug'),
             'markers' => Marker::toSelectOptions('name', 'slug'),
             'tokens' => Token::toSelectOptions('name', 'slug'),
@@ -160,10 +170,20 @@ class CharacterAdminController extends Controller
         $characteristics = Characteristic::whereIn('name', $validated['characteristics'])->get();
         unset($validated['characteristics']);
 
-        $actions = Action::whereIn('name', $validated['actions'])->get();
+        $actionIds = [];
+        foreach ($validated['actions'] as $action) {
+            $arrayed = explode(' ', $action);
+            $actionIds[] = $arrayed[0];
+        }
+        $actions = Action::whereIn('id', $actionIds)->get();
         unset($validated['actions']);
 
-        $signatureActions = Action::whereIn('name', $validated['signature_actions'])->get();
+        $signatureActionIds = [];
+        foreach ($validated['signature_actions'] as $action) {
+            $arrayed = explode(' ', $action);
+            $signatureActionIds[] = $arrayed[0];
+        }
+        $signatureActions = Action::whereIn('id', $signatureActionIds)->get();
         unset($validated['signature_actions']);
 
         $abilities = Ability::whereIn('name', $validated['abilities'])->get();

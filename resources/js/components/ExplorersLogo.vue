@@ -13,5 +13,5 @@ defineProps<Props>();
 </script>
 
 <template>
-    <img src='/images/Factions/M3E-Arcanists.png' :class="className" alt="Arcanists" />
+    <img src='/images/Factions/M3E-Explorers.png' :class="className" alt="Explorers Society" />
 </template>

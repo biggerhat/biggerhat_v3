@@ -96,6 +96,7 @@ const formInfo = ref({
     target_number: null,
     target_suits: null,
     description: null,
+    internal_notes: null,
     damage: null,
     triggers: [],
     characters: [],
@@ -122,6 +123,7 @@ onMounted(() => {
     formInfo.value.target_suits = props.action?.target_suits ?? null;
     formInfo.value.damage = props.action?.damage ?? null;
     formInfo.value.description = props.action?.description ?? null;
+    formInfo.value.internal_notes = props.action?.internal_notes ?? null;
 
     props.action?.triggers.forEach((trigger) => {
         formInfo.value.triggers.push(trigger.name);
@@ -237,12 +239,6 @@ onMounted(() => {
                                     <Label for="damage">Damage</Label>
                                     <Input id="damage" v-model="formInfo.damage" placeholder="Damage" />
                                 </div>
-<!--                                <div class="flex flex-col space-y-1.5 items-center">-->
-<!--                                    <div class="flex items-center space-x-2">-->
-<!--                                        <Switch id="is_signature" v-model="formInfo.is_signature" />-->
-<!--                                        <Label for="is_signature">Is Signature Action</Label>-->
-<!--                                    </div>-->
-<!--                                </div>-->
                                 <div class="flex flex-col space-y-1.5 items-center">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="costs_stone" v-model="formInfo.costs_stone" />
@@ -255,6 +251,12 @@ onMounted(() => {
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="description">Action Text</Label>
                                 <Textarea id="description" v-model="formInfo.description" placeholder="Type the action text here." />
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="flex flex-col space-y-1.5">
+                                <Label for="internal_notes">Internal Use Notes</Label>
+                                <Textarea id="internal_notes" v-model="formInfo.internal_notes" placeholder="Type internal notes here, they will appear in the action name when searching admin section." />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">

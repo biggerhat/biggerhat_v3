@@ -130,25 +130,40 @@ class UpgradeAdminController extends Controller
             unset($validated['back_image']);
         }
 
-        $actionIds = [];
-        foreach ($validated['actions'] as $action) {
-            $arrayed = explode(' ', $action);
-            $actionIds[] = $arrayed[0];
+        if (isset($validated['actions'])) {
+            $actionIds = [];
+            foreach ($validated['actions'] as $action) {
+                $arrayed = explode(' ', $action);
+                $actionIds[] = $arrayed[0];
+            }
+            $actions = Action::whereIn('id', $actionIds)->get();
+            unset($validated['actions']);
         }
-        $actions = Action::whereIn('id', $actionIds)->get();
-        unset($validated['actions']);
 
-        $triggers = Trigger::whereIn('name', $validated['triggers'])->get();
-        unset($validated['triggers']);
+        if (isset($validated['triggers'])) {
+            $triggers = Trigger::whereIn('name', $validated['triggers'])->get();
+            unset($validated['triggers']);
+        }
 
-        $abilities = Ability::whereIn('name', $validated['abilities'])->get();
-        unset($validated['abilities']);
+        if (isset($validated['abilities'])) {
+            $abilities = Ability::whereIn('name', $validated['abilities'])->get();
+            unset($validated['abilities']);
+        }
 
-        $markers = Marker::whereIn('name', $validated['markers'])->get();
-        unset($validated['markers']);
 
-        $tokens = Token::whereIn('name', $validated['tokens'])->get();
-        unset($validated['tokens']);
+
+        if (isset($validated['markers'])) {
+            $markers = Marker::whereIn('name', $validated['markers'])->get();
+            unset($validated['markers']);
+        }
+
+
+
+        if (isset($validated['tokens'])) {
+            $tokens = Token::whereIn('name', $validated['tokens'])->get();
+            unset($validated['tokens']);
+        }
+
 
         if (! $upgrade) {
             $upgrade = Upgrade::create($validated);

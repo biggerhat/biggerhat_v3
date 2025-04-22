@@ -14,7 +14,7 @@ class MarkerAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/Markers/Index', [
-            'markers' => Marker::all(),
+            'markers' => Marker::orderBy('name', 'ASC')->get(),
         ]);
     }
 

@@ -128,7 +128,7 @@
         });
 
         props.upgrade?.actions.forEach((action) => {
-            formInfo.value.actions.push(action.name);
+            formInfo.value.actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
         });
 
         props.upgrade?.abilities.forEach((ability) => {

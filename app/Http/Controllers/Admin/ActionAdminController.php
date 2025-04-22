@@ -19,7 +19,7 @@ class ActionAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Actions/Index', [
-            'actions' => Action::all(),
+            'actions' => Action::orderBy('name', 'ASC')->get(),
         ]);
     }
 

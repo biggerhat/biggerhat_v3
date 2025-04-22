@@ -22,7 +22,7 @@ class UpgradeAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Upgrades/Index', [
-            'upgrades' => Upgrade::all(),
+            'upgrades' => Upgrade::orderBy('name', 'ASC')->get(),
         ]);
     }
 
@@ -33,7 +33,12 @@ class UpgradeAdminController extends Controller
             'upgrade_types' => UpgradeTypeEnum::toSelectOptions(),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
-            'actions' => Action::all(),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
             'abilities' => Ability::all(),
             'triggers' => Trigger::all(),
         ]);
@@ -47,7 +52,12 @@ class UpgradeAdminController extends Controller
             'upgrade_types' => UpgradeTypeEnum::toSelectOptions(),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
-            'actions' => Action::all(),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
             'abilities' => Ability::all(),
             'triggers' => Trigger::all(),
         ]);
@@ -120,7 +130,12 @@ class UpgradeAdminController extends Controller
             unset($validated['back_image']);
         }
 
-        $actions = Action::whereIn('name', $validated['actions'])->get();
+        $actionIds = [];
+        foreach ($validated['actions'] as $action) {
+            $arrayed = explode(' ', $action);
+            $actionIds[] = $arrayed[0];
+        }
+        $actions = Action::whereIn('id', $actionIds)->get();
         unset($validated['actions']);
 
         $triggers = Trigger::whereIn('name', $validated['triggers'])->get();

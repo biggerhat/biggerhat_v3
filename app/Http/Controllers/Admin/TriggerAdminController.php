@@ -12,7 +12,7 @@ class TriggerAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Triggers/Index', [
-            'triggers' => Trigger::all(),
+            'triggers' => Trigger::orderBy('name', 'ASC')->get(),
         ]);
     }
 

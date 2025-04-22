@@ -12,7 +12,7 @@ class TokenAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/Tokens/Index', [
-            'tokens' => Token::all(),
+            'tokens' => Token::orderBy('name', 'ASC')->get(),
         ]);
     }
 

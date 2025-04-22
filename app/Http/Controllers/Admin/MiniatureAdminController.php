@@ -16,7 +16,7 @@ class MiniatureAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Miniatures/Index', [
-            'miniatures' => Miniature::with('character')->get(),
+            'miniatures' => Miniature::with('character')->orderBy('display_name', 'ASC')->get(),
         ]);
     }
 

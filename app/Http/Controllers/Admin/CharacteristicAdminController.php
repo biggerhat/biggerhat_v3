@@ -11,7 +11,7 @@ class CharacteristicAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/Characteristics/Index', [
-            'characteristics' => Characteristic::all(),
+            'characteristics' => Characteristic::orderBy('name', 'ASC')->get(),
         ]);
     }
 

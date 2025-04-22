@@ -12,7 +12,7 @@ class KeywordAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/Keywords/Index', [
-            'keywords' => Keyword::all(),
+            'keywords' => Keyword::orderBy('name', 'ASC')->get(),
         ]);
     }
 

@@ -87,11 +87,11 @@ class UpgradeAdminController extends Controller
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
     {
-        $triggers = [];
-        $abilities = [];
-        $actions = [];
-        $markers = [];
-        $tokens = [];
+        $triggers = collect([]);
+        $abilities = collect([]);
+        $actions = collect([]);
+        $markers = collect([]);
+        $tokens = collect([]);
 
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],

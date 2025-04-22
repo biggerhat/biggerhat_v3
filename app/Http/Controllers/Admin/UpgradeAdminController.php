@@ -87,6 +87,12 @@ class UpgradeAdminController extends Controller
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
     {
+        $triggers = [];
+        $abilities = [];
+        $actions = [];
+        $markers = [];
+        $tokens = [];
+
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::enum(UpgradeTypeEnum::class)],

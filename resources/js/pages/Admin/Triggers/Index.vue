@@ -69,7 +69,7 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Actions - Admin" />
+    <Head title="Triggers - Admin" />
 
     <div class="container mx-auto mt-6">
         <div class="flex items-center justify-between py-4">

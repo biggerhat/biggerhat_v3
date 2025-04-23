@@ -23,6 +23,7 @@ import {
     getFilteredRowModel,
     useVueTable,
 } from '@tanstack/vue-table';
+import {Ban, Check} from "lucide-vue-next";
 
 const columns: ColumnDef<Miniatures>[] = [
     {
@@ -42,6 +43,18 @@ const columns: ColumnDef<Miniatures>[] = [
         header: () => h('div', {}, 'Character'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('character_name'))
+        },
+    },{
+        accessorKey: 'front_image',
+        header: () => h('div', {}, 'Front Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('front_image') ? h(Check) : h(Ban))
+        },
+    },{
+        accessorKey: 'back_image',
+        header: () => h('div', {}, 'Back Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('back_image') ? h(Check) : h(Ban))
         },
     },{
         id: 'actions',

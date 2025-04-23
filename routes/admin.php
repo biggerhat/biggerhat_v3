@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
+use App\Http\Controllers\Admin\SchemeAdminController;
+use App\Http\Controllers\Admin\StrategyAdminController;
 use App\Http\Controllers\Admin\TokenAdminController;
 use App\Http\Controllers\Admin\TriggerAdminController;
 use App\Http\Controllers\Admin\UpgradeAdminController;
@@ -101,6 +103,24 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->middleware(['role:supe
         Route::post('/store', 'store')->name('store');
         Route::post('/update/{marker}', 'update')->name('update');
         Route::post('/delete/{marker}', 'delete')->name('delete');
+    });
+
+    Route::controller(SchemeAdminController::class)->prefix('schemes')->name('schemes.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{scheme}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{scheme}', 'update')->name('update');
+        Route::post('/delete/{scheme}', 'delete')->name('delete');
+    });
+
+    Route::controller(StrategyAdminController::class)->prefix('strategies')->name('strategies.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{strategy}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{strategy}', 'update')->name('update');
+        Route::post('/delete/{strategy}', 'delete')->name('delete');
     });
 
 });

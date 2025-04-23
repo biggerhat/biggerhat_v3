@@ -90,6 +90,7 @@ class UpgradeAdminController extends Controller
         $triggers = collect([]);
         $abilities = collect([]);
         $actions = collect([]);
+        $signatureActions = collect([]);
         $markers = collect([]);
         $tokens = collect([]);
 
@@ -107,6 +108,7 @@ class UpgradeAdminController extends Controller
             'tokens' => ['nullable', 'array'],
             'markers' => ['nullable', 'array'],
             'actions' => ['nullable', 'array'],
+            'signature_actions' => ['nullable', 'array'],
             'abilities' => ['nullable', 'array'],
             'triggers' => ['nullable', 'array'],
         ]);
@@ -146,6 +148,16 @@ class UpgradeAdminController extends Controller
             unset($validated['actions']);
         }
 
+        if (isset($validated['signature_actions'])) {
+            $signatureActionIds = [];
+            foreach ($validated['signature_actions'] as $action) {
+                $arrayed = explode(' ', $action);
+                $signatureActionIds[] = $arrayed[0];
+            }
+            $signatureActions = Action::whereIn('id', $signatureActionIds)->get();
+            unset($validated['signature_actions']);
+        }
+
         if (isset($validated['triggers'])) {
             $triggers = Trigger::whereIn('name', $validated['triggers'])->get();
             unset($validated['triggers']);
@@ -156,20 +168,15 @@ class UpgradeAdminController extends Controller
             unset($validated['abilities']);
         }
 
-
-
         if (isset($validated['markers'])) {
             $markers = Marker::whereIn('name', $validated['markers'])->get();
             unset($validated['markers']);
         }
 
-
-
         if (isset($validated['tokens'])) {
             $tokens = Token::whereIn('name', $validated['tokens'])->get();
             unset($validated['tokens']);
         }
-
 
         if (! $upgrade) {
             $upgrade = Upgrade::create($validated);
@@ -177,9 +184,12 @@ class UpgradeAdminController extends Controller
             $upgrade->update($validated);
         }
 
+        $upgrade->actions()->sync([]);
+        $upgrade->actions()->attach($actions);
+        $upgrade->actions()->attach($signatureActions, ['is_signature_action' => true]);
+
         $upgrade->triggers()->sync($triggers->pluck('id'));
         $upgrade->abilities()->sync($abilities->pluck('id'));
-        $upgrade->actions()->sync($actions->pluck('id'));
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
 

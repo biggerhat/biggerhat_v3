@@ -139,7 +139,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.actions.index'))" variant="outline">
+                <Button @click="router.get(route('admin.miniatures.index'))" variant="outline">
                     Cancel
                 </Button>
                 <Button @click="submit">Save</Button>

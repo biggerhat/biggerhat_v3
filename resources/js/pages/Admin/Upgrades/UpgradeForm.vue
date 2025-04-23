@@ -97,6 +97,7 @@
         markers: [],
         triggers: [],
         actions: [],
+        signature_actions: [],
         abilities: [],
     });
 
@@ -128,7 +129,11 @@
         });
 
         props.upgrade?.actions.forEach((action) => {
-            formInfo.value.actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
+            if (action.pivot.is_signature_action) {
+                formInfo.value.signature_actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
+            } else {
+                formInfo.value.actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
+            }
         });
 
         props.upgrade?.abilities.forEach((ability) => {
@@ -232,6 +237,9 @@
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model="formInfo.signature_actions" comboTitle="Select Signature Actions" :choiceOptions="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model=formInfo.triggers comboTitle="Select Triggers" :choice-options="props.triggers" />

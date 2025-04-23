@@ -73,7 +73,7 @@ onMounted(() => {
                     <div class="grid items-center w-full gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
-                            <Input id="name" autofocus v-model="formInfo.name" placeholder="Ability Name" />
+                            <Input id="name" autofocus v-model="formInfo.name" placeholder="Trigger Name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -92,7 +92,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="description">Trigger Text</Label>
-                                <Textarea id="description" v-model="formInfo.description" placeholder="Type the ability text here." />
+                                <Textarea id="description" v-model="formInfo.description" placeholder="Type the trigger text here." />
                             </div>
                         </div>
                     </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { valueUpdater } from '@/lib/utils'
 import AdminActions from '@/components/AdminActions.vue';
+import { Check, Ban } from 'lucide-vue-next';
 
 import {
     Table,
@@ -30,6 +31,18 @@ const columns: ColumnDef<Upgrades>[] = [
         header: () => h('div', {}, 'Upgrade'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'))
+        },
+    },{
+        accessorKey: 'front_image',
+        header: () => h('div', {}, 'Front Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('front_image') ? h(Check) : h(Ban))
+        },
+    },{
+        accessorKey: 'back_image',
+        header: () => h('div', {}, 'Back Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('back_image') ? h(Check) : h(Ban))
         },
     },{
         id: 'actions',

@@ -112,6 +112,34 @@ class MiniatureAdminController extends Controller
             $miniature->update($validated);
         }
 
+        $this->generateComboImage($miniature);
+
         return $miniature;
+    }
+
+    private function generateComboImage(Miniature $miniature)
+    {
+        [$widthFront, $heightFront] = getimagesize(Storage::disk('public')->path($miniature->front_image));
+        [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($miniature->back_image));
+        $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
+
+        header('Content-Type: image/jpeg');
+        $outputImage = $background;
+
+        $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($miniature->front_image));
+        $backUrl = imagecreatefromjpeg(Storage::disk('public')->path($miniature->back_image));
+
+        imagecopymerge($outputImage, $frontUrl, 0, 0, 0, 0, $widthFront, $heightFront, 100);
+        imagecopymerge($outputImage, $backUrl, $widthFront, 0, 0, 0, $widthBack, $heightBack, 100);
+
+        $extension = 'jpg';
+        $uuid = Str::uuid();
+        $fileName = sprintf('%s_%s_combo.%s', $miniature->character_id, $uuid, $extension);
+        $filePath = "characters/{$miniature->character_id}/{$fileName}";
+
+        $path = Storage::disk('public')->path('/');
+        imagejpeg($outputImage, $path.$filePath);
+        $miniature->update(['combination_image' => $filePath]);
+        imagedestroy($outputImage);
     }
 }

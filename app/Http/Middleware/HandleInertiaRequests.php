@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\FactionEnum;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -48,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                 'messageTitle' => fn () => $request->session()->get('messageTitle'),
                 'messageType' => fn () => $request->session()->get('messageType'),
             ],
+            'factions' => FactionEnum::buildDetails(),
             'auth' => [
                 'user' => $request->user() ?? null,
                 'is_super_admin' => $request->user()?->hasRole('super_admin'),

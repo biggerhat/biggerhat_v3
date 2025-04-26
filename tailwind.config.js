@@ -41,6 +41,38 @@ export default {
     				DEFAULT: 'hsl(var(--secondary))',
     				foreground: 'hsl(var(--secondary-foreground))'
     			},
+                arcanists: {
+                    DEFAULT: 'hsl(var(--arcanists))',
+                    foreground: 'hsl(var(--arcanists))'
+                },
+                bayou: {
+                    DEFAULT: 'hsl(var(--bayou))',
+                    foreground: 'hsl(var(--bayou))'
+                },
+                explorerssociety: {
+                    DEFAULT: 'hsl(var(--explorerssociety))',
+                    foreground: 'hsl(var(--explorerssociety))'
+                },
+                guild: {
+                    DEFAULT: 'hsl(var(--guild))',
+                    foreground: 'hsl(var(--guild))'
+                },
+                neverborn: {
+                    DEFAULT: 'hsl(var(--neverborn))',
+                    foreground: 'hsl(var(--neverborn))'
+                },
+                outcasts: {
+                    DEFAULT: 'hsl(var(--outcasts))',
+                    foreground: 'hsl(var(--outcasts))'
+                },
+                resurrectionists: {
+                    DEFAULT: 'hsl(var(--resurrectionists))',
+                    foreground: 'hsl(var(--resurrectionists))'
+                },
+                tenthunders: {
+                    DEFAULT: 'hsl(var(--tenthunders))',
+                    foreground: 'hsl(var(--tenthunders))'
+                },
     			muted: {
     				DEFAULT: 'hsl(var(--muted))',
     				foreground: 'hsl(var(--muted-foreground))'

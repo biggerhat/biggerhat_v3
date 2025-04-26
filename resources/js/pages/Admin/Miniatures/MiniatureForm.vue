@@ -59,7 +59,7 @@ const formInfo = ref({
 
 const submit = () => {
     let formData = new FormData();
-    router.post(props.miniature ? route("admin.miniatures.update", props.miniature.slug) : route("admin.miniatures.store"),
+    router.post(props.miniature ? route("admin.miniatures.update", props.miniature.id) : route("admin.miniatures.store"),
         formInfo.value
     );
 };
@@ -68,7 +68,6 @@ onMounted(() => {
     formInfo.value.name = props.miniature?.name ?? null;
     formInfo.value.title = props.miniature?.title ?? null;
     formInfo.value.character_id = props.miniature?.character_id ?? null;
-    formInfo.value.combination_image = props.miniature?.combination_image ?? null;
     formInfo.value.version = props.miniature?.version ?? null;
 });
 </script>

@@ -22,6 +22,7 @@ Route::prefix('factions')->name('factions.')->group(function () {
     Route::get('/{factionEnum}', [FactionController::class, 'view'])->name('view');
 });
 
+require __DIR__.'/api.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/admin.php';

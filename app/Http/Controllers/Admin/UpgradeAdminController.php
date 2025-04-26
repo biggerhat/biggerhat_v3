@@ -102,8 +102,8 @@ class UpgradeAdminController extends Controller
             'power_bar_count' => ['nullable', 'integer'],
             'plentiful' => ['nullable', 'integer'],
             'limitations' => ['nullable', 'string'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
+            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
+            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'tokens' => ['nullable', 'array'],
             'markers' => ['nullable', 'array'],
@@ -193,6 +193,34 @@ class UpgradeAdminController extends Controller
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
 
+        $this->generateComboImage($upgrade);
+
         return $upgrade;
+    }
+
+    private function generateComboImage(Upgrade $upgrade)
+    {
+        [$widthFront, $heightFront] = getimagesize(Storage::disk('public')->path($upgrade->front_image));
+        [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($upgrade->back_image));
+        $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
+
+        header('Content-Type: image/jpeg');
+        $outputImage = $background;
+
+        $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($upgrade->front_image));
+        $backUrl = imagecreatefromjpeg(Storage::disk('public')->path($upgrade->back_image));
+
+        imagecopymerge($outputImage, $frontUrl, 0, 0, 0, 0, $widthFront, $heightFront, 100);
+        imagecopymerge($outputImage, $backUrl, $widthFront, 0, 0, 0, $widthBack, $heightBack, 100);
+
+        $extension = 'jpg';
+        $uuid = Str::uuid();
+        $fileName = sprintf('%s_%s_combo.%s', $upgrade->slug, $uuid, $extension);
+        $filePath = "upgrades/{$upgrade->slug}/{$fileName}";
+
+        $path = Storage::disk('public')->path('/');
+        imagejpeg($outputImage, $path.$filePath);
+        $upgrade->update(['combination_image' => $filePath]);
+        imagedestroy($outputImage);
     }
 }

@@ -34,42 +34,42 @@ const mainNavItems: NavItem[] = [
         items: [
             {
                 title: 'Arcanists',
-                href: '/faction/arcanists',
+                href: route('factions.view', 'arcanists'),
                 icon: ArcanistLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Bayou',
-                href: '/faction/bayou',
+                href: route('factions.view', 'bayou'),
                 icon: BayouLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Explorer\'s Society',
-                href: '/faction/explorers-society',
+                href: route('factions.view', 'explorers-society'),
                 icon: ExplorersLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Guild',
-                href: '/faction/guild',
+                href: route('factions.view', 'guild'),
                 icon: GuildLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Neverborn',
-                href: '/faction/neverborn',
+                href: route('factions.view', 'neverborn'),
                 icon: NeverbornLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Outcasts',
-                href: '/faction/outcasts',
+                href: route('factions.view', 'outcasts'),
                 icon: OutcastsLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Resurrectionists',
-                href: '/faction/resurrectionists',
+                href: route('factions.view', 'resurrectionists'),
                 icon: ResurrectionistsLogo,
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Ten Thunders',
-                href: 'faction/ten-thunders',
+                href: route('factions.view', 'ten-thunders'),
                 icon: TenThundersLogo,
                 icon_class: 'w-8 h-8',
             }

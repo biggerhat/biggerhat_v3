@@ -43,12 +43,7 @@ class Miniature extends Model
 
     public function getCharacterNameAttribute()
     {
-        return $this->character?->display_name;
-    }
-
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
+        return $this->loadMissing('character')->character?->display_name;
     }
 
     public function character(): BelongsTo

@@ -63,7 +63,7 @@ const columns: ColumnDef<Miniatures>[] = [
         cell: ({ row }) => {
             const miniature = row.original;
 
-            return h('div', { class: 'relative' }, h(AdminActions, { name: miniature.display_name, editRoute: route('admin.miniatures.edit', miniature.slug), deleteRoute: route('admin.miniatures.delete', miniature.slug) }))
+            return h('div', { class: 'relative' }, h(AdminActions, { name: miniature.display_name, editRoute: route('admin.miniatures.edit', miniature.id), deleteRoute: route('admin.miniatures.delete', miniature.id) }))
         },
     },
 ];

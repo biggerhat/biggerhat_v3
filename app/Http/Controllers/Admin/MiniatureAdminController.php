@@ -65,9 +65,9 @@ class MiniatureAdminController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
             'title' => ['nullable', 'string', 'max:255'],
             'character_id' => ['required'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
+            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
+            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
+            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'version' => ['required', 'string', Rule::enum(SculptVersionEnum::class)],
         ]);
 

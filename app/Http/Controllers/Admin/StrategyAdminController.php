@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Strategy;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Storage;
+use Str;
 
 class StrategyAdminController extends Controller
 {
@@ -66,7 +68,21 @@ class StrategyAdminController extends Controller
             'setup' => ['nullable', 'string'],
             'rules' => ['nullable', 'string'],
             'scoring' => ['nullable', 'string'],
+            'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
         ]);
+
+        // Handle Images
+        $nameSlug = Str::slug($validated['name']);
+        if ($validated['image']) {
+            $extension = $validated['image']->extension();
+            $uuid = Str::uuid();
+            $fileName = sprintf('%s_%s.%s', Str::slug($nameSlug), $uuid, $extension);
+            $filePath = "strategies/{$nameSlug}/{$fileName}";
+            Storage::disk('public')->put($filePath, file_get_contents($validated['image']));
+            $validated['image'] = $filePath;
+        } else {
+            unset($validated['image']);
+        }
 
         if (! ($strategy)) {
             $strategy = Strategy::create($validated);

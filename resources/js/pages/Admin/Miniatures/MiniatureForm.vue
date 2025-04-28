@@ -126,11 +126,11 @@ onMounted(() => {
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
                                     <Label for="front_image">Front of Card Image</Label>
-                                    <Input id="front_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.front_image = $event.target.files[0]" />
+                                    <Input id="front_image" type="file" accept=".jpeg, .jpg" @input="formInfo.front_image = $event.target.files[0]" />
                                 </div>
                                 <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
                                     <Label for="back_image">Back of Card Image</Label>
-                                    <Input id="back_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.back_image = $event.target.files[0]" />
+                                    <Input id="back_image" type="file" accept=".jpeg, .jpg" @input="formInfo.back_image = $event.target.files[0]" />
                                 </div>
                             </div>
                         </div>

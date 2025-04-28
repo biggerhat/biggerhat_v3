@@ -47,6 +47,7 @@ const formInfo = ref({
     reveal: null,
     scoring: null,
     additional: null,
+    image: null,
     next_scheme_one_id: null,
     next_scheme_two_id: null,
     next_scheme_three_id: null,
@@ -114,6 +115,12 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="additional">Additional VP</Label>
                             <Textarea id="additional" v-model="formInfo.additional" placeholder="Type the additional vp info here." />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <Label for="image">Image</Label>
+                                <Input id="image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.image = $event.target.files[0]" />
+                            </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">

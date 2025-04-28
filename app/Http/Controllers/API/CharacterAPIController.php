@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class CharacterAPIController extends Controller
 {
-    public function find(Request $request)
+    public function view(Request $request)
     {
         $name = $request->get('name');
 

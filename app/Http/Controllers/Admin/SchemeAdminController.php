@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Scheme;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Storage;
+use Str;
 
 class SchemeAdminController extends Controller
 {
@@ -66,10 +68,24 @@ class SchemeAdminController extends Controller
             'reveal' => ['nullable', 'string'],
             'scoring' => ['nullable', 'string'],
             'additional' => ['nullable', 'string'],
+            'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'next_scheme_one_id' => ['nullable', 'integer'],
             'next_scheme_two_id' => ['nullable', 'integer'],
             'next_scheme_three_id' => ['nullable', 'integer'],
         ]);
+
+        // Handle Images
+        $nameSlug = Str::slug($validated['name']);
+        if ($validated['image']) {
+            $extension = $validated['image']->extension();
+            $uuid = Str::uuid();
+            $fileName = sprintf('%s_%s.%s', Str::slug($nameSlug), $uuid, $extension);
+            $filePath = "schemes/{$nameSlug}/{$fileName}";
+            Storage::disk('public')->put($filePath, file_get_contents($validated['image']));
+            $validated['image'] = $filePath;
+        } else {
+            unset($validated['image']);
+        }
 
         if (! ($scheme)) {
             $scheme = Scheme::create($validated);

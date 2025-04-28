@@ -193,7 +193,13 @@ class UpgradeAdminController extends Controller
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
 
-        $this->generateComboImage($upgrade);
+        if ($upgrade->front_image && $upgrade->back_image) {
+            $this->generateComboImage($upgrade);
+        } elseif ($upgrade->front_image && ! $upgrade->back_image) {
+            $upgrade->update([
+                'combination_image' => $upgrade->front_image,
+            ]);
+        }
 
         return $upgrade;
     }

@@ -46,6 +46,7 @@ const formInfo = ref({
     setup: null,
     rules: null,
     scoring: null,
+    image: null,
 });
 
 const submit = () => {
@@ -115,6 +116,12 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="scoring">Scoring</Label>
                             <Textarea id="scoring" v-model="formInfo.scoring" placeholder="Type the scoring info here." />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <Label for="image">Image</Label>
+                                <Input id="image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.image = $event.target.files[0]" />
+                            </div>
                         </div>
                     </div>
                 </form>

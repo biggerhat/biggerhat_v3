@@ -18,4 +18,11 @@ class CharacterController extends Controller
             'miniature' => $miniature,
         ]);
     }
+
+    public function random(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $character = Character::with('miniatures')->whereHas('miniatures')->inRandomOrder()->first();
+
+        return redirect()->route('characters.view', ['character' => $character->slug, 'miniature' => $character->miniatures->first()->id, 'slug' => $character->miniatures->first()->slug]);
+    }
 }

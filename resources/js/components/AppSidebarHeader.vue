@@ -5,7 +5,7 @@ import axios from 'axios';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
-import { Search } from 'lucide-vue-next';
+import { Search, Dice6 } from 'lucide-vue-next';
 import AlertMessage from "@/components/AlertMessage.vue";
 import {
     Command,
@@ -17,6 +17,7 @@ import {
     CommandList,
     CommandSeparator,
 } from '@/components/ui/command'
+import {Input} from "@/components/ui/input";
 
 defineProps<{
     breadcrumbs?: BreadcrumbItemType[];
@@ -52,7 +53,9 @@ function toggleDialog() {
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </template>
         </div>
-        <div class="mx-auto" @click="toggleDialog"><Search /></div>
+        <div class="ml-auto">
+            <div class="mx-auto"><Search @click="toggleDialog" class="inline-block cursor-pointer" /><Dice6 class="inline-block ml-2 cursor-pointer" @click="router.get(route('characters.random'))"/></div>
+        </div>
     </header>
 
     <div>
@@ -75,6 +78,12 @@ function toggleDialog() {
                 <CommandGroup heading="Characters">
                     <CommandItem v-for="character in commandSearch.characters" v-bind:key="character.name" @select="commandRoute(character.route)" value="character.name">
                         {{ character.name }}
+                    </CommandItem>
+                </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup heading="Upgrades">
+                    <CommandItem v-for="upgrade in commandSearch.upgrades" v-bind:key="upgrade.name" @select="commandRoute(upgrade.route)" value="upgrade.name">
+                        {{ upgrade.name }}
                     </CommandItem>
                 </CommandGroup>
             </CommandList>

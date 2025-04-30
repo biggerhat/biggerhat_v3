@@ -43,6 +43,10 @@ class Character extends Model
         ];
     }
 
+    protected $appends = [
+        'faction_color',
+    ];
+
     protected static function bootSlugDisplayName(): void
     {
         static::creating(function (self $model) {
@@ -62,6 +66,11 @@ class Character extends Model
 
             $model->slug = Str::slug($model->display_name);
         });
+    }
+
+    public function getFactionColorAttribute(): string
+    {
+        return $this->faction->color();
     }
 
     public function getRouteKeyName(): string

@@ -31,6 +31,7 @@ const mainNavItems: NavItem[] = [
         ],
     }, {
         title: 'Factions',
+        collapsible: true,
         items: [
             {
                 title: 'Arcanists',
@@ -80,6 +81,7 @@ const mainNavItems: NavItem[] = [
 const superAdminNavItems: NavItem[] = [
     {
         title: 'Admin',
+        collapsible: true,
         items: [
             {
                 title: 'Characters',

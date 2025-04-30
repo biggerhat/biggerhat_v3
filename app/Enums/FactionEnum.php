@@ -26,24 +26,24 @@ enum FactionEnum: string implements HasDefaultEnumMethods
         foreach (self::cases() as $case) {
             $details[$case->value] = [
                 'name' => $case->label(),
-                'color' => $case->backgroundColor(),
+                'color' => $case->color(),
             ];
         }
 
         return $details;
     }
 
-    public function backgroundColor(): string
+    public function color(): string
     {
         return match ($this) {
-            self::Arcanists => 'bg-arcanists',
-            self::Bayou => 'bg-bayou',
-            self::ExplorersSociety => 'bg-explorerssociety',
-            self::Guild => 'bg-guild',
-            self::Neverborn => 'bg-neverborn',
-            self::Outcasts => 'bg-outcasts',
-            self::Resurrectionists => 'bg-resurrectionists',
-            self::TenThunders => 'bg-tenthunders',
+            self::Arcanists => 'arcanists',
+            self::Bayou => 'bayou',
+            self::ExplorersSociety => 'explorerssociety',
+            self::Guild => 'guild',
+            self::Neverborn => 'neverborn',
+            self::Outcasts => 'outcasts',
+            self::Resurrectionists => 'resurrectionists',
+            self::TenThunders => 'tenthunders',
             default => '',
         };
     }

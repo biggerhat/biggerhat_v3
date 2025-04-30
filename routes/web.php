@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CommandController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
@@ -9,6 +10,8 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return Inertia::render('Index');
 })->name('index');
+
+Route::get('/command', CommandController::class)->name('command');
 
 Route::prefix('characters')->name('characters.')->group(function () {
     Route::get('/{character}/{miniature:id}/{slug}', [CharacterController::class, 'view'])->name('view');

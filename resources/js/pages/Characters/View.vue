@@ -49,55 +49,53 @@ const combo_img_url = "/storage/" + props.miniature.combination_image;
                     <img :src="back_img_url" :alt="miniature.name" class="rounded">
                 </div>
                 <div class="flex flex-col space-y-1.5 md:col-span-2">
-                    <Card class="w-full border-t-4 border-primary border-b-4 m-0 p-0">
-                        <CardHeader class="px-4 py-2 border-primary border-b-2">
-                            <CardTitle class="text-xl font-normal">
+                    <Card class="w-full rounded-none border-none m-0 p-0">
+                        <CardHeader class="px-4 py-2 border-primary border-r-2 border-b-2">
+                            <CardTitle class="text-xl text-right font-normal">
                                 {{ miniature.display_name }}
                             </CardTitle>
-                            <CardDescription v-if="miniature.name || miniature.title" class="italic">
+                            <CardDescription v-if="miniature.name || miniature.title" class="italic text-right">
                                 {{ character.display_name }}
                             </CardDescription>
                         </CardHeader>
-                        <CardContent class="px-0 py-0">
-                            <Link :href="route('factions.view', character.faction)" class="block px-2 py-1 m-0 w-full h-full text-lg border-primary border-b-2 hover:bg-secondary" :class="page['props']['factions'][character['faction']]['color']">
+                        <CardContent class="px-0 border-l border-r py-0">
+                            <Link :href="route('factions.view', character.faction)" :class="'bg-' + character.faction_color + ' block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary'">
                                 <span class="block m-0 p-0 text-xs">Faction</span>
                                 {{ page['props']['factions'][character['faction']]['name'] }}
                             </Link>
                             <div class="border-primary" v-if="character.keywords.length > 0">
-                                <Link :href="route('keywords.view', keyword.slug)" class="block px-2 py-1 m-0 w-full h-full border-primary border-b-2 hover:bg-secondary text-lg" v-for="keyword in character.keywords">
+                                <Link :href="route('keywords.view', keyword.slug)" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" v-for="keyword in character.keywords">
                                     <span class="block m-0 p-0 text-xs">Keyword</span>
                                     {{ keyword.name }}
                                 </Link>
                             </div>
-
                         </CardContent>
                     </Card>
                 </div>
                 <div class="flex flex-col space-y-1.5 md:col-span-2">
-                    <Card class="w-full border-t-4 border-primary border-b-4 m-0 p-0 !rounded-none">
-                        <CardHeader class="px-4 py-2 border-primary border-b-2 bg-primary">
-                            <CardTitle class="text-xl text-secondary font-normal">
-                                Miniatures
+                    <Card class="w-full border-none m-0 p-0 !rounded-none">
+                        <CardHeader class="px-4 py-2 border-primary border-r-2 border-b-2">
+                            <CardTitle class="text-xl text-right font-normal">
+                                Miniature Sculpts
                             </CardTitle>
                         </CardHeader>
-                        <CardContent class="px-0 py-0">
-                            <Link :href="route('characters.view', {character: character.slug, miniature: sculpt.id, slug: sculpt.slug})" class="block px-2 py-1 m-0 w-full h-full text-lg border-primary border-b-2 hover:bg-secondary" :class="{'bg-secondary': sculpt.id === props.miniature.id }" v-for="sculpt in character.miniatures">
+                        <CardContent class="px-0 border-l border-r py-0">
+                            <Link :href="route('characters.view', {character: character.slug, miniature: sculpt.id, slug: sculpt.slug})" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" :class="{'bg-secondary': sculpt.id === props.miniature.id }" v-for="sculpt in character.miniatures">
                                 {{ sculpt.display_name }}
                             </Link>
-
                         </CardContent>
                     </Card>
                 </div>
             </div>
         </div>
         <hr class="border-dashed border-t !rounded-none !border-l-0 !border-r-0 !border-b-0 !block" />
-        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mt-8 mb-8 mx-auto">
-            <div class="grid auto-rows-min gap-8 md:grid-cols-3">
-                <div>TOOLBOX</div>
-                <div>REFERENCES</div>
-                <div>IMAGES AND DATA</div>
-            </div>
-        </div>
+<!--        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mt-8 mb-8 mx-auto">-->
+<!--            <div class="grid auto-rows-min gap-8 md:grid-cols-3">-->
+<!--                <div>TOOLBOX</div>-->
+<!--                <div>REFERENCES</div>-->
+<!--                <div>IMAGES AND DATA</div>-->
+<!--            </div>-->
+<!--        </div>-->
 
 
     </div>

@@ -21,17 +21,11 @@ class UpgradeAPIController extends Controller
     {
         $name = $request->get('name');
 
-        $character = Character::where('station', CharacterStationEnum::Master->value)
+        return Character::where('station', CharacterStationEnum::Master->value)
             ->where('display_name', 'LIKE', "%{$name}%")
             ->orWhere('nicknames', 'LIKE', "%{$name}%")
             ->whereHas('crewUpgrade')
             ->with('crewUpgrade')
-            ->first();
-
-        if (! $character) {
-            return [];
-        }
-
-        return $character->crewUpgrade;
+            ->get();
     }
 }

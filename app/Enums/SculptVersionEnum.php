@@ -32,7 +32,7 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
     /**
      * @return SculptVersionEnum[]
      */
-    public function standardEditions(): array
+    public static function standardEditions(): array
     {
         return [
             self::FirstEdition,
@@ -45,7 +45,7 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
     /**
      * @return SculptVersionEnum[]
      */
-    public function promotionalEditions(): array
+    public static function promotionalEditions(): array
     {
         return [
             self::SpecialEdition,

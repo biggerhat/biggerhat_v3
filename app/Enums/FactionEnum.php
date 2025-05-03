@@ -47,4 +47,18 @@ enum FactionEnum: string implements HasDefaultEnumMethods
             default => '',
         };
     }
+
+    public function logo(): string
+    {
+        return match($this) {
+            self::Arcanists => '/images/Factions/M4E-Arcanists.png',
+            self::Bayou => '/images/Factions/M4E-Bayou.png',
+            self::ExplorersSociety => '/images/Factions/M4E-Explorers.png',
+            self::Guild => '/images/Factions/M4E-Guild.png',
+            self::Neverborn => '/images/Factions/M4E-Neverborn.png',
+            self::Outcasts => '/images/Factions/M4E-Outcasts.png',
+            self::Resurrectionists => '/images/Factions/M4E-Resurrectionists.png',
+            self::TenThunders => '/images/Factions/M4E-Ten-Thunders.png',
+        };
+    }
 }

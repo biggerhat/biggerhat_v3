@@ -7,7 +7,7 @@ import { usePage } from '@inertiajs/vue3';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign, Dice6 } from 'lucide-vue-next';
 import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
 import ExplorersLogo from "@/components/ExplorersLogo.vue";
@@ -27,7 +27,11 @@ const mainNavItems: NavItem[] = [
                 title: 'Advanced Search',
                 href: '/advanced',
                 icon: TextSearch,
-            }
+            }, {
+                title: 'Random Character',
+                href: route('characters.random'),
+                icon: Dice6,
+            },
         ],
     }, {
         title: 'Factions',
@@ -45,7 +49,7 @@ const mainNavItems: NavItem[] = [
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Explorer\'s Society',
-                href: route('factions.view', 'explorers-society'),
+                href: route('factions.view', 'explorers_society'),
                 icon: ExplorersLogo,
                 icon_class: 'w-8 h-8',
             }, {
@@ -70,7 +74,7 @@ const mainNavItems: NavItem[] = [
                 icon_class: 'w-8 h-8',
             }, {
                 title: 'Ten Thunders',
-                href: route('factions.view', 'ten-thunders'),
+                href: route('factions.view', 'ten_thunders'),
                 icon: TenThundersLogo,
                 icon_class: 'w-8 h-8',
             }

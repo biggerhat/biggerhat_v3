@@ -51,7 +51,7 @@ const combo_img_url = "/storage/" + props.miniature.combination_image;
                 <div class="flex flex-col space-y-1.5 md:col-span-2">
                     <Card class="w-full rounded-none border-none m-0 p-0">
                         <CardHeader class="px-4 py-2 border-primary border-r-2 border-b-2">
-                            <CardTitle class="text-xl text-right font-normal">
+                            <CardTitle class="text-lg text-right font-normal">
                                 {{ miniature.display_name }}
                             </CardTitle>
                             <CardDescription v-if="miniature.name || miniature.title" class="italic text-right">
@@ -75,7 +75,7 @@ const combo_img_url = "/storage/" + props.miniature.combination_image;
                 <div class="flex flex-col space-y-1.5 md:col-span-2">
                     <Card class="w-full border-none m-0 p-0 !rounded-none">
                         <CardHeader class="px-4 py-2 border-primary border-r-2 border-b-2">
-                            <CardTitle class="text-xl text-right font-normal">
+                            <CardTitle class="text-lg text-right font-normal">
                                 Miniature Sculpts
                             </CardTitle>
                         </CardHeader>

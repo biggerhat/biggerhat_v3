@@ -35,11 +35,11 @@ class CharacterAPIController extends Controller
         $storageUrl = config('filesystems.disks.public.url').'/';
 
         return Character::whereHas('miniatures')
-            ->with('miniatures')
+            ->with(['miniatures', 'crewUpgrade'])
             ->orderBy('display_name', 'ASC')
             ->get()
             ->map(function (Character $character) use ($storageUrl) {
-                return [
+                $characterInfo = [
                     'display_name' => $character->display_name,
                     'front_image' => $storageUrl.$character->miniatures()->first()->front_image,
                     'back_image' => $storageUrl.$character->miniatures()->first()->back_image,
@@ -50,6 +50,16 @@ class CharacterAPIController extends Controller
                         'slug' => $character->miniatures()->first()->slug,
                     ]),
                 ];
+
+                if ($character->crewUpgrade) {
+                    $characterInfo['crew_upgrade'] = [
+                        'name' => $character->crewUpgrade->name,
+                        'front_image' => $storageUrl.$character->crewUpgrade->front_image,
+                        'back_image' => $storageUrl.$character->crewUpgrade->back_image,
+                        'combination_image' => $storageUrl.$character->crewUpgrade->combination_image,
+                    ];
+                }
+                return $characterInfo;
             });
     }
 }

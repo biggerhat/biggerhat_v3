@@ -13,21 +13,20 @@ class CharacterAPIController extends Controller
     {
         $name = $request->get('name');
 
-        $miniatures = Miniature::where('display_name', "%{$name}%")
+//        $miniatures = Miniature::where('display_name', "%{$name}%")
+//            ->orWhereHas('character', function ($query) use ($name) {
+//                $query->where('nicknames', "%{$name}%");
+//            })
+//            ->with('character')->get();
+
+//        if (! $miniatures) {
+        //        }
+
+        return Miniature::where('display_name', 'LIKE', "%{$name}%")
             ->orWhereHas('character', function ($query) use ($name) {
-                $query->where('nicknames', "%{$name}%");
+                $query->where('nicknames', 'LIKE', "%{$name}%");
             })
             ->with('character')->get();
-
-        if (! $miniatures) {
-            $miniatures = Miniature::where('display_name', 'LIKE', "%{$name}%")
-                ->orWhereHas('character', function ($query) use ($name) {
-                    $query->where('nicknames', 'LIKE', "%{$name}%");
-                })
-                ->with('character')->get();
-        }
-
-        return $miniatures;
     }
 
     public function images(Request $request)

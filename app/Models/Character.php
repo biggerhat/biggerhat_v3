@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
 use App\Traits\UsesSelectOptionsScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -81,6 +82,16 @@ class Character extends Model
     public function miniatures(): HasMany
     {
         return $this->hasMany(Miniature::class, 'character_id', 'id');
+    }
+
+    public function standardMiniatures(): HasMany
+    {
+        return $this->hasMany(Miniature::class, 'character_id', 'id')->whereIn('version', SculptVersionEnum::standardEditions());
+    }
+
+    public function promotionalMiniatures(): HasMany
+    {
+        return $this->hasMany(Miniature::class, 'character_id', 'id')->whereIn('version', SculptVersionEnum::promotionalEditions());
     }
 
     public function keywords(): MorphToMany

@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
@@ -124,9 +123,9 @@ class Character extends Model
         return $this->morphedByMany(Token::class, 'characterable');
     }
 
-    public function crewUpgrade(): HasOne
+    public function crewUpgrades(): HasMany
     {
-        return $this->hasOne(Upgrade::class, 'master_id', 'id');
+        return $this->hasMany(Upgrade::class, 'master_id', 'id');
     }
 
     public function totem(): BelongsTo

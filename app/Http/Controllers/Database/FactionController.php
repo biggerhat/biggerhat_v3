@@ -31,7 +31,7 @@ class FactionController extends Controller
         ];
 
         return inertia('Factions/View', [
-            'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url') . $factionEnum->logo()],
+            'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo()],
             'characters' => $characters,
             'keywords' => $keywords->flatten()->unique(),
             'statistics' => $stats,

@@ -24,8 +24,8 @@ class UpgradeAPIController extends Controller
         return Character::where('station', CharacterStationEnum::Master->value)
             ->where('display_name', 'LIKE', "%{$name}%")
             ->orWhere('nicknames', 'LIKE', "%{$name}%")
-            ->whereHas('crewUpgrade')
-            ->with('crewUpgrade')
+            ->whereHas('crewUpgrades')
+            ->with('crewUpgrades')
             ->get();
     }
 }

@@ -60,7 +60,7 @@ class CharacterAdminController extends Controller
     public function edit(Request $request, Character $character)
     {
         return inertia('Admin/Characters/CharacterForm', [
-            'character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrade', 'totem']),
+            'character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem']),
             'suits' => SuitEnum::toSelectOptions(),
             'factions' => FactionEnum::toSelectOptions(),
             'stations' => CharacterStationEnum::toSelectOptions(),
@@ -108,7 +108,7 @@ class CharacterAdminController extends Controller
 
     private function validateAndSave(Request $request, ?Character $character = null)
     {
-        $upgrade = null;
+        $upgrades = null;
         $existingMiniatures = null;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -117,7 +117,7 @@ class CharacterAdminController extends Controller
             'station' => ['nullable', 'string', Rule::enum(CharacterStationEnum::class)],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
             'totem' => ['nullable', 'string'],
-            'crew_upgrade' => ['nullable', 'string'],
+            'crew_upgrades' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
             'characteristics' => ['nullable', 'array'],
             'miniatures' => ['nullable', 'array'],
@@ -159,10 +159,8 @@ class CharacterAdminController extends Controller
         }
         unset($validated['totem']);
 
-        if ($validated['crew_upgrade']) {
-            $upgrade = Upgrade::where('slug', $validated['crew_upgrade'])->first();
-        }
-        unset($validated['crew_upgrade']);
+        $upgrades = Upgrade::whereIn('name', $validated['crew_upgrades'])->get();
+        unset($validated['crew_upgrades']);
 
         $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
         unset($validated['keywords']);
@@ -201,7 +199,10 @@ class CharacterAdminController extends Controller
             $character->update($validated);
         }
 
-        if ($upgrade) {
+        $populatedUpgrades = Upgrade::where('master_id', $character->id)->get()->each(function (Upgrade $upgrade) {
+            $upgrade->updateQuietly(['master_id' => null]);
+        });
+        foreach ($upgrades as $upgrade) {
             $upgrade->master_id = $character->id;
             $upgrade->save();
         }

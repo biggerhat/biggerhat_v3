@@ -105,9 +105,9 @@ const props = defineProps({
 <!--                    <img :src='props.faction.logo' class="w-40 h-40" :alt="props.faction.name" />-->
 <!--                </div>-->
 <!--            </div>-->
-            <div class="grid grid-cols-1 md:grid-cols-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 md:gap-2">
                 <div v-for="character in props.characters">
-                    <SearchResultsCard :miniature="character.standard_miniatures[0]" />
+                    <img :src='"/storage/" + character.standard_miniatures[0].front_image' :alt="character.standard_miniatures[0].display_name" class="rounded-lg">
                 </div>
             </div>
         </div>

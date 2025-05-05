@@ -13,13 +13,13 @@ class CharacterAPIController extends Controller
     {
         $name = $request->get('name');
 
-//        $miniatures = Miniature::where('display_name', "%{$name}%")
-//            ->orWhereHas('character', function ($query) use ($name) {
-//                $query->where('nicknames', "%{$name}%");
-//            })
-//            ->with('character')->get();
+        //        $miniatures = Miniature::where('display_name', "%{$name}%")
+        //            ->orWhereHas('character', function ($query) use ($name) {
+        //                $query->where('nicknames', "%{$name}%");
+        //            })
+        //            ->with('character')->get();
 
-//        if (! $miniatures) {
+        //        if (! $miniatures) {
         //        }
 
         return Miniature::where('display_name', 'LIKE', "%{$name}%")
@@ -34,7 +34,7 @@ class CharacterAPIController extends Controller
         $storageUrl = config('filesystems.disks.public.url').'/';
 
         return Character::whereHas('miniatures')
-            ->with(['miniatures', 'crewUpgrade'])
+            ->with(['miniatures', 'crewUpgrades'])
             ->orderBy('display_name', 'ASC')
             ->get()
             ->map(function (Character $character) use ($storageUrl) {
@@ -50,14 +50,18 @@ class CharacterAPIController extends Controller
                     ]),
                 ];
 
-                if ($character->crewUpgrade) {
-                    $characterInfo['crew_upgrade'] = [
-                        'name' => $character->crewUpgrade->name,
-                        'front_image' => $storageUrl.$character->crewUpgrade->front_image,
-                        'back_image' => $storageUrl.$character->crewUpgrade->back_image,
-                        'combination_image' => $storageUrl.$character->crewUpgrade->combination_image,
-                    ];
+                if ($character->crewUpgrades) {
+                    foreach ($character->crewUpgrades as $crewUpgrade) {
+                        $characterInfo['crew_upgrades'][] = [
+                            'name' => $crewUpgrade->name,
+                            'front_image' => $storageUrl.$crewUpgrade->front_image,
+                            'back_image' => $storageUrl.$crewUpgrade->back_image,
+                            'combination_image' => $storageUrl.$crewUpgrade->combination_image,
+                        ];
+                    }
+
                 }
+
                 return $characterInfo;
             });
     }

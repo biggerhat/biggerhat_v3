@@ -50,7 +50,7 @@ enum FactionEnum: string implements HasDefaultEnumMethods
 
     public function logo(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Arcanists => '/images/Factions/M4E-Arcanists.png',
             self::Bayou => '/images/Factions/M4E-Bayou.png',
             self::ExplorersSociety => '/images/Factions/M4E-Explorers.png',

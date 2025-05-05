@@ -138,7 +138,7 @@ const formInfo = ref({
     title: null,
     nicknames: null,
     station: null,
-    crew_upgrade: null,
+    crew_upgrades: [],
     totem: null,
     faction: null,
     keywords: [],
@@ -178,7 +178,6 @@ onMounted(() => {
     formInfo.value.nicknames = props.character?.nicknames ?? null;
     formInfo.value.station = props.character?.station ?? null;
     formInfo.value.totem = props.character?.has_totem_id ? props.character?.totem.slug : null;
-    formInfo.value.crew_upgrade = props.character?.crew_upgrade ? props.character?.crew_upgrade.slug : null;
     formInfo.value.faction = props.character?.faction ?? null;
     formInfo.value.cost = props.character?.cost ?? null;
     formInfo.value.health = props.character?.health ?? null;
@@ -198,6 +197,10 @@ onMounted(() => {
 
     props.character?.keywords.forEach((keyword) => {
         formInfo.value.keywords.push(keyword.name);
+    });
+
+    props.character?.crew_upgrades.forEach((crew_upgrade) => {
+        formInfo.value.crew_upgrades.push(crew_upgrade.name);
     });
 
     props.character?.characteristics.forEach((characteristic) => {
@@ -294,17 +297,8 @@ onMounted(() => {
                                     </Select>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <Label for="crew_upgrade">Crew Upgrade</Label>
-                                    <Select id="crew_upgrade" v-model="formInfo.crew_upgrade">
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Crew Upgrade" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem v-for="upgrade in props.crew_upgrades" :value="upgrade.value" :key="upgrade.value">
-                                                {{ upgrade.name }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <div v-for="upgrade in formInfo.crew_upgrades">{{ upgrade.name }}</div>
+                                    <CustomMultiselect v-model="formInfo.crew_upgrades" comboTitle="Select Crew Upgrades" :choiceOptions="props.crew_upgrades" />
                                 </div>
                             </div>
                         </div>

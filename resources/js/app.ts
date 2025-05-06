@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
+import Vue3MobileDetection from "vue3-mobile-detection";
 
 import { ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './composables/useAppearance';
@@ -42,6 +43,7 @@ createInertiaApp({
         createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
+            .use(Vue3MobileDetection)
             .component("Link", Link)
             .component("Head", Head)
             .mount(el);

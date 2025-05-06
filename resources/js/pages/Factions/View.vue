@@ -188,7 +188,7 @@ onMounted(() => {
 <!--                </div>-->
 <!--            </div>-->
             <div class="grid grid-cols-1 mx-2 md:mx-0 md:grid-cols-4 md:gap-2 snap-y md:snap-none overflow-y-scroll md:overflow-y-auto snap-mandatory h-screen md:h-auto">
-                <div v-for="character in props.characters" class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-center">
+                <div v-for="character in props.characters" class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start">
                     <Link :href="route('characters.view', {'character': character.slug, 'miniature': character.standard_miniatures[0].id, 'slug': character.standard_miniatures[0].slug})">
                         <img :src='"/storage/" + character.standard_miniatures[0].front_image' :alt="character.standard_miniatures[0].display_name" class="rounded-lg">
                     </Link>

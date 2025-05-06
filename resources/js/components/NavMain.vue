@@ -13,6 +13,16 @@ defineProps<{
     items: NavItem[];
 }>();
 
+function isMobileDevice() {
+    return /Mobi|Android/i.test(navigator.userAgent);
+}
+
+const mobileCheck = () => {
+    if (isMobileDevice()) {
+        toggleSidebar();
+    }
+};
+
 const page = usePage<SharedData>();
 </script>
 
@@ -30,7 +40,7 @@ const page = usePage<SharedData>();
                     <SidebarMenu>
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
-                                <Link :href="item.href">
+                                <Link :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" />
                                     <span>{{ item.title }}</span>
                                 </Link>
@@ -45,7 +55,7 @@ const page = usePage<SharedData>();
             <SidebarMenu>
                 <SidebarMenuItem v-for="item in item.items" :key="item.title">
                     <SidebarMenuButton as-child :is-active="item.href === page.url">
-                        <Link :href="item.href">
+                        <Link :href="item.href" @click="mobileCheck">
                             <component :is="item.icon" :className="item.icon_class ?? ''" />
                             <span>{{ item.title }}</span>
                         </Link>

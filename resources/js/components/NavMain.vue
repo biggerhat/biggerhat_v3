@@ -6,10 +6,20 @@ import Collapsible from "@/components/ui/collapsible/Collapsible.vue";
 import CollapsibleTrigger from "@/components/ui/collapsible/CollapsibleTrigger.vue";
 import CollapsibleContent from "@/components/ui/collapsible/CollapsibleContent.vue";
 import { ChevronDown } from "lucide-vue-next";
+import { useSidebar } from "@/components/ui/sidebar";
+import {useMobileDetection} from "vue3-mobile-detection";
+let { toggleSidebar, open } = useSidebar();
+const { isMobile } = useMobileDetection();
 
 defineProps<{
     items: NavItem[];
 }>();
+
+const mobileCheck = () => {
+    if (isMobile()) {
+        toggleSidebar();
+    }
+};
 
 const page = usePage<SharedData>();
 </script>
@@ -28,7 +38,7 @@ const page = usePage<SharedData>();
                     <SidebarMenu>
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
-                                <Link :href="item.href">
+                                <Link :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" />
                                     <span>{{ item.title }}</span>
                                 </Link>
@@ -43,7 +53,7 @@ const page = usePage<SharedData>();
             <SidebarMenu>
                 <SidebarMenuItem v-for="item in item.items" :key="item.title">
                     <SidebarMenuButton as-child :is-active="item.href === page.url">
-                        <Link :href="item.href">
+                        <Link :href="item.href" @click="mobileCheck">
                             <component :is="item.icon" :className="item.icon_class ?? ''" />
                             <span>{{ item.title }}</span>
                         </Link>

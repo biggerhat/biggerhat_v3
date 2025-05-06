@@ -90,8 +90,6 @@ const filter = () => {
         {
             only: ['characters'],
             replace: true,
-            preserveState: true,
-            preserveScroll: true,
         }
     )
 };

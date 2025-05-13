@@ -312,7 +312,7 @@ onMounted(() => {
                         <div class="lg:col-span-4">
                             <div class="w-full grid lg:grid-cols-4">
                                 <div v-for="character in keyword.characters" v-bind:key="character.slug">
-                                    <CharacterCardView v-if="character.station !== 'master'" :miniature="character.standard_miniatures[0]" />
+                                    <CharacterCardView :miniature="character.standard_miniatures[0]" />
                                 </div>
                             </div>
                         </div>

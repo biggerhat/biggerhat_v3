@@ -27,7 +27,7 @@ import SearchResultsCard from "@/components/SearchResultsCard.vue";
 import { cleanObject } from "@/composables/CleanObject";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import { SlidersHorizontal, Search, ArrowDown, ArrowUp } from "lucide-vue-next";
-import CardView from "@/components/CardView.vue";
+import CharacterCardView from "@/components/CharacterCardView.vue";
 import Separator from "@/components/ui/separator/Separator.vue";
 
 const page = usePage<SharedData>();
@@ -300,29 +300,37 @@ onMounted(() => {
             </div>
         </div>
         <div v-if="currentView === 'keyword_breakdown'" class="container mx-auto items-center mt-8">
-            <div v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" class="mb-6">
-                <Separator class="text-xl my-6" :label="keyword.keyword.name" />
-                <div class="w-full lg:grid-cols-6 grid">
-                    <div class="hidden lg:block grid"><CardView v-if="keyword.masters.length > 0" :miniature="keyword.masters[0]['standard_miniatures'][0]" /></div>
-                    <div class="lg:col-span-4">
-                        <div class="w-full grid lg:grid-cols-4">
-                            <CardView v-for="character in keyword.characters" :miniature="character.standard_miniatures[0]" v-bind:key="character.slug"></CardView>
-                        </div>
+            <div v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name">
+                <div v-if="keyword.characters.length > 0" class="mb-6">
+                    <div class="relative flex py-5 items-center">
+                        <div class="flex-grow border-t border-primary"></div>
+                        <span class="flex-shrink mx-4 text-lg text-primary">{{ keyword.keyword.name }}</span>
+                        <div class="flex-grow border-t border-primary"></div>
                     </div>
-                    <div class="hidden lg:block grid"><CardView v-if="keyword.masters.length > 1" :miniature="keyword.masters[1]['standard_miniatures'][0]" /></div>
+                    <div class="w-full lg:grid-cols-6 grid">
+                        <div class="hidden lg:block grid"><CharacterCardView v-if="keyword.masters.length > 0" :miniature="keyword.masters[0]['standard_miniatures'][0]" /></div>
+                        <div class="lg:col-span-4">
+                            <div class="w-full grid lg:grid-cols-4">
+                                <div v-for="character in keyword.characters" v-bind:key="character.slug">
+                                    <CharacterCardView v-if="character.station !== 'master'" :miniature="character.standard_miniatures[0]" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hidden lg:block grid"><CharacterCardView v-if="keyword.masters.length > 1" :miniature="keyword.masters[1]['standard_miniatures'][0]" /></div>
+                    </div>
                 </div>
             </div>
         </div>
         <div v-else class="container mx-auto items-center mt-8">
-<!--            <div class="inline-flex items-center justify-center mt-16 w-full">-->
-<!--                <hr class="bg-primary w-full h-0.5 my-8 border-0 rounded-sm">-->
-<!--                <div class="absolute px-4 -translate-x-1/2 left-1/2">-->
-<!--                    <img :src='props.faction.logo' class="w-40 h-40" :alt="props.faction.name" />-->
-<!--                </div>-->
-<!--            </div>-->
+            <!--            <div class="inline-flex items-center justify-center mt-16 w-full">-->
+            <!--                <hr class="bg-primary w-full h-0.5 my-8 border-0 rounded-sm">-->
+            <!--                <div class="absolute px-4 -translate-x-1/2 left-1/2">-->
+            <!--                    <img :src='props.faction.logo' class="w-40 h-40" :alt="props.faction.name" />-->
+            <!--                </div>-->
+            <!--            </div>-->
             <div class="grid grid-cols-1 mx-2 md:mx-0 md:grid-cols-4 md:gap-2 snap-y md:snap-none overflow-y-scroll md:overflow-y-auto snap-mandatory h-screen md:h-auto">
                 <div v-for="character in props.characters" class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start">
-                    <CardView :miniature="character.standard_miniatures[0]" />
+                    <CharacterCardView :miniature="character.standard_miniatures[0]" />
                 </div>
             </div>
         </div>

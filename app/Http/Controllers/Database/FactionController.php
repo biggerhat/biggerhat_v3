@@ -64,14 +64,18 @@ class FactionController extends Controller
         $keywordBreakdown = [];
         if ($request->get('page_view') === PageViewOptionsEnum::KeywordBreakdown->value) {
             foreach ($keywords as $keyword) {
+                $keywordCharacters = $characters->filter(function (Character $character) use ($keyword) {
+                    return (bool) $character->keywords->filter(function (Keyword $keywordCheck) use ($keyword) {
+                        return $keywordCheck->name === $keyword->name;
+                    })->count();
+                });
+
+                $masters = $keywordCharacters->where('station', CharacterStationEnum::Master)->values();
+
                 $keywordBreakdown[] = [
                     'keyword' => $keyword,
-                    'masters' => $characters->where('station', CharacterStationEnum::Master)->values(),
-                    'characters' => $characters->filter(function (Character $character) use ($keyword) {
-                        return (bool) $character->keywords->filter(function (Keyword $keywordCheck) use ($keyword) {
-                            return $keywordCheck->name === $keyword->name;
-                        })->count();
-                    })
+                    'masters' => $masters,
+                    'characters' => $keywordCharacters,
                 ];
             }
         }

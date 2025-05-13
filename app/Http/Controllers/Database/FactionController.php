@@ -75,7 +75,7 @@ class FactionController extends Controller
                 $keywordBreakdown[] = [
                     'keyword' => $keyword,
                     'masters' => $masters,
-                    'characters' => $keywordCharacters,
+                    'characters' => $keywordCharacters->where('station', '!==', CharacterStationEnum::Master->value),
                 ];
             }
         }

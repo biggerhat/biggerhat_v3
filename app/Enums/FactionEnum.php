@@ -3,6 +3,8 @@
 namespace App\Enums;
 
 use App\Interfaces\HasDefaultEnumMethods;
+use App\Models\Character;
+use App\Models\Keyword;
 use App\Traits\UsesEnumLabels;
 use App\Traits\UsesEnumSelectOptions;
 
@@ -60,5 +62,26 @@ enum FactionEnum: string implements HasDefaultEnumMethods
             self::Resurrectionists => '/images/Factions/M4E-Resurrectionists.png',
             self::TenThunders => '/images/Factions/M4E-Ten-Thunders.png',
         };
+    }
+
+    public function getCharacterStats(): array
+    {
+        $characters = Character::with('keywords')->where('faction', $this->value)->get();
+
+        $miniatures = 0;
+
+        $characters->each(function (Character $character) use (&$miniatures) {
+            $miniatures += $character->count;
+        });
+
+        $keywords = Keyword::whereHas('characters', function ($query) {
+            $query->where('faction', $this->value);
+        })->orderBy('name', 'ASC')->get();
+
+        return [
+            'characters' => $characters->count(),
+            'miniatures' => $miniatures,
+            'keywords' => $keywords->count(),
+        ];
     }
 }

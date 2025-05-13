@@ -85,11 +85,11 @@ withDefaults(defineProps<Props>(), {
 <!--            </div>-->
 <!--        </div>-->
         <div class="container mx-auto">
-            <div class="block px-2 my-2 text-sm lg:px-0">
+            <div class="block px-2 my-2 text-xs lg:px-0">
                 Portions of the materials used are copyrighted works of <a href="https://www.wyrd-games.net/" target="_wyrd" class="hover:underline" alt="Wyrd Miniatures">Wyrd Miniatures, LLC</a>, in the United
                 States of America and elsewhere. All rights reserved, Wyrd Miniatures, LLC. This material is not official and is not endorsed by Wyrd Miniatures, LLC.
             </div>
-            <div class="block px-2 my-2 text-sm lg:px-0">
+            <div class="block px-2 my-2 text-xs lg:px-0">
                 All other content &copy; {{ year }} BiggerHat. Designed and Built by Mark C and Brandan B.
             </div>
         </div>

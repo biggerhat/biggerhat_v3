@@ -10,6 +10,13 @@ import {
     CardTitle,
 } from '@/components/ui/card'
 import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+} from '@/components/ui/carousel'
+import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
@@ -19,9 +26,15 @@ import {SharedData} from "@/types";
 import SearchResultsCard from "@/components/SearchResultsCard.vue";
 import { cleanObject } from "@/composables/CleanObject";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import { SlidersHorizontal } from "lucide-vue-next";
+import { SlidersHorizontal, Search, ArrowDown, ArrowUp } from "lucide-vue-next";
+import CardView from "@/components/CardView.vue";
+import Separator from "@/components/ui/separator/Separator.vue";
 
 const page = usePage<SharedData>();
+
+function isMobileDevice() {
+    return /Mobi|Android/i.test(navigator.userAgent);
+}
 
 const props = defineProps({
     faction: {
@@ -32,6 +45,20 @@ const props = defineProps({
         }
     },
     characters: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
+    station_sort: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
+    keyword_breakdown: {
         type: [Object, Array],
         required: false,
         default() {
@@ -65,21 +92,49 @@ const props = defineProps({
         default() {
             return {};
         }
+    },
+    sort_options: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
+    sort_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
+    },
+    view_options: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        }
     }
 });
 
 const filterPanelOpen = ref(false);
-
 const filterParams = ref({
     keyword: null,
     station: null,
     characteristic: null,
+    page_view: null,
+    sort: null,
+    sort_type: null,
 });
+
+const currentView = ref('images');
 
 const clear = () => {
     filterParams.value.keyword = null;
     filterParams.value.station = null;
     filterParams.value.characteristic = null;
+    filterParams.value.page_view = 'images';
+    filterParams.value.sort = 'name';
+    filterParams.value.sort_type = 'ascending';
     filter();
 }
 
@@ -88,16 +143,26 @@ const filter = () => {
         route(route().current(), route().params.factionEnum),
         cleanObject(filterParams.value),
         {
-            only: ['characters'],
+            only: ['characters', 'keyword_breakdown', 'station_sort'],
             replace: true,
+            preserveState: true,
         }
     )
+    currentView.value = filterParams.value.page_view;
 };
 const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
     filterParams.value.keyword = urlParams.get("keyword");
     filterParams.value.station = urlParams.get("station");
     filterParams.value.characteristic = urlParams.get("characteristic");
+    filterParams.value.page_view = urlParams.get("page_view") ?? 'images';
+    currentView.value = filterParams.value.page_view;
+    filterParams.value.sort = urlParams.get("sort") ?? 'name';
+    filterParams.value.sort_type = urlParams.get("sort_type") ?? 'ascending';
+
+    if (!isMobileDevice()) {
+        filterPanelOpen.value = true;
+    }
 });
 
 </script>
@@ -125,18 +190,21 @@ onMounted(() => {
         <div class="container mx-auto">
             <div class="flex items-center justify-center p-2 w-full">
                 <Collapsible v-model:open="filterPanelOpen" class="w-full group/collapsible">
-                    <CollapsibleTrigger class="w-full">
-                        <div class="w-full">
+                    <div class="w-full flex items-center justify-center">
+                        <CollapsibleTrigger>
                             <Button class="mx-auto" :class="filterPanelOpen ? 'bg-primary border-primary border-2' : 'bg-background border-primary border-2 text-primary hover:bg-secondary'"><SlidersHorizontal /> Filter Options</Button>
-                        </div>
-                    </CollapsibleTrigger>
+                        </CollapsibleTrigger>
+                    </div>
                     <CollapsibleContent class="w-full">
                         <div class="w-full mx-auto flex items-center justify-center p-2">
-                            <div class="my-auto md:flex">
-                                <div class="mx-0 md:mx-1 my-1">
+                            <div class="my-auto md:flex w-full md:w-auto">
+                                <div class="mx-0 md:mx-1 my-auto text-center">
+                                    Filter by...
+                                </div>
+                                <div class="mx-0 md:mx-1 my-1 min-w-40">
                                     <Select v-model="filterParams.keyword">
                                         <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Select Keyword" />
+                                            <SelectValue placeholder="Keyword" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug">
@@ -144,10 +212,10 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div><div class="mx-0 md:mx-1 my-1">
+                                </div><div class="mx-0 md:mx-1 my-1 min-w-40">
                                     <Select v-model="filterParams.station">
                                         <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Select Station" />
+                                            <SelectValue placeholder="Station" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="station in props.stations" :value="station.value" :key="station.value">
@@ -155,10 +223,10 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div><div class="mx-0 md:mx-1 my-1">
+                                </div><div class="mx-0 md:mx-1 my-1 min-w-40">
                                     <Select v-model="filterParams.characteristic">
                                         <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Select Characteristic" />
+                                            <SelectValue placeholder="Characteristic" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="characteristic in props.characteristics" :value="characteristic.slug" :key="characteristic.slug">
@@ -166,21 +234,86 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div><div class="mx-1">
-                                    <Button class="bg-secondary text-primary border-primary border-2 rounded mx-1" @click="filter">
-                                        Filter
-                                    </Button>
-                                    <Button class="bg-secondary text-primary border-primary border-2 rounded mx-1" @click="clear">
-                                        Clear
-                                    </Button>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="w-full mx-auto flex items-center justify-center p-2 gap-1 md:gap-0">
+                            <div class="my-auto md:flex w-full md:w-auto w-full">
+                                <div class="mx-0 md:mx-1 my-auto text-center">
+                                    View as...
+                                </div>
+                                <div class="mx-0 md:mx-1 my-1 min-w-40">
+                                    <Select v-model="filterParams.page_view">
+                                        <SelectTrigger class="border-2 border-primary rounded">
+                                            <SelectValue placeholder="View Options" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="view in props.view_options" :value="view.value" :key="view.value">
+                                                {{ view.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div class="my-auto md:flex w-full md:w-auto w-full">
+                                <div class="mx-0 md:mx-1 my-auto text-center">
+                                    Sort by...
+                                </div>
+                                <div class="mx-0 md:mx-1 my-1 min-w-40">
+                                    <Select v-model="filterParams.sort">
+                                        <SelectTrigger class="border-2 border-primary rounded">
+                                            <SelectValue placeholder="Sort Options" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="sort in props.sort_options" :value="sort.value" :key="sort.value">
+                                                {{ sort.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="mx-0 md:mx-1 my-1 min-w-40">
+                                    <Select v-model="filterParams.sort_type">
+                                        <SelectTrigger class="border-2 border-primary rounded">
+                                            <SelectValue placeholder="Sort Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="type in props.sort_types" :value="type.value" :key="type.value">
+                                                {{ type.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full mx-auto flex items-center justify-center p-2">
+                            <div class="mx-1 my-auto">
+                                <Button class="bg-secondary text-primary border-primary border-2 rounded mx-1 hover:text-secondary" @click="filter">
+                                    Search
+                                </Button>
+                                <Button class="bg-secondary text-primary border-primary border-2 rounded mx-1 hover:text-secondary" @click="clear">
+                                    Clear
+                                </Button>
                             </div>
                         </div>
                     </CollapsibleContent>
                 </Collapsible>
             </div>
         </div>
-        <div class="container mx-auto items-center mt-8">
+        <div v-if="currentView === 'keyword_breakdown'" class="container mx-auto items-center mt-8">
+            <div v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" class="mb-6">
+                <Separator class="text-xl my-6" :label="keyword.keyword.name" />
+                <div class="w-full lg:grid-cols-6 grid">
+                    <div class="hidden lg:block grid"><CardView v-if="keyword.masters.length > 0" :miniature="keyword.masters[0]['standard_miniatures'][0]" /></div>
+                    <div class="lg:col-span-4">
+                        <div class="w-full grid lg:grid-cols-4">
+                            <CardView v-for="character in keyword.characters" :miniature="character.standard_miniatures[0]" v-bind:key="character.slug"></CardView>
+                        </div>
+                    </div>
+                    <div class="hidden lg:block grid"><CardView v-if="keyword.masters.length > 1" :miniature="keyword.masters[1]['standard_miniatures'][0]" /></div>
+                </div>
+            </div>
+        </div>
+        <div v-else class="container mx-auto items-center mt-8">
 <!--            <div class="inline-flex items-center justify-center mt-16 w-full">-->
 <!--                <hr class="bg-primary w-full h-0.5 my-8 border-0 rounded-sm">-->
 <!--                <div class="absolute px-4 -translate-x-1/2 left-1/2">-->
@@ -189,9 +322,7 @@ onMounted(() => {
 <!--            </div>-->
             <div class="grid grid-cols-1 mx-2 md:mx-0 md:grid-cols-4 md:gap-2 snap-y md:snap-none overflow-y-scroll md:overflow-y-auto snap-mandatory h-screen md:h-auto">
                 <div v-for="character in props.characters" class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start">
-                    <Link :href="route('characters.view', {'character': character.slug, 'miniature': character.standard_miniatures[0].id, 'slug': character.standard_miniatures[0].slug})">
-                        <img :src='"/storage/" + character.standard_miniatures[0].front_image' :alt="character.standard_miniatures[0].display_name" class="rounded-lg">
-                    </Link>
+                    <CardView :miniature="character.standard_miniatures[0]" />
                 </div>
             </div>
         </div>

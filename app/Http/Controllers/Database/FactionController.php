@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Database;
 
+use App\Enums\CharacterSortOptionsEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\PageViewOptionsEnum;
+use App\Enums\SortTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
 use App\Models\Characteristic;
@@ -14,15 +17,15 @@ class FactionController extends Controller
 {
     public function view(Request $request, FactionEnum $factionEnum)
     {
-        $query = Character::with('keywords', 'standardMiniatures')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
+        $query = Character::with('keywords', 'standardMiniatures', 'crewUpgrades')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
 
         $keywords = Keyword::whereHas('characters', function ($query) use ($factionEnum) {
             $query->where('faction', $factionEnum->value);
-        })->get();
+        })->orderBy('name', 'ASC')->get();
 
         $characteristics = Characteristic::whereHas('characters', function ($query) use ($factionEnum) {
             $query->where('faction', $factionEnum->value);
-        })->get();
+        })->orderBy('name', 'ASC')->get();
 
         if ($request->get('keyword')) {
             $query->whereHas('keywords', function ($query) use ($request) {
@@ -40,27 +43,53 @@ class FactionController extends Controller
             });
         }
 
-        $characters = $query->get();
+        $sort = match($request->get('sort')) {
+            CharacterSortOptionsEnum::Cost->value => 'cost',
+            CharacterSortOptionsEnum::Health->value => 'health',
+            CharacterSortOptionsEnum::Speed->value => 'speed',
+            CharacterSortOptionsEnum::Defense->value => 'defense',
+            CharacterSortOptionsEnum::Willpower->value => 'willpower',
+            CharacterSortOptionsEnum::Size->value => 'size',
+            CharacterSortOptionsEnum::BaseSize->value => 'base',
+            default => 'display_name',
+        };
 
-        $miniatures = 0;
+        $sortType = match($request->get('sort_type')) {
+            SortTypeEnum::Descending->value => 'DESC',
+            default => 'ASC',
+        };
 
-        $characters->each(function (Character $character) use (&$miniatures) {
-            $miniatures += $character->count;
-        });
+        $characters = $query->orderBy($sort, $sortType)->get();
 
-        $stats = [
-            'characters' => $characters->count(),
-            'miniatures' => $miniatures,
-            'keywords' => $keywords->count(),
-        ];
+        $keywordBreakdown = [];
+        if ($request->get('page_view') === PageViewOptionsEnum::KeywordBreakdown->value) {
+            foreach ($keywords as $keyword) {
+                $keywordBreakdown[] = [
+                    'keyword' => $keyword,
+                    'masters' => $characters->where('station', CharacterStationEnum::Master)->values(),
+                    'characters' => $characters->filter(function (Character $character) use ($keyword) {
+                        return (bool) $character->keywords->filter(function (Keyword $keywordCheck) use ($keyword) {
+                            return $keywordCheck->name === $keyword->name;
+                        })->count();
+                    })
+                ];
+            }
+        }
 
         return inertia('Factions/View', [
             'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo(), 'route' => $factionEnum->value],
             'characters' => $characters,
+            'station_sort' => $characters->groupBy('station')->sortBy(function($item, $key) {
+                return array_search($key, CharacterStationEnum::sortOrder());
+            }),
+            'keyword_breakdown' => $keywordBreakdown,
             'keywords' => $keywords,
             'characteristics' => $characteristics,
-            'statistics' => $stats,
+            'statistics' => $factionEnum->getCharacterStats(),
             'stations' => CharacterStationEnum::toSelectOptions(),
+            'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),
+            'sort_types' => SortTypeEnum::toSelectOptions(),
+            'view_options' => PageViewOptionsEnum::toSelectOptions(),
         ]);
     }
 }

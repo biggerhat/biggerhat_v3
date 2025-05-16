@@ -10,6 +10,14 @@ html {
 
 @layer base {
     :root {
+        --arcanists: 218 100% 37%;
+        --bayou: 46 40% 29%;
+        --explorerssociety: 176 74% 34%;
+        --guild: 0 100% 40%;
+        --neverborn: 289 100% 37%;
+        --outcasts: 56 100% 35%;
+        --resurrectionists: 124 54% 38%;
+        --tenthunders: 30 100% 35%;
         --background:
         0 0% 100%;
         --foreground:
@@ -26,22 +34,6 @@ html {
         0 0% 9%;
         --primary-foreground:
         0 0% 98%;
-        --arcanists:
-            218 100% 37%;
-        --bayou:
-            46 40% 29%;
-        --explorerssociety:
-            176 74% 34%;
-        --guild:
-           0 100% 40%;
-        --neverborn:
-            289 100% 37%;
-        --outcasts:
-            56 100% 35%;
-        --resurrectionists:
-            124 54% 38%;
-        --tenthunders:
-            30  100% 35%;
         --secondary:
         0 0% 96.1%;
         --secondary-foreground:
@@ -87,6 +79,14 @@ html {
     }
 
     .dark {
+        --arcanists: 218 100% 37%;
+        --bayou: 46 40% 29%;
+        --explorerssociety: 176 74% 34%;
+        --guild: 0 100% 40%;
+        --neverborn: 289 100% 37%;
+        --outcasts: 56 100% 35%;
+        --resurrectionists: 124 54% 38%;
+        --tenthunders: 30 100% 35%;
         --background:
         0 0% 3.9%;
         --foreground:
@@ -103,22 +103,6 @@ html {
         0 0% 98%;
         --primary-foreground:
         0 0% 9%;
-        --arcanists:
-        218 100% 37%;
-        --bayou:
-        46 40% 29%;
-        --explorers-society:
-        176 74% 34%;
-        --guild:
-        0 100% 40%;
-        --neverborn:
-        289 100% 37%;
-        --outcasts:
-        56 100% 35%;
-        --resurrectionists:
-        124 54% 38%;
-        --ten-thunders:
-        30  100% 35%;
         --secondary:
         0 0% 14.9%;
         --secondary-foreground:

@@ -15,6 +15,13 @@ const props = defineProps({
         default() {
             return {};
         }
+    },
+    showLink: {
+        type: [Boolean],
+        required: false,
+        default () {
+            return true;
+        }
     }
 });
 </script>
@@ -25,7 +32,7 @@ const props = defineProps({
             <img v-if="!flipped" :src='"/storage/" + miniature.front_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
             <img v-else :src='"/storage/" + miniature.back_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
         </div>
-        <div class="mt-1">
+        <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('characters.view', {'character': props.miniature.character.slug, 'miniature': props.miniature.id, 'slug': props.miniature.slug}))" size="sm" variant="link">
                 View Character
             </Button>

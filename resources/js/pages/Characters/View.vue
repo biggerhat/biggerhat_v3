@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator';
 import {SharedData} from "@/types";
+import CharacterView from "@/components/CharacterView.vue";
 const page = usePage<SharedData>();
 
 const props = defineProps({
@@ -28,84 +29,12 @@ const props = defineProps({
         }
     },
 });
-
-const front_img_url = "/storage/" + props.miniature.front_image;
-const back_img_url = "/storage/" + props.miniature.back_image;
-const combo_img_url = "/storage/" + props.miniature.combination_image;
 </script>
 
 <template>
     <Head :title="character.display_name" />
     <div class="w-full h-full">
-        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mb-8 mx-auto">
-            <div class="grid auto-rows-min gap-2 md:grid-cols-8">
-                <div class="flex flex-col space-y-1.5 md:col-span-4" v-if="props.miniature.combination_image">
-                    <img :src="combo_img_url" :alt="miniature.display_name" class="rounded">
-                </div>
-                <div class="flex flex-col space-y-1.5 md:col-span-2" v-if="!props.miniature.combination_image && props.miniature.front_image">
-                    <img :src="front_img_url" :alt="miniature.name" class="rounded">
-                </div>
-                <div class="flex flex-col space-y-1.5 md:col-span-2" v-if="!props.miniature.combination_image && props.miniature.back_image">
-                    <img :src="back_img_url" :alt="miniature.name" class="rounded">
-                </div>
-                <div class="flex flex-col space-y-1.5 md:col-span-2">
-                    <Card class="w-full rounded-none border-none m-0 p-0">
-                        <CardHeader class="px-4 py-2 border-primary border-l-2 border-b-2">
-                            <CardTitle class="text-lg font-normal">
-                                {{ miniature.display_name }}
-                            </CardTitle>
-                            <CardDescription v-if="miniature.name || miniature.title" class="italic">
-                                {{ character.display_name }}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent class="px-0 border-l border-r py-0">
-                            <Link :href="route('factions.view', character.faction)" :class="'!bg-' + character.faction_color + ' block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary'">
-                                <span class="block m-0 p-0 text-xs">Faction</span>
-                                {{ page['props']['factions'][character['faction']]['name'] }}
-                            </Link>
-                            <div class="border-primary" v-if="character.keywords.length > 0">
-                                <Link :href="route('keywords.view', keyword.slug)" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" v-for="keyword in character.keywords">
-                                    <span class="block m-0 p-0 text-xs">Keyword</span>
-                                    {{ keyword.name }}
-                                </Link>
-                            </div>
-                            <div class="border-primary" v-if="character.crew_upgrades.length > 0">
-                                <Link :href="route('upgrades.view', upgrade.slug)" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" v-for="upgrade in character.crew_upgrades">
-                                    <span class="block m-0 p-0 text-xs">Crew Upgrade</span>
-                                    {{ upgrade.name }}
-                                </Link>
-                            </div>
-                            <div class="border-primary" v-if="character.totem">
-                                <Link :href="route('characters.view', {character: character.totem.slug, miniature: character.totem.standard_miniatures[0].id, slug: character.totem.standard_miniatures[0].slug})" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md">
-                                    <span class="block m-0 p-0 text-xs">Totem</span>
-                                    {{ character.totem.display_name }}
-                                </Link>
-                            </div>
-                            <div class="border-primary" v-if="character.is_totem_for">
-                                <Link :href="route('characters.view', {character: character.is_totem_for.slug, miniature: character.is_totem_for.standard_miniatures[0].id, slug: character.is_totem_for.standard_miniatures[0].slug})" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md">
-                                    <span class="block m-0 p-0 text-xs">Totem For</span>
-                                    {{ character.is_totem_for.display_name }}
-                                </Link>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-                <div class="flex flex-col space-y-1.5 md:col-span-2">
-                    <Card class="w-full border-none m-0 p-0 !rounded-none">
-                        <CardHeader class="px-4 py-2 border-primary border-l-2 border-b-2">
-                            <CardTitle class="text-lg font-normal">
-                                Miniature Sculpts
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="px-0 border-l border-r py-0">
-                            <Link :href="route('characters.view', {character: character.slug, miniature: sculpt.id, slug: sculpt.slug})" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" :class="{'bg-secondary': sculpt.id === props.miniature.id }" v-for="sculpt in character.miniatures">
-                                {{ sculpt.display_name }}
-                            </Link>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </div>
+        <CharacterView :character="props.character" :miniature="props.miniature" />
         <hr class="border-dashed border-t !rounded-none !border-l-0 !border-r-0 !border-b-0 !block" />
 <!--        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mt-8 mb-8 mx-auto">-->
 <!--            <div class="grid auto-rows-min gap-8 md:grid-cols-3">-->

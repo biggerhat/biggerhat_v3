@@ -57,6 +57,12 @@ const columns: ColumnDef<Miniatures>[] = [
             return h('div', {}, row.getValue('back_image') ? h(Check) : h(Ban))
         },
     },{
+        accessorKey: 'version',
+        header: () => h('div', {}, 'Version'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('version'))
+        },
+    },{
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

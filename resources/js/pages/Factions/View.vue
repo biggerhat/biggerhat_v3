@@ -31,7 +31,10 @@ import CharacterCardView from "@/components/CharacterCardView.vue";
 import Separator from "@/components/ui/separator/Separator.vue";
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
 import CharacterView from "@/components/CharacterView.vue";
+<<<<<<< HEAD
 import KeywordBreakdown from "@/components/KeywordBreakdown.vue";
+=======
+>>>>>>> a0885325c1c82f03d2384b068de2204d8f060125
 
 const page = usePage<SharedData>();
 
@@ -304,6 +307,11 @@ onMounted(() => {
         </div>
         <div v-if="currentView === 'keyword_breakdown'" class="container mx-auto items-center mt-8">
             <KeywordBreakdown v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" :keyword="keyword" />
+        </div>
+        <div v-else-if="currentView === 'full'" class="container mx-auto items-center mt-8">
+            <div v-for="character in props.characters" v-bind:key="character.slug">
+                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+            </div>
         </div>
         <div v-else-if="currentView === 'full'" class="container mx-auto items-center mt-8">
             <div v-for="character in props.characters" v-bind:key="character.slug">

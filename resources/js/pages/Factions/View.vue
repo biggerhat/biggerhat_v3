@@ -31,10 +31,7 @@ import CharacterCardView from "@/components/CharacterCardView.vue";
 import Separator from "@/components/ui/separator/Separator.vue";
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
 import CharacterView from "@/components/CharacterView.vue";
-<<<<<<< HEAD
 import KeywordBreakdown from "@/components/KeywordBreakdown.vue";
-=======
->>>>>>> a0885325c1c82f03d2384b068de2204d8f060125
 
 const page = usePage<SharedData>();
 

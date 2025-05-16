@@ -17,7 +17,7 @@ class FactionController extends Controller
 {
     public function view(Request $request, FactionEnum $factionEnum)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'crewUpgrades')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
+        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
 
         $keywords = Keyword::whereHas('characters', function ($query) use ($factionEnum) {
             $query->where('faction', $factionEnum->value);
@@ -43,7 +43,7 @@ class FactionController extends Controller
             });
         }
 
-        $sort = match($request->get('sort')) {
+        $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Cost->value => 'cost',
             CharacterSortOptionsEnum::Health->value => 'health',
             CharacterSortOptionsEnum::Speed->value => 'speed',
@@ -54,7 +54,7 @@ class FactionController extends Controller
             default => 'display_name',
         };
 
-        $sortType = match($request->get('sort_type')) {
+        $sortType = match ($request->get('sort_type')) {
             SortTypeEnum::Descending->value => 'DESC',
             default => 'ASC',
         };
@@ -83,7 +83,7 @@ class FactionController extends Controller
         return inertia('Factions/View', [
             'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo(), 'route' => $factionEnum->value],
             'characters' => $characters,
-            'station_sort' => $characters->groupBy('station')->sortBy(function($item, $key) {
+            'station_sort' => $characters->groupBy('station')->sortBy(function ($item, $key) {
                 return array_search($key, CharacterStationEnum::sortOrder());
             }),
             'keyword_breakdown' => $keywordBreakdown,

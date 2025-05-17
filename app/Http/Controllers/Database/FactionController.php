@@ -83,9 +83,9 @@ class FactionController extends Controller
         return inertia('Factions/View', [
             'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo(), 'route' => $factionEnum->value],
             'characters' => $characters,
-            'station_sort' => $characters->groupBy('station')->sortBy(function ($item, $key) {
-                return array_search($key, CharacterStationEnum::sortOrder());
-            }),
+            //            'station_sort' => $characters->groupBy('station')->sortBy(function ($item, $key) {
+            //                return array_search($key, CharacterStationEnum::sortOrder());
+            //            }),
             'keyword_breakdown' => $keywordBreakdown,
             'keywords' => $keywords,
             'characteristics' => $characteristics,

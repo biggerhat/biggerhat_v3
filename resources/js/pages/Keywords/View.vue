@@ -23,11 +23,11 @@ function isMobileDevice() {
 }
 
 const props = defineProps({
-    faction: {
+    keyword: {
         type: [Object, Array],
-        required: false,
+        required: true,
         default() {
-            return null;
+            return {};
         }
     },
     characters: {
@@ -65,7 +65,7 @@ const props = defineProps({
             return {};
         }
     },
-    keywords: {
+    factions: {
         type: [Object, Array],
         required: false,
         default() {
@@ -104,7 +104,7 @@ const props = defineProps({
 
 const filterPanelOpen = ref(false);
 const filterParams = ref({
-    keyword: null,
+    faction: null,
     station: null,
     characteristic: null,
     page_view: null,
@@ -115,7 +115,7 @@ const filterParams = ref({
 const currentView = ref('images');
 
 const clear = () => {
-    filterParams.value.keyword = null;
+    filterParams.value.faction = null;
     filterParams.value.station = null;
     filterParams.value.characteristic = null;
     filterParams.value.page_view = 'images';
@@ -126,7 +126,7 @@ const clear = () => {
 
 const filter = () => {
     router.get(
-        route(route().current(), route().params.factionEnum),
+        route(route().current(), route().params.keyword),
         cleanObject(filterParams.value),
         {
             only: ['characters', 'keyword_breakdown'],
@@ -135,10 +135,11 @@ const filter = () => {
         }
     )
     currentView.value = filterParams.value.page_view;
+    console.log(filterParams.value.page_view);
 };
 const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
-    filterParams.value.keyword = urlParams.get("keyword");
+    filterParams.value.faction = urlParams.get("faction");
     filterParams.value.station = urlParams.get("station");
     filterParams.value.characteristic = urlParams.get("characteristic");
     filterParams.value.page_view = urlParams.get("page_view") ?? 'images';
@@ -154,19 +155,17 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head :title="faction.name" />
+    <Head :title="keyword.name" />
     <div class="w-full h-full">
         <div class="flex w-full bg-secondary">
             <div class="container mx-auto items-center">
                 <div class="flex justify-between">
                     <div class="py-1 md:py-4 flex w-full">
-                        <div class="w-20 md:w-32"><img :src='props.faction.logo' class="w-16 h-16 md:w-20 md:h-20 mx-auto my-auto" :alt="props.faction.name" /></div>
                         <div class="flex justify-between w-full md:block">
-                            <div class="p-2 font-bold text-xl my-auto">{{ faction.name }}</div>
+                            <div class="p-2 font-bold text-xl my-auto">{{ keyword.name }}</div>
                             <div class="hidden md:block px-2 py-0 md:py-2 my-auto md:flex text-sm">
                                 <div class="md:border-r-2 md:border-r-primary md:pr-2">{{ props.statistics.characters }} Characters</div>
                                 <div class="md:pl-2 md:border-r-2 md:border-r-primary md:pr-2">{{ props.statistics.miniatures }} Miniatures</div>
-                                <div class="md:pl-2">{{ props.statistics.keywords }} Keywords</div>
                             </div>
                         </div>
                     </div>
@@ -188,39 +187,39 @@ onMounted(() => {
                                     Filter by...
                                 </div>
                                 <div class="mx-0 md:mx-1 my-1 min-w-40">
-                                    <Select v-model="filterParams.keyword">
+                                    <Select v-model="filterParams.faction">
                                         <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Keyword" />
+                                            <SelectValue placeholder="Faction" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug">
-                                                {{ keyword.name }}
+                                            <SelectItem v-for="faction in props.factions" :value="faction.value" :key="faction.value">
+                                                {{ faction.name }}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div><div class="mx-0 md:mx-1 my-1 min-w-40">
-                                    <Select v-model="filterParams.station">
-                                        <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Station" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem v-for="station in props.stations" :value="station.value" :key="station.value">
-                                                {{ station.name }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div><div class="mx-0 md:mx-1 my-1 min-w-40">
-                                    <Select v-model="filterParams.characteristic">
-                                        <SelectTrigger class="border-2 border-primary rounded">
-                                            <SelectValue placeholder="Characteristic" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem v-for="characteristic in props.characteristics" :value="characteristic.slug" :key="characteristic.slug">
-                                                {{ characteristic.name }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                <Select v-model="filterParams.station">
+                                    <SelectTrigger class="border-2 border-primary rounded">
+                                        <SelectValue placeholder="Station" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="station in props.stations" :value="station.value" :key="station.value">
+                                            {{ station.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div><div class="mx-0 md:mx-1 my-1 min-w-40">
+                                <Select v-model="filterParams.characteristic">
+                                    <SelectTrigger class="border-2 border-primary rounded">
+                                        <SelectValue placeholder="Characteristic" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="characteristic in props.characteristics" :value="characteristic.slug" :key="characteristic.slug">
+                                            {{ characteristic.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             </div>
                         </div>
                         <div class="w-full mx-auto flex items-center justify-center p-2 gap-1 md:gap-0">
@@ -286,7 +285,7 @@ onMounted(() => {
             </div>
         </div>
         <div v-if="currentView === 'keyword_breakdown'" class="container mx-auto items-center">
-            <KeywordBreakdown v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" :keyword="keyword" />
+            <KeywordBreakdown :keyword="props.keyword_breakdown" />
         </div>
         <div v-else-if="currentView === 'table'" class="container mx-auto items-center overflow-auto">
             <CharacterTable :characters="props.characters" />

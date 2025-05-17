@@ -35,7 +35,6 @@ function toggleDialog() {
     if (!commandSearch.value.length) {
         axios.get(route('command'))
             .then(function (response) {
-                console.log(response.data);
                 commandSearch.value = response.data;
             });
     }

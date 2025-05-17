@@ -50,7 +50,7 @@ const props = defineProps({
                     <CardContent class="px-0 border-l border-r py-0">
                         <Link :href="route('factions.view', character.faction)" :class="`bg-${character.faction_color}`" class="block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
                             <span class="block m-0 p-0 text-xs">Faction</span>
-                            {{ page['props']['factions'][character['faction']]['name'] }}
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
                         </Link>
                         <div class="border-primary" v-if="character.keywords.length > 0">
                             <Link :href="route('keywords.view', keyword.slug)" class="block p-2 m-0 w-full h-full border-b hover:bg-secondary text-md" v-for="keyword in character.keywords">

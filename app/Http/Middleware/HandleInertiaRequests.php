@@ -49,7 +49,7 @@ class HandleInertiaRequests extends Middleware
                 'messageTitle' => fn () => $request->session()->get('messageTitle'),
                 'messageType' => fn () => $request->session()->get('messageType'),
             ],
-            'factions' => FactionEnum::buildDetails(),
+            'faction_info' => FactionEnum::buildDetails(),
             'auth' => [
                 'user' => $request->user() ?? null,
                 'is_super_admin' => $request->user()?->hasRole('super_admin'),

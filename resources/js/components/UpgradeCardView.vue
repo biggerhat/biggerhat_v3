@@ -8,12 +8,23 @@ const flip = () => {
     flipped.value = !flipped.value;
 }
 
+function isMobileDevice() {
+    return /Mobi|Android/i.test(navigator.userAgent);
+}
+
 const props = defineProps({
     upgrade: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
+        }
+    },
+    showLink: {
+        type: [Boolean],
+        required: false,
+        default () {
+            return true;
         }
     }
 });
@@ -25,7 +36,7 @@ const props = defineProps({
             <img v-if="!flipped" :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
             <img v-else :src='"/storage/" + upgrade.back_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
         </div>
-        <div class="mt-1">
+        <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('upgrades.view', {'upgrade': props.upgrade.slug}))" size="sm" variant="link">
                 View Upgrade
             </Button>
@@ -35,7 +46,7 @@ const props = defineProps({
         <div class="mx-1 w-auto h-auto">
             <img :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
         </div>
-        <div class="mt-1">
+        <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('upgrades.view', {'upgrade': props.upgrade.slug}))" size="sm" variant="link">
                 View Upgrade
             </Button>

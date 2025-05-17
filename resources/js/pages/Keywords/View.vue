@@ -135,9 +135,9 @@ const filter = () => {
         }
     )
     currentView.value = filterParams.value.page_view;
-    console.log(filterParams.value.page_view);
 };
 const urlParams = new URLSearchParams(window.location.search);
+
 onMounted(() => {
     filterParams.value.faction = urlParams.get("faction");
     filterParams.value.station = urlParams.get("station");
@@ -149,6 +149,8 @@ onMounted(() => {
 
     if (!isMobileDevice()) {
         filterPanelOpen.value = true;
+    } else {
+        let el = document.getElementById('page-banner');
     }
 });
 
@@ -161,7 +163,7 @@ onMounted(() => {
             <div class="container mx-auto items-center">
                 <div class="flex justify-between">
                     <div class="py-1 md:py-4 flex w-full">
-                        <div class="flex justify-between w-full md:block">
+                        <div class="flex justify-between w-full md:block" id="page-banner">
                             <div class="p-2 font-bold text-xl my-auto">{{ keyword.name }}</div>
                             <div class="hidden md:block px-2 py-0 md:py-2 my-auto md:flex text-sm">
                                 <div class="md:border-r-2 md:border-r-primary md:pr-2">{{ props.statistics.characters }} Characters</div>

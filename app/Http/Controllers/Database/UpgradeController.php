@@ -10,8 +10,6 @@ class UpgradeController extends Controller
 {
     public function view(Request $request, Upgrade $upgrade)
     {
-        dd($upgrade->name);
-
         return inertia('Upgrades/View', [
             'upgrade' => $upgrade,
         ]);

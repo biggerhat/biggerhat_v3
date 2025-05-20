@@ -5,6 +5,8 @@ use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
 use App\Http\Controllers\Database\UpgradeController;
+use App\Models\Character;
+use App\Models\Miniature;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -17,6 +19,18 @@ Route::get('/command', CommandController::class)->name('command');
 Route::prefix('characters')->name('characters.')->group(function () {
     Route::get('/{character}/{miniature:id}/{slug}', [CharacterController::class, 'view'])->name('view');
     Route::get('/random', [CharacterController::class, 'random'])->name('random');
+    Route::get('/{character}', function (Character $character) {
+        $character->loadMissing('standardMiniatures');
+
+        return \Route::dispatch(\Request::create(
+            route('characters.view', ['character' => $character, 'miniature' => $character['standardMiniatures'][0]['id'], 'slug' => $character['standardMiniatures'][0]['slug']])
+        ));
+    });
+    Route::get('/{character}/{miniature:id}/', function (Character $character, Miniature $miniature) {
+        return \Route::dispatch(\Request::create(
+            route('characters.view', ['character' => $character, 'miniature' => $miniature->id, 'slug' => $miniature->slug])
+        ));
+    });
 });
 
 Route::prefix('keywords')->name('keywords.')->group(function () {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\CharacterAPIController;
+use App\Http\Controllers\API\KeywordAPIController;
 use App\Http\Controllers\API\MarkerAPIController;
 use App\Http\Controllers\API\SchemeAPIController;
 use App\Http\Controllers\API\StrategyAPIController;
@@ -16,4 +17,8 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/upgrades', [UpgradeAPIController::class, 'view']);
     Route::get('/schemes', [SchemeAPIController::class, 'view']);
     Route::get('/strategies', [StrategyAPIController::class, 'view']);
+
+    Route::prefix('v1')->name('v1.')->group(function () {
+        Route::get('/keywords', [KeywordAPIController::class, 'view'])->name('view');
+    });
 });

@@ -7,7 +7,7 @@ import { usePage } from '@inertiajs/vue3';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign, Dice6 } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign, Dice6, KeyRound, Radius, Puzzle, Bot } from 'lucide-vue-next';
 import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
 import ExplorersLogo from "@/components/ExplorersLogo.vue";
@@ -77,6 +77,34 @@ const mainNavItems: NavItem[] = [
                 href: route('factions.view', 'ten_thunders'),
                 icon: TenThundersLogo,
                 icon_class: 'w-8 h-8',
+            }
+        ]
+    }, {
+        title: 'References',
+        collapsible: true,
+        items: [
+            {
+                title: 'Keywords',
+                href: route('keywords.index'),
+                icon: KeyRound,
+            }, {
+                title: 'Markers',
+                href: route('markers.index'),
+                icon: Radius,
+            }, {
+                title: 'Tokens',
+                href: route('tokens.index'),
+                icon: Puzzle,
+            }
+        ]
+    }, {
+        title: 'Tools',
+        collapsible: true,
+        items: [
+            {
+                title: 'Hat Gamin Discord Bot',
+                href: route('tools.hat_gamin'),
+                icon: Bot,
             }
         ]
     }

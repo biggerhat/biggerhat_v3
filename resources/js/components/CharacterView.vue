@@ -48,7 +48,35 @@ const props = defineProps({
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="px-0 border-l border-r py-0">
-                        <Link :href="route('factions.view', character.faction)" :class="`bg-${character.faction_color}`" class="block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                        <Link v-if="character.faction === 'bayou'" :href="route('factions.view', character.faction)" class="bg-bayou block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'arcanists'" :href="route('factions.view', character.faction)" class="bg-arcanists block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'explorers_society'" :href="route('factions.view', character.faction)" class="bg-explorerssociety block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'guild'" :href="route('factions.view', character.faction)" class="bg-guild block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'neverborn'" :href="route('factions.view', character.faction)" class="bg-neverborn block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'outcasts'" :href="route('factions.view', character.faction)" class="bg-outcasts block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'resurrectionists'" :href="route('factions.view', character.faction)" class="bg-resurrectionists block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
+                            <span class="block m-0 p-0 text-xs">Faction</span>
+                            {{ page['props']['faction_info'][character['faction']]['name'] }}
+                        </Link>
+                        <Link v-else-if="character.faction === 'ten_thunders'" :href="route('factions.view', character.faction)" class="bg-tenthunders block p-2 m-0 w-full h-full text-md border-b hover:bg-secondary">
                             <span class="block m-0 p-0 text-xs">Faction</span>
                             {{ page['props']['faction_info'][character['faction']]['name'] }}
                         </Link>

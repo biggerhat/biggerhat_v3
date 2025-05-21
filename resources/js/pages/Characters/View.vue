@@ -36,13 +36,13 @@ const props = defineProps({
     <div class="w-full h-full">
         <CharacterView :character="props.character" :miniature="props.miniature" />
         <hr class="border-dashed border-t !rounded-none !border-l-0 !border-r-0 !border-b-0 !block" />
-<!--        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mt-8 mb-8 mx-auto">-->
-<!--            <div class="grid auto-rows-min gap-8 md:grid-cols-3">-->
-<!--                <div>TOOLBOX</div>-->
-<!--                <div>REFERENCES</div>-->
-<!--                <div>IMAGES AND DATA</div>-->
-<!--            </div>-->
-<!--        </div>-->
+        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mt-8 mb-8 mx-auto">
+            <div class="grid auto-rows-min gap-8 md:grid-cols-3">
+                <div>TOOLBOX</div>
+                <div>REFERENCES</div>
+                <div>IMAGES AND DATA</div>
+            </div>
+        </div>
 
 
     </div>

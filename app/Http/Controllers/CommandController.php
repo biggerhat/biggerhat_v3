@@ -13,28 +13,32 @@ class CommandController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $characters = Character::with('miniatures')->get()->filter(function (Character $character) {
+        $characters = Character::with('miniatures')->orderBy('display_name', 'ASC')->get()->filter(function (Character $character) {
             return $character->miniatures->count() > 0;
         });
+
         $characters = $characters->map(function (Character $character) {
             return [
                 'name' => $character->display_name,
                 'route' => route('characters.view', ['character' => $character->slug, 'miniature' => $character->miniatures->first()->id, 'slug' => $character->miniatures->first()->slug]),
             ];
         });
-        $upgrades = Upgrade::all()->map(function (Upgrade $upgrade) {
+
+        $upgrades = Upgrade::orderBy('name', 'ASC')->get()->map(function (Upgrade $upgrade) {
             return [
                 'name' => $upgrade->name,
                 'route' => route('upgrades.view', ['upgrade' => $upgrade->slug]),
             ];
         });
+
         $factions = collect(FactionEnum::cases())->map(function (FactionEnum $faction) {
             return [
                 'name' => $faction->label(),
                 'route' => route('factions.view', ['factionEnum' => $faction->value]),
             ];
         });
-        $keywords = Keyword::all()->map(function (Keyword $keyword) {
+
+        $keywords = Keyword::orderBy('name', 'ASC')->get()->map(function (Keyword $keyword) {
             return [
                 'name' => $keyword->name,
                 'route' => route('keywords.view', ['keyword' => $keyword->slug]),

@@ -4,7 +4,10 @@ use App\Http\Controllers\CommandController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
+use App\Http\Controllers\Database\MarkerController;
+use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\UpgradeController;
+use App\Http\Controllers\HatGaminController;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Support\Facades\Route;
@@ -34,7 +37,16 @@ Route::prefix('characters')->name('characters.')->group(function () {
 });
 
 Route::prefix('keywords')->name('keywords.')->group(function () {
+    Route::get('/', [KeywordController::class, 'index'])->name('index');
     Route::get('/{keyword}', [KeywordController::class, 'view'])->name('view');
+});
+
+Route::prefix('markers')->name('markers.')->group(function () {
+    Route::get('/', [MarkerController::class, 'index'])->name('index');
+});
+
+Route::prefix('tokens')->name('tokens.')->group(function () {
+    Route::get('/', [TokenController::class, 'index'])->name('index');
 });
 
 Route::prefix('factions')->name('factions.')->group(function () {
@@ -43,6 +55,10 @@ Route::prefix('factions')->name('factions.')->group(function () {
 
 Route::prefix('upgrades')->name('upgrades.')->group(function () {
     Route::get('/{upgrade}', [UpgradeController::class, 'view'])->name('view');
+});
+
+Route::prefix('tools')->name('tools.')->group(function () {
+    Route::get('/hat_gamin', HatGaminController::class)->name('hat_gamin');
 });
 
 require __DIR__.'/api.php';

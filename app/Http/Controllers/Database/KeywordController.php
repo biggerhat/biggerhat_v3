@@ -8,6 +8,7 @@ use App\Enums\FactionEnum;
 use App\Enums\PageViewOptionsEnum;
 use App\Enums\SortTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\KeywordResource;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
@@ -15,6 +16,15 @@ use Illuminate\Http\Request;
 
 class KeywordController extends Controller
 {
+    public function index(Request $request)
+    {
+        $keywords = Keyword::orderBy('name', 'ASC')->with(['masters', 'characters'])->get();
+
+        return inertia('Keywords/Index', [
+            'keywords' => KeywordResource::collection($keywords)->toArray($request),
+        ]);
+    }
+
     public function view(Request $request, Keyword $keyword)
     {
         $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures')

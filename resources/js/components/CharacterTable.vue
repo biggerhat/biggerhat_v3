@@ -29,7 +29,6 @@ const columns: ColumnDef<Miniatures>[] = [
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => {
             const character = row.original;
-            const href = route('characters.view', {character: character.slug, miniature: character.miniatures[0].id, slug: character.miniatures[0].slug });
             return h('div', { class: 'w-auto' }, h(CharacterTableLink, {character: character}))
         },
     },{
@@ -92,14 +91,6 @@ const table = useVueTable({
 
 <template>
     <div class="mx-auto">
-<!--        <div class="flex items-center justify-between py-4">-->
-<!--            <Input class="max-w-sm" placeholder="Filter Miniatures"-->
-<!--                   :model-value="table.getColumn('display_name')?.getFilterValue() as string"-->
-<!--                   @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />-->
-<!--            <Button @click="router.get(route('admin.miniatures.create'))">-->
-<!--                Create New Miniature-->
-<!--            </Button>-->
-<!--        </div>-->
         <div class="border rounded-md">
             <Table>
                 <TableHeader>

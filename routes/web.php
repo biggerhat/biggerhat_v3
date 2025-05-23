@@ -8,6 +8,7 @@ use App\Http\Controllers\Database\MarkerController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
+use App\Http\Controllers\PDFController;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +60,10 @@ Route::prefix('upgrades')->name('upgrades.')->group(function () {
 
 Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/hat_gamin', HatGaminController::class)->name('hat_gamin');
+    Route::prefix('pdf')->name('pdf.')->group(function () {
+        Route::get('/', [PDFController::class, 'index'])->name('index');
+        Route::get('/download', [PDFController::class, 'download'])->name('download');
+    });
 });
 
 require __DIR__.'/api.php';

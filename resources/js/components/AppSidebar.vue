@@ -3,11 +3,18 @@ import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavSuperAdmin from "@/components/ui/NavSuperAdmin.vue";
 import NavUser from '@/components/NavUser.vue';
-import { usePage } from '@inertiajs/vue3';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import {Link, usePage} from '@inertiajs/vue3';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem
+} from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
-import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, TextSearch, CircleDollarSign, Dice6, KeyRound, Radius, Puzzle, Bot } from 'lucide-vue-next';
+import {BookOpen, Bot, CircleDollarSign, Dice6, KeyRound, Puzzle, Radius, TextSearch, FileText} from 'lucide-vue-next';
 import ArcanistLogo from "@/components/ArcanistLogo.vue";
 import AppLogo from './AppLogo.vue';
 import ExplorersLogo from "@/components/ExplorersLogo.vue";
@@ -17,6 +24,7 @@ import NeverbornLogo from "@/components/NeverbornLogo.vue";
 import OutcastsLogo from "@/components/OutcastsLogo.vue";
 import ResurrectionistsLogo from "@/components/ResurrectionistsLogo.vue";
 import TenThundersLogo from "@/components/TenThundersLogo.vue";
+import Button from "@/components/ui/button/Button.vue";
 
 const page = usePage<SharedData>();
 
@@ -97,17 +105,22 @@ const mainNavItems: NavItem[] = [
                 icon: Puzzle,
             }
         ]
-    }, {
-        title: 'Tools',
-        collapsible: true,
-        items: [
-            {
-                title: 'Hat Gamin Discord Bot',
-                href: route('tools.hat_gamin'),
-                icon: Bot,
-            }
-        ]
-    }
+    },
+    // {
+    //     title: 'Tools',
+    //     collapsible: true,
+    //     items: [
+    //         {
+    //             title: 'Hat Gamin Discord Bot',
+    //             href: route('tools.hat_gamin'),
+    //             icon: Bot,
+    //         }, {
+    //             title: 'PDF Generator',
+    //             href: route('tools.pdf.index'),
+    //             icon: FileText,
+    //         }
+    //     ]
+    // }
 ];
 
 const superAdminNavItems: NavItem[] = [
@@ -167,6 +180,10 @@ const superAdminNavItems: NavItem[] = [
         ]
     }
 ];
+
+const download = () => {
+    window.open(route('tools.pdf_generate'), '_blank').focus();
+};
 
 const footerNavItems: NavItem[] = [
     {

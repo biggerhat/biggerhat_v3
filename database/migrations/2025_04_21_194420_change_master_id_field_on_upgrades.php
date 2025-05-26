@@ -13,16 +13,9 @@ return new class extends Migration {
             $table->dropForeignSafe('upgrades_master_id_foreign');
         });
 
-        try {
-            Schema::table('upgrades', function (Blueprint $table) {
-                $table->dropColumn(['master_id']);
-            });
-        } catch (Throwable $e) {
-        }
-
         Schema::table('upgrades', function (Blueprint $table) {
             $table->after('description', function ($table) {
-                $table->foreignId('master_id')->nullable()->constrained('characters')->cascadeOnDelete();
+                $table->foreignId('master_id')->nullable()->change()->constrained('characters')->cascadeOnDelete();
             });
         });
     }

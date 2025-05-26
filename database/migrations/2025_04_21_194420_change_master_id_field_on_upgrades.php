@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::table('upgrades', function (Blueprint $table) {
             $table->dropForeignSafe('upgrades_master_id_foreign');
+            $table->dropColumn('master_id');
         });
-        Schema::dropColumns('upgrades', 'master_id');
 
         Schema::table('upgrades', function (Blueprint $table) {
             $table->after('description', function ($table) {

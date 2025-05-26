@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blueprint::macro('dropForeignSafe', function ($args) {
-            if (app()->runningUnitTests() && env('DB_CONNECTION') === 'sqlite') {
+            if (app()->runningUnitTests() && in_array(env('DB_CONNECTION'), ['sqlite', 'memory'])) {
                 // Do nothing
                 /** @see Blueprint::ensureCommandsAreValid */
             } else {

@@ -15,7 +15,7 @@ return new class extends Migration {
 
         try {
             Schema::table('upgrades', function (Blueprint $table) {
-                $table->dropColumn('master_id');
+                $table->dropColumn(['master_id']);
             });
         } catch (Throwable $e) {
         }

@@ -105,22 +105,22 @@ const mainNavItems: NavItem[] = [
                 icon: Puzzle,
             }
         ]
-    },
-    // {
-    //     title: 'Tools',
-    //     collapsible: true,
-    //     items: [
-    //         {
-    //             title: 'Hat Gamin Discord Bot',
-    //             href: route('tools.hat_gamin'),
-    //             icon: Bot,
-    //         }, {
-    //             title: 'PDF Generator',
-    //             href: route('tools.pdf.index'),
-    //             icon: FileText,
-    //         }
-    //     ]
-    // }
+    }, {
+        title: 'Tools',
+        collapsible: true,
+        items: [
+            // {
+            //     title: 'Hat Gamin Discord Bot',
+            //     href: route('tools.hat_gamin'),
+            //     icon: Bot,
+            // },
+            {
+                title: 'PDF Generator',
+                href: route('tools.pdf.index'),
+                icon: FileText,
+            }
+        ]
+    }
 ];
 
 const superAdminNavItems: NavItem[] = [

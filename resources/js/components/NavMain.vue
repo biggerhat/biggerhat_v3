@@ -7,7 +7,7 @@ import CollapsibleTrigger from "@/components/ui/collapsible/CollapsibleTrigger.v
 import CollapsibleContent from "@/components/ui/collapsible/CollapsibleContent.vue";
 import { ChevronDown } from "lucide-vue-next";
 import { useSidebar } from "@/components/ui/sidebar";
-let { toggleSidebar, open } = useSidebar();
+const { toggleSidebar, open } = useSidebar();
 
 defineProps<{
     items: NavItem[];
@@ -27,7 +27,7 @@ const page = usePage<SharedData>();
 </script>
 
 <template>
-    <div v-for="item in items">
+    <div v-for="(item, idx) in items" :key="`navItems-${idx}`">
         <Collapsible v-if="item.collapsible" defaultOpen class="group/collapsible">
             <SidebarGroup class="px-2 py-0">
                 <SidebarGroupLabel asChild>

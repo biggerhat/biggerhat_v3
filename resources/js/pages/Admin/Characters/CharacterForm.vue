@@ -297,7 +297,7 @@ onMounted(() => {
                                     </Select>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <div v-for="upgrade in formInfo.crew_upgrades">{{ upgrade.name }}</div>
+                                    <div v-for="upgrade in formInfo.crew_upgrades" :key="`upgrades-${upgrade.id}`">{{ upgrade.name }}</div>
                                     <CustomMultiselect v-model="formInfo.crew_upgrades" comboTitle="Select Crew Upgrades" :choiceOptions="props.crew_upgrades" />
                                 </div>
                             </div>

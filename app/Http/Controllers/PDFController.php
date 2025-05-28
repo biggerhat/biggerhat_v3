@@ -50,7 +50,7 @@ class PDFController extends Controller
 
         $pdf = Pdf::loadView('PDF.CharacterImageBlank', $data);
 
-        $fileName = \Str::uuid(16);
+        $fileName = \Str::uuid();
         return $pdf->stream("{$fileName}.pdf");
     }
 }

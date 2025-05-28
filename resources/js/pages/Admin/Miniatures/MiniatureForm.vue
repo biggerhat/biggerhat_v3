@@ -58,7 +58,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    let formData = new FormData();
+    const formData = new FormData();
     router.post(props.miniature ? route("admin.miniatures.update", props.miniature.id) : route("admin.miniatures.store"),
         formInfo.value
     );

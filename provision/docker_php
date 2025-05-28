@@ -1,0 +1,30 @@
+FROM php:8.4-fpm
+
+RUN apt-get update
+RUN apt-get install -y \
+        wget zlib1g-dev gnupg libpng-dev libzip-dev nodejs git screen \
+        libxml2-dev libpq-dev imagemagick libmagickwand-dev openssh-client --no-install-recommends
+
+RUN pecl install -o -f redis &&  rm -rf /tmp/pear
+# RUN pecl install -o -f redis imagick@master &&  rm -rf /tmp/pear
+RUN pecl install xdebug && docker-php-ext-enable xdebug
+
+RUN docker-php-ext-configure calendar
+
+RUN docker-php-ext-install -j $(nproc) pdo zip pcntl posix bcmath opcache soap intl calendar pdo_mysql gd
+
+RUN docker-php-ext-enable sodium redis pdo_mysql gd
+# RUN docker-php-ext-enable sodium redis imagick pdo_mysql
+
+RUN echo "memory_limit=1G" >> /usr/local/etc/php/conf.d/docker-php-memory.ini
+
+RUN echo "xdebug.mode=off" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+RUN echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+RUN php composer-setup.php
+RUN php -r "unlink('composer-setup.php');"
+RUN mv composer.phar /bin/composer
+
+# Define working directory.
+WORKDIR /var/www/app

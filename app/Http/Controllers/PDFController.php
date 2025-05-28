@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
+use App\Http\Resources\CharacterPDFResource;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -34,23 +35,21 @@ class PDFController extends Controller
         return inertia('PDF/Index', [
             'factions' => FactionEnum::buildDetails(),
             'keywords' => Keyword::orderBy('name', 'ASC')->get(),
-            'characters' => fn () => $characters,
+            'characters' => fn () => CharacterPDFResource::collection($characters)->toArray($request),
         ]);
     }
 
     public function download(Request $request)
     {
-        $validated = $request->validate([
-            'miniatures' => ['required', 'array'],
-            'miniatures.*' => ['required', 'integer'],
-        ]);
+        $miniatureArray = base64_decode($request->get('miniatures'));
+        $miniatureArray = explode(',', $miniatureArray);
 
-        $miniatures = Miniature::whereIn('id', $validated['miniatures'])->get();
+        $miniatures = Miniature::whereIn('id', $miniatureArray)->get();
         $data = [
             'images' => [],
         ];
 
-        foreach ($validated['miniatures'] as $miniatureId) {
+        foreach ($miniatureArray as $miniatureId) {
             $miniature = $miniatures->where('id', $miniatureId)->first();
             $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
             $data['images'][] = [

@@ -34,7 +34,7 @@ const props = defineProps({
         </div>
         <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('characters.view', {'character': props.miniature.character.slug, 'miniature': props.miniature.id, 'slug': props.miniature.slug}))" size="sm" variant="link">
-                View Character
+                View Character Page
             </Button>
         </div>
     </div>

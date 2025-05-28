@@ -27,8 +27,10 @@ enum FactionEnum: string implements HasDefaultEnumMethods
         $details = [];
         foreach (self::cases() as $case) {
             $details[$case->value] = [
+                'slug' => $case->value,
                 'name' => $case->label(),
                 'color' => $case->color(),
+                'logo' => $case->logo(),
             ];
         }
 

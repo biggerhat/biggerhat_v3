@@ -24,6 +24,18 @@ declare module 'vite/client' {
 
 const appName = import.meta.env.VITE_APP_NAME || 'BiggerHat';
 
+// TODO: Make an enum
+const factionBackground = (factionName: string): string => {
+    switch (factionName.toLowerCase()){
+        case 'explorers_society':
+            return 'bg-explorerssociety'
+        case 'ten_thunders':
+            return 'bg-tenthunders'
+        default:
+            return `bg-${factionName}`;
+    }
+}
+
 createInertiaApp({
     title: (title) => {
         if (!title) {
@@ -44,6 +56,11 @@ createInertiaApp({
             .use(ZiggyVue)
             .component("Link", Link)
             .component("Head", Head)
+            .mixin({
+                methods: {
+                    factionBackground: factionBackground,
+                }
+            })
             .mount(el);
     },
     progress: {

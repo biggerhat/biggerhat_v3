@@ -150,7 +150,7 @@ onMounted(() => {
     if (!isMobileDevice()) {
         filterPanelOpen.value = true;
     } else {
-        let el = document.getElementById('page-banner');
+        const el = document.getElementById('page-banner');
     }
 });
 
@@ -299,7 +299,10 @@ onMounted(() => {
         </div>
         <div v-else class="container mx-auto items-center">
             <div class="grid grid-cols-1 mx-2 md:mx-0 md:grid-cols-4 md:gap-2 snap-y md:snap-none overflow-y-scroll md:overflow-y-auto snap-mandatory h-screen md:h-auto">
-                <div v-for="character in props.characters" class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start">
+                <div v-for="character in props.characters"
+                     :key="`character-${character.id}`"
+                     class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start"
+                >
                     <CharacterCardView :miniature="character.standard_miniatures[0]" />
                 </div>
             </div>

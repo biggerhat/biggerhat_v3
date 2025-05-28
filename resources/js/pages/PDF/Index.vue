@@ -3,7 +3,8 @@ import { computed, ref, watch, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import {Input} from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MinusCircle, CircleX, SquarePlus, SquareMinus } from "lucide-vue-next";
+import { cn } from '@/lib/utils'
+import { PlusCircle, MinusCircle, CircleX, SquarePlus, SquareMinus, Check, Search, ChevronsUpDown } from "lucide-vue-next";
 import {
     Drawer,
     DrawerClose,
@@ -17,6 +18,7 @@ import {
 import CharacterCardView from "@/components/CharacterCardView.vue";
 import { cleanObject } from '@/composables/CleanObject';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
 
 const props = defineProps({
     characters: {
@@ -47,6 +49,13 @@ const filterText = ref('');
 const filterParams = ref({
   keyword: null,
   faction: null,
+})
+
+const selectedKeyword = ref(null);
+
+watch(selectedKeyword, (keyword) => {
+  filterParams.value.keyword = keyword?.slug;
+  filter();
 })
 
 const results = computed(() => {
@@ -137,17 +146,55 @@ onMounted(() => {
                             <CircleX class="text-destructive my-auto ml-2" v-if="filterText.length > 0" @click="filterText = ''" />
                           </div>
                           <div class="flex w-full my-auto">
-                            <Select v-model="filterParams.keyword">
-                              <SelectTrigger class="border-2 border-secondary rounded max-w-auto">
-                                <SelectValue placeholder="Keyword" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug" :onSelect="filter()">
-                                  {{ keyword.name }}
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <CircleX class="text-destructive my-auto ml-2" v-if="filterParams.keyword" @click="filterParams.keyword = null" />
+                            <Combobox v-model="selectedKeyword" by="label">
+                              <ComboboxAnchor as-child>
+                                <ComboboxTrigger as-child>
+                                  <Button variant="outline" class="justify-between">
+                                    {{ selectedKeyword?.name ?? 'Select Keyword' }}
+                                    <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </ComboboxTrigger>
+                              </ComboboxAnchor>
+
+                              <ComboboxList>
+                                <div class="relative w-full items-center">
+                                  <ComboboxInput class="pl-9 focus-visible:ring-0 border-0 border-b rounded-none h-10" placeholder="Select framework..." />
+                                  <span class="absolute start-0 inset-y-0 flex items-center justify-center px-3">
+                                    <Search class="size-4 text-muted-foreground" />
+                                  </span>
+                                </div>
+
+                                <ComboboxEmpty>
+                                  No framework found.
+                                </ComboboxEmpty>
+
+                                <ComboboxGroup>
+                                  <ComboboxItem
+                                      v-for="keyword in props.keywords"
+                                      :key="keyword.slug"
+                                      :value="keyword"
+                                  >
+                                    {{ keyword.name }}
+
+                                    <Check v-if="keyword.slug === selectedKeyword?.slug" :class="cn('ml-auto h-4 w-4')" />
+                                  </ComboboxItem>
+                                </ComboboxGroup>
+                              </ComboboxList>
+                            </Combobox>
+<!--                            <select v-model="filterParams.keyword" @change="filter()" class="flex h-9 w-full items-center justify-between whitespace-nowrap bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:truncate text-start border-2 border-secondary rounded max-w-auto">-->
+<!--                              <option v-for="keyword in props.keywords" :value="keyword.slug" v-bind:key="keyword.slug" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">{{ keyword.name }}</option>-->
+<!--                            </select>-->
+<!--                            <Select v-model="filterParams.keyword">-->
+<!--                              <SelectTrigger class="border-2 border-secondary rounded max-w-auto">-->
+<!--                                <SelectValue placeholder="Keyword" />-->
+<!--                              </SelectTrigger>-->
+<!--                              <SelectContent>-->
+<!--                                <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug" :onSelect="filter()">-->
+<!--                                  {{ keyword.name }}-->
+<!--                                </SelectItem>-->
+<!--                              </SelectContent>-->
+<!--                            </Select>-->
+                            <CircleX class="text-destructive my-auto ml-2" v-if="selectedKeyword" @click="selectedKeyword = null" />
                           </div>
                         </div>
                         <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="character in results" v-bind:key="character.slug">

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\Miniature;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -13,16 +15,27 @@ class PDFController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Character::with('standardMiniatures');
+        $query = Character::with(['standardMiniatures', 'keywords']);
 
         if ($request->get('faction')) {
             $query->where('faction', $request->faction);
         }
 
+        if ($request->get('keyword')) {
+            $query->whereHas('keywords', function ($subQuery) use ($request) {
+                $subQuery->where('slug', $request->get('keyword'));
+            });
+        }
+
         $characters = $query->whereHas('standardMiniatures')->orderBy('name', 'ASC')->get();
+
+        $characters = $characters->groupBy('station')->sortBy(function ($item, $key) {
+            return array_search($key, CharacterStationEnum::sortOrder());
+        })->flatten();
 
         return inertia('PDF/Index', [
             'factions' => FactionEnum::buildDetails(),
+            'keywords' => Keyword::orderBy('name', 'ASC')->get(),
             'characters' => fn () => $characters,
         ]);
     }
@@ -31,7 +44,7 @@ class PDFController extends Controller
     {
         $validated = $request->validate([
             'miniatures' => ['required', 'array'],
-            'miniatures.*' => ['required', 'integer']
+            'miniatures.*' => ['required', 'integer'],
         ]);
 
         $miniatures = Miniature::whereIn('id', $validated['miniatures'])->get();
@@ -44,13 +57,14 @@ class PDFController extends Controller
             $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
             $data['images'][] = [
                 'url' => $imageData,
-                'name' => $miniature->display_name
+                'name' => $miniature->display_name,
             ];
         }
 
         $pdf = Pdf::loadView('PDF.CharacterImageBlank', $data);
 
         $fileName = \Str::uuid();
+
         return $pdf->stream("{$fileName}.pdf");
     }
 }

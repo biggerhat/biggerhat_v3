@@ -149,6 +149,13 @@ class CharacterAdminController extends Controller
         }
         $validated['slug'] = Str::slug($validated['display_name']);
 
+        if ($validated['station']) {
+            $stationEnum = CharacterStationEnum::from($validated['station']);
+            $validated['station_sort_order'] = $stationEnum->sortOrder();
+        } else {
+            $validated['station_sort_order'] = CharacterStationEnum::NON_STATION_SORT_ORDER;
+        }
+
         if ($validated['summon_target_number'] === 0) {
             unset($validated['summon_target_number']);
         }

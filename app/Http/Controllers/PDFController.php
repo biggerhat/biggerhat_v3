@@ -27,11 +27,10 @@ class PDFController extends Controller
             });
         }
 
-        $characters = $query->whereHas('standardMiniatures')->orderBy('name', 'ASC')->get();
-
-        $characters = $characters->groupBy('station')->sortBy(function ($item, $key) {
-            return array_search($key, CharacterStationEnum::sortOrder());
-        })->flatten();
+        $characters = $query->whereHas('standardMiniatures')
+            ->orderBy('station_sort_order', 'ASC')
+            ->orderBy('name', 'ASC')
+            ->get();
 
         return inertia('PDF/Index', [
             'factions' => FactionEnum::buildDetails(),

@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+parameters:
+    paths:
+        - app
+    level: 1
+    ignoreErrors:
+        - '#Attribute class JetBrains\\PhpStorm\\ArrayShape does not exist.#'
+#    scanFiles:
+#        - _ide_helper_models.php
+    treatPhpDocTypesAsCertain: false

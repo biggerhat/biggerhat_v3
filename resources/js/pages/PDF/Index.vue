@@ -50,7 +50,7 @@ const filterParams = ref({
 })
 
 const results = computed(() => {
-    let filter = filterText.value;
+    const filter = filterText.value;
 
     if (!filter.length) {
         return props.characters;
@@ -92,7 +92,7 @@ const clear = () => {
 }
 
 const generatePDF = () => {
-    let miniatureValues = [];
+    const miniatureValues = [];
     pdfCharacters.value.forEach((character) => {
         miniatureValues.push(character.standard_miniatures[0].id);
     });
@@ -150,12 +150,14 @@ onMounted(() => {
                             <CircleX class="text-destructive my-auto ml-2" v-if="filterParams.keyword" @click="filterParams.keyword = null" />
                           </div>
                         </div>
-                        <div class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="(character, index) in results" v-bind:key="character.slug">
+                        <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="character in results" v-bind:key="character.slug">
                             <Drawer>
                                 <DrawerTrigger as-child>
-                                    <div class="py-1 px-2 w-full">
-                                      {{ character.display_name }}
-                                      <div class="block m-0 p-0 text-xs" v-if="character.keywords.length > 0">
+                                    <div class="py-1 px-2 w-full text-md">
+                                      <span class="font-bold">{{ character.display_name }}</span>
+                                      <div class="block m-0 p-0 text-xs first-letter:capitalize">
+                                        <span v-if="character.station" class="first-letter:capitalize">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></span>
+                                        <span v-if="character.station && character.keywords.length > 0"> // </span>
                                         {{ character.keywords.map(keyword => keyword.name).join(', ')}}
                                       </div>
                                     </div>
@@ -166,12 +168,12 @@ onMounted(() => {
                                             <DrawerTitle>{{ character.display_name }}</DrawerTitle>
                                         </DrawerHeader>
                                         <div class="p-4 pb-0">
-                                            <CharacterCardView :miniature="character.standard_miniatures[0]" />
+                                            <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" />
                                         </div>
                                         <DrawerFooter>
                                           <div class="flex justify-center">
                                             <div class="mx-1">
-                                              <Button variant="default">
+                                              <Button variant="default" @click="add(character)">
                                                 Add To List
                                               </Button>
                                             </div>
@@ -199,12 +201,55 @@ onMounted(() => {
                             <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
                             <Button class="p-2 mx-1" variant="default" @click="generatePDF()">Generate PDF</Button>
                         </div>
-                        <div class="border border-primary hover:bg-secondary mx-2 my-1 p-2 flex justify-between" v-for="(character, key) in pdfCharacters" v-bind:key="character.slug">
-                            <div>{{ character.display_name }}</div>
-                            <div>
-                                <MinusCircle @click="remove(key)" />
+                      <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="(character, index) in pdfCharacters" v-bind:key="character.slug">
+                        <Drawer>
+                          <DrawerTrigger as-child>
+                            <div class="py-1 px-2 w-full text-md">
+                              <span class="font-bold">{{ character.display_name }}</span>
+                              <div class="block m-0 p-0 text-xs first-letter:capitalize">
+                                <span v-if="character.station" class="first-letter:capitalize">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></span>
+                                <span v-if="character.station && character.keywords.length > 0"> // </span>
+                                {{ character.keywords.map(keyword => keyword.name).join(', ')}}
+                              </div>
                             </div>
+                          </DrawerTrigger>
+                          <DrawerContent>
+                            <div class="mx-auto w-full max-w-sm">
+                              <DrawerHeader>
+                                <DrawerTitle>{{ character.display_name }}</DrawerTitle>
+                              </DrawerHeader>
+                              <div class="p-4 pb-0">
+                                <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" />
+                              </div>
+                              <DrawerFooter>
+                                <div class="flex justify-center">
+                                  <div class="mx-1">
+                                    <Button variant="default" @click="add(character)">
+                                      Add To List
+                                    </Button>
+                                  </div>
+                                  <div class="mx-1">
+                                    <DrawerClose as-child>
+                                      <Button variant="destructive">
+                                        Close
+                                      </Button>
+                                    </DrawerClose>
+                                  </div>
+                                </div>
+                              </DrawerFooter>
+                            </div>
+                          </DrawerContent>
+                        </Drawer>
+                        <div class="flex" @click="remove(index)">
+                          <SquareMinus class="my-auto mx-1" />
                         </div>
+                      </div>
+<!--                        <div class="border border-primary hover:bg-secondary mx-2 my-1 p-2 flex justify-between" v-for="(character, key) in pdfCharacters" v-bind:key="character.slug">-->
+<!--                            <div>{{ character.display_name }}</div>-->
+<!--                            <div>-->
+<!--                                <MinusCircle @click="remove(key)" />-->
+<!--                            </div>-->
+<!--                        </div>-->
                     </div>
                 </div>
             </div>

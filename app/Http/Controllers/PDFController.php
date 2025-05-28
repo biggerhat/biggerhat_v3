@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Models\Character;
 use App\Models\Keyword;
@@ -28,6 +29,10 @@ class PDFController extends Controller
 
         $characters = $query->whereHas('standardMiniatures')->orderBy('name', 'ASC')->get();
 
+        $characters = $characters->groupBy('station')->sortBy(function ($item, $key) {
+            return array_search($key, CharacterStationEnum::sortOrder());
+        })->flatten();
+
         return inertia('PDF/Index', [
             'factions' => FactionEnum::buildDetails(),
             'keywords' => Keyword::orderBy('name', 'ASC')->get(),
@@ -39,7 +44,7 @@ class PDFController extends Controller
     {
         $validated = $request->validate([
             'miniatures' => ['required', 'array'],
-            'miniatures.*' => ['required', 'integer']
+            'miniatures.*' => ['required', 'integer'],
         ]);
 
         $miniatures = Miniature::whereIn('id', $validated['miniatures'])->get();
@@ -52,13 +57,14 @@ class PDFController extends Controller
             $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
             $data['images'][] = [
                 'url' => $imageData,
-                'name' => $miniature->display_name
+                'name' => $miniature->display_name,
             ];
         }
 
         $pdf = Pdf::loadView('PDF.CharacterImageBlank', $data);
 
         $fileName = \Str::uuid();
+
         return $pdf->stream("{$fileName}.pdf");
     }
 }

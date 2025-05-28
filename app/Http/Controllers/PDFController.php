@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Models\Character;
 use App\Models\Keyword;

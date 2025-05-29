@@ -9,6 +9,9 @@ use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @mixin IdeHelperStrategy
+ */
 class Strategy extends Model
 {
     /** @use HasFactory<\Database\Factories\StrategyFactory> */

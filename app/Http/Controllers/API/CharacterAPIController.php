@@ -39,15 +39,18 @@ class CharacterAPIController extends Controller
             ->orderBy('display_name', 'ASC')
             ->get()
             ->map(function (Character $character) use ($storageUrl) {
+                /** @var Miniature $firstMiniature */
+                $firstMiniature = $character->miniatures->first();
+
                 $characterInfo = [
                     'display_name' => $character->display_name,
-                    'front_image' => $storageUrl.$character->miniatures()->first()->front_image,
-                    'back_image' => $storageUrl.$character->miniatures()->first()->back_image,
-                    'combination_image' => $storageUrl.$character->miniatures()->first()->combination_image,
+                    'front_image' => $storageUrl.$firstMiniature->front_image,
+                    'back_image' => $storageUrl.$firstMiniature->back_image,
+                    'combination_image' => $storageUrl.$firstMiniature->combination_image,
                     'url' => route('characters.view', [
                         'character' => $character->slug,
-                        'miniature' => $character->miniatures()->first()->id,
-                        'slug' => $character->miniatures()->first()->slug,
+                        'miniature' => $firstMiniature->id,
+                        'slug' => $firstMiniature->slug,
                     ]),
                 ];
 

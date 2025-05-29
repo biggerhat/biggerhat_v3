@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
+/**
+ * @mixin IdeHelperUpgrade
+ */
 class Upgrade extends Model
 {
     /** @use HasFactory<\Database\Factories\UpgradeFactory> */

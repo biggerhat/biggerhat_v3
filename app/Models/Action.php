@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperAction
+ */
 class Action extends Model
 {
     /** @use HasFactory<\Database\Factories\ActionFactory> */

@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * @mixin IdeHelperMarker
+ */
 class Marker extends Model
 {
     /** @use HasFactory<\Database\Factories\MarkerFactory> */

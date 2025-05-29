@@ -4,7 +4,7 @@
 	header @origin Access-Control-Request-Method GET
 }
 
-biggerhat.localhost:8080 {
+biggerhat.localhost:80 {
     route /api/* {
         import cors *
     }

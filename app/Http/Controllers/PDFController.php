@@ -15,19 +15,14 @@ class PDFController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Character::with(['standardMiniatures', 'keywords']);
-
-        if ($request->get('faction')) {
-            $query->where('faction', $request->faction);
-        }
-
-        if ($request->get('keyword')) {
-            $query->whereHas('keywords', function ($subQuery) use ($request) {
-                $subQuery->where('slug', $request->get('keyword'));
-            });
-        }
-
-        $characters = $query->whereHas('standardMiniatures')
+        $characters = Character::with(['standardMiniatures', 'keywords'])
+            ->when($request->get('faction'), function ($query) use ($request) {
+                $query->where('faction', $request->faction);
+            })
+            ->when($request->get('keywords'), function ($query) use ($request) {
+                $query->where('slug', $request->get('keyword'));
+            })
+            ->whereHas('standardMiniatures')
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC')
             ->get();

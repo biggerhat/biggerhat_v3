@@ -9,6 +9,9 @@ use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @mixin IdeHelperToken
+ */
 class Token extends Model
 {
     /** @use HasFactory<\Database\Factories\TokenFactory> */

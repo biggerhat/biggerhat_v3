@@ -7,6 +7,9 @@ use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @mixin IdeHelperPackage
+ */
 class Package extends Model
 {
     /** @use HasFactory<\Database\Factories\PackageFactory> */

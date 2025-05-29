@@ -6,6 +6,9 @@ use App\Traits\UsesMiniatures;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @mixin IdeHelperBlueprint
+ */
 class Blueprint extends Model
 {
     /** @use HasFactory<\Database\Factories\BlueprintFactory> */

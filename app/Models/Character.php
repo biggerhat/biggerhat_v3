@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperCharacter
+ */
 class Character extends Model
 {
     /** @use HasFactory<\Database\Factories\CharacterFactory> */

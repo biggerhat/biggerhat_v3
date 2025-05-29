@@ -20,11 +20,13 @@
         "tightenco/ziggy": "^2.4"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.5",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.21",
         "laravel/sail": "^1.41",
+        "laravel/telescope": "^5.8",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^3.7",
@@ -68,6 +70,14 @@
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"php artisan inertia:start-ssr\" --names=server,queue,logs,ssr"
         ],
+        "ide-generate": [
+            "@putenv QUEUE_DRIVER=redis",
+            "@putenv QUEUE_CONNECTION=redis",
+            "@php artisan ide-helper:models -M",
+            "@php artisan ide-helper:generate",
+            "@php artisan ide-helper:meta",
+            "@php artisan ide-helper:eloquent"
+        ],
         "lint": [
             "vendor/bin/pint"
         ],
@@ -78,16 +88,19 @@
             "./vendor/bin/phpstan analyse --memory-limit=-1"
         ],
         "prepush": [
-            "@putenv APP_ENV=testing",
-            "@php artisan key:generate",
+            "APP_ENV=testing php artisan key:generate",
+            "@composer ide-generate",
             "@composer stan",
             "@composer lint",
-            "@php -d memory_limit=-1 -d opcache.enable_cli=1 artisan test --parallel --processes=4"
+            "@php -d memory_limit=-1 -d opcache.enable_cli=1 artisan test --parallel --processes=4",
+            "sed -i 's/APP_KEY=.*/APP_KEY=/g' .env.testing"
         ]
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "laravel/telescope"
+            ]
         }
     },
     "config": {

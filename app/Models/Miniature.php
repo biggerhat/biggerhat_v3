@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperMiniature
+ */
 class Miniature extends Model
 {
     /** @use HasFactory<\Database\Factories\MiniatureFactory> */
@@ -17,6 +20,8 @@ class Miniature extends Model
     use UsesSelectOptionsScope;
 
     protected $guarded = ['id'];
+
+    protected $with = ['character'];
 
     protected $appends = ['character_name'];
 
@@ -43,7 +48,7 @@ class Miniature extends Model
 
     public function getCharacterNameAttribute()
     {
-        return $this->loadMissing('character')->character?->display_name;
+        return $this->character->display_name;
     }
 
     public function character(): BelongsTo

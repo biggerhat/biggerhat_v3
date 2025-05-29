@@ -8,6 +8,9 @@ use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @mixin IdeHelperCharacteristic
+ */
 class Characteristic extends Model
 {
     /** @use HasFactory<\Database\Factories\CharacteristicFactory> */

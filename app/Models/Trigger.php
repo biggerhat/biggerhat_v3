@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * @mixin IdeHelperTrigger
+ */
 class Trigger extends Model
 {
     /** @use HasFactory<\Database\Factories\TriggerFactory> */

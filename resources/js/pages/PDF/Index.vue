@@ -15,6 +15,7 @@ import {
     DrawerTitle,
     DrawerTrigger,
 } from '@/components/ui/drawer'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import CharacterCardView from "@/components/CharacterCardView.vue";
 import { cleanObject } from '@/composables/CleanObject';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
@@ -105,7 +106,7 @@ const generatePDF = () => {
     pdfCharacters.value.forEach((character) => {
         miniatureValues.push(character.standard_miniatures[0].id);
     });
-    window.open(route('tools.pdf.download', {miniatures: miniatureValues}), '_blank').focus();
+    window.open(route('tools.pdf.download', {miniatures: btoa(miniatureValues)}), '_blank').focus();
 }
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -156,16 +157,16 @@ onMounted(() => {
                                 </ComboboxTrigger>
                               </ComboboxAnchor>
 
-                              <ComboboxList>
+                              <ComboboxList class="max-h-80 overflow-y-auto">
                                 <div class="relative w-full items-center">
-                                  <ComboboxInput class="pl-9 focus-visible:ring-0 border-0 border-b rounded-none h-10" placeholder="Select framework..." />
+                                  <ComboboxInput class="pl-9 focus-visible:ring-0 border-0 border-b rounded-none h-10" placeholder="Select Keyword..." />
                                   <span class="absolute start-0 inset-y-0 flex items-center justify-center px-3">
                                     <Search class="size-4 text-muted-foreground" />
                                   </span>
                                 </div>
 
                                 <ComboboxEmpty>
-                                  No framework found.
+                                  No Keyword Found.
                                 </ComboboxEmpty>
 
                                 <ComboboxGroup>
@@ -181,19 +182,6 @@ onMounted(() => {
                                 </ComboboxGroup>
                               </ComboboxList>
                             </Combobox>
-<!--                            <select v-model="filterParams.keyword" @change="filter()" class="flex h-9 w-full items-center justify-between whitespace-nowrap bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:truncate text-start border-2 border-secondary rounded max-w-auto">-->
-<!--                              <option v-for="keyword in props.keywords" :value="keyword.slug" v-bind:key="keyword.slug" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">{{ keyword.name }}</option>-->
-<!--                            </select>-->
-<!--                            <Select v-model="filterParams.keyword">-->
-<!--                              <SelectTrigger class="border-2 border-secondary rounded max-w-auto">-->
-<!--                                <SelectValue placeholder="Keyword" />-->
-<!--                              </SelectTrigger>-->
-<!--                              <SelectContent>-->
-<!--                                <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug" :onSelect="filter()">-->
-<!--                                  {{ keyword.name }}-->
-<!--                                </SelectItem>-->
-<!--                              </SelectContent>-->
-<!--                            </Select>-->
                             <CircleX class="text-destructive my-auto ml-2" v-if="selectedKeyword" @click="selectedKeyword = null" />
                           </div>
                         </div>
@@ -246,7 +234,7 @@ onMounted(() => {
                     <div>
                         <div class="p-2">
                             <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
-                            <Button class="p-2 mx-1" variant="default" @click="generatePDF()">Generate PDF</Button>
+                            <Button class="p-2 mx-1" variant="default" :disabled="pdfCharacters.length < 1" @click="generatePDF()">Generate PDF</Button>
                         </div>
                       <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="(character, index) in pdfCharacters" v-bind:key="character.slug">
                         <Drawer>
@@ -271,8 +259,8 @@ onMounted(() => {
                               <DrawerFooter>
                                 <div class="flex justify-center">
                                   <div class="mx-1">
-                                    <Button variant="default" @click="add(character)">
-                                      Add To List
+                                    <Button variant="destructive" @click="remove(character)">
+                                      Remove From List
                                     </Button>
                                   </div>
                                   <div class="mx-1">
@@ -291,12 +279,6 @@ onMounted(() => {
                           <SquareMinus class="my-auto mx-1" />
                         </div>
                       </div>
-<!--                        <div class="border border-primary hover:bg-secondary mx-2 my-1 p-2 flex justify-between" v-for="(character, key) in pdfCharacters" v-bind:key="character.slug">-->
-<!--                            <div>{{ character.display_name }}</div>-->
-<!--                            <div>-->
-<!--                                <MinusCircle @click="remove(key)" />-->
-<!--                            </div>-->
-<!--                        </div>-->
                     </div>
                 </div>
             </div>

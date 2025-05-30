@@ -7,7 +7,9 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
+use App\Observers\CharacterObserver;
 use App\Traits\UsesSelectOptionsScope;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,7 @@ use Illuminate\Support\Str;
 /**
  * @mixin IdeHelperCharacter
  */
+#[ObservedBy(CharacterObserver::class)]
 class Character extends Model
 {
     /** @use HasFactory<\Database\Factories\CharacterFactory> */
@@ -49,27 +52,6 @@ class Character extends Model
     protected $appends = [
         'faction_color',
     ];
-
-    protected static function bootSlugDisplayName(): void
-    {
-        static::creating(function (self $model) {
-            $model->display_name = $model->name;
-            if ($model->title) {
-                $model->display_name .= ", {$model->title}";
-            }
-
-            $model->slug = Str::slug($model->display_name);
-        });
-
-        static::updating(function (self $model) {
-            $model->display_name = $model->name;
-            if ($model->title) {
-                $model->display_name .= ", {$model->title}";
-            }
-
-            $model->slug = Str::slug($model->display_name);
-        });
-    }
 
     public function getFactionColorAttribute(): string
     {

@@ -41,6 +41,7 @@ class CharacterPDFResource extends JsonResource
         }
 
         return [
+            'id' => $this->id,
             'display_name' => $this->display_name,
             'slug' => $this->slug,
             'faction' => $this->faction,

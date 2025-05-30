@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MiniatureResource;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ class MiniatureAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Miniatures/Index', [
-            'miniatures' => Miniature::with('character')->orderBy('display_name', 'ASC')->get(),
+            'miniatures' => MiniatureResource::collection(Miniature::with('character')->orderBy('display_name', 'ASC')->get())
+                ->toArray($request),
         ]);
     }
 

@@ -19,7 +19,6 @@ use App\Models\Token;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CharacterAdminController extends Controller
@@ -142,12 +141,6 @@ class CharacterAdminController extends Controller
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
         ]);
-
-        $validated['display_name'] = $validated['name'];
-        if (isset($validated['title'])) {
-            $validated['display_name'] .= ", {$validated['title']}";
-        }
-        $validated['slug'] = Str::slug($validated['display_name']);
 
         if ($validated['station']) {
             $stationEnum = CharacterStationEnum::from($validated['station']);

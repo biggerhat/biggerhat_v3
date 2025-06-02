@@ -43,11 +43,19 @@ class PDFController extends Controller
 
     public function download(Request $request)
     {
-        $miniatureArray = base64_decode($request->get('miniatures'));
-        $miniatureArray = explode(',', $miniatureArray);
+        $miniatureString = base64_decode($request->get('miniatures'));
+        if (strlen($miniatureString) > 0) {
+            $miniatureArray = explode(',', $miniatureString);
+        } else {
+            $miniatureArray = [];
+        }
 
         $upgradeArray = base64_decode($request->get('upgrades'));
-        $upgradeArray = explode(',', $upgradeArray);
+        if (strlen($upgradeArray) > 0) {
+            $upgradeArray = explode(',', $upgradeArray);
+        } else {
+            $upgradeArray = [];
+        }
 
         $miniatures = Miniature::whereIn('id', $miniatureArray)->get();
         $upgrades = Upgrade::whereIn('id', $upgradeArray)->get();
@@ -65,14 +73,16 @@ class PDFController extends Controller
             ];
         }
 
-        foreach ($upgradeArray as $upgradeId) {
-            $upgrade = $upgrades->where('id', $upgradeId)->first();
-            $imageData = $upgrade->back_image ? base64_encode(Storage::disk('public')->get($upgrade->combination_image)) : base64_encode(Storage::disk('public')->get($upgrade->front_image));
-            $data['images'][] = [
-                'url' => $imageData,
-                'type' => $upgrade->back_image ? PDFImageTypeEnum::Double : PDFImageTypeEnum::Single,
-                'name' => $upgrade->name,
-            ];
+        if (count($upgradeArray) > 0) {
+            foreach ($upgradeArray as $upgradeId) {
+                $upgrade = $upgrades->where('id', $upgradeId)->first();
+                $imageData = $upgrade->back_image ? base64_encode(Storage::disk('public')->get($upgrade->combination_image)) : base64_encode(Storage::disk('public')->get($upgrade->front_image));
+                $data['images'][] = [
+                    'url' => $imageData,
+                    'type' => $upgrade->back_image ? PDFImageTypeEnum::Double : PDFImageTypeEnum::Single,
+                    'name' => $upgrade->name,
+                ];
+            }
         }
 
         $pdf = Pdf::loadView('PDF.CharacterImageBlank', $data);

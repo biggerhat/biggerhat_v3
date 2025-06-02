@@ -21,6 +21,7 @@ import { cleanObject } from '@/composables/CleanObject';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
+import Soulstone from "@/components/Soulstone.vue";
 
 const props = defineProps({
     characters: {
@@ -420,7 +421,7 @@ const charactersVisible = computed(() => {
                     <div>
                         <div class="p-2">
                             <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
-                            <Button class="p-2 mx-1" variant="default" :disabled="pdfCharacters.length < 1" @click="generatePDF()">Generate PDF</Button>
+                            <Button class="p-2 mx-1" variant="default" :disabled="pdfCharacters.length < 1 && pdfUpgrades.length < 1" @click="generatePDF()">Generate PDF</Button>
                         </div>
                       <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="(character, index) in pdfCharacters" v-bind:key="character.slug">
                         <Drawer>

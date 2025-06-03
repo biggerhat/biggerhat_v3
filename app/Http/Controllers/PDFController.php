@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CardTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PDFImageTypeEnum;
 use App\Http\Resources\CharacterPDFResource;
@@ -18,7 +19,7 @@ class PDFController extends Controller
 {
     public function index(Request $request)
     {
-        $characters = Character::with(['standardMiniatures', 'keywords'])
+        $characters = Character::with(['standardMiniatures', 'keywords', 'crewUpgrades', 'totem', 'isTotemFor'])
             ->when($request->get('faction'), function ($query) use ($request) {
                 $query->where('faction', $request->faction);
             })
@@ -43,39 +44,30 @@ class PDFController extends Controller
 
     public function download(Request $request)
     {
-        $miniatureString = base64_decode($request->get('miniatures'));
-        if (strlen($miniatureString) > 0) {
-            $miniatureArray = explode(',', $miniatureString);
-        } else {
-            $miniatureArray = [];
-        }
+        $cards = base64_decode($request->get('cards'));
+        $cardArray = collect(json_decode($cards, true));
 
-        $upgradeArray = base64_decode($request->get('upgrades'));
-        if (strlen($upgradeArray) > 0) {
-            $upgradeArray = explode(',', $upgradeArray);
-        } else {
-            $upgradeArray = [];
-        }
+        $miniatureIds = $cardArray->where('card_type', CardTypeEnum::Miniature->value)->pluck('id');
+        $upgradeIds = $cardArray->where('card_type', CardTypeEnum::Upgrade->value)->pluck('id');
 
-        $miniatures = Miniature::whereIn('id', $miniatureArray)->get();
-        $upgrades = Upgrade::whereIn('id', $upgradeArray)->get();
+        $miniatures = Miniature::whereIn('id', $miniatureIds)->get();
+        $upgrades = Upgrade::whereIn('id', $upgradeIds)->get();
         $data = [
             'images' => [],
         ];
 
-        foreach ($miniatureArray as $miniatureId) {
-            $miniature = $miniatures->where('id', $miniatureId)->first();
-            $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
-            $data['images'][] = [
-                'url' => $imageData,
-                'type' => PDFImageTypeEnum::Double,
-                'name' => $miniature->display_name,
-            ];
-        }
-
-        if (count($upgradeArray) > 0) {
-            foreach ($upgradeArray as $upgradeId) {
-                $upgrade = $upgrades->where('id', $upgradeId)->first();
+        foreach ($cardArray as $card) {
+            if ($card['card_type'] === CardTypeEnum::Miniature->value) {
+                $miniature = $miniatures->where('id', $card['id'])->first();
+                $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
+                $data['images'][] = [
+                    'url' => $imageData,
+                    'type' => PDFImageTypeEnum::Double,
+                    'name' => $miniature->display_name,
+                ];
+            }
+            if ($card['card_type'] === CardTypeEnum::Upgrade->value) {
+                $upgrade = $upgrades->where('id', $card['id'])->first();
                 $imageData = $upgrade->back_image ? base64_encode(Storage::disk('public')->get($upgrade->combination_image)) : base64_encode(Storage::disk('public')->get($upgrade->front_image));
                 $data['images'][] = [
                     'url' => $imageData,

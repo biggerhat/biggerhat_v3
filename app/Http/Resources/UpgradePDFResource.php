@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\CardTypeEnum;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -23,6 +24,7 @@ class UpgradePDFResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
+            'card_type' => CardTypeEnum::Upgrade,
             'type' => $this->type->label(),
             'front_image' => $this->front_image,
             'back_image' => $this->back_image,

@@ -71,21 +71,13 @@ const pdfCharacters = ref([]);
 const pdfUpgrades = ref([]);
 const pdfStrategies = ref([]);
 const pdfSchemes = ref([]);
+const pdfCards = ref([]);
 const filterText = ref('');
 const filterUpgradeText = ref('');
 const filterScenarioText = ref('');
 
-const filterParams = ref({
-  keyword: null,
-  faction: null,
-})
-
 const selectedKeyword = ref(null);
-
-watch(selectedKeyword, (keyword) => {
-  filterParams.value.keyword = keyword?.slug;
-  filter();
-});
+const selectedFaction = ref(null);
 
 const upgradeResults = computed(() => {
     const filter = filterUpgradeText.value;
@@ -97,98 +89,107 @@ const upgradeResults = computed(() => {
     return props.upgrades.filter(upgrade => {
         return upgrade.name.toLowerCase().includes(filter.toLowerCase());
     });
-})
+});
 
 const results = computed(() => {
     const filter = filterText.value;
 
-    if (!filter.length) {
+    if (!filter.length && !selectedFaction.value && !selectedKeyword.value) {
         return props.characters;
     }
 
-    return props.characters.filter(character => {
+    let filtered = props.characters;
+
+    if (selectedFaction.value) {
+        filtered = props.characters.filter(character => {
+            return character.faction === selectedFaction.value;
+        });
+    }
+
+    if (selectedKeyword.value) {
+        filtered = filtered.filter(character => {
+            return character.keywords.filter((keyword) => {
+                return keyword.slug === selectedKeyword.value.slug;
+            }).length > 0;
+        });
+    }
+
+    return filtered.filter(character => {
         return character.display_name.toLowerCase().includes(filter.toLowerCase());
     });
 });
 
 const filterFaction = (factionSlug) => {
-    if (factionSlug === filterParams.value.faction) {
-        filterParams.value.faction = null;
+    if (factionSlug === selectedFaction.value) {
+        selectedFaction.value = null;
     } else {
-        filterParams.value.faction = factionSlug;
+        selectedFaction.value = factionSlug;
     }
-
-    filter();
-};
-
-const filter = () => {
-  router.visit(route('tools.pdf.index'), {
-    data: cleanObject(filterParams.value),
-    only: ['characters'],
-    preserveState: true,
-  });
 };
 
 const add = (character) => {
     pdfCharacters.value.push(character);
+    pdfCards.value.push(character);
+    if (character.crew_upgrades.length > 0) {
+        character.crew_upgrades.forEach((upgradeSlug) => {
+            props.upgrades.filter((upgrade) => {
+                return upgrade.slug === upgradeSlug;
+            }).forEach((upgrade) => {
+                pdfCards.value.push(upgrade);
+            });
+        });
+    }
+
+    if (character.totem_name) {
+        props.characters.filter((filterCharacters) => {
+            return filterCharacters.slug === character.totem_name;
+        }).forEach((character) => {
+            pdfCards.value.push(character);
+        });
+    }
 };
 
 const addUpgrade = (upgrade) => {
-    pdfUpgrades.value.push(upgrade);
+    pdfCards.value.push(upgrade);
 }
 
 const addStrategy = (strategy) => {
-    pdfStrategies.value.push(strategy);
+    pdfCards.value.push(strategy);
 }
 
 const addScheme = (scheme) => {
-    pdfSchemes.value.push(scheme);
+    pdfCards.value.push(scheme);
 }
 
 const remove = (key) => {
-    pdfCharacters.value.splice(key, 1);
+    pdfCards.value.splice(key, 1);
 };
 
-const removeUpgrade = (key) => {
-    pdfUpgrades.value.splice(key, 1);
-}
-
-const removeStrategy = (key) => {
-    pdfStrategies.value.splice(key, 1);
-}
-
-const removeScheme = (key) => {
-    pdfSchemes.value.splice(key, 1);
-}
-
 const clear = () => {
-    pdfCharacters.value = [];
-    pdfUpgrades.value = [];
-    pdfStrategies.value = [];
-    pdfSchemes.value = [];
+    pdfCards.value = [];
 }
 
 const generatePDF = () => {
-    const miniatureValues = [];
-    const upgradeValues = [];
-    const strategyValues = [];
-    const schemeValues = [];
+    const pdfValues = [];
+    pdfCards.value.forEach((card) => {
+        let idValue;
+        switch(card.card_type) {
+            case 'miniature':
+                idValue = card.standard_miniatures[0].id;
+                break;
+            case 'upgrade':
+                idValue = card.id;
+                break;
+        }
 
-    pdfCharacters.value.forEach((character) => {
-        miniatureValues.push(character.standard_miniatures[0].id);
+        pdfValues.push({
+            'card_type': card.card_type,
+            'id': idValue,
+        });
     });
-    pdfUpgrades.value.forEach((upgrade) => {
-        upgradeValues.push(upgrade.id);
-    })
 
-    window.open(route('tools.pdf.download', {miniatures: btoa(miniatureValues), upgrades: btoa(upgradeValues)}), '_blank').focus();
+    window.open(route('tools.pdf.download', {cards: btoa(JSON.stringify(pdfValues))}), '_blank').focus();
 }
-
-const urlParams = new URLSearchParams(window.location.search);
-onMounted(() => {
-  filterParams.value.faction = urlParams.get('faction');
-  filterParams.value.keyword = urlParams.get('keyword');
-});
 
 function isMobileDevice() {
     return /Mobi|Android/i.test(navigator.userAgent);
@@ -209,18 +210,7 @@ const isCurrentTab = (tabName) => {
     }
 
     return currentTab.value === tabName;
-}
-
-
-const charactersToggle = ref(true);
-const charactersVisible = computed(() => {
-    if (!isMobileDevice()) {
-        return true;
-    }
-
-    return charactersToggle.value;
-});
-
+};
 </script>
 
 <template>
@@ -269,7 +259,7 @@ const charactersVisible = computed(() => {
                     <div>
                         <div class="grid grid-cols-8">
                             <div v-for="faction in factions" v-bind:key="faction.slug">
-                                <img :src="faction.logo" :alt="faction.name" class="hover:cursor-pointer" :class="filterParams.faction === faction.slug ? 'opacity-100' : 'opacity-70'" @click="filterFaction(faction.slug)" />
+                                <img :src="faction.logo" :alt="faction.name" class="hover:cursor-pointer" :class="selectedFaction === faction.slug ? 'opacity-100' : 'opacity-70'" @click="filterFaction(faction.slug)" />
                             </div>
                         </div>
                         <div class="p-2 grid md:grid-cols-2 gap-1">
@@ -322,7 +312,8 @@ const charactersVisible = computed(() => {
                                     <div class="py-1 px-2 w-full text-md">
                                       <span class="font-bold">{{ character.display_name }}</span>
                                       <div class="block m-0 p-0 text-xs first-letter:capitalize">
-                                        <span v-if="character.station" class="first-letter:capitalize">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></span>
+                                          <span v-if="character.cost">Cost: {{ character.cost }} // </span>
+                                        <div v-if="character.station" class="first-letter:capitalize inline-block">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></div>
                                         <span v-if="character.station && character.keywords.length > 0"> // </span>
                                         {{ character.keywords.map(keyword => keyword.name).join(', ')}}
                                       </div>
@@ -423,92 +414,95 @@ const charactersVisible = computed(() => {
                             <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
                             <Button class="p-2 mx-1" variant="default" :disabled="pdfCharacters.length < 1 && pdfUpgrades.length < 1" @click="generatePDF()">Generate PDF</Button>
                         </div>
-                      <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="(character, index) in pdfCharacters" v-bind:key="character.slug">
-                        <Drawer>
-                          <DrawerTrigger as-child>
-                            <div class="py-1 px-2 w-full text-md">
-                              <span class="font-bold">{{ character.display_name }}</span>
-                              <div class="block m-0 p-0 text-xs first-letter:capitalize">
-                                <span v-if="character.station" class="first-letter:capitalize">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></span>
-                                <span v-if="character.station && character.keywords.length > 0"> // </span>
-                                {{ character.keywords.map(keyword => keyword.name).join(', ')}}
-                              </div>
-                            </div>
-                          </DrawerTrigger>
-                          <DrawerContent>
-                            <div class="mx-auto w-full max-w-sm">
-                              <DrawerHeader>
-                                <DrawerTitle>{{ character.display_name }}</DrawerTitle>
-                              </DrawerHeader>
-                              <div class="p-4 pb-0">
-                                <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" />
-                              </div>
-                              <DrawerFooter>
-                                <div class="flex justify-center">
-                                  <div class="mx-1">
-                                    <Button variant="destructive" @click="remove(character)">
-                                      Remove From List
-                                    </Button>
-                                  </div>
-                                  <div class="mx-1">
-                                    <DrawerClose as-child>
-                                      <Button variant="destructive">
-                                        Close
-                                      </Button>
-                                    </DrawerClose>
-                                  </div>
-                                </div>
-                              </DrawerFooter>
-                            </div>
-                          </DrawerContent>
-                        </Drawer>
-                        <div class="flex" @click="remove(index)">
-                          <SquareMinus class="my-auto mx-1" />
-                        </div>
-                      </div>
-                        <div class="border border-primary hover:bg-secondary my-1 mx-2 flex justify-between" v-for="(upgrade, index) in pdfUpgrades" v-bind:key="upgrade.slug">
-                            <Drawer>
-                                <DrawerTrigger as-child>
-                                    <div class="py-1 px-2 w-full text-md">
-                                        <span class="font-bold">{{ upgrade.name }}</span>
-                                        <div class="block m-0 p-0 text-xs">
-                                            <span v-if="upgrade.type">
-                                                {{ upgrade.type }}
-                                                <span v-if="upgrade.master"> - {{ upgrade.master }} </span>
-                                                <span v-if="upgrade.count > 1">({{ upgrade.count }})</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </DrawerTrigger>
-                                <DrawerContent>
-                                    <div class="mx-auto w-full max-w-sm">
-                                        <DrawerHeader>
-                                            <DrawerTitle>{{ upgrade.name }}</DrawerTitle>
-                                        </DrawerHeader>
-                                        <div class="p-4 pb-0">
-                                            <UpgradeCardView :upgrade="upgrade" />
-                                        </div>
-                                        <DrawerFooter>
-                                            <div class="flex justify-center">
-                                                <div class="mx-1">
-                                                    <Button variant="destructive" @click="removeUpgrade(index)">
-                                                        Remove From List
-                                                    </Button>
-                                                </div>
-                                                <div class="mx-1">
-                                                    <DrawerClose as-child>
-                                                        <Button variant="destructive">
-                                                            Close
-                                                        </Button>
-                                                    </DrawerClose>
-                                                </div>
+                        <div v-for="(card, index) in pdfCards" v-bind:key="index">
+                            <div v-if="card.card_type === 'miniature'" :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between">
+                                <Drawer>
+                                    <DrawerTrigger as-child>
+                                        <div class="py-1 px-2 w-full text-md">
+                                            <span class="font-bold">{{ card.display_name }}</span>
+                                            <div class="block m-0 p-0 text-xs first-letter:capitalize">
+                                                <span v-if="card.cost">Cost: {{ card.cost }} // </span>
+                                                <div v-if="card.station" class="first-letter:capitalize inline-block">{{ card.station }} <span v-if="card.count > 1">({{ card.count }})</span></div>
+                                                <span v-if="card.station && card.keywords.length > 0"> // </span>
+                                                {{ card.keywords.map(keyword => keyword.name).join(', ')}}
                                             </div>
-                                        </DrawerFooter>
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-                            <div class="flex" @click="removeUpgrade(index)">
-                                <SquareMinus class="my-auto mx-1" />
+                                        </div>
+                                    </DrawerTrigger>
+                                    <DrawerContent>
+                                        <div class="mx-auto w-full max-w-sm">
+                                            <DrawerHeader>
+                                                <DrawerTitle>{{ card.display_name }}</DrawerTitle>
+                                            </DrawerHeader>
+                                            <div class="p-4 pb-0">
+                                                <CharacterCardView :miniature="card.standard_miniatures[0]" showLink="false" />
+                                            </div>
+                                            <DrawerFooter>
+                                                <div class="flex justify-center">
+                                                    <div class="mx-1">
+                                                        <Button variant="destructive" @click="remove(index)">
+                                                            Remove From List
+                                                        </Button>
+                                                    </div>
+                                                    <div class="mx-1">
+                                                        <DrawerClose as-child>
+                                                            <Button variant="destructive">
+                                                                Close
+                                                            </Button>
+                                                        </DrawerClose>
+                                                    </div>
+                                                </div>
+                                            </DrawerFooter>
+                                        </div>
+                                    </DrawerContent>
+                                </Drawer>
+                                <div class="flex" @click="remove(index)">
+                                    <SquareMinus class="my-auto mx-1" />
+                                </div>
+                            </div>
+                            <div v-if="card.card_type === 'upgrade'" class="border border-primary hover:bg-secondary my-1 mx-2 flex justify-between">
+                                <Drawer>
+                                    <DrawerTrigger as-child>
+                                        <div class="py-1 px-2 w-full text-md">
+                                            <span class="font-bold">{{ card.name }}</span>
+                                            <div class="block m-0 p-0 text-xs">
+                                            <span v-if="card.type">
+                                                {{ card.type }}
+                                                <span v-if="card.master"> - {{ card.master }} </span>
+                                                <span v-if="card.count > 1">({{ card.count }})</span>
+                                            </span>
+                                            </div>
+                                        </div>
+                                    </DrawerTrigger>
+                                    <DrawerContent>
+                                        <div class="mx-auto w-full max-w-sm">
+                                            <DrawerHeader>
+                                                <DrawerTitle>{{ card.name }}</DrawerTitle>
+                                            </DrawerHeader>
+                                            <div class="p-4 pb-0">
+                                                <UpgradeCardView :upgrade="card" />
+                                            </div>
+                                            <DrawerFooter>
+                                                <div class="flex justify-center">
+                                                    <div class="mx-1">
+                                                        <Button variant="destructive" @click="remove(index)">
+                                                            Remove From List
+                                                        </Button>
+                                                    </div>
+                                                    <div class="mx-1">
+                                                        <DrawerClose as-child>
+                                                            <Button variant="destructive">
+                                                                Close
+                                                            </Button>
+                                                        </DrawerClose>
+                                                    </div>
+                                                </div>
+                                            </DrawerFooter>
+                                        </div>
+                                    </DrawerContent>
+                                </Drawer>
+                                <div class="flex" @click="remove(index)">
+                                    <SquareMinus class="my-auto mx-1" />
+                                </div>
                             </div>
                         </div>
                     </div>

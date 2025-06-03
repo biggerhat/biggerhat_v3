@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\CardTypeEnum;
 use App\Models\Character;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -40,13 +41,21 @@ class CharacterPDFResource extends JsonResource
             ];
         }
 
+        $crewUpgrades = [];
+        foreach ($this->crewUpgrades as $upgrade) {
+            $crewUpgrades[] = $upgrade->slug;
+        }
+
         return [
             'id' => $this->id,
             'display_name' => $this->display_name,
+            'card_type' => CardTypeEnum::Miniature,
             'slug' => $this->slug,
             'faction' => $this->faction,
             'station' => $this->station,
             'keywords' => $keywords,
+            'crew_upgrades' => $crewUpgrades,
+            'totem_name' => $this->when($this->relationLoaded('totem'), fn () => $this->totem?->slug),
             'standard_miniatures' => $miniatures,
             'count' => $this->count,
             'cost' => $this->cost,

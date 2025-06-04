@@ -26,6 +26,7 @@ class UpgradePDFResource extends JsonResource
             'slug' => $this->slug,
             'card_type' => CardTypeEnum::Upgrade,
             'type' => $this->type->label(),
+            'faction' => $this->faction,
             'front_image' => $this->front_image,
             'back_image' => $this->back_image,
             'combination_image' => $this->combination_image,

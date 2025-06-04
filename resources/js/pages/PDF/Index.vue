@@ -22,6 +22,14 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
 import Soulstone from "@/components/Soulstone.vue";
+import {
+    NumberField,
+    NumberFieldContent,
+    NumberFieldDecrement,
+    NumberFieldIncrement,
+    NumberFieldInput
+} from "@/components/ui/number-field";
+import {Label} from "@/components/ui/label";
 
 const props = defineProps({
     characters: {
@@ -67,10 +75,6 @@ const props = defineProps({
         }
     }
 });
-const pdfCharacters = ref([]);
-const pdfUpgrades = ref([]);
-const pdfStrategies = ref([]);
-const pdfSchemes = ref([]);
 const pdfCards = ref([]);
 const filterText = ref('');
 const filterUpgradeText = ref('');
@@ -82,13 +86,33 @@ const selectedFaction = ref(null);
 const upgradeResults = computed(() => {
     const filter = filterUpgradeText.value;
 
-    if (!filter.length) {
+    if (!filter.length && !selectedFaction.value) {
         return props.upgrades;
     }
 
-    return props.upgrades.filter(upgrade => {
+    let filtered = props.upgrades;
+
+    if (selectedFaction.value) {
+        filtered = props.upgrades.filter(upgrade => {
+            return upgrade.faction === selectedFaction.value;
+        });
+    }
+
+    return filtered.filter(upgrade => {
         return upgrade.name.toLowerCase().includes(filter.toLowerCase());
     });
+});
+
+const totalStones = ref(50);
+const stones = computed(() => {
+    let stones = 0;
+    pdfCards.value.forEach((card) => {
+        if (card.card_type === 'miniature') {
+            stones += card.cost;
+        }
+    })
+
+    return stones;
 });
 
 const results = computed(() => {
@@ -128,7 +152,6 @@ const filterFaction = (factionSlug) => {
 };
 
 const add = (character) => {
-    pdfCharacters.value.push(character);
     pdfCards.value.push(character);
     if (character.crew_upgrades.length > 0) {
         character.crew_upgrades.forEach((upgradeSlug) => {
@@ -250,7 +273,7 @@ const isCurrentTab = (tabName) => {
                         </Button>
                     </div>
                     <div class="flex-1 flex-grow md:hidden">
-                        <Button @click="changeTab('list')" class="!rounded-none !rounded-t-sm w-full" :disabled="isCurrentTab('list') ?? 'disabled'">List ({{ pdfCharacters.length }})</Button>
+                        <Button @click="changeTab('list')" class="!rounded-none !rounded-t-sm w-full" :disabled="isCurrentTab('list') ?? 'disabled'">List ({{ pdfCards.length }})</Button>
                     </div>
                 </div>
             </div>
@@ -352,13 +375,18 @@ const isCurrentTab = (tabName) => {
                         </div>
                     </div>
                 </div>
-                <div class="grid md:col-span-3 col-span-6 border border-primary pb-2 min-h-screen" :class="isCurrentTab('upgrades') ? 'block' : 'hidden'">
-                    <div class="px-2 pt-2">
-                        <div class="flex w-full my-auto pb-2">
+                <div class="grid md:col-span-3 col-span-6 border border-primary pb-2 pt-1 min-h-screen" :class="isCurrentTab('upgrades') ? 'block' : 'hidden'">
+                    <div>
+                        <div class="grid grid-cols-8">
+                            <div v-for="faction in factions" v-bind:key="faction.slug">
+                                <img :src="faction.logo" :alt="faction.name" class="hover:cursor-pointer" :class="selectedFaction === faction.slug ? 'opacity-100' : 'opacity-70'" @click="filterFaction(faction.slug)" />
+                            </div>
+                        </div>
+                        <div class="flex w-full my-auto p-2">
                             <Input class="max-w-auto" v-model="filterUpgradeText" placeholder="Filter Upgrades" />
                             <CircleX class="text-destructive my-auto ml-2" v-if="filterUpgradeText.length > 0" @click="filterUpgradeText = ''" />
                         </div>
-                        <div class="border border-primary hover:bg-secondary my-1 flex justify-between" v-for="upgrade in upgradeResults" v-bind:key="upgrade.slug">
+                        <div :class="factionBackground(upgrade.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="upgrade in upgradeResults" v-bind:key="upgrade.slug">
                             <Drawer>
                                 <DrawerTrigger as-child>
                                     <div class="py-1 px-2 w-full text-md">
@@ -410,9 +438,37 @@ const isCurrentTab = (tabName) => {
                 </div>
                 <div class="grid md:col-span-3 col-span-6 border border-primary pb-2 min-h-screen" :class="isCurrentTab('list') ? 'block' : 'hidden'">
                     <div>
-                        <div class="p-2">
-                            <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
-                            <Button class="p-2 mx-1" variant="default" :disabled="pdfCharacters.length < 1 && pdfUpgrades.length < 1" @click="generatePDF()">Generate PDF</Button>
+                        <div class="p-2 flex justify-between">
+                            <div>
+                                <Button class="p-2 mx-1" variant="destructive" @click="clear()">Clear</Button>
+                                <Button class="p-2 mx-1" variant="default" :disabled="pdfCards.length < 1" @click="generatePDF()">Generate PDF</Button>
+                            </div>
+                            <div class="hidden md:flex">
+                                <Label for="stone_count" class="my-auto mr-2">Total <Soulstone className="h-6 my-auto inline-block" /></Label>
+                                <NumberField id="stone_count" v-model="totalStones" :min="0" class="inline-block">
+                                    <NumberFieldContent>
+                                        <NumberFieldDecrement />
+                                        <NumberFieldInput />
+                                        <NumberFieldIncrement />
+                                    </NumberFieldContent>
+                                </NumberField>
+                            </div>
+                            <div class="my-auto inline-block hidden md:flex">Spent: {{ stones }} <Soulstone className="h-6 my-auto inline-block" /></div>
+                            <div class="my-auto inline-block hidden md:flex">Cache: {{ ((totalStones - stones) > 6) ? 6 : (totalStones - stones)}} <Soulstone className="h-6 my-auto inline-block" /></div>
+                        </div>
+                        <div class="grid grid-cols-3 md:hidden">
+                            <div>
+                                <Label for="stone_count" class="my-auto mr-2 block text-center">Total <Soulstone className="h-6 my-auto inline-block" /></Label>
+                                <NumberField id="stone_count" v-model="totalStones" :min="0" class="inline-block">
+                                    <NumberFieldContent>
+                                        <NumberFieldDecrement />
+                                        <NumberFieldInput />
+                                        <NumberFieldIncrement />
+                                    </NumberFieldContent>
+                                </NumberField>
+                            </div>
+                            <div class="my-auto inline-block text-center">Spent: <br />{{ stones }} <Soulstone className="h-6 my-auto inline-block" /></div>
+                            <div class="my-auto inline-block text-center">Cache: <br />{{ ((totalStones - stones) > 6) ? 6 : (totalStones - stones)}} <Soulstone className="h-6 my-auto inline-block" /></div>
                         </div>
                         <div v-for="(card, index) in pdfCards" v-bind:key="index">
                             <div v-if="card.card_type === 'miniature'" :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between">
@@ -459,7 +515,7 @@ const isCurrentTab = (tabName) => {
                                     <SquareMinus class="my-auto mx-1" />
                                 </div>
                             </div>
-                            <div v-if="card.card_type === 'upgrade'" class="border border-primary hover:bg-secondary my-1 mx-2 flex justify-between">
+                            <div v-if="card.card_type === 'upgrade'" :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary my-1 mx-2 flex justify-between">
                                 <Drawer>
                                     <DrawerTrigger as-child>
                                         <div class="py-1 px-2 w-full text-md">

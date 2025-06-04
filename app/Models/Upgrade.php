@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FactionEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
@@ -27,6 +28,7 @@ class Upgrade extends Model
     {
         return [
             'type' => UpgradeTypeEnum::class,
+            'faction' => FactionEnum::class,
         ];
     }
 

@@ -26,6 +26,8 @@ const appName = import.meta.env.VITE_APP_NAME || 'BiggerHat';
 
 // TODO: Make an enum
 const factionBackground = (factionName: string): string => {
+    if (!factionName) return;
+
     switch (factionName.toLowerCase()){
         case 'explorers_society':
             return 'bg-explorerssociety'

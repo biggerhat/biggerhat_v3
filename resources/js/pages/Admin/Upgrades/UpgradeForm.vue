@@ -38,6 +38,13 @@
                 return [];
             }
         },
+        factions: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return {};
+            }
+        },
         upgrade_types: {
             type: [Object, Array],
             required: false,
@@ -84,6 +91,7 @@
 
     const formInfo = ref({
         name: null,
+        faction: null,
         master_id: null,
         type: null,
         description: null,
@@ -109,6 +117,7 @@
 
     onMounted(() => {
         formInfo.value.name = props.upgrade?.name ?? null;
+        formInfo.value.faction = props.upgrade?.faction ?? null;
         formInfo.value.master_id = props.upgrade?.master_id ?? null;
         formInfo.value.type = props.upgrade?.type ?? null;
         formInfo.value.description = props.upgrade?.description ?? null;
@@ -165,6 +174,19 @@
                                 <SelectContent>
                                     <SelectItem v-for="type in props.upgrade_types" :value="type.value" :key="type.value">
                                         {{ type.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="faction">Faction</Label>
+                            <Select id="faction" v-model="formInfo.faction">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Character Faction" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="faction in props.factions" :value="faction.value" :key="faction.value">
+                                        {{ faction.name }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>

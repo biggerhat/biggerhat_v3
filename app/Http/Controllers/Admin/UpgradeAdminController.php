@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\FactionEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
@@ -31,6 +32,7 @@ class UpgradeAdminController extends Controller
         return inertia('Admin/Upgrades/UpgradeForm', [
             'characters' => Character::where('station', CharacterStationEnum::Master->value)->toSelectOptions('display_name', 'id'),
             'upgrade_types' => UpgradeTypeEnum::toSelectOptions(),
+            'factions' => FactionEnum::toSelectOptions(),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
             'actions' => Action::all()->map(function (Action $action) {
@@ -49,6 +51,7 @@ class UpgradeAdminController extends Controller
         return inertia('Admin/Upgrades/UpgradeForm', [
             'upgrade' => $upgrade->loadMissing(['master', 'tokens', 'markers', 'actions', 'abilities', 'triggers']),
             'characters' => Character::where('station', CharacterStationEnum::Master->value)->toSelectOptions('display_name', 'id'),
+            'factions' => FactionEnum::toSelectOptions(),
             'upgrade_types' => UpgradeTypeEnum::toSelectOptions(),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
@@ -97,6 +100,7 @@ class UpgradeAdminController extends Controller
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::enum(UpgradeTypeEnum::class)],
+            'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'master_id' => ['nullable', 'integer'],
             'description' => ['nullable', 'string'],
             'power_bar_count' => ['nullable', 'integer'],

@@ -33,8 +33,8 @@ const props = defineProps({
 <template>
     <div v-if="upgrade.back_image" class="w-full text-center">
         <div @click="flip" class="mx-1 w-auto h-auto">
-            <img v-if="!flipped" :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
-            <img v-else :src='"/storage/" + upgrade.back_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
+            <img v-show="!flipped" :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
+            <img v-show="flipped" :src='"/storage/" + upgrade.back_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
         </div>
         <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('upgrades.view', {'upgrade': props.upgrade.slug}))" size="sm" variant="link">

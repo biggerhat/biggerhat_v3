@@ -45,6 +45,8 @@ class PDFController extends Controller
     public function download(Request $request)
     {
         $cards = base64_decode($request->get('cards'));
+        $options = json_decode(base64_decode($request->get('options')), true);
+        $separateImages = $options['separate_images'];
         $cardArray = collect(json_decode($cards, true));
 
         $miniatureIds = $cardArray->where('card_type', CardTypeEnum::Miniature->value)->pluck('id');
@@ -59,21 +61,54 @@ class PDFController extends Controller
         foreach ($cardArray as $card) {
             if ($card['card_type'] === CardTypeEnum::Miniature->value) {
                 $miniature = $miniatures->where('id', $card['id'])->first();
-                $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
-                $data['images'][] = [
-                    'url' => $imageData,
-                    'type' => PDFImageTypeEnum::Double,
-                    'name' => $miniature->display_name,
-                ];
+
+                if ($separateImages) {
+                    $frontImage = base64_encode(Storage::disk('public')->get($miniature->front_image));
+                    $data['images'][] = [
+                        'url' => $frontImage,
+                        'type' => PDFImageTypeEnum::Single,
+                        'name' => $miniature->display_name,
+                    ];
+
+                    $backImage = base64_encode(Storage::disk('public')->get($miniature->back_image));
+                    $data['images'][] = [
+                        'url' => $backImage,
+                        'type' => PDFImageTypeEnum::Single,
+                        'name' => $miniature->display_name,
+                    ];
+                } else {
+                    $imageData = base64_encode(Storage::disk('public')->get($miniature->combination_image));
+                    $data['images'][] = [
+                        'url' => $imageData,
+                        'type' => PDFImageTypeEnum::Double,
+                        'name' => $miniature->display_name,
+                    ];
+                }
             }
             if ($card['card_type'] === CardTypeEnum::Upgrade->value) {
                 $upgrade = $upgrades->where('id', $card['id'])->first();
-                $imageData = $upgrade->back_image ? base64_encode(Storage::disk('public')->get($upgrade->combination_image)) : base64_encode(Storage::disk('public')->get($upgrade->front_image));
-                $data['images'][] = [
-                    'url' => $imageData,
-                    'type' => $upgrade->back_image ? PDFImageTypeEnum::Double : PDFImageTypeEnum::Single,
-                    'name' => $upgrade->name,
-                ];
+                if ($separateImages && $upgrade->back_image) {
+                    $frontImage = base64_encode(Storage::disk('public')->get($upgrade->front_image));
+                    $data['images'][] = [
+                        'url' => $frontImage,
+                        'type' => PDFImageTypeEnum::Single,
+                        'name' => $upgrade->name,
+                    ];
+
+                    $backImage = base64_encode(Storage::disk('public')->get($upgrade->front_image));
+                    $data['images'][] = [
+                        'url' => $backImage,
+                        'type' => PDFImageTypeEnum::Single,
+                        'name' => $upgrade->name,
+                    ];
+                } else {
+                    $imageData = $upgrade->back_image ? base64_encode(Storage::disk('public')->get($upgrade->combination_image)) : base64_encode(Storage::disk('public')->get($upgrade->front_image));
+                    $data['images'][] = [
+                        'url' => $imageData,
+                        'type' => $upgrade->back_image ? PDFImageTypeEnum::Double : PDFImageTypeEnum::Single,
+                        'name' => $upgrade->name,
+                    ];
+                }
             }
         }
 

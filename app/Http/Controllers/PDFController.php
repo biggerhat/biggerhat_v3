@@ -20,14 +20,6 @@ class PDFController extends Controller
     public function index(Request $request)
     {
         $characters = Character::with(['standardMiniatures', 'keywords', 'crewUpgrades', 'totem', 'isTotemFor'])
-            ->when($request->get('faction'), function ($query) use ($request) {
-                $query->where('faction', $request->faction);
-            })
-            ->when($request->get('keyword'), function ($query) use ($request) {
-                $query->whereHas('keywords', function ($query) use ($request) {
-                    $query->where('slug', $request->get('keyword'));
-                });
-            })
             ->whereHas('standardMiniatures')
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC');

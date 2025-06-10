@@ -257,6 +257,20 @@ const isCurrentTab = (tabName) => {
 
     return currentTab.value === tabName;
 };
+
+const urlParams = new URLSearchParams(window.location.search);
+onMounted(() => {
+    if (urlParams.get('faction')) {
+        filterFaction(urlParams.get('faction'));
+    }
+
+    if (urlParams.get('keyword')) {
+        let filtered = props.keywords.filter(keyword => {
+            return keyword.slug === urlParams.get('keyword');
+        });
+        selectedKeyword.value = filtered[0];
+    }
+});
 </script>
 
 <template>

@@ -70,6 +70,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Characters"
                    :model-value="table.getColumn('display_name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />
+            <div>Total {{ props.characters.length }}</div>
             <Button @click="router.get(route('admin.characters.create'))">
                 Create New Character
             </Button>

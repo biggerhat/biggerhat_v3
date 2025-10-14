@@ -44,6 +44,7 @@ const mainNavItems: NavItem[] = [
     }, {
         title: 'Factions',
         collapsible: true,
+        collapsed: false,
         items: [
             {
                 title: 'Arcanists',
@@ -90,6 +91,7 @@ const mainNavItems: NavItem[] = [
     }, {
         title: 'References',
         collapsible: true,
+        collapsed: true,
         items: [
             {
                 title: 'Keywords',
@@ -108,6 +110,7 @@ const mainNavItems: NavItem[] = [
     }, {
         title: 'Tools',
         collapsible: true,
+        collapsed: true,
         items: [
             // {
             //     title: 'Hat Gamin Discord Bot',
@@ -127,6 +130,7 @@ const superAdminNavItems: NavItem[] = [
     {
         title: 'Admin',
         collapsible: true,
+        collapsed: true,
         items: [
             {
                 title: 'Characters',
@@ -157,8 +161,12 @@ const superAdminNavItems: NavItem[] = [
                 href: route('admin.characteristics.index'),
                 icon: BookOpen,
             }, {
-                title: 'Upgrades',
+                title: 'Character Upgrades',
                 href: route('admin.upgrades.index'),
+                icon: BookOpen,
+            }, {
+                title: 'Crew Upgrades',
+                href: route('admin.crews.index'),
                 icon: BookOpen,
             }, {
                 title: 'Tokens',

@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\UpgradeDomainTypeEnum;
+use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 /**
@@ -27,14 +30,21 @@ class Upgrade extends Model
     public function casts(): array
     {
         return [
-            'type' => UpgradeTypeEnum::class,
+            'domain' => UpgradeDomainTypeEnum::class,
             'faction' => FactionEnum::class,
+            'type' => UpgradeTypeEnum::class,
+            'limitations' => UpgradeLimitationEnum::class,
         ];
     }
 
-    public function master(): BelongsTo
+    public function scopeForCharacters(Builder $query): Builder
     {
-        return $this->belongsTo(Character::class, 'master_id', 'id');
+        return $query->where('domain', UpgradeDomainTypeEnum::Character->value);
+    }
+
+    public function scopeForCrews(Builder $query): Builder
+    {
+        return $query->where('domain', UpgradeDomainTypeEnum::Crew->value);
     }
 
     public function markers(): MorphToMany
@@ -60,5 +70,20 @@ class Upgrade extends Model
     public function triggers(): MorphToMany
     {
         return $this->morphedByMany(Trigger::class, 'upgradeable');
+    }
+
+    public function keywords(): MorphToMany
+    {
+        return $this->morphedByMany(Keyword::class, 'upgradeable');
+    }
+
+    public function characters(): MorphToMany
+    {
+        return $this->morphedByMany(Character::class, 'upgradeable');
+    }
+
+    public function masters(): MorphToMany
+    {
+        return $this->characters()->where('station', CharacterStationEnum::Master->value);
     }
 }

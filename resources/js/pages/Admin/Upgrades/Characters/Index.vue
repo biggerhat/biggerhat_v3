@@ -78,7 +78,7 @@ const table = useVueTable({
 <template>
     <Head title="Upgrades - Admin" />
 
-    <div class="container mx-auto mt-6">
+    <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input class="max-w-sm" placeholder="Filter Upgrades"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"

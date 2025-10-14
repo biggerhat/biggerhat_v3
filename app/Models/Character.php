@@ -7,9 +7,12 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Observers\CharacterObserver;
 use App\Traits\UsesSelectOptionsScope;
+use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +29,7 @@ class Character extends Model
     use HasFactory;
 
     use UsesSelectOptionsScope;
+    use UsesUpgrades;
 
     /**
      * @var array<string>|bool
@@ -51,6 +55,11 @@ class Character extends Model
     protected $appends = [
         'faction_color',
     ];
+
+    public function scopeForStation(Builder $query, CharacterStationEnum $station): Builder
+    {
+        return $query->where('station', $station->value);
+    }
 
     public function getFactionColorAttribute(): string
     {
@@ -107,9 +116,9 @@ class Character extends Model
         return $this->morphedByMany(Token::class, 'characterable');
     }
 
-    public function crewUpgrades(): HasMany
+    public function crewUpgrades(): MorphToMany
     {
-        return $this->hasMany(Upgrade::class, 'master_id', 'id');
+        return $this->upgrades()->where('domain', UpgradeDomainTypeEnum::Crew->value);
     }
 
     public function totem(): BelongsTo

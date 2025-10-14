@@ -435,7 +435,7 @@ onMounted(() => {
                                             <span v-if="upgrade.type">
                                                 {{ upgrade.type }}
                                                 <span v-if="upgrade.master"> - {{ upgrade.master }} </span>
-                                                <span v-if="upgrade.count > 1">({{ upgrade.count }})</span>
+                                                <span v-if="upgrade.count > 1"> ({{ upgrade.count }})</span>
                                             </span>
                                             </div>
                                         </div>

@@ -25,12 +25,16 @@ class UpgradePDFResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'card_type' => CardTypeEnum::Upgrade,
-            'type' => $this->type->label(),
+            'type' => $this->type?->label(),
             'faction' => $this->faction,
             'front_image' => $this->front_image,
             'back_image' => $this->back_image,
             'combination_image' => $this->combination_image,
-            'master' => $this->when($this->relationLoaded('master'), fn () => $this->master?->display_name),
+            'master' => $this->when($this->relationLoaded('masters'), function () {
+                $masters = $this->masters->pluck('display_name')->toArray();
+
+                return implode(', ', $masters);
+            }),
             'count' => $this->plentiful,
         ];
     }

@@ -15,7 +15,7 @@ const page = usePage<SharedData>();
 </script>
 
 <template>
-    <Collapsible defaultOpen class="group/collapsible">
+    <Collapsible class="group/collapsible">
         <SidebarGroup v-for="item in items" class="px-2 py-0">
             <SidebarGroupLabel asChild>
                 <CollapsibleTrigger>

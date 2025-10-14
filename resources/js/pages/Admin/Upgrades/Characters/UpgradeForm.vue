@@ -22,6 +22,9 @@
     } from "@/components/ui/number-field";
     import {Switch} from "@/components/ui/switch";
     import CustomMultiselect from "@/components/CustomMultiselect.vue";
+    import Separator from "@/components/ui/separator/Separator.vue";
+    import TextBar from "@/components/TextBar.vue";
+    import {CircleX} from "lucide-vue-next";
 
     const props = defineProps({
         upgrade: {
@@ -45,7 +48,14 @@
                 return {};
             }
         },
-        upgrade_types: {
+        types: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
+        limitations: {
             type: [Object, Array],
             required: false,
             default() {
@@ -92,14 +102,13 @@
     const formInfo = ref({
         name: null,
         faction: null,
-        master_id: null,
-        type: null,
         description: null,
         power_bar_count: null,
         front_image: null,
         back_image: null,
         combination_image: null,
         plentiful: null,
+        type: null,
         limitations: null,
         tokens: [],
         markers: [],
@@ -107,6 +116,7 @@
         actions: [],
         signature_actions: [],
         abilities: [],
+        characters: [],
     });
 
     const submit = () => {
@@ -118,12 +128,11 @@
     onMounted(() => {
         formInfo.value.name = props.upgrade?.name ?? null;
         formInfo.value.faction = props.upgrade?.faction ?? null;
-        formInfo.value.master_id = props.upgrade?.master_id ?? null;
-        formInfo.value.type = props.upgrade?.type ?? null;
         formInfo.value.description = props.upgrade?.description ?? null;
         formInfo.value.power_bar_count = props.upgrade?.power_bar_count ?? null;
-        formInfo.value.plentiful = props.upgrade?.plentiful ?? null;
+        formInfo.value.plentiful = props.upgrade?.plentiful ?? 1;
         formInfo.value.limitations = props.upgrade?.limitations ?? null;
+        formInfo.value.type = props.upgrade?.type ?? null;
 
         props.upgrade?.markers.forEach((marker) => {
             formInfo.value.markers.push(marker.name);
@@ -135,6 +144,10 @@
 
         props.upgrade?.triggers.forEach((trigger) => {
             formInfo.value.triggers.push(trigger.name);
+        });
+
+        props.upgrade?.characters.forEach((character) => {
+            formInfo.value.characters.push(character.display_name);
         });
 
         props.upgrade?.actions.forEach((action) => {
@@ -152,7 +165,7 @@
 </script>
 
 <template>
-    <div class="container mx-auto mt-6">
+    <div class="container mx-auto mt-6 h-full px-2">
         <Card>
             <CardHeader>
                 <CardTitle>Upgrade</CardTitle>
@@ -166,23 +179,10 @@
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Upgrade Name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <Label for="type">Type</Label>
-                            <Select id="type" v-model="formInfo.type">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Upgrade Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="type in props.upgrade_types" :value="type.value" :key="type.value">
-                                        {{ type.name }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="flex flex-col space-y-1.5">
                             <Label for="faction">Faction</Label>
                             <Select id="faction" v-model="formInfo.faction">
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Character Faction" />
+                                    <SelectValue placeholder="Upgrade Faction" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem v-for="faction in props.factions" :value="faction.value" :key="faction.value">
@@ -193,18 +193,21 @@
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <div class="flex flex-col space-y-1.5">
-                                    <Label for="character">Master (Only If Crew Upgrade)</Label>
-                                    <Select id="character" v-model="formInfo.master_id">
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Character" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem v-for="character in props.characters" :value="character.value" :key="character.value">
-                                                {{ character.name }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div class="flex flex-col w-full my-auto space-y-1.5">
+                                    <Label for="type">Type (Optional)</Label>
+                                    <div class="flex w-full my-auto">
+                                        <Select id="type" v-model="formInfo.type" class="inline">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Upgrade Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="type in props.types" :value="type.value" :key="type.value">
+                                                    {{ type.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <CircleX class="text-destructive my-auto ml-2" v-if="formInfo.type" @click="formInfo.type = null" />
+                                    </div>
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="power_bar_count">Power Bar Count</Label>
@@ -212,11 +215,23 @@
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="plentiful">Plentiful Count</Label>
-                                    <Input id="plentiful" v-model="formInfo.plentiful" type="number" placeholder="Plentiful Count (Optional)" />
+                                    <Input id="plentiful" v-model="formInfo.plentiful" type="number" min="1" placeholder="Plentiful Count (Optional)" />
                                 </div>
-                                <div class="flex flex-col space-y-1.5">
-                                    <Label for="limitations">Limitations</Label>
-                                    <Input id="limitations" v-model="formInfo.limitations" placeholder="Limitations (Optional)" />
+                                <div class="flex flex-col w-full my-auto space-y-1.5">
+                                    <Label for="type">Limitations (Optional)</Label>
+                                    <div class="flex w-full my-auto">
+                                        <Select id="type" v-model="formInfo.limitations" class="inline">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Upgrade Limitation" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="limitation in props.limitations" :value="limitation.value" :key="limitation.value">
+                                                    {{ limitation.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <CircleX class="text-destructive my-auto ml-2" v-if="formInfo.limitations" @click="formInfo.limitations = null" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -226,18 +241,26 @@
                                 <Textarea id="description" v-model="formInfo.description" placeholder="Type the upgrade text here." />
                             </div>
                         </div>
+
+                        <TextBar text="Images" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <div class="flex flex-col w-full max-w-sm mx-auto items-center gap-1.5 space-y-1.5">
+                                    <Label v-if="props.upgrade?.front_image && !formInfo.front_image" for="current_front_image">Current Image</Label>
+                                    <img id="current_front_image" v-if="props.upgrade?.front_image && !formInfo.front_image" :src='"/storage/" + props.upgrade?.front_image' :alt="props.upgrade?.name" class="rounded-lg w-full h-full" />
                                     <Label for="front_image">Front of Card Image</Label>
                                     <Input id="front_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.front_image = $event.target.files[0]" />
                                 </div>
-                                <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <div class="flex flex-col w-full max-w-sm mx-auto items-center gap-1.5 space-y-1.5">
+                                    <Label v-if="props.upgrade?.back_image && !formInfo.back_image" for="current_back_image">Current Image</Label>
+                                    <img id="current_back_image" v-if="props.upgrade?.back_image && !formInfo.back_image" :src='"/storage/" + props.upgrade?.back_image' :alt="props.upgrade?.name" class="rounded-lg w-full h-full" />
                                     <Label for="back_image">Back of Card Image</Label>
                                     <Input id="back_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.back_image = $event.target.files[0]" />
                                 </div>
                             </div>
                         </div>
+
+                        <TextBar text="Related" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
@@ -246,17 +269,9 @@
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choiceOptions="props.tokens" />
                                 </div>
-                            </div>
-                        </div>
-                        <div class="flex flex-col space-y-1.5">
-                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choiceOptions="props.abilities" />
                                 </div>
-                            </div>
-                        </div>
-                        <div class="flex flex-col space-y-1.5">
-                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
                                 </div>
@@ -266,13 +281,16 @@
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model=formInfo.triggers comboTitle="Select Triggers" :choice-options="props.triggers" />
                                 </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <CustomMultiselect v-model=formInfo.characters comboTitle="Select Characters" :choice-options="props.characters" />
+                                </div>
                             </div>
                         </div>
                     </div>
                 </form>
             </CardContent>
-            <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.upgrades.index'))" variant="outline">
+            <CardFooter class="flex justify-end gap-2 px-6 pb-6">
+                <Button @click="router.get(route('admin.upgrades.index'))" variant="destructive">
                     Cancel
                 </Button>
                 <Button @click="submit">Save</Button>

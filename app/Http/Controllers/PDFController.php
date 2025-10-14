@@ -24,7 +24,7 @@ class PDFController extends Controller
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC');
 
-        $upgrades = Upgrade::with('master')->orderBy('name', 'ASC');
+        $upgrades = Upgrade::with('masters')->orderBy('name', 'ASC');
 
         return inertia('PDF/Index', [
             'factions' => fn () => FactionEnum::buildDetails(),

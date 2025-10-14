@@ -138,12 +138,10 @@ const formInfo = ref({
     title: null,
     nicknames: null,
     station: null,
-    crew_upgrades: [],
     totem: null,
     faction: null,
     keywords: [],
     characteristics: [],
-    // miniatures: [],
     signature_actions: [],
     actions: [],
     abilities: [],
@@ -199,17 +197,9 @@ onMounted(() => {
         formInfo.value.keywords.push(keyword.name);
     });
 
-    props.character?.crew_upgrades.forEach((crew_upgrade) => {
-        formInfo.value.crew_upgrades.push(crew_upgrade.name);
-    });
-
     props.character?.characteristics.forEach((characteristic) => {
         formInfo.value.characteristics.push(characteristic.name);
     });
-
-    // props.character?.miniatures.forEach((miniature) => {
-    //     formInfo.value.miniatures.push(miniature.display_name);
-    // });
 
     props.character?.abilities.forEach((ability) => {
         formInfo.value.abilities.push(ability.name);
@@ -295,10 +285,6 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div>
-                                <div class="flex flex-col space-y-1.5">
-                                    <div v-for="upgrade in formInfo.crew_upgrades" :key="`upgrades-${upgrade.id}`">{{ upgrade.name }}</div>
-                                    <CustomMultiselect v-model="formInfo.crew_upgrades" comboTitle="Select Crew Upgrades" :choiceOptions="props.crew_upgrades" />
                                 </div>
                             </div>
                         </div>

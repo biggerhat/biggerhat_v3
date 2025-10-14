@@ -196,7 +196,10 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Token> $tokens
  * @property-read int|null $tokens_count
  * @property-read Character|null $totem
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
+ * @property-read int|null $upgrades_count
  * @method static \Database\Factories\CharacterFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Character forStation(\App\Enums\CharacterStationEnum $station)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character query()
@@ -615,9 +618,8 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
- * @property \App\Enums\UpgradeTypeEnum $type
+ * @property \App\Enums\UpgradeDomainTypeEnum $domain
  * @property string|null $description
- * @property int|null $master_id
  * @property int|null $power_bar_count
  * @property string|null $front_image
  * @property string|null $back_image
@@ -626,20 +628,28 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
  * @property int|null $plentiful
- * @property string|null $limitations
+ * @property \App\Enums\UpgradeLimitationEnum|null $limitations
+ * @property \App\Enums\UpgradeTypeEnum|null $type
  * @property \App\Enums\FactionEnum|null $faction
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
+ * @property-read int|null $keywords_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Marker> $markers
  * @property-read int|null $markers_count
- * @property-read \App\Models\Character|null $master
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $masters
+ * @property-read int|null $masters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Token> $tokens
  * @property-read int|null $tokens_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Trigger> $triggers
  * @property-read int|null $triggers_count
  * @method static \Database\Factories\UpgradeFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade forCharacters()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade forCrews()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade query()
@@ -649,11 +659,11 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereDomain($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereFrontImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereLimitations($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereMasterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade wherePlentiful($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade wherePowerBarCount($value)

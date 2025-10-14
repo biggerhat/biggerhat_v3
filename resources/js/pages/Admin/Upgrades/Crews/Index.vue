@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { valueUpdater } from '@/lib/utils'
 import AdminActions from '@/components/AdminActions.vue';
+import { Check, Ban } from 'lucide-vue-next';
 
 import {
     Table,
@@ -24,33 +25,45 @@ import {
     useVueTable,
 } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Characters>[] = [
+const columns: ColumnDef<Upgrades>[] = [
     {
-        accessorKey: 'display_name',
-        header: () => h('div', {}, 'Character'),
+        accessorKey: 'name',
+        header: () => h('div', {}, 'Crew Upgrade'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('display_name'))
+            return h('div', {}, row.getValue('name'))
+        },
+    },{
+        accessorKey: 'front_image',
+        header: () => h('div', {}, 'Front Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('front_image') ? h(Check) : h(Ban))
+        },
+    },{
+        accessorKey: 'back_image',
+        header: () => h('div', {}, 'Back Image'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('back_image') ? h(Check) : h(Ban))
         },
     },{
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
-            const character = row.original;
+            const crew = row.original;
 
-            return h('div', { class: 'relative' }, h(AdminActions, { name: character.display_name, editRoute: route('admin.characters.edit', character.slug), deleteRoute: route('admin.characters.delete', character.slug) }))
+            return h('div', { class: 'relative' }, h(AdminActions, { name: crew.name, editRoute: route('admin.crews.edit', crew.slug), deleteRoute: route('admin.crews.delete', crew.slug) }))
         },
     },
 ];
 
 const props = defineProps<{
-    characters: TData[]
+    upgrades: TData[]
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([])
 
 const table = useVueTable({
-    get data() { return props.characters },
+    get data() { return props.upgrades },
     get columns() { return columns },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -63,16 +76,15 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Characters - Admin" />
+    <Head title="Crew Upgrades - Admin" />
 
-    <div class="container mx-auto mt-6 px-2">
+    <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input class="max-w-sm" placeholder="Filter Characters"
-                   :model-value="table.getColumn('display_name')?.getFilterValue() as string"
-                   @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />
-            <div>Total {{ props.characters.length }}</div>
-            <Button @click="router.get(route('admin.characters.create'))">
-                Create New Character
+            <Input class="max-w-sm" placeholder="Filter Crew Upgrades"
+                   :model-value="table.getColumn('name')?.getFilterValue() as string"
+                   @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <Button @click="router.get(route('admin.crews.create'))">
+                Create New Crew Upgrade
             </Button>
         </div>
         <div class="border rounded-md">

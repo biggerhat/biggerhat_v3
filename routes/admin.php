@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AbilityAdminController;
 use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
+use App\Http\Controllers\Admin\CrewAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
@@ -79,6 +80,15 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->middleware(['role:supe
     });
 
     Route::controller(UpgradeAdminController::class)->prefix('upgrades')->name('upgrades.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit/{upgrade}', 'edit')->name('edit');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{upgrade}', 'update')->name('update');
+        Route::post('/delete/{upgrade}', 'delete')->name('delete');
+    });
+
+    Route::controller(CrewAdminController::class)->prefix('crews')->name('crews.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/edit/{upgrade}', 'edit')->name('edit');
         Route::get('/create', 'create')->name('create');

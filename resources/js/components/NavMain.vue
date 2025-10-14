@@ -28,7 +28,29 @@ const page = usePage<SharedData>();
 
 <template>
     <div v-for="(item, idx) in items" :key="`navItems-${idx}`">
-        <Collapsible v-if="item.collapsible" defaultOpen class="group/collapsible">
+        <Collapsible v-if="item.collapsible && !item.collapsed" defaultOpen class="group/collapsible">
+            <SidebarGroup class="px-2 py-0">
+                <SidebarGroupLabel asChild>
+                    <CollapsibleTrigger>
+                        {{ item.title }}
+                        <ChevronDown class="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                    <SidebarMenu>
+                        <SidebarMenuItem v-for="item in item.items" :key="item.title">
+                            <SidebarMenuButton as-child :is-active="item.href === page.url">
+                                <Link :href="item.href" @click="mobileCheck">
+                                    <component :is="item.icon" :className="item.icon_class ?? ''" />
+                                    <span>{{ item.title }}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </CollapsibleContent>
+            </SidebarGroup>
+        </Collapsible>
+        <Collapsible v-else-if="item.collapsible && item.collapsed" class="group/collapsible">
             <SidebarGroup class="px-2 py-0">
                 <SidebarGroupLabel asChild>
                     <CollapsibleTrigger>

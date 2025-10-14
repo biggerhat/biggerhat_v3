@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UpgradeTypeEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug');
-            $table->string('type')->default(UpgradeTypeEnum::Crew->value);
+            $table->string('type')->default(UpgradeDomainTypeEnum::Crew->value);
             $table->longText('description')->nullable();
             $table->foreignId('master_id')->constrained('characters');
             $table->integer('power_bar_count')->nullable();

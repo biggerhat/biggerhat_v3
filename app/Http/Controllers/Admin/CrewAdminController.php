@@ -2,39 +2,38 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\UpgradeDomainTypeEnum;
-use App\Enums\UpgradeLimitationEnum;
-use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Storage;
 use Str;
 
-class UpgradeAdminController extends Controller
+class CrewAdminController extends Controller
 {
     public function index(Request $request)
     {
-        return inertia('Admin/Upgrades/Characters/Index', [
-            'upgrades' => Upgrade::forCharacters()->orderBy('name', 'ASC')->get(),
+        return inertia('Admin/Upgrades/Crews/Index', [
+            'upgrades' => Upgrade::forCrews()->orderBy('name', 'ASC')->get(),
         ]);
     }
 
     public function create(Request $request)
     {
-        return inertia('Admin/Upgrades/Characters/UpgradeForm', [
-            'characters' => Character::toSelectOptions('display_name', 'id'),
+        return inertia('Admin/Upgrades/Crews/UpgradeForm', [
+            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
             'factions' => FactionEnum::toSelectOptions(),
-            'types' => UpgradeTypeEnum::toSelectOptions(),
-            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
             'actions' => Action::all()->map(function (Action $action) {
@@ -50,12 +49,11 @@ class UpgradeAdminController extends Controller
 
     public function edit(Request $request, Upgrade $upgrade)
     {
-        return inertia('Admin/Upgrades/Characters/UpgradeForm', [
-            'upgrade' => $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers']),
-            'characters' => Character::toSelectOptions('display_name', 'id'),
+        return inertia('Admin/Upgrades/Crews/UpgradeForm', [
+            'upgrade' => $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']),
+            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
             'factions' => FactionEnum::toSelectOptions(),
-            'types' => UpgradeTypeEnum::toSelectOptions(),
-            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
             'tokens' => Token::all(),
             'markers' => Marker::all(),
             'actions' => Action::all()->map(function (Action $action) {
@@ -73,14 +71,14 @@ class UpgradeAdminController extends Controller
     {
         $upgrade = $this->validateAndSave($request);
 
-        return redirect()->route('admin.upgrades.index')->withMessage("{$upgrade->name} created successfully.");
+        return redirect()->route('admin.crews.index')->withMessage("{$upgrade->name} created successfully.");
     }
 
     public function update(Request $request, Upgrade $upgrade)
     {
         $upgrade = $this->validateAndSave($request, $upgrade);
 
-        return redirect()->route('admin.upgrades.index')->withMessage("{$upgrade->name} has been updated.");
+        return redirect()->route('admin.crews.index')->withMessage("{$upgrade->name} has been updated.");
     }
 
     public function delete(Request $request, Upgrade $upgrade)
@@ -88,7 +86,7 @@ class UpgradeAdminController extends Controller
         $name = $upgrade->name;
         $upgrade->delete();
 
-        return redirect()->route('admin.upgrades.index')->withMessage("{$name} has been deleted.");
+        return redirect()->route('admin.crews.index')->withMessage("{$name} has been deleted.");
     }
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
@@ -97,6 +95,7 @@ class UpgradeAdminController extends Controller
         $abilities = collect([]);
         $actions = collect([]);
         $characters = collect([]);
+        $keywords = collect([]);
         $signatureActions = collect([]);
         $markers = collect([]);
         $tokens = collect([]);
@@ -106,9 +105,6 @@ class UpgradeAdminController extends Controller
             'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'description' => ['nullable', 'string'],
             'power_bar_count' => ['nullable', 'integer'],
-            'plentiful' => ['nullable', 'integer'],
-            'type' => ['nullable', 'string'],
-            'limitations' => ['nullable', 'string'],
             'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
@@ -119,9 +115,10 @@ class UpgradeAdminController extends Controller
             'abilities' => ['nullable', 'array'],
             'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
+            'keywords' => ['nullable', 'array'],
         ]);
 
-        $validated['domain'] = UpgradeDomainTypeEnum::Character->value;
+        $validated['domain'] = UpgradeDomainTypeEnum::Crew->value;
 
         $validated['slug'] = Str::slug($validated['name']);
 
@@ -193,6 +190,11 @@ class UpgradeAdminController extends Controller
             unset($validated['characters']);
         }
 
+        if (isset($validated['keywords'])) {
+            $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
+            unset($validated['keywords']);
+        }
+
         if (! $upgrade) {
             $upgrade = Upgrade::create($validated);
         } else {
@@ -208,6 +210,7 @@ class UpgradeAdminController extends Controller
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
         $upgrade->characters()->sync($characters->pluck('id'));
+        $upgrade->keywords()->sync($keywords->pluck('id'));
 
         if ($upgrade->front_image && $upgrade->back_image) {
             $this->generateComboImage($upgrade);

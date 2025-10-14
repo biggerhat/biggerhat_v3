@@ -6,7 +6,6 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
-use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
@@ -52,7 +51,7 @@ class CharacterAdminController extends Controller
             'totems' => Character::whereHas('characteristics', function (Builder $query) {
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
-            'crew_upgrades' => Upgrade::where('type', UpgradeTypeEnum::Crew->value)->toSelectOptions('name', 'slug'),
+            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
         ]);
     }
 
@@ -79,7 +78,7 @@ class CharacterAdminController extends Controller
             'totems' => Character::whereHas('characteristics', function (Builder $query) {
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
-            'crew_upgrades' => Upgrade::where('type', UpgradeTypeEnum::Crew->value)->toSelectOptions('name', 'slug'),
+            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
         ]);
     }
 
@@ -107,8 +106,6 @@ class CharacterAdminController extends Controller
 
     private function validateAndSave(Request $request, ?Character $character = null)
     {
-        $upgrades = null;
-        $existingMiniatures = null;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'title' => ['nullable', 'string', 'max:255'],
@@ -116,7 +113,6 @@ class CharacterAdminController extends Controller
             'station' => ['nullable', 'string', Rule::enum(CharacterStationEnum::class)],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
             'totem' => ['nullable', 'string'],
-            'crew_upgrades' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
             'characteristics' => ['nullable', 'array'],
             'miniatures' => ['nullable', 'array'],
@@ -159,9 +155,6 @@ class CharacterAdminController extends Controller
         }
         unset($validated['totem']);
 
-        $upgrades = Upgrade::whereIn('name', $validated['crew_upgrades'])->get();
-        unset($validated['crew_upgrades']);
-
         $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
         unset($validated['keywords']);
 
@@ -197,14 +190,6 @@ class CharacterAdminController extends Controller
             $character = Character::create($validated);
         } else {
             $character->update($validated);
-        }
-
-        $populatedUpgrades = Upgrade::where('master_id', $character->id)->get()->each(function (Upgrade $upgrade) {
-            $upgrade->updateQuietly(['master_id' => null]);
-        });
-        foreach ($upgrades as $upgrade) {
-            $upgrade->master_id = $character->id;
-            $upgrade->save();
         }
 
         // Detach all Current Actions Then Attach All News Ones, including Signature

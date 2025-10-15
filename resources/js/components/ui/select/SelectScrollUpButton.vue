@@ -12,7 +12,7 @@ const delegatedProps = computed(() => {
   return delegated
 })
 
-const forwardedProps = useForwardProps(delegatedProps)
+const forwardedProps = useForwardProps(delegatedProps.value)
 </script>
 
 <template>

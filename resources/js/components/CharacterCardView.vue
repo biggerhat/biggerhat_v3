@@ -22,6 +22,13 @@ const props = defineProps({
         default () {
             return true;
         }
+    },
+    characterSlug: {
+        type: String,
+        required: false,
+        default () {
+            return '';
+        }
     }
 });
 </script>
@@ -33,7 +40,7 @@ const props = defineProps({
             <img v-show="flipped" :src='"/storage/" + miniature.back_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
         </div>
         <div class="mt-1" v-if="props.showLink === true">
-            <Button @click="router.get(route('characters.view', {'character': props.miniature.character.slug, 'miniature': props.miniature.id, 'slug': props.miniature.slug}))" size="sm" variant="link">
+            <Button @click="router.get(route('characters.view', {'character': props.characterSlug, 'miniature': props.miniature.id, 'slug': props.miniature.slug}))" size="sm" variant="link">
                 View Character Page
             </Button>
         </div>

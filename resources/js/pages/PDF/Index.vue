@@ -386,7 +386,7 @@ onMounted(() => {
                                                 <DrawerTitle>{{ character.display_name }}</DrawerTitle>
                                             </DrawerHeader>
                                             <div class="p-4 pb-0">
-                                                <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" />
+                                                <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" :character-slug="character.slug" />
                                             </div>
                                             <DrawerFooter>
                                                 <div class="flex justify-center">
@@ -548,7 +548,7 @@ onMounted(() => {
                                                     <DrawerTitle>{{ card.display_name }}</DrawerTitle>
                                                 </DrawerHeader>
                                                 <div class="p-4 pb-0">
-                                                    <CharacterCardView :miniature="card.standard_miniatures[0]" showLink="false" />
+                                                    <CharacterCardView :miniature="card.standard_miniatures[0]" showLink="false" :character-slug="card.slug" />
                                                 </div>
                                                 <DrawerFooter>
                                                     <div class="flex justify-center">

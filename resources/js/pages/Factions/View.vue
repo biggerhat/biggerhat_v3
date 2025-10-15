@@ -302,7 +302,7 @@ onMounted(() => {
                      :key="`character-${character.id}`"
                      class="mb-2 md:mb-0 md:snap-none snap-always md:snap-normal snap-start"
                 >
-                    <CharacterCardView :miniature="character.standard_miniatures[0]" />
+                    <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
                 </div>
             </div>
         </div>

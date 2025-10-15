@@ -27,7 +27,7 @@ class CharacterAPIController extends Controller
                 ->with('character')->get();
         }
 
-        return $miniatures;
+        return $miniatures->unique('character_id');
     }
 
     public function images(Request $request)

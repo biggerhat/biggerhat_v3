@@ -41,6 +41,13 @@
                 return [];
             }
         },
+        keywords: {
+            type: [Object, Array],
+            required: false,
+            default() {
+                return [];
+            }
+        },
         factions: {
             type: [Object, Array],
             required: false,
@@ -117,6 +124,7 @@
         signature_actions: [],
         abilities: [],
         characters: [],
+        keywords: [],
     });
 
     const submit = () => {
@@ -148,6 +156,10 @@
 
         props.upgrade?.characters.forEach((character) => {
             formInfo.value.characters.push(character.display_name);
+        });
+
+        props.upgrade?.keywords.forEach((keyword) => {
+            formInfo.value.keywords.push(keyword.name);
         });
 
         props.upgrade?.actions.forEach((action) => {
@@ -263,6 +275,10 @@
                         <TextBar text="Related" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="keywords">Keywords</Label>
+                                    <CustomMultiselect id="keywords" v-model=formInfo.keywords comboTitle="Select Keywords" :choice-options="props.keywords" class="my-auto" />
+                                </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choiceOptions="props.markers" />
                                 </div>

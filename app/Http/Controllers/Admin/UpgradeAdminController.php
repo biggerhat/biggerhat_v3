@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Trigger;
@@ -32,6 +33,7 @@ class UpgradeAdminController extends Controller
     {
         return inertia('Admin/Upgrades/Characters/UpgradeForm', [
             'characters' => Character::toSelectOptions('display_name', 'id'),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
             'factions' => FactionEnum::toSelectOptions(),
             'types' => UpgradeTypeEnum::toSelectOptions(),
             'limitations' => UpgradeLimitationEnum::toSelectOptions(),
@@ -53,6 +55,7 @@ class UpgradeAdminController extends Controller
         return inertia('Admin/Upgrades/Characters/UpgradeForm', [
             'upgrade' => $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers']),
             'characters' => Character::toSelectOptions('display_name', 'id'),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
             'factions' => FactionEnum::toSelectOptions(),
             'types' => UpgradeTypeEnum::toSelectOptions(),
             'limitations' => UpgradeLimitationEnum::toSelectOptions(),
@@ -97,6 +100,7 @@ class UpgradeAdminController extends Controller
         $abilities = collect([]);
         $actions = collect([]);
         $characters = collect([]);
+        $keywords = collect([]);
         $signatureActions = collect([]);
         $markers = collect([]);
         $tokens = collect([]);
@@ -119,6 +123,7 @@ class UpgradeAdminController extends Controller
             'abilities' => ['nullable', 'array'],
             'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
+            'keywords' => ['nullable', 'array'],
         ]);
 
         $validated['domain'] = UpgradeDomainTypeEnum::Character->value;
@@ -193,6 +198,11 @@ class UpgradeAdminController extends Controller
             unset($validated['characters']);
         }
 
+        if (isset($validated['keywords'])) {
+            $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
+            unset($validated['keywords']);
+        }
+
         if (! $upgrade) {
             $upgrade = Upgrade::create($validated);
         } else {
@@ -207,6 +217,7 @@ class UpgradeAdminController extends Controller
         $upgrade->abilities()->sync($abilities->pluck('id'));
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
+        $upgrade->keywords()->sync($keywords->pluck('id'));
         $upgrade->characters()->sync($characters->pluck('id'));
 
         if ($upgrade->front_image && $upgrade->back_image) {

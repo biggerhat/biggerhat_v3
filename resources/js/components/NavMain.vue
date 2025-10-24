@@ -10,6 +10,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 const { toggleSidebar, open } = useSidebar();
 
 defineProps<{
+
     items: NavItem[];
 }>();
 

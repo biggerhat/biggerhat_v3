@@ -116,11 +116,6 @@ class Character extends Model
         return $this->morphedByMany(Token::class, 'characterable');
     }
 
-    public function crewUpgrades(): MorphToMany
-    {
-        return $this->upgrades()->where('domain', UpgradeDomainTypeEnum::Crew->value);
-    }
-
     public function totem(): BelongsTo
     {
         return $this->belongsTo(Character::class, 'has_totem_id', 'id');

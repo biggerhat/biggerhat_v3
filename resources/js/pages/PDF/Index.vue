@@ -367,48 +367,100 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="max-h-screen overflow-y-auto">
-                            <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="character in results" v-bind:key="character.slug">
-                                <Drawer>
-                                    <DrawerTrigger as-child>
-                                        <div class="py-1 px-2 w-full text-md">
-                                            <span class="font-bold">{{ character.display_name }}</span>
-                                            <div class="block m-0 p-0 text-xs first-letter:capitalize">
-                                                <span v-if="character.cost">Cost: {{ character.cost }} // </span>
-                                                <div v-if="character.station" class="first-letter:capitalize inline-block">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></div>
-                                                <span v-if="character.station && character.keywords.length > 0"> // </span>
-                                                {{ character.keywords.map(keyword => keyword.name).join(', ')}}
-                                            </div>
-                                        </div>
-                                    </DrawerTrigger>
-                                    <DrawerContent>
-                                        <div class="mx-auto w-full max-w-sm">
-                                            <DrawerHeader>
-                                                <DrawerTitle>{{ character.display_name }}</DrawerTitle>
-                                            </DrawerHeader>
-                                            <div class="p-4 pb-0">
-                                                <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" :character-slug="character.slug" />
-                                            </div>
-                                            <DrawerFooter>
-                                                <div class="flex justify-center">
-                                                    <div class="mx-1">
-                                                        <Button variant="default" @click="add(character)">
-                                                            Add To List
-                                                        </Button>
-                                                    </div>
-                                                    <div class="mx-1">
-                                                        <DrawerClose as-child>
-                                                            <Button variant="destructive">
-                                                                Close
-                                                            </Button>
-                                                        </DrawerClose>
-                                                    </div>
+                            <div class="m-0 p-0 w-full" v-for="character in results" v-bind:key="character.slug">
+                                <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between">
+                                    <Drawer>
+                                        <DrawerTrigger as-child>
+                                            <div class="py-1 px-2 w-full text-md">
+                                                <span class="font-bold">{{ character.display_name }}</span>
+                                                <div class="block m-0 p-0 text-xs first-letter:capitalize">
+                                                    <span v-if="character.cost">Cost: {{ character.cost }} // </span>
+                                                    <div v-if="character.station" class="first-letter:capitalize inline-block">{{ character.station }} <span v-if="character.count > 1">({{ character.count }})</span></div>
+                                                    <span v-if="character.station && character.keywords.length > 0"> // </span>
+                                                    {{ character.keywords.map(keyword => keyword.name).join(', ')}}
                                                 </div>
-                                            </DrawerFooter>
+                                            </div>
+                                        </DrawerTrigger>
+                                        <DrawerContent>
+                                            <div class="mx-auto w-full max-w-sm">
+                                                <DrawerHeader>
+                                                    <DrawerTitle>{{ character.display_name }}</DrawerTitle>
+                                                </DrawerHeader>
+                                                <div class="p-4 pb-0">
+                                                    <CharacterCardView :miniature="character.standard_miniatures[0]" showLink="false" :character-slug="character.slug" />
+                                                </div>
+                                                <DrawerFooter>
+                                                    <div class="flex justify-center">
+                                                        <div class="mx-1">
+                                                            <Button variant="default" @click="add(character)">
+                                                                Add To List
+                                                            </Button>
+                                                        </div>
+                                                        <div class="mx-1">
+                                                            <DrawerClose as-child>
+                                                                <Button variant="destructive">
+                                                                    Close
+                                                                </Button>
+                                                            </DrawerClose>
+                                                        </div>
+                                                    </div>
+                                                </DrawerFooter>
+                                            </div>
+                                        </DrawerContent>
+                                    </Drawer>
+                                    <div class="flex" @click="add(character)">
+                                        <SquarePlus class="my-auto mx-1" />
+                                    </div>
+                                </div>
+                                <div v-if="character.crew_upgrades">
+                                    <div v-for="card in character.crew_upgrades" :key="card.id" class="flex">
+                                        <ArrowUpFromLine class="mx-auto my-auto ml-2" />
+                                        <div :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary w-full my-1 mx-2 flex justify-between">
+                                            <Drawer>
+                                                <DrawerTrigger as-child>
+                                                    <div class="py-1 px-2 w-full text-md">
+                                                        <span class="font-bold">{{ card.name }}</span>
+                                                        <div class="block m-0 p-0 text-xs">
+                                            <span v-if="card.type">
+                                                {{ card.type }}
+                                                <span v-if="card.master"> - {{ card.master }} </span>
+                                                <span v-if="card.count > 1">({{ card.count }})</span>
+                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </DrawerTrigger>
+                                                <DrawerContent>
+                                                    <div class="mx-auto w-full max-w-sm">
+                                                        <DrawerHeader>
+                                                            <DrawerTitle>{{ card.name }}</DrawerTitle>
+                                                        </DrawerHeader>
+                                                        <div class="p-4 pb-0">
+                                                            <UpgradeCardView :upgrade="card" />
+                                                        </div>
+                                                        <DrawerFooter>
+                                                            <div class="flex justify-center">
+                                                                <div class="mx-1">
+                                                                    <Button variant="default" @click="addUpgrade(card)">
+                                                                        Add To List
+                                                                    </Button>
+                                                                </div>
+                                                                <div class="mx-1">
+                                                                    <DrawerClose as-child>
+                                                                        <Button variant="destructive">
+                                                                            Close
+                                                                        </Button>
+                                                                    </DrawerClose>
+                                                                </div>
+                                                            </div>
+                                                        </DrawerFooter>
+                                                    </div>
+                                                </DrawerContent>
+                                            </Drawer>
+                                            <div class="flex" @click="addUpgrade(card)">
+                                                <SquarePlus class="my-auto mx-1" />
+                                            </div>
                                         </div>
-                                    </DrawerContent>
-                                </Drawer>
-                                <div class="flex" @click="add(character)">
-                                    <SquarePlus class="my-auto mx-1" />
+                                    </div>
                                 </div>
                             </div>
                         </div>

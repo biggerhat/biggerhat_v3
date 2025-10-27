@@ -54,7 +54,7 @@ class CharacterPDFResource extends JsonResource
             'faction' => $this->faction,
             'station' => $this->station,
             'keywords' => $keywords,
-            'crew_upgrades' => $crewUpgrades,
+            'crew_upgrades' => $this->when($this->relationLoaded('crewUpgrades'), fn () => UpgradePDFResource::collection($this->crewUpgrades)->toArray($request) ?? null),
             'totem_name' => $this->when($this->relationLoaded('totem'), fn () => $this->totem?->slug),
             'standard_miniatures' => $miniatures,
             'count' => $this->count,

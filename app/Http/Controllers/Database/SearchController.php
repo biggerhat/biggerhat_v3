@@ -10,6 +10,8 @@ use App\Enums\PageViewOptionsEnum;
 use App\Enums\SortTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
@@ -19,7 +21,14 @@ class SearchController extends Controller
 {
     public function view(Request $request)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures')
+        // Conditional eager loading based on view mode
+        $pageView = $request->get('page_view', 'images');
+        $eagerLoads = match ($pageView) {
+            'full' => ['standardMiniatures', 'miniatures', 'keywords', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures'],
+            default => ['standardMiniatures'],
+        };
+
+        $query = Character::with($eagerLoads)
             ->whereHas('standardMiniatures');
 
         // Text search across name, display_name, nicknames
@@ -91,6 +100,18 @@ class SearchController extends Controller
             });
         }
 
+        if ($request->filled('action')) {
+            $query->whereHas('actions', function ($q) use ($request) {
+                $q->where('name', $request->get('action'));
+            });
+        }
+
+        if ($request->filled('ability')) {
+            $query->whereHas('abilities', function ($q) use ($request) {
+                $q->where('name', $request->get('ability'));
+            });
+        }
+
         // Sorting
         $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Cost->value => 'cost',
@@ -108,20 +129,29 @@ class SearchController extends Controller
             default => 'ASC',
         };
 
-        $characters = $query->orderBy($sort, $sortType)->get();
+        // Per-page varies by view mode
+        $perPage = match ($pageView) {
+            'table' => 50,
+            'full' => 10,
+            default => 24,
+        };
+
+        $characters = $query->orderBy($sort, $sortType)->paginate($perPage)->withQueryString();
 
         return inertia('Search/View', [
             'characters' => $characters,
-            'result_count' => $characters->count(),
-            'factions' => FactionEnum::toSelectOptions(),
-            'stations' => CharacterStationEnum::toSelectOptions(),
-            'suits' => SuitEnum::toSelectOptions(),
-            'base_sizes' => BaseSizeEnum::toSelectOptions(),
-            'keywords' => Keyword::orderBy('name', 'ASC')->get(),
-            'characteristics' => Characteristic::orderBy('name', 'ASC')->get(),
-            'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),
-            'sort_types' => SortTypeEnum::toSelectOptions(),
-            'view_options' => PageViewOptionsEnum::toSelectOptions(),
+            'result_count' => $characters->total(),
+            'factions' => fn () => FactionEnum::toSelectOptions(),
+            'stations' => fn () => CharacterStationEnum::toSelectOptions(),
+            'suits' => fn () => SuitEnum::toSelectOptions(),
+            'base_sizes' => fn () => BaseSizeEnum::toSelectOptions(),
+            'keywords' => fn () => Keyword::orderBy('name', 'ASC')->get(),
+            'characteristics' => fn () => Characteristic::orderBy('name', 'ASC')->get(),
+            'actions' => fn () => Action::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'abilities' => fn () => Ability::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'sort_options' => fn () => CharacterSortOptionsEnum::toSelectOptions(),
+            'sort_types' => fn () => SortTypeEnum::toSelectOptions(),
+            'view_options' => fn () => PageViewOptionsEnum::toSelectOptions(),
         ]);
     }
 }

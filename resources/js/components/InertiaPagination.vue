@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationFirst,
+    PaginationItem,
+    PaginationLast,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import { router } from '@inertiajs/vue3';
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationFirst, PaginationItem, PaginationLast, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { computed } from 'vue';
 
 interface Paginator {
     current_page: number;
@@ -17,9 +26,15 @@ interface Paginator {
     to: number | null;
 }
 
-const props = defineProps<{
-    paginator: Paginator;
-}>();
+const props = withDefaults(
+    defineProps<{
+        paginator: Paginator;
+        only?: string[];
+    }>(),
+    {
+        only: () => ['characters', 'result_count'],
+    },
+);
 
 const showPagination = computed(() => props.paginator.last_page > 1);
 
@@ -30,7 +45,7 @@ const goToPage = (page: number) => {
     } else {
         url.searchParams.set('page', String(page));
     }
-    router.get(url.pathname + url.search, {}, { only: ['characters', 'result_count'], preserveState: true, replace: true });
+    router.get(url.pathname + url.search, {}, { only: props.only, preserveState: true, replace: true });
 };
 </script>
 
@@ -60,8 +75,6 @@ const goToPage = (page: number) => {
                 <PaginationLast />
             </PaginationContent>
         </Pagination>
-        <p class="text-xs text-muted-foreground">
-            Showing {{ paginator.from }}-{{ paginator.to }} of {{ paginator.total }}
-        </p>
+        <p class="text-xs text-muted-foreground">Showing {{ paginator.from }}-{{ paginator.to }} of {{ paginator.total }}</p>
     </div>
 </template>

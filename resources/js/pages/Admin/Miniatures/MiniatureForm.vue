@@ -1,18 +1,11 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     miniature: {
@@ -20,22 +13,22 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     characters: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     version_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -49,9 +42,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.miniature ? route("admin.miniatures.update", props.miniature.id) : route("admin.miniatures.store"),
-        formInfo.value
-    );
+    router.post(props.miniature ? route('admin.miniatures.update', props.miniature.id) : route('admin.miniatures.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -71,7 +62,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name (Optional)</Label>
                             <span class="text-xs text-red-600">Leave Blank If Normal Sculpt Or No Alternate Name</span>
@@ -114,11 +105,11 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label for="front_image">Front of Card Image</Label>
                                     <Input id="front_image" type="file" accept=".jpeg, .jpg" @input="formInfo.front_image = $event.target.files[0]" />
                                 </div>
-                                <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                                <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label for="back_image">Back of Card Image</Label>
                                     <Input id="back_image" type="file" accept=".jpeg, .jpg" @input="formInfo.back_image = $event.target.files[0]" />
                                 </div>
@@ -128,9 +119,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.miniatures.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.miniatures.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

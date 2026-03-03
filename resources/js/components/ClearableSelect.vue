@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { X } from 'lucide-vue-next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { X } from 'lucide-vue-next';
 
 const modelValue = defineModel<string | null>();
 
@@ -25,18 +25,14 @@ const props = withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-    <div class="flex gap-1 items-center">
+    <div class="flex items-center gap-1">
         <div class="min-w-0 flex-1">
             <Select v-model="modelValue">
                 <SelectTrigger :class="props.triggerClass">
                     <SelectValue :placeholder="props.placeholder" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem
-                        v-for="option in props.options"
-                        :value="String(option[props.optionValue])"
-                        :key="String(option[props.optionValue])"
-                    >
+                    <SelectItem v-for="option in props.options" :value="String(option[props.optionValue])" :key="String(option[props.optionValue])">
                         {{ option[props.optionLabel] }}
                     </SelectItem>
                 </SelectContent>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 interface Props {
     containerId: string;
@@ -42,7 +42,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div v-if="total > 0" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 md:hidden">
+    <div v-if="total > 0" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 md:hidden">
         <div class="rounded-full bg-primary/80 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
             {{ currentIndex }} / {{ total }}
         </div>

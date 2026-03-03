@@ -1,25 +1,13 @@
 <script setup lang="ts">
-import { h, ref } from 'vue';
+import { valueUpdater } from '@/lib/utils';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { valueUpdater } from '@/lib/utils'
+import { h, ref } from 'vue';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import {
-    FlexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    useVueTable,
-} from '@tanstack/vue-table';
-import CharacterTableLink from "@/components/CharacterTableLink.vue";
+import CharacterTableLink from '@/components/CharacterTableLink.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, useVueTable } from '@tanstack/vue-table';
 
 const columns: ColumnDef<Miniatures>[] = [
     {
@@ -27,86 +15,92 @@ const columns: ColumnDef<Miniatures>[] = [
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => {
             const character = row.original;
-            return h('div', { class: 'w-auto' }, h(CharacterTableLink, {character: character}))
+            return h('div', { class: 'w-auto' }, h(CharacterTableLink, { character: character }));
         },
-    },{
+    },
+    {
         accessorKey: 'cost',
         header: () => h('div', { class: 'text-center' }, 'Cost'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('cost'))
+            return h('div', { class: 'text-center' }, row.getValue('cost'));
         },
-    },{
+    },
+    {
         accessorKey: 'health',
         header: () => h('div', { class: 'text-center' }, 'Health'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('health'))
+            return h('div', { class: 'text-center' }, row.getValue('health'));
         },
-    },{
+    },
+    {
         accessorKey: 'speed',
         header: () => h('div', { class: 'text-center' }, 'Speed'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('speed'))
+            return h('div', { class: 'text-center' }, row.getValue('speed'));
         },
-    },{
+    },
+    {
         accessorKey: 'defense',
         header: () => h('div', { class: 'text-center' }, 'Defense'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('defense'))
+            return h('div', { class: 'text-center' }, row.getValue('defense'));
         },
-    },{
+    },
+    {
         accessorKey: 'willpower',
         header: () => h('div', { class: 'text-center' }, 'Willpower'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('willpower'))
+            return h('div', { class: 'text-center' }, row.getValue('willpower'));
         },
-    },{
+    },
+    {
         accessorKey: 'size',
         header: () => h('div', { class: 'text-center' }, 'Size'),
         cell: ({ row }) => {
-            return h('div', { class: 'text-center' }, row.getValue('size'))
+            return h('div', { class: 'text-center' }, row.getValue('size'));
         },
     },
 ];
 
 const props = defineProps<{
-    characters: TData[]
+    characters: TData[];
 }>();
 
-const columnFilters = ref<ColumnFiltersState>([])
+const columnFilters = ref<ColumnFiltersState>([]);
 
 const table = useVueTable({
-    get data() { return props.characters },
-    get columns() { return columns },
+    get data() {
+        return props.characters;
+    },
+    get columns() {
+        return columns;
+    },
     getCoreRowModel: getCoreRowModel(),
     // getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: updaterOrValue => valueUpdater(updaterOrValue, columnFilters),
+    onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
-        get columnFilters() { return columnFilters.value },
-    }
+        get columnFilters() {
+            return columnFilters.value;
+        },
+    },
 });
 </script>
 
 <template>
     <div class="mx-auto">
-        <div class="border rounded-md">
+        <div class="rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
                         <TableHead v-for="header in headerGroup.headers" :key="header.id">
-                            <FlexRender
-                                v-if="!header.isPlaceholder" :render="header.column.columnDef.header"
-                                :props="header.getContext()"
-                            />
+                            <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
                         </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     <template v-if="table.getRowModel().rows?.length">
-                        <TableRow
-                            v-for="row in table.getRowModel().rows" :key="row.id"
-                            :data-state="row.getIsSelected() ? 'selected' : undefined"
-                        >
+                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id" :data-state="row.getIsSelected() ? 'selected' : undefined">
                             <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
                                 <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
                             </TableCell>

@@ -1,20 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { router } from '@inertiajs/vue3';
-import axios from 'axios';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
-import { Search, Dice6 } from 'lucide-vue-next';
-import {
-    CommandDialog,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from '@/components/ui/command'
+import { router } from '@inertiajs/vue3';
+import axios from 'axios';
+import { Dice6, Search } from 'lucide-vue-next';
+import { ref } from 'vue';
 
 defineProps<{
     breadcrumbs?: BreadcrumbItemType[];
@@ -30,10 +22,9 @@ const commandRoute = (route) => {
 
 function toggleDialog() {
     if (!commandSearch.value.length) {
-        axios.get(route('command'))
-            .then(function (response) {
-                commandSearch.value = response.data;
-            });
+        axios.get(route('command')).then(function (response) {
+            commandSearch.value = response.data;
+        });
     }
     open.value = true;
 }
@@ -50,7 +41,12 @@ function toggleDialog() {
             </template>
         </div>
         <div class="ml-auto">
-            <div class="mx-auto"><Search @click="toggleDialog" class="inline-block cursor-pointer" /><Dice6 class="inline-block ml-2 cursor-pointer" @click="router.get(route('characters.random'))"/></div>
+            <div class="mx-auto">
+                <Search @click="toggleDialog" class="inline-block cursor-pointer" /><Dice6
+                    class="ml-2 inline-block cursor-pointer"
+                    @click="router.get(route('characters.random'))"
+                />
+            </div>
         </div>
     </header>
 
@@ -60,25 +56,45 @@ function toggleDialog() {
             <CommandList>
                 <CommandEmpty>No results found.</CommandEmpty>
                 <CommandGroup heading="Factions">
-                    <CommandItem v-for="faction in commandSearch.factions" v-bind:key="faction.name" @select="commandRoute(faction.route)" value="faction.name">
+                    <CommandItem
+                        v-for="faction in commandSearch.factions"
+                        v-bind:key="faction.name"
+                        @select="commandRoute(faction.route)"
+                        value="faction.name"
+                    >
                         {{ faction.name }}
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup heading="Keywords">
-                    <CommandItem v-for="keyword in commandSearch.keywords" v-bind:key="keyword.name" @select="commandRoute(keyword.route)" value="keyword.name">
+                    <CommandItem
+                        v-for="keyword in commandSearch.keywords"
+                        v-bind:key="keyword.name"
+                        @select="commandRoute(keyword.route)"
+                        value="keyword.name"
+                    >
                         {{ keyword.name }}
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup heading="Characters">
-                    <CommandItem v-for="character in commandSearch.characters" v-bind:key="character.name" @select="commandRoute(character.route)" value="character.name">
+                    <CommandItem
+                        v-for="character in commandSearch.characters"
+                        v-bind:key="character.name"
+                        @select="commandRoute(character.route)"
+                        value="character.name"
+                    >
                         {{ character.name }}
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup heading="Upgrades">
-                    <CommandItem v-for="upgrade in commandSearch.upgrades" v-bind:key="upgrade.name" @select="commandRoute(upgrade.route)" value="upgrade.name">
+                    <CommandItem
+                        v-for="upgrade in commandSearch.upgrades"
+                        v-bind:key="upgrade.name"
+                        @select="commandRoute(upgrade.route)"
+                        value="upgrade.name"
+                    >
                         {{ upgrade.name }}
                     </CommandItem>
                 </CommandGroup>

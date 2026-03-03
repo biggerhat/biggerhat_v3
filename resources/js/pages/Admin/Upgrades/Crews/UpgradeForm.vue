@@ -1,21 +1,14 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
+import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import TextBar from '@/components/TextBar.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import CustomMultiselect from "@/components/CustomMultiselect.vue";
-import TextBar from "@/components/TextBar.vue";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     upgrade: {
@@ -23,64 +16,64 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     characters: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     factions: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     keywords: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     tokens: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     markers: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     triggers: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     actions: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     abilities: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -102,9 +95,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.upgrade ? route("admin.crews.update", props.upgrade.slug) : route("admin.crews.store"),
-        formInfo.value
-    );
+    router.post(props.upgrade ? route('admin.crews.update', props.upgrade.slug) : route('admin.crews.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -156,7 +147,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Crew Upgrade Name" />
@@ -178,15 +169,32 @@ onMounted(() => {
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="masters">Masters</Label>
-                                    <CustomMultiselect id="masters" v-model=formInfo.characters comboTitle="Select Masters" :choice-options="props.characters" class="my-auto" />
+                                    <CustomMultiselect
+                                        id="masters"
+                                        v-model="formInfo.characters"
+                                        comboTitle="Select Masters"
+                                        :choice-options="props.characters"
+                                        class="my-auto"
+                                    />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="keywords">Keywords</Label>
-                                    <CustomMultiselect id="keywords" v-model=formInfo.keywords comboTitle="Select Keywords" :choice-options="props.keywords" class="my-auto" />
+                                    <CustomMultiselect
+                                        id="keywords"
+                                        v-model="formInfo.keywords"
+                                        comboTitle="Select Keywords"
+                                        :choice-options="props.keywords"
+                                        class="my-auto"
+                                    />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="power_bar_count">Power Bar Count</Label>
-                                    <Input id="power_bar_count" v-model="formInfo.power_bar_count" type="number" placeholder="Power Bar Count (Optional)" />
+                                    <Input
+                                        id="power_bar_count"
+                                        v-model="formInfo.power_bar_count"
+                                        type="number"
+                                        placeholder="Power Bar Count (Optional)"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -200,17 +208,39 @@ onMounted(() => {
                         <TextBar text="Images" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <div class="flex flex-col w-full max-w-sm mx-auto items-center gap-1.5 space-y-1.5">
+                                <div class="mx-auto flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label v-if="props.upgrade?.front_image && !formInfo.front_image" for="current_front_image">Current Image</Label>
-                                    <img id="current_front_image" v-if="props.upgrade?.front_image && !formInfo.front_image" :src='"/storage/" + props.upgrade?.front_image' :alt="props.upgrade?.name" class="rounded-lg w-full h-full" />
+                                    <img
+                                        id="current_front_image"
+                                        v-if="props.upgrade?.front_image && !formInfo.front_image"
+                                        :src="'/storage/' + props.upgrade?.front_image"
+                                        :alt="props.upgrade?.name"
+                                        class="h-full w-full rounded-lg"
+                                    />
                                     <Label for="front_image">Front of Card Image</Label>
-                                    <Input id="front_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.front_image = $event.target.files[0]" />
+                                    <Input
+                                        id="front_image"
+                                        type="file"
+                                        accept=".heic, .jpeg, .jpg, .png, .webp"
+                                        @input="formInfo.front_image = $event.target.files[0]"
+                                    />
                                 </div>
-                                <div class="flex flex-col w-full max-w-sm mx-auto items-center gap-1.5 space-y-1.5">
+                                <div class="mx-auto flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label v-if="props.upgrade?.back_image && !formInfo.back_image" for="current_back_image">Current Image</Label>
-                                    <img id="current_back_image" v-if="props.upgrade?.back_image && !formInfo.back_image" :src='"/storage/" + props.upgrade?.back_image' :alt="props.upgrade?.name" class="rounded-lg w-full h-full" />
+                                    <img
+                                        id="current_back_image"
+                                        v-if="props.upgrade?.back_image && !formInfo.back_image"
+                                        :src="'/storage/' + props.upgrade?.back_image"
+                                        :alt="props.upgrade?.name"
+                                        class="h-full w-full rounded-lg"
+                                    />
                                     <Label for="back_image">Back of Card Image</Label>
-                                    <Input id="back_image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.back_image = $event.target.files[0]" />
+                                    <Input
+                                        id="back_image"
+                                        type="file"
+                                        accept=".heic, .jpeg, .jpg, .png, .webp"
+                                        @input="formInfo.back_image = $event.target.files[0]"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -231,10 +261,14 @@ onMounted(() => {
                                     <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.signature_actions" comboTitle="Select Signature Actions" :choice-options="props.actions" />
+                                    <CustomMultiselect
+                                        v-model="formInfo.signature_actions"
+                                        comboTitle="Select Signature Actions"
+                                        :choice-options="props.actions"
+                                    />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model=formInfo.triggers comboTitle="Select Triggers" :choice-options="props.triggers" />
+                                    <CustomMultiselect v-model="formInfo.triggers" comboTitle="Select Triggers" :choice-options="props.triggers" />
                                 </div>
                             </div>
                         </div>
@@ -242,9 +276,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-end gap-2 px-6 pb-6">
-                <Button @click="router.get(route('admin.crews.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.crews.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

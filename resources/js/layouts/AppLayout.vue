@@ -17,7 +17,7 @@ withDefaults(defineProps<Props>(), {
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
         <slot />
-        <footer class="py-3 p-toolbar p-component border-dashed border-t !rounded-none !border-l-0 !border-r-0 !border-b-0 !block mt-6">
+        <footer class="p-toolbar p-component mt-6 !block !rounded-none !border-b-0 !border-l-0 !border-r-0 border-t border-dashed py-3">
             <!--        <div class="container grid grid-cols-1 gap-3 mx-auto mt-3 lg:grid-cols-10 auto-cols-auto">-->
             <!--            <div class="w-full mx-auto">-->
             <!--                <div-->
@@ -84,15 +84,16 @@ withDefaults(defineProps<Props>(), {
             <!--            </div>-->
             <!--        </div>-->
             <div class="container mx-auto px-4">
-                <div class="block px-2 my-2 text-xs lg:px-0">
-                    Portions of the materials used are copyrighted works of <a href="https://www.wyrd-games.net/" target="_wyrd" class="hover:underline" alt="Wyrd Miniatures">Wyrd Miniatures, LLC</a>, in the United
-                    States of America and elsewhere. All rights reserved, Wyrd Miniatures, LLC. This material is not official and is not endorsed by Wyrd Miniatures, LLC.
+                <div class="my-2 block px-2 text-xs lg:px-0">
+                    Portions of the materials used are copyrighted works of
+                    <a href="https://www.wyrd-games.net/" target="_wyrd" class="hover:underline" alt="Wyrd Miniatures">Wyrd Miniatures, LLC</a>, in
+                    the United States of America and elsewhere. All rights reserved, Wyrd Miniatures, LLC. This material is not official and is not
+                    endorsed by Wyrd Miniatures, LLC.
                 </div>
-                <div class="block px-2 my-2 text-xs lg:px-0">
+                <div class="my-2 block px-2 text-xs lg:px-0">
                     All other content &copy; {{ year }} BiggerHat. Designed and Built by Mark C and Brandan B.
                 </div>
             </div>
         </footer>
     </AppLayout>
-
 </template>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import {type NavItem, SharedData} from '@/types';
+import { type NavItem, SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-const page = usePage<SharedData>();
 import { BookOpen } from 'lucide-vue-next';
+const page = usePage<SharedData>();
 
 interface Props {
     items: NavItem[];

@@ -1,21 +1,14 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
+import CustomMultiselect from '@/components/CustomMultiselect.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {Switch} from "@/components/ui/switch";
-import CustomMultiselect from "@/components/CustomMultiselect.vue";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     action: {
@@ -23,57 +16,57 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     action_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     range_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     suits: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     resistance_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     modifier_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     triggers: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     characters: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -97,9 +90,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.action ? route("admin.actions.update", props.action.slug) : route("admin.actions.store"),
-        formInfo.value
-    );
+    router.post(props.action ? route('admin.actions.update', props.action.slug) : route('admin.actions.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -138,7 +129,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Action Name" />
@@ -211,7 +202,11 @@ onMounted(() => {
                                             <SelectValue placeholder="Resisted By" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="resistance_type in props.resistance_types" :value="resistance_type.value" :key="resistance_type.value">
+                                            <SelectItem
+                                                v-for="resistance_type in props.resistance_types"
+                                                :value="resistance_type.value"
+                                                :key="resistance_type.value"
+                                            >
                                                 {{ resistance_type.name }}
                                             </SelectItem>
                                         </SelectContent>
@@ -233,7 +228,7 @@ onMounted(() => {
                                     <Label for="damage">Damage</Label>
                                     <Input id="damage" v-model="formInfo.damage" placeholder="Damage" />
                                 </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="costs_stone" v-model="formInfo.costs_stone" />
                                         <Label for="costs_stone">Costs A Stone</Label>
@@ -250,28 +245,40 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="internal_notes">Internal Use Notes</Label>
-                                <Textarea id="internal_notes" v-model="formInfo.internal_notes" placeholder="Type internal notes here, they will appear in the action name when searching admin section." />
+                                <Textarea
+                                    id="internal_notes"
+                                    v-model="formInfo.internal_notes"
+                                    placeholder="Type internal notes here, they will appear in the action name when searching admin section."
+                                />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="triggers">Triggers</Label>
-                                <CustomMultiselect id="triggers" v-model="formInfo.triggers" comboTitle="Select Triggers" :choice-options="props.triggers" />
+                                <CustomMultiselect
+                                    id="triggers"
+                                    v-model="formInfo.triggers"
+                                    comboTitle="Select Triggers"
+                                    :choice-options="props.triggers"
+                                />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="characters">Characters</Label>
-                                <CustomMultiselect id="characters" v-model="formInfo.characters" comboTitle="Select Characters" :choice-options="props.characters" />
+                                <CustomMultiselect
+                                    id="characters"
+                                    v-model="formInfo.characters"
+                                    comboTitle="Select Characters"
+                                    :choice-options="props.characters"
+                                />
                             </div>
                         </div>
                     </div>
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.actions.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.actions.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

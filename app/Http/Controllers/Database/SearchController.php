@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers\Database;
 
+use App\Enums\ActionRangeTypeEnum;
+use App\Enums\ActionTypeEnum;
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterSortOptionsEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
+use App\Enums\ModifierTypeEnum;
 use App\Enums\PageViewOptionsEnum;
+use App\Enums\ResistanceTypeEnum;
 use App\Enums\SortTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
@@ -100,15 +105,95 @@ class SearchController extends Controller
             });
         }
 
-        if ($request->filled('action')) {
+        // Action filters (grouped in a single whereHas so all conditions match the same action)
+        $actionFilters = [
+            'action', 'action_name', 'action_type', 'action_is_signature', 'action_costs_stone',
+            'action_range_min', 'action_range_max', 'action_range_type',
+            'action_stat_min', 'action_stat_max', 'action_stat_suits', 'action_stat_modifier',
+            'action_resisted_by', 'action_tn_min', 'action_tn_max', 'action_target_suits',
+            'action_damage', 'action_description',
+        ];
+        if ($request->hasAny($actionFilters) && collect($actionFilters)->contains(fn ($f) => $request->filled($f))) {
             $query->whereHas('actions', function ($q) use ($request) {
-                $q->where('name', $request->get('action'));
+                if ($request->filled('action')) {
+                    $q->where('name', $request->get('action'));
+                }
+                if ($request->filled('action_name')) {
+                    $q->where('name', 'LIKE', '%'.$request->get('action_name').'%');
+                }
+                if ($request->filled('action_type')) {
+                    $q->where('type', $request->get('action_type'));
+                }
+                if ($request->filled('action_is_signature')) {
+                    $q->where('is_signature', filter_var($request->get('action_is_signature'), FILTER_VALIDATE_BOOLEAN));
+                }
+                if ($request->filled('action_costs_stone')) {
+                    $q->where('costs_stone', filter_var($request->get('action_costs_stone'), FILTER_VALIDATE_BOOLEAN));
+                }
+                if ($request->filled('action_range_min')) {
+                    $q->where('range', '>=', (int) $request->get('action_range_min'));
+                }
+                if ($request->filled('action_range_max')) {
+                    $q->where('range', '<=', (int) $request->get('action_range_max'));
+                }
+                if ($request->filled('action_range_type')) {
+                    $q->where('range_type', $request->get('action_range_type'));
+                }
+                if ($request->filled('action_stat_min')) {
+                    $q->where('stat', '>=', (int) $request->get('action_stat_min'));
+                }
+                if ($request->filled('action_stat_max')) {
+                    $q->where('stat', '<=', (int) $request->get('action_stat_max'));
+                }
+                if ($request->filled('action_stat_suits')) {
+                    $q->where('stat_suits', 'LIKE', '%'.$request->get('action_stat_suits').'%');
+                }
+                if ($request->filled('action_stat_modifier')) {
+                    $q->where('stat_modifier', $request->get('action_stat_modifier'));
+                }
+                if ($request->filled('action_resisted_by')) {
+                    $q->where('resisted_by', $request->get('action_resisted_by'));
+                }
+                if ($request->filled('action_tn_min')) {
+                    $q->where('target_number', '>=', (int) $request->get('action_tn_min'));
+                }
+                if ($request->filled('action_tn_max')) {
+                    $q->where('target_number', '<=', (int) $request->get('action_tn_max'));
+                }
+                if ($request->filled('action_target_suits')) {
+                    $q->where('target_suits', 'LIKE', '%'.$request->get('action_target_suits').'%');
+                }
+                if ($request->filled('action_damage')) {
+                    $q->where('damage', 'LIKE', '%'.$request->get('action_damage').'%');
+                }
+                if ($request->filled('action_description')) {
+                    $q->where('description', 'LIKE', '%'.$request->get('action_description').'%');
+                }
             });
         }
 
-        if ($request->filled('ability')) {
+        // Ability filters (grouped in a single whereHas so all conditions match the same ability)
+        $abilityFilters = ['ability', 'ability_name', 'ability_suits', 'ability_defensive_type', 'ability_costs_stone', 'ability_description'];
+        if ($request->hasAny($abilityFilters) && collect($abilityFilters)->contains(fn ($f) => $request->filled($f))) {
             $query->whereHas('abilities', function ($q) use ($request) {
-                $q->where('name', $request->get('ability'));
+                if ($request->filled('ability')) {
+                    $q->where('name', $request->get('ability'));
+                }
+                if ($request->filled('ability_name')) {
+                    $q->where('name', 'LIKE', '%'.$request->get('ability_name').'%');
+                }
+                if ($request->filled('ability_suits')) {
+                    $q->where('suits', 'LIKE', '%'.$request->get('ability_suits').'%');
+                }
+                if ($request->filled('ability_defensive_type')) {
+                    $q->where('defensive_ability_type', $request->get('ability_defensive_type'));
+                }
+                if ($request->filled('ability_costs_stone')) {
+                    $q->where('costs_stone', filter_var($request->get('ability_costs_stone'), FILTER_VALIDATE_BOOLEAN));
+                }
+                if ($request->filled('ability_description')) {
+                    $q->where('description', 'LIKE', '%'.$request->get('ability_description').'%');
+                }
             });
         }
 
@@ -149,6 +234,11 @@ class SearchController extends Controller
             'characteristics' => fn () => Characteristic::orderBy('name', 'ASC')->get(),
             'actions' => fn () => Action::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
             'abilities' => fn () => Ability::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
+            'action_range_types' => fn () => ActionRangeTypeEnum::toSelectOptions(),
+            'stat_modifiers' => fn () => ModifierTypeEnum::toSelectOptions(),
+            'resistance_types' => fn () => ResistanceTypeEnum::toSelectOptions(),
+            'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
             'sort_options' => fn () => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => fn () => SortTypeEnum::toSelectOptions(),
             'view_options' => fn () => PageViewOptionsEnum::toSelectOptions(),

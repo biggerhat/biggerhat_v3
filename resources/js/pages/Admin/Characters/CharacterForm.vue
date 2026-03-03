@@ -1,33 +1,14 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
+import CustomMultiselect from '@/components/CustomMultiselect.vue';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
-import {
-    NumberField,
-    NumberFieldContent,
-    NumberFieldDecrement,
-    NumberFieldIncrement,
-    NumberFieldInput,
-} from '@/components/ui/number-field'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import CustomMultiselect from "@/components/CustomMultiselect.vue";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     character: {
@@ -35,99 +16,99 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     factions: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     totems: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     crew_upgrades: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     stations: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     base_sizes: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     keywords: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     characteristics: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     miniatures: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     actions: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     abilities: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     markers: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     tokens: {
         type: [Object, Array],
         required: false,
         default() {
             return {};
-        }
+        },
     },
     suits: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -162,9 +143,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.character ? route("admin.characters.update", props.character.slug) : route("admin.characters.store"),
-        formInfo.value
-    );
+    router.post(props.character ? route('admin.characters.update', props.character.slug) : route('admin.characters.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -221,7 +200,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="container mx-auto mt-6 mb-6">
+    <div class="container mx-auto mb-6 mt-6">
         <Card>
             <CardHeader>
                 <CardTitle>Character</CardTitle>
@@ -229,7 +208,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Character Name" />
@@ -289,7 +268,11 @@ onMounted(() => {
                             <CustomMultiselect v-model="formInfo.keywords" comboTitle="Select Keywords" :choice-options="props.keywords" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect v-model="formInfo.characteristics" comboTitle="Select Characteristics" :choice-options="props.characteristics" />
+                            <CustomMultiselect
+                                v-model="formInfo.characteristics"
+                                comboTitle="Select Characteristics"
+                                :choice-options="props.characteristics"
+                            />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="base">Base Size</Label>
@@ -352,7 +335,12 @@ onMounted(() => {
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="summon_target_number">Summon Target Number</Label>
-                                    <Input id="summon_target_number" v-model="formInfo.summon_target_number" type="number" placeholder="Summon Target Number" />
+                                    <Input
+                                        id="summon_target_number"
+                                        v-model="formInfo.summon_target_number"
+                                        type="number"
+                                        placeholder="Summon Target Number"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -410,9 +398,9 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
-<!--                        <div class="flex flex-col space-y-1.5">-->
-<!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choice-options="props.miniatures" />-->
-<!--                        </div>-->
+                        <!--                        <div class="flex flex-col space-y-1.5">-->
+                        <!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choice-options="props.miniatures" />-->
+                        <!--                        </div>-->
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
@@ -426,7 +414,11 @@ onMounted(() => {
                                     <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model=formInfo.signature_actions comboTitle="Select Signature Actions" :choice-options="props.actions" />
+                                    <CustomMultiselect
+                                        v-model="formInfo.signature_actions"
+                                        comboTitle="Select Signature Actions"
+                                        :choice-options="props.actions"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -440,27 +432,27 @@ onMounted(() => {
                                 </div>
                             </div>
                         </div>
-                        <div class="flex flex-col space-y-1.5 mb-6">
+                        <div class="mb-6 flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-4">
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="generates_stone" v-model="formInfo.generates_stone" />
                                         <Label for="generates_stone">Generates Stone</Label>
                                     </div>
                                 </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="is_unhirable" v-model="formInfo.is_unhirable" />
                                         <Label for="is_unhirable">Unhirable</Label>
                                     </div>
                                 </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="is_beta" v-model="formInfo.is_beta" />
                                         <Label for="is_beta">Beta</Label>
                                     </div>
                                 </div>
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="is_hidden" v-model="formInfo.is_hidden" />
                                         <Label for="is_hidden">Hidden From Public</Label>
@@ -472,9 +464,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.characters.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.characters.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

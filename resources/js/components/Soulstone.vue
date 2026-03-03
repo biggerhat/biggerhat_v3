@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import {HTMLAttributes} from "vue";
+import { computed, HTMLAttributes } from 'vue';
 
 defineOptions({
     inheritAttrs: false,
@@ -18,6 +17,6 @@ const currentTheme = computed(() => {
 </script>
 
 <template>
-    <img v-if="currentTheme === 'light'" src='/images/Symbols/M4E-Symbol_Soulstone-Black.png' :class="className" alt="Soulstone" />
-    <img v-else src='/images/Symbols/M4E-Symbol_Soulstone-White.png' :class="className" alt="Soulstone" />
+    <img v-if="currentTheme === 'light'" src="/images/Symbols/M4E-Symbol_Soulstone-Black.png" :class="className" alt="Soulstone" />
+    <img v-else src="/images/Symbols/M4E-Symbol_Soulstone-White.png" :class="className" alt="Soulstone" />
 </template>

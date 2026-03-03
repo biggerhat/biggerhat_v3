@@ -6,9 +6,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
 import { Search, Dice6 } from 'lucide-vue-next';
-import AlertMessage from "@/components/AlertMessage.vue";
 import {
-    Command,
     CommandDialog,
     CommandEmpty,
     CommandGroup,
@@ -17,7 +15,6 @@ import {
     CommandList,
     CommandSeparator,
 } from '@/components/ui/command'
-import {Input} from "@/components/ui/input";
 
 defineProps<{
     breadcrumbs?: BreadcrumbItemType[];

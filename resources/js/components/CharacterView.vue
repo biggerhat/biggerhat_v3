@@ -3,12 +3,9 @@ import { usePage } from '@inertiajs/vue3';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SharedData } from '@/types';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import { isMobileDevice } from '@/composables/useMobileDevice';
 
 const page = usePage<SharedData>();
-
-function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-}
 
 const props = defineProps({
     character: {

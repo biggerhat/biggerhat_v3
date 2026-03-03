@@ -76,6 +76,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Abilities"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.abilities.length }}</div>
             <Button @click="router.get(route('admin.abilities.create'))">
                 Create New Ability
             </Button>

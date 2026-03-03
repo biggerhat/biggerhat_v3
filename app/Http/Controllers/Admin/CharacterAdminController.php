@@ -31,55 +31,15 @@ class CharacterAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/Characters/CharacterForm', [
-            'suits' => SuitEnum::toSelectOptions(),
-            'factions' => FactionEnum::toSelectOptions(),
-            'stations' => CharacterStationEnum::toSelectOptions(),
-            'base_sizes' => BaseSizeEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'slug'),
-            'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
-            'miniatures' => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::toSelectOptions('name', 'slug'),
-            'markers' => Marker::toSelectOptions('name', 'slug'),
-            'tokens' => Token::toSelectOptions('name', 'slug'),
-            'totems' => Character::whereHas('characteristics', function (Builder $query) {
-                $query->where('slug', 'totem');
-            })->toSelectOptions('display_name', 'slug'),
-            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
-        ]);
+        return inertia('Admin/Characters/CharacterForm', $this->getFormData());
     }
 
     public function edit(Request $request, Character $character)
     {
-        return inertia('Admin/Characters/CharacterForm', [
-            'character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem']),
-            'suits' => SuitEnum::toSelectOptions(),
-            'factions' => FactionEnum::toSelectOptions(),
-            'stations' => CharacterStationEnum::toSelectOptions(),
-            'base_sizes' => BaseSizeEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'slug'),
-            'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
-            'miniatures' => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::toSelectOptions('name', 'slug'),
-            'markers' => Marker::toSelectOptions('name', 'slug'),
-            'tokens' => Token::toSelectOptions('name', 'slug'),
-            'totems' => Character::whereHas('characteristics', function (Builder $query) {
-                $query->where('slug', 'totem');
-            })->toSelectOptions('display_name', 'slug'),
-            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
-        ]);
+        return inertia('Admin/Characters/CharacterForm', array_merge(
+            ['character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem'])],
+            $this->getFormData(),
+        ));
     }
 
     public function store(Request $request)
@@ -102,6 +62,32 @@ class CharacterAdminController extends Controller
         $character->delete();
 
         return redirect()->route('admin.characters.index')->withMessage("{$name} has been deleted.");
+    }
+
+    private function getFormData(): array
+    {
+        return [
+            'suits' => SuitEnum::toSelectOptions(),
+            'factions' => FactionEnum::toSelectOptions(),
+            'stations' => CharacterStationEnum::toSelectOptions(),
+            'base_sizes' => BaseSizeEnum::toSelectOptions(),
+            'keywords' => Keyword::toSelectOptions('name', 'slug'),
+            'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
+            'miniatures' => Miniature::toSelectOptions('name', 'slug'),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
+            'abilities' => Ability::toSelectOptions('name', 'slug'),
+            'markers' => Marker::toSelectOptions('name', 'slug'),
+            'tokens' => Token::toSelectOptions('name', 'slug'),
+            'totems' => Character::whereHas('characteristics', function (Builder $query) {
+                $query->where('slug', 'totem');
+            })->toSelectOptions('display_name', 'slug'),
+            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
+        ];
     }
 
     private function validateAndSave(Request $request, ?Character $character = null)

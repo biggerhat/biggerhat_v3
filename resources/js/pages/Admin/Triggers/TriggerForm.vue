@@ -13,15 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {
-    NumberField,
-    NumberFieldContent,
-    NumberFieldDecrement,
-    NumberFieldIncrement, NumberFieldInput
-} from "@/components/ui/number-field";
 import {Switch} from "@/components/ui/switch";
-import CustomMultiselect from "@/components/CustomMultiselect.vue";
 
 const props = defineProps({
     trigger: {

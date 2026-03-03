@@ -14,15 +14,7 @@
     import { Label } from '@/components/ui/label'
     import { Textarea } from '@/components/ui/textarea'
     import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-    import {
-        NumberField,
-        NumberFieldContent,
-        NumberFieldDecrement,
-        NumberFieldIncrement, NumberFieldInput
-    } from "@/components/ui/number-field";
-    import {Switch} from "@/components/ui/switch";
     import CustomMultiselect from "@/components/CustomMultiselect.vue";
-    import Separator from "@/components/ui/separator/Separator.vue";
     import TextBar from "@/components/TextBar.vue";
     import {CircleX} from "lucide-vue-next";
 
@@ -280,19 +272,19 @@
                                     <CustomMultiselect id="keywords" v-model=formInfo.keywords comboTitle="Select Keywords" :choice-options="props.keywords" class="my-auto" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choiceOptions="props.markers" />
+                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choice-options="props.markers" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choiceOptions="props.tokens" />
+                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choice-options="props.tokens" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choiceOptions="props.abilities" />
+                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choice-options="props.abilities" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
+                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.signature_actions" comboTitle="Select Signature Actions" :choiceOptions="props.actions" />
+                                    <CustomMultiselect v-model="formInfo.signature_actions" comboTitle="Select Signature Actions" :choice-options="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model=formInfo.triggers comboTitle="Select Triggers" :choice-options="props.triggers" />
@@ -306,7 +298,7 @@
                 </form>
             </CardContent>
             <CardFooter class="flex justify-end gap-2 px-6 pb-6">
-                <Button @click="router.get(route('admin.upgrades.index'))" variant="destructive">
+                <Button @click="router.get(route('admin.upgrades.index'))" variant="outline">
                     Cancel
                 </Button>
                 <Button @click="submit">Save</Button>

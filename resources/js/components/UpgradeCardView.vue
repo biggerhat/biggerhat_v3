@@ -8,10 +8,6 @@ const flip = () => {
     flipped.value = !flipped.value;
 }
 
-function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-}
-
 const props = defineProps({
     upgrade: {
         type: [Object, Array],
@@ -31,19 +27,18 @@ const props = defineProps({
 </script>
 
 <template>
-    <div v-if="upgrade.back_image" class="w-full text-center">
-        <div @click="flip" class="mx-1 w-auto h-auto">
-            <img v-show="!flipped" :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
-            <img v-show="flipped" :src='"/storage/" + upgrade.back_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
+    <div class="w-full text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20 rounded-lg">
+        <div v-if="upgrade.back_image" @click="flip" class="mx-1 card-flip-container cursor-pointer" style="perspective: 1000px">
+            <div class="card-flip-inner relative w-full" :class="{ 'card-flipped': flipped }" style="transition: transform 0.5s; transform-style: preserve-3d">
+                <div class="card-face" style="backface-visibility: hidden">
+                    <img :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
+                </div>
+                <div class="card-face absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
+                    <img :src='"/storage/" + upgrade.back_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
+                </div>
+            </div>
         </div>
-        <div class="mt-1" v-if="props.showLink === true">
-            <Button @click="router.get(route('upgrades.view', {'upgrade': props.upgrade.slug}))" size="sm" variant="link">
-                View Upgrade
-            </Button>
-        </div>
-    </div>
-    <div v-else class="w-full text-center">
-        <div class="mx-1 w-auto h-auto">
+        <div v-else class="mx-1">
             <img :src='"/storage/" + upgrade.front_image' :alt="upgrade.name" class="rounded-lg w-full h-full" />
         </div>
         <div class="mt-1" v-if="props.showLink === true">
@@ -53,3 +48,9 @@ const props = defineProps({
         </div>
     </div>
 </template>
+
+<style scoped>
+.card-flipped {
+    transform: rotateY(180deg);
+}
+</style>

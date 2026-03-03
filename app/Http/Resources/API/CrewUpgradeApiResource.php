@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\API;
 
-use App\Enums\CardTypeEnum;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

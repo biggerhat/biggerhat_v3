@@ -68,22 +68,14 @@ enum FactionEnum: string implements HasDefaultEnumMethods
 
     public function getCharacterStats(): array
     {
-        $characters = Character::with('keywords')->where('faction', $this->value)->get();
-
-        $miniatures = 0;
-
-        $characters->each(function (Character $character) use (&$miniatures) {
-            $miniatures += $character->count;
-        });
-
-        $keywords = Keyword::whereHas('characters', function ($query) {
-            $query->where('faction', $this->value);
-        })->orderBy('name', 'ASC')->get();
+        $characters = Character::where('faction', $this->value)->get();
 
         return [
             'characters' => $characters->count(),
-            'miniatures' => $miniatures,
-            'keywords' => $keywords->count(),
+            'miniatures' => $characters->sum('count'),
+            'keywords' => Keyword::whereHas('characters', function ($query) {
+                $query->where('faction', $this->value);
+            })->count(),
         ];
     }
 }

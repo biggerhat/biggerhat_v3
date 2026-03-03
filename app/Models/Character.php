@@ -7,7 +7,6 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
-use App\Enums\UpgradeDomainTypeEnum;
 use App\Observers\CharacterObserver;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;

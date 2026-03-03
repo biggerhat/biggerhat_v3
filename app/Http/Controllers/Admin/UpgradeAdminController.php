@@ -31,45 +31,15 @@ class UpgradeAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/Upgrades/Characters/UpgradeForm', [
-            'characters' => Character::toSelectOptions('display_name', 'id'),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'types' => UpgradeTypeEnum::toSelectOptions(),
-            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
-        ]);
+        return inertia('Admin/Upgrades/Characters/UpgradeForm', $this->getFormData());
     }
 
     public function edit(Request $request, Upgrade $upgrade)
     {
-        return inertia('Admin/Upgrades/Characters/UpgradeForm', [
-            'upgrade' => $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers']),
-            'characters' => Character::toSelectOptions('display_name', 'id'),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'types' => UpgradeTypeEnum::toSelectOptions(),
-            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
-        ]);
+        return inertia('Admin/Upgrades/Characters/UpgradeForm', array_merge(
+            ['upgrade' => $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers'])],
+            $this->getFormData(),
+        ));
     }
 
     public function store(Request $request)
@@ -92,6 +62,27 @@ class UpgradeAdminController extends Controller
         $upgrade->delete();
 
         return redirect()->route('admin.upgrades.index')->withMessage("{$name} has been deleted.");
+    }
+
+    private function getFormData(): array
+    {
+        return [
+            'characters' => Character::toSelectOptions('display_name', 'id'),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
+            'factions' => FactionEnum::toSelectOptions(),
+            'types' => UpgradeTypeEnum::toSelectOptions(),
+            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
+            'tokens' => Token::all(),
+            'markers' => Marker::all(),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
+            'abilities' => Ability::all(),
+            'triggers' => Trigger::all(),
+        ];
     }
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade

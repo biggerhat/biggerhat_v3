@@ -15,13 +15,11 @@ import {
 import {
     FlexRender,
     getCoreRowModel,
-    getPaginationRowModel,
     getFilteredRowModel,
     useVueTable,
 } from '@tanstack/vue-table';
-import {Ban, Check} from "lucide-vue-next";
-import CharacterTable from "@/components/CharacterTable.vue";
 import CharacterTableLink from "@/components/CharacterTableLink.vue";
+import EmptyState from '@/components/EmptyState.vue';
 
 const columns: ColumnDef<Miniatures>[] = [
     {
@@ -116,8 +114,8 @@ const table = useVueTable({
                     </template>
                     <template v-else>
                         <TableRow>
-                            <TableCell :colspan="columns.length" class="h-24 text-center">
-                                No results.
+                            <TableCell :colspan="columns.length">
+                                <EmptyState />
                             </TableCell>
                         </TableRow>
                     </template>

@@ -83,6 +83,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Upgrades"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.upgrades.length }}</div>
             <Button @click="router.get(route('admin.upgrades.create'))">
                 Create New Upgrade
             </Button>

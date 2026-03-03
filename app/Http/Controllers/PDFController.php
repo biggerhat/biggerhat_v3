@@ -24,7 +24,7 @@ class PDFController extends Controller
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC');
 
-        $upgrades = Upgrade::with('masters')->orderBy('name', 'ASC');
+        $upgrades = Upgrade::with('masters')->forCharacters()->orderBy('name', 'ASC');
 
         return inertia('PDF/Index', [
             'factions' => fn () => FactionEnum::buildDetails(),
@@ -44,15 +44,15 @@ class PDFController extends Controller
         $miniatureIds = $cardArray->where('card_type', CardTypeEnum::Miniature->value)->pluck('id');
         $upgradeIds = $cardArray->where('card_type', CardTypeEnum::Upgrade->value)->pluck('id');
 
-        $miniatures = Miniature::whereIn('id', $miniatureIds)->get();
-        $upgrades = Upgrade::whereIn('id', $upgradeIds)->get();
+        $miniatures = Miniature::whereIn('id', $miniatureIds)->get()->keyBy('id');
+        $upgrades = Upgrade::whereIn('id', $upgradeIds)->get()->keyBy('id');
         $data = [
             'images' => [],
         ];
 
         foreach ($cardArray as $card) {
             if ($card['card_type'] === CardTypeEnum::Miniature->value) {
-                $miniature = $miniatures->where('id', $card['id'])->first();
+                $miniature = $miniatures[$card['id']] ?? null;
 
                 if ($separateImages) {
                     $frontImage = base64_encode(Storage::disk('public')->get($miniature->front_image));
@@ -78,7 +78,7 @@ class PDFController extends Controller
                 }
             }
             if ($card['card_type'] === CardTypeEnum::Upgrade->value) {
-                $upgrade = $upgrades->where('id', $card['id'])->first();
+                $upgrade = $upgrades[$card['id']] ?? null;
                 if ($separateImages && $upgrade->back_image) {
                     $frontImage = base64_encode(Storage::disk('public')->get($upgrade->front_image));
                     $data['images'][] = [
@@ -87,7 +87,7 @@ class PDFController extends Controller
                         'name' => $upgrade->name,
                     ];
 
-                    $backImage = base64_encode(Storage::disk('public')->get($upgrade->front_image));
+                    $backImage = base64_encode(Storage::disk('public')->get($upgrade->back_image));
                     $data['images'][] = [
                         'url' => $backImage,
                         'type' => PDFImageTypeEnum::Single,

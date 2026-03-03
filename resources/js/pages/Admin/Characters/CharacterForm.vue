@@ -1,5 +1,5 @@
 <script setup lang='ts'>
-import { computed, ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch'
@@ -14,9 +14,7 @@ import {
 import {
     Select,
     SelectContent,
-    SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
@@ -30,7 +28,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import CustomMultiselect from "@/components/CustomMultiselect.vue";
-import { Textarea } from '@/components/ui/textarea'
 
 const props = defineProps({
     character: {
@@ -289,10 +286,10 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect v-model="formInfo.keywords" comboTitle="Select Keywords" :choiceOptions="props.keywords" />
+                            <CustomMultiselect v-model="formInfo.keywords" comboTitle="Select Keywords" :choice-options="props.keywords" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect v-model="formInfo.characteristics" comboTitle="Select Characteristics" :choiceOptions="props.characteristics" />
+                            <CustomMultiselect v-model="formInfo.characteristics" comboTitle="Select Characteristics" :choice-options="props.characteristics" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="base">Base Size</Label>
@@ -414,19 +411,19 @@ onMounted(() => {
                             </div>
                         </div>
 <!--                        <div class="flex flex-col space-y-1.5">-->
-<!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choiceOptions="props.miniatures" />-->
+<!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choice-options="props.miniatures" />-->
 <!--                        </div>-->
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choiceOptions="props.abilities" />
+                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choice-options="props.abilities" />
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choiceOptions="props.actions" />
+                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <CustomMultiselect v-model=formInfo.signature_actions comboTitle="Select Signature Actions" :choice-options="props.actions" />
@@ -436,10 +433,10 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choiceOptions="props.markers" />
+                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choice-options="props.markers" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choiceOptions="props.tokens" />
+                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choice-options="props.tokens" />
                                 </div>
                             </div>
                         </div>

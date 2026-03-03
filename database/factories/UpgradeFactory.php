@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\UpgradeDomainTypeEnum;
+use App\Enums\UpgradeTypeEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +19,11 @@ class UpgradeFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => $this->faker->unique()->word(),
+            'domain' => $this->faker->randomElement(UpgradeDomainTypeEnum::cases()),
+            'type' => $this->faker->optional()->randomElement(UpgradeTypeEnum::cases()),
+            'front_image' => 'seed/upgrade-front.png',
+            'back_image' => 'seed/upgrade-back.png',
         ];
     }
 }

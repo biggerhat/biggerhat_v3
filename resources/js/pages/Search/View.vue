@@ -19,6 +19,7 @@ import FilterPanel from '@/components/FilterPanel.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import { Badge } from '@/components/ui/badge';
 
 const booleanOptions = [
@@ -81,6 +82,20 @@ const props = defineProps({
             return {};
         },
     },
+    actions: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    abilities: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
     sort_options: {
         type: [Object, Array],
         required: false,
@@ -129,6 +144,8 @@ const filterParams = ref({
     is_beta: null as string | null,
     keyword: null as string | null,
     characteristic: null as string | null,
+    action: null as string | null,
+    ability: null as string | null,
     page_view: null as string | null,
     sort: null as string | null,
     sort_type: null as string | null,
@@ -157,6 +174,8 @@ const filterKeys = [
     'is_beta',
     'keyword',
     'characteristic',
+    'action',
+    'ability',
 ] as const;
 
 const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size'] as const;
@@ -190,6 +209,8 @@ const filter = () => {
     } else {
         params.faction = null;
     }
+    // Reset to page 1 on any filter change
+    params.page = null;
     router.get(route('search.view'), cleanObject(params), {
         only: ['characters', 'result_count'],
         replace: true,
@@ -234,11 +255,11 @@ const clearName = () => {
 };
 
 const sectionsOpen = ref({
-    faction: true,
-    stats: false,
-    baseSuits: false,
-    keywords: true,
-    flags: false,
+    advanced: false,
+    advancedStats: false,
+    advancedBaseSuits: false,
+    advancedFlags: false,
+    advancedActionsAbilities: false,
     sorting: false,
 });
 
@@ -274,12 +295,14 @@ onMounted(() => {
     filterParams.value.is_beta = urlParams.get('is_beta');
     filterParams.value.keyword = urlParams.get('keyword');
     filterParams.value.characteristic = urlParams.get('characteristic');
+    filterParams.value.action = urlParams.get('action');
+    filterParams.value.ability = urlParams.get('ability');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
     filterParams.value.sort = urlParams.get('sort') ?? 'name';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
 
     // Auto-open sections that have active filters
-    if (
+    const hasStats =
         filterParams.value.cost_min ||
         filterParams.value.cost_max ||
         filterParams.value.health_min ||
@@ -291,22 +314,23 @@ onMounted(() => {
         filterParams.value.willpower_min ||
         filterParams.value.willpower_max ||
         filterParams.value.size_min ||
-        filterParams.value.size_max
-    ) {
-        sectionsOpen.value.stats = true;
-    }
-    if (filterParams.value.base || filterParams.value.defense_suit || filterParams.value.willpower_suit) {
-        sectionsOpen.value.baseSuits = true;
-    }
-    if (filterParams.value.generates_stone || filterParams.value.is_unhirable || filterParams.value.is_beta) {
-        sectionsOpen.value.flags = true;
+        filterParams.value.size_max;
+    const hasBaseSuits = filterParams.value.base || filterParams.value.defense_suit || filterParams.value.willpower_suit;
+    const hasFlags = filterParams.value.generates_stone || filterParams.value.is_unhirable || filterParams.value.is_beta;
+    const hasActionsAbilities = filterParams.value.action || filterParams.value.ability;
+    if (hasStats || hasBaseSuits || hasFlags || hasActionsAbilities) {
+        sectionsOpen.value.advanced = true;
+        if (hasStats) sectionsOpen.value.advancedStats = true;
+        if (hasBaseSuits) sectionsOpen.value.advancedBaseSuits = true;
+        if (hasFlags) sectionsOpen.value.advancedFlags = true;
+        if (hasActionsAbilities) sectionsOpen.value.advancedActionsAbilities = true;
     }
     if (filterParams.value.sort !== 'name' || filterParams.value.sort_type !== 'ascending') {
         sectionsOpen.value.sorting = true;
     }
 });
 
-const characterCount = computed(() => props.characters?.length ?? 0);
+const characterCount = computed(() => props.characters?.data?.length ?? 0);
 const { delays } = useStaggeredEntry(characterCount);
 
 const isLoading = ref(false);
@@ -378,6 +402,8 @@ onMounted(() => {
                 <div class="md:hidden">
                     <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
                         <div class="grid gap-4">
+                            <!-- General -->
+                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">General</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Factions</label>
                                 <CustomMultiselect v-model="selectedFactions" combo-title="Select Factions" :choice-options="props.factions" />
@@ -388,47 +414,6 @@ onMounted(() => {
                                     v-model="filterParams.station"
                                     placeholder="Any Station"
                                     :options="props.stations"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                <label class="text-sm font-medium capitalize">{{ stat }}</label>
-                                <div class="flex gap-2 items-center">
-                                    <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
-                                    <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
-                                    <button
-                                        class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                                        :class="hasStatValue(stat) ? 'visible' : 'invisible'"
-                                        @click="clearStat(stat)"
-                                    >
-                                        <X class="h-3 w-3" />
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Base Size</label>
-                                <ClearableSelect
-                                    v-model="filterParams.base"
-                                    placeholder="Any Base"
-                                    :options="props.base_sizes"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Defense Suit</label>
-                                <ClearableSelect
-                                    v-model="filterParams.defense_suit"
-                                    placeholder="Any Suit"
-                                    :options="props.suits"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Willpower Suit</label>
-                                <ClearableSelect
-                                    v-model="filterParams.willpower_suit"
-                                    placeholder="Any Suit"
-                                    :options="props.suits"
                                     trigger-class="border-2 border-primary rounded"
                                 />
                             </div>
@@ -452,33 +437,138 @@ onMounted(() => {
                                     trigger-class="border-2 border-primary rounded"
                                 />
                             </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Generates Soulstone</label>
-                                <ClearableSelect
-                                    v-model="filterParams.generates_stone"
-                                    placeholder="Any"
-                                    :options="booleanOptions"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Unhirable</label>
-                                <ClearableSelect
-                                    v-model="filterParams.is_unhirable"
-                                    placeholder="Any"
-                                    :options="booleanOptions"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Beta</label>
-                                <ClearableSelect
-                                    v-model="filterParams.is_beta"
-                                    placeholder="Any"
-                                    :options="booleanOptions"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
+
+                            <!-- Advanced -->
+                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2 border-t">Advanced</div>
+
+                            <!-- Stats -->
+                            <Collapsible v-model:open="sectionsOpen.advancedStats">
+                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                    Stats
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <div v-for="stat in statFields" :key="stat" class="space-y-1">
+                                        <label class="text-sm font-medium capitalize">{{ stat }}</label>
+                                        <div class="flex gap-2 items-center">
+                                            <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
+                                            <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
+                                            <button
+                                                class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                                                :class="hasStatValue(stat) ? 'visible' : 'invisible'"
+                                                @click="clearStat(stat)"
+                                            >
+                                                <X class="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Base & Suits -->
+                            <Collapsible v-model:open="sectionsOpen.advancedBaseSuits">
+                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                    Base & Suits
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Base Size</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.base"
+                                            placeholder="Any Base"
+                                            :options="props.base_sizes"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Defense Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.defense_suit"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Willpower Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.willpower_suit"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Flags -->
+                            <Collapsible v-model:open="sectionsOpen.advancedFlags">
+                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                    Flags
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Generates Soulstone</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.generates_stone"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Unhirable</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.is_unhirable"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Beta</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.is_beta"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Actions & Abilities -->
+                            <Collapsible v-model:open="sectionsOpen.advancedActionsAbilities">
+                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                    Actions & Abilities
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActionsAbilities }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Action</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action"
+                                            placeholder="Any Action"
+                                            :options="props.actions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Ability</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.ability"
+                                            placeholder="Any Ability"
+                                            :options="props.abilities"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Sorting -->
+                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2 border-t">Sorting</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Sort By</label>
                                 <ClearableSelect
@@ -508,113 +598,124 @@ onMounted(() => {
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden md:block w-72 shrink-0">
-                    <div class="sticky top-4 space-y-2 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
-                        <!-- Faction & Station -->
-                        <Collapsible v-model:open="sectionsOpen.faction">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
-                                Faction & Station
-                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.faction }" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Factions</label>
-                                    <CustomMultiselect v-model="selectedFactions" combo-title="Select Factions" :choice-options="props.factions" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Station</label>
-                                    <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
+                    <div class="sticky top-4 space-y-2 pr-2">
+                        <!-- General -->
+                        <div class="space-y-3 px-1">
+                            <div class="space-y-1">
+                                <label class="text-xs font-medium text-muted-foreground">Factions</label>
+                                <CustomMultiselect v-model="selectedFactions" combo-title="Select Factions" :choice-options="props.factions" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-medium text-muted-foreground">Station</label>
+                                <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-medium text-muted-foreground">Keyword</label>
+                                <ClearableSelect v-model="filterParams.keyword" placeholder="Any Keyword" :options="props.keywords" option-value="slug" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-medium text-muted-foreground">Characteristic</label>
+                                <ClearableSelect
+                                    v-model="filterParams.characteristic"
+                                    placeholder="Any Characteristic"
+                                    :options="props.characteristics"
+                                    option-value="slug"
+                                />
+                            </div>
+                        </div>
 
-                        <!-- Stats -->
-                        <Collapsible v-model:open="sectionsOpen.stats">
+                        <!-- Advanced -->
+                        <Collapsible v-model:open="sectionsOpen.advanced">
                             <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
-                                Stats
-                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.stats }" />
+                                Advanced
+                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.advanced }" />
                             </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
-                                <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground capitalize">{{ stat }}</label>
-                                    <div class="flex gap-2 items-center">
-                                        <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
-                                        <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
-                                        <button
-                                            class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                                            :class="hasStatValue(stat) ? 'visible' : 'invisible'"
-                                            @click="clearStat(stat)"
-                                        >
-                                            <X class="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
+                            <CollapsibleContent class="space-y-2 pt-3 px-1">
+                                <!-- Stats -->
+                                <Collapsible v-model:open="sectionsOpen.advancedStats">
+                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                        Stats
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                        <div v-for="stat in statFields" :key="stat" class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground capitalize">{{ stat }}</label>
+                                            <div class="flex gap-2 items-center">
+                                                <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
+                                                <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
+                                                <button
+                                                    class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                                                    :class="hasStatValue(stat) ? 'visible' : 'invisible'"
+                                                    @click="clearStat(stat)"
+                                                >
+                                                    <X class="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
 
-                        <!-- Base & Suits -->
-                        <Collapsible v-model:open="sectionsOpen.baseSuits">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
-                                Base & Suits
-                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.baseSuits }" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Base Size</label>
-                                    <ClearableSelect v-model="filterParams.base" placeholder="Any Base" :options="props.base_sizes" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Defense Suit</label>
-                                    <ClearableSelect v-model="filterParams.defense_suit" placeholder="Any Suit" :options="props.suits" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Willpower Suit</label>
-                                    <ClearableSelect v-model="filterParams.willpower_suit" placeholder="Any Suit" :options="props.suits" />
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
+                                <!-- Base & Suits -->
+                                <Collapsible v-model:open="sectionsOpen.advancedBaseSuits">
+                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                        Base & Suits
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Base Size</label>
+                                            <ClearableSelect v-model="filterParams.base" placeholder="Any Base" :options="props.base_sizes" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Defense Suit</label>
+                                            <ClearableSelect v-model="filterParams.defense_suit" placeholder="Any Suit" :options="props.suits" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Willpower Suit</label>
+                                            <ClearableSelect v-model="filterParams.willpower_suit" placeholder="Any Suit" :options="props.suits" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
 
-                        <!-- Keywords & Traits -->
-                        <Collapsible v-model:open="sectionsOpen.keywords">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
-                                Keywords & Traits
-                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.keywords }" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Keyword</label>
-                                    <ClearableSelect v-model="filterParams.keyword" placeholder="Any Keyword" :options="props.keywords" option-value="slug" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Characteristic</label>
-                                    <ClearableSelect
-                                        v-model="filterParams.characteristic"
-                                        placeholder="Any Characteristic"
-                                        :options="props.characteristics"
-                                        option-value="slug"
-                                    />
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
+                                <!-- Flags -->
+                                <Collapsible v-model:open="sectionsOpen.advancedFlags">
+                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                        Flags
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Generates Soulstone</label>
+                                            <ClearableSelect v-model="filterParams.generates_stone" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Unhirable</label>
+                                            <ClearableSelect v-model="filterParams.is_unhirable" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Beta</label>
+                                            <ClearableSelect v-model="filterParams.is_beta" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
 
-                        <!-- Flags -->
-                        <Collapsible v-model:open="sectionsOpen.flags">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
-                                Flags
-                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.flags }" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Generates Soulstone</label>
-                                    <ClearableSelect v-model="filterParams.generates_stone" placeholder="Any" :options="booleanOptions" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Unhirable</label>
-                                    <ClearableSelect v-model="filterParams.is_unhirable" placeholder="Any" :options="booleanOptions" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-xs font-medium text-muted-foreground">Beta</label>
-                                    <ClearableSelect v-model="filterParams.is_beta" placeholder="Any" :options="booleanOptions" />
-                                </div>
+                                <!-- Actions & Abilities -->
+                                <Collapsible v-model:open="sectionsOpen.advancedActionsAbilities">
+                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                        Actions & Abilities
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActionsAbilities }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Action</label>
+                                            <ClearableSelect v-model="filterParams.action" placeholder="Any Action" :options="props.actions" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Ability</label>
+                                            <ClearableSelect v-model="filterParams.ability" placeholder="Any Ability" :options="props.abilities" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
                             </CollapsibleContent>
                         </Collapsible>
 
@@ -655,21 +756,23 @@ onMounted(() => {
                         </div>
                     </div>
                     <div v-else-if="filterParams.page_view === 'table'" class="overflow-auto">
-                        <CharacterTable :characters="props.characters" />
+                        <CharacterTable :characters="props.characters.data" />
+                        <InertiaPagination :paginator="props.characters" />
                     </div>
                     <div v-else-if="filterParams.page_view === 'full'">
-                        <template v-if="props.characters?.length">
-                            <div v-for="character in props.characters" v-bind:key="character.slug">
+                        <template v-if="props.characters?.data?.length">
+                            <div v-for="character in props.characters.data" v-bind:key="character.slug">
                                 <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
                             </div>
                         </template>
                         <EmptyState v-else />
+                        <InertiaPagination :paginator="props.characters" />
                     </div>
                     <div v-else>
-                        <template v-if="props.characters?.length">
+                        <template v-if="props.characters?.data?.length">
                             <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 md:gap-4">
                                 <div
-                                    v-for="(character, index) in props.characters"
+                                    v-for="(character, index) in props.characters.data"
                                     :key="`character-${character.id}`"
                                     class="animate-fade-in-up opacity-0"
                                     :style="delays[index]"
@@ -679,6 +782,7 @@ onMounted(() => {
                             </div>
                         </template>
                         <EmptyState v-else />
+                        <InertiaPagination :paginator="props.characters" />
                     </div>
                 </div>
             </div>

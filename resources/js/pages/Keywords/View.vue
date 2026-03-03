@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { LayoutGrid, List, BookOpen, Grid2x2 } from 'lucide-vue-next';
+import { Head, router } from '@inertiajs/vue3';
+import { BookOpen, Grid2x2, LayoutGrid, List } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
-import { cleanObject } from '@/composables/CleanObject';
+import CharacterCardView from '@/components/CharacterCardView.vue';
+import CharacterTable from '@/components/CharacterTable.vue';
+import CharacterView from '@/components/CharacterView.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import FilterPanel from '@/components/FilterPanel.vue';
+import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import CharacterCardView from '@/components/CharacterCardView.vue';
-import CharacterView from '@/components/CharacterView.vue';
-import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
-import CharacterTable from '@/components/CharacterTable.vue';
-import PageBanner from '@/components/PageBanner.vue';
-import FilterPanel from '@/components/FilterPanel.vue';
-import EmptyState from '@/components/EmptyState.vue';
+import { cleanObject } from '@/composables/CleanObject';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
@@ -162,15 +162,15 @@ onMounted(() => {
 
 <template>
     <Head :title="keyword.name" />
-    <div class="w-full h-full">
+    <div class="h-full w-full">
         <PageBanner :title="keyword.name">
             <template #subtitle>
-                <div class="px-2 py-0 md:py-2 my-auto md:flex text-xs md:text-sm text-muted-foreground md:text-foreground">
+                <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:flex md:py-2 md:text-sm md:text-foreground">
                     <div>{{ props.characters?.length ?? 0 }} Characters</div>
                 </div>
             </template>
         </PageBanner>
-        <div class="container mx-auto flex items-center justify-between px-4 mb-2">
+        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -196,7 +196,7 @@ onMounted(() => {
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Faction</label>
                         <Select v-model="filterParams.faction">
-                            <SelectTrigger class="border-2 border-primary rounded">
+                            <SelectTrigger class="rounded border-2 border-primary">
                                 <SelectValue placeholder="Faction" />
                             </SelectTrigger>
                             <SelectContent>
@@ -209,7 +209,7 @@ onMounted(() => {
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Station</label>
                         <Select v-model="filterParams.station">
-                            <SelectTrigger class="border-2 border-primary rounded">
+                            <SelectTrigger class="rounded border-2 border-primary">
                                 <SelectValue placeholder="Station" />
                             </SelectTrigger>
                             <SelectContent>
@@ -222,15 +222,11 @@ onMounted(() => {
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Characteristic</label>
                         <Select v-model="filterParams.characteristic">
-                            <SelectTrigger class="border-2 border-primary rounded">
+                            <SelectTrigger class="rounded border-2 border-primary">
                                 <SelectValue placeholder="Characteristic" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem
-                                    v-for="characteristic in props.characteristics"
-                                    :value="characteristic.slug"
-                                    :key="characteristic.slug"
-                                >
+                                <SelectItem v-for="characteristic in props.characteristics" :value="characteristic.slug" :key="characteristic.slug">
                                     {{ characteristic.name }}
                                 </SelectItem>
                             </SelectContent>
@@ -240,7 +236,7 @@ onMounted(() => {
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Sort By</label>
                         <Select v-model="filterParams.sort">
-                            <SelectTrigger class="border-2 border-primary rounded">
+                            <SelectTrigger class="rounded border-2 border-primary">
                                 <SelectValue placeholder="Sort Options" />
                             </SelectTrigger>
                             <SelectContent>
@@ -253,7 +249,7 @@ onMounted(() => {
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Sort Direction</label>
                         <Select v-model="filterParams.sort_type">
-                            <SelectTrigger class="border-2 border-primary rounded">
+                            <SelectTrigger class="rounded border-2 border-primary">
                                 <SelectValue placeholder="Sort Type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -268,11 +264,11 @@ onMounted(() => {
         </div>
         <div
             v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
-            class="container mx-auto items-center overflow-auto mt-4"
+            class="container mx-auto mt-4 items-center overflow-auto"
         >
             <TableSkeleton :rows="8" :cols="7" />
         </div>
-        <div v-else-if="isLoading" class="container mx-auto items-center mt-4">
+        <div v-else-if="isLoading" class="container mx-auto mt-4 items-center">
             <div class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>

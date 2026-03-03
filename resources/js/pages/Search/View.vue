@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { LayoutGrid, List, BookOpen, Search, X, ChevronDown } from 'lucide-vue-next';
+import { Head, router } from '@inertiajs/vue3';
+import { BookOpen, ChevronDown, LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
-import { cleanObject } from '@/composables/CleanObject';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import CardSkeleton from '@/components/CardSkeleton.vue';
+import CharacterCardView from '@/components/CharacterCardView.vue';
+import CharacterTable from '@/components/CharacterTable.vue';
+import CharacterView from '@/components/CharacterView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import CustomMultiselect from '@/components/CustomMultiselect.vue';
-import CharacterCardView from '@/components/CharacterCardView.vue';
-import CharacterView from '@/components/CharacterView.vue';
-import CharacterTable from '@/components/CharacterTable.vue';
-import PageBanner from '@/components/PageBanner.vue';
-import FilterPanel from '@/components/FilterPanel.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import CardSkeleton from '@/components/CardSkeleton.vue';
-import TableSkeleton from '@/components/TableSkeleton.vue';
+import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
+import PageBanner from '@/components/PageBanner.vue';
+import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cleanObject } from '@/composables/CleanObject';
 
 const booleanOptions = [
     { name: 'Yes', value: 'true' },
@@ -96,6 +96,41 @@ const props = defineProps({
             return {};
         },
     },
+    action_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    action_range_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    stat_modifiers: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    resistance_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    defensive_ability_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
     sort_options: {
         type: [Object, Array],
         required: false,
@@ -145,7 +180,29 @@ const filterParams = ref({
     keyword: null as string | null,
     characteristic: null as string | null,
     action: null as string | null,
+    action_name: null as string | null,
+    action_type: null as string | null,
+    action_is_signature: null as string | null,
+    action_costs_stone: null as string | null,
+    action_range_min: null as string | null,
+    action_range_max: null as string | null,
+    action_range_type: null as string | null,
+    action_stat_min: null as string | null,
+    action_stat_max: null as string | null,
+    action_stat_suits: null as string | null,
+    action_stat_modifier: null as string | null,
+    action_resisted_by: null as string | null,
+    action_tn_min: null as string | null,
+    action_tn_max: null as string | null,
+    action_target_suits: null as string | null,
+    action_damage: null as string | null,
+    action_description: null as string | null,
     ability: null as string | null,
+    ability_name: null as string | null,
+    ability_suits: null as string | null,
+    ability_defensive_type: null as string | null,
+    ability_costs_stone: null as string | null,
+    ability_description: null as string | null,
     page_view: null as string | null,
     sort: null as string | null,
     sort_type: null as string | null,
@@ -175,7 +232,29 @@ const filterKeys = [
     'keyword',
     'characteristic',
     'action',
+    'action_name',
+    'action_type',
+    'action_is_signature',
+    'action_costs_stone',
+    'action_range_min',
+    'action_range_max',
+    'action_range_type',
+    'action_stat_min',
+    'action_stat_max',
+    'action_stat_suits',
+    'action_stat_modifier',
+    'action_resisted_by',
+    'action_tn_min',
+    'action_tn_max',
+    'action_target_suits',
+    'action_damage',
+    'action_description',
     'ability',
+    'ability_name',
+    'ability_suits',
+    'ability_defensive_type',
+    'ability_costs_stone',
+    'ability_description',
 ] as const;
 
 const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size'] as const;
@@ -205,7 +284,10 @@ const filter = () => {
     }
     // Convert faction names to comma-separated values
     if (selectedFactions.value.length > 0) {
-        params.faction = selectedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',');
+        params.faction = selectedFactions.value
+            .map((name) => factionNameToValue(name))
+            .filter(Boolean)
+            .join(',');
     } else {
         params.faction = null;
     }
@@ -235,7 +317,9 @@ const clearStat = (stat: string) => {
 };
 
 const hasStatValue = (stat: string) => {
-    return filterParams.value[`${stat}_min` as keyof typeof filterParams.value] || filterParams.value[`${stat}_max` as keyof typeof filterParams.value];
+    return (
+        filterParams.value[`${stat}_min` as keyof typeof filterParams.value] || filterParams.value[`${stat}_max` as keyof typeof filterParams.value]
+    );
 };
 
 const handleViewChange = (value: string) => {
@@ -254,14 +338,27 @@ const clearName = () => {
     filter();
 };
 
+const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities'] as const;
+
 const sectionsOpen = ref({
     advanced: false,
     advancedStats: false,
     advancedBaseSuits: false,
     advancedFlags: false,
-    advancedActionsAbilities: false,
+    advancedActions: false,
+    advancedAbilities: false,
     sorting: false,
 });
+
+const toggleAdvancedSection = (section: (typeof advancedSubSections)[number]) => {
+    const isOpening = !sectionsOpen.value[section];
+    for (const key of advancedSubSections) {
+        sectionsOpen.value[key] = false;
+    }
+    if (isOpening) {
+        sectionsOpen.value[section] = true;
+    }
+};
 
 const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
@@ -296,7 +393,29 @@ onMounted(() => {
     filterParams.value.keyword = urlParams.get('keyword');
     filterParams.value.characteristic = urlParams.get('characteristic');
     filterParams.value.action = urlParams.get('action');
+    filterParams.value.action_name = urlParams.get('action_name');
+    filterParams.value.action_type = urlParams.get('action_type');
+    filterParams.value.action_is_signature = urlParams.get('action_is_signature');
+    filterParams.value.action_costs_stone = urlParams.get('action_costs_stone');
+    filterParams.value.action_range_min = urlParams.get('action_range_min');
+    filterParams.value.action_range_max = urlParams.get('action_range_max');
+    filterParams.value.action_range_type = urlParams.get('action_range_type');
+    filterParams.value.action_stat_min = urlParams.get('action_stat_min');
+    filterParams.value.action_stat_max = urlParams.get('action_stat_max');
+    filterParams.value.action_stat_suits = urlParams.get('action_stat_suits');
+    filterParams.value.action_stat_modifier = urlParams.get('action_stat_modifier');
+    filterParams.value.action_resisted_by = urlParams.get('action_resisted_by');
+    filterParams.value.action_tn_min = urlParams.get('action_tn_min');
+    filterParams.value.action_tn_max = urlParams.get('action_tn_max');
+    filterParams.value.action_target_suits = urlParams.get('action_target_suits');
+    filterParams.value.action_damage = urlParams.get('action_damage');
+    filterParams.value.action_description = urlParams.get('action_description');
     filterParams.value.ability = urlParams.get('ability');
+    filterParams.value.ability_name = urlParams.get('ability_name');
+    filterParams.value.ability_suits = urlParams.get('ability_suits');
+    filterParams.value.ability_defensive_type = urlParams.get('ability_defensive_type');
+    filterParams.value.ability_costs_stone = urlParams.get('ability_costs_stone');
+    filterParams.value.ability_description = urlParams.get('ability_description');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
     filterParams.value.sort = urlParams.get('sort') ?? 'name';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
@@ -317,13 +436,39 @@ onMounted(() => {
         filterParams.value.size_max;
     const hasBaseSuits = filterParams.value.base || filterParams.value.defense_suit || filterParams.value.willpower_suit;
     const hasFlags = filterParams.value.generates_stone || filterParams.value.is_unhirable || filterParams.value.is_beta;
-    const hasActionsAbilities = filterParams.value.action || filterParams.value.ability;
-    if (hasStats || hasBaseSuits || hasFlags || hasActionsAbilities) {
+    const hasActions =
+        filterParams.value.action ||
+        filterParams.value.action_name ||
+        filterParams.value.action_type ||
+        filterParams.value.action_is_signature ||
+        filterParams.value.action_costs_stone ||
+        filterParams.value.action_range_min ||
+        filterParams.value.action_range_max ||
+        filterParams.value.action_range_type ||
+        filterParams.value.action_stat_min ||
+        filterParams.value.action_stat_max ||
+        filterParams.value.action_stat_suits ||
+        filterParams.value.action_stat_modifier ||
+        filterParams.value.action_resisted_by ||
+        filterParams.value.action_tn_min ||
+        filterParams.value.action_tn_max ||
+        filterParams.value.action_target_suits ||
+        filterParams.value.action_damage ||
+        filterParams.value.action_description;
+    const hasAbilities =
+        filterParams.value.ability ||
+        filterParams.value.ability_name ||
+        filterParams.value.ability_suits ||
+        filterParams.value.ability_defensive_type ||
+        filterParams.value.ability_costs_stone ||
+        filterParams.value.ability_description;
+    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities) {
         sectionsOpen.value.advanced = true;
         if (hasStats) sectionsOpen.value.advancedStats = true;
         if (hasBaseSuits) sectionsOpen.value.advancedBaseSuits = true;
         if (hasFlags) sectionsOpen.value.advancedFlags = true;
-        if (hasActionsAbilities) sectionsOpen.value.advancedActionsAbilities = true;
+        if (hasActions) sectionsOpen.value.advancedActions = true;
+        if (hasAbilities) sectionsOpen.value.advancedAbilities = true;
     }
     if (filterParams.value.sort !== 'name' || filterParams.value.sort_type !== 'ascending') {
         sectionsOpen.value.sorting = true;
@@ -346,24 +491,24 @@ onMounted(() => {
 
 <template>
     <Head title="Advanced Search" />
-    <div class="w-full h-full relative">
+    <div class="relative h-full w-full">
         <PageBanner title="Advanced Search" class="mb-2">
             <template #subtitle>
-                <div class="px-2 py-0 md:py-2 my-auto text-xs md:text-sm text-muted-foreground md:text-foreground">
+                <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     {{ props.result_count }} {{ props.result_count === 1 ? 'character' : 'characters' }} found
                 </div>
             </template>
         </PageBanner>
 
         <!-- Search bar -->
-        <div class="container mx-auto px-4 mb-3">
+        <div class="container mx-auto mb-3 px-4">
             <div class="relative">
-                <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                     v-model="filterParams.name"
                     type="text"
                     placeholder="Search by name or nickname..."
-                    class="pl-10 pr-10 border-2 border-primary"
+                    class="border-2 border-primary pl-10 pr-10"
                     @keydown="handleNameKeydown"
                 />
                 <button
@@ -377,7 +522,7 @@ onMounted(() => {
         </div>
 
         <!-- Tabs + mobile filter trigger -->
-        <div class="container mx-auto flex items-center justify-between px-4 mb-2">
+        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -439,20 +584,32 @@ onMounted(() => {
                             </div>
 
                             <!-- Advanced -->
-                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2 border-t">Advanced</div>
+                            <div class="border-t pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Advanced</div>
 
                             <!-- Stats -->
-                            <Collapsible v-model:open="sectionsOpen.advancedStats">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                            <Collapsible :open="sectionsOpen.advancedStats" @update:open="toggleAdvancedSection('advancedStats')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
                                     Stats
                                     <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
                                 </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div v-for="stat in statFields" :key="stat" class="space-y-1">
                                         <label class="text-sm font-medium capitalize">{{ stat }}</label>
-                                        <div class="flex gap-2 items-center">
-                                            <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
-                                            <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
+                                        <div class="flex items-center gap-2">
+                                            <Input
+                                                v-model="filterParams[`${stat}_min`]"
+                                                type="number"
+                                                placeholder="Min"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                            <Input
+                                                v-model="filterParams[`${stat}_max`]"
+                                                type="number"
+                                                placeholder="Max"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
                                             <button
                                                 class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
                                                 :class="hasStatValue(stat) ? 'visible' : 'invisible'"
@@ -466,12 +623,14 @@ onMounted(() => {
                             </Collapsible>
 
                             <!-- Base & Suits -->
-                            <Collapsible v-model:open="sectionsOpen.advancedBaseSuits">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                            <Collapsible :open="sectionsOpen.advancedBaseSuits" @update:open="toggleAdvancedSection('advancedBaseSuits')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
                                     Base & Suits
                                     <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }" />
                                 </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Base Size</label>
                                         <ClearableSelect
@@ -503,12 +662,14 @@ onMounted(() => {
                             </Collapsible>
 
                             <!-- Flags -->
-                            <Collapsible v-model:open="sectionsOpen.advancedFlags">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                            <Collapsible :open="sectionsOpen.advancedFlags" @update:open="toggleAdvancedSection('advancedFlags')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
                                     Flags
                                     <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
                                 </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Generates Soulstone</label>
                                         <ClearableSelect
@@ -539,36 +700,239 @@ onMounted(() => {
                                 </CollapsibleContent>
                             </Collapsible>
 
-                            <!-- Actions & Abilities -->
-                            <Collapsible v-model:open="sectionsOpen.advancedActionsAbilities">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
-                                    Actions & Abilities
-                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActionsAbilities }" />
+                            <!-- Actions -->
+                            <Collapsible :open="sectionsOpen.advancedActions" @update:open="toggleAdvancedSection('advancedActions')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Actions
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActions }" />
                                 </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
-                                        <label class="text-sm font-medium">Action</label>
+                                        <label class="text-sm font-medium">Name</label>
                                         <ClearableSelect
                                             v-model="filterParams.action"
-                                            placeholder="Any Action"
+                                            placeholder="Select Action"
                                             :options="props.actions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                        <Input
+                                            v-model="filterParams.action_name"
+                                            type="text"
+                                            placeholder="or search action name..."
+                                            class="h-8 border-2 border-primary text-xs"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Type</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_type"
+                                            placeholder="Any Type"
+                                            :options="props.action_types"
                                             trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                     <div class="space-y-2">
-                                        <label class="text-sm font-medium">Ability</label>
+                                        <label class="text-sm font-medium">Range Type</label>
                                         <ClearableSelect
-                                            v-model="filterParams.ability"
-                                            placeholder="Any Ability"
-                                            :options="props.abilities"
+                                            v-model="filterParams.action_range_type"
+                                            placeholder="Any Range Type"
+                                            :options="props.action_range_types"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-sm font-medium">Range</label>
+                                        <div class="flex items-center gap-2">
+                                            <Input
+                                                v-model="filterParams.action_range_min"
+                                                type="number"
+                                                placeholder="Min"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                            <Input
+                                                v-model="filterParams.action_range_max"
+                                                type="number"
+                                                placeholder="Max"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-sm font-medium">Stat</label>
+                                        <div class="flex items-center gap-2">
+                                            <Input
+                                                v-model="filterParams.action_stat_min"
+                                                type="number"
+                                                placeholder="Min"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                            <Input
+                                                v-model="filterParams.action_stat_max"
+                                                type="number"
+                                                placeholder="Max"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Stat Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_stat_suits"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Stat Modifier</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_stat_modifier"
+                                            placeholder="Any Modifier"
+                                            :options="props.stat_modifiers"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Resisted By</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_resisted_by"
+                                            placeholder="Any"
+                                            :options="props.resistance_types"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-sm font-medium">Target Number</label>
+                                        <div class="flex items-center gap-2">
+                                            <Input
+                                                v-model="filterParams.action_tn_min"
+                                                type="number"
+                                                placeholder="Min"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                            <Input
+                                                v-model="filterParams.action_tn_max"
+                                                type="number"
+                                                placeholder="Max"
+                                                class="h-8 border-2 border-primary text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Target Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_target_suits"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Damage</label>
+                                        <Input
+                                            v-model="filterParams.action_damage"
+                                            type="text"
+                                            placeholder="Search damage..."
+                                            class="h-8 border-2 border-primary text-xs"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Description</label>
+                                        <Input
+                                            v-model="filterParams.action_description"
+                                            type="text"
+                                            placeholder="Search description..."
+                                            class="h-8 border-2 border-primary text-xs"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Signature</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_is_signature"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Costs Soulstone</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.action_costs_stone"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
                                             trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                 </CollapsibleContent>
                             </Collapsible>
 
+                            <!-- Abilities -->
+                            <Collapsible :open="sectionsOpen.advancedAbilities" @update:open="toggleAdvancedSection('advancedAbilities')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Abilities
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedAbilities }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Name</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.ability"
+                                            placeholder="Select Ability"
+                                            :options="props.abilities"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                        <Input
+                                            v-model="filterParams.ability_name"
+                                            type="text"
+                                            placeholder="or search ability name..."
+                                            class="h-8 border-2 border-primary text-xs"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.ability_suits"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Defensive Type</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.ability_defensive_type"
+                                            placeholder="Any Type"
+                                            :options="props.defensive_ability_types"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Costs Soulstone</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.ability_costs_stone"
+                                            placeholder="Any"
+                                            :options="booleanOptions"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Description</label>
+                                        <Input
+                                            v-model="filterParams.ability_description"
+                                            type="text"
+                                            placeholder="Search description..."
+                                            class="h-8 border-2 border-primary text-xs"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
                             <!-- Sorting -->
-                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2 border-t">Sorting</div>
+                            <div class="border-t pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sorting</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Sort By</label>
                                 <ClearableSelect
@@ -597,8 +961,8 @@ onMounted(() => {
         <div class="container mx-auto px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
-                <aside class="hidden md:block w-72 shrink-0">
-                    <div class="sticky top-4 space-y-2 pr-2">
+                <aside class="hidden w-72 shrink-0 md:block">
+                    <div class="space-y-2 pr-2">
                         <!-- General -->
                         <div class="space-y-3 px-1">
                             <div class="space-y-1">
@@ -611,7 +975,12 @@ onMounted(() => {
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Keyword</label>
-                                <ClearableSelect v-model="filterParams.keyword" placeholder="Any Keyword" :options="props.keywords" option-value="slug" />
+                                <ClearableSelect
+                                    v-model="filterParams.keyword"
+                                    placeholder="Any Keyword"
+                                    :options="props.keywords"
+                                    option-value="slug"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Characteristic</label>
@@ -626,23 +995,37 @@ onMounted(() => {
 
                         <!-- Advanced -->
                         <Collapsible v-model:open="sectionsOpen.advanced">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
+                            <CollapsibleTrigger
+                                class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80"
+                            >
                                 Advanced
                                 <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.advanced }" />
                             </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-2 pt-3 px-1">
+                            <CollapsibleContent class="space-y-2 px-1 pt-3">
                                 <!-- Stats -->
-                                <Collapsible v-model:open="sectionsOpen.advancedStats">
-                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                <Collapsible :open="sectionsOpen.advancedStats" @update:open="toggleAdvancedSection('advancedStats')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
                                         Stats
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground capitalize">{{ stat }}</label>
-                                            <div class="flex gap-2 items-center">
-                                                <Input v-model="filterParams[`${stat}_min`]" type="number" placeholder="Min" class="h-8 text-xs border-2 border-primary" />
-                                                <Input v-model="filterParams[`${stat}_max`]" type="number" placeholder="Max" class="h-8 text-xs border-2 border-primary" />
+                                            <label class="text-xs font-medium capitalize text-muted-foreground">{{ stat }}</label>
+                                            <div class="flex items-center gap-2">
+                                                <Input
+                                                    v-model="filterParams[`${stat}_min`]"
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                                <Input
+                                                    v-model="filterParams[`${stat}_max`]"
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
                                                 <button
                                                     class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
                                                     :class="hasStatValue(stat) ? 'visible' : 'invisible'"
@@ -656,12 +1039,17 @@ onMounted(() => {
                                 </Collapsible>
 
                                 <!-- Base & Suits -->
-                                <Collapsible v-model:open="sectionsOpen.advancedBaseSuits">
-                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                <Collapsible :open="sectionsOpen.advancedBaseSuits" @update:open="toggleAdvancedSection('advancedBaseSuits')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
                                         Base & Suits
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }" />
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }"
+                                        />
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Base Size</label>
                                             <ClearableSelect v-model="filterParams.base" placeholder="Any Base" :options="props.base_sizes" />
@@ -678,12 +1066,14 @@ onMounted(() => {
                                 </Collapsible>
 
                                 <!-- Flags -->
-                                <Collapsible v-model:open="sectionsOpen.advancedFlags">
-                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                <Collapsible :open="sectionsOpen.advancedFlags" @update:open="toggleAdvancedSection('advancedFlags')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
                                         Flags
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Generates Soulstone</label>
                                             <ClearableSelect v-model="filterParams.generates_stone" placeholder="Any" :options="booleanOptions" />
@@ -699,20 +1089,198 @@ onMounted(() => {
                                     </CollapsibleContent>
                                 </Collapsible>
 
-                                <!-- Actions & Abilities -->
-                                <Collapsible v-model:open="sectionsOpen.advancedActionsAbilities">
-                                    <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
-                                        Actions & Abilities
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActionsAbilities }" />
+                                <!-- Actions -->
+                                <Collapsible :open="sectionsOpen.advancedActions" @update:open="toggleAdvancedSection('advancedActions')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        Actions
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedActions }"
+                                        />
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 pt-2 px-1">
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Action</label>
-                                            <ClearableSelect v-model="filterParams.action" placeholder="Any Action" :options="props.actions" />
+                                            <label class="text-xs font-medium text-muted-foreground">Name</label>
+                                            <ClearableSelect v-model="filterParams.action" placeholder="Select Action" :options="props.actions" />
+                                            <Input
+                                                v-model="filterParams.action_name"
+                                                type="text"
+                                                placeholder="or search action name..."
+                                                class="h-8 text-xs"
+                                            />
                                         </div>
                                         <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Ability</label>
-                                            <ClearableSelect v-model="filterParams.ability" placeholder="Any Ability" :options="props.abilities" />
+                                            <label class="text-xs font-medium text-muted-foreground">Type</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.action_type"
+                                                placeholder="Any Type"
+                                                :options="props.action_types"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Range Type</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.action_range_type"
+                                                placeholder="Any Range Type"
+                                                :options="props.action_range_types"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Range</label>
+                                            <div class="flex items-center gap-2">
+                                                <Input
+                                                    v-model="filterParams.action_range_min"
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                                <Input
+                                                    v-model="filterParams.action_range_max"
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Stat</label>
+                                            <div class="flex items-center gap-2">
+                                                <Input
+                                                    v-model="filterParams.action_stat_min"
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                                <Input
+                                                    v-model="filterParams.action_stat_max"
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Stat Suit</label>
+                                            <ClearableSelect v-model="filterParams.action_stat_suits" placeholder="Any Suit" :options="props.suits" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Stat Modifier</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.action_stat_modifier"
+                                                placeholder="Any Modifier"
+                                                :options="props.stat_modifiers"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Resisted By</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.action_resisted_by"
+                                                placeholder="Any"
+                                                :options="props.resistance_types"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Target Number</label>
+                                            <div class="flex items-center gap-2">
+                                                <Input
+                                                    v-model="filterParams.action_tn_min"
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                                <Input
+                                                    v-model="filterParams.action_tn_max"
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    class="h-8 border-2 border-primary text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Target Suit</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.action_target_suits"
+                                                placeholder="Any Suit"
+                                                :options="props.suits"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Damage</label>
+                                            <Input
+                                                v-model="filterParams.action_damage"
+                                                type="text"
+                                                placeholder="Search damage..."
+                                                class="h-8 text-xs"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Description</label>
+                                            <Input
+                                                v-model="filterParams.action_description"
+                                                type="text"
+                                                placeholder="Search description..."
+                                                class="h-8 text-xs"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Signature</label>
+                                            <ClearableSelect v-model="filterParams.action_is_signature" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Costs Soulstone</label>
+                                            <ClearableSelect v-model="filterParams.action_costs_stone" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
+
+                                <!-- Abilities -->
+                                <Collapsible :open="sectionsOpen.advancedAbilities" @update:open="toggleAdvancedSection('advancedAbilities')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        Abilities
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedAbilities }"
+                                        />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Name</label>
+                                            <ClearableSelect v-model="filterParams.ability" placeholder="Select Ability" :options="props.abilities" />
+                                            <Input
+                                                v-model="filterParams.ability_name"
+                                                type="text"
+                                                placeholder="or search ability name..."
+                                                class="h-8 text-xs"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Suit</label>
+                                            <ClearableSelect v-model="filterParams.ability_suits" placeholder="Any Suit" :options="props.suits" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Defensive Type</label>
+                                            <ClearableSelect
+                                                v-model="filterParams.ability_defensive_type"
+                                                placeholder="Any Type"
+                                                :options="props.defensive_ability_types"
+                                            />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Costs Soulstone</label>
+                                            <ClearableSelect v-model="filterParams.ability_costs_stone" placeholder="Any" :options="booleanOptions" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Description</label>
+                                            <Input
+                                                v-model="filterParams.ability_description"
+                                                type="text"
+                                                placeholder="Search description..."
+                                                class="h-8 text-xs"
+                                            />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -721,11 +1289,13 @@ onMounted(() => {
 
                         <!-- Sorting -->
                         <Collapsible v-model:open="sectionsOpen.sorting">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
+                            <CollapsibleTrigger
+                                class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80"
+                            >
                                 Sorting
                                 <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.sorting }" />
                             </CollapsibleTrigger>
-                            <CollapsibleContent class="space-y-3 pt-3 px-1">
+                            <CollapsibleContent class="space-y-3 px-1 pt-3">
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Sort By</label>
                                     <ClearableSelect v-model="filterParams.sort" placeholder="Sort Options" :options="props.sort_options" />
@@ -746,12 +1316,12 @@ onMounted(() => {
                 </aside>
 
                 <!-- Results area -->
-                <div class="flex-1 min-w-0">
+                <div class="min-w-0 flex-1">
                     <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
                         <TableSkeleton :rows="8" :cols="7" />
                     </div>
                     <div v-else-if="isLoading">
-                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 md:gap-4">
+                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                             <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
                         </div>
                     </div>
@@ -770,7 +1340,7 @@ onMounted(() => {
                     </div>
                     <div v-else>
                         <template v-if="props.characters?.data?.length">
-                            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 md:gap-4">
+                            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                                 <div
                                     v-for="(character, index) in props.characters.data"
                                     :key="`character-${character.id}`"

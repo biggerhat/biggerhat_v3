@@ -1,21 +1,14 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
+import CustomMultiselect from '@/components/CustomMultiselect.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {Switch} from "@/components/ui/switch";
-import CustomMultiselect from "@/components/CustomMultiselect.vue";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     ability: {
@@ -23,29 +16,29 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     defensive_ability_types: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     suits: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     characters: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -58,9 +51,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.ability ? route("admin.abilities.update", props.ability.slug) : route("admin.abilities.store"),
-        formInfo.value
-    );
+    router.post(props.ability ? route('admin.abilities.update', props.ability.slug) : route('admin.abilities.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -85,7 +76,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" autofocus v-model="formInfo.name" placeholder="Ability Name" />
@@ -113,7 +104,7 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-                                <div class="flex flex-col space-y-1.5 items-center">
+                                <div class="flex flex-col items-center space-y-1.5">
                                     <div class="flex items-center space-x-2">
                                         <Switch id="costs_stone" v-model="formInfo.costs_stone" />
                                         <Label for="costs_stone">Costs A Stone</Label>
@@ -130,16 +121,19 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="characters">Characters</Label>
-                                <CustomMultiselect id="characters" v-model="formInfo.characters" comboTitle="Select Characters" :choice-options="props.characters" />
+                                <CustomMultiselect
+                                    id="characters"
+                                    v-model="formInfo.characters"
+                                    comboTitle="Select Characters"
+                                    :choice-options="props.characters"
+                                />
                             </div>
                         </div>
                     </div>
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.abilities.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.abilities.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

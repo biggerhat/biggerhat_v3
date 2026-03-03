@@ -1,19 +1,12 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     marker: {
@@ -21,14 +14,14 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     base_sizes: {
         type: [Object, Array],
         required: false,
         default() {
             return null;
-        }
+        },
     },
 });
 
@@ -39,9 +32,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.marker ? route("admin.markers.update", props.marker.slug) : route("admin.markers.store"),
-        formInfo.value
-    );
+    router.post(props.marker ? route('admin.markers.update', props.marker.slug) : route('admin.markers.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -60,7 +51,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Marker Name" />
@@ -86,9 +77,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.markers.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.markers.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

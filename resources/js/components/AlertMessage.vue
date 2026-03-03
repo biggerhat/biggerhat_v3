@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { CircleAlert } from "lucide-vue-next";
-
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CircleAlert } from 'lucide-vue-next';
 
 const props = defineProps({
     message: {
@@ -9,23 +8,23 @@ const props = defineProps({
         required: false,
         default() {
             return '';
-        }
+        },
     },
     messageTitle: {
         type: String,
         required: false,
         default() {
             return null;
-        }
+        },
     },
     messageType: {
         type: String,
         required: false,
         default() {
             return null;
-        }
-    }
-})
+        },
+    },
+});
 </script>
 
 <template>

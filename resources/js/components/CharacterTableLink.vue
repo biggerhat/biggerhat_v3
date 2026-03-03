@@ -5,14 +5,23 @@ const props = defineProps({
         required: false,
         default() {
             return {};
-        }
-    }
+        },
+    },
 });
 </script>
 
 <template>
     <div>
-        <Link :href="route('characters.view', { character: props.character.slug, miniature:props.character.standard_miniatures[0].id, slug: props.character.standard_miniatures[0].slug })" class="hover:underline">
+        <Link
+            :href="
+                route('characters.view', {
+                    character: props.character.slug,
+                    miniature: props.character.standard_miniatures[0].id,
+                    slug: props.character.standard_miniatures[0].slug,
+                })
+            "
+            class="hover:underline"
+        >
             {{ character.display_name }}
         </Link>
     </div>

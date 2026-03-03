@@ -1,7 +1,7 @@
 import '../css/app.css';
 
-import { createInertiaApp, Link, Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { createInertiaApp, Head, Link } from '@inertiajs/vue3';
 import { createApp, h } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';
@@ -26,15 +26,15 @@ const appName = import.meta.env.VITE_APP_NAME || 'BiggerHat';
 const factionBackground = (factionName: string): string => {
     if (!factionName) return;
 
-    switch (factionName.toLowerCase()){
+    switch (factionName.toLowerCase()) {
         case 'explorers_society':
-            return 'bg-explorerssociety'
+            return 'bg-explorerssociety';
         case 'ten_thunders':
-            return 'bg-tenthunders'
+            return 'bg-tenthunders';
         default:
             return `bg-${factionName}`;
     }
-}
+};
 
 createInertiaApp({
     title: (title) => {
@@ -44,22 +44,22 @@ createInertiaApp({
 
         return `${title} - ${appName}`;
     },
-    resolve: name => {
-        const pages = import.meta.glob('./pages/**/*.vue', { eager: true })
-        const page = pages[`./pages/${name}.vue`]
-        page.default.layout = page.default.layout || AppLayout
-        return page
+    resolve: (name) => {
+        const pages = import.meta.glob('./pages/**/*.vue', { eager: true });
+        const page = pages[`./pages/${name}.vue`];
+        page.default.layout = page.default.layout || AppLayout;
+        return page;
     },
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
-            .component("Link", Link)
-            .component("Head", Head)
+            .component('Link', Link)
+            .component('Head', Head)
             .mixin({
                 methods: {
                     factionBackground: factionBackground,
-                }
+                },
             })
             .mount(el);
     },

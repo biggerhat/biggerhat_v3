@@ -2,6 +2,8 @@
 
 use App\Enums\FactionEnum;
 use App\Http\Controllers\CommandController;
+use App\Http\Controllers\Database\AbilityController;
+use App\Http\Controllers\Database\ActionController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
@@ -62,6 +64,14 @@ Route::prefix('markers')->name('markers.')->group(function () {
 
 Route::prefix('tokens')->name('tokens.')->group(function () {
     Route::get('/', [TokenController::class, 'index'])->name('index');
+});
+
+Route::prefix('actions')->name('actions.')->group(function () {
+    Route::get('/', [ActionController::class, 'index'])->name('index');
+});
+
+Route::prefix('abilities')->name('abilities.')->group(function () {
+    Route::get('/', [AbilityController::class, 'index'])->name('index');
 });
 
 Route::prefix('factions')->name('factions.')->group(function () {

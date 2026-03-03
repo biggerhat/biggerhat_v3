@@ -1,19 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import CharacterCardView from '@/components/CharacterCardView.vue';
+import { Button } from '@/components/ui/button';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
-import { Search, BookOpen, FileDown, RefreshCw } from 'lucide-vue-next';
-import CharacterCardView from '@/components/CharacterCardView.vue';
-import {
-    CommandDialog,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from '@/components/ui/command';
-import { Button } from '@/components/ui/button';
+import { BookOpen, FileDown, RefreshCw, Search } from 'lucide-vue-next';
+import { ref } from 'vue';
 
 defineProps({
     factions: {
@@ -57,8 +49,8 @@ function toggleDialog() {
 
 <template>
     <Head title="Home" />
-    <div class="container flex flex-col gap-8 p-4 mx-auto">
-        <div class="flex flex-col items-center pt-8 pb-4 animate-fade-in-up">
+    <div class="container mx-auto flex flex-col gap-8 p-4">
+        <div class="animate-fade-in-up flex flex-col items-center pb-4 pt-8">
             <img src="/images/hat_side.png" class="h-48 md:h-64" alt="BiggerHat.net" />
             <p class="mt-4 text-lg text-muted-foreground">Malifaux Character Database & Tools</p>
             <Button variant="outline" class="mt-6 gap-2" @click="toggleDialog">
@@ -67,7 +59,7 @@ function toggleDialog() {
             </Button>
         </div>
 
-        <div class="grid grid-cols-4 gap-3 md:grid-cols-8 animate-fade-in-up" style="animation-delay: 100ms">
+        <div class="animate-fade-in-up grid grid-cols-4 gap-3 md:grid-cols-8" style="animation-delay: 100ms">
             <Link
                 v-for="(faction, key) in factions"
                 :key="key"
@@ -75,21 +67,18 @@ function toggleDialog() {
                 class="flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-200 hover:scale-105 hover:bg-muted"
             >
                 <img :src="faction.logo" :alt="faction.name" class="size-12 md:size-16" />
-                <span class="text-xs text-center font-medium">{{ faction.name }}</span>
+                <span class="text-center text-xs font-medium">{{ faction.name }}</span>
             </Link>
         </div>
 
         <div
             v-if="featured_character && featured_character.standard_miniatures?.length"
-            class="flex flex-col items-center gap-3 animate-fade-in-up"
+            class="animate-fade-in-up flex flex-col items-center gap-3"
             style="animation-delay: 200ms"
         >
             <h2 class="text-lg font-semibold">Featured Character</h2>
             <div class="w-48 md:w-56">
-                <CharacterCardView
-                    :miniature="featured_character.standard_miniatures[0]"
-                    :character-slug="featured_character.slug"
-                />
+                <CharacterCardView :miniature="featured_character.standard_miniatures[0]" :character-slug="featured_character.slug" />
             </div>
             <Button variant="ghost" size="sm" class="gap-1" @click="router.reload()">
                 <RefreshCw class="size-3" />
@@ -97,7 +86,7 @@ function toggleDialog() {
             </Button>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-2 animate-fade-in-up" style="animation-delay: 300ms">
+        <div class="animate-fade-in-up grid gap-3 md:grid-cols-2" style="animation-delay: 300ms">
             <Link
                 :href="route('keywords.index')"
                 class="flex items-center gap-3 rounded-lg border p-4 transition-all duration-200 hover:border-primary hover:shadow-md"
@@ -120,7 +109,10 @@ function toggleDialog() {
             </Link>
         </div>
 
-        <div class="flex items-center justify-center gap-6 border-t pt-4 text-sm text-muted-foreground animate-fade-in-up" style="animation-delay: 400ms">
+        <div
+            class="animate-fade-in-up flex items-center justify-center gap-6 border-t pt-4 text-sm text-muted-foreground"
+            style="animation-delay: 400ms"
+        >
             <span>{{ stats.characters }} Characters</span>
             <span>{{ stats.keywords }} Keywords</span>
             <span>8 Factions</span>

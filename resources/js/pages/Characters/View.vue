@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
 import CharacterView from '@/components/CharacterView.vue';
 import { useFactionColor } from '@/composables/useFactionColor';
+import { Head } from '@inertiajs/vue3';
 
 const props = defineProps({
     character: {
@@ -25,7 +25,7 @@ const factionColor = props.character?.faction ? useFactionColor(props.character.
 
 <template>
     <Head :title="character.display_name" />
-    <div class="w-full h-full relative">
+    <div class="relative h-full w-full">
         <div
             v-if="factionColor"
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"

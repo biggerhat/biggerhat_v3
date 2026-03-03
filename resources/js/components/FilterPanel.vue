@@ -1,19 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useMediaQuery } from '@vueuse/core';
 import { SlidersHorizontal } from 'lucide-vue-next';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-    DrawerTrigger,
-} from '@/components/ui/drawer';
+import { ref } from 'vue';
 
 interface Props {
     filterCount?: number;
@@ -56,7 +48,7 @@ function handleClear() {
         <Sheet v-model:open="sheetOpen">
             <SheetTrigger as-child>
                 <Button variant="outline" class="border-2 border-primary">
-                    <SlidersHorizontal class="h-4 w-4 mr-2" />
+                    <SlidersHorizontal class="mr-2 h-4 w-4" />
                     Filters
                     <Badge v-if="filterCount > 0" variant="default" class="ml-1 px-1.5 py-0 text-[10px] leading-4">
                         {{ filterCount }}
@@ -92,7 +84,7 @@ function handleClear() {
                     <Badge
                         v-if="filterCount > 0"
                         variant="default"
-                        class="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] leading-4 min-w-[18px] justify-center"
+                        class="absolute -right-2 -top-2 min-w-[18px] justify-center px-1.5 py-0 text-[10px] leading-4"
                     >
                         {{ filterCount }}
                     </Badge>
@@ -103,7 +95,7 @@ function handleClear() {
                     <DrawerHeader>
                         <DrawerTitle class="text-center">Filter & Sort</DrawerTitle>
                     </DrawerHeader>
-                    <div class="px-4 pb-2 max-h-[60vh] overflow-y-auto">
+                    <div class="max-h-[60vh] overflow-y-auto px-4 pb-2">
                         <slot />
                     </div>
                     <DrawerFooter>

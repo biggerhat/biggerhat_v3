@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from 'vue';
 import { cn } from '@/lib/utils';
+import type { HTMLAttributes } from 'vue';
 
 interface Props {
     title: string;
@@ -12,13 +12,13 @@ const props = defineProps<Props>();
 </script>
 
 <template>
-    <div :class="cn('flex w-full bg-secondary mb-4', props.class, accentColor ? `border-b-4 ${accentColor}` : '')">
+    <div :class="cn('mb-4 flex w-full bg-secondary', props.class, accentColor ? `border-b-4 ${accentColor}` : '')">
         <div class="container mx-auto items-center">
             <div class="flex justify-between">
-                <div class="py-2 md:py-4 flex w-full">
+                <div class="flex w-full py-2 md:py-4">
                     <slot name="logo" />
-                    <div class="flex justify-between w-full md:block" id="page-banner">
-                        <div class="p-2 font-bold text-xl my-auto">{{ title }}</div>
+                    <div class="flex w-full justify-between md:block" id="page-banner">
+                        <div class="my-auto p-2 text-xl font-bold">{{ title }}</div>
                         <slot name="subtitle" />
                     </div>
                 </div>

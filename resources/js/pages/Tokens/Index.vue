@@ -1,32 +1,20 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { h, ref, computed } from 'vue';
-import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { Input } from '@/components/ui/input';
-import { valueUpdater } from '@/lib/utils';
-import { LayoutGrid, List } from 'lucide-vue-next';
-import PageBanner from '@/components/PageBanner.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PageBanner from '@/components/PageBanner.vue';
+import { Input } from '@/components/ui/input';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { valueUpdater } from '@/lib/utils';
+import { Head } from '@inertiajs/vue3';
+import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import { LayoutGrid, List } from 'lucide-vue-next';
+import { computed, h, ref } from 'vue';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import {
-    FlexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    useVueTable,
-} from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, useVueTable } from '@tanstack/vue-table';
 
 const columns: ColumnDef<Tokens>[] = [
     {
@@ -78,7 +66,7 @@ const { delays } = useStaggeredEntry(filteredCount);
 
 <template>
     <Head title="Tokens" />
-    <div class="w-full h-full">
+    <div class="h-full w-full">
         <PageBanner title="Token Directory">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">{{ totalCount }} Tokens</div>
@@ -92,13 +80,11 @@ const { delays } = useStaggeredEntry(filteredCount);
                     :model-value="table.getColumn('name')?.getFilterValue() as string"
                     @update:model-value="table.getColumn('name')?.setFilterValue($event)"
                 />
-                <div v-if="isFiltered" class="text-sm text-muted-foreground">
-                    Showing {{ filteredCount }} of {{ totalCount }}
-                </div>
+                <div v-if="isFiltered" class="text-sm text-muted-foreground">Showing {{ filteredCount }} of {{ totalCount }}</div>
             </div>
 
             <Tabs default-value="cards">
-                <div class="flex items-center justify-between mb-4">
+                <div class="mb-4 flex items-center justify-between">
                     <TabsList class="gap-1">
                         <TabsTrigger value="cards">
                             <LayoutGrid class="size-4" />
@@ -112,13 +98,8 @@ const { delays } = useStaggeredEntry(filteredCount);
                 </div>
 
                 <TabsContent value="cards">
-                    <div v-if="filteredTokens.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <Card
-                            v-for="(token, index) in filteredTokens"
-                            :key="token.name"
-                            class="animate-fade-in-up opacity-0"
-                            :style="delays[index]"
-                        >
+                    <div v-if="filteredTokens.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <Card v-for="(token, index) in filteredTokens" :key="token.name" class="animate-fade-in-up opacity-0" :style="delays[index]">
                             <CardHeader class="pb-2">
                                 <CardTitle class="text-base">{{ token.name }}</CardTitle>
                             </CardHeader>
@@ -131,7 +112,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                 </TabsContent>
 
                 <TabsContent value="table">
-                    <div class="border rounded-md">
+                    <div class="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">

@@ -1,19 +1,12 @@
-<script setup lang='ts'>
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+<script setup lang="ts">
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { router } from '@inertiajs/vue3';
+import { onMounted, ref } from 'vue';
 
 const props = defineProps({
     strategy: {
@@ -21,22 +14,22 @@ const props = defineProps({
         required: false,
         default() {
             return null;
-        }
+        },
     },
     seasons: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
+        },
     },
     suits: {
         type: [Object, Array],
         required: false,
         default() {
             return [];
-        }
-    }
+        },
+    },
 });
 
 const formInfo = ref({
@@ -50,9 +43,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.strategy ? route("admin.strategies.update", props.strategy.slug) : route("admin.strategies.store"),
-        formInfo.value
-    );
+    router.post(props.strategy ? route('admin.strategies.update', props.strategy.slug) : route('admin.strategies.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -74,7 +65,7 @@ onMounted(() => {
             </CardHeader>
             <CardContent>
                 <form>
-                    <div class="grid items-center w-full gap-4">
+                    <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Strategy Name" />
@@ -118,18 +109,21 @@ onMounted(() => {
                             <Textarea id="scoring" v-model="formInfo.scoring" placeholder="Type the scoring info here." />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <div class="flex flex-col w-full max-w-sm items-center gap-1.5 space-y-1.5">
+                            <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                 <Label for="image">Image</Label>
-                                <Input id="image" type="file" accept=".heic, .jpeg, .jpg, .png, .webp" @input="formInfo.image = $event.target.files[0]" />
+                                <Input
+                                    id="image"
+                                    type="file"
+                                    accept=".heic, .jpeg, .jpg, .png, .webp"
+                                    @input="formInfo.image = $event.target.files[0]"
+                                />
                             </div>
                         </div>
                     </div>
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.strategies.index'))" variant="outline">
-                    Cancel
-                </Button>
+                <Button @click="router.get(route('admin.strategies.index'))" variant="outline"> Cancel </Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import Collapsible from '@/components/ui/collapsible/Collapsible.vue';
+import CollapsibleContent from '@/components/ui/collapsible/CollapsibleContent.vue';
+import CollapsibleTrigger from '@/components/ui/collapsible/CollapsibleTrigger.vue';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
+import { isMobileDevice } from '@/composables/useMobileDevice';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import Collapsible from "@/components/ui/collapsible/Collapsible.vue";
-import CollapsibleTrigger from "@/components/ui/collapsible/CollapsibleTrigger.vue";
-import CollapsibleContent from "@/components/ui/collapsible/CollapsibleContent.vue";
-import { ChevronDown } from "lucide-vue-next";
-import { useSidebar } from "@/components/ui/sidebar";
-import { isMobileDevice } from '@/composables/useMobileDevice';
+import { ChevronDown } from 'lucide-vue-next';
 const { toggleSidebar } = useSidebar();
 
 defineProps<{
-
     items: NavItem[];
 }>();
 

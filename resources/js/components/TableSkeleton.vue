@@ -14,7 +14,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-    <div class="border rounded-md">
+    <div class="rounded-md border">
         <Table>
             <TableHeader>
                 <TableRow>

@@ -7,5 +7,4 @@ export function cleanObject(obj) {
     return obj;
 }
 
-export class CleanObject {
-}
+export class CleanObject {}

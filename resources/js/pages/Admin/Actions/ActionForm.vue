@@ -14,12 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {
-    NumberField,
-    NumberFieldContent,
-    NumberFieldDecrement,
-    NumberFieldIncrement, NumberFieldInput
-} from "@/components/ui/number-field";
 import {Switch} from "@/components/ui/switch";
 import CustomMultiselect from "@/components/CustomMultiselect.vue";
 
@@ -262,13 +256,13 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="triggers">Triggers</Label>
-                                <CustomMultiselect id="triggers" v-model="formInfo.triggers" comboTitle="Select Triggers" :choiceOptions="props.triggers" />
+                                <CustomMultiselect id="triggers" v-model="formInfo.triggers" comboTitle="Select Triggers" :choice-options="props.triggers" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="characters">Characters</Label>
-                                <CustomMultiselect id="characters" v-model="formInfo.characters" comboTitle="Select Characters" :choiceOptions="props.characters" />
+                                <CustomMultiselect id="characters" v-model="formInfo.characters" comboTitle="Select Characters" :choice-options="props.characters" />
                             </div>
                         </div>
                     </div>

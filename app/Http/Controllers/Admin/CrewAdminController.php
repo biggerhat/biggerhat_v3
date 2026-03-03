@@ -30,41 +30,15 @@ class CrewAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/Upgrades/Crews/UpgradeForm', [
-            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
-        ]);
+        return inertia('Admin/Upgrades/Crews/UpgradeForm', $this->getFormData());
     }
 
     public function edit(Request $request, Upgrade $upgrade)
     {
-        return inertia('Admin/Upgrades/Crews/UpgradeForm', [
-            'upgrade' => $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']),
-            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
-        ]);
+        return inertia('Admin/Upgrades/Crews/UpgradeForm', array_merge(
+            ['upgrade' => $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords'])],
+            $this->getFormData(),
+        ));
     }
 
     public function store(Request $request)
@@ -87,6 +61,25 @@ class CrewAdminController extends Controller
         $upgrade->delete();
 
         return redirect()->route('admin.crews.index')->withMessage("{$name} has been deleted.");
+    }
+
+    private function getFormData(): array
+    {
+        return [
+            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
+            'factions' => FactionEnum::toSelectOptions(),
+            'keywords' => Keyword::toSelectOptions('name', 'id'),
+            'tokens' => Token::all(),
+            'markers' => Marker::all(),
+            'actions' => Action::all()->map(function (Action $action) {
+                return [
+                    'slug' => $action->slug,
+                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
+                ];
+            }),
+            'abilities' => Ability::all(),
+            'triggers' => Trigger::all(),
+        ];
     }
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade

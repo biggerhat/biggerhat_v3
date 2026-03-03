@@ -14,17 +14,9 @@ import {
     SidebarMenuItem
 } from '@/components/ui/sidebar';
 import {type NavItem, SharedData} from '@/types';
-import {BookOpen, Bot, CircleDollarSign, Dice6, KeyRound, Puzzle, Radius, TextSearch, FileText} from 'lucide-vue-next';
-import ArcanistLogo from "@/components/ArcanistLogo.vue";
+import {BookOpen, CircleDollarSign, Dice6, KeyRound, Puzzle, Radius, TextSearch, FileText} from 'lucide-vue-next';
+import FactionLogo from "@/components/FactionLogo.vue";
 import AppLogo from './AppLogo.vue';
-import ExplorersLogo from "@/components/ExplorersLogo.vue";
-import BayouLogo from "@/components/BayouLogo.vue";
-import GuildLogo from "@/components/GuildLogo.vue";
-import NeverbornLogo from "@/components/NeverbornLogo.vue";
-import OutcastsLogo from "@/components/OutcastsLogo.vue";
-import ResurrectionistsLogo from "@/components/ResurrectionistsLogo.vue";
-import TenThundersLogo from "@/components/TenThundersLogo.vue";
-import Button from "@/components/ui/button/Button.vue";
 
 const page = usePage<SharedData>();
 
@@ -33,7 +25,7 @@ const mainNavItems: NavItem[] = [
         items: [
             {
                 title: 'Advanced Search',
-                href: '/advanced',
+                href: route('search.view'),
                 icon: TextSearch,
             }, {
                 title: 'Random Character',
@@ -49,43 +41,51 @@ const mainNavItems: NavItem[] = [
             {
                 title: 'Arcanists',
                 href: route('factions.view', 'arcanists'),
-                icon: ArcanistLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'arcanists' },
             }, {
                 title: 'Bayou',
                 href: route('factions.view', 'bayou'),
-                icon: BayouLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'bayou' },
             }, {
                 title: 'Explorer\'s Society',
                 href: route('factions.view', 'explorers_society'),
-                icon: ExplorersLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'explorers_society' },
             }, {
                 title: 'Guild',
                 href: route('factions.view', 'guild'),
-                icon: GuildLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'guild' },
             }, {
                 title: 'Neverborn',
                 href: route('factions.view', 'neverborn'),
-                icon: NeverbornLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'neverborn' },
             }, {
                 title: 'Outcasts',
                 href: route('factions.view', 'outcasts'),
-                icon: OutcastsLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'outcasts' },
             }, {
                 title: 'Resurrectionists',
                 href: route('factions.view', 'resurrectionists'),
-                icon: ResurrectionistsLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'resurrectionists' },
             }, {
                 title: 'Ten Thunders',
                 href: route('factions.view', 'ten_thunders'),
-                icon: TenThundersLogo,
+                icon: FactionLogo,
                 icon_class: 'w-8 h-8',
+                icon_props: { faction: 'ten_thunders' },
             }
         ]
     }, {
@@ -188,10 +188,6 @@ const superAdminNavItems: NavItem[] = [
         ]
     }
 ];
-
-const download = () => {
-    window.open(route('tools.pdf_generate'), '_blank').focus();
-};
 
 const footerNavItems: NavItem[] = [
     {

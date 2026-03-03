@@ -13,9 +13,7 @@ class CommandController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $characters = Character::with('miniatures')->orderBy('display_name', 'ASC')->get()->filter(function (Character $character) {
-            return $character->miniatures->count() > 0;
-        });
+        $characters = Character::with('miniatures')->whereHas('miniatures')->orderBy('display_name', 'ASC')->get();
 
         $characters = $characters->map(function (Character $character) {
             return [

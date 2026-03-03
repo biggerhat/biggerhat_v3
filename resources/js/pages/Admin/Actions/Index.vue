@@ -76,6 +76,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Actions"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.actions.length }}</div>
             <Button @click="router.get(route('admin.actions.create'))">
                 Create New Action
             </Button>

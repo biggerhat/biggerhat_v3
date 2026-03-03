@@ -34,10 +34,16 @@ const props = defineProps({
 </script>
 
 <template>
-    <div class="w-full text-center">
-        <div @click="flip" class="mx-1 w-auto h-auto">
-            <img v-show="!flipped" :src='"/storage/" + miniature.front_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
-            <img v-show="flipped" :src='"/storage/" + miniature.back_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
+    <div class="w-full text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20 rounded-lg">
+        <div @click="flip" class="mx-1 card-flip-container cursor-pointer" style="perspective: 1000px">
+            <div class="card-flip-inner relative w-full" :class="{ 'card-flipped': flipped }" style="transition: transform 0.5s; transform-style: preserve-3d">
+                <div class="card-face" style="backface-visibility: hidden">
+                    <img :src='"/storage/" + miniature.front_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
+                </div>
+                <div class="card-face absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
+                    <img :src='"/storage/" + miniature.back_image' :alt="miniature.display_name" class="rounded-lg w-full h-full" />
+                </div>
+            </div>
         </div>
         <div class="mt-1" v-if="props.showLink === true">
             <Button @click="router.get(route('characters.view', {'character': props.characterSlug, 'miniature': props.miniature.id, 'slug': props.miniature.slug}))" size="sm" variant="link">
@@ -46,3 +52,9 @@ const props = defineProps({
         </div>
     </div>
 </template>
+
+<style scoped>
+.card-flipped {
+    transform: rotateY(180deg);
+}
+</style>

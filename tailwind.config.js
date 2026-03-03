@@ -13,6 +13,9 @@ export default {
         {
             pattern: /bg-+/,
         },
+        {
+            pattern: /border-+/,
+        },
     ],
     theme: {
     	extend: {

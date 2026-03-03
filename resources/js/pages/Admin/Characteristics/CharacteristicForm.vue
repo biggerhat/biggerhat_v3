@@ -26,6 +26,7 @@ const props = defineProps({
 
 const formInfo = ref({
     name: null,
+    description: null,
 });
 
 const submit = () => {
@@ -53,6 +54,10 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Characteristic Name" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="description">Description</Label>
+                            <Textarea id="description" v-model="formInfo.description" placeholder="Characteristic Description" />
                         </div>
                     </div>
                 </form>

@@ -2,11 +2,9 @@
 
 namespace App\Http\Resources\API;
 
-use App\Enums\CardTypeEnum;
 use App\Models\Character;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 /** @mixin Character */
@@ -31,7 +29,7 @@ class CharacterMinimalApiResource extends JsonResource
             'front_image' => $this->whenLoaded('miniatures', fn () => Storage::disk('public')->url($this->miniatures->first()->front_image)),
             'back_image' => $this->whenLoaded('miniatures', fn () => Storage::disk('public')->url($this->miniatures->first()->back_image)),
             'combination_image' => $this->whenLoaded('miniatures', fn () => Storage::disk('public')->url($this->miniatures->first()->combination_image)),
-            'view' => route('characters.view', [$this->slug, $this->miniatures?->first()->id,$this->miniatures?->first()->slug]),
+            'view' => $this->whenLoaded('miniatures', fn () => route('characters.view', [$this->slug, $this->miniatures->first()->id, $this->miniatures->first()->slug])),
         ];
     }
 }

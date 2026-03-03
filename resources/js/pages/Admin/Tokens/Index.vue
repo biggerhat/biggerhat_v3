@@ -70,6 +70,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Tokens"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.tokens.length }}</div>
             <Button @click="router.get(route('admin.tokens.create'))">
                 Create New Token
             </Button>

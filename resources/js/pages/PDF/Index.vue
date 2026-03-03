@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { computed, ref, onMounted } from 'vue';
 import {Input} from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils'
-import { CircleX, SquarePlus, SquareMinus, Check, Search, ChevronsUpDown, UserPlus, ArrowUpFromLine, Map, EllipsisVertical } from "lucide-vue-next";
+import { CircleX, SquarePlus, SquareMinus, Check, Search, ChevronsUpDown, UserPlus, ArrowUpFromLine, EllipsisVertical } from "lucide-vue-next";
 import {
     Drawer,
     DrawerClose,
     DrawerContent,
-    DrawerDescription,
     DrawerFooter,
     DrawerHeader,
     DrawerTitle,
@@ -20,23 +18,16 @@ import {
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuGroup,
-    DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuPortal,
     DropdownMenuSeparator,
-    DropdownMenuShortcut,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import CharacterCardView from "@/components/CharacterCardView.vue";
-import { cleanObject } from '@/composables/CleanObject';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
+import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
 import Soulstone from "@/components/Soulstone.vue";
+import { isMobileDevice } from '@/composables/useMobileDevice';
+import PageBanner from '@/components/PageBanner.vue';
 import {
     NumberField,
     NumberFieldContent,
@@ -44,9 +35,7 @@ import {
     NumberFieldIncrement,
     NumberFieldInput
 } from "@/components/ui/number-field";
-import { Checkbox } from "@/components/ui/checkbox";
 import {Label} from "@/components/ui/label";
-import {DropdownMenuCheckboxItemProps} from "radix-vue";
 
 const props = defineProps({
     characters: {
@@ -95,8 +84,6 @@ const props = defineProps({
 const pdfCards = ref([]);
 const filterText = ref('');
 const filterUpgradeText = ref('');
-const filterScenarioText = ref('');
-
 const selectedKeyword = ref(null);
 const selectedFaction = ref(null);
 
@@ -173,12 +160,8 @@ const filterFaction = (factionSlug) => {
 const add = (character) => {
     pdfCards.value.push(character);
     if (character.crew_upgrades.length > 0) {
-        character.crew_upgrades.forEach((upgradeSlug) => {
-            props.upgrades.filter((upgrade) => {
-                return upgrade.slug === upgradeSlug;
-            }).forEach((upgrade) => {
-                pdfCards.value.push(upgrade);
-            });
+        character.crew_upgrades.forEach((crewUpgrade) => {
+            addUpgrade(crewUpgrade);
         });
     }
 
@@ -193,14 +176,6 @@ const add = (character) => {
 
 const addUpgrade = (upgrade) => {
     pdfCards.value.push(upgrade);
-}
-
-const addStrategy = (strategy) => {
-    pdfCards.value.push(strategy);
-}
-
-const addScheme = (scheme) => {
-    pdfCards.value.push(scheme);
 }
 
 const remove = (key) => {
@@ -237,10 +212,6 @@ const generatePDF = () => {
     window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(pdfValues)), options: btoa(JSON.stringify(options)) }), '_blank').focus();
 }
 
-function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-}
-
 const changeTab = (tabName) => {
     if (isCurrentTab(tabName)) {
         return;
@@ -265,7 +236,7 @@ onMounted(() => {
     }
 
     if (urlParams.get('keyword')) {
-        let filtered = props.keywords.filter(keyword => {
+        const filtered = props.keywords.filter(keyword => {
             return keyword.slug === urlParams.get('keyword');
         });
         selectedKeyword.value = filtered[0];
@@ -277,17 +248,7 @@ onMounted(() => {
     <Head title="PDF Generator" />
 
     <div class="w-full h-full mb-6">
-        <div class="flex w-full bg-secondary">
-            <div class="container mx-auto items-center">
-                <div class="flex justify-between">
-                    <div class="py-1 md:py-4 flex w-full">
-                        <div class="flex justify-between w-full md:block" id="page-banner">
-                            <div class="p-2 font-bold text-xl my-auto">PDF Generator</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <PageBanner title="PDF Generator" />
         <div class="container mx-auto mt-1">
             <div class="grid grid-cols-6 gap-2">
                 <div class="flex flex-row flex-nowrap items-center gap-1 justify-center col-span-6 md:col-span-3">
@@ -368,7 +329,7 @@ onMounted(() => {
                         </div>
                         <div class="max-h-screen overflow-y-auto">
                             <div class="m-0 p-0 w-full" v-for="character in results" v-bind:key="character.slug">
-                                <div :class="factionBackground(character.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between">
+                                <div :class="factionBackground(character.faction)" class="border border-primary hover:brightness-[90%] transition mx-2 my-1 flex justify-between">
                                     <Drawer>
                                         <DrawerTrigger as-child>
                                             <div class="py-1 px-2 w-full text-md">
@@ -415,7 +376,7 @@ onMounted(() => {
                                 <div v-if="character.crew_upgrades">
                                     <div v-for="card in character.crew_upgrades" :key="card.id" class="flex">
                                         <ArrowUpFromLine class="mx-auto my-auto ml-2" />
-                                        <div :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary w-full my-1 mx-2 flex justify-between">
+                                        <div :class="factionBackground(card.faction)" class="border border-primary hover:brightness-[90%] w-full my-1 mx-2 flex justify-between">
                                             <Drawer>
                                                 <DrawerTrigger as-child>
                                                     <div class="py-1 px-2 w-full text-md">
@@ -478,7 +439,7 @@ onMounted(() => {
                             <CircleX class="text-destructive my-auto ml-2" v-if="filterUpgradeText.length > 0" @click="filterUpgradeText = ''" />
                         </div>
                         <div class="max-h-screen overflow-y-auto">
-                            <div :class="factionBackground(upgrade.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between" v-for="upgrade in upgradeResults" v-bind:key="upgrade.slug">
+                            <div :class="factionBackground(upgrade.faction)" class="border border-primary hover:brightness-[90%] mx-2 my-1 flex justify-between" v-for="upgrade in upgradeResults" v-bind:key="upgrade.slug">
                                 <Drawer>
                                     <DrawerTrigger as-child>
                                         <div class="py-1 px-2 w-full text-md">
@@ -581,7 +542,7 @@ onMounted(() => {
                         </div>
                         <div class="max-h-screen overflow-y-auto">
                             <div v-for="(card, index) in pdfCards" v-bind:key="index">
-                                <div v-if="card.card_type === 'miniature'" :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary mx-2 my-1 flex justify-between">
+                                <div v-if="card.card_type === 'miniature'" :class="factionBackground(card.faction)" class="border border-primary hover:brightness-[90%] mx-2 my-1 flex justify-between">
                                     <Drawer>
                                         <DrawerTrigger as-child>
                                             <div class="py-1 px-2 w-full text-md">
@@ -627,7 +588,7 @@ onMounted(() => {
                                 </div>
                                 <div v-if="card.card_type === 'upgrade'" class="flex">
                                     <ArrowUpFromLine class="mx-auto my-auto ml-2" />
-                                    <div :class="factionBackground(card.faction)" class="border border-primary hover:bg-secondary w-full my-1 mx-2 flex justify-between">
+                                    <div :class="factionBackground(card.faction)" class="border border-primary hover:brightness-[90%] w-full my-1 mx-2 flex justify-between">
                                         <Drawer>
                                             <DrawerTrigger as-child>
                                                 <div class="py-1 px-2 w-full text-md">

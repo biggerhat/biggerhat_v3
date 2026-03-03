@@ -70,6 +70,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Schemes"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.schemes.length }}</div>
             <Button @click="router.get(route('admin.schemes.create'))">
                 Create New Scheme
             </Button>

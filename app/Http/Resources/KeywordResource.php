@@ -22,7 +22,6 @@ class KeywordResource extends JsonResource
     {
         $crewUpgrades = collect();
         if ($this->relationLoaded('masters')) {
-            $this->loadMissing('masters.crewUpgrades');
             $this->masters->each(function (Character $master) use ($crewUpgrades) {
                 $crewUpgrades->push($master->crewUpgrades);
             });

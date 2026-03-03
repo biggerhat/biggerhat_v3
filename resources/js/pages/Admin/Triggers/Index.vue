@@ -76,6 +76,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Triggers"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.triggers.length }}</div>
             <Button @click="router.get(route('admin.triggers.create'))">
                 Create New Trigger
             </Button>

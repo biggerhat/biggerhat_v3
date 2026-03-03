@@ -25,8 +25,12 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
+ * @property-read int|null $crew_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
  * @property-read int|null $upgrades_count
  * @method static \Database\Factories\AbilityFactory factory($count = null, $state = [])
@@ -74,8 +78,12 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
+ * @property-read int|null $crew_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Trigger> $triggers
  * @property-read int|null $triggers_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
@@ -177,6 +185,8 @@ namespace App\Models{
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Characteristic> $characteristics
  * @property-read int|null $characteristics_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
@@ -310,8 +320,12 @@ namespace App\Models{
  * @property string|null $icon
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
+ * @property-read int|null $crew_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Terrain> $terrains
  * @property-read int|null $terrains_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
@@ -553,8 +567,12 @@ namespace App\Models{
  * @property string|null $description
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
+ * @property-read int|null $crew_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
  * @property-read int|null $upgrades_count
  * @method static \Database\Factories\TokenFactory factory($count = null, $state = [])

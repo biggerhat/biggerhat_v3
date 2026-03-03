@@ -1,9 +1,7 @@
 import '../css/app.css';
 
-import { createInertiaApp, Link, Head, usePage } from '@inertiajs/vue3';
+import { createInertiaApp, Link, Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';

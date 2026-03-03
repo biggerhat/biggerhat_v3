@@ -18,7 +18,7 @@ class KeywordController extends Controller
 {
     public function index(Request $request)
     {
-        $keywords = Keyword::orderBy('name', 'ASC')->with(['masters', 'characters'])->get();
+        $keywords = Keyword::orderBy('name', 'ASC')->with(['masters.crewUpgrades', 'characters'])->get();
 
         return inertia('Keywords/Index', [
             'keywords' => KeywordResource::collection($keywords)->toArray($request),

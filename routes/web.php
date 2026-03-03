@@ -1,24 +1,38 @@
 <?php
 
+use App\Enums\FactionEnum;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
 use App\Http\Controllers\Database\MarkerController;
+use App\Http\Controllers\Database\SearchController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\Miniature;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Index');
+    $featured = Character::with('standardMiniatures')->inRandomOrder()->first();
+
+    return Inertia::render('Index', [
+        'factions' => FactionEnum::buildDetails(),
+        'featured_character' => $featured,
+        'stats' => [
+            'characters' => Character::count(),
+            'keywords' => Keyword::count(),
+        ],
+    ]);
 })->name('index');
 
 Route::get('/command', CommandController::class)->name('command');
+
+Route::get('/advanced', [SearchController::class, 'view'])->name('search.view');
 
 Route::prefix('characters')->name('characters.')->group(function () {
     Route::get('/{character}/{miniature:id}/{slug}', [CharacterController::class, 'view'])->name('view');

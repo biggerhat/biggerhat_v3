@@ -70,6 +70,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Markers"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.markers.length }}</div>
             <Button @click="router.get(route('admin.markers.create'))">
                 Create New Marker
             </Button>

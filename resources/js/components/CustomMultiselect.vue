@@ -58,7 +58,7 @@ const filteredOptions = computed(() => {
                 </div>
 
                 <ComboboxInput v-model="searchTerm" as-child>
-                    <TagsInputInput :placeholder="comboTitle" class="min-w-[200px] w-full p-0 border-none focus-visible:ring-0 h-auto" @keydown.enter.prevent />
+                    <TagsInputInput :placeholder="comboTitle" class="min-w-[200px] w-full p-0 border-none focus-visible:ring-0 h-auto" @keydown.enter.prevent @focus="open = true" />
                 </ComboboxInput>
             </TagsInput>
 

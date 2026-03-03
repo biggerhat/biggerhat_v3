@@ -1,23 +1,13 @@
 <script setup lang="ts">
-import {Head, usePage} from '@inertiajs/vue3';
+import {Head} from '@inertiajs/vue3';
 import {
     Card,
     CardContent,
-    CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator';
-import {SharedData} from "@/types";
-import CharacterView from "@/components/CharacterView.vue";
-import CharacterCardView from "@/components/CharacterCardView.vue";
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
-const page = usePage<SharedData>();
-
-function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-}
+import { isMobileDevice } from '@/composables/useMobileDevice';
 
 const props = defineProps({
     upgrade: {
@@ -33,7 +23,7 @@ const props = defineProps({
 <template>
     <Head :title="upgrade.name" />
     <div class="w-full h-full">
-        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mb-8 mx-auto">
+        <div class="container flex flex-1 flex-col gap-4 rounded-xl p-4 mb-8 mx-auto animate-fade-in-up">
             <div class="grid auto-rows-min gap-2 md:grid-cols-8">
                 <div class="flex flex-col space-y-1.5 md:col-span-4" v-if="props.upgrade.combination_image && !isMobileDevice()">
                     <img :src='"/storage/" + props.upgrade.combination_image' :alt="upgrade.name" class="rounded">

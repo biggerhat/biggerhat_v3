@@ -7,16 +7,13 @@ import CollapsibleTrigger from "@/components/ui/collapsible/CollapsibleTrigger.v
 import CollapsibleContent from "@/components/ui/collapsible/CollapsibleContent.vue";
 import { ChevronDown } from "lucide-vue-next";
 import { useSidebar } from "@/components/ui/sidebar";
-const { toggleSidebar, open } = useSidebar();
+import { isMobileDevice } from '@/composables/useMobileDevice';
+const { toggleSidebar } = useSidebar();
 
 defineProps<{
 
     items: NavItem[];
 }>();
-
-function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-}
 
 const mobileCheck = () => {
     if (isMobileDevice()) {
@@ -42,7 +39,7 @@ const page = usePage<SharedData>();
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
                                 <Link :href="item.href" @click="mobileCheck">
-                                    <component :is="item.icon" :className="item.icon_class ?? ''" />
+                                    <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
                                 </Link>
                             </SidebarMenuButton>
@@ -64,7 +61,7 @@ const page = usePage<SharedData>();
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
                                 <Link :href="item.href" @click="mobileCheck">
-                                    <component :is="item.icon" :className="item.icon_class ?? ''" />
+                                    <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
                                 </Link>
                             </SidebarMenuButton>
@@ -79,7 +76,7 @@ const page = usePage<SharedData>();
                 <SidebarMenuItem v-for="item in item.items" :key="item.title">
                     <SidebarMenuButton as-child :is-active="item.href === page.url">
                         <Link :href="item.href" @click="mobileCheck">
-                            <component :is="item.icon" :className="item.icon_class ?? ''" />
+                            <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                             <span>{{ item.title }}</span>
                         </Link>
                     </SidebarMenuButton>

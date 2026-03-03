@@ -63,18 +63,19 @@ class FactionController extends Controller
 
         $keywordBreakdown = [];
         if ($request->get('page_view') === PageViewOptionsEnum::KeywordBreakdown->value) {
-            foreach ($keywords as $keyword) {
-                $keywordCharacters = $characters->filter(function (Character $character) use ($keyword) {
-                    return (bool) $character->keywords->filter(function (Keyword $keywordCheck) use ($keyword) {
-                        return $keywordCheck->name === $keyword->name;
-                    })->count();
-                });
+            $charactersByKeyword = [];
+            foreach ($characters as $character) {
+                foreach ($character->keywords as $kw) {
+                    $charactersByKeyword[$kw->name][] = $character;
+                }
+            }
 
-                $masters = $keywordCharacters->where('station', CharacterStationEnum::Master)->values();
+            foreach ($keywords as $keyword) {
+                $keywordCharacters = collect($charactersByKeyword[$keyword->name] ?? []);
 
                 $keywordBreakdown[] = [
                     'keyword' => $keyword,
-                    'masters' => $masters,
+                    'masters' => $keywordCharacters->where('station', CharacterStationEnum::Master)->values(),
                     'characters' => $keywordCharacters->where('station', '!==', CharacterStationEnum::Master->value),
                 ];
             }
@@ -89,7 +90,11 @@ class FactionController extends Controller
             'keyword_breakdown' => $keywordBreakdown,
             'keywords' => $keywords,
             'characteristics' => $characteristics,
-            'statistics' => $factionEnum->getCharacterStats(),
+            'statistics' => [
+                'characters' => Character::where('faction', $factionEnum->value)->count(),
+                'miniatures' => (int) Character::where('faction', $factionEnum->value)->sum('count'),
+                'keywords' => $keywords->count(),
+            ],
             'stations' => CharacterStationEnum::toSelectOptions(),
             'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => SortTypeEnum::toSelectOptions(),

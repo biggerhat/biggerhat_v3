@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import CharacterCardView from "@/components/CharacterCardView.vue";
 import UpgradeCardView from "@/components/UpgradeCardView.vue";
+import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 
 const props = defineProps({
     keyword: {
@@ -11,6 +13,9 @@ const props = defineProps({
         }
     }
 })
+
+const charCount = computed(() => props.keyword?.characters?.length ?? 0);
+const { delays } = useStaggeredEntry(charCount);
 </script>
 <template>
     <div>
@@ -66,7 +71,7 @@ const props = defineProps({
                 <!--                        </div>-->
                 <div class="lg:col-span-4">
                     <div class="w-full grid lg:grid-cols-4">
-                        <div v-for="character in keyword.characters" v-bind:key="character.slug">
+                        <div v-for="(character, index) in keyword.characters" v-bind:key="character.slug" class="animate-fade-in-up opacity-0" :style="delays[index]">
                             <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
                         </div>
                     </div>

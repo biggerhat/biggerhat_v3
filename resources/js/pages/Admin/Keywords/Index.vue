@@ -70,6 +70,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Keywords"
                    :model-value="table.getColumn('name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('name')?.setFilterValue($event)" />
+            <div>Total {{ props.keywords.length }}</div>
             <Button @click="router.get(route('admin.keywords.create'))">
                 Create New Keyword
             </Button>

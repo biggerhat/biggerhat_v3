@@ -101,6 +101,7 @@ const table = useVueTable({
             <Input class="max-w-sm" placeholder="Filter Miniatures"
                    :model-value="table.getColumn('display_name')?.getFilterValue() as string"
                    @update:model-value=" table.getColumn('display_name')?.setFilterValue($event)" />
+            <div>Total {{ props.miniatures.length }}</div>
             <Button @click="router.get(route('admin.miniatures.create'))">
                 Create New Miniature
             </Button>

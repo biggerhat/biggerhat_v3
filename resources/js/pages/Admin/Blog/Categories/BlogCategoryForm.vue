@@ -37,8 +37,8 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Blog Category</CardTitle>
-                <CardDescription>Create and Edit Blog Category Information</CardDescription>
+                <CardTitle>Article Category</CardTitle>
+                <CardDescription>Create and Edit Article Category Information</CardDescription>
             </CardHeader>
             <CardContent>
                 <form>

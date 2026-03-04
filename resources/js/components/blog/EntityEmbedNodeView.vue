@@ -50,9 +50,7 @@ const typeLabel = computed(() => {
 
 onMounted(async () => {
     try {
-        const response = await axios.get(
-            route('api.blog.entity-show', { type: props.node.attrs.entityType, slug: props.node.attrs.entitySlug }),
-        );
+        const response = await axios.get(route('api.blog.entity-show', { type: props.node.attrs.entityType, slug: props.node.attrs.entitySlug }));
         entityData.value = response.data;
     } catch (err) {
         console.error('Entity embed load failed:', err);
@@ -63,7 +61,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <NodeViewWrapper as="div" :class="['my-4', selected ? 'ring-2 ring-primary rounded-lg' : '']">
+    <NodeViewWrapper as="div" :class="['my-4', selected ? 'rounded-lg ring-2 ring-primary' : '']">
         <div v-if="loading" class="flex items-center justify-center rounded-lg border p-4 py-8">
             <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -82,7 +80,10 @@ onMounted(async () => {
             <AbilityCard v-else-if="node.attrs.entityType === 'ability' && entityData" :ability="entityData as any" />
 
             <!-- Upgrade -->
-            <div v-else-if="node.attrs.entityType === 'upgrade' && entityData && (entityData.front_image || entityData.back_image)" class="flex justify-center">
+            <div
+                v-else-if="node.attrs.entityType === 'upgrade' && entityData && (entityData.front_image || entityData.back_image)"
+                class="flex justify-center"
+            >
                 <div class="w-72">
                     <UpgradeFlipCard
                         :front-image="entityData.front_image as string"

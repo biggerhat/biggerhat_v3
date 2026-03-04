@@ -3,16 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\BlogPostStatusEnum;
-use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
 use App\Http\Controllers\Controller;
-use App\Models\Ability;
-use App\Models\Action;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
-use App\Models\Character;
-use App\Models\Keyword;
-use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -42,8 +36,12 @@ class BlogPostAdminController extends Controller
     {
         $this->authorizePostAccess($blogPost, $request);
 
+        $blogPost->loadMissing(['author', 'category', 'characters', 'keywords', 'upgrades']);
+        $postData = $blogPost->toArray();
+        $postData['entities'] = $blogPost->getUnifiedEntities();
+
         return inertia('Admin/Blog/Posts/BlogPostForm', array_merge(
-            ['post' => $blogPost->loadMissing(['author', 'category', 'characters', 'keywords', 'upgrades', 'actions', 'abilities'])->append('faction_tags')],
+            ['post' => $postData],
             $this->getFormData(),
         ));
     }
@@ -87,17 +85,6 @@ class BlogPostAdminController extends Controller
         return [
             'categories' => BlogCategory::toSelectOptions('name', 'id'),
             'statuses' => BlogPostStatusEnum::toSelectOptions(),
-            'factions' => FactionEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
-            'keywords' => Keyword::toSelectOptions('name', 'slug'),
-            'upgrades' => Upgrade::toSelectOptions('name', 'slug'),
-            'actions' => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s', $action->id, $action->name),
-                ];
-            }),
-            'abilities' => Ability::toSelectOptions('name', 'slug'),
         ];
     }
 
@@ -115,12 +102,7 @@ class BlogPostAdminController extends Controller
             'featured_image' => ['nullable', 'image', 'max:4096'],
             'status' => ['required', 'string', Rule::enum(BlogPostStatusEnum::class)],
             'blog_category_id' => ['nullable', 'integer', 'exists:blog_categories,id'],
-            'characters' => ['nullable', 'array'],
-            'keywords' => ['nullable', 'array'],
-            'upgrades' => ['nullable', 'array'],
-            'actions' => ['nullable', 'array'],
-            'abilities' => ['nullable', 'array'],
-            'factions' => ['nullable', 'array'],
+            'entities' => ['nullable', 'array'],
         ]);
 
         // Enforce publish permission
@@ -143,15 +125,9 @@ class BlogPostAdminController extends Controller
             $validated['published_at'] = now();
         }
 
-        // Extract relationship data
-        $characterSlugs = $validated['characters'] ?? [];
-        $keywordNames = $validated['keywords'] ?? [];
-        $upgradeSlugs = $validated['upgrades'] ?? [];
-        $actionRefs = $validated['actions'] ?? [];
-        $abilityNames = $validated['abilities'] ?? [];
-        $factions = $validated['factions'] ?? [];
-
-        unset($validated['characters'], $validated['keywords'], $validated['upgrades'], $validated['actions'], $validated['abilities'], $validated['factions']);
+        // Extract entity refs
+        $entityRefs = $validated['entities'] ?? [];
+        unset($validated['entities']);
 
         if (! $post) {
             $validated['user_id'] = $request->user()->id;
@@ -160,29 +136,8 @@ class BlogPostAdminController extends Controller
             $post->update($validated);
         }
 
-        // Sync taggable relationships
-        $characters = Character::whereIn('slug', $characterSlugs)->get();
-        $post->characters()->sync($characters->pluck('id'));
-
-        $keywords = Keyword::whereIn('name', $keywordNames)->get();
-        $post->keywords()->sync($keywords->pluck('id'));
-
-        $upgrades = Upgrade::whereIn('slug', $upgradeSlugs)->get();
-        $post->upgrades()->sync($upgrades->pluck('id'));
-
-        $actionIds = [];
-        foreach ($actionRefs as $actionRef) {
-            $arrayed = explode(' ', $actionRef);
-            $actionIds[] = $arrayed[0];
-        }
-        $actions = Action::whereIn('id', $actionIds)->get();
-        $post->actions()->sync($actions->pluck('id'));
-
-        $abilities = Ability::whereIn('name', $abilityNames)->get();
-        $post->abilities()->sync($abilities->pluck('id'));
-
-        // Sync faction tags
-        $post->syncFactionTags($factions);
+        // Sync all entity relationships
+        $post->syncEntities($entityRefs);
 
         return $post;
     }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BlogPostStatusEnum;
+use App\Enums\FactionEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -87,16 +88,6 @@ class BlogPost extends Model
         return $this->morphedByMany(Upgrade::class, 'taggable', 'blog_post_taggables');
     }
 
-    public function actions(): MorphToMany
-    {
-        return $this->morphedByMany(Action::class, 'taggable', 'blog_post_taggables');
-    }
-
-    public function abilities(): MorphToMany
-    {
-        return $this->morphedByMany(Ability::class, 'taggable', 'blog_post_taggables');
-    }
-
     /**
      * @return array<string>
      */
@@ -120,5 +111,58 @@ class BlogPost extends Model
         if (! empty($rows)) {
             DB::table('blog_post_faction')->insert($rows);
         }
+    }
+
+    /**
+     * @return array<int, array{entityType: string, entitySlug: string, displayName: string}>
+     */
+    public function getUnifiedEntities(): array
+    {
+        $entities = [];
+
+        foreach ($this->characters as $character) {
+            $entities[] = ['entityType' => 'character', 'entitySlug' => $character->slug, 'displayName' => $character->display_name];
+        }
+
+        foreach ($this->keywords as $keyword) {
+            $entities[] = ['entityType' => 'keyword', 'entitySlug' => $keyword->slug, 'displayName' => $keyword->name];
+        }
+
+        foreach ($this->upgrades as $upgrade) {
+            $entities[] = ['entityType' => 'upgrade', 'entitySlug' => $upgrade->slug, 'displayName' => $upgrade->name];
+        }
+
+        foreach ($this->faction_tags as $faction) {
+            $factionEnum = FactionEnum::tryFrom($faction);
+            $entities[] = ['entityType' => 'faction', 'entitySlug' => $faction, 'displayName' => $factionEnum?->label() ?? $faction];
+        }
+
+        return $entities;
+    }
+
+    /**
+     * @param  array<string>  $entityRefs  Array of "type:slug" strings
+     */
+    public function syncEntities(array $entityRefs): void
+    {
+        $grouped = ['character' => [], 'keyword' => [], 'upgrade' => [], 'faction' => []];
+
+        foreach ($entityRefs as $ref) {
+            [$type, $slug] = explode(':', $ref, 2);
+            if (isset($grouped[$type])) {
+                $grouped[$type][] = $slug;
+            }
+        }
+
+        $characters = Character::whereIn('slug', $grouped['character'])->pluck('id');
+        $this->characters()->sync($characters);
+
+        $keywords = Keyword::whereIn('slug', $grouped['keyword'])->pluck('id');
+        $this->keywords()->sync($keywords);
+
+        $upgrades = Upgrade::whereIn('slug', $grouped['upgrade'])->pluck('id');
+        $this->upgrades()->sync($upgrades);
+
+        $this->syncFactionTags($grouped['faction']);
     }
 }

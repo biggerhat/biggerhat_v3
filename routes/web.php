@@ -80,6 +80,8 @@ Route::prefix('factions')->name('factions.')->group(function () {
 });
 
 Route::prefix('upgrades')->name('upgrades.')->group(function () {
+    Route::get('/crew', [UpgradeController::class, 'crewIndex'])->name('crew.index');
+    Route::get('/character', [UpgradeController::class, 'characterIndex'])->name('character.index');
     Route::get('/{upgrade}', [UpgradeController::class, 'view'])->name('view');
 });
 

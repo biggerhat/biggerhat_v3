@@ -67,7 +67,7 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Blog Categories - Admin" />
+    <Head title="Article Categories - Admin" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">

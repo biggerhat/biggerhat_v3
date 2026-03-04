@@ -59,7 +59,13 @@ const navigateToEntity = () => {
 </script>
 
 <template>
-    <Drawer @update:open="(open: boolean) => { open && loadEntityData(); }">
+    <Drawer
+        @update:open="
+            (open: boolean) => {
+                open && loadEntityData();
+            }
+        "
+    >
         <DrawerTrigger as-child>
             <Badge :class="['cursor-pointer border-0', typeColor]" variant="outline">
                 {{ displayName }}
@@ -79,11 +85,7 @@ const navigateToEntity = () => {
                         <!-- Character -->
                         <div v-if="entityType === 'character' && (entityData.miniature as any)" class="flex justify-center">
                             <div class="w-72">
-                                <CharacterCardView
-                                    :miniature="entityData.miniature as any"
-                                    :character-slug="entitySlug"
-                                    :show-link="false"
-                                />
+                                <CharacterCardView :miniature="entityData.miniature as any" :character-slug="entitySlug" :show-link="false" />
                             </div>
                         </div>
 

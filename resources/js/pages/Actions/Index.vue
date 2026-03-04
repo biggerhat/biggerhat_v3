@@ -696,7 +696,9 @@ const formatRangeType = (rangeType: string) => {
                                         <TableCell>
                                             <span v-if="action.stat" class="inline-flex items-center gap-0.5">
                                                 {{ action.stat }}
-                                                <GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="h-3.5 inline-block" />
+                                                <template v-if="action.stat_suits">
+                                                    <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                </template>
                                             </span>
                                             <span v-else>-</span>
                                         </TableCell>
@@ -704,7 +706,9 @@ const formatRangeType = (rangeType: string) => {
                                         <TableCell>
                                             <span v-if="action.target_number" class="inline-flex items-center gap-0.5">
                                                 {{ action.target_number }}
-                                                <GameIcon v-if="action.target_suits" :type="action.target_suits" class-name="h-3.5 inline-block" />
+                                                <template v-if="action.target_suits">
+                                                    <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                </template>
                                             </span>
                                             <span v-else>-</span>
                                         </TableCell>
@@ -759,7 +763,7 @@ const formatRangeType = (rangeType: string) => {
                                         </div>
                                         <span class="w-10 text-center text-sm">
                                             <span class="inline-flex items-center justify-center gap-0.5">
-                                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="h-3 inline-block" />
+                                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="h-3.5 inline-block" />
                                                 {{ action.range != null ? action.range + '"' : '-' }}
                                             </span>
                                         </span>
@@ -767,7 +771,9 @@ const formatRangeType = (rangeType: string) => {
                                             <template v-if="action.stat != null">
                                                 <span class="inline-flex items-center justify-center gap-0.5">
                                                     {{ action.stat }}
-                                                    <GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="h-3 inline-block" />
+                                                    <template v-if="action.stat_suits">
+                                                        <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                    </template>
                                                 </span>
                                             </template>
                                             <template v-else>-</template>
@@ -777,7 +783,9 @@ const formatRangeType = (rangeType: string) => {
                                             <template v-if="action.target_number != null">
                                                 <span class="inline-flex items-center justify-center gap-0.5">
                                                     {{ action.target_number }}
-                                                    <GameIcon v-if="action.target_suits" :type="action.target_suits" class-name="h-3 inline-block" />
+                                                    <template v-if="action.target_suits">
+                                                        <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                    </template>
                                                 </span>
                                             </template>
                                             <template v-else>-</template>
@@ -790,7 +798,7 @@ const formatRangeType = (rangeType: string) => {
                                             <GameText
                                                 :text="action.description"
                                                 :max-length="150"
-                                                icon-class="h-3.5 inline-block align-text-bottom"
+                                                icon-class="h-4 inline-block align-text-bottom"
                                             />
                                         </p>
                                     </div>
@@ -811,7 +819,7 @@ const formatRangeType = (rangeType: string) => {
                                                 v-if="trigger.description"
                                                 :text="trigger.description"
                                                 :max-length="120"
-                                                icon-class="h-3.5 inline-block align-text-bottom"
+                                                icon-class="h-4 inline-block align-text-bottom"
                                             />
                                         </div>
                                     </div>

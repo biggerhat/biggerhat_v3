@@ -2,7 +2,8 @@ import '../css/app.css';
 
 import AppLayout from '@/layouts/AppLayout.vue';
 import { createInertiaApp, Head, Link } from '@inertiajs/vue3';
-import { createApp, h } from 'vue';
+import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { createApp, h, type DefineComponent } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './composables/useAppearance';
@@ -44,9 +45,8 @@ createInertiaApp({
 
         return `${title} - ${appName}`;
     },
-    resolve: (name) => {
-        const pages = import.meta.glob('./pages/**/*.vue', { eager: true });
-        const page = pages[`./pages/${name}.vue`];
+    resolve: async (name) => {
+        const page = await resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));
         page.default.layout = page.default.layout || AppLayout;
         return page;
     },

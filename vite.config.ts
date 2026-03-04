@@ -34,6 +34,18 @@ export default defineConfig({
         },
     },
     build: {
-        chunkSizeWarningLimit:1500,
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
+                        if (id.includes('@tanstack')) return 'vendor-tanstack';
+                        if (id.includes('radix-vue') || id.includes('reka-ui') || id.includes('vaul-vue')) return 'vendor-ui';
+                        if (id.includes('lucide')) return 'vendor-icons';
+                        if (id.includes('vue') || id.includes('@inertiajs') || id.includes('@vueuse')) return 'vendor-core';
+                    }
+                },
+            },
+        },
     }
 });

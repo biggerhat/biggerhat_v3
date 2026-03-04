@@ -51,7 +51,7 @@ function toggleDialog() {
     <Head title="Home" />
     <div class="container mx-auto flex flex-col gap-8 p-4">
         <div class="animate-fade-in-up flex flex-col items-center pb-4 pt-8">
-            <img src="/images/hat_side.png" class="h-48 md:h-64" alt="BiggerHat.net" />
+            <img src="/images/hat_side.webp" class="h-48 md:h-64" alt="BiggerHat.net" />
             <p class="mt-4 text-lg text-muted-foreground">Malifaux Character Database & Tools</p>
             <Button variant="outline" class="mt-6 gap-2" @click="toggleDialog">
                 <Search class="size-4" />

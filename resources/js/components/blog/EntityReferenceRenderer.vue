@@ -4,7 +4,7 @@ import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -110,7 +110,7 @@ const navigateToEntity = () => {
                                 </div>
                                 <span class="w-10 text-center text-sm">
                                     <span class="inline-flex items-center justify-center gap-0.5">
-                                        <GameIcon v-if="entityData.range_type" :type="entityData.range_type as string" class-name="h-3 inline-block" />
+                                        <GameIcon v-if="entityData.range_type" :type="entityData.range_type as string" class-name="h-3.5 inline-block" />
                                         {{ entityData.range != null ? entityData.range + '"' : '-' }}
                                     </span>
                                 </span>
@@ -118,7 +118,9 @@ const navigateToEntity = () => {
                                     <template v-if="entityData.stat != null">
                                         <span class="inline-flex items-center justify-center gap-0.5">
                                             {{ entityData.stat }}
-                                            <GameIcon v-if="entityData.stat_suits" :type="entityData.stat_suits as string" class-name="h-3 inline-block" />
+                                            <template v-if="entityData.stat_suits">
+                                                <GameIcon v-for="suit in (entityData.stat_suits as string).split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                            </template>
                                         </span>
                                     </template>
                                     <template v-else>-</template>
@@ -128,7 +130,9 @@ const navigateToEntity = () => {
                                     <template v-if="entityData.target_number != null">
                                         <span class="inline-flex items-center justify-center gap-0.5">
                                             {{ entityData.target_number }}
-                                            <GameIcon v-if="entityData.target_suits" :type="entityData.target_suits as string" class-name="h-3 inline-block" />
+                                            <template v-if="entityData.target_suits">
+                                                <GameIcon v-for="suit in (entityData.target_suits as string).split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                            </template>
                                         </span>
                                     </template>
                                     <template v-else>-</template>
@@ -137,7 +141,7 @@ const navigateToEntity = () => {
                             </div>
                             <div v-if="entityData.description" class="px-3 py-2">
                                 <p class="text-xs leading-relaxed text-muted-foreground">
-                                    <GameText :text="entityData.description as string" :max-length="150" icon-class="h-3.5 inline-block align-text-bottom" />
+                                    <GameText :text="entityData.description as string" :max-length="150" icon-class="h-4 inline-block align-text-bottom" />
                                 </p>
                             </div>
                             <div v-if="(entityData.triggers as any[])?.length" class="space-y-1 border-t px-3 py-2">
@@ -156,7 +160,7 @@ const navigateToEntity = () => {
                                         v-if="trigger.description"
                                         :text="trigger.description"
                                         :max-length="120"
-                                        icon-class="h-3.5 inline-block align-text-bottom"
+                                        icon-class="h-4 inline-block align-text-bottom"
                                     />
                                 </div>
                             </div>
@@ -169,41 +173,42 @@ const navigateToEntity = () => {
                             </div>
                         </Card>
 
-                        <!-- Ability: compact card -->
-                        <Card v-else-if="entityType === 'ability'" class="overflow-hidden">
-                            <div class="flex items-center gap-1.5 border-b bg-secondary px-3 py-1.5 text-xs font-semibold">
-                                <span>Ability</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 px-3 py-2">
-                                <GameIcon v-if="entityData.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
-                                <span class="font-semibold">{{ entityData.name }}</span>
-                                <span
-                                    v-if="(entityData.suits && entityData.suits !== 'soulstone') || entityData.defensive_ability_type"
-                                    class="inline-flex items-center gap-1 text-sm text-muted-foreground"
-                                >
-                                    (<GameIcon
-                                        v-if="entityData.suits && entityData.suits !== 'soulstone'"
-                                        :type="entityData.suits as string"
-                                        class-name="h-4 inline-block"
-                                    /><template v-if="entityData.defensive_ability_type"
-                                        ><template v-if="entityData.suits && entityData.suits !== 'soulstone'">, </template>
-                                        <GameIcon
-                                            :type="entityData.defensive_ability_type as string"
-                                            class-name="h-3.5 inline-block"
-                                        /></template
-                                    >)
-                                </span>
-                            </div>
-                            <div v-if="entityData.description" class="px-3 pb-2">
-                                <p class="text-xs leading-relaxed text-muted-foreground">
-                                    <GameText
-                                        :text="entityData.description as string"
-                                        :max-length="150"
-                                        icon-class="h-3.5 inline-block align-text-bottom"
-                                    />
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+                        <!-- Ability: card matching index layout -->
+                        <Card v-else-if="entityType === 'ability'" class="flex flex-col">
+                            <CardHeader class="pb-2">
+                                <CardTitle class="inline-flex flex-wrap items-center gap-1 text-base">
+                                    <GameIcon v-if="entityData.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
+                                    {{ entityData.name }}
+                                    <span
+                                        v-if="(entityData.suits && entityData.suits !== 'soulstone') || entityData.defensive_ability_type"
+                                        class="inline-flex items-center gap-1 text-sm text-muted-foreground"
+                                    >
+                                        (<GameIcon
+                                            v-if="entityData.suits && entityData.suits !== 'soulstone'"
+                                            :type="entityData.suits as string"
+                                            class-name="h-4 inline-block"
+                                        /><template v-if="entityData.defensive_ability_type"
+                                            ><template v-if="entityData.suits && entityData.suits !== 'soulstone'">, </template>
+                                            <GameIcon
+                                                :type="entityData.defensive_ability_type as string"
+                                                class-name="h-3.5 inline-block"
+                                            /></template
+                                        >)
+                                    </span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent class="flex flex-1 flex-col">
+                                <div v-if="entityData.description" class="space-y-1.5 text-sm">
+                                    <p class="text-xs text-muted-foreground">
+                                        <GameText
+                                            :text="entityData.description as string"
+                                            :max-length="120"
+                                            icon-class="h-4 inline-block align-text-bottom"
+                                        />
+                                    </p>
+                                </div>
+                            </CardContent>
+                            <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
                                 <Users class="h-3 w-3 text-muted-foreground" />
                                 <span v-if="(entityData.characters_count as number) > 0" class="text-muted-foreground">
                                     {{ entityData.characters_count }}

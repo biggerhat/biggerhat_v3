@@ -12,12 +12,12 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const icons: Record<string, { glyph: string; alt: string }> = {
+const icons: Record<string, { glyph: string; alt: string; color?: string }> = {
     // Suits
-    crow: { glyph: 'c', alt: 'Crow' },
-    mask: { glyph: 'm', alt: 'Mask' },
-    ram: { glyph: 'r', alt: 'Ram' },
-    tome: { glyph: 't', alt: 'Tome' },
+    crow: { glyph: 'c', alt: 'Crow', color: 'text-green-700 dark:text-green-400' },
+    mask: { glyph: 'm', alt: 'Mask', color: 'text-purple-700 dark:text-purple-400' },
+    ram: { glyph: 'r', alt: 'Ram', color: 'text-red-600 dark:text-red-400' },
+    tome: { glyph: 't', alt: 'Tome', color: 'text-blue-600 dark:text-blue-400' },
     soulstone: { glyph: 's', alt: 'Soulstone' },
 
     // Range Types
@@ -45,8 +45,8 @@ const icon = computed(() => icons[props.type]);
 <template>
     <span
         v-if="icon"
-        :class="className"
-        class="game-icon font-['M4E-Symbols'] leading-none"
+        :class="[className, icon.color]"
+        class="game-icon font-normal font-['M4E-Symbols'] leading-none"
         role="img"
         :aria-label="icon.alt"
         >{{ icon.glyph }}</span

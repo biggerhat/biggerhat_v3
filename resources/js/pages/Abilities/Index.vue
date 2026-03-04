@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { LayoutGrid, List, Search, Users, X } from 'lucide-vue-next';
+import { LayoutGrid, List, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
+import AbilityCard from '@/components/AbilityCard.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -15,7 +16,6 @@ import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -376,49 +376,14 @@ const formatDefensiveType = (type: string) => {
                     <div v-else>
                         <template v-if="props.abilities?.data?.length">
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
-                                <Card
+                                <AbilityCard
                                     v-for="(ability, index) in props.abilities.data"
                                     :key="ability.id"
-                                    class="animate-fade-in-up flex flex-col opacity-0"
+                                    :ability="ability"
+                                    class="animate-fade-in-up opacity-0"
                                     :style="delays[index]"
                                 >
-                                    <CardHeader class="pb-2">
-                                        <CardTitle class="inline-flex flex-wrap items-center gap-1 text-base">
-                                            <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
-                                            {{ ability.name }}
-                                            <span
-                                                v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type"
-                                                class="inline-flex items-center gap-1 text-sm text-muted-foreground"
-                                            >
-                                                (<GameIcon
-                                                    v-if="ability.suits && ability.suits !== 'soulstone'"
-                                                    :type="ability.suits"
-                                                    class-name="h-4 inline-block"
-                                                /><template v-if="ability.defensive_ability_type"
-                                                    ><template v-if="ability.suits && ability.suits !== 'soulstone'">, </template>
-                                                    <GameIcon
-                                                        :type="ability.defensive_ability_type"
-                                                        class-name="h-3.5 inline-block"
-                                                    /></template
-                                                >)
-                                            </span>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent class="flex flex-1 flex-col">
-                                        <div class="space-y-1.5 text-sm">
-                                            <div v-if="ability.description">
-                                                <p class="text-xs text-muted-foreground">
-                                                    <GameText
-                                                        :text="ability.description"
-                                                        :max-length="120"
-                                                        icon-class="h-4 inline-block align-text-bottom"
-                                                    />
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                    <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-                                        <Users class="h-3 w-3 text-muted-foreground" />
+                                    <template #footer>
                                         <Link
                                             v-if="ability.characters_count > 0"
                                             :href="route('search.view', { ability: ability.name })"
@@ -428,8 +393,8 @@ const formatDefensiveType = (type: string) => {
                                             {{ ability.characters_count === 1 ? 'character' : 'characters' }}
                                         </Link>
                                         <span v-else class="text-muted-foreground">0 characters</span>
-                                    </div>
-                                </Card>
+                                    </template>
+                                </AbilityCard>
                             </div>
                         </template>
                         <EmptyState v-else />

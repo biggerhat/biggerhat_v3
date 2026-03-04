@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ChevronDown, LayoutGrid, List, Search, Users, X } from 'lucide-vue-next';
+import { ChevronDown, LayoutGrid, List, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
+import ActionCard from '@/components/ActionCard.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import GameIcon from '@/components/GameIcon.vue';
-import GameText from '@/components/GameText.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -739,93 +738,14 @@ const formatRangeType = (rangeType: string) => {
                     <div v-else>
                         <template v-if="props.actions?.data?.length">
                             <div class="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
-                                <Card
+                                <ActionCard
                                     v-for="(action, index) in props.actions.data"
                                     :key="action.id"
-                                    class="animate-fade-in-up flex flex-col overflow-hidden opacity-0"
+                                    :action="action"
+                                    class="animate-fade-in-up opacity-0"
                                     :style="delays[index]"
                                 >
-                                    <!-- Stat column headers -->
-                                    <div class="flex items-center border-b bg-secondary px-3 py-1.5 text-xs font-semibold">
-                                        <span class="flex-1">{{ formatType(action.type) }} Action</span>
-                                        <span class="w-10 text-center text-muted-foreground">Rg</span>
-                                        <span class="w-10 text-center text-muted-foreground">Stat</span>
-                                        <span class="w-10 text-center text-muted-foreground">Rst</span>
-                                        <span class="w-10 text-center text-muted-foreground">TN</span>
-                                        <span class="w-10 text-center text-muted-foreground">Dmg</span>
-                                    </div>
-                                    <!-- Action name + stat values row -->
-                                    <div class="flex items-center border-b px-3 py-2">
-                                        <div class="inline-flex min-w-0 flex-1 items-center gap-1">
-                                            <GameIcon v-if="action.is_signature" type="signature_action" class-name="h-4 inline-block shrink-0" />
-                                            <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
-                                            <span class="font-semibold">{{ action.name }}</span>
-                                        </div>
-                                        <span class="w-10 text-center text-sm">
-                                            <span class="inline-flex items-center justify-center gap-0.5">
-                                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="h-3.5 inline-block" />
-                                                {{ action.range != null ? action.range + '"' : '-' }}
-                                            </span>
-                                        </span>
-                                        <span class="w-10 text-center text-sm">
-                                            <template v-if="action.stat != null">
-                                                <span class="inline-flex items-center justify-center gap-0.5">
-                                                    {{ action.stat }}
-                                                    <template v-if="action.stat_suits">
-                                                        <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
-                                                    </template>
-                                                </span>
-                                            </template>
-                                            <template v-else>-</template>
-                                        </span>
-                                        <span class="w-10 text-center text-sm">{{ action.resisted_by ?? '-' }}</span>
-                                        <span class="w-10 text-center text-sm">
-                                            <template v-if="action.target_number != null">
-                                                <span class="inline-flex items-center justify-center gap-0.5">
-                                                    {{ action.target_number }}
-                                                    <template v-if="action.target_suits">
-                                                        <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
-                                                    </template>
-                                                </span>
-                                            </template>
-                                            <template v-else>-</template>
-                                        </span>
-                                        <span class="w-10 text-center text-sm">{{ action.damage ?? '-' }}</span>
-                                    </div>
-                                    <!-- Description -->
-                                    <div v-if="action.description" class="px-3 py-2">
-                                        <p class="text-xs leading-relaxed text-muted-foreground">
-                                            <GameText
-                                                :text="action.description"
-                                                :max-length="150"
-                                                icon-class="h-4 inline-block align-text-bottom"
-                                            />
-                                        </p>
-                                    </div>
-                                    <!-- Triggers -->
-                                    <div v-if="action.triggers?.length" class="space-y-1 border-t px-3 py-2">
-                                        <div
-                                            v-for="trigger in action.triggers"
-                                            :key="trigger.id"
-                                            class="text-xs leading-relaxed text-muted-foreground"
-                                        >
-                                            <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
-                                                <GameIcon v-if="trigger.suits" :type="trigger.suits" class-name="h-3.5 inline-block" />
-                                                <GameIcon v-if="trigger.costs_stone" type="soulstone" class-name="h-3.5 inline-block" />
-                                                {{ trigger.name }}:
-                                            </span>
-                                            {{ ' ' }}
-                                            <GameText
-                                                v-if="trigger.description"
-                                                :text="trigger.description"
-                                                :max-length="120"
-                                                icon-class="h-4 inline-block align-text-bottom"
-                                            />
-                                        </div>
-                                    </div>
-                                    <!-- Character count -->
-                                    <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-                                        <Users class="h-3 w-3 text-muted-foreground" />
+                                    <template #footer>
                                         <Link
                                             v-if="action.characters_count > 0"
                                             :href="route('search.view', { action: action.name })"
@@ -834,8 +754,8 @@ const formatRangeType = (rangeType: string) => {
                                             {{ action.characters_count }} {{ action.characters_count === 1 ? 'character' : 'characters' }}
                                         </Link>
                                         <span v-else class="text-muted-foreground">0 characters</span>
-                                    </div>
-                                </Card>
+                                    </template>
+                                </ActionCard>
                             </div>
                         </template>
                         <EmptyState v-else />

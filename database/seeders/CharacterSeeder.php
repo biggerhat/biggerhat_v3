@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Enums\UpgradeDomainTypeEnum;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
@@ -34,6 +36,9 @@ class CharacterSeeder extends Seeder
             ->state(['domain' => UpgradeDomainTypeEnum::Crew])
             ->create();
 
+        $actions = Action::factory()->count(30)->create();
+        $abilities = Ability::factory()->count(20)->create();
+
         $characters = Character::factory()->count(40)->create();
 
         foreach ($characters as $character) {
@@ -63,6 +68,19 @@ class CharacterSeeder extends Seeder
                     $characterUpgrades->random(random_int(1, 2))->pluck('id')->toArray()
                 );
             }
+
+            // Attach 2-4 actions, with a chance one is a signature action
+            $characterActions = $actions->random(random_int(2, 4));
+            foreach ($characterActions as $action) {
+                $character->actions()->attach($action->id, [
+                    'is_signature_action' => random_int(1, 100) <= 15,
+                ]);
+            }
+
+            // Attach 1-3 abilities
+            $character->abilities()->attach(
+                $abilities->random(random_int(1, 3))->pluck('id')->toArray()
+            );
         }
     }
 

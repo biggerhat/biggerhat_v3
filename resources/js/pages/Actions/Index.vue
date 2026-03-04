@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, router } from '@inertiajs/vue3';
-import { ChevronDown, LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ChevronDown, LayoutGrid, List, Search, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
+import GameIcon from '@/components/GameIcon.vue';
+import GameText from '@/components/GameText.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
@@ -251,11 +253,6 @@ const formatType = (type: string) => {
 
 const formatRangeType = (rangeType: string) => {
     return rangeType ? rangeType.charAt(0).toUpperCase() + rangeType.slice(1) : '';
-};
-
-const truncate = (text: string, length: number = 150) => {
-    if (!text) return '';
-    return text.length > length ? text.substring(0, length) + '...' : text;
 };
 </script>
 
@@ -660,7 +657,7 @@ const truncate = (text: string, length: number = 150) => {
                 <!-- Results area -->
                 <div class="min-w-0 flex-1">
                     <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
-                        <TableSkeleton :rows="8" :cols="8" />
+                        <TableSkeleton :rows="8" :cols="9" />
                     </div>
                     <div v-else-if="isLoading">
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
@@ -679,38 +676,54 @@ const truncate = (text: string, length: number = 150) => {
                                     <TableHead>Resisted By</TableHead>
                                     <TableHead>TN</TableHead>
                                     <TableHead>Damage</TableHead>
+                                    <TableHead>Characters</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 <template v-if="props.actions?.data?.length">
                                     <TableRow v-for="action in props.actions.data" :key="action.id">
-                                        <TableCell class="font-medium">{{ action.name }}</TableCell>
+                                        <TableCell class="font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block" />
+                                                {{ action.name }}
+                                            </span>
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" class="text-xs">{{ formatType(action.type) }}</Badge>
                                         </TableCell>
                                         <TableCell>{{ formatRangeType(action.range_type) }}</TableCell>
                                         <TableCell>{{ action.range ?? '-' }}</TableCell>
                                         <TableCell>
-                                            <span v-if="action.stat">
+                                            <span v-if="action.stat" class="inline-flex items-center gap-0.5">
                                                 {{ action.stat }}
-                                                <span v-if="action.stat_suits" class="text-muted-foreground">{{ action.stat_suits }}</span>
+                                                <GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="h-3.5 inline-block" />
                                             </span>
                                             <span v-else>-</span>
                                         </TableCell>
                                         <TableCell>{{ action.resisted_by ?? '-' }}</TableCell>
                                         <TableCell>
-                                            <span v-if="action.target_number">
+                                            <span v-if="action.target_number" class="inline-flex items-center gap-0.5">
                                                 {{ action.target_number }}
-                                                <span v-if="action.target_suits" class="text-muted-foreground">{{ action.target_suits }}</span>
+                                                <GameIcon v-if="action.target_suits" :type="action.target_suits" class-name="h-3.5 inline-block" />
                                             </span>
                                             <span v-else>-</span>
                                         </TableCell>
                                         <TableCell>{{ action.damage ?? '-' }}</TableCell>
+                                        <TableCell>
+                                            <Link
+                                                v-if="action.characters_count > 0"
+                                                :href="route('search.view', { action: action.name })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ action.characters_count }}
+                                            </Link>
+                                            <span v-else class="text-muted-foreground">0</span>
+                                        </TableCell>
                                     </TableRow>
                                 </template>
                                 <template v-else>
                                     <TableRow>
-                                        <TableCell :colspan="8">
+                                        <TableCell :colspan="9">
                                             <EmptyState />
                                         </TableCell>
                                     </TableRow>
@@ -739,28 +752,30 @@ const truncate = (text: string, length: number = 150) => {
                                     </div>
                                     <!-- Action name + stat values row -->
                                     <div class="flex items-center border-b px-3 py-2">
-                                        <div class="min-w-0 flex-1">
+                                        <div class="inline-flex min-w-0 flex-1 items-center gap-1">
+                                            <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
                                             <span class="font-semibold">{{ action.name }}</span>
                                             <span v-if="action.is_signature" class="ml-1 text-xs text-muted-foreground">(Sig)</span>
-                                            <span v-if="action.costs_stone" class="ml-1 text-xs text-muted-foreground">(SS)</span>
                                         </div>
                                         <span class="w-10 text-center text-sm">
                                             {{ action.range != null ? action.range + '"' : '-' }}
                                         </span>
                                         <span class="w-10 text-center text-sm">
                                             <template v-if="action.stat != null">
-                                                {{ action.stat }}
-                                                <span v-if="action.stat_suits" class="text-xs text-muted-foreground">{{ action.stat_suits }}</span>
+                                                <span class="inline-flex items-center justify-center gap-0.5">
+                                                    {{ action.stat }}
+                                                    <GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="h-3 inline-block" />
+                                                </span>
                                             </template>
                                             <template v-else>-</template>
                                         </span>
                                         <span class="w-10 text-center text-sm">{{ action.resisted_by ?? '-' }}</span>
                                         <span class="w-10 text-center text-sm">
                                             <template v-if="action.target_number != null">
-                                                {{ action.target_number }}
-                                                <span v-if="action.target_suits" class="text-xs text-muted-foreground">{{
-                                                    action.target_suits
-                                                }}</span>
+                                                <span class="inline-flex items-center justify-center gap-0.5">
+                                                    {{ action.target_number }}
+                                                    <GameIcon v-if="action.target_suits" :type="action.target_suits" class-name="h-3 inline-block" />
+                                                </span>
                                             </template>
                                             <template v-else>-</template>
                                         </span>
@@ -768,7 +783,25 @@ const truncate = (text: string, length: number = 150) => {
                                     </div>
                                     <!-- Description -->
                                     <div v-if="action.description" class="px-3 py-2">
-                                        <p class="text-xs leading-relaxed text-muted-foreground">{{ truncate(action.description) }}</p>
+                                        <p class="text-xs leading-relaxed text-muted-foreground">
+                                            <GameText
+                                                :text="action.description"
+                                                :max-length="150"
+                                                icon-class="h-3.5 inline-block align-text-bottom"
+                                            />
+                                        </p>
+                                    </div>
+                                    <!-- Character count -->
+                                    <div class="flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+                                        <Users class="h-3 w-3 text-muted-foreground" />
+                                        <Link
+                                            v-if="action.characters_count > 0"
+                                            :href="route('search.view', { action: action.name })"
+                                            class="text-primary hover:underline"
+                                        >
+                                            {{ action.characters_count }} {{ action.characters_count === 1 ? 'character' : 'characters' }}
+                                        </Link>
+                                        <span v-else class="text-muted-foreground">0 characters</span>
                                     </div>
                                 </Card>
                             </div>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, router } from '@inertiajs/vue3';
-import { LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { LayoutGrid, List, Search, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
+import GameIcon from '@/components/GameIcon.vue';
+import GameText from '@/components/GameText.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
@@ -145,11 +147,6 @@ const formatDefensiveType = (type: string) => {
         .split('_')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-};
-
-const truncate = (text: string, length: number = 120) => {
-    if (!text) return '';
-    return text.length > length ? text.substring(0, length) + '...' : text;
 };
 </script>
 
@@ -300,7 +297,7 @@ const truncate = (text: string, length: number = 120) => {
                 <!-- Results area -->
                 <div class="min-w-0 flex-1">
                     <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
-                        <TableSkeleton :rows="8" :cols="5" />
+                        <TableSkeleton :rows="8" :cols="6" />
                     </div>
                     <div v-else-if="isLoading">
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
@@ -316,26 +313,58 @@ const truncate = (text: string, length: number = 120) => {
                                     <TableHead>Defensive Type</TableHead>
                                     <TableHead>Costs Stone</TableHead>
                                     <TableHead>Description</TableHead>
+                                    <TableHead>Characters</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 <template v-if="props.abilities?.data?.length">
                                     <TableRow v-for="ability in props.abilities.data" :key="ability.id">
-                                        <TableCell class="font-medium">{{ ability.name }}</TableCell>
-                                        <TableCell>{{ ability.suits ?? '-' }}</TableCell>
+                                        <TableCell class="font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block" />
+                                                {{ ability.name }}
+                                            </span>
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge v-if="ability.defensive_ability_type" variant="outline" class="text-xs">
+                                            <GameIcon v-if="ability.suits" :type="ability.suits" class-name="h-4 inline-block" />
+                                            <span v-else>-</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                v-if="ability.defensive_ability_type"
+                                                variant="outline"
+                                                class="inline-flex items-center gap-1 text-xs"
+                                            >
+                                                <GameIcon :type="ability.defensive_ability_type" class-name="h-3.5 inline-block" />
                                                 {{ formatDefensiveType(ability.defensive_ability_type) }}
                                             </Badge>
                                             <span v-else>-</span>
                                         </TableCell>
                                         <TableCell>{{ ability.costs_stone ? 'Yes' : 'No' }}</TableCell>
-                                        <TableCell class="max-w-xs truncate">{{ truncate(ability.description) }}</TableCell>
+                                        <TableCell class="max-w-xs">
+                                            <span class="line-clamp-2">
+                                                <GameText
+                                                    :text="ability.description"
+                                                    :max-length="120"
+                                                    icon-class="h-3.5 inline-block align-text-bottom"
+                                                />
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link
+                                                v-if="ability.characters_count > 0"
+                                                :href="route('search.view', { ability: ability.name })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ ability.characters_count }}
+                                            </Link>
+                                            <span v-else class="text-muted-foreground">0</span>
+                                        </TableCell>
                                     </TableRow>
                                 </template>
                                 <template v-else>
                                     <TableRow>
-                                        <TableCell :colspan="5">
+                                        <TableCell :colspan="6">
                                             <EmptyState />
                                         </TableCell>
                                     </TableRow>
@@ -355,8 +384,16 @@ const truncate = (text: string, length: number = 120) => {
                                 >
                                     <CardHeader class="pb-2">
                                         <div class="flex items-start justify-between gap-2">
-                                            <CardTitle class="text-base">{{ ability.name }}</CardTitle>
-                                            <Badge v-if="ability.defensive_ability_type" variant="outline" class="shrink-0 text-xs">
+                                            <CardTitle class="inline-flex items-center gap-1 text-base">
+                                                <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
+                                                {{ ability.name }}
+                                            </CardTitle>
+                                            <Badge
+                                                v-if="ability.defensive_ability_type"
+                                                variant="outline"
+                                                class="inline-flex shrink-0 items-center gap-1 text-xs"
+                                            >
+                                                <GameIcon :type="ability.defensive_ability_type" class-name="h-3.5 inline-block" />
                                                 {{ formatDefensiveType(ability.defensive_ability_type) }}
                                             </Badge>
                                         </div>
@@ -365,13 +402,28 @@ const truncate = (text: string, length: number = 120) => {
                                         <div class="space-y-1.5 text-sm">
                                             <div v-if="ability.suits" class="flex items-center justify-between">
                                                 <span class="text-muted-foreground">Suit</span>
-                                                <span>{{ ability.suits }}</span>
+                                                <GameIcon :type="ability.suits" class-name="h-4 inline-block" />
                                             </div>
                                             <div v-if="ability.description" class="pt-1">
-                                                <p class="text-xs text-muted-foreground">{{ truncate(ability.description) }}</p>
+                                                <p class="text-xs text-muted-foreground">
+                                                    <GameText
+                                                        :text="ability.description"
+                                                        :max-length="120"
+                                                        icon-class="h-3.5 inline-block align-text-bottom"
+                                                    />
+                                                </p>
                                             </div>
-                                            <div class="flex flex-wrap gap-1 pt-1">
-                                                <Badge v-if="ability.costs_stone" variant="secondary" class="text-[10px]">Costs Stone</Badge>
+                                            <div class="flex items-center gap-1.5 pt-2 text-xs">
+                                                <Users class="h-3 w-3 text-muted-foreground" />
+                                                <Link
+                                                    v-if="ability.characters_count > 0"
+                                                    :href="route('search.view', { ability: ability.name })"
+                                                    class="text-primary hover:underline"
+                                                >
+                                                    {{ ability.characters_count }}
+                                                    {{ ability.characters_count === 1 ? 'character' : 'characters' }}
+                                                </Link>
+                                                <span v-else class="text-muted-foreground">0 characters</span>
                                             </div>
                                         </div>
                                     </CardContent>

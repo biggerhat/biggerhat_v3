@@ -738,14 +738,14 @@ const formatRangeType = (rangeType: string) => {
                                 <Card
                                     v-for="(action, index) in props.actions.data"
                                     :key="action.id"
-                                    class="animate-fade-in-up overflow-hidden opacity-0"
+                                    class="animate-fade-in-up flex flex-col overflow-hidden opacity-0"
                                     :style="delays[index]"
                                 >
-                                    <!-- Type header with stat columns (matches Malifaux card layout) -->
+                                    <!-- Stat column headers -->
                                     <div class="flex items-center border-b bg-secondary px-3 py-1.5 text-xs font-semibold">
                                         <span class="flex-1">{{ formatType(action.type) }} Action</span>
                                         <span class="w-10 text-center text-muted-foreground">Rg</span>
-                                        <span class="w-10 text-center text-muted-foreground">Skl</span>
+                                        <span class="w-10 text-center text-muted-foreground">Stat</span>
                                         <span class="w-10 text-center text-muted-foreground">Rst</span>
                                         <span class="w-10 text-center text-muted-foreground">TN</span>
                                         <span class="w-10 text-center text-muted-foreground">Dmg</span>
@@ -753,12 +753,15 @@ const formatRangeType = (rangeType: string) => {
                                     <!-- Action name + stat values row -->
                                     <div class="flex items-center border-b px-3 py-2">
                                         <div class="inline-flex min-w-0 flex-1 items-center gap-1">
+                                            <GameIcon v-if="action.is_signature" type="signature_action" class-name="h-4 inline-block shrink-0" />
                                             <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
                                             <span class="font-semibold">{{ action.name }}</span>
-                                            <span v-if="action.is_signature" class="ml-1 text-xs text-muted-foreground">(Sig)</span>
                                         </div>
                                         <span class="w-10 text-center text-sm">
-                                            {{ action.range != null ? action.range + '"' : '-' }}
+                                            <span class="inline-flex items-center justify-center gap-0.5">
+                                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="h-3 inline-block" />
+                                                {{ action.range != null ? action.range + '"' : '-' }}
+                                            </span>
                                         </span>
                                         <span class="w-10 text-center text-sm">
                                             <template v-if="action.stat != null">
@@ -791,8 +794,29 @@ const formatRangeType = (rangeType: string) => {
                                             />
                                         </p>
                                     </div>
+                                    <!-- Triggers -->
+                                    <div v-if="action.triggers?.length" class="space-y-1 border-t px-3 py-2">
+                                        <div
+                                            v-for="trigger in action.triggers"
+                                            :key="trigger.id"
+                                            class="text-xs leading-relaxed text-muted-foreground"
+                                        >
+                                            <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
+                                                <GameIcon v-if="trigger.suits" :type="trigger.suits" class-name="h-3.5 inline-block" />
+                                                <GameIcon v-if="trigger.costs_stone" type="soulstone" class-name="h-3.5 inline-block" />
+                                                {{ trigger.name }}:
+                                            </span>
+                                            {{ ' ' }}
+                                            <GameText
+                                                v-if="trigger.description"
+                                                :text="trigger.description"
+                                                :max-length="120"
+                                                icon-class="h-3.5 inline-block align-text-bottom"
+                                            />
+                                        </div>
+                                    </div>
                                     <!-- Character count -->
-                                    <div class="flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+                                    <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
                                         <Users class="h-3 w-3 text-muted-foreground" />
                                         <Link
                                             v-if="action.characters_count > 0"

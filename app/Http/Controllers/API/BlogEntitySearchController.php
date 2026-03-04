@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Enums\FactionEnum;
+use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
@@ -120,19 +121,23 @@ class BlogEntitySearchController extends Controller
             return response()->json(['error' => 'Not found'], 404);
         }
 
-        $miniature = $character->miniatures->first();
+        $miniature = $character->miniatures
+            ->whereNotIn('version', SculptVersionEnum::promotionalEditions())
+            ->sortByDesc(fn ($m) => $m->version === SculptVersionEnum::FourthEdition->value ? 1 : 0)
+            ->first()
+            ?? $character->miniatures->first();
 
         return response()->json([
             'name' => $character->display_name,
             'type' => 'character',
             'slug' => $character->slug,
-            'miniatures' => $character->miniatures->map(fn ($m) => [
-                'id' => $m->id,
-                'display_name' => $m->display_name,
-                'slug' => $m->slug,
-                'front_image' => $m->front_image,
-                'back_image' => $m->back_image,
-            ]),
+            'miniature' => $miniature ? [
+                'id' => $miniature->id,
+                'display_name' => $miniature->display_name,
+                'slug' => $miniature->slug,
+                'front_image' => $miniature->front_image,
+                'back_image' => $miniature->back_image,
+            ] : null,
             'link' => $miniature ? route('characters.view', [
                 'character' => $character->slug,
                 'miniature' => $miniature->id,
@@ -153,6 +158,8 @@ class BlogEntitySearchController extends Controller
             'name' => $upgrade->name,
             'type' => 'upgrade',
             'slug' => $upgrade->slug,
+            'front_image' => $upgrade->front_image,
+            'back_image' => $upgrade->back_image,
             'link' => route('upgrades.view', $upgrade->slug),
         ]);
     }
@@ -191,7 +198,7 @@ class BlogEntitySearchController extends Controller
 
     private function showAction(string $slug): JsonResponse
     {
-        $action = Action::where('slug', $slug)->withCount('characters')->first();
+        $action = Action::where('slug', $slug)->with('triggers')->withCount('characters')->first();
 
         if (! $action) {
             return response()->json(['error' => 'Not found'], 404);
@@ -214,6 +221,12 @@ class BlogEntitySearchController extends Controller
             'damage' => $action->damage,
             'description' => $action->description,
             'characters_count' => $action->characters_count,
+            'triggers' => $action->triggers->map(fn ($t) => [
+                'name' => $t->name,
+                'suits' => $t->suits,
+                'costs_stone' => $t->costs_stone,
+                'description' => $t->description,
+            ]),
             'link' => route('actions.index', ['name' => $action->name]),
         ]);
     }

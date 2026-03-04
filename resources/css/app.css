@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+    font-family: 'M4E-Symbols';
+    src: url('/font/M4E-Symbols.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 body,
 html {
     --font-sans:
@@ -134,6 +142,29 @@ html {
 }
 .tiptap a {
     @apply text-primary underline;
+}
+
+/* Game icon font sizing — maps Tailwind h-* classes to font-size */
+.game-icon {
+    line-height: 1;
+}
+.game-icon.h-3 {
+    font-size: 0.75rem;
+}
+.game-icon.h-3\.5 {
+    font-size: 0.875rem;
+}
+.game-icon.h-4 {
+    font-size: 1rem;
+}
+.game-icon.h-5 {
+    font-size: 1.25rem;
+}
+.game-icon.h-6 {
+    font-size: 1.5rem;
+}
+.game-icon.w-5 {
+    width: auto;
 }
 
 @keyframes fade-in-up {

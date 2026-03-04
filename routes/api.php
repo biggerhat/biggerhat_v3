@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\API\BlogEntitySearchController;
 use App\Http\Controllers\API\CharacterAPIController;
 use App\Http\Controllers\API\KeywordAPIController;
 use App\Http\Controllers\API\MarkerAPIController;
@@ -21,4 +22,7 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('/keywords', [KeywordAPIController::class, 'view'])->name('view');
     });
+
+    Route::get('/blog/entity-search', [BlogEntitySearchController::class, 'search'])->name('blog.entity-search');
+    Route::get('/blog/entity/{type}/{slug}', [BlogEntitySearchController::class, 'show'])->name('blog.entity-show');
 });

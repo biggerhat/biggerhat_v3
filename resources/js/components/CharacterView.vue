@@ -28,11 +28,11 @@ const props = defineProps({
 <template>
     <div class="container mx-auto mb-8 flex flex-1 flex-col gap-4 rounded-xl p-4">
         <div class="grid auto-rows-min gap-2 md:grid-cols-8">
-            <div class="flex flex-col space-y-1.5 md:col-span-4" v-if="props.miniature.combination_image && !isMobileDevice()">
-                <img :src="'/storage/' + props.miniature.combination_image" :alt="miniature.display_name" class="rounded" />
+            <div v-if="props.miniature.combination_image && !isMobileDevice()" class="flex flex-col space-y-1.5 md:col-span-4">
+                <img :src="'/storage/' + props.miniature.combination_image" :alt="miniature.display_name" class="w-full rounded" />
             </div>
             <div v-else class="flex flex-col space-y-1.5 md:col-span-2 md:col-start-2">
-                <CharacterCardView :miniature="props.miniature" show-link="false" />
+                <CharacterCardView :miniature="props.miniature" :show-link="false" />
             </div>
             <div class="flex flex-col space-y-1.5 md:col-span-2">
                 <Card class="m-0 w-full rounded-none border-none p-0">

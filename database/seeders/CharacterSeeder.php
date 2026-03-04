@@ -14,6 +14,7 @@ use App\Models\Upgrade;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class CharacterSeeder extends Seeder
 {
@@ -42,10 +43,20 @@ class CharacterSeeder extends Seeder
         $characters = Character::factory()->count(40)->create();
 
         foreach ($characters as $character) {
-            Miniature::factory()
+            $miniatures = Miniature::factory()
                 ->count(random_int(1, 2))
                 ->state(['character_id' => $character->id])
                 ->create();
+
+            foreach ($miniatures as $miniature) {
+                if ($miniature->name === null) {
+                    $displayName = $character->display_name;
+                    $miniature->update([
+                        'display_name' => $displayName,
+                        'slug' => Str::slug($displayName),
+                    ]);
+                }
+            }
 
             $character->keywords()->attach(
                 $keywords->random(random_int(1, 3))->pluck('id')->toArray()

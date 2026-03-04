@@ -4,6 +4,7 @@ use App\Enums\FactionEnum;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\Database\AbilityController;
 use App\Http\Controllers\Database\ActionController;
+use App\Http\Controllers\Database\BlogController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
@@ -80,6 +81,11 @@ Route::prefix('factions')->name('factions.')->group(function () {
 
 Route::prefix('upgrades')->name('upgrades.')->group(function () {
     Route::get('/{upgrade}', [UpgradeController::class, 'view'])->name('view');
+});
+
+Route::prefix('blog')->name('blog.')->group(function () {
+    Route::get('/', [BlogController::class, 'index'])->name('index');
+    Route::get('/{blogPost}', [BlogController::class, 'view'])->name('view');
 });
 
 Route::prefix('tools')->name('tools.')->group(function () {

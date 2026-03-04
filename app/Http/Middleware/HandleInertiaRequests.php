@@ -52,7 +52,8 @@ class HandleInertiaRequests extends Middleware
             'faction_info' => FactionEnum::buildDetails(),
             'auth' => [
                 'user' => $request->user() ?? null,
-                'is_super_admin' => $request->user()?->hasRole('super_admin'),
+                'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
+                'can_publish_posts' => $request->user()?->can('publish_posts'),
             ],
             'ziggy' => [
                 ...(new Ziggy)->toArray(),

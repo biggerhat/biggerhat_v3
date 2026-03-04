@@ -18,14 +18,13 @@ class MiniatureFactory extends Factory
      */
     public function definition(): array
     {
-        $name = $this->faker->name();
-        $displayName = $name;
-        $slug = Str::slug($displayName);
+        // Most miniatures have no name (inherit character name); ~15% get their own
+        $name = $this->faker->boolean(15) ? $this->faker->name() : null;
 
         return [
             'name' => $name,
-            'display_name' => $displayName,
-            'slug' => $slug,
+            'display_name' => $name ?? 'placeholder',
+            'slug' => Str::slug($name ?? 'placeholder'),
             'front_image' => 'seed/card-front.png',
             'back_image' => 'seed/card-back.png',
             'combination_image' => 'seed/card-front.png',

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\PermissionEnum;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class PermissionSeeder extends Seeder
 {
@@ -18,5 +19,16 @@ class PermissionSeeder extends Seeder
         }
 
         Permission::whereNotIn('name', PermissionEnum::cases())->delete();
+
+        // Assign all permissions to super_admin
+        $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
+        $superAdmin->syncPermissions(Permission::all());
+
+        // Assign blog permissions to content_creator
+        $contentCreator = Role::firstOrCreate(['name' => 'content_creator']);
+        $contentCreator->givePermissionTo([
+            PermissionEnum::CreatePosts->value,
+            PermissionEnum::EditPosts->value,
+        ]);
     }
 }

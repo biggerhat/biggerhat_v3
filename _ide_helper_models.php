@@ -124,6 +124,93 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property string $name
+ * @property string $slug
+ * @property string|null $description
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $posts
+ * @property-read int|null $posts_count
+ * @method static \Database\Factories\BlogCategoryFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBlogCategory {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $title
+ * @property string $slug
+ * @property array<array-key, mixed>|null $content
+ * @property string|null $excerpt
+ * @property string|null $featured_image
+ * @property \App\Enums\BlogPostStatusEnum $status
+ * @property int|null $blog_category_id
+ * @property int $user_id
+ * @property \Illuminate\Support\Carbon|null $published_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
+ * @property-read int|null $actions_count
+ * @property-read \App\Models\User $author
+ * @property-read \App\Models\BlogCategory|null $category
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
+ * @property-read array<string> $faction_tags
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
+ * @property-read int|null $keywords_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
+ * @property-read int|null $upgrades_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost draft()
+ * @method static \Database\Factories\BlogPostFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost onlyTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost published()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereBlogCategoryId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereContent($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereExcerpt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereFeaturedImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost wherePublishedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost withTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost withoutTrashed()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBlogPost {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property string $image
  * @property string $sculpt_version
  * @property string|null $deleted_at
@@ -457,10 +544,10 @@ namespace App\Models{
  * @property int|null $next_scheme_one_id
  * @property int|null $next_scheme_two_id
  * @property int|null $next_scheme_three_id
+ * @property string|null $image
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
- * @property string|null $image
  * @method static \Database\Factories\SchemeFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme newQuery()
@@ -501,10 +588,10 @@ namespace App\Models{
  * @property string $rules
  * @property string $scoring
  * @property string|null $additional_scoring
+ * @property string|null $image
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
- * @property string|null $image
  * @method static \Database\Factories\StrategyFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy newQuery()
@@ -647,8 +734,8 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property int|null $plentiful
  * @property \App\Enums\UpgradeLimitationEnum|null $limitations
- * @property \App\Enums\UpgradeTypeEnum|null $type
  * @property \App\Enums\FactionEnum|null $faction
+ * @property \App\Enums\UpgradeTypeEnum|null $type
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions

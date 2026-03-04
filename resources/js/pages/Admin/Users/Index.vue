@@ -51,8 +51,8 @@ const columns: ColumnDef<any>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: user.name,
-                    editRoute: route('admin.users.edit', user.id),
-                    deleteRoute: route('admin.users.delete', user.id),
+                    editRoute: route('admin.users.edit', user.slug),
+                    deleteRoute: route('admin.users.delete', user.slug),
                 }),
             );
         },

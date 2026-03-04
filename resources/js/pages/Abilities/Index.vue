@@ -346,7 +346,7 @@ const formatDefensiveType = (type: string) => {
                                                 <GameText
                                                     :text="ability.description"
                                                     :max-length="120"
-                                                    icon-class="h-3.5 inline-block align-text-bottom"
+                                                    icon-class="h-4 inline-block align-text-bottom"
                                                 />
                                             </span>
                                         </TableCell>
@@ -411,7 +411,7 @@ const formatDefensiveType = (type: string) => {
                                                     <GameText
                                                         :text="ability.description"
                                                         :max-length="120"
-                                                        icon-class="h-3.5 inline-block align-text-bottom"
+                                                        icon-class="h-4 inline-block align-text-bottom"
                                                     />
                                                 </p>
                                             </div>

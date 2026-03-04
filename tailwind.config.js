@@ -10,12 +10,14 @@ export default {
         './resources/js/**/*.{vue,js,ts,jsx,tsx}',
     ],
     safelist: [
-        {
-            pattern: /bg-+/,
-        },
-        {
-            pattern: /border-+/,
-        },
+        'bg-arcanists',
+        'bg-bayou',
+        'bg-explorerssociety',
+        'bg-guild',
+        'bg-neverborn',
+        'bg-outcasts',
+        'bg-resurrectionists',
+        'bg-tenthunders',
     ],
     theme: {
     	extend: {

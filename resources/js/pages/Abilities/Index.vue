@@ -152,7 +152,11 @@ const formatDefensiveType = (type: string) => {
 
 <template>
     <Head title="Abilities" />
-    <div class="relative h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner title="Ability Directory" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -300,7 +304,7 @@ const formatDefensiveType = (type: string) => {
                         <TableSkeleton :rows="8" :cols="6" />
                     </div>
                     <div v-else-if="isLoading">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <CardSkeleton v-for="n in 6" :key="`skeleton-${n}`" />
                         </div>
                     </div>
@@ -375,7 +379,7 @@ const formatDefensiveType = (type: string) => {
                     </div>
                     <div v-else>
                         <template v-if="props.abilities?.data?.length">
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 <AbilityCard
                                     v-for="(ability, index) in props.abilities.data"
                                     :key="ability.id"

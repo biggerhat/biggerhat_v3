@@ -162,7 +162,11 @@ onMounted(() => {
 
 <template>
     <Head :title="keyword.name" />
-    <div class="h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner :title="keyword.name">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:flex md:py-2 md:text-sm md:text-foreground">
@@ -269,7 +273,7 @@ onMounted(() => {
             <TableSkeleton :rows="8" :cols="7" />
         </div>
         <div v-else-if="isLoading" class="container mx-auto mt-4 items-center">
-            <div class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
         </div>
@@ -292,7 +296,7 @@ onMounted(() => {
         </div>
         <div v-else class="container mx-auto items-center">
             <template v-if="props.characters?.length">
-                <div class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
                     <div
                         v-for="(character, index) in props.characters"
                         :key="`character-${character.id}`"

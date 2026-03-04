@@ -75,13 +75,17 @@ const { delays } = useStaggeredEntry(filteredCount);
 
 <template>
     <Head title="Keywords" />
-    <div class="h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner title="Keyword Directory">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">{{ totalCount }} Keywords</div>
             </template>
         </PageBanner>
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 px-4">
             <div class="flex items-center justify-between py-4">
                 <Input
                     class="max-w-sm"
@@ -107,7 +111,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                 </div>
 
                 <TabsContent value="cards">
-                    <div v-if="filteredKeywords.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div v-if="filteredKeywords.length" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Link
                             v-for="(keyword, index) in filteredKeywords"
                             :key="keyword.slug"
@@ -115,7 +119,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                             class="animate-fade-in-up opacity-0"
                             :style="delays[index]"
                         >
-                            <Card class="h-full transition-colors hover:bg-accent">
+                            <Card class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                                 <CardHeader class="pb-2">
                                     <CardTitle class="text-base">{{ keyword.name }}</CardTitle>
                                 </CardHeader>

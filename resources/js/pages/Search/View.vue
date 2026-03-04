@@ -491,7 +491,11 @@ onMounted(() => {
 
 <template>
     <Head title="Advanced Search" />
-    <div class="relative h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner title="Advanced Search" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -1321,7 +1325,7 @@ onMounted(() => {
                         <TableSkeleton :rows="8" :cols="7" />
                     </div>
                     <div v-else-if="isLoading">
-                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                             <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
                         </div>
                     </div>
@@ -1340,7 +1344,7 @@ onMounted(() => {
                     </div>
                     <div v-else>
                         <template v-if="props.characters?.data?.length">
-                            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                                 <div
                                     v-for="(character, index) in props.characters.data"
                                     :key="`character-${character.id}`"

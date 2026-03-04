@@ -7,7 +7,22 @@ import NavSuperAdmin from '@/components/ui/NavSuperAdmin.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, CircleDollarSign, Dice6, FileText, KeyRound, Newspaper, Puzzle, Radius, Shield, ShieldCheck, Swords, TextSearch, Users } from 'lucide-vue-next';
+import {
+    ArrowUpCircle,
+    BookOpen,
+    CircleDollarSign,
+    Dice6,
+    FileText,
+    KeyRound,
+    Newspaper,
+    Puzzle,
+    Radius,
+    Shield,
+    ShieldCheck,
+    Swords,
+    TextSearch,
+    Users,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -28,7 +43,7 @@ const mainNavItems: NavItem[] = [
                 icon: Dice6,
             },
             {
-                title: 'Blog',
+                title: 'Articles',
                 href: route('blog.index'),
                 icon: Newspaper,
             },
@@ -126,6 +141,16 @@ const mainNavItems: NavItem[] = [
                 title: 'Tokens',
                 href: route('tokens.index'),
                 icon: Puzzle,
+            },
+            {
+                title: 'Crew Upgrades',
+                href: route('upgrades.crew.index'),
+                icon: ArrowUpCircle,
+            },
+            {
+                title: 'Character Upgrades',
+                href: route('upgrades.character.index'),
+                icon: ArrowUpCircle,
             },
         ],
     },
@@ -228,13 +253,13 @@ const allAdminNavItems: NavItem[] = [
         permission: 'view_strategy',
     },
     {
-        title: 'Blog Posts',
+        title: 'Articles',
         href: route('admin.blog.posts.index'),
         icon: Newspaper,
         permission: 'create_posts|edit_posts',
     },
     {
-        title: 'Blog Categories',
+        title: 'Article Categories',
         href: route('admin.blog.categories.index'),
         icon: Newspaper,
         permission: 'create_posts|edit_posts',

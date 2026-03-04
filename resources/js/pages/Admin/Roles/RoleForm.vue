@@ -81,7 +81,16 @@ const submit = () => {
                     <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Role</Label>
-                            <Input id="name" type="text" required autofocus :tabindex="1" autocomplete="name" v-model="form.name" placeholder="Role" />
+                            <Input
+                                id="name"
+                                type="text"
+                                required
+                                autofocus
+                                :tabindex="1"
+                                autocomplete="name"
+                                v-model="form.name"
+                                placeholder="Role"
+                            />
                             <InputError :message="form.errors.name" />
                         </div>
                         <div class="grid w-full md:grid-cols-4">

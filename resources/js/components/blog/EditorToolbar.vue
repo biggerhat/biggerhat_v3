@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import GameIcon from '@/components/GameIcon.vue';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Editor } from '@tiptap/vue-3';

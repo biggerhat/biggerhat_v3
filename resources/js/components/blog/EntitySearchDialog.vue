@@ -119,7 +119,10 @@ const handleSelect = (entity: EntityResult) => {
                 <div v-if="loading" class="flex items-center justify-center py-6">
                     <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-                <div v-else-if="searchQuery.length >= 2 && Object.keys(groupedResults).length === 0" class="py-6 text-center text-sm text-muted-foreground">
+                <div
+                    v-else-if="searchQuery.length >= 2 && Object.keys(groupedResults).length === 0"
+                    class="py-6 text-center text-sm text-muted-foreground"
+                >
                     No results found.
                 </div>
                 <div v-else-if="searchQuery.length < 2 && searchQuery.length > 0" class="py-6 text-center text-sm text-muted-foreground">

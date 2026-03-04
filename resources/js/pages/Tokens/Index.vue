@@ -66,13 +66,17 @@ const { delays } = useStaggeredEntry(filteredCount);
 
 <template>
     <Head title="Tokens" />
-    <div class="h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner title="Token Directory">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">{{ totalCount }} Tokens</div>
             </template>
         </PageBanner>
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 px-4">
             <div class="flex items-center justify-between py-4">
                 <Input
                     class="max-w-sm"
@@ -98,8 +102,13 @@ const { delays } = useStaggeredEntry(filteredCount);
                 </div>
 
                 <TabsContent value="cards">
-                    <div v-if="filteredTokens.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <Card v-for="(token, index) in filteredTokens" :key="token.name" class="animate-fade-in-up opacity-0" :style="delays[index]">
+                    <div v-if="filteredTokens.length" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Card
+                            v-for="(token, index) in filteredTokens"
+                            :key="token.name"
+                            class="animate-fade-in-up opacity-0 transition-colors hover:bg-accent/50"
+                            :style="delays[index]"
+                        >
                             <CardHeader class="pb-2">
                                 <CardTitle class="text-base">{{ token.name }}</CardTitle>
                             </CardHeader>

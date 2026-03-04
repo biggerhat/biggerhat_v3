@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import TipTapEditor from '@/components/blog/TipTapEditor.vue';
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import EntityTagger, { type TaggedEntity } from '@/components/EntityTagger.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,48 +41,6 @@ const props = defineProps({
             return [];
         },
     },
-    factions: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
-    characters: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
-    keywords: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
-    upgrades: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
-    actions: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
-    abilities: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return [];
-        },
-    },
 });
 
 const formInfo = ref({
@@ -92,12 +50,7 @@ const formInfo = ref({
     featured_image: null as File | null,
     status: 'draft',
     blog_category_id: null as string | null,
-    characters: [] as string[],
-    keywords: [] as string[],
-    upgrades: [] as string[],
-    actions: [] as string[],
-    abilities: [] as string[],
-    factions: [] as string[],
+    entities: [] as TaggedEntity[],
 });
 
 const currentFeaturedImage = ref<string | null>(null);
@@ -121,12 +74,7 @@ const submit = () => {
     if (formInfo.value.featured_image instanceof File) {
         formData.append('featured_image', formInfo.value.featured_image);
     }
-    formInfo.value.characters.forEach((v, i) => formData.append(`characters[${i}]`, v));
-    formInfo.value.keywords.forEach((v, i) => formData.append(`keywords[${i}]`, v));
-    formInfo.value.upgrades.forEach((v, i) => formData.append(`upgrades[${i}]`, v));
-    formInfo.value.actions.forEach((v, i) => formData.append(`actions[${i}]`, v));
-    formInfo.value.abilities.forEach((v, i) => formData.append(`abilities[${i}]`, v));
-    formInfo.value.factions.forEach((v, i) => formData.append(`factions[${i}]`, v));
+    formInfo.value.entities.forEach((e, i) => formData.append(`entities[${i}]`, `${e.entityType}:${e.entitySlug}`));
 
     const url = props.post ? route('admin.blog.posts.update', props.post.slug) : route('admin.blog.posts.store');
     router.post(url, formData, {
@@ -149,24 +97,9 @@ onMounted(() => {
     formInfo.value.blog_category_id = props.post?.blog_category_id ? String(props.post.blog_category_id) : null;
     currentFeaturedImage.value = props.post?.featured_image ?? null;
 
-    props.post?.characters?.forEach((c: { display_name: string }) => {
-        formInfo.value.characters.push(c.display_name);
-    });
-    props.post?.keywords?.forEach((k: { name: string }) => {
-        formInfo.value.keywords.push(k.name);
-    });
-    props.post?.upgrades?.forEach((u: { name: string }) => {
-        formInfo.value.upgrades.push(u.name);
-    });
-    props.post?.actions?.forEach((a: { id: number; name: string }) => {
-        formInfo.value.actions.push(a.id + ' ' + a.name);
-    });
-    props.post?.abilities?.forEach((a: { name: string }) => {
-        formInfo.value.abilities.push(a.name);
-    });
-    props.post?.faction_tags?.forEach((f: string) => {
-        formInfo.value.factions.push(f);
-    });
+    if (props.post?.entities) {
+        formInfo.value.entities = props.post.entities;
+    }
 });
 </script>
 
@@ -174,8 +107,8 @@ onMounted(() => {
     <div class="container mx-auto mb-6 mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Blog Post</CardTitle>
-                <CardDescription>Create and Edit Blog Posts</CardDescription>
+                <CardTitle>Article</CardTitle>
+                <CardDescription>Create and Edit Articles</CardDescription>
             </CardHeader>
             <CardContent>
                 <form @submit.prevent>
@@ -240,33 +173,8 @@ onMounted(() => {
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Characters</Label>
-                            <CustomMultiselect v-model="formInfo.characters" :choice-options="props.characters" combo-title="Select Characters" />
-                        </div>
-
-                        <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Keywords</Label>
-                            <CustomMultiselect v-model="formInfo.keywords" :choice-options="props.keywords" combo-title="Select Keywords" />
-                        </div>
-
-                        <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Upgrades</Label>
-                            <CustomMultiselect v-model="formInfo.upgrades" :choice-options="props.upgrades" combo-title="Select Upgrades" />
-                        </div>
-
-                        <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Actions</Label>
-                            <CustomMultiselect v-model="formInfo.actions" :choice-options="props.actions" combo-title="Select Actions" />
-                        </div>
-
-                        <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Abilities</Label>
-                            <CustomMultiselect v-model="formInfo.abilities" :choice-options="props.abilities" combo-title="Select Abilities" />
-                        </div>
-
-                        <div class="flex flex-col space-y-1.5">
-                            <Label>Tagged Factions</Label>
-                            <CustomMultiselect v-model="formInfo.factions" :choice-options="props.factions" combo-title="Select Factions" />
+                            <Label>Tagged Entities</Label>
+                            <EntityTagger v-model="formInfo.entities" />
                         </div>
                     </div>
                 </form>

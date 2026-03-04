@@ -257,7 +257,11 @@ const formatRangeType = (rangeType: string) => {
 
 <template>
     <Head title="Actions" />
-    <div class="relative h-full w-full">
+    <div class="relative">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
         <PageBanner title="Action Directory" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -659,7 +663,7 @@ const formatRangeType = (rangeType: string) => {
                         <TableSkeleton :rows="8" :cols="9" />
                     </div>
                     <div v-else-if="isLoading">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <CardSkeleton v-for="n in 6" :key="`skeleton-${n}`" />
                         </div>
                     </div>
@@ -696,7 +700,12 @@ const formatRangeType = (rangeType: string) => {
                                             <span v-if="action.stat" class="inline-flex items-center gap-0.5">
                                                 {{ action.stat }}
                                                 <template v-if="action.stat_suits">
-                                                    <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                    <GameIcon
+                                                        v-for="suit in action.stat_suits.split(' ')"
+                                                        :key="suit"
+                                                        :type="suit"
+                                                        class-name="h-3.5 inline-block"
+                                                    />
                                                 </template>
                                             </span>
                                             <span v-else>-</span>
@@ -706,7 +715,12 @@ const formatRangeType = (rangeType: string) => {
                                             <span v-if="action.target_number" class="inline-flex items-center gap-0.5">
                                                 {{ action.target_number }}
                                                 <template v-if="action.target_suits">
-                                                    <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                                                    <GameIcon
+                                                        v-for="suit in action.target_suits.split(' ')"
+                                                        :key="suit"
+                                                        :type="suit"
+                                                        class-name="h-3.5 inline-block"
+                                                    />
                                                 </template>
                                             </span>
                                             <span v-else>-</span>
@@ -737,7 +751,7 @@ const formatRangeType = (rangeType: string) => {
                     </div>
                     <div v-else>
                         <template v-if="props.actions?.data?.length">
-                            <div class="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
+                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                                 <ActionCard
                                     v-for="(action, index) in props.actions.data"
                                     :key="action.id"

@@ -46,7 +46,7 @@ const icon = computed(() => icons[props.type]);
     <span
         v-if="icon"
         :class="[className, icon.color]"
-        class="game-icon font-normal font-['M4E-Symbols'] leading-none"
+        class="game-icon font-['M4E-Symbols'] font-normal leading-none"
         role="img"
         :aria-label="icon.alt"
         >{{ icon.glyph }}</span

@@ -7,8 +7,8 @@ import GameIconNode from '@/extensions/GameIconNode';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
-import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
 import { onBeforeUnmount, ref, watch } from 'vue';
 

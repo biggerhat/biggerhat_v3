@@ -27,7 +27,7 @@ const props = defineProps({
 </script>
 
 <template>
-    <div class="w-full rounded-lg text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20">
+    <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
         <div v-if="upgrade.back_image" @click="flip" class="card-flip-container mx-1 cursor-pointer" style="perspective: 1000px">
             <div
                 class="card-flip-inner relative w-full"

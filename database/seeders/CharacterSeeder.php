@@ -10,6 +10,7 @@ use App\Models\Characteristic;
 use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Miniature;
+use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
@@ -38,7 +39,17 @@ class CharacterSeeder extends Seeder
             ->create();
 
         $actions = Action::factory()->count(30)->create();
+        $triggers = Trigger::factory()->count(25)->create();
         $abilities = Ability::factory()->count(20)->create();
+
+        // Attach 0-3 triggers to each action
+        foreach ($actions as $action) {
+            if (random_int(0, 1)) {
+                $action->triggers()->attach(
+                    $triggers->random(random_int(1, 3))->pluck('id')->toArray()
+                );
+            }
+        }
 
         $characters = Character::factory()->count(40)->create();
 

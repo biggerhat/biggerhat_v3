@@ -379,32 +379,34 @@ const formatDefensiveType = (type: string) => {
                                 <Card
                                     v-for="(ability, index) in props.abilities.data"
                                     :key="ability.id"
-                                    class="animate-fade-in-up opacity-0"
+                                    class="animate-fade-in-up flex flex-col opacity-0"
                                     :style="delays[index]"
                                 >
                                     <CardHeader class="pb-2">
-                                        <div class="flex items-start justify-between gap-2">
-                                            <CardTitle class="inline-flex items-center gap-1 text-base">
-                                                <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
-                                                {{ ability.name }}
-                                            </CardTitle>
-                                            <Badge
-                                                v-if="ability.defensive_ability_type"
-                                                variant="outline"
-                                                class="inline-flex shrink-0 items-center gap-1 text-xs"
+                                        <CardTitle class="inline-flex flex-wrap items-center gap-1 text-base">
+                                            <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
+                                            {{ ability.name }}
+                                            <span
+                                                v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type"
+                                                class="inline-flex items-center gap-1 text-sm text-muted-foreground"
                                             >
-                                                <GameIcon :type="ability.defensive_ability_type" class-name="h-3.5 inline-block" />
-                                                {{ formatDefensiveType(ability.defensive_ability_type) }}
-                                            </Badge>
-                                        </div>
+                                                (<GameIcon
+                                                    v-if="ability.suits && ability.suits !== 'soulstone'"
+                                                    :type="ability.suits"
+                                                    class-name="h-4 inline-block"
+                                                /><template v-if="ability.defensive_ability_type"
+                                                    ><template v-if="ability.suits && ability.suits !== 'soulstone'">, </template>
+                                                    <GameIcon
+                                                        :type="ability.defensive_ability_type"
+                                                        class-name="h-3.5 inline-block"
+                                                    /></template
+                                                >)
+                                            </span>
+                                        </CardTitle>
                                     </CardHeader>
-                                    <CardContent>
+                                    <CardContent class="flex flex-1 flex-col">
                                         <div class="space-y-1.5 text-sm">
-                                            <div v-if="ability.suits" class="flex items-center justify-between">
-                                                <span class="text-muted-foreground">Suit</span>
-                                                <GameIcon :type="ability.suits" class-name="h-4 inline-block" />
-                                            </div>
-                                            <div v-if="ability.description" class="pt-1">
+                                            <div v-if="ability.description">
                                                 <p class="text-xs text-muted-foreground">
                                                     <GameText
                                                         :text="ability.description"
@@ -413,20 +415,20 @@ const formatDefensiveType = (type: string) => {
                                                     />
                                                 </p>
                                             </div>
-                                            <div class="flex items-center gap-1.5 pt-2 text-xs">
-                                                <Users class="h-3 w-3 text-muted-foreground" />
-                                                <Link
-                                                    v-if="ability.characters_count > 0"
-                                                    :href="route('search.view', { ability: ability.name })"
-                                                    class="text-primary hover:underline"
-                                                >
-                                                    {{ ability.characters_count }}
-                                                    {{ ability.characters_count === 1 ? 'character' : 'characters' }}
-                                                </Link>
-                                                <span v-else class="text-muted-foreground">0 characters</span>
-                                            </div>
                                         </div>
                                     </CardContent>
+                                    <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+                                        <Users class="h-3 w-3 text-muted-foreground" />
+                                        <Link
+                                            v-if="ability.characters_count > 0"
+                                            :href="route('search.view', { ability: ability.name })"
+                                            class="text-primary hover:underline"
+                                        >
+                                            {{ ability.characters_count }}
+                                            {{ ability.characters_count === 1 ? 'character' : 'characters' }}
+                                        </Link>
+                                        <span v-else class="text-muted-foreground">0 characters</span>
+                                    </div>
                                 </Card>
                             </div>
                         </template>

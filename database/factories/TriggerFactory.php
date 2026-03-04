@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\SuitEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +18,10 @@ class TriggerFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => $this->faker->unique()->words(random_int(1, 3), true),
+            'suits' => $this->faker->optional(0.8)->randomElement(SuitEnum::cases()),
+            'costs_stone' => $this->faker->boolean(15),
+            'description' => $this->faker->optional(0.8)->sentence(random_int(5, 15)),
         ];
     }
 }

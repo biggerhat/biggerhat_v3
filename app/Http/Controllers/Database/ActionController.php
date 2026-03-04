@@ -15,7 +15,7 @@ class ActionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Action::query();
+        $query = Action::withCount('characters');
 
         // Name select (exact match)
         if ($request->filled('name')) {

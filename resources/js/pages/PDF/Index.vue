@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import Soulstone from '@/components/Soulstone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Combobox,
@@ -526,7 +526,9 @@ onMounted(() => {
                                 >
                             </div>
                             <div class="hidden md:flex">
-                                <Label for="stone_count" class="my-auto mr-2">Total <Soulstone className="h-6 my-auto inline-block mx-1" /></Label>
+                                <Label for="stone_count" class="my-auto mr-2"
+                                    >Total <GameIcon type="soulstone" className="h-6 my-auto inline-block mx-1"
+                                /></Label>
                                 <NumberField id="stone_count" v-model="totalStones" :min="0" class="inline-block">
                                     <NumberFieldContent>
                                         <NumberFieldDecrement />
@@ -536,11 +538,11 @@ onMounted(() => {
                                 </NumberField>
                             </div>
                             <div class="my-auto inline-block hidden md:flex">
-                                Spent: {{ stones }} <Soulstone className="h-6 my-auto mx-1 inline-block" />
+                                Spent: {{ stones }} <GameIcon type="soulstone" className="h-6 my-auto mx-1 inline-block" />
                             </div>
                             <div class="my-auto inline-block hidden md:flex">
                                 Cache: {{ totalStones - stones > 6 ? 6 : Math.max(0, totalStones - stones) }}
-                                <Soulstone className="h-6 my-auto inline-block mx-1" />
+                                <GameIcon type="soulstone" className="h-6 my-auto inline-block mx-1" />
                             </div>
                             <div class="my-auto inline-block">
                                 <DropdownMenu>
@@ -560,7 +562,7 @@ onMounted(() => {
                         <div class="grid grid-cols-3 md:hidden">
                             <div>
                                 <Label for="stone_count" class="my-auto mr-2 block text-center"
-                                    >Total <Soulstone className="h-6 my-auto inline-block"
+                                    >Total <GameIcon type="soulstone" className="h-6 my-auto inline-block"
                                 /></Label>
                                 <NumberField id="stone_count" v-model="totalStones" :min="0" class="inline-block">
                                     <NumberFieldContent>
@@ -571,11 +573,11 @@ onMounted(() => {
                                 </NumberField>
                             </div>
                             <div class="my-auto inline-block text-center">
-                                Spent: <br />{{ stones }} <Soulstone className="h-6 my-auto inline-block" />
+                                Spent: <br />{{ stones }} <GameIcon type="soulstone" className="h-6 my-auto inline-block" />
                             </div>
                             <div class="my-auto inline-block text-center">
                                 Cache: <br />{{ totalStones - stones > 6 ? 6 : Math.max(0, totalStones - stones) }}
-                                <Soulstone className="h-6 my-auto inline-block" />
+                                <GameIcon type="soulstone" className="h-6 my-auto inline-block" />
                             </div>
                         </div>
                         <div class="max-h-screen overflow-y-auto">

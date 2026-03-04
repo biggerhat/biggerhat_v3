@@ -12,7 +12,7 @@ class AbilityController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ability::query();
+        $query = Ability::withCount('characters');
 
         // Name select (exact match)
         if ($request->filled('name')) {

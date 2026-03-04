@@ -35,6 +35,7 @@ const props = defineProps({
 
 <template>
     <div class="w-full rounded-lg text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-black/20">
+        <p class="mb-1 text-xs text-muted-foreground">{{ miniature.display_name }}</p>
         <div @click="flip" class="card-flip-container mx-1 cursor-pointer" style="perspective: 1000px">
             <div
                 class="card-flip-inner relative w-full"

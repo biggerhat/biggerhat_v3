@@ -7,10 +7,12 @@ import NavSuperAdmin from '@/components/ui/NavSuperAdmin.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, CircleDollarSign, Dice6, FileText, KeyRound, Puzzle, Radius, Shield, Swords, TextSearch } from 'lucide-vue-next';
+import { BookOpen, CircleDollarSign, Dice6, FileText, KeyRound, Newspaper, Puzzle, Radius, Shield, ShieldCheck, Swords, TextSearch, Users } from 'lucide-vue-next';
+import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
 const page = usePage<SharedData>();
+const permissions = computed(() => page.props.auth.permissions ?? []);
 
 const mainNavItems: NavItem[] = [
     {
@@ -24,6 +26,11 @@ const mainNavItems: NavItem[] = [
                 title: 'Random Character',
                 href: route('characters.random'),
                 icon: Dice6,
+            },
+            {
+                title: 'Blog',
+                href: route('blog.index'),
+                icon: Newspaper,
             },
         ],
     },
@@ -141,80 +148,125 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-const superAdminNavItems: NavItem[] = [
+const allAdminNavItems: NavItem[] = [
     {
-        title: 'Admin',
-        collapsible: true,
-        collapsed: true,
-        items: [
-            {
-                title: 'Characters',
-                href: route('admin.characters.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Miniatures',
-                href: route('admin.miniatures.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Actions',
-                href: route('admin.actions.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Triggers',
-                href: route('admin.triggers.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Abilities',
-                href: route('admin.abilities.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Keywords',
-                href: route('admin.keywords.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Characteristics',
-                href: route('admin.characteristics.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Character Upgrades',
-                href: route('admin.upgrades.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Crew Upgrades',
-                href: route('admin.crews.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Tokens',
-                href: route('admin.tokens.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Markers',
-                href: route('admin.markers.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Schemes',
-                href: route('admin.schemes.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Strategies',
-                href: route('admin.strategies.index'),
-                icon: BookOpen,
-            },
-        ],
+        title: 'Characters',
+        href: route('admin.characters.index'),
+        icon: BookOpen,
+        permission: 'view_character',
+    },
+    {
+        title: 'Miniatures',
+        href: route('admin.miniatures.index'),
+        icon: BookOpen,
+        permission: 'view_miniature',
+    },
+    {
+        title: 'Actions',
+        href: route('admin.actions.index'),
+        icon: BookOpen,
+        permission: 'view_action',
+    },
+    {
+        title: 'Triggers',
+        href: route('admin.triggers.index'),
+        icon: BookOpen,
+        permission: 'view_trigger',
+    },
+    {
+        title: 'Abilities',
+        href: route('admin.abilities.index'),
+        icon: BookOpen,
+        permission: 'view_ability',
+    },
+    {
+        title: 'Keywords',
+        href: route('admin.keywords.index'),
+        icon: BookOpen,
+        permission: 'view_keyword',
+    },
+    {
+        title: 'Characteristics',
+        href: route('admin.characteristics.index'),
+        icon: BookOpen,
+        permission: 'view_characteristic',
+    },
+    {
+        title: 'Character Upgrades',
+        href: route('admin.upgrades.index'),
+        icon: BookOpen,
+        permission: 'view_upgrade',
+    },
+    {
+        title: 'Crew Upgrades',
+        href: route('admin.crews.index'),
+        icon: BookOpen,
+        permission: 'view_crew',
+    },
+    {
+        title: 'Tokens',
+        href: route('admin.tokens.index'),
+        icon: BookOpen,
+        permission: 'view_token',
+    },
+    {
+        title: 'Markers',
+        href: route('admin.markers.index'),
+        icon: BookOpen,
+        permission: 'view_marker',
+    },
+    {
+        title: 'Schemes',
+        href: route('admin.schemes.index'),
+        icon: BookOpen,
+        permission: 'view_scheme',
+    },
+    {
+        title: 'Strategies',
+        href: route('admin.strategies.index'),
+        icon: BookOpen,
+        permission: 'view_strategy',
+    },
+    {
+        title: 'Blog Posts',
+        href: route('admin.blog.posts.index'),
+        icon: Newspaper,
+        permission: 'create_posts|edit_posts',
+    },
+    {
+        title: 'Blog Categories',
+        href: route('admin.blog.categories.index'),
+        icon: Newspaper,
+        permission: 'create_posts|edit_posts',
+    },
+    {
+        title: 'Users',
+        href: route('admin.users.index'),
+        icon: Users,
+        permission: 'view_user',
+    },
+    {
+        title: 'Roles',
+        href: route('admin.roles.index'),
+        icon: ShieldCheck,
+        permission: 'view_role',
     },
 ];
+
+const hasPermission = (permission: string) => permission.split('|').some((p) => permissions.value.includes(p));
+
+const filteredAdminNavItems = computed(() => {
+    const visibleItems = allAdminNavItems.filter((item) => item.permission && hasPermission(item.permission));
+    if (visibleItems.length === 0) return [];
+    return [
+        {
+            title: 'Admin',
+            collapsible: true,
+            collapsed: true,
+            items: visibleItems,
+        },
+    ];
+});
 
 const footerNavItems: NavItem[] = [
     {
@@ -241,7 +293,7 @@ const footerNavItems: NavItem[] = [
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
-            <NavSuperAdmin v-if="page.props.auth.is_super_admin" :items="superAdminNavItems" />
+            <NavSuperAdmin v-if="filteredAdminNavItems.length > 0" :items="filteredAdminNavItems" />
         </SidebarContent>
 
         <SidebarFooter>

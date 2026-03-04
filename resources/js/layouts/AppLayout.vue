@@ -16,7 +16,9 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
-        <slot />
+        <div class="flex-1">
+            <slot />
+        </div>
         <footer class="p-toolbar p-component mt-6 !block !rounded-none !border-b-0 !border-l-0 !border-r-0 border-t border-dashed py-3">
             <!--        <div class="container grid grid-cols-1 gap-3 mx-auto mt-3 lg:grid-cols-10 auto-cols-auto">-->
             <!--            <div class="w-full mx-auto">-->

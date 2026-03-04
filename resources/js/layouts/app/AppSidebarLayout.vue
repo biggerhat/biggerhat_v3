@@ -33,7 +33,7 @@ const pageKey = computed(() => page.url);
                 class="w-3/4"
             />
             <Transition name="page-fade" mode="out-in">
-                <div :key="pageKey">
+                <div :key="pageKey" class="flex flex-1 flex-col">
                     <slot />
                 </div>
             </Transition>

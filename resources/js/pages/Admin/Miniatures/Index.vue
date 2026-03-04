@@ -103,7 +103,7 @@ const table = useVueTable({
 <template>
     <Head title="Miniatures - Admin" />
 
-    <div class="container mx-auto mt-6">
+    <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

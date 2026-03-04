@@ -53,7 +53,7 @@ onMounted(() => {
 });
 
 const submit = () => {
-    form.post(route('admin.users.update', { user: props.user.id }));
+    form.post(route('admin.users.update', { user: props.user.slug }));
 };
 </script>
 
@@ -84,8 +84,8 @@ const submit = () => {
                                 <Checkbox
                                     :id="'role-' + role.id"
                                     class="my-auto inline-block"
-                                    :default-value="props.checked_roles.includes(role.name)"
-                                    @update:modelValue="toggleRole(role.name)"
+                                    :checked="form.roles.includes(role.name)"
+                                    @update:checked="toggleRole(role.name)"
                                 />
                                 <label
                                     class="my-auto text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"

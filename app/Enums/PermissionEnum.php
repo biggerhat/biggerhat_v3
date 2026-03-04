@@ -37,6 +37,8 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     case PublishPosts = 'publish_posts';
     #[PermissionGroup(PermissionGroupEnum::Blog)]
     case DeletePosts = 'delete_posts';
+    #[PermissionGroup(PermissionGroupEnum::Blog)]
+    case ManageAllPosts = 'manage_all_posts';
 
     #[PermissionGroup(PermissionGroupEnum::Keyword)]
     case ViewKeyword = 'view_keyword';

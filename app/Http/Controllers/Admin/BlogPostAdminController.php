@@ -21,10 +21,15 @@ class BlogPostAdminController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
+        $query = BlogPost::with(['author', 'category'])
+            ->orderBy('created_at', 'DESC');
+
+        if (! $request->user()->can(PermissionEnum::ManageAllPosts->value)) {
+            $query->where('user_id', $request->user()->id);
+        }
+
         return inertia('Admin/Blog/Posts/Index', [
-            'posts' => BlogPost::with(['author', 'category'])
-                ->orderBy('created_at', 'DESC')
-                ->get(),
+            'posts' => $query->get(),
         ]);
     }
 
@@ -35,6 +40,8 @@ class BlogPostAdminController extends Controller
 
     public function edit(Request $request, BlogPost $blogPost)
     {
+        $this->authorizePostAccess($blogPost, $request);
+
         return inertia('Admin/Blog/Posts/BlogPostForm', array_merge(
             ['post' => $blogPost->loadMissing(['author', 'category', 'characters', 'keywords', 'upgrades', 'actions', 'abilities'])->append('faction_tags')],
             $this->getFormData(),
@@ -50,6 +57,8 @@ class BlogPostAdminController extends Controller
 
     public function update(Request $request, BlogPost $blogPost)
     {
+        $this->authorizePostAccess($blogPost, $request);
+
         $post = $this->validateAndSave($request, $blogPost);
 
         return redirect()->route('admin.blog.posts.index')->withMessage("{$post->title} has been updated.");
@@ -57,10 +66,20 @@ class BlogPostAdminController extends Controller
 
     public function delete(Request $request, BlogPost $blogPost)
     {
+        $this->authorizePostAccess($blogPost, $request);
+
         $title = $blogPost->title;
         $blogPost->delete();
 
         return redirect()->route('admin.blog.posts.index')->withMessage("{$title} has been deleted.");
+    }
+
+    private function authorizePostAccess(BlogPost $blogPost, Request $request): void
+    {
+        if (! $request->user()->can(PermissionEnum::ManageAllPosts->value)
+            && $blogPost->user_id !== $request->user()->id) {
+            abort(403, 'You can only manage your own posts.');
+        }
     }
 
     private function getFormData(): array

@@ -27,4 +27,5 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Marker = 'marker';
     case Scheme = 'scheme';
     case Strategy = 'strategy';
+    case Package = 'package';
 }

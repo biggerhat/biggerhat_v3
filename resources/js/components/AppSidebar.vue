@@ -15,6 +15,7 @@ import {
     FileText,
     KeyRound,
     Newspaper,
+    Package,
     Puzzle,
     Radius,
     Shield,
@@ -152,6 +153,11 @@ const mainNavItems: NavItem[] = [
                 href: route('upgrades.character.index'),
                 icon: ArrowUpCircle,
             },
+            {
+                title: 'Packages',
+                href: route('packages.index'),
+                icon: Package,
+            },
         ],
     },
     {
@@ -263,6 +269,12 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.blog.categories.index'),
         icon: Newspaper,
         permission: 'create_posts|edit_posts',
+    },
+    {
+        title: 'Packages',
+        href: route('admin.packages.index'),
+        icon: Package,
+        permission: 'view_package',
     },
     {
         title: 'Users',

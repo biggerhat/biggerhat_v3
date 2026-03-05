@@ -8,6 +8,7 @@ use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
 use App\Observers\CharacterObserver;
+use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -27,6 +28,7 @@ class Character extends Model
     /** @use HasFactory<\Database\Factories\CharacterFactory> */
     use HasFactory;
 
+    use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesUpgrades;
 

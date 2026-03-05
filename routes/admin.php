@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CrewAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
+use App\Http\Controllers\Admin\PackageAdminController;
 use App\Http\Controllers\Admin\RoleAdminController;
 use App\Http\Controllers\Admin\SchemeAdminController;
 use App\Http\Controllers\Admin\StrategyAdminController;
@@ -151,6 +152,15 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::get('/edit/{user}', 'edit')->name('edit')->middleware('permission:view_user');
         Route::post('/update/{user}', 'update')->name('update')->middleware('permission:edit_user');
         Route::post('/delete/{user}', 'delete')->name('delete')->middleware('permission:delete_user');
+    });
+
+    Route::controller(PackageAdminController::class)->prefix('packages')->name('packages.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_package');
+        Route::get('/edit/{package}', 'edit')->name('edit')->middleware('permission:view_package');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_package');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_package');
+        Route::post('/update/{package}', 'update')->name('update')->middleware('permission:edit_package');
+        Route::post('/delete/{package}', 'delete')->name('delete')->middleware('permission:delete_package');
     });
 
     // Blog admin routes — permission-based so content_creator role can also access

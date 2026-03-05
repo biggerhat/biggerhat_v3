@@ -9,6 +9,7 @@ use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
 use App\Http\Controllers\Database\MarkerController;
+use App\Http\Controllers\Database\PackageController;
 use App\Http\Controllers\Database\SearchController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\UpgradeController;
@@ -83,6 +84,11 @@ Route::prefix('upgrades')->name('upgrades.')->group(function () {
     Route::get('/crew', [UpgradeController::class, 'crewIndex'])->name('crew.index');
     Route::get('/character', [UpgradeController::class, 'characterIndex'])->name('character.index');
     Route::get('/{upgrade}', [UpgradeController::class, 'view'])->name('view');
+});
+
+Route::prefix('packages')->name('packages.')->group(function () {
+    Route::get('/', [PackageController::class, 'index'])->name('index');
+    Route::get('/{package}', [PackageController::class, 'view'])->name('view');
 });
 
 Route::prefix('blog')->name('blog.')->group(function () {

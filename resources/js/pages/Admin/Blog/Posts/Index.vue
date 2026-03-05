@@ -80,6 +80,7 @@ const columns: ColumnDef<BlogPost>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: post.title,
+                    previewRoute: route('admin.blog.posts.preview', post.slug),
                     editRoute: route('admin.blog.posts.edit', post.slug),
                     deleteRoute: route('admin.blog.posts.delete', post.slug),
                 }),

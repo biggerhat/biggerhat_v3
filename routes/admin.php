@@ -166,6 +166,7 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
 
         Route::controller(BlogPostAdminController::class)->prefix('posts')->name('posts.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/preview/{blogPost}', 'preview')->name('preview');
             Route::get('/edit/{blogPost}', 'edit')->name('edit');
             Route::get('/create', 'create')->name('create')->middleware('permission:create_posts');
             Route::post('/store', 'store')->name('store')->middleware('permission:create_posts');

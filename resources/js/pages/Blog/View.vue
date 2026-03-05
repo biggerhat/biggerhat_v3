@@ -15,7 +15,7 @@ interface BlogPost {
     excerpt: string | null;
     featured_image: string | null;
     status: string;
-    published_at: string;
+    published_at: string | null;
     author: { name: string };
     category: { name: string; slug: string } | null;
     characters: Array<{ display_name: string; slug: string; faction: string }>;
@@ -25,9 +25,11 @@ interface BlogPost {
 
 const props = defineProps<{
     post: BlogPost;
+    isPreview?: boolean;
 }>();
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Unpublished';
     return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
@@ -37,7 +39,20 @@ const hasRelatedContent = () => {
 </script>
 
 <template>
-    <Head :title="post.title" />
+    <Head :title="isPreview ? `Preview: ${post.title}` : post.title" />
+
+    <!-- Preview banner -->
+    <div v-if="isPreview" class="border-b border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                <Badge variant="outline" class="border-yellow-400 text-yellow-800 dark:border-yellow-600 dark:text-yellow-200">Preview</Badge>
+                This is a preview — the post is not yet visible to the public.
+            </div>
+            <Link :href="route('admin.blog.posts.edit', post.slug)" class="text-sm font-medium text-yellow-800 underline hover:no-underline dark:text-yellow-200">
+                Back to Editor
+            </Link>
+        </div>
+    </div>
 
     <!-- Hero image header -->
     <div v-if="post.featured_image" class="relative h-[300px] w-full overflow-hidden sm:h-[400px] lg:h-[480px]">
@@ -91,11 +106,11 @@ const hasRelatedContent = () => {
         <div class="mx-auto max-w-3xl">
             <!-- Back link -->
             <Link
-                :href="route('blog.index')"
+                :href="isPreview ? route('admin.blog.posts.edit', post.slug) : route('blog.index')"
                 class="group mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
                 <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                Back to Articles
+                {{ isPreview ? 'Back to Editor' : 'Back to Articles' }}
             </Link>
 
             <!-- Content -->

@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { router } from '@inertiajs/vue3';
-import { Pencil, Trash2 } from 'lucide-vue-next';
+import { Eye, Pencil, Trash2 } from 'lucide-vue-next';
 
 import {
     Dialog,
@@ -23,6 +23,13 @@ const props = defineProps({
             return '';
         },
     },
+    previewRoute: {
+        type: String,
+        required: false,
+        default() {
+            return null;
+        },
+    },
     editRoute: {
         type: String,
         required: false,
@@ -41,6 +48,19 @@ const props = defineProps({
 </script>
 
 <template>
+    <TooltipProvider>
+        <Tooltip>
+            <TooltipTrigger>
+                <Button class="mx-2" variant="outline" v-if="props.previewRoute" @click="router.get(props.previewRoute)">
+                    <Eye class="h-4 w-4" />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+                <p>Preview {{ props.name }}</p>
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
+
     <TooltipProvider>
         <Tooltip>
             <TooltipTrigger>

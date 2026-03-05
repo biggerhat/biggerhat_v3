@@ -18,10 +18,7 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/upgrades', [UpgradeAPIController::class, 'view']);
     Route::get('/schemes', [SchemeAPIController::class, 'view']);
     Route::get('/strategies', [StrategyAPIController::class, 'view']);
-
-    Route::prefix('v1')->name('v1.')->group(function () {
-        Route::get('/keywords', [KeywordAPIController::class, 'view'])->name('view');
-    });
+    Route::get('/keywords', [KeywordAPIController::class, 'view'])->name('keywords.view');
 
     Route::get('/blog/entity-search', [BlogEntitySearchController::class, 'search'])->name('blog.entity-search');
     Route::get('/blog/entity/{type}/{slug}', [BlogEntitySearchController::class, 'show'])->name('blog.entity-show');

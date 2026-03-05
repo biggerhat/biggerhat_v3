@@ -3,9 +3,12 @@
 namespace App\Providers;
 
 use App\Enums\MessageTypeEnum;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
 
@@ -45,5 +48,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::shouldBeStrict();
+
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
     }
 }

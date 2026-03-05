@@ -28,6 +28,7 @@ const props = defineProps({
 
 <template>
     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
+        <p class="mb-1 text-xs text-muted-foreground">{{ upgrade.name }}</p>
         <div v-if="upgrade.back_image" @click="flip" class="card-flip-container mx-1 cursor-pointer" style="perspective: 1000px">
             <div
                 class="card-flip-inner relative w-full"
@@ -46,7 +47,7 @@ const props = defineProps({
             <img :src="'/storage/' + upgrade.front_image" :alt="upgrade.name" class="h-full w-full rounded-lg" />
         </div>
         <div class="mt-1" v-if="props.showLink === true">
-            <Button @click="router.get(route('upgrades.view', { upgrade: props.upgrade.slug }))" size="sm" variant="link"> View Upgrade </Button>
+            <Button @click="router.get(route('upgrades.view', { upgrade: props.upgrade.slug }))" size="sm" variant="link"> View Upgrade Page </Button>
         </div>
     </div>
 </template>

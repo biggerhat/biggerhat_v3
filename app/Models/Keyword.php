@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CharacterStationEnum;
 use App\Traits\UsesCharacters;
+use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ class Keyword extends Model
     use HasFactory;
 
     use UsesCharacters;
+    use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesSlugName;
 

@@ -10,6 +10,7 @@ use App\Models\Characteristic;
 use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Miniature;
+use App\Models\Package;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Database\Seeder;
@@ -102,6 +103,22 @@ class CharacterSeeder extends Seeder
             // Attach 1-3 abilities
             $character->abilities()->attach(
                 $abilities->random(random_int(1, 3))->pluck('id')->toArray()
+            );
+        }
+
+        // Create packages and attach characters, miniatures, and keywords
+        $allMiniatures = Miniature::all();
+        $packages = Package::factory()->count(10)->create();
+
+        foreach ($packages as $package) {
+            $packageCharacters = $characters->random(random_int(1, 5));
+            $package->characters()->attach($packageCharacters->pluck('id')->toArray());
+
+            $packageMiniatures = $allMiniatures->random(min(random_int(1, 4), $allMiniatures->count()));
+            $package->miniatures()->attach($packageMiniatures->pluck('id')->toArray());
+
+            $package->keywords()->attach(
+                $keywords->random(random_int(1, 3))->pluck('id')->toArray()
             );
         }
     }

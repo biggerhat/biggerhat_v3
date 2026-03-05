@@ -131,6 +131,13 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Strategy)]
     case DeleteStrategy = 'delete_strategy';
 
+    #[PermissionGroup(PermissionGroupEnum::Package)]
+    case ViewPackage = 'view_package';
+    #[PermissionGroup(PermissionGroupEnum::Package)]
+    case EditPackage = 'edit_package';
+    #[PermissionGroup(PermissionGroupEnum::Package)]
+    case DeletePackage = 'delete_package';
+
     /**
      * @return list<array{name: string, value: string}>
      */

@@ -1,25 +1,16 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link } from '@inertiajs/vue3';
-import { LayoutGrid, List, RotateCcw } from 'lucide-vue-next';
+import { LayoutGrid, List } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-
-const flippedCards = ref(new Set<number>());
-const toggleFlip = (id: number) => {
-    if (flippedCards.value.has(id)) {
-        flippedCards.value.delete(id);
-    } else {
-        flippedCards.value.add(id);
-    }
-};
 
 interface UpgradeMaster {
     display_name: string;
@@ -129,72 +120,10 @@ const { delays } = useStaggeredEntry(filteredCount);
                 </div>
 
                 <TabsContent value="cards">
-                    <div v-if="filteredUpgrades.length" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        <Link
-                            v-for="(upgrade, index) in filteredUpgrades"
-                            :key="upgrade.id"
-                            :href="route('upgrades.view', { upgrade: upgrade.slug })"
-                            class="animate-fade-in-up group opacity-0"
-                            :style="delays[index]"
-                        >
-                            <Card class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                                <div class="relative aspect-[3/4] overflow-hidden rounded-t-lg">
-                                    <template v-if="upgrade.front_image && upgrade.back_image">
-                                        <div class="h-full w-full cursor-pointer" style="perspective: 1000px" @click.prevent="toggleFlip(upgrade.id)">
-                                            <div
-                                                class="relative h-full w-full transition-transform duration-500"
-                                                :class="{ '[transform:rotateY(180deg)]': flippedCards.has(upgrade.id) }"
-                                                style="transform-style: preserve-3d"
-                                            >
-                                                <div class="absolute inset-0" style="backface-visibility: hidden">
-                                                    <img
-                                                        :src="`/storage/${upgrade.front_image}`"
-                                                        :alt="upgrade.name"
-                                                        class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                    />
-                                                </div>
-                                                <div class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
-                                                    <img
-                                                        :src="`/storage/${upgrade.back_image}`"
-                                                        :alt="upgrade.name + ' (back)'"
-                                                        class="h-full w-full object-cover"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div
-                                            class="pointer-events-none absolute right-2 top-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                                        >
-                                            <RotateCcw class="size-3.5" />
-                                        </div>
-                                    </template>
-                                    <template v-else-if="upgrade.front_image">
-                                        <img
-                                            :src="`/storage/${upgrade.front_image}`"
-                                            :alt="upgrade.name"
-                                            class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        />
-                                    </template>
-                                    <div v-else class="flex h-full items-center justify-center bg-muted">
-                                        <span class="text-2xl text-muted-foreground/30">{{ upgrade.name.charAt(0) }}</span>
-                                    </div>
-                                </div>
-                                <CardHeader class="pb-2">
-                                    <CardTitle class="line-clamp-1 text-base">{{ upgrade.name }}</CardTitle>
-                                </CardHeader>
-                                <CardContent class="space-y-2">
-                                    <div v-if="upgrade.faction_label" class="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                        <img v-if="upgrade.faction_logo" :src="upgrade.faction_logo" class="h-4 w-4" :alt="upgrade.faction_label" />
-                                        {{ upgrade.faction_label }}
-                                    </div>
-                                    <div v-if="upgrade.masters.length" class="flex flex-wrap gap-1">
-                                        <Badge v-for="master in upgrade.masters" :key="master.slug" variant="outline" class="text-xs">
-                                            {{ master.display_name }}
-                                        </Badge>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+                    <div v-if="filteredUpgrades.length" class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                        <div v-for="(upgrade, index) in filteredUpgrades" :key="upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[index]">
+                            <UpgradeCardView :upgrade="upgrade" />
+                        </div>
                     </div>
                     <EmptyState v-else title="No crew upgrades found" description="Try adjusting your search or filter." />
                 </TabsContent>

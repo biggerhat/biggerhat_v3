@@ -17,7 +17,8 @@ class TokenFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => $this->faker->unique()->word(),
+            'description' => $this->faker->optional(0.7)->sentence(),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PoolSeasonEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +18,11 @@ class SchemeFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => $this->faker->unique()->words(2, true),
+            'season' => $this->faker->randomElement(PoolSeasonEnum::cases()),
+            'reveal' => $this->faker->paragraph(),
+            'scoring' => $this->faker->paragraph(),
+            'additional' => $this->faker->paragraph(),
         ];
     }
 }

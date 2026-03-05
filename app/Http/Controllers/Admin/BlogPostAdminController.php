@@ -46,6 +46,18 @@ class BlogPostAdminController extends Controller
         ));
     }
 
+    public function preview(Request $request, BlogPost $blogPost)
+    {
+        $this->authorizePostAccess($blogPost, $request);
+
+        $blogPost->loadMissing(['author', 'category', 'characters', 'keywords', 'upgrades']);
+
+        return inertia('Blog/View', [
+            'post' => $blogPost,
+            'isPreview' => true,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $post = $this->validateAndSave($request);

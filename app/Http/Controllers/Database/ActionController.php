@@ -17,7 +17,7 @@ class ActionController extends Controller
     {
         $query = Action::with('triggers')
             ->withCount('characters')
-            ->with(['characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')->limit(2)])
+            ->with(['characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')->with('standardMiniatures:id,slug,character_id')->limit(2)])
             ->with(['upgrades' => fn ($q) => $q->select('upgrades.id', 'upgrades.name', 'upgrades.slug')->limit(3)]);
 
         // Name select (exact match)

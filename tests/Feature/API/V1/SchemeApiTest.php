@@ -15,13 +15,13 @@ it('lists schemes with pagination', function () {
 });
 
 it('filters schemes by season', function () {
-    Scheme::factory()->create(['season' => PoolSeasonEnum::Core]);
-    Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds1]);
+    Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
+    Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
 
     $response = $this->getJson('/api/v1/schemes?season=core');
 
     $response->assertOk();
-    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data'))->toHaveCount(2);
     expect($response->json('data.0.season'))->toBe('core');
 });
 

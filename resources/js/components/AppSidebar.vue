@@ -10,6 +10,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowUpCircle,
     BookOpen,
+    Calendar,
     CircleDollarSign,
     Dice6,
     FileText,
@@ -47,6 +48,11 @@ const mainNavItems: NavItem[] = [
                 title: 'Articles',
                 href: route('blog.index'),
                 icon: Newspaper,
+            },
+            {
+                title: 'Seasons',
+                href: route('seasons.index'),
+                icon: Calendar,
             },
         ],
     },
@@ -174,6 +180,11 @@ const mainNavItems: NavItem[] = [
                 title: 'PDF Generator',
                 href: route('tools.pdf.index'),
                 icon: FileText,
+            },
+            {
+                title: 'Scenario Generator',
+                href: route('tools.scenario_generator'),
+                icon: Dice6,
             },
         ],
     },

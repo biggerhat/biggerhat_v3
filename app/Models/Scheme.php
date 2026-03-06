@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Enums\PoolSeasonEnum;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @mixin IdeHelperScheme
@@ -26,5 +28,30 @@ class Scheme extends Model
         return [
             'season' => PoolSeasonEnum::class,
         ];
+    }
+
+    public function scopeForSeason(Builder $query, PoolSeasonEnum $season): Builder
+    {
+        return $query->where('season', $season);
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image ? "/storage/{$this->image}" : null;
+    }
+
+    public function nextSchemeOne(): BelongsTo
+    {
+        return $this->belongsTo(Scheme::class, 'next_scheme_one_id');
+    }
+
+    public function nextSchemeTwo(): BelongsTo
+    {
+        return $this->belongsTo(Scheme::class, 'next_scheme_two_id');
+    }
+
+    public function nextSchemeThree(): BelongsTo
+    {
+        return $this->belongsTo(Scheme::class, 'next_scheme_three_id');
     }
 }

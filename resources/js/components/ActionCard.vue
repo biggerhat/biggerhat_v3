@@ -3,7 +3,8 @@ import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Users } from 'lucide-vue-next';
+import { ScrollText, Users } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Trigger {
     id?: number;
@@ -17,6 +18,7 @@ interface ActionCharacter {
     display_name: string;
     slug: string;
     faction: string | null;
+    standard_miniatures?: { id: number; slug: string }[];
 }
 
 interface ActionUpgrade {
@@ -45,9 +47,11 @@ interface ActionData {
     upgrades?: ActionUpgrade[];
 }
 
-defineProps<{
+const props = defineProps<{
     action: ActionData;
 }>();
+
+const showUpgradeIcon = computed(() => (props.action.characters_count ?? 0) === 0 && (props.action.upgrades?.length ?? 0) > 0);
 
 const formatActionType = (type?: string) => {
     if (!type) return '';
@@ -119,7 +123,8 @@ const formatActionType = (type?: string) => {
             </div>
         </div>
         <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-            <Users class="h-3 w-3 shrink-0 text-muted-foreground" />
+            <ScrollText v-if="showUpgradeIcon" class="h-3 w-3 shrink-0 text-muted-foreground" />
+            <Users v-else class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">
                 <template v-if="action.characters_count === 1 && action.characters?.length === 1">
                     <span class="text-muted-foreground">{{ action.characters[0].display_name }}</span>

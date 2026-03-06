@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import { LayoutGrid, List, ScrollText, Search, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import AbilityCard from '@/components/AbilityCard.vue';
@@ -355,31 +355,36 @@ const formatDefensiveType = (type: string) => {
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <Link
-                                                v-if="ability.characters_count === 1 && ability.characters?.length === 1"
-                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: 1, slug: 'view' })"
-                                                class="text-primary hover:underline"
-                                            >
-                                                {{ ability.characters[0].display_name }}
-                                            </Link>
-                                            <Link
-                                                v-else-if="ability.characters_count > 1"
-                                                :href="route('search.view', { ability: ability.name })"
-                                                class="text-primary hover:underline"
-                                            >
-                                                {{ ability.characters_count }}
-                                            </Link>
-                                            <template v-else-if="ability.upgrades?.length">
+                                            <span class="inline-flex flex-wrap items-center gap-1">
                                                 <Link
-                                                    v-for="upgrade in ability.upgrades"
-                                                    :key="upgrade.slug"
-                                                    :href="route('upgrades.view', upgrade.slug)"
-                                                    class="text-primary hover:underline"
+                                                    v-if="ability.characters_count === 1 && ability.characters?.length === 1"
+                                                    :href="route('characters.view', { character: ability.characters[0].slug, miniature: ability.characters[0].standard_miniatures?.[0]?.id, slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view' })"
+                                                    class="inline-flex items-center gap-1 text-primary hover:underline"
                                                 >
-                                                    {{ upgrade.name }}
+                                                    <Users class="h-3 w-3 shrink-0" />
+                                                    {{ ability.characters[0].display_name }}
                                                 </Link>
-                                            </template>
-                                            <span v-else class="text-muted-foreground">0</span>
+                                                <Link
+                                                    v-else-if="ability.characters_count > 1"
+                                                    :href="route('search.view', { ability: ability.name })"
+                                                    class="inline-flex items-center gap-1 text-primary hover:underline"
+                                                >
+                                                    <Users class="h-3 w-3 shrink-0" />
+                                                    {{ ability.characters_count }}
+                                                </Link>
+                                                <template v-else-if="ability.upgrades?.length">
+                                                    <ScrollText class="h-3 w-3 shrink-0 text-muted-foreground" />
+                                                    <Link
+                                                        v-for="upgrade in ability.upgrades"
+                                                        :key="upgrade.slug"
+                                                        :href="route('upgrades.view', upgrade.slug)"
+                                                        class="text-primary hover:underline"
+                                                    >
+                                                        {{ upgrade.name }}
+                                                    </Link>
+                                                </template>
+                                                <span v-else class="text-muted-foreground">0</span>
+                                            </span>
                                         </TableCell>
                                     </TableRow>
                                 </template>
@@ -407,7 +412,7 @@ const formatDefensiveType = (type: string) => {
                                     <template #footer>
                                         <template v-if="ability.characters_count === 1 && ability.characters?.length === 1">
                                             <Link
-                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: 1, slug: 'view' })"
+                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: ability.characters[0].standard_miniatures?.[0]?.id, slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view' })"
                                                 class="text-primary hover:underline"
                                             >
                                                 {{ ability.characters[0].display_name }}

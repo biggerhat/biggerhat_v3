@@ -3,12 +3,14 @@ import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users } from 'lucide-vue-next';
+import { ScrollText, Users } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface AbilityCharacter {
     display_name: string;
     slug: string;
     faction: string | null;
+    standard_miniatures?: { id: number; slug: string }[];
 }
 
 interface AbilityUpgrade {
@@ -27,9 +29,11 @@ interface AbilityData {
     upgrades?: AbilityUpgrade[];
 }
 
-defineProps<{
+const props = defineProps<{
     ability: AbilityData;
 }>();
+
+const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) === 0 && (props.ability.upgrades?.length ?? 0) > 0);
 </script>
 
 <template>
@@ -58,7 +62,8 @@ defineProps<{
             </div>
         </CardContent>
         <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-            <Users class="h-3 w-3 shrink-0 text-muted-foreground" />
+            <ScrollText v-if="showUpgradeIcon" class="h-3 w-3 shrink-0 text-muted-foreground" />
+            <Users v-else class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">
                 <template v-if="ability.characters_count === 1 && ability.characters?.length === 1">
                     <span class="text-muted-foreground">{{ ability.characters[0].display_name }}</span>

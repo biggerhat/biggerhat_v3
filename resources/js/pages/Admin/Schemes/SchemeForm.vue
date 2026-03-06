@@ -92,6 +92,10 @@ onMounted(() => {
                             </Select>
                         </div>
                         <div class="flex flex-col space-y-1.5">
+                            <Label for="selector">Selector</Label>
+                            <Input id="selector" v-model="formInfo.selector" placeholder="Scheme Selector (e.g. Masks, Tomes)" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
                             <Label for="prerequisite">Prerequisite Info</Label>
                             <Textarea id="prerequisite" v-model="formInfo.prerequisite" placeholder="Type the prerequisite info here." />
                         </div>

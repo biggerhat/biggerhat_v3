@@ -68,6 +68,7 @@ class StrategyAdminController extends Controller
             'setup' => ['nullable', 'string'],
             'rules' => ['nullable', 'string'],
             'scoring' => ['nullable', 'string'],
+            'additional_scoring' => ['nullable', 'string'],
             'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
         ]);
 

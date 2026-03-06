@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             CharacterSeeder::class,
             BlogSeeder::class,
+            SeasonSeeder::class,
         ]);
     }
 }

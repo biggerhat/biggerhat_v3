@@ -10,11 +10,15 @@ use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
 use App\Http\Controllers\Database\MarkerController;
 use App\Http\Controllers\Database\PackageController;
+use App\Http\Controllers\Database\SchemeController;
 use App\Http\Controllers\Database\SearchController;
+use App\Http\Controllers\Database\SeasonController;
+use App\Http\Controllers\Database\StrategyController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
+use App\Http\Controllers\ScenarioGeneratorController;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -96,12 +100,26 @@ Route::prefix('blog')->name('blog.')->group(function () {
     Route::get('/{blogPost}', [BlogController::class, 'view'])->name('view');
 });
 
+Route::prefix('seasons')->name('seasons.')->group(function () {
+    Route::get('/', [SeasonController::class, 'index'])->name('index');
+    Route::get('/{season}', [SeasonController::class, 'view'])->name('view');
+});
+
+Route::prefix('schemes')->name('schemes.')->group(function () {
+    Route::get('/{scheme}', [SchemeController::class, 'view'])->name('view');
+});
+
+Route::prefix('strategies')->name('strategies.')->group(function () {
+    Route::get('/{strategy}', [StrategyController::class, 'view'])->name('view');
+});
+
 Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/hat_gamin', HatGaminController::class)->name('hat_gamin');
     Route::prefix('pdf')->name('pdf.')->group(function () {
         Route::get('/', [PDFController::class, 'index'])->name('index');
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
+    Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
 });
 
 require __DIR__.'/api.php';

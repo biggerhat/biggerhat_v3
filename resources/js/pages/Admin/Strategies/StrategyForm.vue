@@ -39,6 +39,7 @@ const formInfo = ref({
     setup: null,
     rules: null,
     scoring: null,
+    additional_scoring: null,
     image: null,
 });
 
@@ -53,6 +54,7 @@ onMounted(() => {
     formInfo.value.setup = props.strategy?.setup ?? null;
     formInfo.value.rules = props.strategy?.rules ?? null;
     formInfo.value.scoring = props.strategy?.scoring ?? null;
+    formInfo.value.additional_scoring = props.strategy?.additional_scoring ?? null;
 });
 </script>
 
@@ -107,6 +109,10 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="scoring">Scoring</Label>
                             <Textarea id="scoring" v-model="formInfo.scoring" placeholder="Type the scoring info here." />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="additional_scoring">Additional Scoring</Label>
+                            <Textarea id="additional_scoring" v-model="formInfo.additional_scoring" placeholder="Type the additional scoring info here." />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">

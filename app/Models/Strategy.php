@@ -6,6 +6,7 @@ use App\Enums\PoolSeasonEnum;
 use App\Enums\SuitEnum;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,5 +29,15 @@ class Strategy extends Model
             'season' => PoolSeasonEnum::class,
             'suit' => SuitEnum::class,
         ];
+    }
+
+    public function scopeForSeason(Builder $query, PoolSeasonEnum $season): Builder
+    {
+        return $query->where('season', $season);
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image ? "/storage/{$this->image}" : null;
     }
 }

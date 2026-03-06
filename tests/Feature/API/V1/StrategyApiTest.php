@@ -15,13 +15,13 @@ it('lists strategies with pagination', function () {
 });
 
 it('filters strategies by season', function () {
-    Strategy::factory()->create(['season' => PoolSeasonEnum::Core]);
-    Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds1]);
+    Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
+    Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
 
     $response = $this->getJson('/api/v1/strategies?season=core');
 
     $response->assertOk();
-    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data'))->toHaveCount(2);
     expect($response->json('data.0.season'))->toBe('core');
 });
 

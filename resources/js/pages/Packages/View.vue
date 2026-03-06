@@ -66,41 +66,28 @@ const formattedMsrp = computed(() => {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto px-4 pb-16 pt-6">
+        <div class="container mx-auto px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
             <Link
                 :href="route('packages.index')"
-                class="group mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >
                 <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                 Back to Packages
             </Link>
 
             <div class="animate-fade-in-up">
-                <div class="grid gap-8 lg:grid-cols-3">
-                    <!-- Package image -->
-                    <div class="lg:col-span-2">
-                        <div v-if="package.combination_image && !isMobileDevice()" class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="`/storage/${package.combination_image}`" :alt="package.name" class="w-full rounded-xl" />
-                        </div>
-                        <div v-else-if="package.front_image" class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="`/storage/${package.front_image}`" :alt="package.name" class="w-full rounded-xl" />
-                        </div>
-                        <div v-else class="flex h-64 items-center justify-center rounded-xl border bg-muted">
-                            <span class="text-muted-foreground">No image available</span>
-                        </div>
-                    </div>
-
-                    <!-- Info panel -->
-                    <div class="space-y-4">
+                <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
+                    <!-- Info panel — shown first on mobile -->
+                    <div class="order-1 space-y-3 lg:order-2 lg:space-y-4">
                         <Card>
                             <CardHeader class="pb-3">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2.5">
                                     <FactionLogo
                                         v-if="package.factions.length"
                                         :faction="package.factions[0].value"
-                                        class-name="h-8 w-8"
+                                        class-name="h-8 w-8 shrink-0"
                                     />
-                                    <CardTitle class="text-2xl">{{ package.name }}</CardTitle>
+                                    <CardTitle class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
                                 </div>
                             </CardHeader>
                             <CardContent class="space-y-4">
@@ -112,7 +99,7 @@ const formattedMsrp = computed(() => {
 
                                 <!-- Factions -->
                                 <div v-if="package.factions.length">
-                                    <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Factions</div>
+                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Factions</div>
                                     <div class="flex flex-wrap gap-2">
                                         <Badge v-for="faction in package.factions" :key="faction.value" variant="outline" class="gap-1.5">
                                             <FactionLogo :faction="faction.value" class-name="h-4 w-4" />
@@ -137,7 +124,7 @@ const formattedMsrp = computed(() => {
 
                                 <!-- Keywords -->
                                 <div v-if="package.keywords.length">
-                                    <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link v-for="keyword in package.keywords" :key="keyword.slug" :href="route('keywords.view', keyword.slug)">
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -149,13 +136,26 @@ const formattedMsrp = computed(() => {
                             </CardContent>
                         </Card>
                     </div>
+
+                    <!-- Package image — shown second on mobile -->
+                    <div class="order-2 lg:order-1 lg:col-span-2">
+                        <div v-if="package.combination_image && !isMobileDevice()" class="overflow-hidden rounded-xl shadow-lg">
+                            <img :src="`/storage/${package.combination_image}`" :alt="package.name" class="w-full" />
+                        </div>
+                        <div v-else-if="package.front_image" class="overflow-hidden rounded-xl shadow-lg">
+                            <img :src="`/storage/${package.front_image}`" :alt="package.name" class="w-full" />
+                        </div>
+                        <div v-else class="flex h-64 items-center justify-center rounded-xl border bg-muted">
+                            <span class="text-muted-foreground">No image available</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Related content -->
-                <div v-if="hasRelatedContent" class="mt-12">
-                    <Separator label="Related Content" class="mb-8" />
+                <div v-if="hasRelatedContent" class="mt-8 lg:mt-12">
+                    <Separator label="Related Content" class="mb-6" />
 
-                    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                         <!-- Characters -->
                         <div v-if="package.characters.length">
                             <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characters</h4>

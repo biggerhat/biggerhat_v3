@@ -12,7 +12,9 @@ class AbilityController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ability::withCount('characters');
+        $query = Ability::withCount('characters')
+            ->with(['characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')->limit(2)])
+            ->with(['upgrades' => fn ($q) => $q->select('upgrades.id', 'upgrades.name', 'upgrades.slug')->limit(3)]);
 
         // Name select (exact match)
         if ($request->filled('name')) {

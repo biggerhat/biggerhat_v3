@@ -32,11 +32,13 @@ class Package extends Model
         ];
     }
 
+    /** @return MorphToMany<Character, $this> */
     public function characters(): MorphToMany
     {
         return $this->morphedByMany(Character::class, 'packageable');
     }
 
+    /** @return MorphToMany<Keyword, $this> */
     public function keywords(): MorphToMany
     {
         return $this->morphedByMany(Keyword::class, 'packageable');

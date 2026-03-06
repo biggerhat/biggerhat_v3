@@ -728,12 +728,29 @@ const formatRangeType = (rangeType: string) => {
                                         <TableCell>{{ action.damage ?? '-' }}</TableCell>
                                         <TableCell>
                                             <Link
-                                                v-if="action.characters_count > 0"
+                                                v-if="action.characters_count === 1 && action.characters?.length === 1"
+                                                :href="route('characters.view', { character: action.characters[0].slug, miniature: 1, slug: 'view' })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ action.characters[0].display_name }}
+                                            </Link>
+                                            <Link
+                                                v-else-if="action.characters_count > 1"
                                                 :href="route('search.view', { action: action.name })"
                                                 class="text-primary hover:underline"
                                             >
                                                 {{ action.characters_count }}
                                             </Link>
+                                            <template v-else-if="action.upgrades?.length">
+                                                <Link
+                                                    v-for="upgrade in action.upgrades"
+                                                    :key="upgrade.slug"
+                                                    :href="route('upgrades.view', upgrade.slug)"
+                                                    class="text-primary hover:underline"
+                                                >
+                                                    {{ upgrade.name }}
+                                                </Link>
+                                            </template>
                                             <span v-else class="text-muted-foreground">0</span>
                                         </TableCell>
                                     </TableRow>
@@ -760,13 +777,31 @@ const formatRangeType = (rangeType: string) => {
                                     :style="delays[index]"
                                 >
                                     <template #footer>
+                                        <template v-if="action.characters_count === 1 && action.characters?.length === 1">
+                                            <Link
+                                                :href="route('characters.view', { character: action.characters[0].slug, miniature: 1, slug: 'view' })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ action.characters[0].display_name }}
+                                            </Link>
+                                        </template>
                                         <Link
-                                            v-if="action.characters_count > 0"
+                                            v-else-if="action.characters_count > 1"
                                             :href="route('search.view', { action: action.name })"
                                             class="text-primary hover:underline"
                                         >
-                                            {{ action.characters_count }} {{ action.characters_count === 1 ? 'character' : 'characters' }}
+                                            {{ action.characters_count }} characters
                                         </Link>
+                                        <template v-else-if="action.upgrades?.length">
+                                            <Link
+                                                v-for="upgrade in action.upgrades"
+                                                :key="upgrade.slug"
+                                                :href="route('upgrades.view', upgrade.slug)"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ upgrade.name }}
+                                            </Link>
+                                        </template>
                                         <span v-else class="text-muted-foreground">0 characters</span>
                                     </template>
                                 </ActionCard>

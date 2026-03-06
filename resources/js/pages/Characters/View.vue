@@ -5,18 +5,17 @@ import { Head } from '@inertiajs/vue3';
 
 const props = defineProps({
     character: {
-        type: [Object, Array],
-        required: false,
-        default() {
-            return null;
-        },
+        type: Object,
+        required: true,
     },
     miniature: {
-        type: [Object, Array],
+        type: Object,
+        required: true,
+    },
+    related_characters: {
+        type: Array,
         required: false,
-        default() {
-            return null;
-        },
+        default: () => [],
     },
 });
 
@@ -32,7 +31,7 @@ const factionColor = props.character?.faction ? useFactionColor(props.character.
             :style="{ background: `radial-gradient(ellipse at top, hsl(var(--${factionColor})) 0%, transparent 70%)` }"
         />
         <div class="animate-fade-in-up">
-            <CharacterView :character="props.character" :miniature="props.miniature" />
+            <CharacterView :character="props.character" :miniature="props.miniature" :related-characters="props.related_characters" />
         </div>
     </div>
 </template>

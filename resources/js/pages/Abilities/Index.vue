@@ -356,12 +356,29 @@ const formatDefensiveType = (type: string) => {
                                         </TableCell>
                                         <TableCell>
                                             <Link
-                                                v-if="ability.characters_count > 0"
+                                                v-if="ability.characters_count === 1 && ability.characters?.length === 1"
+                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: 1, slug: 'view' })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ ability.characters[0].display_name }}
+                                            </Link>
+                                            <Link
+                                                v-else-if="ability.characters_count > 1"
                                                 :href="route('search.view', { ability: ability.name })"
                                                 class="text-primary hover:underline"
                                             >
                                                 {{ ability.characters_count }}
                                             </Link>
+                                            <template v-else-if="ability.upgrades?.length">
+                                                <Link
+                                                    v-for="upgrade in ability.upgrades"
+                                                    :key="upgrade.slug"
+                                                    :href="route('upgrades.view', upgrade.slug)"
+                                                    class="text-primary hover:underline"
+                                                >
+                                                    {{ upgrade.name }}
+                                                </Link>
+                                            </template>
                                             <span v-else class="text-muted-foreground">0</span>
                                         </TableCell>
                                     </TableRow>
@@ -388,14 +405,31 @@ const formatDefensiveType = (type: string) => {
                                     :style="delays[index]"
                                 >
                                     <template #footer>
+                                        <template v-if="ability.characters_count === 1 && ability.characters?.length === 1">
+                                            <Link
+                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: 1, slug: 'view' })"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ ability.characters[0].display_name }}
+                                            </Link>
+                                        </template>
                                         <Link
-                                            v-if="ability.characters_count > 0"
+                                            v-else-if="ability.characters_count > 1"
                                             :href="route('search.view', { ability: ability.name })"
                                             class="text-primary hover:underline"
                                         >
-                                            {{ ability.characters_count }}
-                                            {{ ability.characters_count === 1 ? 'character' : 'characters' }}
+                                            {{ ability.characters_count }} characters
                                         </Link>
+                                        <template v-else-if="ability.upgrades?.length">
+                                            <Link
+                                                v-for="upgrade in ability.upgrades"
+                                                :key="upgrade.slug"
+                                                :href="route('upgrades.view', upgrade.slug)"
+                                                class="text-primary hover:underline"
+                                            >
+                                                {{ upgrade.name }}
+                                            </Link>
+                                        </template>
                                         <span v-else class="text-muted-foreground">0 characters</span>
                                     </template>
                                 </AbilityCard>

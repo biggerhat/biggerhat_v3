@@ -34,29 +34,22 @@ defineProps<{
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto px-4 pb-16 pt-6">
+        <div class="container mx-auto px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
             <Link
                 :href="route('seasons.view', strategy.season)"
-                class="group mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >
                 <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                 Back to {{ strategy.season_label }}
             </Link>
 
             <div class="animate-fade-in-up">
-                <div class="grid gap-8 lg:grid-cols-3">
-                    <!-- Image -->
-                    <div v-if="strategy.image_url" class="lg:col-span-2">
-                        <div class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="strategy.image_url" :alt="strategy.name" class="w-full rounded-xl" />
-                        </div>
-                    </div>
-
-                    <!-- Info panel -->
-                    <div :class="strategy.image_url ? '' : 'lg:col-span-3 max-w-2xl'">
+                <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
+                    <!-- Info panel — shown first on mobile -->
+                    <div :class="strategy.image_url ? 'order-1 lg:order-2' : 'order-1 lg:col-span-3 max-w-2xl'">
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-2xl">{{ strategy.name }}</CardTitle>
+                                <CardTitle class="text-xl leading-tight lg:text-2xl">{{ strategy.name }}</CardTitle>
                                 <div class="flex flex-wrap gap-2">
                                     <Badge variant="secondary">{{ strategy.season_label }}</Badge>
                                     <Badge v-if="strategy.suit" variant="outline" class="gap-1">
@@ -87,6 +80,13 @@ defineProps<{
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+
+                    <!-- Image — shown second on mobile -->
+                    <div v-if="strategy.image_url" class="order-2 lg:order-1 lg:col-span-2">
+                        <div class="overflow-hidden rounded-xl shadow-lg">
+                            <img :src="strategy.image_url" :alt="strategy.name" class="w-full" />
+                        </div>
                     </div>
                 </div>
             </div>

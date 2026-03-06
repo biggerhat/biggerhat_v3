@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Users } from 'lucide-vue-next';
 
@@ -10,6 +11,17 @@ interface Trigger {
     suits?: string;
     costs_stone?: boolean;
     description?: string;
+}
+
+interface ActionCharacter {
+    display_name: string;
+    slug: string;
+    faction: string | null;
+}
+
+interface ActionUpgrade {
+    name: string;
+    slug: string;
 }
 
 interface ActionData {
@@ -29,6 +41,8 @@ interface ActionData {
     description?: string | null;
     triggers?: Trigger[];
     characters_count?: number;
+    characters?: ActionCharacter[];
+    upgrades?: ActionUpgrade[];
 }
 
 defineProps<{
@@ -104,12 +118,20 @@ const formatActionType = (type?: string) => {
                 <GameText v-if="trigger.description" :text="trigger.description" :max-length="120" icon-class="h-4 inline-block align-text-bottom" />
             </div>
         </div>
-        <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-            <Users class="h-3 w-3 text-muted-foreground" />
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+            <Users class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">
-                <span v-if="(action.characters_count ?? 0) > 0" class="text-muted-foreground">
-                    {{ action.characters_count }} {{ action.characters_count === 1 ? 'character' : 'characters' }}
-                </span>
+                <template v-if="action.characters_count === 1 && action.characters?.length === 1">
+                    <span class="text-muted-foreground">{{ action.characters[0].display_name }}</span>
+                </template>
+                <template v-else-if="(action.characters_count ?? 0) > 1">
+                    <span class="text-muted-foreground">{{ action.characters_count }} characters</span>
+                </template>
+                <template v-else-if="action.upgrades?.length">
+                    <Badge v-for="upgrade in action.upgrades" :key="upgrade.slug" variant="secondary" class="text-[10px]">
+                        {{ upgrade.name }}
+                    </Badge>
+                </template>
                 <span v-else class="text-muted-foreground">0 characters</span>
             </slot>
         </div>

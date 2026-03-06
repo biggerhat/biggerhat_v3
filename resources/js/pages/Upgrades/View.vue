@@ -75,35 +75,25 @@ const hasRelatedContent = computed(
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto px-4 pb-16 pt-6">
+        <div class="container mx-auto px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
             <!-- Back link -->
             <Link
                 :href="backRoute"
-                class="group mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >
                 <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                 {{ backLabel }}
             </Link>
 
             <div class="animate-fade-in-up">
-                <div class="grid gap-8 lg:grid-cols-3">
-                    <!-- Card image -->
-                    <div class="lg:col-span-2">
-                        <div v-if="upgrade.combination_image && !isMobileDevice()" class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="`/storage/${upgrade.combination_image}`" :alt="upgrade.name" class="w-full rounded-xl" />
-                        </div>
-                        <div v-else class="mx-auto max-w-sm">
-                            <UpgradeCardView :upgrade="upgrade" :show-link="false" />
-                        </div>
-                    </div>
-
-                    <!-- Info panel -->
-                    <div class="space-y-4">
+                <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
+                    <!-- Info panel — shown first on mobile -->
+                    <div class="order-1 space-y-3 lg:order-2 lg:space-y-4">
                         <Card>
                             <CardHeader class="pb-3">
-                                <div class="flex items-center gap-2">
-                                    <img v-if="upgrade.faction_logo" :src="upgrade.faction_logo" :alt="upgrade.faction_label ?? ''" class="h-8 w-8" />
-                                    <CardTitle class="text-2xl">{{ upgrade.name }}</CardTitle>
+                                <div class="flex items-center gap-2.5">
+                                    <img v-if="upgrade.faction_logo" :src="upgrade.faction_logo" :alt="upgrade.faction_label ?? ''" class="h-8 w-8 shrink-0" />
+                                    <CardTitle class="text-xl leading-tight lg:text-2xl">{{ upgrade.name }}</CardTitle>
                                 </div>
                             </CardHeader>
                             <CardContent class="space-y-4">
@@ -121,7 +111,7 @@ const hasRelatedContent = computed(
 
                                 <!-- Masters -->
                                 <div v-if="upgrade.masters.length">
-                                    <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Masters</div>
+                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Masters</div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link
                                             v-for="master in upgrade.masters"
@@ -137,7 +127,7 @@ const hasRelatedContent = computed(
 
                                 <!-- Keywords -->
                                 <div v-if="upgrade.keywords.length">
-                                    <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link v-for="keyword in upgrade.keywords" :key="keyword.slug" :href="route('keywords.view', keyword.slug)">
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -149,13 +139,36 @@ const hasRelatedContent = computed(
                             </CardContent>
                         </Card>
                     </div>
+
+                    <!-- Card image — shown second on mobile -->
+                    <div class="order-2 lg:order-1 lg:col-span-2">
+                        <!-- Mobile: flip card -->
+                        <div v-if="isMobileDevice()" class="mx-auto max-w-xs">
+                            <UpgradeCardView :upgrade="upgrade" :show-link="false" />
+                        </div>
+                        <!-- Desktop: combination image or single card -->
+                        <div v-else-if="upgrade.combination_image" class="overflow-hidden rounded-xl shadow-lg">
+                            <img :src="`/storage/${upgrade.combination_image}`" :alt="upgrade.name" class="w-full" />
+                        </div>
+                        <div v-else-if="upgrade.front_image && upgrade.back_image" class="grid grid-cols-2 gap-4">
+                            <div class="overflow-hidden rounded-xl shadow-lg">
+                                <img :src="`/storage/${upgrade.front_image}`" :alt="`${upgrade.name} Front`" class="w-full" />
+                            </div>
+                            <div class="overflow-hidden rounded-xl shadow-lg">
+                                <img :src="`/storage/${upgrade.back_image}`" :alt="`${upgrade.name} Back`" class="w-full" />
+                            </div>
+                        </div>
+                        <div v-else class="mx-auto max-w-sm">
+                            <UpgradeCardView :upgrade="upgrade" :show-link="false" />
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Related content -->
-                <div v-if="hasRelatedContent" class="mt-12">
-                    <Separator label="Related Content" class="mb-8" />
+                <div v-if="hasRelatedContent" class="mt-8 lg:mt-12">
+                    <Separator label="Related Content" class="mb-6" />
 
-                    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                         <!-- Characters -->
                         <div v-if="upgrade.characters.length">
                             <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characters</h4>

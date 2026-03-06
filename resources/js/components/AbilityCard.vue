@@ -1,8 +1,20 @@
 <script setup lang="ts">
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-vue-next';
+
+interface AbilityCharacter {
+    display_name: string;
+    slug: string;
+    faction: string | null;
+}
+
+interface AbilityUpgrade {
+    name: string;
+    slug: string;
+}
 
 interface AbilityData {
     name: string;
@@ -11,6 +23,8 @@ interface AbilityData {
     costs_stone?: boolean;
     description?: string | null;
     characters_count?: number;
+    characters?: AbilityCharacter[];
+    upgrades?: AbilityUpgrade[];
 }
 
 defineProps<{
@@ -43,12 +57,20 @@ defineProps<{
                 </p>
             </div>
         </CardContent>
-        <div class="mt-auto flex items-center gap-1.5 border-t px-3 py-1.5 text-xs">
-            <Users class="h-3 w-3 text-muted-foreground" />
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+            <Users class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">
-                <span v-if="(ability.characters_count ?? 0) > 0" class="text-muted-foreground">
-                    {{ ability.characters_count }} {{ ability.characters_count === 1 ? 'character' : 'characters' }}
-                </span>
+                <template v-if="ability.characters_count === 1 && ability.characters?.length === 1">
+                    <span class="text-muted-foreground">{{ ability.characters[0].display_name }}</span>
+                </template>
+                <template v-else-if="(ability.characters_count ?? 0) > 1">
+                    <span class="text-muted-foreground">{{ ability.characters_count }} characters</span>
+                </template>
+                <template v-else-if="ability.upgrades?.length">
+                    <Badge v-for="upgrade in ability.upgrades" :key="upgrade.slug" variant="secondary" class="text-[10px]">
+                        {{ upgrade.name }}
+                    </Badge>
+                </template>
                 <span v-else class="text-muted-foreground">0 characters</span>
             </slot>
         </div>

@@ -42,7 +42,7 @@ class CharacterObserver
                 ->whereNull('title')
                 ->whereNull('name')
                 ->get()
-                ->each(function (Miniature $miniature) use ($character) {
+                ->each(function (Miniature $miniature) use ($character) { // @phpstan-ignore argument.type
                     $miniature->updateQuietly([
                         'display_name' => $character->display_name,
                         'slug' => $character->slug,

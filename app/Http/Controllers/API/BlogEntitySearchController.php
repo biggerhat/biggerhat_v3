@@ -9,6 +9,11 @@ use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
 use App\Models\Keyword;
+use App\Models\Marker;
+use App\Models\Package;
+use App\Models\Scheme;
+use App\Models\Strategy;
+use App\Models\Token;
 use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -97,6 +102,66 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
+        $schemes = Scheme::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($schemes as $scheme) {
+            $results[] = [
+                'entityType' => 'scheme',
+                'entityId' => $scheme->id,
+                'entitySlug' => $scheme->slug,
+                'displayName' => $scheme->name,
+            ];
+        }
+
+        $strategies = Strategy::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($strategies as $strategy) {
+            $results[] = [
+                'entityType' => 'strategy',
+                'entityId' => $strategy->id,
+                'entitySlug' => $strategy->slug,
+                'displayName' => $strategy->name,
+            ];
+        }
+
+        $tokens = Token::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($tokens as $token) {
+            $results[] = [
+                'entityType' => 'token',
+                'entityId' => $token->id,
+                'entitySlug' => $token->slug,
+                'displayName' => $token->name,
+            ];
+        }
+
+        $markers = Marker::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($markers as $marker) {
+            $results[] = [
+                'entityType' => 'marker',
+                'entityId' => $marker->id,
+                'entitySlug' => $marker->slug,
+                'displayName' => $marker->name,
+            ];
+        }
+
+        $packages = Package::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($packages as $package) {
+            $results[] = [
+                'entityType' => 'package',
+                'entityId' => $package->id,
+                'entitySlug' => $package->slug,
+                'displayName' => $package->name,
+            ];
+        }
+
         return response()->json(['results' => $results]);
     }
 
@@ -109,6 +174,11 @@ class BlogEntitySearchController extends Controller
             'faction' => $this->showFaction($slug),
             'action' => $this->showAction($slug),
             'ability' => $this->showAbility($slug),
+            'scheme' => $this->showScheme($slug),
+            'strategy' => $this->showStrategy($slug),
+            'token' => $this->showToken($slug),
+            'marker' => $this->showMarker($slug),
+            'package' => $this->showPackage($slug),
             default => response()->json(['error' => 'Unknown entity type'], 404),
         };
     }
@@ -249,6 +319,95 @@ class BlogEntitySearchController extends Controller
             'description' => $ability->description,
             'characters_count' => $ability->characters_count,
             'link' => route('abilities.index', ['name' => $ability->name]),
+        ]);
+    }
+
+    private function showScheme(string $slug): JsonResponse
+    {
+        $scheme = Scheme::where('slug', $slug)->first();
+
+        if (! $scheme) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $scheme->name,
+            'type' => 'scheme',
+            'slug' => $scheme->slug,
+            'season' => $scheme->season->label(),
+            'image' => $scheme->image_url,
+            'link' => route('schemes.view', $scheme->slug),
+        ]);
+    }
+
+    private function showStrategy(string $slug): JsonResponse
+    {
+        $strategy = Strategy::where('slug', $slug)->first();
+
+        if (! $strategy) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $strategy->name,
+            'type' => 'strategy',
+            'slug' => $strategy->slug,
+            'season' => $strategy->season->label(),
+            'suit' => $strategy->suit?->label(),
+            'image' => $strategy->image_url,
+            'link' => route('strategies.view', $strategy->slug),
+        ]);
+    }
+
+    private function showToken(string $slug): JsonResponse
+    {
+        $token = Token::where('slug', $slug)->first();
+
+        if (! $token) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $token->name,
+            'type' => 'token',
+            'slug' => $token->slug,
+            'description' => $token->description,
+            'link' => route('tokens.index', ['name' => $token->name]),
+        ]);
+    }
+
+    private function showMarker(string $slug): JsonResponse
+    {
+        $marker = Marker::where('slug', $slug)->first();
+
+        if (! $marker) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $marker->name,
+            'type' => 'marker',
+            'slug' => $marker->slug,
+            'description' => $marker->description,
+            'base' => $marker->base,
+            'link' => route('markers.index', ['name' => $marker->name]),
+        ]);
+    }
+
+    private function showPackage(string $slug): JsonResponse
+    {
+        $package = Package::where('slug', $slug)->first();
+
+        if (! $package) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $package->name,
+            'type' => 'package',
+            'slug' => $package->slug,
+            'factions' => $package->factions,
+            'link' => route('packages.view', $package->slug),
         ]);
     }
 }

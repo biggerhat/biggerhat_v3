@@ -18,13 +18,18 @@ const searchResults = ref<TaggedEntity[]>([]);
 const isSearching = ref(false);
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const allowedTypes = ['character', 'keyword', 'upgrade', 'faction'];
+const allowedTypes = ['character', 'keyword', 'upgrade', 'faction', 'scheme', 'strategy', 'token', 'marker', 'package'];
 
 const typeMeta: Record<string, { label: string; badge: string; badgeClass: string }> = {
     character: { label: 'Characters', badge: 'CHR', badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
     keyword: { label: 'Keywords', badge: 'KEY', badgeClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
     upgrade: { label: 'Upgrades', badge: 'UPG', badgeClass: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
     faction: { label: 'Factions', badge: 'FAC', badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+    scheme: { label: 'Schemes', badge: 'SCH', badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
+    strategy: { label: 'Strategies', badge: 'STR', badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
+    token: { label: 'Tokens', badge: 'TKN', badgeClass: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200' },
+    marker: { label: 'Markers', badge: 'MKR', badgeClass: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200' },
+    package: { label: 'Packages', badge: 'PKG', badgeClass: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200' },
 };
 
 const entityKey = (e: TaggedEntity) => `${e.entityType}:${e.entitySlug}`;

@@ -82,10 +82,33 @@ class KeywordController extends Controller
 
         $characteristics = $characters->pluck('characteristics')->flatten(2)->unique('id');
 
+        $masters = $characters->where('station', CharacterStationEnum::Master)->values();
+        $nonMasters = $characters->reject(fn ($c) => $c->station === CharacterStationEnum::Master)->values();
+
         $keywordBreakdown = [
             'keyword' => $keyword,
-            'masters' => $characters->where('station', CharacterStationEnum::Master)->values(),
-            'characters' => $characters->where('station', '!==', CharacterStationEnum::Master->value),
+            'masters' => $masters,
+            'characters' => $nonMasters,
+        ];
+
+        $totalUnique = $characters->whereNull('station')->count();
+
+        $statistics = [
+            'total_characters' => $characters->count(),
+            'total_masters' => $masters->count(),
+            'total_henchmen' => $characters->where('station', CharacterStationEnum::Henchman)->count(),
+            'total_unique' => $totalUnique,
+            'total_minions' => $characters->where('station', CharacterStationEnum::Minion)->count(),
+            'total_peons' => $characters->where('station', CharacterStationEnum::Peon)->count(),
+            'avg_cost' => round($nonMasters->avg('cost'), 1),
+            'avg_health' => round($nonMasters->avg('health'), 1),
+            'avg_speed' => round($nonMasters->avg('speed'), 1),
+            'avg_defense' => round($nonMasters->avg('defense'), 1),
+            'avg_willpower' => round($nonMasters->avg('willpower'), 1),
+            'factions' => $characters->pluck('faction')->unique()->values()->map(fn (FactionEnum $f) => [
+                'value' => $f->value,
+                'name' => $f->label(),
+            ]),
         ];
 
         return inertia('Keywords/View', [
@@ -97,7 +120,7 @@ class KeywordController extends Controller
             'keyword_breakdown' => $keywordBreakdown,
             'factions' => $factions,
             'characteristics' => $characteristics,
-            'statistics' => [],
+            'statistics' => $statistics,
             'stations' => CharacterStationEnum::toSelectOptions(),
             'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => SortTypeEnum::toSelectOptions(),

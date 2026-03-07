@@ -9,8 +9,8 @@ import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { ArrowLeft, Check, Copy, Download, ExternalLink, Swords } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
 
@@ -57,6 +57,15 @@ const downloadPdf = () => {
     const options = { separate_images: false };
     window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
 };
+
+const copied = ref(false);
+const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 2000);
+};
+
+const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
 </script>
 
 <template>
@@ -71,8 +80,8 @@ const downloadPdf = () => {
         </Link>
 
         <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
-            <!-- Info panel — shown first on mobile (order-1 mobile, order-2 desktop) -->
-            <div class="order-1 space-y-3 lg:order-2 lg:space-y-4">
+            <!-- Info panel -->
+            <div class="order-2 space-y-3 lg:order-2 lg:space-y-4">
                 <!-- Main info card -->
                 <Card>
                     <CardHeader class="pb-3">
@@ -250,18 +259,34 @@ const downloadPdf = () => {
                     <CardHeader class="pb-3">
                         <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Quick Tools</CardTitle>
                     </CardHeader>
-                    <CardContent class="flex gap-2">
+                    <CardContent class="grid grid-cols-2 gap-2">
                         <button
-                            class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                             @click="downloadPdf"
                         >
                             <Download class="h-4 w-4" />
                             PDF
                         </button>
+                        <button
+                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                            @click="copyLink"
+                        >
+                            <Check v-if="copied" class="h-4 w-4 text-green-500" />
+                            <Copy v-else class="h-4 w-4" />
+                            {{ copied ? 'Copied!' : 'Share' }}
+                        </button>
+                        <Link
+                            v-if="primaryKeyword"
+                            :href="route('keywords.view', primaryKeyword.slug)"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <Swords class="h-4 w-4" />
+                            Keyword
+                        </Link>
                         <a
                             :href="`/api/v1/characters/${character.slug}`"
                             target="_blank"
-                            class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
                         >
                             <ExternalLink class="h-4 w-4" />
                             API
@@ -270,8 +295,8 @@ const downloadPdf = () => {
                 </Card>
             </div>
 
-            <!-- Image section — shown second on mobile (order-2 mobile, order-1 desktop) -->
-            <div class="order-2 lg:order-1 lg:col-span-2">
+            <!-- Image section -->
+            <div class="order-1 lg:order-1 lg:col-span-2">
                 <!-- Mobile: flip card -->
                 <div v-if="isMobileDevice()" class="mx-auto max-w-xs">
                     <CharacterCardView :miniature="miniature" :show-link="false" />

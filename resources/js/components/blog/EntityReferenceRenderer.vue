@@ -31,6 +31,11 @@ const typeColor = computed(() => {
         upgrade: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:hover:bg-orange-800',
         action: 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800',
         ability: 'bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:hover:bg-teal-800',
+        scheme: 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800',
+        strategy: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:hover:bg-indigo-800',
+        token: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-900 dark:text-cyan-200 dark:hover:bg-cyan-800',
+        marker: 'bg-pink-100 text-pink-800 hover:bg-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:hover:bg-pink-800',
+        package: 'bg-lime-100 text-lime-800 hover:bg-lime-200 dark:bg-lime-900 dark:text-lime-200 dark:hover:bg-lime-800',
     };
     return map[entityType.value] ?? 'bg-gray-100 text-gray-800';
 });
@@ -102,6 +107,17 @@ const navigateToEntity = () => {
                                     :front-image="entityData.front_image as string"
                                     :back-image="entityData.back_image as string"
                                     :alt-text="(entityData.name ?? displayName) as string"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Scheme / Strategy with image -->
+                        <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
+                            <div class="w-72">
+                                <img
+                                    :src="entityData.image as string"
+                                    :alt="(entityData.name ?? displayName) as string"
+                                    class="w-full rounded-lg"
                                 />
                             </div>
                         </div>

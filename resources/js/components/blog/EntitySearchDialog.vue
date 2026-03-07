@@ -21,7 +21,7 @@ const props = withDefaults(
     }>(),
     {
         title: 'Link Entity',
-        description: 'Search for a character, keyword, faction, upgrade, action, or ability to insert.',
+        description: 'Search for a character, keyword, faction, upgrade, action, ability, scheme, strategy, token, marker, or package to insert.',
     },
 );
 
@@ -89,6 +89,11 @@ const typeLabels: Record<string, string> = {
     upgrade: 'Upgrades',
     action: 'Actions',
     ability: 'Abilities',
+    scheme: 'Schemes',
+    strategy: 'Strategies',
+    token: 'Tokens',
+    marker: 'Markers',
+    package: 'Packages',
 };
 
 const typeBadgeClass: Record<string, string> = {
@@ -98,6 +103,11 @@ const typeBadgeClass: Record<string, string> = {
     upgrade: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
     action: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     ability: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+    scheme: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    strategy: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    token: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    marker: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+    package: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
 };
 
 const handleSelect = (entity: EntityResult) => {

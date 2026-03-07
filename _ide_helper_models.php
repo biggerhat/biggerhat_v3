@@ -165,10 +165,6 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
- * @property-read int|null $abilities_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
- * @property-read int|null $actions_count
  * @property-read \App\Models\User $author
  * @property-read \App\Models\BlogCategory|null $category
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -286,6 +282,8 @@ namespace App\Models{
  * @property-read int|null $markers_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $miniatures
  * @property-read int|null $miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
+ * @property-read int|null $packages_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $promotionalMiniatures
  * @property-read int|null $promotional_miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $standardMiniatures
@@ -378,6 +376,8 @@ namespace App\Models{
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $masters
  * @property-read int|null $masters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
+ * @property-read int|null $packages_count
  * @method static \Database\Factories\KeywordFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Keyword newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Keyword newQuery()
@@ -487,6 +487,7 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
+ * @property array<array-key, mixed>|null $factions
  * @property string|null $description
  * @property int|null $msrp
  * @property string|null $sku
@@ -496,21 +497,31 @@ namespace App\Models{
  * @property string|null $back_image
  * @property string|null $combination_image
  * @property string $sculpt_version
- * @property int $is_preassembled
- * @property string|null $released_at
+ * @property \App\Enums\PackageCategoryEnum|null $category
+ * @property bool $is_preassembled
+ * @property \Illuminate\Support\Carbon|null $released_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
+ * @property-read int|null $keywords_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $miniatures
  * @property-read int|null $miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PackageStoreLink> $storeLinks
+ * @property-read int|null $store_links_count
  * @method static \Database\Factories\PackageFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereBackImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereCategory($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereCombinationImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDistributorDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereFactions($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereFrontImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereIsPreassembled($value)
@@ -533,6 +544,34 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property int $package_id
+ * @property string $store_name
+ * @property string $url
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Package $package
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink wherePackageId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereStoreName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PackageStoreLink whereUrl($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperPackageStoreLink {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property string $name
  * @property string $slug
  * @property \App\Enums\PoolSeasonEnum $season
@@ -548,7 +587,12 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
+ * @property-read string|null $image_url
+ * @property-read Scheme|null $nextSchemeOne
+ * @property-read Scheme|null $nextSchemeThree
+ * @property-read Scheme|null $nextSchemeTwo
  * @method static \Database\Factories\SchemeFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme forSeason(\App\Enums\PoolSeasonEnum $season)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Scheme query()
@@ -592,7 +636,9 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
+ * @property-read string|null $image_url
  * @method static \Database\Factories\StrategyFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy forSeason(\App\Enums\PoolSeasonEnum $season)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy query()

@@ -29,6 +29,11 @@ const typeColor = computed(() => {
         upgrade: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
         action: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
         ability: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+        scheme: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+        strategy: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+        token: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+        marker: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+        package: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
     };
     return map[entityType.value] ?? 'bg-gray-100 text-gray-800';
 });
@@ -41,6 +46,11 @@ const typeLabel = computed(() => {
         upgrade: 'Upgrade',
         action: 'Action',
         ability: 'Ability',
+        scheme: 'Scheme',
+        strategy: 'Strategy',
+        token: 'Token',
+        marker: 'Marker',
+        package: 'Package',
     };
     return map[entityType.value] ?? entityType.value;
 });
@@ -93,6 +103,20 @@ onMounted(async () => {
                         :front-image="entityData.front_image as string"
                         :back-image="entityData.back_image as string"
                         :alt-text="(entityData.name ?? displayName) as string"
+                    />
+                    <div class="mt-2 text-center">
+                        <Button v-if="entityData.link" size="sm" @click="navigateToEntity">View Details</Button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scheme / Strategy with image -->
+            <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
+                <div class="w-72">
+                    <img
+                        :src="entityData.image as string"
+                        :alt="(entityData.name ?? displayName) as string"
+                        class="w-full rounded-lg"
                     />
                     <div class="mt-2 text-center">
                         <Button v-if="entityData.link" size="sm" @click="navigateToEntity">View Details</Button>

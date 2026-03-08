@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Database;
 
 use App\Enums\FactionEnum;
+use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
@@ -15,14 +16,29 @@ class PackageController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Package::with(['characters', 'miniatures', 'keywords'])
+        $query = Package::withCount(['characters', 'miniatures'])
             ->orderBy('name', 'ASC');
 
-        if ($request->get('faction')) {
+        if ($request->filled('name_search')) {
+            $query->where('name', 'LIKE', '%'.$request->get('name_search').'%');
+        }
+
+        if ($request->filled('faction')) {
             $query->whereJsonContains('factions', $request->get('faction'));
         }
 
-        $packages = $query->get()->map(function (Package $package) {
+        if ($request->filled('category')) {
+            $query->where('category', $request->get('category'));
+        }
+
+        if ($request->filled('sculpt_version')) {
+            $query->where('sculpt_version', $request->get('sculpt_version'));
+        }
+
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
+
+        $packages = $query->paginate($perPage)->withQueryString()->through(function (Package $package) {
             return [
                 'id' => $package->id,
                 'name' => $package->name,
@@ -37,23 +53,28 @@ class PackageController extends Controller
                 'combination_image' => $package->combination_image,
                 'sku' => $package->sku,
                 'msrp' => $package->msrp,
+                'category' => $package->category?->value,
+                'category_label' => $package->category?->label(),
                 'sculpt_version' => $package->sculpt_version,
                 'sculpt_version_label' => SculptVersionEnum::from($package->sculpt_version)->label(),
                 'released_at' => $package->released_at,
-                'characters_count' => $package->characters->count(),
-                'miniatures_count' => $package->miniatures->count(),
+                'characters_count' => $package->characters_count,
+                'miniatures_count' => $package->miniatures_count,
             ];
         });
 
         return inertia('Packages/Index', [
             'packages' => $packages,
-            'factions' => FactionEnum::buildDetails(),
+            'result_count' => $packages->total(),
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
+            'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
         ]);
     }
 
     public function view(Request $request, Package $package)
     {
-        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords']);
+        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks']);
 
         return inertia('Packages/View', [
             'package' => [
@@ -70,7 +91,8 @@ class PackageController extends Controller
                 'sku' => $package->sku,
                 'upc' => $package->upc,
                 'msrp' => $package->msrp,
-                'distributor_description' => $package->distributor_description,
+                'category' => $package->category?->value,
+                'category_label' => $package->category?->label(),
                 'front_image' => $package->front_image,
                 'back_image' => $package->back_image,
                 'combination_image' => $package->combination_image,
@@ -83,6 +105,11 @@ class PackageController extends Controller
                     'slug' => $c->slug,
                     'faction' => $c->faction->value,
                     'faction_color' => $c->faction->color(),
+                    'quantity' => $c->pivot->quantity ?? 1,
+                    'standard_miniature' => $c->standardMiniatures->first() ? [
+                        'id' => $c->standardMiniatures->first()->id,
+                        'slug' => $c->standardMiniatures->first()->slug,
+                    ] : null,
                 ]),
                 'miniatures' => $package->miniatures->map(fn (Miniature $m) => [
                     'display_name' => $m->display_name,
@@ -91,6 +118,10 @@ class PackageController extends Controller
                 'keywords' => $package->keywords->map(fn (Keyword $k) => [
                     'name' => $k->name,
                     'slug' => $k->slug,
+                ]),
+                'store_links' => $package->storeLinks->map(fn ($link) => [
+                    'store_name' => $link->store_name,
+                    'url' => $link->url,
                 ]),
             ],
         ]);

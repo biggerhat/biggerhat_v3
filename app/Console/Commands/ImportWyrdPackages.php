@@ -139,7 +139,9 @@ class ImportWyrdPackages extends Command
         $name = $product['title'] ?? '';
         $slug = $product['handle'] ?? Str::slug($name);
 
-        $existing = Package::where('slug', $slug)->first();
+        $existing = Package::where('slug', $slug)
+            ->when($sku, fn ($q) => $q->orWhere('sku', $sku))
+            ->first();
 
         if ($existing && ! $this->option('force')) {
             $this->line("  <comment>SKIP</comment> {$name} (already exists)");

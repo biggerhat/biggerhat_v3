@@ -37,6 +37,7 @@ class CharacterCrewBuilderResource extends JsonResource
                 'slug' => $k->slug,
             ])),
             'characteristics' => $this->whenLoaded('characteristics', fn () => $this->characteristics->pluck('name')->map(fn ($name) => strtolower($name))),
+            /** @phpstan-ignore-next-line */
             'crew_upgrades' => $this->whenLoaded('crewUpgrades', fn () => $this->crewUpgrades->map(fn ($u) => [
                 'id' => $u->id,
                 'name' => $u->name,

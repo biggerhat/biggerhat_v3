@@ -21,6 +21,7 @@ class CrewBuilderController extends Controller
         return $builds->map(fn (CrewBuild $b) => [
             'id' => $b->id,
             'name' => $b->name,
+            'description' => $b->description,
             'share_code' => $b->share_code,
             'faction' => $b->getRawOriginal('faction'),
             'master_id' => $b->master_id,
@@ -78,6 +79,7 @@ class CrewBuilderController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|array',
             'faction' => 'required|string',
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
@@ -104,6 +106,7 @@ class CrewBuilderController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|array',
             'faction' => 'sometimes|string',
             'master_id' => 'sometimes|exists:characters,id',
             'encounter_size' => 'sometimes|integer|min:1',
@@ -151,6 +154,7 @@ class CrewBuilderController extends Controller
             'build' => [
                 'id' => $build->id,
                 'name' => $build->name,
+                'description' => $build->description,
                 'share_code' => $build->share_code,
                 'faction' => $build->getRawOriginal('faction'),
                 'master_id' => $build->master_id,
@@ -159,6 +163,7 @@ class CrewBuilderController extends Controller
                 'is_public' => $build->is_public,
                 'user_id' => $build->user_id,
                 'user_name' => $build->user()->value('name'),
+                'updated_at' => $build->updated_at->toISOString(),
             ],
         ]);
     }

@@ -14,7 +14,7 @@ it('displays the packages index page', function () {
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Index')
-            ->has('packages', 3)
+            ->has('packages.data', 3)
             ->has('factions')
         );
 });
@@ -25,7 +25,7 @@ it('displays the packages index with no packages', function () {
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Index')
-            ->has('packages', 0)
+            ->has('packages.data', 0)
         );
 });
 
@@ -38,7 +38,7 @@ it('filters packages by faction on index', function () {
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Index')
-            ->has('packages', 1)
+            ->has('packages.data', 1)
         );
 });
 
@@ -53,7 +53,7 @@ it('returns package data with faction details on index', function () {
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Index')
-            ->has('packages.0', fn ($pkg) => $pkg
+            ->has('packages.data.0', fn ($pkg) => $pkg
                 ->where('name', 'Test Box')
                 ->has('factions.0', fn ($faction) => $faction
                     ->where('value', 'guild')

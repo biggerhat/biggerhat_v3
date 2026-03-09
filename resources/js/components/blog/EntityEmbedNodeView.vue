@@ -6,7 +6,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { NodeViewWrapper } from '@tiptap/vue-3';
 import axios from 'axios';
-import { Loader2 } from 'lucide-vue-next';
+import { Loader2, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps<{
@@ -110,6 +110,49 @@ onMounted(async () => {
             >
                 <div class="w-72">
                     <img :src="entityData.image as string" :alt="(entityData.name ?? node.attrs.displayName) as string" class="w-full rounded-lg" />
+                </div>
+            </div>
+
+            <!-- Keyword -->
+            <div v-else-if="node.attrs.entityType === 'keyword' && entityData" class="rounded-lg border p-4">
+                <div class="flex items-center gap-3">
+                    <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline">Keyword</Badge>
+                    <span class="text-lg font-semibold">{{ entityData.name ?? node.attrs.displayName }}</span>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span v-if="entityData.masters_count" class="flex items-center gap-1">
+                        <Users class="size-3.5" />
+                        {{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}
+                    </span>
+                    <span v-if="entityData.characters_count">
+                        {{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}
+                    </span>
+                </div>
+                <div v-if="(entityData.factions as any[])?.length" class="mt-2 flex flex-wrap gap-1.5">
+                    <Badge
+                        v-for="f in (entityData.factions as any[])"
+                        :key="f.slug"
+                        variant="secondary"
+                        class="gap-1.5"
+                    >
+                        <img :src="f.logo" :alt="f.name" class="size-4" />
+                        {{ f.name }}
+                    </Badge>
+                </div>
+            </div>
+
+            <!-- Faction -->
+            <div v-else-if="node.attrs.entityType === 'faction' && entityData" class="rounded-lg border p-4">
+                <div class="flex items-center gap-3">
+                    <img v-if="entityData.logo" :src="entityData.logo as string" :alt="(entityData.name as string)" class="size-10" />
+                    <div>
+                        <div class="text-lg font-semibold">{{ entityData.name ?? node.attrs.displayName }}</div>
+                        <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                            <span v-if="entityData.masters_count">{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span>
+                            <span v-if="entityData.characters_count">{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span>
+                            <span v-if="entityData.keywords_count">{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

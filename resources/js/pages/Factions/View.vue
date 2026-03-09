@@ -285,7 +285,7 @@ onMounted(() => {
         </div>
         <div v-else-if="filterParams.page_view === 'keyword_breakdown'" class="container mx-auto items-center px-4">
             <template v-if="props.keyword_breakdown?.length">
-                <KeywordBreakdown v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" :keyword="keyword" />
+                <KeywordBreakdown v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" :keyword="keyword" :statistics="keyword.statistics" />
             </template>
             <EmptyState v-else />
         </div>

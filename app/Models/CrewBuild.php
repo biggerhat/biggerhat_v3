@@ -18,6 +18,7 @@ class CrewBuild extends Model
     {
         return [
             'faction' => FactionEnum::class,
+            'description' => 'array',
             'crew_data' => 'array',
             'encounter_size' => 'integer',
             'is_archived' => 'boolean',

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BlogContent from '@/components/blog/BlogContent.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import GameIcon from '@/components/GameIcon.vue';
@@ -76,6 +77,7 @@ interface CrewMember {
 interface BuildData {
     id: number;
     name: string;
+    description: Record<string, unknown> | null;
     share_code: string;
     faction: string;
     master_id: number;
@@ -84,6 +86,7 @@ interface BuildData {
     is_public: boolean;
     user_id: number | null;
     user_name: string | null;
+    updated_at: string;
 }
 
 const props = defineProps<{
@@ -313,10 +316,16 @@ onMounted(rebuildCrew);
                                     {{ master.display_name }}
                                     <span v-if="faction"> &middot; {{ faction.name }}</span>
                                 </div>
-                                <div v-if="build.user_name" class="mt-0.5 text-xs text-muted-foreground">
-                                    by {{ build.user_name }}
+                                <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                                    <span v-if="build.user_name">by {{ build.user_name }}</span>
+                                    <span v-if="build.updated_at">Updated {{ new Date(build.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) }}</span>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div v-if="build.description" class="mb-4">
+                            <BlogContent :content="build.description" />
                         </div>
 
                         <Separator class="mb-4" />
@@ -449,17 +458,19 @@ onMounted(rebuildCrew);
                         </Badge>
                     </div>
                 </DrawerHeader>
-                <div class="px-4 pb-2">
-                    <CharacterCardView
-                        v-if="previewMember.miniature?.front_image"
-                        :key="previewMember.miniature?.id"
-                        :miniature="previewMember.miniature"
-                        :show-link="true"
-                        :character-slug="previewMember.character.slug"
-                    />
-                    <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
+                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <CharacterCardView
+                            v-if="previewMember.miniature?.front_image"
+                            :key="previewMember.miniature?.id"
+                            :miniature="previewMember.miniature"
+                            :show-link="true"
+                            :character-slug="previewMember.character.slug"
+                        />
+                        <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    </div>
                 </div>
-                <DrawerFooter class="pt-2">
+                <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>
                     </DrawerClose>
@@ -476,14 +487,16 @@ onMounted(rebuildCrew);
                     <DrawerTitle class="text-center">{{ upgradePreviewUpgrade.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
                 </DrawerHeader>
-                <div class="px-4 pb-2">
-                    <UpgradeFlipCard
-                        :front-image="upgradePreviewUpgrade.front_image!"
-                        :back-image="upgradePreviewUpgrade.back_image"
-                        :alt-text="upgradePreviewUpgrade.name"
-                    />
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
+                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <UpgradeFlipCard
+                            :front-image="upgradePreviewUpgrade.front_image!"
+                            :back-image="upgradePreviewUpgrade.back_image"
+                            :alt-text="upgradePreviewUpgrade.name"
+                        />
+                    </div>
                 </div>
-                <DrawerFooter class="pt-2">
+                <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>
                     </DrawerClose>

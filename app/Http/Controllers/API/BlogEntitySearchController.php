@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
@@ -236,17 +237,33 @@ class BlogEntitySearchController extends Controller
 
     private function showKeyword(string $slug): JsonResponse
     {
-        $keyword = Keyword::where('slug', $slug)->first();
+        $keyword = Keyword::where('slug', $slug)->withCount('characters', 'masters')->first();
 
         if (! $keyword) {
             return response()->json(['error' => 'Not found'], 404);
         }
+
+        $factions = Character::whereHas('keywords', fn ($q) => $q->where('slug', $slug))
+            ->distinct('faction')
+            ->pluck('faction')
+            ->map(fn (string $f) => FactionEnum::tryFrom($f))
+            ->filter()
+            ->map(fn (FactionEnum $f) => [
+                'name' => $f->label(),
+                'slug' => $f->value,
+                'color' => $f->color(),
+                'logo' => config('app.url').$f->logo(),
+            ])
+            ->values();
 
         return response()->json([
             'name' => $keyword->name,
             'type' => 'keyword',
             'slug' => $keyword->slug,
             'link' => route('keywords.view', $keyword->slug),
+            'characters_count' => $keyword->characters_count,
+            'masters_count' => $keyword->masters_count,
+            'factions' => $factions,
         ]);
     }
 
@@ -258,11 +275,21 @@ class BlogEntitySearchController extends Controller
             return response()->json(['error' => 'Not found'], 404);
         }
 
+        $characterCount = Character::where('faction', $faction->value)->count();
+        $masterCount = Character::where('faction', $faction->value)
+            ->where('station', CharacterStationEnum::Master->value)->count();
+        $keywordCount = Keyword::whereHas('characters', fn ($q) => $q->where('faction', $faction->value))->count();
+
         return response()->json([
             'name' => $faction->label(),
             'type' => 'faction',
             'slug' => $faction->value,
+            'color' => $faction->color(),
+            'logo' => config('app.url').$faction->logo(),
             'link' => route('factions.view', $faction->value),
+            'characters_count' => $characterCount,
+            'masters_count' => $masterCount,
+            'keywords_count' => $keywordCount,
         ]);
     }
 

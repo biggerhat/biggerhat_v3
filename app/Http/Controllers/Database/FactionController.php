@@ -72,11 +72,26 @@ class FactionController extends Controller
 
             foreach ($keywords as $keyword) {
                 $keywordCharacters = collect($charactersByKeyword[$keyword->name] ?? []);
+                $masters = $keywordCharacters->where('station', CharacterStationEnum::Master)->values();
+                $nonMasters = $keywordCharacters->reject(fn ($c) => $c->station === CharacterStationEnum::Master)->values();
 
                 $keywordBreakdown[] = [
                     'keyword' => $keyword,
-                    'masters' => $keywordCharacters->where('station', CharacterStationEnum::Master)->values(),
-                    'characters' => $keywordCharacters->where('station', '!==', CharacterStationEnum::Master->value),
+                    'masters' => $masters,
+                    'characters' => $nonMasters,
+                    'statistics' => [
+                        'total_characters' => $keywordCharacters->count(),
+                        'total_masters' => $masters->count(),
+                        'total_henchmen' => $keywordCharacters->where('station', CharacterStationEnum::Henchman)->count(),
+                        'total_unique' => $keywordCharacters->whereNull('station')->count(),
+                        'total_minions' => $keywordCharacters->where('station', CharacterStationEnum::Minion)->count(),
+                        'total_peons' => $keywordCharacters->where('station', CharacterStationEnum::Peon)->count(),
+                        'avg_cost' => round($nonMasters->avg('cost'), 1),
+                        'avg_health' => round($nonMasters->avg('health'), 1),
+                        'avg_speed' => round($nonMasters->avg('speed'), 1),
+                        'avg_defense' => round($nonMasters->avg('defense'), 1),
+                        'avg_willpower' => round($nonMasters->avg('willpower'), 1),
+                    ],
                 ];
             }
         }

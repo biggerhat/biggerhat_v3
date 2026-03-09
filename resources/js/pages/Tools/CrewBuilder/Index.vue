@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TipTapEditor from '@/components/blog/TipTapEditor.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import GameIcon from '@/components/GameIcon.vue';
@@ -24,6 +25,7 @@ import {
     Check,
     CircleX,
     Copy,
+    FileText,
     Globe,
     Loader2,
     Lock,
@@ -104,6 +106,7 @@ interface CrewMember {
 interface SavedBuild {
     id: number;
     name: string;
+    description: Record<string, unknown> | null;
     share_code: string;
     faction: string;
     master_id: number;
@@ -172,6 +175,8 @@ const openCrewMemberPreview = (index: number) => {
 
 // ─── Save State ───
 const crewName = ref('Untitled Crew');
+const crewDescription = ref<Record<string, unknown> | null>(null);
+const showDescriptionEditor = ref(false);
 const currentBuildId = ref<number | null>(null);
 const currentShareCode = ref<string | null>(null);
 const isSaving = ref(false);
@@ -225,6 +230,8 @@ const resetBuildState = () => {
     currentShareCode.value = null;
     lastSavedAt.value = null;
     crewName.value = 'Untitled Crew';
+    crewDescription.value = null;
+    showDescriptionEditor.value = false;
     encounterSize.value = 50;
     selectedFaction.value = null;
     selectedMasterName.value = null;
@@ -355,10 +362,21 @@ const soulstonePool = computed(() => {
 const hiredCountOf = (characterId: number): number =>
     crew.value.filter((m) => m.character.id === characterId && !m.isTotem).length;
 
+// ─── Totem check ───
+const isTotemOfAnotherMaster = (character: CharacterData): boolean => {
+    if (!selectedMasterTitle.value) return false;
+    // If this character is the selected master's totem, it's already auto-added
+    if (selectedMasterTitle.value.has_totem_id === character.id) return true;
+    // If any other master has this as their totem, it's not hireable
+    return (props.characters as CharacterData[]).some((c) => c.station === 'master' && c.has_totem_id === character.id);
+};
+
 // ─── Can hire check ───
 const canHire = (character: CharacterData): { allowed: boolean; reason?: string } => {
-    if (hiredCountOf(character.id) >= character.count) return { allowed: false, reason: `Max ${character.count}` };
+    if (character.cost == null) return { allowed: false, reason: 'No cost' };
     if (character.station === 'master') return { allowed: false, reason: 'Cannot hire masters' };
+    if (isTotemOfAnotherMaster(character)) return { allowed: false, reason: 'Totem' };
+    if (hiredCountOf(character.id) >= character.count) return { allowed: false, reason: `Max ${character.count}` };
     if (!characterInFaction(character)) return { allowed: false, reason: 'Not in faction' };
     if (isLoyal(character) && !characterSharesKeyword(character)) return { allowed: false, reason: 'Loyal' };
     const category = getHiringCategory(character);
@@ -434,6 +452,8 @@ const hiringPool = computed(() => {
     if (!selectedMasterTitle.value || !selectedFaction.value) return [];
     return (props.characters as CharacterData[]).filter((c) => {
         if (c.station === 'master') return false;
+        if (c.cost == null) return false;
+        if (isTotemOfAnotherMaster(c)) return false;
         if (!characterInFaction(c)) return false;
         if (isLoyal(c) && !characterSharesKeyword(c)) return false;
         return true;
@@ -529,6 +549,7 @@ const buildCrewData = (): number[] =>
 
 const buildPayload = () => ({
     name: crewName.value,
+    description: crewDescription.value,
     faction: selectedFaction.value,
     master_id: selectedMasterTitle.value?.id,
     encounter_size: encounterSize.value,
@@ -607,6 +628,9 @@ watch(encounterSize, () => {
 watch(crewName, () => {
     if (editorStep.value === 'hiring') triggerAutosave();
 });
+watch(crewDescription, () => {
+    if (editorStep.value === 'hiring') triggerAutosave();
+});
 
 // ─── Rebuild crew from a saved/shared build data ───
 const rebuildCrew = (faction: string, masterId: number, crewData: number[]) => {
@@ -648,6 +672,8 @@ const loadBuild = (build: SavedBuild) => {
     currentBuildId.value = build.id;
     currentShareCode.value = build.share_code;
     crewName.value = build.name;
+    crewDescription.value = build.description ?? null;
+    showDescriptionEditor.value = !!build.description;
     encounterSize.value = build.encounter_size;
     rebuildCrew(build.faction, build.master_id, build.crew_data);
     lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
@@ -1112,6 +1138,22 @@ onMounted(() => {
                         </div>
                     </div>
 
+                    <!-- Description editor (collapsible) -->
+                    <div class="mb-3 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="gap-1.5"
+                            @click="showDescriptionEditor = !showDescriptionEditor"
+                        >
+                            <FileText class="size-4" />
+                            {{ showDescriptionEditor ? 'Hide' : 'Add' }} Description
+                        </Button>
+                    </div>
+                    <div v-if="showDescriptionEditor" class="mb-4">
+                        <TipTapEditor v-model="crewDescription" />
+                    </div>
+
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
                         <!-- Hiring Pool (left on desktop, below on mobile) -->
                         <div class="order-2 md:order-1 md:col-span-3">
@@ -1367,9 +1409,9 @@ onMounted(() => {
                         </Badge>
                     </div>
                 </DrawerHeader>
-                <div class="px-4 pb-2">
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <!-- Miniature version picker -->
-                    <div v-if="previewCharacter.miniatures?.length > 1" class="mb-3">
+                    <div v-if="previewCharacter.miniatures?.length > 1" class="mb-3 shrink-0">
                         <Select
                             :model-value="String(previewMiniature?.id ?? '')"
                             @update:model-value="(val: string) => { previewMiniature = previewCharacter!.miniatures.find((m) => m.id === Number(val)) ?? null; }"
@@ -1385,16 +1427,18 @@ onMounted(() => {
                         </Select>
                     </div>
 
-                    <CharacterCardView
-                        v-if="previewMiniature?.front_image"
-                        :key="previewMiniature?.id"
-                        :miniature="previewMiniature"
-                        :show-link="true"
-                        :character-slug="previewCharacter.slug"
-                    />
-                    <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <CharacterCardView
+                            v-if="previewMiniature?.front_image"
+                            :key="previewMiniature?.id"
+                            :miniature="previewMiniature"
+                            :show-link="true"
+                            :character-slug="previewCharacter.slug"
+                        />
+                        <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    </div>
                 </div>
-                <DrawerFooter class="pt-2">
+                <DrawerFooter class="shrink-0 pt-2">
                     <div class="flex justify-center gap-2">
                         <Button
                             v-if="canHire(previewCharacter).allowed"
@@ -1430,9 +1474,9 @@ onMounted(() => {
                         </Badge>
                     </div>
                 </DrawerHeader>
-                <div class="px-4 pb-2">
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <!-- Miniature version picker -->
-                    <div v-if="crewPreviewMember.character.miniatures?.length > 1" class="mb-3">
+                    <div v-if="crewPreviewMember.character.miniatures?.length > 1" class="mb-3 shrink-0">
                         <Select
                             :model-value="String(crewPreviewMember.miniature?.id ?? '')"
                             @update:model-value="(val: string) => { crewPreviewMember!.miniature = crewPreviewMember!.character.miniatures.find((m) => m.id === Number(val)) ?? null; triggerAutosave(); }"
@@ -1448,16 +1492,18 @@ onMounted(() => {
                         </Select>
                     </div>
 
-                    <CharacterCardView
-                        v-if="crewPreviewMember.miniature?.front_image"
-                        :key="crewPreviewMember.miniature?.id"
-                        :miniature="crewPreviewMember.miniature"
-                        :show-link="true"
-                        :character-slug="crewPreviewMember.character.slug"
-                    />
-                    <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <CharacterCardView
+                            v-if="crewPreviewMember.miniature?.front_image"
+                            :key="crewPreviewMember.miniature?.id"
+                            :miniature="crewPreviewMember.miniature"
+                            :show-link="true"
+                            :character-slug="crewPreviewMember.character.slug"
+                        />
+                        <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    </div>
                 </div>
-                <DrawerFooter class="pt-2">
+                <DrawerFooter class="shrink-0 pt-2">
                     <div class="flex justify-center gap-2">
                         <Button
                             v-if="crewPreviewMember.hiringCategory !== 'leader' && crewPreviewMember.hiringCategory !== 'totem'"
@@ -1485,14 +1531,16 @@ onMounted(() => {
                     <DrawerTitle class="text-center">{{ upgradePreviewUpgrade.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
                 </DrawerHeader>
-                <div class="px-4 pb-2">
-                    <UpgradeFlipCard
-                        :front-image="upgradePreviewUpgrade.front_image!"
-                        :back-image="upgradePreviewUpgrade.back_image"
-                        :alt-text="upgradePreviewUpgrade.name"
-                    />
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
+                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <UpgradeFlipCard
+                            :front-image="upgradePreviewUpgrade.front_image!"
+                            :back-image="upgradePreviewUpgrade.back_image"
+                            :alt-text="upgradePreviewUpgrade.name"
+                        />
+                    </div>
                 </div>
-                <DrawerFooter class="pt-2">
+                <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>
                     </DrawerClose>

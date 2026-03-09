@@ -29,6 +29,10 @@ class CharacterCrewBuilderResource extends JsonResource
             'second_faction' => $this->second_faction,
             'station' => $this->station,
             'cost' => $this->cost,
+            'health' => $this->health,
+            'speed' => $this->speed,
+            'defense' => $this->defense,
+            'willpower' => $this->willpower,
             'count' => $this->count,
             'has_totem_id' => $this->has_totem_id,
             'keywords' => $this->whenLoaded('keywords', fn () => $this->keywords->map(fn ($k) => [

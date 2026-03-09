@@ -43,6 +43,7 @@ class CharacterResource extends JsonResource
             'is_unhirable' => $this->is_unhirable,
             'is_beta' => $this->is_beta,
             'has_totem_id' => $this->has_totem_id,
+            'totem_slug' => $this->when($this->relationLoaded('totem'), fn () => $this->totem?->slug),
             'miniatures' => MiniatureResource::collection($this->whenLoaded('miniatures')),
             'keywords' => KeywordResource::collection($this->whenLoaded('keywords')),
             'characteristics' => $this->whenLoaded('characteristics', fn () => $this->characteristics->pluck('name')->map(fn ($name) => strtolower($name))->values()),

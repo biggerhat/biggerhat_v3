@@ -162,17 +162,99 @@ it('prevents deleting another users build', function () {
     $this->assertDatabaseHas('crew_builds', ['id' => $build->id]);
 });
 
-it('displays a shared build by share code', function () {
-    $build = CrewBuild::factory()->create();
+it('stores a crew build with empty crew data', function () {
+    $user = User::factory()->create();
+    $master = Character::factory()->create(['station' => CharacterStationEnum::Master]);
+
+    $response = $this->actingAs($user)->postJson(route('tools.crew_builder.store'), [
+        'name' => 'Empty Crew',
+        'faction' => $master->faction->value,
+        'master_id' => $master->id,
+        'encounter_size' => 50,
+        'crew_data' => [],
+    ]);
+
+    $response->assertOk()
+        ->assertJsonStructure(['id', 'share_code']);
+});
+
+it('displays a public shared build by share code', function () {
+    $user = User::factory()->create(['name' => 'TestCreator']);
+    $build = CrewBuild::factory()->public()->create(['user_id' => $user->id]);
 
     $response = $this->get(route('tools.crew_builder.share', $build->share_code));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('Tools/CrewBuilder/Index')
-            ->has('sharedBuild')
+            ->component('Tools/CrewBuilder/View')
+            ->has('build', fn ($b) => $b
+                ->where('id', $build->id)
+                ->where('faction', $build->faction->value)
+                ->where('master_id', $build->master_id)
+                ->where('user_name', 'TestCreator')
+                ->etc()
+            )
             ->has('characters')
             ->has('factions')
+        );
+});
+
+it('shows private notice for private shared build when not owner', function () {
+    $build = CrewBuild::factory()->create(['is_public' => false]);
+
+    $response = $this->get(route('tools.crew_builder.share', $build->share_code));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Tools/CrewBuilder/Private')
+        );
+});
+
+it('allows owner to view their private shared build', function () {
+    $user = User::factory()->create();
+    $build = CrewBuild::factory()->create(['user_id' => $user->id, 'is_public' => false]);
+
+    $response = $this->actingAs($user)->get(route('tools.crew_builder.share', $build->share_code));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Tools/CrewBuilder/View')
+            ->has('build')
+        );
+});
+
+it('toggles public visibility on a build', function () {
+    $user = User::factory()->create();
+    $build = CrewBuild::factory()->create(['user_id' => $user->id, 'is_public' => false]);
+
+    $response = $this->actingAs($user)->putJson(route('tools.crew_builder.update', $build), [
+        'is_public' => true,
+    ]);
+
+    $response->assertOk()->assertJson(['is_public' => true]);
+    expect($build->fresh()->is_public)->toBeTrue();
+
+    $response = $this->actingAs($user)->putJson(route('tools.crew_builder.update', $build), [
+        'is_public' => false,
+    ]);
+
+    $response->assertOk()->assertJson(['is_public' => false]);
+    expect($build->fresh()->is_public)->toBeFalse();
+});
+
+it('returns saved builds with faction as string', function () {
+    $user = User::factory()->create();
+    $build = CrewBuild::factory()->create(['user_id' => $user->id]);
+
+    $response = $this->actingAs($user)->get(route('tools.crew_builder.index'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('savedBuilds.0', fn ($saved) => $saved
+                ->where('faction', $build->faction->value)
+                ->where('id', $build->id)
+                ->etc()
+            )
         );
 });
 

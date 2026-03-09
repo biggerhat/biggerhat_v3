@@ -256,24 +256,16 @@ class SeedFromProdApi extends Command
                 $character->keywords()->sync($keywordIds);
             }
 
-            // Sync characteristics
-            if (! empty($item['characteristics'])) {
-                $characteristicIds = [];
-                foreach ($item['characteristics'] as $charName) {
-                    $characteristic = Characteristic::firstOrCreate(
-                        ['slug' => str($charName)->slug()->toString()],
-                        ['name' => ucfirst($charName)]
-                    );
-                    $characteristicIds[] = $characteristic->id;
-                }
-                $character->characteristics()->sync($characteristicIds);
+            // Sync characteristics (always sync to clear stale data)
+            $characteristicIds = [];
+            foreach ($item['characteristics'] ?? [] as $charName) {
+                $characteristic = Characteristic::firstOrCreate(
+                    ['slug' => str($charName)->slug()->toString()],
+                    ['name' => ucfirst($charName)]
+                );
+                $characteristicIds[] = $characteristic->id;
             }
-
-            // Set has_totem_id if present
-            if (! empty($item['has_totem_id'])) {
-                $character->has_totem_id = $item['has_totem_id'];
-                $character->save();
-            }
+            $character->characteristics()->sync($characteristicIds);
 
             // Sync miniatures
             if (! empty($item['miniatures'])) {
@@ -314,7 +306,25 @@ class SeedFromProdApi extends Command
 
         $bar->finish();
         $this->newLine();
+
+        // Second pass: resolve totem slugs to local IDs (all characters exist now)
+        $totemCount = 0;
+        foreach ($items as $item) {
+            if (! empty($item['totem_slug'])) {
+                $character = Character::where('slug', $item['slug'])->first();
+                $totem = Character::where('slug', $item['totem_slug'])->first();
+                if ($character && $totem) {
+                    $character->has_totem_id = $totem->id;
+                    $character->save();
+                    $totemCount++;
+                }
+            }
+        }
+
         $this->info('  Characters seeded: '.count($items));
+        if ($totemCount > 0) {
+            $this->info("  Totem links resolved: {$totemCount}");
+        }
     }
 
     private function seedUpgrades(): void
@@ -351,6 +361,50 @@ class SeedFromProdApi extends Command
         $bar->finish();
         $this->newLine();
         $this->info('  Upgrades seeded: '.count($items));
+
+        // Link crew upgrades to their masters
+        $this->linkCrewUpgradesToMasters();
+    }
+
+    private function linkCrewUpgradesToMasters(): void
+    {
+        $this->info('  Linking crew upgrades to masters...');
+
+        // Fetch crew upgrades with master linkage from production API
+        $baseUrl = str_replace('/v1', '', self::BASE_URL);
+        $response = $this->fetchWithRetry($baseUrl.'/upgrades/crew', ['name' => '']);
+
+        if (! $response) {
+            $this->warn('  Could not fetch crew upgrade linkage data, skipping.');
+
+            return;
+        }
+
+        // Handle both paginated (with 'data' key) and plain array responses
+        $items = $response['data'] ?? $response;
+
+        $linked = 0;
+        foreach ($items as $item) {
+            $upgrade = Upgrade::where('slug', $item['slug'])->first();
+            if (! $upgrade) {
+                continue;
+            }
+
+            $masterIds = [];
+            foreach ($item['masters'] ?? [] as $master) {
+                $character = Character::where('slug', $master['slug'])->first();
+                if ($character) {
+                    $masterIds[] = $character->id;
+                }
+            }
+
+            if (! empty($masterIds)) {
+                $upgrade->characters()->sync($masterIds);
+                $linked++;
+            }
+        }
+
+        $this->info("  Crew upgrade links resolved: {$linked}");
     }
 
     private function seedStrategies(): void

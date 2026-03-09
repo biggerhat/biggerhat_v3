@@ -23,11 +23,17 @@ class CrewBuildFactory extends Factory
             'encounter_size' => 50,
             'crew_data' => [$this->faker->randomNumber()],
             'is_archived' => false,
+            'is_public' => false,
         ];
     }
 
     public function archived(): static
     {
         return $this->state(['is_archived' => true]);
+    }
+
+    public function public(): static
+    {
+        return $this->state(['is_public' => true]);
     }
 }

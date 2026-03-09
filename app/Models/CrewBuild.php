@@ -21,6 +21,7 @@ class CrewBuild extends Model
             'crew_data' => 'array',
             'encounter_size' => 'integer',
             'is_archived' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 

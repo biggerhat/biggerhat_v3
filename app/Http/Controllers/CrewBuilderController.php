@@ -12,16 +12,43 @@ use Illuminate\Support\Facades\Auth;
 
 class CrewBuilderController extends Controller
 {
+    /**
+     * @param  \Illuminate\Database\Eloquent\Collection<int, CrewBuild>  $builds
+     * @return array<int, array<string, mixed>>
+     */
+    private function serializeBuilds($builds): array
+    {
+        return $builds->map(fn (CrewBuild $b) => [
+            'id' => $b->id,
+            'name' => $b->name,
+            'share_code' => $b->share_code,
+            'faction' => $b->getRawOriginal('faction'),
+            'master_id' => $b->master_id,
+            'encounter_size' => $b->encounter_size,
+            'crew_data' => $b->crew_data,
+            'is_archived' => $b->is_archived,
+            'is_public' => $b->is_public,
+            'updated_at' => $b->updated_at->toISOString(),
+        ])->all();
+    }
+
     private function getCharacters()
     {
+        // Collect IDs of all totems referenced by masters so they're always included
+        $totemIds = Character::where('station', 'master')
+            ->whereNotNull('has_totem_id')
+            ->pluck('has_totem_id')
+            ->unique();
+
         return Character::with(['keywords', 'characteristics', 'crewUpgrades.keywords', 'totem', 'miniatures'])
             ->where('is_hidden', false)
-            ->where(function ($query) {
+            ->where(function ($query) use ($totemIds) {
                 $query->where('station', 'master')
                     ->orWhere(function ($q) {
                         $q->where('is_unhirable', false)
                             ->whereNotNull('cost');
-                    });
+                    })
+                    ->orWhereIn('id', $totemIds);
             })
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC')
@@ -37,7 +64,7 @@ class CrewBuilderController extends Controller
             'keywords' => fn () => Keyword::orderBy('name', 'ASC')->get(['id', 'name', 'slug']),
             'characters' => fn () => CharacterCrewBuilderResource::collection($characters)->toArray($request),
             'savedBuilds' => fn () => Auth::check()
-                ? CrewBuild::where('user_id', Auth::id())->orderBy('updated_at', 'desc')->get()
+                ? $this->serializeBuilds(CrewBuild::where('user_id', Auth::id())->orderBy('updated_at', 'desc')->get())
                 : [],
         ];
     }
@@ -54,7 +81,7 @@ class CrewBuilderController extends Controller
             'faction' => 'required|string',
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
-            'crew_data' => 'required|array',
+            'crew_data' => 'present|array',
         ]);
 
         $build = CrewBuild::create([
@@ -65,6 +92,7 @@ class CrewBuilderController extends Controller
         return response()->json([
             'id' => $build->id,
             'share_code' => $build->share_code,
+            'is_public' => $build->is_public,
         ]);
     }
 
@@ -81,6 +109,7 @@ class CrewBuilderController extends Controller
             'encounter_size' => 'sometimes|integer|min:1',
             'crew_data' => 'sometimes|array',
             'is_archived' => 'sometimes|boolean',
+            'is_public' => 'sometimes|boolean',
         ]);
 
         $crewBuild->update($validated);
@@ -89,6 +118,7 @@ class CrewBuilderController extends Controller
             'id' => $crewBuild->id,
             'share_code' => $crewBuild->share_code,
             'is_archived' => $crewBuild->is_archived,
+            'is_public' => $crewBuild->is_public,
         ]);
     }
 
@@ -105,11 +135,31 @@ class CrewBuilderController extends Controller
 
     public function share(Request $request, string $shareCode)
     {
+        /** @var CrewBuild $build */
         $build = CrewBuild::where('share_code', $shareCode)->firstOrFail();
 
-        return inertia('Tools/CrewBuilder/Index', [
-            ...$this->getBaseProps($request),
-            'sharedBuild' => $build,
+        // Private builds are only viewable by their owner
+        if (! $build->is_public && Auth::id() !== $build->user_id) {
+            return inertia('Tools/CrewBuilder/Private');
+        }
+
+        $characters = $this->getCharacters();
+
+        return inertia('Tools/CrewBuilder/View', [
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'characters' => fn () => CharacterCrewBuilderResource::collection($characters)->toArray($request),
+            'build' => [
+                'id' => $build->id,
+                'name' => $build->name,
+                'share_code' => $build->share_code,
+                'faction' => $build->getRawOriginal('faction'),
+                'master_id' => $build->master_id,
+                'encounter_size' => $build->encounter_size,
+                'crew_data' => $build->crew_data,
+                'is_public' => $build->is_public,
+                'user_id' => $build->user_id,
+                'user_name' => $build->user()->value('name'),
+            ],
         ]);
     }
 }

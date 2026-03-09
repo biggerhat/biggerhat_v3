@@ -14,7 +14,7 @@ class CharacterController extends Controller
     {
         $characters = Character::query()
             ->where('is_hidden', false)
-            ->with(['miniatures', 'keywords', 'characteristics'])
+            ->with(['miniatures', 'keywords', 'characteristics', 'totem'])
             ->when($request->query('faction'), fn ($q, $faction) => $q->where('faction', $faction))
             ->when($request->query('station'), fn ($q, $station) => $q->where('station', $station))
             ->when($request->query('search'), fn ($q, $search) => $q->where(function ($q) use ($search) {
@@ -32,7 +32,7 @@ class CharacterController extends Controller
     {
         abort_if($character->is_hidden, 404);
 
-        $character->loadMissing(['miniatures', 'keywords', 'characteristics', 'actions.triggers', 'abilities', 'markers', 'tokens', 'characterUpgrades']);
+        $character->loadMissing(['miniatures', 'keywords', 'characteristics', 'totem', 'actions.triggers', 'abilities', 'markers', 'tokens', 'characterUpgrades']);
 
         return new CharacterResource($character);
     }

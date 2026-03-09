@@ -41,6 +41,8 @@ class CharacterCrewBuilderResource extends JsonResource
                 'id' => $u->id,
                 'name' => $u->name,
                 'slug' => $u->slug,
+                'front_image' => $u->front_image,
+                'back_image' => $u->back_image,
                 'keywords' => $u->relationLoaded('keywords') ? $u->keywords->map(fn ($k) => [
                     'id' => $k->id,
                     'name' => $k->name,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,9 @@ import {
     Check,
     CircleX,
     Copy,
+    Globe,
     Loader2,
+    Lock,
     Pencil,
     Plus,
     Save,
@@ -36,7 +39,7 @@ import {
     Swords,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface Keyword {
     id: number;
@@ -48,6 +51,8 @@ interface CrewUpgrade {
     id: number;
     name: string;
     slug: string;
+    front_image: string | null;
+    back_image: string | null;
     keywords: Keyword[];
 }
 
@@ -105,19 +110,8 @@ interface SavedBuild {
     encounter_size: number;
     crew_data: number[];
     is_archived: boolean;
+    is_public: boolean;
     updated_at: string;
-}
-
-interface SharedBuild {
-    id: number;
-    name: string;
-    share_code: string;
-    faction: string;
-    master_id: number;
-    encounter_size: number;
-    crew_data: number[];
-    is_archived: boolean;
-    user_id: number | null;
 }
 
 const props = defineProps<{
@@ -125,7 +119,6 @@ const props = defineProps<{
     factions: Record<string, Faction>;
     keywords: Keyword[];
     savedBuilds: SavedBuild[];
-    sharedBuild?: SharedBuild;
 }>();
 
 const page = usePage<SharedData>();
@@ -153,6 +146,16 @@ const openCardPreview = (character: CharacterData, miniature?: MiniatureData | n
     previewDrawerOpen.value = true;
 };
 
+// ─── Upgrade Preview ───
+const upgradePreviewOpen = ref(false);
+const upgradePreviewUpgrade = ref<CrewUpgrade | null>(null);
+
+const openUpgradePreview = (upgrade: CrewUpgrade) => {
+    if (!upgrade.front_image) return;
+    upgradePreviewUpgrade.value = upgrade;
+    upgradePreviewOpen.value = true;
+};
+
 // ─── Crew Member Preview ───
 const crewPreviewDrawerOpen = ref(false);
 const crewPreviewIndex = ref<number | null>(null);
@@ -175,11 +178,12 @@ const isSaving = ref(false);
 const saveDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const lastSavedAt = ref<string | null>(null);
 const shareTooltip = ref(false);
+const saveError = ref<string | null>(null);
 const savedBuilds = ref<SavedBuild[]>([...(props.savedBuilds as SavedBuild[])]);
 const buildsTab = ref('active');
 
 // ─── View mode: 'builds' (list) or 'editor' (crew builder) ───
-const viewMode = ref<'builds' | 'editor'>('builds');
+const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value ? 'builds' : 'editor');
 
 const isOwner = computed(() => {
     if (!currentBuildId.value || !isAuthenticated.value) return false;
@@ -278,7 +282,12 @@ const selectMasterTitle = (master: CharacterData) => {
         }
     }
 
-    triggerAutosave();
+    // Save immediately for new builds, debounce for existing
+    if (isAuthenticated.value && !currentBuildId.value) {
+        saveBuild();
+    } else {
+        triggerAutosave();
+    }
 };
 
 // ─── Swap master title (keep crew) ───
@@ -469,25 +478,19 @@ watch([debouncedFilterText, poolFilter], () => poolScrollRef.value?.scrollTo(0, 
 
 // ─── Back navigation ───
 const goBack = () => {
-    if (editorStep.value === 'hiring') {
-        if (masterTitleVariants.value.length > 1) {
-            selectedMasterTitle.value = null;
-            crew.value = [];
+    if (editorStep.value === 'faction' || editorStep.value === 'hiring') {
+        // Exit editor entirely
+        if (isAuthenticated.value) {
+            viewMode.value = 'builds';
+            resetBuildState();
         } else {
-            selectedMasterName.value = null;
-            selectedMasterTitle.value = null;
-            crew.value = [];
+            resetBuildState();
         }
     } else if (editorStep.value === 'master-title') {
         selectedMasterName.value = null;
     } else if (editorStep.value === 'master-name') {
         selectedFaction.value = null;
     }
-};
-
-const goToBuilds = () => {
-    viewMode.value = 'builds';
-    resetBuildState();
 };
 
 // ─── Crew upgrade display ───
@@ -536,31 +539,40 @@ const saveBuild = async () => {
     if (!isAuthenticated.value || !selectedMasterTitle.value || isSaving.value) return;
 
     isSaving.value = true;
+    saveError.value = null;
     try {
         if (currentBuildId.value && isOwner.value) {
             const response = await fetch(route('tools.crew_builder.update', { crewBuild: currentBuildId.value }), {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
                 body: JSON.stringify(buildPayload()),
             });
+            if (!response.ok) {
+                saveError.value = 'Failed to save crew';
+                return;
+            }
             const data = await response.json();
             currentShareCode.value = data.share_code;
-            // Update in local list
             const idx = savedBuilds.value.findIndex((b) => b.id === currentBuildId.value);
             if (idx >= 0) {
                 savedBuilds.value[idx] = {
                     ...savedBuilds.value[idx],
                     ...buildPayload(),
                     share_code: data.share_code,
+                    is_public: data.is_public,
                     updated_at: new Date().toISOString(),
                 } as SavedBuild;
             }
         } else {
             const response = await fetch(route('tools.crew_builder.store'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
                 body: JSON.stringify(buildPayload()),
             });
+            if (!response.ok) {
+                saveError.value = 'Failed to create crew';
+                return;
+            }
             const data = await response.json();
             currentBuildId.value = data.id;
             currentShareCode.value = data.share_code;
@@ -568,13 +580,14 @@ const saveBuild = async () => {
                 id: data.id,
                 share_code: data.share_code,
                 is_archived: false,
+                is_public: data.is_public,
                 updated_at: new Date().toISOString(),
                 ...buildPayload(),
             } as SavedBuild);
         }
         lastSavedAt.value = new Date().toLocaleTimeString();
     } catch {
-        // Silent fail for autosave
+        saveError.value = 'Network error saving crew';
     } finally {
         isSaving.value = false;
     }
@@ -669,6 +682,34 @@ const toggleArchive = async (build: SavedBuild) => {
     }
 };
 
+const togglePublic = async (build: SavedBuild) => {
+    const newPublic = !build.is_public;
+    try {
+        const response = await fetch(route('tools.crew_builder.update', { crewBuild: build.id }), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            body: JSON.stringify({ is_public: newPublic }),
+        });
+        if (!response.ok) return;
+        const idx = savedBuilds.value.findIndex((b) => b.id === build.id);
+        if (idx >= 0) savedBuilds.value[idx].is_public = newPublic;
+    } catch {
+        // Silent fail
+    }
+};
+
+const currentBuildIsPublic = computed(() => {
+    if (!currentBuildId.value) return false;
+    const build = savedBuilds.value.find((b) => b.id === currentBuildId.value);
+    return build?.is_public ?? false;
+});
+
+const toggleCurrentBuildPublic = async () => {
+    if (!currentBuildId.value) return;
+    const build = savedBuilds.value.find((b) => b.id === currentBuildId.value);
+    if (build) await togglePublic(build);
+};
+
 const copyShareLink = () => {
     const code = currentShareCode.value;
     if (!code) return;
@@ -678,6 +719,7 @@ const copyShareLink = () => {
 };
 
 const copyShareLinkForBuild = (build: SavedBuild) => {
+    if (!build.is_public) return;
     navigator.clipboard.writeText(route('tools.crew_builder.share', { shareCode: build.share_code }));
     shareTooltip.value = true;
     setTimeout(() => (shareTooltip.value = false), 2000);
@@ -687,8 +729,21 @@ const generateShareLink = async () => {
     if (!selectedMasterTitle.value) return;
 
     if (isAuthenticated.value) {
+        if (!currentBuildIsPublic.value) return;
+
+        // Cancel any pending autosave and save immediately
+        if (saveDebounceTimer.value) {
+            clearTimeout(saveDebounceTimer.value);
+            saveDebounceTimer.value = null;
+        }
+        while (isSaving.value) {
+            await new Promise((r) => setTimeout(r, 100));
+        }
+
         await saveBuild();
-        copyShareLink();
+        if (currentShareCode.value) {
+            copyShareLink();
+        }
         return;
     }
 
@@ -700,7 +755,7 @@ const generateShareLink = async () => {
         n: crewName.value,
     };
     const encoded = btoa(JSON.stringify(state));
-    navigator.clipboard.writeText(`${window.location.origin}${route('tools.crew_builder.index')}?crew=${encoded}`);
+    navigator.clipboard.writeText(`${route('tools.crew_builder.index')}?crew=${encoded}`);
     shareTooltip.value = true;
     setTimeout(() => (shareTooltip.value = false), 2000);
 };
@@ -711,55 +766,23 @@ const startNewBuild = () => {
 };
 
 // ─── Init ───
+
+// ─── Init: handle anonymous share via URL param ───
 onMounted(() => {
-    // Shared build from server
-    if (props.sharedBuild) {
-        const build = props.sharedBuild;
-        crewName.value = build.name;
-        encounterSize.value = build.encounter_size;
-        rebuildCrew(build.faction, build.master_id, build.crew_data);
-
-        if (isAuthenticated.value && build.user_id === page.props.auth.user?.id) {
-            currentBuildId.value = build.id;
-            currentShareCode.value = build.share_code;
-        }
-        viewMode.value = 'editor';
-        return;
-    }
-
-    // Anonymous share via URL param
     const crewParam = new URLSearchParams(window.location.search).get('crew');
     if (crewParam) {
         try {
             const state = JSON.parse(atob(crewParam));
             crewName.value = state.n || 'Untitled Crew';
             encounterSize.value = state.e || 50;
-            selectedFaction.value = state.f;
-            const master = characterById.value.get(state.m);
-            if (master) {
-                selectedMasterName.value = master.name;
-                nextTick(() => {
-                    selectMasterTitle(master);
-                    nextTick(() => {
-                        state.c?.forEach((charId: number) => {
-                            const character = characterById.value.get(charId);
-                            if (character) addToCrewById(character);
-                        });
-                        currentBuildId.value = null;
-                        currentShareCode.value = null;
-                        lastSavedAt.value = null;
-                    });
-                });
-            }
+            rebuildCrew(state.f, state.m, state.c ?? []);
+            currentBuildId.value = null;
+            currentShareCode.value = null;
+            lastSavedAt.value = null;
         } catch {
             // Invalid param
         }
-        viewMode.value = 'editor';
-        return;
     }
-
-    // Default: authenticated users see builds, anonymous see editor
-    viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
 });
 </script>
 
@@ -840,9 +863,27 @@ onMounted(() => {
                                             <Pencil class="size-3" />
                                             Edit
                                         </Button>
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="copyShareLinkForBuild(build)">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 gap-1 text-xs"
+                                            :disabled="!build.is_public"
+                                            :title="build.is_public ? 'Copy share link' : 'Make public to share'"
+                                            @click="copyShareLinkForBuild(build)"
+                                        >
                                             <Copy class="size-3" />
                                             Share
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 gap-1 text-xs"
+                                            :title="build.is_public ? 'Public — click to make private' : 'Private — click to make public'"
+                                            @click="togglePublic(build)"
+                                        >
+                                            <Globe v-if="build.is_public" class="size-3" />
+                                            <Lock v-else class="size-3" />
+                                            {{ build.is_public ? 'Public' : 'Private' }}
                                         </Button>
                                         <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
                                             <Archive class="size-3" />
@@ -914,14 +955,6 @@ onMounted(() => {
                     </TabsContent>
                 </Tabs>
 
-                <!-- Share tooltip (floating) -->
-                <div
-                    v-if="shareTooltip"
-                    class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-foreground px-4 py-2 text-sm text-background shadow-lg"
-                >
-                    <Check class="mr-1.5 inline size-4" />
-                    Share link copied!
-                </div>
             </div>
 
             <!-- ═══════════════════════════════════════════ -->
@@ -930,9 +963,15 @@ onMounted(() => {
             <div v-if="viewMode === 'editor'">
                 <!-- Top bar -->
                 <div class="mb-4 flex items-center gap-2">
-                    <Button v-if="editorStep !== 'faction'" variant="outline" size="sm" class="shrink-0 gap-1.5" @click="goBack">
+                    <Button
+                        v-if="editorStep !== 'faction' || isAuthenticated"
+                        variant="outline"
+                        size="sm"
+                        class="shrink-0 gap-1.5"
+                        @click="goBack"
+                    >
                         <ArrowLeft class="size-4" />
-                        <span class="hidden sm:inline">Back</span>
+                        <span class="hidden sm:inline">{{ editorStep === 'faction' || editorStep === 'hiring' ? (isAuthenticated ? 'My Builds' : 'Back') : 'Back' }}</span>
                     </Button>
 
                     <div class="flex items-center gap-1.5">
@@ -947,11 +986,6 @@ onMounted(() => {
                         </NumberField>
                     </div>
 
-                    <div class="ml-auto flex items-center gap-2">
-                        <Button v-if="isAuthenticated" variant="outline" size="sm" class="gap-1.5" @click="goToBuilds">
-                            My Builds
-                        </Button>
-                    </div>
                 </div>
 
                 <!-- ═══════ Step 1: Faction Selection ═══════ -->
@@ -1043,24 +1077,37 @@ onMounted(() => {
                             <Loader2 v-if="isSaving" class="size-4 animate-spin text-muted-foreground" />
 
                             <div class="ml-auto flex items-center gap-2">
+                                <span v-if="saveError" class="text-xs text-destructive">{{ saveError }}</span>
+
                                 <Button v-if="isAuthenticated" variant="outline" size="sm" class="gap-1.5" @click="saveBuild" :disabled="isSaving">
                                     <Save class="size-4" />
                                     <span class="hidden sm:inline">Save</span>
                                 </Button>
 
-                                <div class="relative">
-                                    <Button variant="outline" size="sm" class="gap-1.5" @click="generateShareLink">
-                                        <Copy class="size-4" />
-                                        <span class="hidden sm:inline">Share</span>
-                                    </Button>
-                                    <div
-                                        v-if="shareTooltip"
-                                        class="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background"
-                                    >
-                                        <Check class="mr-1 inline size-3" />
-                                        Link copied!
-                                    </div>
-                                </div>
+                                <Button
+                                    v-if="isAuthenticated && currentBuildId"
+                                    variant="outline"
+                                    size="sm"
+                                    class="gap-1.5"
+                                    :title="currentBuildIsPublic ? 'Public — click to make private' : 'Private — click to make public'"
+                                    @click="toggleCurrentBuildPublic"
+                                >
+                                    <Globe v-if="currentBuildIsPublic" class="size-4" />
+                                    <Lock v-else class="size-4" />
+                                    <span class="hidden sm:inline">{{ currentBuildIsPublic ? 'Public' : 'Private' }}</span>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="gap-1.5"
+                                    :disabled="isAuthenticated && !currentBuildIsPublic"
+                                    :title="isAuthenticated && !currentBuildIsPublic ? 'Make public to share' : 'Copy share link'"
+                                    @click="generateShareLink"
+                                >
+                                    <Copy class="size-4" />
+                                    <span class="hidden sm:inline">Share</span>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -1213,7 +1260,11 @@ onMounted(() => {
 
                                 <!-- Crew Upgrade -->
                                 <div v-if="activeCrewUpgrade" class="mb-3">
-                                    <div class="flex items-center gap-1.5 rounded-md border border-border/50 bg-accent/50 px-2 py-1.5">
+                                    <div
+                                        class="flex items-center gap-1.5 rounded-md border border-border/50 bg-accent/50 px-2 py-1.5 transition-colors"
+                                        :class="activeCrewUpgrade.front_image ? 'cursor-pointer hover:bg-accent' : ''"
+                                        @click="openUpgradePreview(activeCrewUpgrade)"
+                                    >
                                         <Star class="size-3.5 shrink-0 text-amber-500" />
                                         <div class="min-w-0 flex-1">
                                             <div class="text-xs font-semibold">{{ activeCrewUpgrade.name }}</div>
@@ -1291,25 +1342,34 @@ onMounted(() => {
                 </div>
             </div>
         </div>
+
+        <!-- Share link toast -->
+        <div
+            v-if="shareTooltip"
+            class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-foreground px-4 py-2 text-sm text-background shadow-lg"
+        >
+            <Check class="mr-1.5 inline size-4" />
+            Share link copied!
+        </div>
     </div>
 
     <!-- Card Preview Drawer (hiring pool) -->
     <Drawer v-model:open="previewDrawerOpen">
         <DrawerContent>
-            <div class="mx-auto w-full max-w-sm">
+            <div v-if="previewCharacter" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewCharacter?.display_name }}</DrawerTitle>
-                    <div v-if="previewCharacter" class="mt-1 flex items-center justify-center gap-1.5">
+                    <DrawerTitle class="text-center">{{ previewCharacter.display_name }}</DrawerTitle>
+                    <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
                         <Badge variant="secondary" class="text-[10px]">{{ getEffectiveCost(previewCharacter) }}ss</Badge>
-                        <Badge v-if="previewCharacter" :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
+                        <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
                     </div>
                 </DrawerHeader>
                 <div class="px-4 pb-2">
                     <!-- Miniature version picker -->
-                    <div v-if="previewCharacter && previewCharacter.miniatures?.length > 1" class="mb-3">
+                    <div v-if="previewCharacter.miniatures?.length > 1" class="mb-3">
                         <Select
                             :model-value="String(previewMiniature?.id ?? '')"
                             @update:model-value="(val: string) => { previewMiniature = previewCharacter!.miniatures.find((m) => m.id === Number(val)) ?? null; }"
@@ -1326,7 +1386,7 @@ onMounted(() => {
                     </div>
 
                     <CharacterCardView
-                        v-if="previewCharacter && previewMiniature?.front_image"
+                        v-if="previewMiniature?.front_image"
                         :key="previewMiniature?.id"
                         :miniature="previewMiniature"
                         :show-link="true"
@@ -1337,14 +1397,14 @@ onMounted(() => {
                 <DrawerFooter class="pt-2">
                     <div class="flex justify-center gap-2">
                         <Button
-                            v-if="previewCharacter && canHire(previewCharacter).allowed"
+                            v-if="canHire(previewCharacter).allowed"
                             class="gap-1.5"
                             @click="addToCrewWithMiniature(previewCharacter!, previewMiniature); previewDrawerOpen = false"
                         >
                             <Plus class="size-4" />
                             Add to Crew
                         </Button>
-                        <div v-else-if="previewCharacter && !canHire(previewCharacter).allowed" class="text-xs text-muted-foreground">
+                        <div v-else class="text-xs text-muted-foreground">
                             {{ canHire(previewCharacter).reason }}
                         </div>
                         <DrawerClose as-child>
@@ -1363,6 +1423,7 @@ onMounted(() => {
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ crewPreviewMember.character.display_name }}</DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
+                        <Badge variant="secondary" class="text-[10px] capitalize">{{ crewPreviewMember.character.station }}</Badge>
                         <Badge variant="secondary" class="text-[10px]">{{ crewPreviewMember.effectiveCost }}ss</Badge>
                         <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
@@ -1411,6 +1472,30 @@ onMounted(() => {
                             <Button variant="outline">Close</Button>
                         </DrawerClose>
                     </div>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
+
+    <!-- Upgrade Preview Drawer -->
+    <Drawer v-model:open="upgradePreviewOpen">
+        <DrawerContent>
+            <div v-if="upgradePreviewUpgrade" class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">{{ upgradePreviewUpgrade.name }}</DrawerTitle>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
+                </DrawerHeader>
+                <div class="px-4 pb-2">
+                    <UpgradeFlipCard
+                        :front-image="upgradePreviewUpgrade.front_image!"
+                        :back-image="upgradePreviewUpgrade.back_image"
+                        :alt-text="upgradePreviewUpgrade.name"
+                    />
+                </div>
+                <DrawerFooter class="pt-2">
+                    <DrawerClose as-child>
+                        <Button variant="outline">Close</Button>
+                    </DrawerClose>
                 </DrawerFooter>
             </div>
         </DrawerContent>

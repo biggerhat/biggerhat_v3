@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -79,6 +79,10 @@ interface CharacterData {
     second_faction: string | null;
     station: string;
     cost: number;
+    health: number;
+    speed: number;
+    defense: number;
+    willpower: number;
     count: number;
     has_totem_id: number | null;
     keywords: Keyword[];
@@ -359,6 +363,22 @@ const soulstonePool = computed(() => {
     return r > 6 ? 6 : Math.max(0, r);
 });
 
+// ─── Crew Stats ───
+const crewStats = computed(() => {
+    if (crew.value.length === 0) return null;
+    const hirable = crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem');
+    const nums = (arr: (number | null | undefined)[]) => arr.filter((v): v is number => typeof v === 'number' && v > 0);
+    const avg = (vals: number[]) => (vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null);
+    return {
+        models: crew.value.length,
+        avgCost: avg(nums(hirable.map((m) => m.effectiveCost))),
+        avgHealth: avg(nums(crew.value.map((m) => m.character.health))),
+        avgSpeed: avg(nums(crew.value.map((m) => m.character.speed))),
+        avgDefense: avg(nums(crew.value.map((m) => m.character.defense))),
+        avgWillpower: avg(nums(crew.value.map((m) => m.character.willpower))),
+    };
+});
+
 const hiredCountOf = (characterId: number): number =>
     crew.value.filter((m) => m.character.id === characterId && !m.isTotem).length;
 
@@ -377,8 +397,9 @@ const canHire = (character: CharacterData): { allowed: boolean; reason?: string 
     if (character.station === 'master') return { allowed: false, reason: 'Cannot hire masters' };
     if (isTotemOfAnotherMaster(character)) return { allowed: false, reason: 'Totem' };
     if (hiredCountOf(character.id) >= character.count) return { allowed: false, reason: `Max ${character.count}` };
-    if (!characterInFaction(character)) return { allowed: false, reason: 'Not in faction' };
-    if (isLoyal(character) && !characterSharesKeyword(character)) return { allowed: false, reason: 'Loyal' };
+    const sharesKeyword = characterSharesKeyword(character);
+    if (!sharesKeyword && !characterInFaction(character)) return { allowed: false, reason: 'Not in faction' };
+    if (isLoyal(character) && !sharesKeyword) return { allowed: false, reason: 'Loyal' };
     const category = getHiringCategory(character);
     if (category === 'ook' && ookCount.value >= 2) return { allowed: false, reason: 'OOK limit (2)' };
     if (getEffectiveCost(character) > remaining.value) return { allowed: false, reason: 'Over budget' };
@@ -454,8 +475,14 @@ const hiringPool = computed(() => {
         if (c.station === 'master') return false;
         if (c.cost == null) return false;
         if (isTotemOfAnotherMaster(c)) return false;
+        // Keyword models can be hired regardless of faction
+        if (characterSharesKeyword(c)) {
+            // Loyal models must share a keyword (already true if we're here) — allow
+            return true;
+        }
+        // Non-keyword models must be in faction
         if (!characterInFaction(c)) return false;
-        if (isLoyal(c) && !characterSharesKeyword(c)) return false;
+        if (isLoyal(c)) return false; // Loyal + no shared keyword = not hireable
         return true;
     });
 });
@@ -821,13 +848,13 @@ onMounted(() => {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <PageBanner title="Crew Builder">
+        <PageBanner v-if="viewMode === 'builds' || editorStep !== 'hiring'" title="Crew Builder">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">Build your crew for Malifaux encounters.</div>
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto px-4 lg:px-6" :class="viewMode === 'builds' || editorStep !== 'hiring' ? 'mt-6' : 'mt-4'">
             <!-- ═══════════════════════════════════════════ -->
             <!-- BUILDS LIST (authenticated landing page)   -->
             <!-- ═══════════════════════════════════════════ -->
@@ -987,169 +1014,195 @@ onMounted(() => {
             <!-- EDITOR (crew building)                     -->
             <!-- ═══════════════════════════════════════════ -->
             <div v-if="viewMode === 'editor'">
-                <!-- Top bar -->
-                <div class="mb-4 flex items-center gap-2">
-                    <Button
-                        v-if="editorStep !== 'faction' || isAuthenticated"
-                        variant="outline"
-                        size="sm"
-                        class="shrink-0 gap-1.5"
-                        @click="goBack"
-                    >
-                        <ArrowLeft class="size-4" />
-                        <span class="hidden sm:inline">{{ editorStep === 'faction' || editorStep === 'hiring' ? (isAuthenticated ? 'My Builds' : 'Back') : 'Back' }}</span>
-                    </Button>
-
-                    <div class="flex items-center gap-1.5">
-                        <Label for="encounter_size" class="hidden whitespace-nowrap text-sm text-muted-foreground sm:inline">Encounter Size</Label>
-                        <GameIcon type="soulstone" class-name="h-4 inline-block" />
-                        <NumberField id="encounter_size" v-model="encounterSize" :min="1" class="w-24 sm:w-28">
-                            <NumberFieldContent>
-                                <NumberFieldDecrement />
-                                <NumberFieldInput />
-                                <NumberFieldIncrement />
-                            </NumberFieldContent>
-                        </NumberField>
-                    </div>
-
-                </div>
-
-                <!-- ═══════ Step 1: Faction Selection ═══════ -->
-                <div v-if="editorStep === 'faction'">
-                    <h2 class="mb-4 text-lg font-semibold">Choose Your Faction</h2>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <button
-                            v-for="faction in factions"
-                            :key="faction.slug"
-                            @click="selectFaction(faction.slug)"
-                            class="flex flex-col items-center gap-2 rounded-lg border-2 border-transparent p-4 transition-all hover:border-border hover:bg-accent"
+                <!-- ═══════ Steps 1-3: Selection Flow ═══════ -->
+                <div v-if="editorStep !== 'hiring'">
+                    <!-- Navigation + encounter size -->
+                    <div class="mb-6 flex items-center justify-between">
+                        <Button
+                            v-if="editorStep !== 'faction' || isAuthenticated"
+                            variant="ghost"
+                            size="sm"
+                            class="gap-1.5"
+                            @click="goBack"
                         >
-                            <img :src="faction.logo" :alt="faction.name" class="size-16" />
-                            <span class="text-sm font-medium">{{ faction.name }}</span>
-                        </button>
-                    </div>
-                </div>
+                            <ArrowLeft class="size-4" />
+                            {{ editorStep === 'faction' ? 'My Builds' : 'Back' }}
+                        </Button>
+                        <div v-else />
 
-                <!-- ═══════ Step 2: Master Name Selection ═══════ -->
-                <div v-if="editorStep === 'master-name'">
-                    <div class="mb-4 flex items-center gap-3">
-                        <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
-                        <h2 class="text-lg font-semibold">Choose Your Master</h2>
+                        <div class="flex items-center gap-1.5">
+                            <GameIcon type="soulstone" class-name="h-4 inline-block" />
+                            <NumberField id="encounter_size" v-model="encounterSize" :min="1" class="w-24">
+                                <NumberFieldContent>
+                                    <NumberFieldDecrement />
+                                    <NumberFieldInput />
+                                    <NumberFieldIncrement />
+                                </NumberFieldContent>
+                            </NumberField>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                        <button
-                            v-for="name in uniqueMasterNames"
-                            :key="name"
-                            @click="selectMasterName(name)"
-                            class="rounded-lg border-2 border-transparent p-4 text-center transition-all hover:border-border hover:bg-accent"
-                        >
-                            <div class="text-sm font-semibold">{{ name }}</div>
-                            <div class="text-xs text-muted-foreground">
-                                {{ mastersForFaction.filter((m) => m.name === name).length }}
-                                {{ mastersForFaction.filter((m) => m.name === name).length === 1 ? 'title' : 'titles' }}
-                            </div>
-                        </button>
-                    </div>
-                </div>
 
-                <!-- ═══════ Step 3: Master Title Selection ═══════ -->
-                <div v-if="editorStep === 'master-title'">
-                    <div class="mb-4 flex items-center gap-3">
-                        <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
-                        <h2 class="text-lg font-semibold">Choose Title for {{ selectedMasterName }}</h2>
+                    <!-- Step 1: Faction -->
+                    <div v-if="editorStep === 'faction'">
+                        <h2 class="mb-4 text-center text-lg font-semibold">Choose Your Faction</h2>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <button
+                                v-for="faction in factions"
+                                :key="faction.slug"
+                                @click="selectFaction(faction.slug)"
+                                class="flex flex-col items-center gap-2 rounded-lg border-2 border-transparent p-4 transition-all hover:border-primary/50 hover:bg-accent"
+                            >
+                                <img :src="faction.logo" :alt="faction.name" class="size-16" />
+                                <span class="text-sm font-medium">{{ faction.name }}</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                        <button
-                            v-for="master in masterTitleVariants"
-                            :key="master.id"
-                            @click="selectMasterTitle(master)"
-                            class="rounded-lg border-2 border-transparent p-4 text-left transition-all hover:border-border hover:bg-accent"
-                        >
-                            <div class="text-sm font-semibold">{{ master.display_name }}</div>
-                            <div class="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                                <Badge v-for="kw in master.keywords" :key="kw.slug" variant="secondary" class="px-1 py-0 text-[10px]">
-                                    {{ kw.name }}
-                                </Badge>
-                            </div>
-                            <div v-if="master.crew_upgrades?.length" class="mt-1 text-xs text-muted-foreground">
-                                Crew: {{ master.crew_upgrades.map((u: CrewUpgrade) => u.name).join(', ') }}
-                            </div>
-                        </button>
+
+                    <!-- Step 2: Master Name -->
+                    <div v-if="editorStep === 'master-name'">
+                        <div class="mb-4 flex items-center justify-center gap-3">
+                            <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
+                            <h2 class="text-lg font-semibold">Choose Your Master</h2>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                            <button
+                                v-for="name in uniqueMasterNames"
+                                :key="name"
+                                @click="selectMasterName(name)"
+                                class="rounded-lg border-2 border-transparent p-4 text-center transition-all hover:border-primary/50 hover:bg-accent"
+                            >
+                                <div class="text-sm font-semibold">{{ name }}</div>
+                                <div class="text-xs text-muted-foreground">
+                                    {{ mastersForFaction.filter((m) => m.name === name).length }}
+                                    {{ mastersForFaction.filter((m) => m.name === name).length === 1 ? 'title' : 'titles' }}
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Master Title -->
+                    <div v-if="editorStep === 'master-title'">
+                        <div class="mb-4 flex items-center justify-center gap-3">
+                            <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
+                            <h2 class="text-lg font-semibold">Choose Title for {{ selectedMasterName }}</h2>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                            <button
+                                v-for="master in masterTitleVariants"
+                                :key="master.id"
+                                @click="selectMasterTitle(master)"
+                                class="rounded-lg border-2 border-transparent p-4 text-left transition-all hover:border-primary/50 hover:bg-accent"
+                            >
+                                <div class="text-sm font-semibold">{{ master.display_name }}</div>
+                                <div class="flex flex-wrap gap-1 text-xs text-muted-foreground">
+                                    <Badge v-for="kw in master.keywords" :key="kw.slug" variant="secondary" class="px-1 py-0 text-[10px]">
+                                        {{ kw.name }}
+                                    </Badge>
+                                </div>
+                                <div v-if="master.crew_upgrades?.length" class="mt-1 text-xs text-muted-foreground">
+                                    Crew: {{ master.crew_upgrades.map((u: CrewUpgrade) => u.name).join(', ') }}
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ═══════ Step 4: Hiring ═══════ -->
                 <div v-if="editorStep === 'hiring'">
-                    <!-- Crew name + controls -->
-                    <div class="mb-3 flex flex-wrap items-center gap-2">
-                        <Input v-model="crewName" placeholder="Crew name..." class="w-full sm:w-48" />
-
-                        <div v-if="masterTitleVariants.length > 1" class="flex flex-wrap gap-1.5">
-                            <Button
-                                v-for="master in masterTitleVariants"
-                                :key="master.id"
-                                :variant="selectedMasterTitle?.id === master.id ? 'default' : 'outline'"
-                                size="sm"
-                                @click="swapMasterTitle(master)"
-                            >
-                                {{ master.title || master.name }}
-                            </Button>
-                        </div>
-
-                        <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-                            <span v-if="lastSavedAt && isAuthenticated" class="text-xs text-muted-foreground">
-                                Saved {{ lastSavedAt }}
-                            </span>
-                            <Loader2 v-if="isSaving" class="size-4 animate-spin text-muted-foreground" />
-
-                            <div class="ml-auto flex items-center gap-2">
-                                <span v-if="saveError" class="text-xs text-destructive">{{ saveError }}</span>
-
-                                <Button v-if="isAuthenticated" variant="outline" size="sm" class="gap-1.5" @click="saveBuild" :disabled="isSaving">
-                                    <Save class="size-4" />
-                                    <span class="hidden sm:inline">Save</span>
+                    <!-- Crew header card -->
+                    <Card class="mb-4">
+                        <CardContent class="p-3 sm:p-4">
+                            <!-- Row 1: Back, faction logo, crew name, encounter size -->
+                            <div class="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" class="size-8 shrink-0" @click="goBack">
+                                    <ArrowLeft class="size-4" />
                                 </Button>
+                                <img
+                                    v-if="selectedFaction && factions[selectedFaction]"
+                                    :src="factions[selectedFaction].logo"
+                                    :alt="factions[selectedFaction].name"
+                                    class="size-7 shrink-0"
+                                />
+                                <Input v-model="crewName" placeholder="Crew name..." class="min-w-0 flex-1" />
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <GameIcon type="soulstone" class-name="h-4 inline-block" />
+                                    <NumberField id="encounter_size" v-model="encounterSize" :min="1" class="w-20">
+                                        <NumberFieldContent>
+                                            <NumberFieldDecrement />
+                                            <NumberFieldInput />
+                                            <NumberFieldIncrement />
+                                        </NumberFieldContent>
+                                    </NumberField>
+                                </div>
+                            </div>
 
+                            <!-- Row 2: Title switcher (if multiple titles) -->
+                            <div v-if="masterTitleVariants.length > 1" class="mt-2 flex flex-wrap gap-1.5">
+                                <Button
+                                    v-for="master in masterTitleVariants"
+                                    :key="master.id"
+                                    :variant="selectedMasterTitle?.id === master.id ? 'default' : 'outline'"
+                                    size="sm"
+                                    class="h-7 text-xs"
+                                    @click="swapMasterTitle(master)"
+                                >
+                                    {{ master.title || master.name }}
+                                </Button>
+                            </div>
+
+                            <Separator class="my-2" />
+
+                            <!-- Row 3: Actions + status -->
+                            <div class="flex items-center gap-1.5">
+                                <Button v-if="isAuthenticated" variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="saveBuild" :disabled="isSaving">
+                                    <Save class="size-3.5" />
+                                    Save
+                                </Button>
                                 <Button
                                     v-if="isAuthenticated && currentBuildId"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
-                                    class="gap-1.5"
+                                    class="h-7 gap-1 text-xs"
                                     :title="currentBuildIsPublic ? 'Public — click to make private' : 'Private — click to make public'"
                                     @click="toggleCurrentBuildPublic"
                                 >
-                                    <Globe v-if="currentBuildIsPublic" class="size-4" />
-                                    <Lock v-else class="size-4" />
-                                    <span class="hidden sm:inline">{{ currentBuildIsPublic ? 'Public' : 'Private' }}</span>
+                                    <Globe v-if="currentBuildIsPublic" class="size-3.5" />
+                                    <Lock v-else class="size-3.5" />
+                                    {{ currentBuildIsPublic ? 'Public' : 'Private' }}
                                 </Button>
-
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
-                                    class="gap-1.5"
+                                    class="h-7 gap-1 text-xs"
                                     :disabled="isAuthenticated && !currentBuildIsPublic"
                                     :title="isAuthenticated && !currentBuildIsPublic ? 'Make public to share' : 'Copy share link'"
                                     @click="generateShareLink"
                                 >
-                                    <Copy class="size-4" />
-                                    <span class="hidden sm:inline">Share</span>
+                                    <Copy class="size-3.5" />
+                                    Share
                                 </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-7 gap-1 text-xs"
+                                    @click="showDescriptionEditor = !showDescriptionEditor"
+                                >
+                                    <FileText class="size-3.5" />
+                                    {{ showDescriptionEditor ? 'Hide' : '' }} Notes
+                                </Button>
+
+                                <div class="ml-auto flex items-center gap-2">
+                                    <span v-if="saveError" class="text-xs text-destructive">{{ saveError }}</span>
+                                    <span v-if="lastSavedAt && isAuthenticated" class="hidden text-xs text-muted-foreground sm:inline">
+                                        Saved {{ lastSavedAt }}
+                                    </span>
+                                    <Loader2 v-if="isSaving" class="size-4 animate-spin text-muted-foreground" />
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
                     <!-- Description editor (collapsible) -->
-                    <div class="mb-3 flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            class="gap-1.5"
-                            @click="showDescriptionEditor = !showDescriptionEditor"
-                        >
-                            <FileText class="size-4" />
-                            {{ showDescriptionEditor ? 'Hide' : 'Add' }} Description
-                        </Button>
-                    </div>
                     <div v-if="showDescriptionEditor" class="mb-4">
                         <TipTapEditor v-model="crewDescription" />
                     </div>
@@ -1224,10 +1277,10 @@ onMounted(() => {
                                                             {{ filteredHiringPool[virtualRow.index].miniatures.length }} sculpts
                                                         </Badge>
                                                     </div>
-                                                    <div class="flex flex-wrap items-center gap-1 text-xs text-white/70">
-                                                        <span>
+                                                    <div class="flex flex-wrap items-center gap-1.5 text-xs text-white/70">
+                                                        <span class="text-sm font-bold text-white">
                                                             {{ getEffectiveCost(filteredHiringPool[virtualRow.index]) }}ss
-                                                            <span v-if="getHiringCategory(filteredHiringPool[virtualRow.index]) === 'ook'" class="text-red-300">(+1)</span>
+                                                            <span v-if="getHiringCategory(filteredHiringPool[virtualRow.index]) === 'ook'" class="text-xs font-normal text-red-300">({{ filteredHiringPool[virtualRow.index].cost }}+1)</span>
                                                         </span>
                                                         <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
                                                             {{ filteredHiringPool[virtualRow.index].station }}
@@ -1290,8 +1343,38 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <div class="mb-3 flex items-center justify-between">
-                                    <span class="text-xs font-medium text-muted-foreground">{{ crew.length }} models</span>
+                                <!-- Crew Stats Panel -->
+                                <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                        <div class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
+                                        </div>
+                                        <Separator orientation="vertical" class="h-6" />
+                                        <div v-if="crewStats.avgCost != null" class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
+                                        </div>
+                                        <div v-if="crewStats.avgHealth != null" class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
+                                        </div>
+                                        <div v-if="crewStats.avgSpeed != null" class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
+                                        </div>
+                                        <div v-if="crewStats.avgDefense != null" class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
+                                        </div>
+                                        <div v-if="crewStats.avgWillpower != null" class="text-center">
+                                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                            <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3 flex items-center justify-end">
                                     <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs text-destructive hover:text-destructive" @click="clearHiredModels">
                                         <Trash2 class="size-3" />
                                         Clear Hired
@@ -1333,13 +1416,23 @@ onMounted(() => {
                                                 @click="openCrewMemberPreview(index)"
                                             >
                                                 <div class="flex items-center gap-1.5 text-sm font-semibold">
-                                                    <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
-                                                    <Swords v-if="member.hiringCategory === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
-                                                    <ShieldAlert v-if="member.hiringCategory === 'ook'" class="size-3.5 shrink-0 text-red-300" />
+                                                    <TooltipProvider v-if="member.hiringCategory === 'leader' || member.hiringCategory === 'totem' || member.hiringCategory === 'ook'">
+                                                        <Tooltip>
+                                                            <TooltipTrigger as-child>
+                                                                <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
+                                                                <Swords v-if="member.hiringCategory === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
+                                                                <ShieldAlert v-if="member.hiringCategory === 'ook'" class="size-3.5 shrink-0 text-red-300" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">
+                                                                <p class="text-xs">{{ categoryLabel(member.hiringCategory) }}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                     <span class="truncate">{{ member.miniature?.display_name || member.character.display_name }}</span>
                                                 </div>
-                                                <div class="flex items-center gap-1 text-xs text-white/70">
-                                                    <span>{{ member.effectiveCost }}ss</span>
+                                                <div class="flex items-center gap-1.5 text-xs text-white/70">
+                                                    <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white">{{ member.effectiveCost }}ss <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span>
+                                                    <span v-else class="text-sm font-bold text-white">{{ member.effectiveCost }}ss</span>
                                                     <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                         {{ categoryLabel(member.hiringCategory) }}
                                                     </Badge>
@@ -1400,10 +1493,15 @@ onMounted(() => {
         <DrawerContent>
             <div v-if="previewCharacter" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewCharacter.display_name }}</DrawerTitle>
+                    <DrawerTitle class="text-center">
+                        {{ previewCharacter.display_name }}
+                        <span v-if="getHiringCategory(previewCharacter) === 'ook'" class="text-yellow-400">({{ getEffectiveCost(previewCharacter) }}ss)</span>
+                        <span v-else class="text-yellow-400">({{ getEffectiveCost(previewCharacter) }}ss)</span>
+                    </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
-                        <Badge variant="secondary" class="text-[10px]">{{ getEffectiveCost(previewCharacter) }}ss</Badge>
+                        <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="text-xs font-bold">{{ getEffectiveCost(previewCharacter) }}ss <span class="font-normal opacity-70">({{ previewCharacter.cost }}+1)</span></Badge>
+                        <Badge v-else variant="secondary" class="text-xs font-bold">{{ getEffectiveCost(previewCharacter) }}ss</Badge>
                         <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
@@ -1427,7 +1525,7 @@ onMounted(() => {
                         </Select>
                     </div>
 
-                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                         <CharacterCardView
                             v-if="previewMiniature?.front_image"
                             :key="previewMiniature?.id"
@@ -1439,7 +1537,7 @@ onMounted(() => {
                     </div>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
-                    <div class="flex justify-center gap-2">
+                    <div class="flex flex-wrap items-center justify-center gap-2">
                         <Button
                             v-if="canHire(previewCharacter).allowed"
                             class="gap-1.5"
@@ -1465,10 +1563,19 @@ onMounted(() => {
         <DrawerContent>
             <div v-if="crewPreviewMember" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ crewPreviewMember.character.display_name }}</DrawerTitle>
+                    <DrawerTitle class="text-center">
+                        {{ crewPreviewMember.character.display_name }}
+                        <template v-if="crewPreviewMember.character.cost != null">
+                            <span v-if="crewPreviewMember.hiringCategory === 'ook'" class="text-yellow-400">({{ crewPreviewMember.effectiveCost }}ss)</span>
+                            <span v-else class="text-yellow-400">({{ crewPreviewMember.effectiveCost }}ss)</span>
+                        </template>
+                    </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ crewPreviewMember.character.station }}</Badge>
-                        <Badge variant="secondary" class="text-[10px]">{{ crewPreviewMember.effectiveCost }}ss</Badge>
+                        <template v-if="crewPreviewMember.character.cost != null">
+                            <Badge v-if="crewPreviewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold">{{ crewPreviewMember.effectiveCost }}ss <span class="font-normal opacity-70">({{ crewPreviewMember.character.cost }}+1)</span></Badge>
+                            <Badge v-else variant="secondary" class="text-xs font-bold">{{ crewPreviewMember.effectiveCost }}ss</Badge>
+                        </template>
                         <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
                         </Badge>
@@ -1492,7 +1599,7 @@ onMounted(() => {
                         </Select>
                     </div>
 
-                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                         <CharacterCardView
                             v-if="crewPreviewMember.miniature?.front_image"
                             :key="crewPreviewMember.miniature?.id"
@@ -1504,7 +1611,15 @@ onMounted(() => {
                     </div>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
-                    <div class="flex justify-center gap-2">
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                            v-if="canHire(crewPreviewMember.character).allowed"
+                            class="gap-1.5"
+                            @click="addToCrewWithMiniature(crewPreviewMember!.character, null); crewPreviewDrawerOpen = false"
+                        >
+                            <SquarePlus class="size-4" />
+                            Add Another
+                        </Button>
                         <Button
                             v-if="crewPreviewMember.hiringCategory !== 'leader' && crewPreviewMember.hiringCategory !== 'totem'"
                             variant="destructive"
@@ -1512,7 +1627,7 @@ onMounted(() => {
                             @click="removeFromCrew(crewPreviewIndex!); crewPreviewDrawerOpen = false"
                         >
                             <SquareMinus class="size-4" />
-                            Remove from Crew
+                            Remove
                         </Button>
                         <DrawerClose as-child>
                             <Button variant="outline">Close</Button>
@@ -1532,7 +1647,7 @@ onMounted(() => {
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                         <UpgradeFlipCard
                             :front-image="upgradePreviewUpgrade.front_image!"
                             :back-image="upgradePreviewUpgrade.back_image"

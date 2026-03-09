@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
@@ -50,6 +51,10 @@ interface CharacterData {
     second_faction: string | null;
     station: string;
     cost: number;
+    health: number;
+    speed: number;
+    defense: number;
+    willpower: number;
     count: number;
     has_totem_id: number | null;
     keywords: Keyword[];
@@ -168,6 +173,22 @@ const soulstonePool = computed(() => {
     return r > 6 ? 6 : Math.max(0, r);
 });
 const ookCount = computed(() => crew.value.filter((m) => m.hiringCategory === 'ook').length);
+
+// ─── Crew Stats ───
+const crewStats = computed(() => {
+    if (crew.value.length === 0) return null;
+    const hirable = crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem');
+    const nums = (arr: (number | null | undefined)[]) => arr.filter((v): v is number => typeof v === 'number' && v > 0);
+    const avg = (vals: number[]) => (vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null);
+    return {
+        models: crew.value.length,
+        avgCost: avg(nums(hirable.map((m) => m.effectiveCost))),
+        avgHealth: avg(nums(crew.value.map((m) => m.character.health))),
+        avgSpeed: avg(nums(crew.value.map((m) => m.character.speed))),
+        avgDefense: avg(nums(crew.value.map((m) => m.character.defense))),
+        avgWillpower: avg(nums(crew.value.map((m) => m.character.willpower))),
+    };
+});
 
 // ─── Card Preview Drawer ───
 const previewDrawerOpen = ref(false);
@@ -355,9 +376,36 @@ onMounted(rebuildCrew);
                                     {{ ookCount }} / 2
                                 </span>
                             </div>
-                            <div class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Models:</span>
-                                <span class="font-medium">{{ crew.length }}</span>
+                        </div>
+
+                        <!-- Crew Stats Panel -->
+                        <div v-if="crewStats" class="mb-4 rounded-md border border-border/50 bg-accent/30 p-2">
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                <div class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
+                                </div>
+                                <Separator orientation="vertical" class="h-6" />
+                                <div v-if="crewStats.avgCost != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
+                                </div>
+                                <div v-if="crewStats.avgHealth != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
+                                </div>
+                                <div v-if="crewStats.avgSpeed != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
+                                </div>
+                                <div v-if="crewStats.avgDefense != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
+                                </div>
+                                <div v-if="crewStats.avgWillpower != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
+                                </div>
                             </div>
                         </div>
 
@@ -388,13 +436,23 @@ onMounted(rebuildCrew);
                                 <div class="flex items-center justify-between">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5 text-sm font-semibold">
-                                            <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
-                                            <Swords v-if="member.hiringCategory === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
-                                            <ShieldAlert v-if="member.hiringCategory === 'ook'" class="size-3.5 shrink-0 text-red-300" />
+                                            <TooltipProvider v-if="member.hiringCategory === 'leader' || member.hiringCategory === 'totem' || member.hiringCategory === 'ook'">
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
+                                                        <Swords v-if="member.hiringCategory === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
+                                                        <ShieldAlert v-if="member.hiringCategory === 'ook'" class="size-3.5 shrink-0 text-red-300" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top">
+                                                        <p class="text-xs">{{ categoryLabel(member.hiringCategory) }}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                             <span class="truncate">{{ member.miniature?.display_name || member.character.display_name }}</span>
                                         </div>
-                                        <div class="flex items-center gap-1 text-xs text-white/70">
-                                            <span>{{ member.effectiveCost }}ss</span>
+                                        <div class="flex items-center gap-1.5 text-xs text-white/70">
+                                            <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white">{{ member.effectiveCost }}ss <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span>
+                                            <span v-else class="text-sm font-bold text-white">{{ member.effectiveCost }}ss</span>
                                             <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.hiringCategory) }}
                                             </Badge>
@@ -449,17 +507,26 @@ onMounted(rebuildCrew);
         <DrawerContent>
             <div v-if="previewMember" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewMember.character.display_name }}</DrawerTitle>
+                    <DrawerTitle class="text-center">
+                        {{ previewMember.character.display_name }}
+                        <template v-if="previewMember.character.cost != null">
+                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400">({{ previewMember.effectiveCost }}ss)</span>
+                            <span v-else class="text-yellow-400">({{ previewMember.effectiveCost }}ss)</span>
+                        </template>
+                    </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewMember.character.station }}</Badge>
-                        <Badge variant="secondary" class="text-[10px]">{{ previewMember.effectiveCost }}ss</Badge>
+                        <template v-if="previewMember.character.cost != null">
+                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold">{{ previewMember.effectiveCost }}ss <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge>
+                            <Badge v-else variant="secondary" class="text-xs font-bold">{{ previewMember.effectiveCost }}ss</Badge>
+                        </template>
                         <Badge :class="categoryColorTheme(previewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(previewMember.hiringCategory) }}
                         </Badge>
                     </div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                         <CharacterCardView
                             v-if="previewMember.miniature?.front_image"
                             :key="previewMember.miniature?.id"
@@ -488,7 +555,7 @@ onMounted(rebuildCrew);
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div class="min-h-0 flex-1 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                         <UpgradeFlipCard
                             :front-image="upgradePreviewUpgrade.front_image!"
                             :back-image="upgradePreviewUpgrade.back_image"

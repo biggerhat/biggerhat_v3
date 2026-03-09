@@ -34,7 +34,9 @@ const factionInfo = computed(() => (page.props as any).faction_info as Record<st
 
 const factionName = computed(() => factionInfo.value[props.character.faction]?.name ?? props.character.faction);
 
-const secondFactionName = computed(() => (props.character.second_faction ? factionInfo.value[props.character.second_faction]?.name ?? props.character.second_faction : null));
+const secondFactionName = computed(() =>
+    props.character.second_faction ? (factionInfo.value[props.character.second_faction]?.name ?? props.character.second_faction) : null,
+);
 
 const stationLabel = computed(() => {
     if (!props.character.station) return null;
@@ -100,7 +102,10 @@ const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
                                 </Badge>
                             </Link>
                             <Link v-if="character.second_faction" :href="route('factions.view', character.second_faction)">
-                                <Badge class="cursor-pointer transition-opacity hover:opacity-80" :style="factionBadgeStyle(character.second_faction)">
+                                <Badge
+                                    class="cursor-pointer transition-opacity hover:opacity-80"
+                                    :style="factionBadgeStyle(character.second_faction)"
+                                >
                                     {{ secondFactionName }}
                                 </Badge>
                             </Link>
@@ -133,7 +138,11 @@ const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
                                 <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Willpower</div>
                                 <div class="text-base font-bold sm:text-lg">
                                     {{ character.willpower
-                                    }}<GameIcon v-if="character.willpower_suit" :type="character.willpower_suit" class-name="inline text-xs sm:text-sm" />
+                                    }}<GameIcon
+                                        v-if="character.willpower_suit"
+                                        :type="character.willpower_suit"
+                                        class-name="inline text-xs sm:text-sm"
+                                    />
                                 </div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 p-2 text-center">
@@ -144,7 +153,13 @@ const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
 
                         <!-- Stat flags -->
                         <div
-                            v-if="character.generates_stone || character.is_unhirable || character.is_beta || character.count > 1 || character.summon_target_number"
+                            v-if="
+                                character.generates_stone ||
+                                character.is_unhirable ||
+                                character.is_beta ||
+                                character.count > 1 ||
+                                character.summon_target_number
+                            "
                             class="flex flex-wrap gap-1.5"
                         >
                             <Badge v-if="character.generates_stone" variant="outline">
@@ -324,7 +339,7 @@ const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
             <Separator label="Related Characters" class="mb-6" />
             <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
                 <Link
-                    v-for="related in (relatedCharacters as any[])"
+                    v-for="related in relatedCharacters as any[]"
                     :key="related.slug"
                     :href="route('characters.view', { character: related.slug, miniature: related.miniature_id, slug: related.miniature_slug })"
                 >

@@ -92,7 +92,12 @@ const hasRelatedContent = computed(
                         <Card>
                             <CardHeader class="pb-3">
                                 <div class="flex items-center gap-2.5">
-                                    <img v-if="upgrade.faction_logo" :src="upgrade.faction_logo" :alt="upgrade.faction_label ?? ''" class="h-8 w-8 shrink-0" />
+                                    <img
+                                        v-if="upgrade.faction_logo"
+                                        :src="upgrade.faction_logo"
+                                        :alt="upgrade.faction_label ?? ''"
+                                        class="h-8 w-8 shrink-0"
+                                    />
                                     <CardTitle class="text-xl leading-tight lg:text-2xl">{{ upgrade.name }}</CardTitle>
                                 </div>
                             </CardHeader>

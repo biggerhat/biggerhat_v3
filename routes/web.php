@@ -2,6 +2,7 @@
 
 use App\Enums\FactionEnum;
 use App\Http\Controllers\CommandController;
+use App\Http\Controllers\CrewBuilderController;
 use App\Http\Controllers\Database\AbilityController;
 use App\Http\Controllers\Database\ActionController;
 use App\Http\Controllers\Database\BlogController;
@@ -120,6 +121,13 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
+    Route::prefix('crew-builder')->name('crew_builder.')->group(function () {
+        Route::get('/', [CrewBuilderController::class, 'index'])->name('index');
+        Route::get('/share/{shareCode}', [CrewBuilderController::class, 'share'])->name('share');
+        Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
+        Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');
+        Route::delete('/{crewBuild}', [CrewBuilderController::class, 'destroy'])->name('destroy')->middleware('auth');
+    });
 });
 
 require __DIR__.'/api.php';

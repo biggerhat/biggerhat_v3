@@ -194,10 +194,7 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                                         :alt="pickedDeployment.label"
                                         class="w-full md:w-48"
                                     />
-                                    <CardContent
-                                        class="flex-1 border-l-4 p-4"
-                                        :class="suitBorderColor[pickedDeployment.suit] ?? 'border-l-border'"
-                                    >
+                                    <CardContent class="flex-1 border-l-4 p-4" :class="suitBorderColor[pickedDeployment.suit] ?? 'border-l-border'">
                                         <div class="flex items-center gap-2">
                                             <span class="text-lg font-medium">{{ pickedDeployment.label }}</span>
                                             <Badge variant="secondary" class="gap-1 text-xs">
@@ -216,7 +213,10 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                             <h2 class="mb-4 text-lg font-semibold">Strategy</h2>
                             <div class="animate-fade-in-up opacity-0" :style="resultDelays[1]">
                                 <Link :href="route('strategies.view', pickedStrategy.slug)">
-                                    <div v-if="pickedStrategy.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg md:max-w-xs">
+                                    <div
+                                        v-if="pickedStrategy.image_url"
+                                        class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg md:max-w-xs"
+                                    >
                                         <img :src="pickedStrategy.image_url" :alt="pickedStrategy.name" class="w-full rounded-lg" />
                                     </div>
                                     <Card

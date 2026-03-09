@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Artisan;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,9 +15,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             PermissionSeeder::class,
-            CharacterSeeder::class,
-            BlogSeeder::class,
-            SeasonSeeder::class,
         ]);
+
+        $this->command->info('Seeding from production API...');
+        Artisan::call('app:seed-from-prod', ['--skip-images' => false], $this->command->getOutput());
     }
 }

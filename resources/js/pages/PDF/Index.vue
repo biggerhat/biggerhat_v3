@@ -166,9 +166,7 @@ const add = (character: any) => {
         character.crew_upgrades.forEach((u: any) => addUpgrade(u));
     }
     if (character.totem_name) {
-        (props.characters as any[])
-            .filter((c) => c.slug === character.totem_name)
-            .forEach((c) => pdfCards.value.push(c));
+        (props.characters as any[]).filter((c) => c.slug === character.totem_name).forEach((c) => pdfCards.value.push(c));
     }
 };
 
@@ -233,9 +231,7 @@ onMounted(() => {
                         <ArrowUpFromLine class="size-4" />
                         <span class="hidden sm:inline">Upgrades</span>
                     </TabsTrigger>
-                    <TabsTrigger value="list" class="flex-1 gap-1.5 md:hidden">
-                        List ({{ pdfCards.length }})
-                    </TabsTrigger>
+                    <TabsTrigger value="list" class="flex-1 gap-1.5 md:hidden"> List ({{ pdfCards.length }}) </TabsTrigger>
                 </TabsList>
 
                 <!-- Shared faction filter -->
@@ -366,9 +362,7 @@ onMounted(() => {
                                                         {{ results[virtualRow.index].display_name }}
                                                     </div>
                                                     <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                                                        <span v-if="results[virtualRow.index].cost"
-                                                            >{{ results[virtualRow.index].cost }}ss</span
-                                                        >
+                                                        <span v-if="results[virtualRow.index].cost">{{ results[virtualRow.index].cost }}ss</span>
                                                         <Badge
                                                             v-if="results[virtualRow.index].station"
                                                             variant="secondary"
@@ -383,20 +377,11 @@ onMounted(() => {
                                                             v-if="results[virtualRow.index].keywords?.length"
                                                             class="truncate text-muted-foreground/70"
                                                         >
-                                                            {{
-                                                                results[virtualRow.index]
-                                                                    .keywords.map((k: any) => k.name)
-                                                                    .join(', ')
-                                                            }}
+                                                            {{ results[virtualRow.index].keywords.map((k: any) => k.name).join(', ') }}
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    class="size-7 shrink-0"
-                                                    @click="add(results[virtualRow.index])"
-                                                >
+                                                <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="add(results[virtualRow.index])">
                                                     <SquarePlus class="size-4" />
                                                 </Button>
                                             </div>
@@ -413,26 +398,16 @@ onMounted(() => {
                                                         :class="factionBackground(upgrade.faction)"
                                                         class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                                     >
-                                                        <div
-                                                            class="min-w-0 flex-1 cursor-pointer"
-                                                            @click="openPreview(upgrade, 'upgrade')"
-                                                        >
+                                                        <div class="min-w-0 flex-1 cursor-pointer" @click="openPreview(upgrade, 'upgrade')">
                                                             <div class="text-sm font-semibold">{{ upgrade.name }}</div>
                                                             <div class="text-xs text-muted-foreground">
                                                                 <span v-if="upgrade.type">
                                                                     {{ upgrade.type }}
-                                                                    <span v-if="upgrade.master">
-                                                                        &mdash; {{ upgrade.master }}
-                                                                    </span>
+                                                                    <span v-if="upgrade.master"> &mdash; {{ upgrade.master }} </span>
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            class="size-7 shrink-0"
-                                                            @click="addUpgrade(upgrade)"
-                                                        >
+                                                        <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="addUpgrade(upgrade)">
                                                             <SquarePlus class="size-4" />
                                                         </Button>
                                                     </div>
@@ -546,9 +521,7 @@ onMounted(() => {
                                             <DropdownMenuLabel>PDF Options</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuGroup>
-                                                <DropdownMenuCheckboxItem v-model="separateImages">
-                                                    Separate Images
-                                                </DropdownMenuCheckboxItem>
+                                                <DropdownMenuCheckboxItem v-model="separateImages"> Separate Images </DropdownMenuCheckboxItem>
                                             </DropdownMenuGroup>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -636,10 +609,7 @@ onMounted(() => {
         </div>
 
         <!-- Mobile sticky bottom bar -->
-        <div
-            v-if="activeTab === 'list'"
-            class="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur-sm md:hidden"
-        >
+        <div v-if="activeTab === 'list'" class="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur-sm md:hidden">
             <div class="container mx-auto flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-sm">
                     <span class="font-medium">{{ pdfCards.length }} cards</span>
@@ -673,12 +643,8 @@ onMounted(() => {
                 </div>
                 <DrawerFooter>
                     <div class="flex justify-center gap-2">
-                        <Button v-if="previewType === 'character'" variant="default" @click="add(previewItem)">
-                            Add To List
-                        </Button>
-                        <Button v-if="previewType === 'upgrade'" variant="default" @click="addUpgrade(previewItem)">
-                            Add To List
-                        </Button>
+                        <Button v-if="previewType === 'character'" variant="default" @click="add(previewItem)"> Add To List </Button>
+                        <Button v-if="previewType === 'upgrade'" variant="default" @click="addUpgrade(previewItem)"> Add To List </Button>
                         <DrawerClose as-child>
                             <Button variant="outline">Close</Button>
                         </DrawerClose>

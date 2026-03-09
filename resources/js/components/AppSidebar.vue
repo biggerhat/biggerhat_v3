@@ -122,7 +122,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'References',
         collapsible: true,
-        collapsed: true,
+        collapsed: false,
         items: [
             {
                 title: 'Actions',
@@ -169,7 +169,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Tools',
         collapsible: true,
-        collapsed: true,
+        collapsed: false,
         items: [
             // {
             //     title: 'Hat Gamin Discord Bot',
@@ -180,6 +180,11 @@ const mainNavItems: NavItem[] = [
                 title: 'PDF Generator',
                 href: route('tools.pdf.index'),
                 icon: FileText,
+            },
+            {
+                title: 'Crew Builder',
+                href: route('tools.crew_builder.index'),
+                icon: Swords,
             },
             {
                 title: 'Scenario Generator',

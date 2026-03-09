@@ -95,11 +95,7 @@ const activeImage = ref(0);
                         <div v-if="images.length > 0" class="space-y-3">
                             <!-- Main image -->
                             <div class="overflow-hidden rounded-xl shadow-lg">
-                                <img
-                                    :src="images[activeImage].src"
-                                    :alt="`${package.name} - ${images[activeImage].label}`"
-                                    class="w-full"
-                                />
+                                <img :src="images[activeImage].src" :alt="`${package.name} - ${images[activeImage].label}`" class="w-full" />
                             </div>
                             <!-- Thumbnails when both images exist -->
                             <div v-if="images.length > 1" class="flex gap-3">
@@ -182,11 +178,7 @@ const activeImage = ref(0);
                                 <div v-if="package.keywords.length">
                                     <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
                                     <div class="flex flex-wrap gap-1.5">
-                                        <Link
-                                            v-for="keyword in package.keywords"
-                                            :key="keyword.slug"
-                                            :href="route('keywords.view', keyword.slug)"
-                                        >
+                                        <Link v-for="keyword in package.keywords" :key="keyword.slug" :href="route('keywords.view', keyword.slug)">
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
                                                 {{ keyword.name }}
                                             </Badge>

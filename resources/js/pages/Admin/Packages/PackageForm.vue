@@ -170,11 +170,7 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="distributor_description">Distributor Description</Label>
-                            <Textarea
-                                id="distributor_description"
-                                v-model="formInfo.distributor_description"
-                                placeholder="Distributor description"
-                            />
+                            <Textarea id="distributor_description" v-model="formInfo.distributor_description" placeholder="Distributor description" />
                         </div>
 
                         <TextBar text="Factions" />

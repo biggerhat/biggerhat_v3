@@ -358,7 +358,13 @@ const formatDefensiveType = (type: string) => {
                                             <span class="inline-flex flex-wrap items-center gap-1">
                                                 <Link
                                                     v-if="ability.characters_count === 1 && ability.characters?.length === 1"
-                                                    :href="route('characters.view', { character: ability.characters[0].slug, miniature: ability.characters[0].standard_miniatures?.[0]?.id, slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view' })"
+                                                    :href="
+                                                        route('characters.view', {
+                                                            character: ability.characters[0].slug,
+                                                            miniature: ability.characters[0].standard_miniatures?.[0]?.id,
+                                                            slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view',
+                                                        })
+                                                    "
                                                     class="inline-flex items-center gap-1 text-primary hover:underline"
                                                 >
                                                     <Users class="h-3 w-3 shrink-0" />
@@ -412,7 +418,13 @@ const formatDefensiveType = (type: string) => {
                                     <template #footer>
                                         <template v-if="ability.characters_count === 1 && ability.characters?.length === 1">
                                             <Link
-                                                :href="route('characters.view', { character: ability.characters[0].slug, miniature: ability.characters[0].standard_miniatures?.[0]?.id, slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view' })"
+                                                :href="
+                                                    route('characters.view', {
+                                                        character: ability.characters[0].slug,
+                                                        miniature: ability.characters[0].standard_miniatures?.[0]?.id,
+                                                        slug: ability.characters[0].standard_miniatures?.[0]?.slug ?? 'view',
+                                                    })
+                                                "
                                                 class="text-primary hover:underline"
                                             >
                                                 {{ ability.characters[0].display_name }}

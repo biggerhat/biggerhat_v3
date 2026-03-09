@@ -121,7 +121,12 @@ const { delays } = useStaggeredEntry(filteredCount);
 
                 <TabsContent value="cards">
                     <div v-if="filteredUpgrades.length" class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-                        <div v-for="(upgrade, index) in filteredUpgrades" :key="upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[index]">
+                        <div
+                            v-for="(upgrade, index) in filteredUpgrades"
+                            :key="upgrade.id"
+                            class="animate-fade-in-up opacity-0"
+                            :style="delays[index]"
+                        >
                             <UpgradeCardView :upgrade="upgrade" />
                         </div>
                     </div>

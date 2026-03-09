@@ -114,11 +114,7 @@ const navigateToEntity = () => {
                         <!-- Scheme / Strategy with image -->
                         <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
                             <div class="w-72">
-                                <img
-                                    :src="entityData.image as string"
-                                    :alt="(entityData.name ?? displayName) as string"
-                                    class="w-full rounded-lg"
-                                />
+                                <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" />
                             </div>
                         </div>
 

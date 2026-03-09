@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { cleanObject } from '@/composables/CleanObject';
+import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { LayoutGrid, List, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
@@ -259,10 +259,7 @@ const formatPrice = (cents: number | null) => {
                                 <template v-if="props.packages?.data?.length">
                                     <TableRow v-for="pkg in props.packages.data" :key="pkg.id">
                                         <TableCell class="font-medium">
-                                            <Link
-                                                :href="route('packages.view', { package: pkg.slug })"
-                                                class="text-primary hover:underline"
-                                            >
+                                            <Link :href="route('packages.view', { package: pkg.slug })" class="text-primary hover:underline">
                                                 {{ pkg.name }}
                                             </Link>
                                         </TableCell>

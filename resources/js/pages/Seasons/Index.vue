@@ -92,8 +92,8 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
         <PageBanner :title="season.label">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">
-                    {{ deploymentCount }} {{ deploymentCount === 1 ? 'Deployment' : 'Deployments' }},
-                    {{ strategyCount }} {{ strategyCount === 1 ? 'Strategy' : 'Strategies' }}, {{ schemeCount }}
+                    {{ deploymentCount }} {{ deploymentCount === 1 ? 'Deployment' : 'Deployments' }}, {{ strategyCount }}
+                    {{ strategyCount === 1 ? 'Strategy' : 'Strategies' }}, {{ schemeCount }}
                     {{ schemeCount === 1 ? 'Scheme' : 'Schemes' }}
                 </div>
             </template>
@@ -157,16 +157,8 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                                 :style="deploymentDelays[index]"
                             >
                                 <Card class="overflow-hidden">
-                                    <img
-                                        v-if="deployment.image_url"
-                                        :src="deployment.image_url"
-                                        :alt="deployment.label"
-                                        class="w-full"
-                                    />
-                                    <CardContent
-                                        class="border-l-4 p-4"
-                                        :class="suitBorderColor[deployment.suit] ?? 'border-l-border'"
-                                    >
+                                    <img v-if="deployment.image_url" :src="deployment.image_url" :alt="deployment.label" class="w-full" />
+                                    <CardContent class="border-l-4 p-4" :class="suitBorderColor[deployment.suit] ?? 'border-l-border'">
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium">{{ deployment.label }}</span>
                                             <Badge variant="secondary" class="gap-1 text-xs">

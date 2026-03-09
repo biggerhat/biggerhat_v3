@@ -48,7 +48,10 @@ const hasRelatedContent = () => {
                 <Badge variant="outline" class="border-yellow-400 text-yellow-800 dark:border-yellow-600 dark:text-yellow-200">Preview</Badge>
                 This is a preview — the post is not yet visible to the public.
             </div>
-            <Link :href="route('admin.blog.posts.edit', post.slug)" class="text-sm font-medium text-yellow-800 underline hover:no-underline dark:text-yellow-200">
+            <Link
+                :href="route('admin.blog.posts.edit', post.slug)"
+                class="text-sm font-medium text-yellow-800 underline hover:no-underline dark:text-yellow-200"
+            >
                 Back to Editor
             </Link>
         </div>

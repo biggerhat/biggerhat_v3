@@ -182,7 +182,9 @@ onMounted(() => {
             <CardFooter class="flex justify-between px-6 pb-6">
                 <Button @click="router.get(route('admin.blog.posts.index'))" variant="outline">Cancel</Button>
                 <div class="flex gap-2">
-                    <Button v-if="props.post" @click="router.get(route('admin.blog.posts.preview', props.post.slug))" variant="secondary">Preview</Button>
+                    <Button v-if="props.post" @click="router.get(route('admin.blog.posts.preview', props.post.slug))" variant="secondary"
+                        >Preview</Button
+                    >
                     <Button @click="submit">Save</Button>
                 </div>
             </CardFooter>

@@ -51,7 +51,7 @@ defineProps<{
             <div class="animate-fade-in-up">
                 <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
                     <!-- Info panel — shown first on mobile -->
-                    <div :class="scheme.image_url ? 'order-1 lg:order-2' : 'order-1 lg:col-span-3 max-w-2xl'">
+                    <div :class="scheme.image_url ? 'order-1 lg:order-2' : 'order-1 max-w-2xl lg:col-span-3'">
                         <Card>
                             <CardHeader class="pb-3">
                                 <CardTitle class="text-xl leading-tight lg:text-2xl">{{ scheme.name }}</CardTitle>

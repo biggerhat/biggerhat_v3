@@ -99,9 +99,7 @@ const getDelay = () => delays.value[globalIndex++] ?? {};
                     </Link>
                 </div>
                 <div v-if="stationCounts.length" class="flex items-center gap-1.5">
-                    <Badge v-for="s in stationCounts" :key="s.label" variant="outline" class="text-xs">
-                        {{ s.value }} {{ s.label }}
-                    </Badge>
+                    <Badge v-for="s in stationCounts" :key="s.label" variant="outline" class="text-xs"> {{ s.value }} {{ s.label }} </Badge>
                 </div>
                 <div v-if="statItems.length" class="flex items-center gap-3">
                     <div v-for="stat in statItems" :key="stat.label" class="text-center">

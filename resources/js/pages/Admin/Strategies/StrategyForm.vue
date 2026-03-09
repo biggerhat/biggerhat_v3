@@ -112,7 +112,11 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="additional_scoring">Additional Scoring</Label>
-                            <Textarea id="additional_scoring" v-model="formInfo.additional_scoring" placeholder="Type the additional scoring info here." />
+                            <Textarea
+                                id="additional_scoring"
+                                v-model="formInfo.additional_scoring"
+                                placeholder="Type the additional scoring info here."
+                            />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">

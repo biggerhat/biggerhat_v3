@@ -236,21 +236,33 @@ onMounted(() => {
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <a
-                                                v-if="lore.media?.link"
-                                                :href="lore.media.link"
-                                                target="_blank"
-                                                class="inline-flex items-center gap-1 text-primary hover:underline"
-                                            >
-                                                {{ lore.media.name }}
-                                                <ExternalLink class="h-3 w-3" />
-                                            </a>
-                                            <span v-else>{{ lore.media?.name ?? '-' }}</span>
+                                            <div v-if="lore.media?.length" class="space-y-0.5">
+                                                <div v-for="media in lore.media" :key="media.name">
+                                                    <a
+                                                        v-if="media.link"
+                                                        :href="media.link"
+                                                        target="_blank"
+                                                        class="inline-flex items-center gap-1 text-primary hover:underline"
+                                                    >
+                                                        {{ media.name }}
+                                                        <ExternalLink class="h-3 w-3" />
+                                                    </a>
+                                                    <span v-else>{{ media.name }}</span>
+                                                </div>
+                                            </div>
+                                            <span v-else class="text-muted-foreground">-</span>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge v-if="lore.media?.type" variant="outline" class="text-xs capitalize">
-                                                {{ (lore.media.type as string).replace(/_/g, ' ') }}
-                                            </Badge>
+                                            <div v-if="lore.media?.length" class="flex flex-wrap gap-1">
+                                                <Badge
+                                                    v-for="media in lore.media"
+                                                    :key="media.name"
+                                                    variant="outline"
+                                                    class="text-xs capitalize"
+                                                >
+                                                    {{ (media.type as string).replace(/_/g, ' ') }}
+                                                </Badge>
+                                            </div>
                                             <span v-else>-</span>
                                         </TableCell>
                                         <TableCell>

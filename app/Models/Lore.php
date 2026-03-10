@@ -6,7 +6,6 @@ use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
@@ -22,10 +21,10 @@ class Lore extends Model
 
     protected $guarded = ['id'];
 
-    /** @return BelongsTo<LoreMedia, $this> */
-    public function media(): BelongsTo
+    /** @return BelongsToMany<LoreMedia, $this> */
+    public function media(): BelongsToMany
     {
-        return $this->belongsTo(LoreMedia::class, 'lore_media_id');
+        return $this->belongsToMany(LoreMedia::class, 'lore_lore_media');
     }
 
     /** @return BelongsToMany<Character, $this> */

@@ -58,7 +58,7 @@ class TriggerAdminController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'suits' => ['nullable', 'string', 'max:255'],
-            'costs_stone' => ['required', 'boolean'],
+            'stone_cost' => ['required', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
         ]);
 

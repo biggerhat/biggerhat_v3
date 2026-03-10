@@ -14,8 +14,8 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
-    const mediaName = (row.original.media?.name as string)?.toLowerCase() ?? '';
-    return name.includes(search) || mediaName.includes(search);
+    const mediaNames = (row.original.media ?? []).map((m: any) => (m.name as string)?.toLowerCase() ?? '');
+    return name.includes(search) || mediaNames.some((n: string) => n.includes(search));
 };
 
 const columns: ColumnDef<any>[] = [
@@ -32,12 +32,15 @@ const columns: ColumnDef<any>[] = [
     {
         id: 'media',
         header: () => h('div', {}, 'Media'),
-        cell: ({ row }) => h('div', { class: 'text-sm' }, row.original.media?.name ?? '-'),
-    },
-    {
-        id: 'media_type',
-        header: () => h('div', {}, 'Type'),
-        cell: ({ row }) => h('div', { class: 'text-sm capitalize' }, (row.original.media?.type as string)?.replace(/_/g, ' ') ?? '-'),
+        cell: ({ row }) => {
+            const media = row.original.media ?? [];
+            if (media.length === 0) return h('div', { class: 'text-sm text-muted-foreground' }, '-');
+            return h(
+                'div',
+                { class: 'text-sm space-y-0.5' },
+                media.map((m: any) => h('div', {}, m.name)),
+            );
+        },
     },
     {
         id: 'characters',

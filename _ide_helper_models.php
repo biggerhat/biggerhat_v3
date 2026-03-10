@@ -446,12 +446,12 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
- * @property int $lore_media_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
- * @property-read \App\Models\LoreMedia $media
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LoreMedia> $media
+ * @property-read int|null $media_count
  * @method static \Database\Factories\LoreFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newQuery()
@@ -459,7 +459,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereLoreMediaId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereUpdatedAt($value)
@@ -837,7 +836,7 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
- * @property int $costs_stone
+ * @property int $stone_cost
  * @property string|null $suits
  * @property string|null $description
  * @property string|null $internal_notes
@@ -851,7 +850,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger toSelectOptions(string $column, $primaryKeyColumn = 'id')
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCostsStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDescription($value)
@@ -859,6 +857,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereInternalNotes($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereStoneCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSuits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereUpdatedAt($value)
  * @mixin \Eloquent

@@ -22,7 +22,8 @@ const props = defineProps({
 
 const keywordName = computed(() => props.keyword?.keyword?.name ?? '');
 const masters = computed(() => props.keyword?.masters ?? []);
-const characters = computed(() => props.keyword?.characters ?? []);
+const totemIds = computed(() => new Set(masters.value.map((m: any) => m.has_totem_id).filter(Boolean)));
+const characters = computed(() => (props.keyword?.characters ?? []).filter((c: any) => !totemIds.value.has(c.id)));
 const hasStats = computed(() => props.statistics && Object.keys(props.statistics).length > 0);
 
 const charCount = computed(() => characters.value.length);

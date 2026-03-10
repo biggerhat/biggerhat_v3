@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
+use App\Http\Controllers\Admin\LoreAdminController;
+use App\Http\Controllers\Admin\LoreMediaAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
 use App\Http\Controllers\Admin\PackageAdminController;
@@ -161,6 +163,24 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::post('/store', 'store')->name('store')->middleware('permission:edit_package');
         Route::post('/update/{package}', 'update')->name('update')->middleware('permission:edit_package');
         Route::post('/delete/{package}', 'delete')->name('delete')->middleware('permission:delete_package');
+    });
+
+    Route::controller(LoreMediaAdminController::class)->prefix('lore-media')->name('lore_media.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_lore');
+        Route::get('/edit/{loreMedia}', 'edit')->name('edit')->middleware('permission:view_lore');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_lore');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_lore');
+        Route::post('/update/{loreMedia}', 'update')->name('update')->middleware('permission:edit_lore');
+        Route::post('/delete/{loreMedia}', 'delete')->name('delete')->middleware('permission:delete_lore');
+    });
+
+    Route::controller(LoreAdminController::class)->prefix('lores')->name('lores.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_lore');
+        Route::get('/edit/{lore}', 'edit')->name('edit')->middleware('permission:view_lore');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_lore');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_lore');
+        Route::post('/update/{lore}', 'update')->name('update')->middleware('permission:edit_lore');
+        Route::post('/delete/{lore}', 'delete')->name('delete')->middleware('permission:delete_lore');
     });
 
     // Blog admin routes — permission-based so content_creator role can also access

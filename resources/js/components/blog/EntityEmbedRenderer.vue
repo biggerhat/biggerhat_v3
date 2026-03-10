@@ -2,7 +2,6 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
-import FactionLogo from '@/components/FactionLogo.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -129,7 +128,9 @@ onMounted(async () => {
             >
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline">Keyword</Badge>
+                        <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline"
+                            >Keyword</Badge
+                        >
                         <span class="text-lg font-semibold">{{ entityData.name ?? displayName }}</span>
                     </div>
                     <Button v-if="entityData.link" size="sm" variant="outline" @click.stop="navigateToEntity">View Keyword</Button>
@@ -144,12 +145,7 @@ onMounted(async () => {
                     </span>
                 </div>
                 <div v-if="(entityData.factions as any[])?.length" class="mt-2 flex flex-wrap gap-1.5">
-                    <Badge
-                        v-for="f in (entityData.factions as any[])"
-                        :key="f.slug"
-                        variant="secondary"
-                        class="gap-1.5"
-                    >
+                    <Badge v-for="f in entityData.factions as any[]" :key="f.slug" variant="secondary" class="gap-1.5">
                         <img :src="f.logo" :alt="f.name" class="size-4" />
                         {{ f.name }}
                     </Badge>
@@ -164,13 +160,19 @@ onMounted(async () => {
             >
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <img v-if="entityData.logo" :src="entityData.logo as string" :alt="(entityData.name as string)" class="size-10" />
+                        <img v-if="entityData.logo" :src="entityData.logo as string" :alt="entityData.name as string" class="size-10" />
                         <div>
                             <div class="text-lg font-semibold">{{ entityData.name ?? displayName }}</div>
                             <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <span v-if="entityData.masters_count">{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span>
-                                <span v-if="entityData.characters_count">{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span>
-                                <span v-if="entityData.keywords_count">{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span>
+                                <span v-if="entityData.masters_count"
+                                    >{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span
+                                >
+                                <span v-if="entityData.characters_count"
+                                    >{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span
+                                >
+                                <span v-if="entityData.keywords_count"
+                                    >{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span
+                                >
                             </div>
                         </div>
                     </div>

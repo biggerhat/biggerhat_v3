@@ -153,14 +153,26 @@ const hasRelatedContent = computed(
                         </div>
                         <!-- Desktop: combination image or single card -->
                         <div v-else-if="upgrade.combination_image" class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="`/storage/${upgrade.combination_image}`" :alt="upgrade.name" class="w-full" />
+                            <img :src="`/storage/${upgrade.combination_image}`" :alt="upgrade.name" loading="lazy" decoding="async" class="w-full" />
                         </div>
                         <div v-else-if="upgrade.front_image && upgrade.back_image" class="grid grid-cols-2 gap-4">
                             <div class="overflow-hidden rounded-xl shadow-lg">
-                                <img :src="`/storage/${upgrade.front_image}`" :alt="`${upgrade.name} Front`" class="w-full" />
+                                <img
+                                    :src="`/storage/${upgrade.front_image}`"
+                                    :alt="`${upgrade.name} Front`"
+                                    loading="lazy"
+                                    decoding="async"
+                                    class="w-full"
+                                />
                             </div>
                             <div class="overflow-hidden rounded-xl shadow-lg">
-                                <img :src="`/storage/${upgrade.back_image}`" :alt="`${upgrade.name} Back`" class="w-full" />
+                                <img
+                                    :src="`/storage/${upgrade.back_image}`"
+                                    :alt="`${upgrade.name} Back`"
+                                    loading="lazy"
+                                    decoding="async"
+                                    class="w-full"
+                                />
                             </div>
                         </div>
                         <div v-else class="mx-auto max-w-sm">

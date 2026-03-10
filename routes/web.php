@@ -10,6 +10,7 @@ use App\Http\Controllers\Database\BlogController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
+use App\Http\Controllers\Database\LoreController;
 use App\Http\Controllers\Database\MarkerController;
 use App\Http\Controllers\Database\PackageController;
 use App\Http\Controllers\Database\SchemeController;
@@ -95,6 +96,10 @@ Route::prefix('upgrades')->name('upgrades.')->group(function () {
 Route::prefix('packages')->name('packages.')->group(function () {
     Route::get('/', [PackageController::class, 'index'])->name('index');
     Route::get('/{package}', [PackageController::class, 'view'])->name('view');
+});
+
+Route::prefix('lore')->name('lores.')->group(function () {
+    Route::get('/', [LoreController::class, 'index'])->name('index');
 });
 
 Route::prefix('blog')->name('blog.')->group(function () {

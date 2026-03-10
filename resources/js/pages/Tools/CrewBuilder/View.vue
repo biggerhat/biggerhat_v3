@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import BlogContent from '@/components/blog/BlogContent.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
-import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, Copy, Loader2, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
@@ -141,7 +141,7 @@ const getHiringCategory = (character: CharacterData): 'in-keyword' | 'versatile'
 };
 
 // ─── Crew upgrade ───
-const activeCrewUpgrade = computed(() => master.value?.crew_upgrades?.[0] ?? null);
+const crewUpgrades = computed(() => master.value?.crew_upgrades ?? []);
 
 // ─── Category helpers ───
 const categoryLabel = (cat: string): string =>
@@ -193,7 +193,7 @@ const crewStats = computed(() => {
 // ─── Card Preview Drawer ───
 const previewDrawerOpen = ref(false);
 const previewIndex = ref<number | null>(null);
-const previewMember = computed(() => (previewIndex.value !== null ? crew.value[previewIndex.value] ?? null : null));
+const previewMember = computed(() => (previewIndex.value !== null ? (crew.value[previewIndex.value] ?? null) : null));
 
 const openPreview = (index: number) => {
     const member = crew.value[index];
@@ -218,9 +218,7 @@ const openUpgradePreview = (upgrade: CrewUpgrade) => {
 const getNextMiniature = (character: CharacterData): MiniatureData | null => {
     const miniatures = character.miniatures ?? [];
     if (miniatures.length === 0) return null;
-    const usedMiniatureIds = new Set(
-        crew.value.filter((m) => m.character.id === character.id && m.miniature).map((m) => m.miniature!.id),
-    );
+    const usedMiniatureIds = new Set(crew.value.filter((m) => m.character.id === character.id && m.miniature).map((m) => m.miniature!.id));
     return miniatures.find((m) => !usedMiniatureIds.has(m.id)) ?? miniatures[0];
 };
 
@@ -258,7 +256,13 @@ const rebuildCrew = () => {
     if (!master.value) return;
     crew.value = [];
 
-    crew.value.push({ character: master.value, miniature: master.value.miniatures?.[0] ?? null, isTotem: false, effectiveCost: 0, hiringCategory: 'leader' });
+    crew.value.push({
+        character: master.value,
+        miniature: master.value.miniatures?.[0] ?? null,
+        isTotem: false,
+        effectiveCost: 0,
+        hiringCategory: 'leader',
+    });
 
     if (master.value.has_totem_id) {
         const totem = characterById.value.get(master.value.has_totem_id);
@@ -302,13 +306,7 @@ onMounted(rebuildCrew);
         <div :class="embed ? '' : 'container mx-auto mt-6 px-4 lg:px-6'">
             <!-- Back button (not in embed mode) -->
             <div v-if="!embed" class="mb-4 flex items-center gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="shrink-0 gap-1.5"
-                    as="a"
-                    :href="route('tools.crew_builder.index')"
-                >
+                <Button variant="outline" size="sm" class="shrink-0 gap-1.5" as="a" :href="route('tools.crew_builder.index')">
                     <ArrowLeft class="size-4" />
                     <span class="hidden sm:inline">{{ isAuthenticated ? 'My Builds' : 'Build a Crew' }}</span>
                 </Button>
@@ -325,12 +323,7 @@ onMounted(rebuildCrew);
                     <CardContent class="p-4 md:p-6">
                         <!-- Header -->
                         <div class="mb-4 flex items-start gap-3">
-                            <img
-                                v-if="faction"
-                                :src="faction.logo"
-                                :alt="faction.name"
-                                class="mt-0.5 size-10 shrink-0"
-                            />
+                            <img v-if="faction" :src="faction.logo" :alt="faction.name" class="mt-0.5 size-10 shrink-0" />
                             <div class="min-w-0 flex-1">
                                 <h2 class="text-xl font-bold">{{ build.name }}</h2>
                                 <div class="text-sm text-muted-foreground">
@@ -339,7 +332,16 @@ onMounted(rebuildCrew);
                                 </div>
                                 <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                                     <span v-if="build.user_name">by {{ build.user_name }}</span>
-                                    <span v-if="build.updated_at">Updated {{ new Date(build.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) }}</span>
+                                    <span v-if="build.updated_at"
+                                        >Updated
+                                        {{
+                                            new Date(build.updated_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                            })
+                                        }}</span
+                                    >
                                 </div>
                             </div>
                         </div>
@@ -409,16 +411,18 @@ onMounted(rebuildCrew);
                             </div>
                         </div>
 
-                        <!-- Crew Upgrade -->
-                        <div v-if="activeCrewUpgrade" class="mb-4">
+                        <!-- Crew Upgrades -->
+                        <div v-if="crewUpgrades.length" class="mb-4 space-y-1">
                             <div
+                                v-for="upgrade in crewUpgrades"
+                                :key="upgrade.id"
                                 class="flex items-center gap-1.5 rounded-md border border-border/50 bg-accent/50 px-2 py-1.5 transition-colors"
-                                :class="activeCrewUpgrade.front_image ? 'cursor-pointer hover:bg-accent' : ''"
-                                @click="openUpgradePreview(activeCrewUpgrade)"
+                                :class="upgrade.front_image ? 'cursor-pointer hover:bg-accent' : ''"
+                                @click="openUpgradePreview(upgrade)"
                             >
                                 <Star class="size-3.5 shrink-0 text-amber-500" />
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-xs font-semibold">{{ activeCrewUpgrade.name }}</div>
+                                    <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                     <div class="text-[10px] text-muted-foreground">Crew Upgrade</div>
                                 </div>
                             </div>
@@ -436,7 +440,13 @@ onMounted(rebuildCrew);
                                 <div class="flex items-center justify-between">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5 text-sm font-semibold">
-                                            <TooltipProvider v-if="member.hiringCategory === 'leader' || member.hiringCategory === 'totem' || member.hiringCategory === 'ook'">
+                                            <TooltipProvider
+                                                v-if="
+                                                    member.hiringCategory === 'leader' ||
+                                                    member.hiringCategory === 'totem' ||
+                                                    member.hiringCategory === 'ook'
+                                                "
+                                            >
                                                 <Tooltip>
                                                     <TooltipTrigger as-child>
                                                         <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
@@ -451,7 +461,10 @@ onMounted(rebuildCrew);
                                             <span class="truncate">{{ member.miniature?.display_name || member.character.display_name }}</span>
                                         </div>
                                         <div class="flex items-center gap-1.5 text-xs text-white/70">
-                                            <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white">{{ member.effectiveCost }}ss <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span>
+                                            <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white"
+                                                >{{ member.effectiveCost }}ss
+                                                <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span
+                                            >
                                             <span v-else class="text-sm font-bold text-white">{{ member.effectiveCost }}ss</span>
                                             <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.hiringCategory) }}
@@ -466,33 +479,16 @@ onMounted(rebuildCrew);
 
                         <!-- Actions -->
                         <div class="flex flex-wrap items-center gap-2">
-                            <Button
-                                v-if="isAuthenticated && !isOwner"
-                                class="gap-1.5"
-                                :disabled="isCopying || copySuccess"
-                                @click="copyToMyBuilds"
-                            >
+                            <Button v-if="isAuthenticated && !isOwner" class="gap-1.5" :disabled="isCopying || copySuccess" @click="copyToMyBuilds">
                                 <Check v-if="copySuccess" class="size-4" />
                                 <Loader2 v-else-if="isCopying" class="size-4 animate-spin" />
                                 <Copy v-else class="size-4" />
                                 {{ copySuccess ? 'Saved to My Builds' : 'Copy to My Builds' }}
                             </Button>
-                            <Button
-                                v-if="isOwner"
-                                variant="outline"
-                                class="gap-1.5"
-                                as="a"
-                                :href="route('tools.crew_builder.index')"
-                            >
+                            <Button v-if="isOwner" variant="outline" class="gap-1.5" as="a" :href="route('tools.crew_builder.index')">
                                 Edit in Crew Builder
                             </Button>
-                            <Button
-                                v-if="!isAuthenticated"
-                                variant="outline"
-                                class="gap-1.5"
-                                as="a"
-                                :href="route('login')"
-                            >
+                            <Button v-if="!isAuthenticated" variant="outline" class="gap-1.5" as="a" :href="route('login')">
                                 Log in to save this crew
                             </Button>
                         </div>
@@ -517,7 +513,10 @@ onMounted(rebuildCrew);
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewMember.character.station }}</Badge>
                         <template v-if="previewMember.character.cost != null">
-                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold">{{ previewMember.effectiveCost }}ss <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge>
+                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold"
+                                >{{ previewMember.effectiveCost }}ss
+                                <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge
+                            >
                             <Badge v-else variant="secondary" class="text-xs font-bold">{{ previewMember.effectiveCost }}ss</Badge>
                         </template>
                         <Badge :class="categoryColorTheme(previewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
@@ -560,6 +559,8 @@ onMounted(rebuildCrew);
                             :front-image="upgradePreviewUpgrade.front_image!"
                             :back-image="upgradePreviewUpgrade.back_image"
                             :alt-text="upgradePreviewUpgrade.name"
+                            :upgrade-slug="upgradePreviewUpgrade.slug"
+                            :show-link="true"
                         />
                     </div>
                 </div>

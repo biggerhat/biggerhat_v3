@@ -30,7 +30,7 @@ class ActionFactory extends Factory
             'name' => $this->faker->unique()->words(random_int(1, 3), true),
             'type' => $type,
             'is_signature' => $this->faker->boolean(15),
-            'costs_stone' => $this->faker->boolean(20),
+            'stone_cost' => $this->faker->randomElement([0, 0, 0, 0, 1, 2]),
             'range' => $hasRange ? random_int(0, 14) : null,
             'range_type' => $hasRange ? $this->faker->randomElement(ActionRangeTypeEnum::cases()) : null,
             'stat' => $hasStat ? random_int(1, 8) : null,

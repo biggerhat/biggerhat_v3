@@ -28,7 +28,7 @@ class ActionResource extends JsonResource
             'type' => $this->type,
             'type_label' => $type?->label(),
             'is_signature' => $this->is_signature,
-            'costs_stone' => $this->costs_stone,
+            'stone_cost' => $this->stone_cost,
             'range' => $this->range,
             'range_type' => $this->range_type,
             'range_type_label' => $rangeType?->label(),

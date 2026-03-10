@@ -173,20 +173,28 @@ const updateQuantity = (miniatureId: number, quantity: number) => {
 
 const removeMiniature = (miniatureId: number) => {
     processing.value = true;
-    router.post(route('collection.remove'), { miniature_id: miniatureId }, {
-        preserveScroll: true,
-        preserveState: true,
-        onFinish: () => (processing.value = false),
-    });
+    router.post(
+        route('collection.remove'),
+        { miniature_id: miniatureId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => (processing.value = false),
+        },
+    );
 };
 
 const removePackage = (packageId: number) => {
     processing.value = true;
-    router.post(route('collection.toggle_package'), { package_id: packageId }, {
-        preserveScroll: true,
-        preserveState: true,
-        onFinish: () => (processing.value = false),
-    });
+    router.post(
+        route('collection.toggle_package'),
+        { package_id: packageId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => (processing.value = false),
+        },
+    );
 };
 
 // Sorted keyword stats
@@ -360,16 +368,35 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                     </div>
                                 </Link>
                                 <div v-if="is_owner" class="flex shrink-0 items-center gap-1">
-                                    <Button variant="ghost" size="icon" class="size-7" :disabled="processing" @click="updateQuantity(item.miniature_id, item.quantity - 1)">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-7"
+                                        :disabled="processing"
+                                        @click="updateQuantity(item.miniature_id, item.quantity - 1)"
+                                    >
                                         <Minus class="size-3" />
                                     </Button>
                                     <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
-                                    <Button variant="ghost" size="icon" class="size-7" :disabled="processing" @click="updateQuantity(item.miniature_id, item.quantity + 1)">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-7"
+                                        :disabled="processing"
+                                        @click="updateQuantity(item.miniature_id, item.quantity + 1)"
+                                    >
                                         <Plus class="size-3" />
                                     </Button>
                                 </div>
                                 <span v-else class="text-sm tabular-nums text-muted-foreground">&times;{{ item.quantity }}</span>
-                                <Button v-if="is_owner" variant="ghost" size="icon" class="size-7 text-destructive hover:text-destructive" :disabled="processing" @click="removeMiniature(item.miniature_id)">
+                                <Button
+                                    v-if="is_owner"
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-7 text-destructive hover:text-destructive"
+                                    :disabled="processing"
+                                    @click="removeMiniature(item.miniature_id)"
+                                >
                                     <Trash2 class="size-3" />
                                 </Button>
                             </div>
@@ -400,7 +427,10 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                         class="size-16 shrink-0 rounded-md object-cover"
                                     />
                                     <div class="min-w-0 flex-1">
-                                        <Link :href="route('packages.view', pkg.slug)" class="text-sm font-semibold transition-colors hover:text-primary">
+                                        <Link
+                                            :href="route('packages.view', pkg.slug)"
+                                            class="text-sm font-semibold transition-colors hover:text-primary"
+                                        >
                                             {{ pkg.name }}
                                         </Link>
                                         <div v-if="pkg.factions?.length" class="mt-1.5 flex flex-wrap gap-1">
@@ -410,7 +440,14 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                             </Badge>
                                         </div>
                                     </div>
-                                    <Button v-if="is_owner" variant="ghost" size="icon" class="size-7 shrink-0 text-destructive hover:text-destructive" :disabled="processing" @click="removePackage(pkg.id)">
+                                    <Button
+                                        v-if="is_owner"
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-7 shrink-0 text-destructive hover:text-destructive"
+                                        :disabled="processing"
+                                        @click="removePackage(pkg.id)"
+                                    >
                                         <Trash2 class="size-3" />
                                     </Button>
                                 </div>
@@ -433,9 +470,7 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                     <img :src="stat.logo" :alt="stat.name" class="size-8" />
                                     <div>
                                         <div class="font-semibold">{{ stat.name }}</div>
-                                        <div class="text-xs text-muted-foreground">
-                                            {{ stat.owned }} / {{ stat.total }} characters
-                                        </div>
+                                        <div class="text-xs text-muted-foreground">{{ stat.owned }} / {{ stat.total }} characters</div>
                                     </div>
                                 </div>
                                 <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -487,10 +522,15 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                 <div v-for="stat in station_stats" :key="stat.station" class="space-y-1.5">
                                     <div class="flex items-center justify-between text-sm">
                                         <span class="font-medium">{{ stat.name }}</span>
-                                        <span class="tabular-nums text-muted-foreground">{{ stat.owned }} / {{ stat.total }} ({{ stat.percent }}%)</span>
+                                        <span class="tabular-nums text-muted-foreground"
+                                            >{{ stat.owned }} / {{ stat.total }} ({{ stat.percent }}%)</span
+                                        >
                                     </div>
                                     <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
-                                        <div class="h-full rounded-full bg-primary transition-all duration-500" :style="{ width: `${stat.percent}%` }" />
+                                        <div
+                                            class="h-full rounded-full bg-primary transition-all duration-500"
+                                            :style="{ width: `${stat.percent}%` }"
+                                        />
                                     </div>
                                 </div>
                             </CardContent>
@@ -499,14 +539,25 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                         <!-- Top owned keywords -->
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Most Complete Keywords</CardTitle>
+                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                                    >Most Complete Keywords</CardTitle
+                                >
                             </CardHeader>
                             <CardContent class="space-y-2.5">
-                                <div v-for="stat in sortedKeywordStats.slice(0, 10)" :key="stat.slug" class="flex items-center justify-between text-sm">
-                                    <Link :href="route('keywords.view', stat.slug)" class="font-medium transition-colors hover:text-primary">{{ stat.name }}</Link>
+                                <div
+                                    v-for="stat in sortedKeywordStats.slice(0, 10)"
+                                    :key="stat.slug"
+                                    class="flex items-center justify-between text-sm"
+                                >
+                                    <Link :href="route('keywords.view', stat.slug)" class="font-medium transition-colors hover:text-primary">{{
+                                        stat.name
+                                    }}</Link>
                                     <div class="flex items-center gap-2">
                                         <span class="tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
-                                        <Badge :variant="stat.percent === 100 ? 'default' : 'secondary'" class="w-14 justify-center text-[10px] tabular-nums">
+                                        <Badge
+                                            :variant="stat.percent === 100 ? 'default' : 'secondary'"
+                                            class="w-14 justify-center text-[10px] tabular-nums"
+                                        >
                                             {{ stat.percent }}%
                                         </Badge>
                                     </div>

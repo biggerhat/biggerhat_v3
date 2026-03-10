@@ -23,12 +23,5 @@ class PermissionSeeder extends Seeder
         // Assign all permissions to super_admin
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
         $superAdmin->syncPermissions(Permission::all());
-
-        // Assign blog permissions to content_creator
-        $contentCreator = Role::firstOrCreate(['name' => 'content_creator']);
-        $contentCreator->givePermissionTo([
-            PermissionEnum::CreatePosts->value,
-            PermissionEnum::EditPosts->value,
-        ]);
     }
 }

@@ -36,10 +36,26 @@ class PDFController extends Controller
 
     public function download(Request $request)
     {
-        $cards = base64_decode($request->get('cards'));
-        $options = json_decode(base64_decode($request->get('options')), true);
-        $separateImages = $options['separate_images'];
+        $request->validate([
+            'cards' => 'required|string',
+            'options' => 'required|string',
+        ]);
+
+        $cards = base64_decode($request->get('cards'), true);
+        $optionsRaw = base64_decode($request->get('options'), true);
+
+        if ($cards === false || $optionsRaw === false) {
+            abort(422, 'Invalid base64 encoding.');
+        }
+
+        $options = json_decode($optionsRaw, true);
         $cardArray = collect(json_decode($cards, true));
+
+        if (! is_array($options) || ! $cardArray->count()) {
+            abort(422, 'Invalid card or options data.');
+        }
+
+        $separateImages = $options['separate_images'] ?? false;
 
         $miniatureIds = $cardArray->where('card_type', CardTypeEnum::Miniature->value)->pluck('id');
         $upgradeIds = $cardArray->where('card_type', CardTypeEnum::Upgrade->value)->pluck('id');
@@ -53,6 +69,10 @@ class PDFController extends Controller
         foreach ($cardArray as $card) {
             if ($card['card_type'] === CardTypeEnum::Miniature->value) {
                 $miniature = $miniatures[$card['id']] ?? null;
+
+                if (! $miniature) {
+                    continue;
+                }
 
                 if ($separateImages) {
                     $frontImage = base64_encode(Storage::disk('public')->get($miniature->front_image));
@@ -79,6 +99,11 @@ class PDFController extends Controller
             }
             if ($card['card_type'] === CardTypeEnum::Upgrade->value) {
                 $upgrade = $upgrades[$card['id']] ?? null;
+
+                if (! $upgrade) {
+                    continue;
+                }
+
                 if ($separateImages && $upgrade->back_image) {
                     $frontImage = base64_encode(Storage::disk('public')->get($upgrade->front_image));
                     $data['images'][] = [

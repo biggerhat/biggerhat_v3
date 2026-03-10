@@ -6,6 +6,8 @@ export interface Auth {
     user: User;
     permissions: string[];
     can_publish_posts: boolean;
+    collection_miniature_ids: number[];
+    collection_package_ids: number[];
 }
 
 export interface BreadcrumbItem {

@@ -54,6 +54,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ?? null,
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
+                'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
+                'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
             ],
             'ziggy' => [
                 ...(new Ziggy)->toArray(),

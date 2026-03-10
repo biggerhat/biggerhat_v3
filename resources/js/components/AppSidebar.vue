@@ -15,6 +15,7 @@ import {
     Dice6,
     FileText,
     KeyRound,
+    Library,
     Newspaper,
     Package,
     Puzzle,
@@ -30,6 +31,25 @@ import AppLogo from './AppLogo.vue';
 
 const page = usePage<SharedData>();
 const permissions = computed(() => page.props.auth.permissions ?? []);
+const isAuthenticated = computed(() => !!page.props.auth.user);
+
+const myHatNavItems = computed(() => {
+    if (!isAuthenticated.value) return [];
+    return [
+        {
+            title: 'My Hat',
+            collapsible: true,
+            collapsed: false,
+            items: [
+                {
+                    title: 'My Collection',
+                    href: route('collection.index'),
+                    icon: Library,
+                },
+            ],
+        },
+    ];
+});
 
 const mainNavItems: NavItem[] = [
     {
@@ -346,6 +366,7 @@ const footerNavItems: NavItem[] = [
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
+            <NavMain v-if="myHatNavItems.length > 0" :items="myHatNavItems" />
             <NavSuperAdmin v-if="filteredAdminNavItems.length > 0" :items="filteredAdminNavItems" />
         </SidebarContent>
 

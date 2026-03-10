@@ -8,8 +8,8 @@ import { Separator } from '@/components/ui/separator';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Download, ExternalLink, Swords } from 'lucide-vue-next';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, Check, Copy, Download, ExternalLink, Library, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -68,6 +68,34 @@ const copyLink = async () => {
 };
 
 const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
+
+// ─── Collection ───
+const isAuthenticated = computed(() => !!page.props.auth.user);
+const collectionIds = computed(() => page.props.auth.collection_miniature_ids ?? []);
+
+const currentMiniatureInCollection = computed(() => collectionIds.value.includes(props.miniature.id));
+const allStandardInCollection = computed(() => {
+    const standardMinis = props.character.miniatures?.filter((m: any) => m.version === 'fourth_edition' || m.version === 'third_edition') ?? [];
+    if (standardMinis.length === 0) return false;
+    return standardMinis.every((m: any) => collectionIds.value.includes(m.id));
+});
+
+const collectionProcessing = ref(false);
+const toggleMiniature = () => {
+    collectionProcessing.value = true;
+    router.post(route('collection.toggle'), { miniature_id: props.miniature.id }, {
+        preserveScroll: true,
+        onFinish: () => (collectionProcessing.value = false),
+    });
+};
+
+const addAllStandard = () => {
+    collectionProcessing.value = true;
+    router.post(route('collection.add_character'), { character_id: props.character.id }, {
+        preserveScroll: true,
+        onFinish: () => (collectionProcessing.value = false),
+    });
+};
 </script>
 
 <template>
@@ -266,6 +294,38 @@ const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
                         >
                             {{ sculpt.display_name }}
                         </Link>
+                    </CardContent>
+                </Card>
+
+                <!-- Collection -->
+                <Card v-if="isAuthenticated">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Collection</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid grid-cols-1 gap-2">
+                        <button
+                            class="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
+                            :class="
+                                currentMiniatureInCollection
+                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground'
+                            "
+                            :disabled="collectionProcessing"
+                            @click="toggleMiniature"
+                        >
+                            <Check v-if="currentMiniatureInCollection" class="h-4 w-4" />
+                            <Library v-else class="h-4 w-4" />
+                            {{ currentMiniatureInCollection ? 'In Collection' : 'Add This Sculpt' }}
+                        </button>
+                        <button
+                            v-if="!allStandardInCollection"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                            :disabled="collectionProcessing"
+                            @click="addAllStandard"
+                        >
+                            <Library class="h-4 w-4" />
+                            Add All Standard Sculpts
+                        </button>
                     </CardContent>
                 </Card>
 

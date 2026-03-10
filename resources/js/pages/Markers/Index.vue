@@ -106,7 +106,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                         <Card
                             v-for="(marker, index) in filteredMarkers"
                             :key="marker.name"
-                            class="animate-fade-in-up opacity-0 transition-colors hover:bg-accent/50"
+                            class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                             :style="delays[index]"
                         >
                             <CardHeader class="pb-2">
@@ -117,7 +117,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                             </CardContent>
                         </Card>
                     </div>
-                    <EmptyState v-else />
+                    <EmptyState v-else title="No markers found" description="Try adjusting your search filter." />
                 </TabsContent>
 
                 <TabsContent value="table">

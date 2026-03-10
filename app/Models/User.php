@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -50,5 +51,24 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * @return BelongsToMany<Miniature, $this>
+     */
+    public function collectionMiniatures(): BelongsToMany
+    {
+        return $this->belongsToMany(Miniature::class, 'user_miniatures')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
+    /**
+     * @return BelongsToMany<Package, $this>
+     */
+    public function collectionPackages(): BelongsToMany
+    {
+        return $this->belongsToMany(Package::class, 'user_packages')
+            ->withTimestamps();
     }
 }

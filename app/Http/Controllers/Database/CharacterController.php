@@ -47,6 +47,12 @@ class CharacterController extends Controller
     {
         $character = Character::with('miniatures')->whereHas('miniatures')->inRandomOrder()->first();
 
-        return redirect()->route('characters.view', ['character' => $character->slug, 'miniature' => $character->miniatures->first()->id, 'slug' => $character->miniatures->first()->slug]);
+        if (! $character || $character->miniatures->isEmpty()) {
+            return redirect()->route('home');
+        }
+
+        $miniature = $character->miniatures->first();
+
+        return redirect()->route('characters.view', ['character' => $character->slug, 'miniature' => $miniature->id, 'slug' => $miniature->slug]);
     }
 }

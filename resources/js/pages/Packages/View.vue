@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, ExternalLink, Package } from 'lucide-vue-next';
+import { type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, Check, ExternalLink, Library, Package } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface PackageData {
@@ -64,6 +65,29 @@ const images = computed(() => {
 });
 
 const activeImage = ref(0);
+
+// ─── Collection ───
+const page = usePage<SharedData>();
+const isAuthenticated = computed(() => !!page.props.auth.user);
+const collectionPackageIds = computed(() => page.props.auth.collection_package_ids ?? []);
+const packageInCollection = computed(() => collectionPackageIds.value.includes(props.package.id));
+
+const collectionProcessing = ref(false);
+const addPackageToCollection = () => {
+    collectionProcessing.value = true;
+    router.post(route('collection.add_package'), { package_id: props.package.id }, {
+        preserveScroll: true,
+        onFinish: () => (collectionProcessing.value = false),
+    });
+};
+
+const togglePackageCollection = () => {
+    collectionProcessing.value = true;
+    router.post(route('collection.toggle_package'), { package_id: props.package.id }, {
+        preserveScroll: true,
+        onFinish: () => (collectionProcessing.value = false),
+    });
+};
 </script>
 
 <template>
@@ -203,6 +227,22 @@ const activeImage = ref(0);
                                             </Button>
                                         </a>
                                     </div>
+                                </div>
+
+                                <!-- Collection -->
+                                <div v-if="isAuthenticated" class="space-y-2">
+                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Collection</div>
+                                    <Button
+                                        :variant="packageInCollection ? 'default' : 'outline'"
+                                        class="w-full gap-2"
+                                        :class="packageInCollection ? 'bg-green-600 hover:bg-green-700' : ''"
+                                        :disabled="collectionProcessing"
+                                        @click="packageInCollection ? togglePackageCollection() : addPackageToCollection()"
+                                    >
+                                        <Check v-if="packageInCollection" class="h-4 w-4" />
+                                        <Library v-else class="h-4 w-4" />
+                                        {{ packageInCollection ? 'In Collection' : 'Add to Collection' }}
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

@@ -54,8 +54,8 @@ const columns: ColumnDef<any>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: media.name,
-                    editRoute: route('admin.lore_media.edit', media.slug),
-                    deleteRoute: route('admin.lore_media.delete', media.slug),
+                    editRoute: route('admin.lore_media.edit', media.id),
+                    deleteRoute: route('admin.lore_media.delete', media.id),
                 }),
             );
         },

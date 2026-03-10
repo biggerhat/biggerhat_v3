@@ -22,7 +22,7 @@ class LoreAdminController extends Controller
     public function create(Request $request)
     {
         return inertia('Admin/Lore/LoreForm', [
-            'lore_media' => LoreMedia::toSelectOptions('name', 'slug'),
+            'lore_media' => collect(LoreMedia::toSelectOptions('name', 'id'))->map(fn ($opt) => ['name' => $opt['name'], 'value' => (string) $opt['value']]),
             'media_types' => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => Character::toSelectOptions('display_name', 'slug'),
         ]);
@@ -32,7 +32,7 @@ class LoreAdminController extends Controller
     {
         return inertia('Admin/Lore/LoreForm', [
             'lore' => $lore->loadMissing(['media', 'characters']),
-            'lore_media' => LoreMedia::toSelectOptions('name', 'slug'),
+            'lore_media' => collect(LoreMedia::toSelectOptions('name', 'id'))->map(fn ($opt) => ['name' => $opt['name'], 'value' => (string) $opt['value']]),
             'media_types' => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => Character::toSelectOptions('display_name', 'slug'),
         ]);

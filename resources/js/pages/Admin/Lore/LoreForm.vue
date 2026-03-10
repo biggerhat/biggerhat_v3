@@ -52,12 +52,12 @@ const formInfo = ref({
 const showNewMedia = ref(false);
 
 const submit = () => {
-    router.post(props.lore ? route('admin.lores.update', props.lore.slug) : route('admin.lores.store'), formInfo.value);
+    router.post(props.lore ? route('admin.lores.update', props.lore.id) : route('admin.lores.store'), formInfo.value);
 };
 
 onMounted(() => {
     formInfo.value.name = props.lore?.name ?? null;
-    formInfo.value.lore_media_id = props.lore?.lore_media_id ?? null;
+    formInfo.value.lore_media_id = props.lore?.lore_media_id != null ? String(props.lore.lore_media_id) : null;
 
     props.lore?.characters?.forEach((character: any) => {
         formInfo.value.characters.push(character.display_name);

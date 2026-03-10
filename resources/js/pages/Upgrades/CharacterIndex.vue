@@ -151,7 +151,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                         <div
                             v-for="(upgrade, index) in filteredUpgrades"
                             :key="upgrade.id"
-                            class="animate-fade-in-up opacity-0"
+                            class="animate-fade-in-up opacity-0 transition-transform duration-300 hover:-translate-y-1"
                             :style="delays[index]"
                         >
                             <UpgradeCardView :upgrade="upgrade" />

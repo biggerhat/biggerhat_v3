@@ -106,8 +106,8 @@ class FactionController extends Controller
             'keywords' => $keywords,
             'characteristics' => $characteristics,
             'statistics' => [
-                'characters' => Character::where('faction', $factionEnum->value)->count(),
-                'miniatures' => (int) Character::where('faction', $factionEnum->value)->sum('count'),
+                'characters' => $characters->count(),
+                'miniatures' => (int) $characters->sum('count'),
                 'keywords' => $keywords->count(),
             ],
             'stations' => CharacterStationEnum::toSelectOptions(),

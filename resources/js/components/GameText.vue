@@ -21,10 +21,15 @@ const props = withDefaults(defineProps<Props>(), {
 // Map tag names from {{tag}} to GameIcon type keys
 const tagToIconType: Record<string, string> = {
     crow: 'crow',
+    crows: 'crow',
     mask: 'mask',
+    masks: 'mask',
     ram: 'ram',
+    rams: 'ram',
     tome: 'tome',
+    tomes: 'tome',
     soulstone: 'soulstone',
+    soulstones: 'soulstone',
     stone: 'soulstone',
     melee: 'melee',
     missile: 'missile',

@@ -412,7 +412,7 @@ const formatDefensiveType = (type: string) => {
                                     v-for="(ability, index) in props.abilities.data"
                                     :key="ability.id"
                                     :ability="ability"
-                                    class="animate-fade-in-up opacity-0"
+                                    class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                                     :style="delays[index]"
                                 >
                                     <template #footer>

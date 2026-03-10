@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FactionEnum;
+use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CrewBuilderController;
 use App\Http\Controllers\Database\AbilityController;
@@ -127,6 +128,20 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
         Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');
         Route::delete('/{crewBuild}', [CrewBuilderController::class, 'destroy'])->name('destroy')->middleware('auth');
+    });
+});
+
+Route::prefix('collection')->name('collection.')->group(function () {
+    Route::get('/share/{shareCode}', [CollectionController::class, 'share'])->name('share');
+
+    Route::middleware('auth')->group(function () {
+        Route::get('/', [CollectionController::class, 'index'])->name('index');
+        Route::post('/toggle', [CollectionController::class, 'toggle'])->name('toggle');
+        Route::post('/toggle-public', [CollectionController::class, 'togglePublic'])->name('toggle_public');
+        Route::post('/add-character', [CollectionController::class, 'addCharacter'])->name('add_character');
+        Route::post('/add-package', [CollectionController::class, 'addPackage'])->name('add_package');
+        Route::post('/toggle-package', [CollectionController::class, 'togglePackage'])->name('toggle_package');
+        Route::post('/remove', [CollectionController::class, 'remove'])->name('remove');
     });
 });
 

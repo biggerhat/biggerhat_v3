@@ -7,7 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { router } from '@inertiajs/vue3';
+import { Trash2 } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
+
+interface NewMediaEntry {
+    name: string | null;
+    type: string | null;
+    link: string | null;
+}
 
 const props = defineProps({
     lore: {
@@ -42,14 +49,18 @@ const props = defineProps({
 
 const formInfo = ref({
     name: null as string | null,
-    lore_media_id: null as number | string | null,
+    lore_media: [] as string[],
     characters: [] as string[],
-    new_media_name: null as string | null,
-    new_media_type: null as string | null,
-    new_media_link: null as string | null,
+    new_media: [] as NewMediaEntry[],
 });
 
-const showNewMedia = ref(false);
+const addNewMedia = () => {
+    formInfo.value.new_media.push({ name: null, type: null, link: null });
+};
+
+const removeNewMedia = (index: number) => {
+    formInfo.value.new_media.splice(index, 1);
+};
 
 const submit = () => {
     router.post(props.lore ? route('admin.lores.update', props.lore.id) : route('admin.lores.store'), formInfo.value);
@@ -57,7 +68,10 @@ const submit = () => {
 
 onMounted(() => {
     formInfo.value.name = props.lore?.name ?? null;
-    formInfo.value.lore_media_id = props.lore?.lore_media_id != null ? String(props.lore.lore_media_id) : null;
+
+    props.lore?.media?.forEach((media: any) => {
+        formInfo.value.lore_media.push(media.name);
+    });
 
     props.lore?.characters?.forEach((character: any) => {
         formInfo.value.characters.push(character.display_name);
@@ -81,36 +95,38 @@ onMounted(() => {
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Label for="lore_media_id">Media Source</Label>
-                            <Select id="lore_media_id" v-model="formInfo.lore_media_id">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Media Source" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="media in props.lore_media" :value="media.value" :key="media.value">
-                                        {{ media.name }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label for="lore_media">Media Sources</Label>
+                            <CustomMultiselect
+                                id="lore_media"
+                                v-model="formInfo.lore_media"
+                                comboTitle="Select Media Sources"
+                                :choice-options="props.lore_media"
+                            />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Button type="button" variant="outline" size="sm" @click="showNewMedia = !showNewMedia">
-                                {{ showNewMedia ? 'Cancel New Media' : '+ Create New Media Source' }}
+                            <Button type="button" variant="outline" size="sm" @click="addNewMedia">
+                                + Create New Media Source
                             </Button>
                         </div>
 
-                        <template v-if="showNewMedia">
-                            <Separator label="New Media Source" />
-                            <div class="rounded-md border bg-muted/30 p-4">
+                        <template v-if="formInfo.new_media.length > 0">
+                            <Separator label="New Media Sources" />
+                            <div v-for="(entry, index) in formInfo.new_media" :key="index" class="rounded-md border bg-muted/30 p-4">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <span class="text-sm font-medium">New Media #{{ index + 1 }}</span>
+                                    <Button type="button" variant="ghost" size="sm" @click="removeNewMedia(index)">
+                                        <Trash2 class="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
                                 <div class="grid w-full items-center gap-4">
                                     <div class="flex flex-col space-y-1.5">
-                                        <Label for="new_media_name">Media Name</Label>
-                                        <Input id="new_media_name" v-model="formInfo.new_media_name" placeholder="Media Name" />
+                                        <Label :for="`new_media_name_${index}`">Media Name</Label>
+                                        <Input :id="`new_media_name_${index}`" v-model="entry.name" placeholder="Media Name" />
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
-                                        <Label for="new_media_type">Media Type</Label>
-                                        <Select id="new_media_type" v-model="formInfo.new_media_type">
+                                        <Label :for="`new_media_type_${index}`">Media Type</Label>
+                                        <Select :id="`new_media_type_${index}`" v-model="entry.type">
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Media Type" />
                                             </SelectTrigger>
@@ -122,8 +138,8 @@ onMounted(() => {
                                         </Select>
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
-                                        <Label for="new_media_link">Link (optional)</Label>
-                                        <Input id="new_media_link" v-model="formInfo.new_media_link" placeholder="https://..." />
+                                        <Label :for="`new_media_link_${index}`">Link (optional)</Label>
+                                        <Input :id="`new_media_link_${index}`" v-model="entry.link" placeholder="https://..." />
                                     </div>
                                 </div>
                             </div>

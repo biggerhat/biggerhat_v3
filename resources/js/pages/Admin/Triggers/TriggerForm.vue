@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
@@ -28,7 +27,7 @@ const props = defineProps({
 const formInfo = ref({
     name: null,
     suits: null,
-    costs_stone: false,
+    stone_cost: 0,
     description: null,
 });
 
@@ -38,7 +37,7 @@ const submit = () => {
 
 onMounted(() => {
     formInfo.value.name = props.trigger?.name ?? null;
-    formInfo.value.costs_stone = props.trigger?.costs_stone ?? false;
+    formInfo.value.stone_cost = props.trigger?.stone_cost ?? 0;
     formInfo.value.suits = props.trigger?.suits ?? null;
     formInfo.value.description = props.trigger?.description ?? null;
 });
@@ -64,11 +63,9 @@ onMounted(() => {
                                     <Label for="suits">Required Suits</Label>
                                     <Input id="suits" v-model="formInfo.suits" placeholder="Required Suits" />
                                 </div>
-                                <div class="flex flex-col items-center space-y-1.5">
-                                    <div class="flex items-center space-x-2">
-                                        <Switch id="costs_stone" v-model="formInfo.costs_stone" />
-                                        <Label for="costs_stone">Costs A Stone</Label>
-                                    </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="stone_cost">Stone Cost</Label>
+                                    <Input id="stone_cost" v-model="formInfo.stone_cost" type="number" min="0" placeholder="0" />
                                 </div>
                             </div>
                         </div>

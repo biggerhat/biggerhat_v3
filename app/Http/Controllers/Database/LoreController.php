@@ -27,7 +27,9 @@ class LoreController extends Controller
         }
 
         if ($request->get('lore_media')) {
-            $query->where('lore_media_id', $request->get('lore_media'));
+            $query->whereHas('media', function ($q) use ($request) {
+                $q->where('lore_media.id', $request->get('lore_media'));
+            });
         }
 
         if ($request->get('character')) {

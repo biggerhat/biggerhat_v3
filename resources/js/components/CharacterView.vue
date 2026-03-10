@@ -398,12 +398,21 @@ const addAllStandard = () => {
                         <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
-                        <div v-for="lore in character.lores" :key="lore.id" class="flex items-center gap-2 border-t px-4 py-2">
-                            <BookOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span class="min-w-0 flex-1 text-sm">{{ lore.name }}</span>
-                            <Badge v-if="lore.media" variant="outline" class="shrink-0 text-[10px]">
-                                {{ lore.media.name }}
-                            </Badge>
+                        <div v-for="lore in character.lores" :key="lore.id" class="border-t px-4 py-2">
+                            <div class="flex items-center gap-2">
+                                <BookOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <Link
+                                    :href="route('lores.index', { name_search: lore.name })"
+                                    class="min-w-0 flex-1 text-sm text-primary hover:underline"
+                                >
+                                    {{ lore.name }}
+                                </Link>
+                            </div>
+                            <div v-if="lore.media?.length" class="ml-5.5 mt-0.5 flex flex-wrap gap-1">
+                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
+                                    {{ media.name }}
+                                </Badge>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

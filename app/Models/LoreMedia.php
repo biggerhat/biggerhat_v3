@@ -7,7 +7,7 @@ use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @mixin IdeHelperLoreMedia
@@ -31,9 +31,9 @@ class LoreMedia extends Model
         ];
     }
 
-    /** @return HasMany<Lore, $this> */
-    public function lores(): HasMany
+    /** @return BelongsToMany<Lore, $this> */
+    public function lores(): BelongsToMany
     {
-        return $this->hasMany(Lore::class);
+        return $this->belongsToMany(Lore::class, 'lore_lore_media');
     }
 }

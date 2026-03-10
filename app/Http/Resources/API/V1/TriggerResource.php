@@ -19,7 +19,7 @@ class TriggerResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'suits' => $this->suits,
-            'costs_stone' => $this->costs_stone,
+            'stone_cost' => $this->stone_cost,
             'description' => $this->description,
             'actions' => ActionResource::collection($this->whenLoaded('actions')),
         ];

@@ -22,7 +22,10 @@ class LoreAdminController extends Controller
     public function create(Request $request)
     {
         return inertia('Admin/Lore/LoreForm', [
-            'lore_media' => collect(LoreMedia::toSelectOptions('name', 'id'))->map(fn ($opt) => ['name' => $opt['name'], 'value' => (string) $opt['value']]),
+            'lore_media' => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
+                'name' => $m->name,
+                'value' => $m->name,
+            ]),
             'media_types' => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => Character::toSelectOptions('display_name', 'slug'),
         ]);
@@ -32,7 +35,10 @@ class LoreAdminController extends Controller
     {
         return inertia('Admin/Lore/LoreForm', [
             'lore' => $lore->loadMissing(['media', 'characters']),
-            'lore_media' => collect(LoreMedia::toSelectOptions('name', 'id'))->map(fn ($opt) => ['name' => $opt['name'], 'value' => (string) $opt['value']]),
+            'lore_media' => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
+                'name' => $m->name,
+                'value' => $m->name,
+            ]),
             'media_types' => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => Character::toSelectOptions('display_name', 'slug'),
         ]);
@@ -64,33 +70,39 @@ class LoreAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'lore_media_id' => ['nullable', 'exists:lore_media,id'],
+            'lore_media' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
-            // Inline new media creation
-            'new_media_name' => ['nullable', 'string', 'max:255'],
-            'new_media_type' => ['nullable', 'string', Rule::enum(LoreMediaTypeEnum::class)],
-            'new_media_link' => ['nullable', 'string', 'max:500'],
+            // Inline new media creation (array of objects)
+            'new_media' => ['nullable', 'array'],
+            'new_media.*.name' => ['required_with:new_media', 'string', 'max:255'],
+            'new_media.*.type' => ['required_with:new_media', 'string', Rule::enum(LoreMediaTypeEnum::class)],
+            'new_media.*.link' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // If creating new media inline
-        if (! empty($validated['new_media_name']) && ! empty($validated['new_media_type'])) {
-            $newMedia = LoreMedia::create([
-                'name' => $validated['new_media_name'],
-                'type' => $validated['new_media_type'],
-                'link' => $validated['new_media_link'] ?? null,
-            ]);
-            $validated['lore_media_id'] = $newMedia->id;
+        // Resolve existing media by name
+        $mediaIds = LoreMedia::whereIn('name', $validated['lore_media'] ?? [])->pluck('id')->toArray();
+
+        // Create new inline media and collect their IDs
+        foreach ($validated['new_media'] ?? [] as $newMediaData) {
+            if (! empty($newMediaData['name']) && ! empty($newMediaData['type'])) {
+                $newMedia = LoreMedia::create([
+                    'name' => $newMediaData['name'],
+                    'type' => $newMediaData['type'],
+                    'link' => $newMediaData['link'] ?? null,
+                ]);
+                $mediaIds[] = $newMedia->id;
+            }
         }
 
         $characters = Character::whereIn('display_name', $validated['characters'] ?? [])->get();
-        unset($validated['characters'], $validated['new_media_name'], $validated['new_media_type'], $validated['new_media_link']);
 
         if (! $lore) {
-            $lore = Lore::create($validated);
+            $lore = Lore::create(['name' => $validated['name']]);
         } else {
-            $lore->update($validated);
+            $lore->update(['name' => $validated['name']]);
         }
 
+        $lore->media()->sync($mediaIds);
         $lore->characters()->sync($characters->pluck('id'));
 
         return $lore;

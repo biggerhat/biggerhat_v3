@@ -20,7 +20,7 @@ class TriggerFactory extends Factory
         return [
             'name' => $this->faker->unique()->words(random_int(1, 3), true),
             'suits' => $this->faker->optional(0.8)->randomElement(SuitEnum::cases()),
-            'costs_stone' => $this->faker->boolean(15),
+            'stone_cost' => $this->faker->numberBetween(0, 2),
             'description' => $this->faker->optional(0.8)->sentence(random_int(5, 15)),
         ];
     }

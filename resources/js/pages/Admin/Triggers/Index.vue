@@ -4,12 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
-import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+
+const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
+    const search = (filterValue as string).toLowerCase();
+    const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
+    const notes = (row.getValue('internal_notes') as string)?.toLowerCase() ?? '';
+    return name.includes(search) || notes.includes(search);
+};
 
 const columns: ColumnDef<Triggers>[] = [
     {
@@ -24,6 +31,14 @@ const columns: ColumnDef<Triggers>[] = [
         header: () => h('div', {}, 'Trigger'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
+        },
+    },
+    {
+        accessorKey: 'internal_notes',
+        header: () => h('div', {}, 'Internal Notes'),
+        cell: ({ row }) => {
+            const notes = row.getValue('internal_notes') as string | null;
+            return h('div', { class: 'text-xs text-muted-foreground max-w-xs truncate' }, notes ?? '');
         },
     },
     {
@@ -50,7 +65,7 @@ const props = defineProps<{
     triggers: TData[];
 }>();
 
-const columnFilters = ref<ColumnFiltersState>([]);
+const globalFilter = ref('');
 
 const table = useVueTable({
     get data() {
@@ -61,11 +76,12 @@ const table = useVueTable({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: globalSearchFilter,
+    onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),
     state: {
-        get columnFilters() {
-            return columnFilters.value;
+        get globalFilter() {
+            return globalFilter.value;
         },
     },
 });
@@ -78,9 +94,9 @@ const table = useVueTable({
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter Triggers"
-                :model-value="table.getColumn('name')?.getFilterValue() as string"
-                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+                placeholder="Filter by name or notes..."
+                :model-value="globalFilter"
+                @update:model-value="table.setGlobalFilter($event)"
             />
             <div>Total {{ props.triggers.length }}</div>
             <Button @click="router.get(route('admin.triggers.create'))"> Create New Trigger </Button>

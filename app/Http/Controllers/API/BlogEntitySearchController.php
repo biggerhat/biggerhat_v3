@@ -321,7 +321,7 @@ class BlogEntitySearchController extends Controller
             'triggers' => $action->triggers->map(fn ($t) => [
                 'name' => $t->name,
                 'suits' => $t->suits,
-                'costs_stone' => $t->costs_stone,
+                'stone_cost' => $t->stone_cost,
                 'description' => $t->description,
             ]),
             'link' => route('actions.index', ['name' => $action->name]),

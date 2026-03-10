@@ -10,7 +10,7 @@ interface Trigger {
     id?: number;
     name: string;
     suits?: string;
-    costs_stone?: boolean;
+    stone_cost?: number;
     description?: string;
 }
 
@@ -108,14 +108,14 @@ const formatActionType = (type?: string) => {
         </div>
         <div v-if="action.description" class="px-3 py-2">
             <p class="text-xs leading-relaxed text-muted-foreground">
-                <GameText :text="action.description" :max-length="150" icon-class="h-4 inline-block align-text-bottom" />
+                <GameText :text="action.description" icon-class="h-4 inline-block align-text-bottom" />
             </p>
         </div>
         <div v-if="action.triggers?.length" class="space-y-1 border-t px-3 py-2">
             <div v-for="(trigger, tidx) in action.triggers" :key="tidx" class="text-xs leading-relaxed text-muted-foreground">
                 <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
                     <GameIcon v-if="trigger.suits" :type="trigger.suits" class-name="h-3.5 inline-block" />
-                    <GameIcon v-if="trigger.costs_stone" type="soulstone" class-name="h-3.5 inline-block" />
+                    <GameIcon v-for="n in trigger.stone_cost ?? 0" :key="n" type="soulstone" class-name="h-3.5 inline-block" />
                     {{ trigger.name }}:
                 </span>
                 {{ ' ' }}

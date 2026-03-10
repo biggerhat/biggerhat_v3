@@ -75,18 +75,26 @@ const packageInCollection = computed(() => collectionPackageIds.value.includes(p
 const collectionProcessing = ref(false);
 const addPackageToCollection = () => {
     collectionProcessing.value = true;
-    router.post(route('collection.add_package'), { package_id: props.package.id }, {
-        preserveScroll: true,
-        onFinish: () => (collectionProcessing.value = false),
-    });
+    router.post(
+        route('collection.add_package'),
+        { package_id: props.package.id },
+        {
+            preserveScroll: true,
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 
 const togglePackageCollection = () => {
     collectionProcessing.value = true;
-    router.post(route('collection.toggle_package'), { package_id: props.package.id }, {
-        preserveScroll: true,
-        onFinish: () => (collectionProcessing.value = false),
-    });
+    router.post(
+        route('collection.toggle_package'),
+        { package_id: props.package.id },
+        {
+            preserveScroll: true,
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 </script>
 

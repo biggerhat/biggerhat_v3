@@ -687,7 +687,12 @@ const formatRangeType = (rangeType: string) => {
                                     <TableRow v-for="action in props.actions.data" :key="action.id">
                                         <TableCell class="font-medium">
                                             <span class="inline-flex items-center gap-1">
-                                                <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block" />
+                                                <GameIcon
+                                                    v-for="n in action.stone_cost ?? 0"
+                                                    :key="n"
+                                                    type="soulstone"
+                                                    class-name="h-4 inline-block"
+                                                />
                                                 {{ action.name }}
                                             </span>
                                         </TableCell>

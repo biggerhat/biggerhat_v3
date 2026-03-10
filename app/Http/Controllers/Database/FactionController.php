@@ -43,23 +43,58 @@ class FactionController extends Controller
             });
         }
 
-        $sort = match ($request->get('sort')) {
-            CharacterSortOptionsEnum::Cost->value => 'cost',
-            CharacterSortOptionsEnum::Health->value => 'health',
-            CharacterSortOptionsEnum::Speed->value => 'speed',
-            CharacterSortOptionsEnum::Defense->value => 'defense',
-            CharacterSortOptionsEnum::Willpower->value => 'willpower',
-            CharacterSortOptionsEnum::Size->value => 'size',
-            CharacterSortOptionsEnum::BaseSize->value => 'base',
-            default => 'display_name',
-        };
+        $isStationSort = ! $request->get('sort') || $request->get('sort') === CharacterSortOptionsEnum::Station->value;
 
-        $sortType = match ($request->get('sort_type')) {
-            SortTypeEnum::Descending->value => 'DESC',
-            default => 'ASC',
-        };
+        if (! $isStationSort) {
+            $sort = match ($request->get('sort')) {
+                CharacterSortOptionsEnum::Cost->value => 'cost',
+                CharacterSortOptionsEnum::Health->value => 'health',
+                CharacterSortOptionsEnum::Speed->value => 'speed',
+                CharacterSortOptionsEnum::Defense->value => 'defense',
+                CharacterSortOptionsEnum::Willpower->value => 'willpower',
+                CharacterSortOptionsEnum::Size->value => 'size',
+                CharacterSortOptionsEnum::BaseSize->value => 'base',
+                default => 'display_name',
+            };
 
-        $characters = $query->orderBy($sort, $sortType)->get();
+            $sortType = match ($request->get('sort_type')) {
+                SortTypeEnum::Descending->value => 'DESC',
+                default => 'ASC',
+            };
+
+            $characters = $query->orderBy($sort, $sortType)->get();
+        } else {
+            $characters = $query->orderBy('display_name')->get();
+
+            $stationOrder = function (Character $c): int {
+                $charSlugs = $c->characteristics->pluck('slug')->toArray();
+                $isHenchman = in_array('henchman', $charSlugs);
+                $isUnique = in_array('unique', $charSlugs);
+
+                return match ($c->station) {
+                    CharacterStationEnum::Master => 0,
+                    default => match (true) {
+                        $isHenchman && $isUnique => 1,
+                        $isHenchman => 2,
+                        $isUnique => 3,
+                        $c->station === CharacterStationEnum::Minion => 4,
+                        $c->station === CharacterStationEnum::Peon => 5,
+                        default => 6,
+                    },
+                };
+            };
+
+            $descending = $request->get('sort_type') === SortTypeEnum::Descending->value;
+            $characters = $characters->sortBy(function (Character $c) use ($stationOrder) {
+                return [$stationOrder($c), $c->display_name];
+            });
+
+            if ($descending) {
+                $characters = $characters->reverse();
+            }
+
+            $characters = $characters->values();
+        }
 
         $keywordBreakdown = [];
         if ($request->get('page_view') === PageViewOptionsEnum::KeywordBreakdown->value) {

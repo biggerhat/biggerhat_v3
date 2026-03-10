@@ -307,7 +307,7 @@ class BlogEntitySearchController extends Controller
             'slug' => $action->slug,
             'action_type' => $action->type,
             'is_signature' => $action->is_signature,
-            'costs_stone' => $action->costs_stone,
+            'stone_cost' => $action->stone_cost,
             'range' => $action->range,
             'range_type' => $action->range_type,
             'stat' => $action->stat,

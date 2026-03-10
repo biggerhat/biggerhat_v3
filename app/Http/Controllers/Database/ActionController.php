@@ -40,7 +40,8 @@ class ActionController extends Controller
         }
 
         if ($request->filled('costs_stone')) {
-            $query->where('costs_stone', filter_var($request->get('costs_stone'), FILTER_VALIDATE_BOOLEAN));
+            $costsStone = filter_var($request->get('costs_stone'), FILTER_VALIDATE_BOOLEAN);
+            $query->where('stone_cost', $costsStone ? '>' : '=', 0);
         }
 
         // Range (numeric min/max)

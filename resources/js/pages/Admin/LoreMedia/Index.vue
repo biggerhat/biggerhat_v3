@@ -14,31 +14,33 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
-    const notes = (row.getValue('internal_notes') as string)?.toLowerCase() ?? '';
-    return name.includes(search) || notes.includes(search);
+    const type = (row.getValue('type') as string)?.toLowerCase() ?? '';
+    return name.includes(search) || type.includes(search);
 };
 
-const columns: ColumnDef<Characteristics>[] = [
+const columns: ColumnDef<any>[] = [
     {
         accessorKey: 'id',
         header: () => h('div', {}, 'ID'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('id'));
-        },
+        cell: ({ row }) => h('div', {}, row.getValue('id')),
     },
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Action'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('name'));
-        },
+        header: () => h('div', {}, 'Name'),
+        cell: ({ row }) => h('div', {}, row.getValue('name')),
     },
     {
-        accessorKey: 'internal_notes',
-        header: () => h('div', {}, 'Internal Notes'),
+        accessorKey: 'type',
+        header: () => h('div', {}, 'Type'),
+        cell: ({ row }) => h('div', { class: 'capitalize' }, (row.getValue('type') as string)?.replace(/_/g, ' ') ?? ''),
+    },
+    {
+        accessorKey: 'link',
+        header: () => h('div', {}, 'Link'),
         cell: ({ row }) => {
-            const notes = row.getValue('internal_notes') as string | null;
-            return h('div', { class: 'text-xs text-muted-foreground max-w-xs truncate' }, notes ?? '');
+            const link = row.getValue('link') as string | null;
+            if (!link) return h('div', { class: 'text-muted-foreground' }, '-');
+            return h('a', { href: link, target: '_blank', class: 'text-primary hover:underline text-xs truncate max-w-xs block' }, link);
         },
     },
     {
@@ -46,15 +48,14 @@ const columns: ColumnDef<Characteristics>[] = [
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
-            const action = row.original;
-
+            const media = row.original;
             return h(
                 'div',
                 { class: 'relative' },
                 h(AdminActions, {
-                    name: action.name,
-                    editRoute: route('admin.actions.edit', action.slug),
-                    deleteRoute: route('admin.actions.delete', action.slug),
+                    name: media.name,
+                    editRoute: route('admin.lore_media.edit', media.slug),
+                    deleteRoute: route('admin.lore_media.delete', media.slug),
                 }),
             );
         },
@@ -62,14 +63,14 @@ const columns: ColumnDef<Characteristics>[] = [
 ];
 
 const props = defineProps<{
-    actions: TData[];
+    lore_media: any[];
 }>();
 
 const globalFilter = ref('');
 
 const table = useVueTable({
     get data() {
-        return props.actions;
+        return props.lore_media;
     },
     get columns() {
         return columns;
@@ -88,18 +89,18 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Actions - Admin" />
+    <Head title="Lore Media - Admin" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter by name or notes..."
+                placeholder="Filter by name or type..."
                 :model-value="globalFilter"
                 @update:model-value="table.setGlobalFilter($event)"
             />
-            <div>Total {{ props.actions.length }}</div>
-            <Button @click="router.get(route('admin.actions.create'))"> Create New Action </Button>
+            <div>Total {{ props.lore_media.length }}</div>
+            <Button @click="router.get(route('admin.lore_media.create'))"> Create New Lore Media </Button>
         </div>
         <div class="rounded-md border">
             <Table>
@@ -112,7 +113,7 @@ const table = useVueTable({
                 </TableHeader>
                 <TableBody>
                     <template v-if="table.getRowModel().rows?.length">
-                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id" :data-state="row.getIsSelected() ? 'selected' : undefined">
+                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id">
                             <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
                                 <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
                             </TableCell>

@@ -14,31 +14,37 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
-    const notes = (row.getValue('internal_notes') as string)?.toLowerCase() ?? '';
-    return name.includes(search) || notes.includes(search);
+    const mediaName = (row.original.media?.name as string)?.toLowerCase() ?? '';
+    return name.includes(search) || mediaName.includes(search);
 };
 
-const columns: ColumnDef<Characteristics>[] = [
+const columns: ColumnDef<any>[] = [
     {
         accessorKey: 'id',
         header: () => h('div', {}, 'ID'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('id'));
-        },
+        cell: ({ row }) => h('div', {}, row.getValue('id')),
     },
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Action'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('name'));
-        },
+        header: () => h('div', {}, 'Story Name'),
+        cell: ({ row }) => h('div', {}, row.getValue('name')),
     },
     {
-        accessorKey: 'internal_notes',
-        header: () => h('div', {}, 'Internal Notes'),
+        id: 'media',
+        header: () => h('div', {}, 'Media'),
+        cell: ({ row }) => h('div', { class: 'text-sm' }, row.original.media?.name ?? '-'),
+    },
+    {
+        id: 'media_type',
+        header: () => h('div', {}, 'Type'),
+        cell: ({ row }) => h('div', { class: 'text-sm capitalize' }, (row.original.media?.type as string)?.replace(/_/g, ' ') ?? '-'),
+    },
+    {
+        id: 'characters',
+        header: () => h('div', {}, 'Characters'),
         cell: ({ row }) => {
-            const notes = row.getValue('internal_notes') as string | null;
-            return h('div', { class: 'text-xs text-muted-foreground max-w-xs truncate' }, notes ?? '');
+            const count = row.original.characters?.length ?? 0;
+            return h('div', { class: 'text-sm text-muted-foreground' }, `${count} character${count !== 1 ? 's' : ''}`);
         },
     },
     {
@@ -46,15 +52,14 @@ const columns: ColumnDef<Characteristics>[] = [
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
-            const action = row.original;
-
+            const lore = row.original;
             return h(
                 'div',
                 { class: 'relative' },
                 h(AdminActions, {
-                    name: action.name,
-                    editRoute: route('admin.actions.edit', action.slug),
-                    deleteRoute: route('admin.actions.delete', action.slug),
+                    name: lore.name,
+                    editRoute: route('admin.lores.edit', lore.slug),
+                    deleteRoute: route('admin.lores.delete', lore.slug),
                 }),
             );
         },
@@ -62,14 +67,14 @@ const columns: ColumnDef<Characteristics>[] = [
 ];
 
 const props = defineProps<{
-    actions: TData[];
+    lores: any[];
 }>();
 
 const globalFilter = ref('');
 
 const table = useVueTable({
     get data() {
-        return props.actions;
+        return props.lores;
     },
     get columns() {
         return columns;
@@ -88,18 +93,18 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Actions - Admin" />
+    <Head title="Lore - Admin" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter by name or notes..."
+                placeholder="Filter by name or media..."
                 :model-value="globalFilter"
                 @update:model-value="table.setGlobalFilter($event)"
             />
-            <div>Total {{ props.actions.length }}</div>
-            <Button @click="router.get(route('admin.actions.create'))"> Create New Action </Button>
+            <div>Total {{ props.lores.length }}</div>
+            <Button @click="router.get(route('admin.lores.create'))"> Create New Lore </Button>
         </div>
         <div class="rounded-md border">
             <Table>
@@ -112,7 +117,7 @@ const table = useVueTable({
                 </TableHeader>
                 <TableBody>
                     <template v-if="table.getRowModel().rows?.length">
-                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id" :data-state="row.getIsSelected() ? 'selected' : undefined">
+                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id">
                             <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
                                 <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
                             </TableCell>

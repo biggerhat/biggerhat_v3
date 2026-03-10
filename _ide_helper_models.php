@@ -62,7 +62,7 @@ namespace App\Models{
  * @property string $name
  * @property string $type
  * @property int $is_signature
- * @property int $costs_stone
+ * @property int $stone_cost
  * @property string $slug
  * @property string|null $range
  * @property string|null $range_type
@@ -93,7 +93,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action toSelectOptions(string $column, $primaryKeyColumn = 'id')
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCostsStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDamage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDeletedAt($value)
@@ -109,6 +108,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereStat($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereStatModifier($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereStatSuits($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereStoneCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereTargetNumber($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereTargetSuits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereType($value)
@@ -278,6 +278,8 @@ namespace App\Models{
  * @property-read Character|null $isTotemFor
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
  * @property-read int|null $keywords_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lore> $lores
+ * @property-read int|null $lores_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Marker> $markers
  * @property-read int|null $markers_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $miniatures
@@ -368,6 +370,48 @@ namespace App\Models{
  *
  * @property int $id
  * @property string $name
+ * @property array<array-key, mixed>|null $description
+ * @property string $share_code
+ * @property int|null $user_id
+ * @property \App\Enums\FactionEnum $faction
+ * @property int $master_id
+ * @property int $encounter_size
+ * @property array<array-key, mixed> $crew_data
+ * @property bool $is_archived
+ * @property bool $is_public
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Character $master
+ * @property-read \App\Models\User|null $user
+ * @method static \Database\Factories\CrewBuildFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewData($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereEncounterSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereIsArchived($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereShareCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCrewBuild {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $name
  * @property string $slug
  * @property string|null $description
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -393,6 +437,67 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperKeyword {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $slug
+ * @property int $lore_media_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
+ * @property-read \App\Models\LoreMedia $media
+ * @method static \Database\Factories\LoreFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereLoreMediaId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperLore {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $slug
+ * @property \App\Enums\LoreMediaTypeEnum $type
+ * @property string|null $link
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lore> $lores
+ * @property-read int|null $lores_count
+ * @method static \Database\Factories\LoreMediaFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereLink($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LoreMedia whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperLoreMedia {}
 }
 
 namespace App\Models{
@@ -838,8 +943,14 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $remember_token
+ * @property string|null $collection_share_code
+ * @property int $collection_is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $collectionMiniatures
+ * @property-read int|null $collection_miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $collectionPackages
+ * @property-read int|null $collection_packages_count
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Permission> $permissions
@@ -852,6 +963,8 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User permission($permissions, $without = false)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User role($roles, $guard = null, $without = false)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCollectionIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCollectionShareCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmail($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailVerifiedAt($value)

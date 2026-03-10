@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
@@ -73,7 +72,7 @@ const formInfo = ref({
     name: null,
     type: null,
     is_signature: false,
-    costs_stone: false,
+    stone_cost: 0,
     range: null,
     range_type: null,
     stat: null,
@@ -97,7 +96,7 @@ onMounted(() => {
     formInfo.value.name = props.action?.name ?? null;
     formInfo.value.type = props.action?.type ?? null;
     formInfo.value.is_signature = props.action?.is_signature ?? false;
-    formInfo.value.costs_stone = props.action?.costs_stone ?? false;
+    formInfo.value.stone_cost = props.action?.stone_cost ?? 0;
     formInfo.value.range = props.action?.range ?? null;
     formInfo.value.range_type = props.action?.range_type ?? null;
     formInfo.value.stat = props.action?.stat ?? null;
@@ -228,11 +227,9 @@ onMounted(() => {
                                     <Label for="damage">Damage</Label>
                                     <Input id="damage" v-model="formInfo.damage" placeholder="Damage" />
                                 </div>
-                                <div class="flex flex-col items-center space-y-1.5">
-                                    <div class="flex items-center space-x-2">
-                                        <Switch id="costs_stone" v-model="formInfo.costs_stone" />
-                                        <Label for="costs_stone">Costs A Stone</Label>
-                                    </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="stone_cost">Stone Cost</Label>
+                                    <Input id="stone_cost" v-model="formInfo.stone_cost" type="number" min="0" max="10" placeholder="0" />
                                 </div>
                             </div>
                         </div>

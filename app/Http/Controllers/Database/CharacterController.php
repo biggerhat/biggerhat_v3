@@ -15,7 +15,8 @@ class CharacterController extends Controller
     {
         $character->loadMissing(
             'miniatures', 'keywords', 'characteristics',
-            'crewUpgrades', 'characterUpgrades',
+            'crewUpgrades', 'characterUpgrades', 'packages',
+            'lores.media',
             'totem.standardMiniatures', 'isTotemFor.standardMiniatures'
         );
 

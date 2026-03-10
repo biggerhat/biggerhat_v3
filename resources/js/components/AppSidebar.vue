@@ -65,14 +65,14 @@ const mainNavItems: NavItem[] = [
                 icon: Dice6,
             },
             {
+                title: 'Crew Builder',
+                href: route('tools.crew_builder.index'),
+                icon: Swords,
+            },
+            {
                 title: 'Articles',
                 href: route('blog.index'),
                 icon: Newspaper,
-            },
-            {
-                title: 'Seasons',
-                href: route('seasons.index'),
-                icon: Calendar,
             },
         ],
     },
@@ -184,6 +184,16 @@ const mainNavItems: NavItem[] = [
                 href: route('packages.index'),
                 icon: Package,
             },
+            {
+                title: 'Lore',
+                href: route('lores.index'),
+                icon: BookOpen,
+            },
+            {
+                title: 'Gaining Grounds',
+                href: route('seasons.index'),
+                icon: Calendar,
+            },
         ],
     },
     {
@@ -200,11 +210,6 @@ const mainNavItems: NavItem[] = [
                 title: 'PDF Generator',
                 href: route('tools.pdf.index'),
                 icon: FileText,
-            },
-            {
-                title: 'Crew Builder',
-                href: route('tools.crew_builder.index'),
-                icon: Swords,
             },
             {
                 title: 'Scenario Generator',
@@ -311,6 +316,18 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.packages.index'),
         icon: Package,
         permission: 'view_package',
+    },
+    {
+        title: 'Lore',
+        href: route('admin.lores.index'),
+        icon: BookOpen,
+        permission: 'view_lore',
+    },
+    {
+        title: 'Lore Media',
+        href: route('admin.lore_media.index'),
+        icon: BookOpen,
+        permission: 'view_lore',
     },
     {
         title: 'Users',

@@ -31,7 +31,7 @@ interface ActionData {
     action_type?: string;
     type?: string;
     is_signature?: boolean;
-    costs_stone?: boolean;
+    stone_cost?: number;
     range_type?: string;
     range?: number | string | null;
     stat?: number | string | null;
@@ -72,7 +72,7 @@ const formatActionType = (type?: string) => {
         <div class="flex items-center border-b px-3 py-2">
             <div class="inline-flex min-w-0 flex-1 items-center gap-1">
                 <GameIcon v-if="action.is_signature" type="signature_action" class-name="h-4 inline-block shrink-0" />
-                <GameIcon v-if="action.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
+                <GameIcon v-for="n in action.stone_cost ?? 0" :key="n" type="soulstone" class-name="h-4 inline-block shrink-0" />
                 <span class="font-semibold">{{ action.name }}</span>
             </div>
             <span class="w-10 text-center text-sm">

@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, router } from '@inertiajs/vue3';
-import { BookOpen, Grid2x2, LayoutGrid, List } from 'lucide-vue-next';
+import { BookOpen, ChevronDown, Grid2x2, LayoutGrid, List } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
+import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cleanObject } from '@/composables/CleanObject';
 
@@ -100,16 +102,18 @@ const props = defineProps({
 });
 
 const filterParams = ref({
-    keyword: null,
-    station: null,
-    characteristic: null,
-    page_view: null,
-    sort: null,
-    sort_type: null,
+    keyword: null as string | null,
+    station: null as string | null,
+    characteristic: null as string | null,
+    page_view: null as string | null,
+    sort: null as string | null,
+    sort_type: null as string | null,
 });
 
+const filterKeys = ['keyword', 'station', 'characteristic'] as const;
+
 const activeFilterCount = computed(() => {
-    return [filterParams.value.keyword, filterParams.value.station, filterParams.value.characteristic].filter((v) => v != null).length;
+    return filterKeys.filter((key) => filterParams.value[key] != null).length;
 });
 
 const clear = () => {
@@ -117,7 +121,7 @@ const clear = () => {
     filterParams.value.station = null;
     filterParams.value.characteristic = null;
     filterParams.value.page_view = 'images';
-    filterParams.value.sort = 'name';
+    filterParams.value.sort = 'station';
     filterParams.value.sort_type = 'ascending';
     filter();
 };
@@ -135,14 +139,40 @@ const handleViewChange = (value: string) => {
     filter();
 };
 
+const sectionsOpen = ref({
+    filters: true,
+    sorting: false,
+});
+
+type SectionKey = keyof typeof sectionsOpen.value;
+const sectionKeys: SectionKey[] = ['filters', 'sorting'];
+
+const toggleSection = (section: SectionKey) => {
+    const isOpening = !sectionsOpen.value[section];
+    for (const key of sectionKeys) {
+        sectionsOpen.value[key] = false;
+    }
+    if (isOpening) {
+        sectionsOpen.value[section] = true;
+    }
+};
+
 const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
     filterParams.value.keyword = urlParams.get('keyword');
     filterParams.value.station = urlParams.get('station');
     filterParams.value.characteristic = urlParams.get('characteristic');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
-    filterParams.value.sort = urlParams.get('sort') ?? 'name';
+    filterParams.value.sort = urlParams.get('sort') ?? 'station';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
+
+    // Auto-open sections with active filters
+    const hasFilters = filterParams.value.keyword || filterParams.value.station || filterParams.value.characteristic;
+    const hasSorting =
+        (filterParams.value.sort && filterParams.value.sort !== 'station') ||
+        (filterParams.value.sort_type && filterParams.value.sort_type !== 'ascending');
+    if (hasFilters) sectionsOpen.value.filters = true;
+    if (hasSorting) sectionsOpen.value.sorting = true;
 });
 
 const characterCount = computed(() => props.characters?.length ?? 0);
@@ -180,6 +210,8 @@ onMounted(() => {
                 </div>
             </template>
         </PageBanner>
+
+        <!-- Tabs + mobile filter trigger -->
         <div class="container mx-auto mb-2 flex items-center justify-between px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
@@ -201,119 +233,214 @@ onMounted(() => {
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
-            <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
-                <div class="grid gap-4">
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Keyword</label>
-                        <Select v-model="filterParams.keyword">
-                            <SelectTrigger class="rounded border-2 border-primary">
-                                <SelectValue placeholder="Keyword" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="keyword in props.keywords" :value="keyword.slug" :key="keyword.slug">
-                                    {{ keyword.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Station</label>
-                        <Select v-model="filterParams.station">
-                            <SelectTrigger class="rounded border-2 border-primary">
-                                <SelectValue placeholder="Station" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="station in props.stations" :value="station.value" :key="station.value">
-                                    {{ station.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Characteristic</label>
-                        <Select v-model="filterParams.characteristic">
-                            <SelectTrigger class="rounded border-2 border-primary">
-                                <SelectValue placeholder="Characteristic" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="characteristic in props.characteristics" :value="characteristic.slug" :key="characteristic.slug">
-                                    {{ characteristic.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <Separator />
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Sort By</label>
-                        <Select v-model="filterParams.sort">
-                            <SelectTrigger class="rounded border-2 border-primary">
-                                <SelectValue placeholder="Sort Options" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="sort in props.sort_options" :value="sort.value" :key="sort.value">
-                                    {{ sort.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Sort Direction</label>
-                        <Select v-model="filterParams.sort_type">
-                            <SelectTrigger class="rounded border-2 border-primary">
-                                <SelectValue placeholder="Sort Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="type in props.sort_types" :value="type.value" :key="type.value">
-                                    {{ type.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <div class="flex items-center gap-2">
+                <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
+                    {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
+                </Badge>
+                <!-- Mobile-only filter trigger -->
+                <div class="md:hidden">
+                    <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
+                        <div class="grid gap-4">
+                            <!-- Filters -->
+                            <Collapsible :open="sectionsOpen.filters" @update:open="toggleSection('filters')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Filters
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.filters }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Keyword</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.keyword"
+                                            placeholder="Any Keyword"
+                                            :options="props.keywords"
+                                            option-label="name"
+                                            option-value="slug"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Station</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.station"
+                                            placeholder="Any Station"
+                                            :options="props.stations"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Characteristic</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.characteristic"
+                                            placeholder="Any Characteristic"
+                                            :options="props.characteristics"
+                                            option-label="name"
+                                            option-value="slug"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Sorting -->
+                            <Collapsible :open="sectionsOpen.sorting" @update:open="toggleSection('sorting')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Sorting
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.sorting }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Sort By</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.sort"
+                                            placeholder="Sort By"
+                                            :options="props.sort_options"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Sort Direction</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.sort_type"
+                                            placeholder="Sort Direction"
+                                            :options="props.sort_types"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+                        </div>
+                    </FilterPanel>
                 </div>
-            </FilterPanel>
-        </div>
-        <div
-            v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
-            class="container mx-auto mt-4 items-center overflow-auto px-4"
-        >
-            <TableSkeleton :rows="8" :cols="7" />
-        </div>
-        <div v-else-if="isLoading" class="container mx-auto mt-4 items-center px-4">
-            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
         </div>
-        <div v-else-if="filterParams.page_view === 'keyword_breakdown'" class="container mx-auto items-center px-4">
-            <template v-if="props.keyword_breakdown?.length">
-                <KeywordBreakdown v-for="keyword in props.keyword_breakdown" v-bind:key="keyword.keyword.name" :keyword="keyword" :statistics="keyword.statistics" />
-            </template>
-            <EmptyState v-else />
-        </div>
-        <div v-else-if="filterParams.page_view === 'table'" class="container mx-auto items-center overflow-auto px-4">
-            <CharacterTable :characters="props.characters" />
-        </div>
-        <div v-else-if="filterParams.page_view === 'full'" class="container mx-auto items-center px-4">
-            <template v-if="props.characters?.length">
-                <div v-for="character in props.characters" v-bind:key="character.slug">
-                    <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
-                </div>
-            </template>
-            <EmptyState v-else />
-        </div>
-        <div v-else class="container mx-auto items-center px-4">
-            <template v-if="props.characters?.length">
-                <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+
+        <!-- Main content area -->
+        <div class="container mx-auto px-4">
+            <div class="flex gap-6">
+                <!-- Desktop sidebar filters -->
+                <aside class="hidden w-72 shrink-0 md:block">
+                    <div class="space-y-2 pr-2">
+                        <!-- Filters -->
+                        <Collapsible :open="sectionsOpen.filters" @update:open="toggleSection('filters')">
+                            <CollapsibleTrigger
+                                class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80"
+                            >
+                                Filters
+                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.filters }" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent class="space-y-3 px-1 pt-3">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Keyword</label>
+                                    <ClearableSelect
+                                        v-model="filterParams.keyword"
+                                        placeholder="Any Keyword"
+                                        :options="props.keywords"
+                                        option-label="name"
+                                        option-value="slug"
+                                    />
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Station</label>
+                                    <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Characteristic</label>
+                                    <ClearableSelect
+                                        v-model="filterParams.characteristic"
+                                        placeholder="Any Characteristic"
+                                        :options="props.characteristics"
+                                        option-label="name"
+                                        option-value="slug"
+                                    />
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+
+                        <!-- Sorting -->
+                        <Collapsible :open="sectionsOpen.sorting" @update:open="toggleSection('sorting')">
+                            <CollapsibleTrigger
+                                class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80"
+                            >
+                                Sorting
+                                <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.sorting }" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent class="space-y-3 px-1 pt-3">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Sort By</label>
+                                    <ClearableSelect v-model="filterParams.sort" placeholder="Sort By" :options="props.sort_options" />
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Sort Direction</label>
+                                    <ClearableSelect v-model="filterParams.sort_type" placeholder="Sort Direction" :options="props.sort_types" />
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+
+                        <!-- Action buttons -->
+                        <div class="flex gap-2 pt-2">
+                            <Button class="flex-1" @click="filter">Search</Button>
+                            <Button variant="outline" class="flex-1" @click="clear">Clear</Button>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Results area -->
+                <div class="min-w-0 flex-1">
                     <div
-                        v-for="(character, index) in props.characters"
-                        :key="`character-${character.id}`"
-                        class="animate-fade-in-up opacity-0"
-                        :style="delays[index]"
+                        v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
+                        class="overflow-auto"
                     >
-                        <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
+                        <TableSkeleton :rows="8" :cols="7" />
+                    </div>
+                    <div v-else-if="isLoading">
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+                            <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
+                        </div>
+                    </div>
+                    <div v-else-if="filterParams.page_view === 'keyword_breakdown'">
+                        <template v-if="props.keyword_breakdown?.length">
+                            <KeywordBreakdown
+                                v-for="keyword in props.keyword_breakdown"
+                                v-bind:key="keyword.keyword.name"
+                                :keyword="keyword"
+                                :statistics="keyword.statistics"
+                            />
+                        </template>
+                        <EmptyState v-else />
+                    </div>
+                    <div v-else-if="filterParams.page_view === 'table'" class="overflow-auto">
+                        <CharacterTable :characters="props.characters" />
+                    </div>
+                    <div v-else-if="filterParams.page_view === 'full'">
+                        <template v-if="props.characters?.length">
+                            <div v-for="character in props.characters" v-bind:key="character.slug">
+                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+                            </div>
+                        </template>
+                        <EmptyState v-else />
+                    </div>
+                    <div v-else>
+                        <template v-if="props.characters?.length">
+                            <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+                                <div
+                                    v-for="(character, index) in props.characters"
+                                    :key="`character-${character.id}`"
+                                    class="animate-fade-in-up opacity-0"
+                                    :style="delays[index]"
+                                >
+                                    <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
+                                </div>
+                            </div>
+                        </template>
+                        <EmptyState v-else />
                     </div>
                 </div>
-            </template>
-            <EmptyState v-else />
+            </div>
         </div>
     </div>
 </template>

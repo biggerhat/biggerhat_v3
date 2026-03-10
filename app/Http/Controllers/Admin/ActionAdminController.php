@@ -78,7 +78,7 @@ class ActionAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::enum(ActionTypeEnum::class)],
             'is_signature' => ['required', 'boolean'],
-            'costs_stone' => ['required', 'boolean'],
+            'stone_cost' => ['required', 'integer', 'min:0', 'max:10'],
             'range' => ['nullable', 'string'],
             'range_type' => ['nullable', 'string', Rule::enum(ActionRangeTypeEnum::class)],
             'stat' => ['nullable', 'string'],

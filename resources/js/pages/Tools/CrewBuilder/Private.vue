@@ -30,9 +30,7 @@ import { ArrowLeft, Lock } from 'lucide-vue-next';
                             <Lock class="size-6 text-muted-foreground" />
                         </div>
                         <h2 class="text-lg font-semibold">This crew list is private</h2>
-                        <p class="text-sm text-muted-foreground">
-                            The owner has made this crew list private. It is no longer available for viewing.
-                        </p>
+                        <p class="text-sm text-muted-foreground">The owner has made this crew list private. It is no longer available for viewing.</p>
                         <Button as="a" :href="route('tools.crew_builder.index')" class="mt-2"> Build Your Own Crew </Button>
                     </CardContent>
                 </Card>

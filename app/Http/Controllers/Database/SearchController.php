@@ -128,7 +128,8 @@ class SearchController extends Controller
                     $q->where('is_signature', filter_var($request->get('action_is_signature'), FILTER_VALIDATE_BOOLEAN));
                 }
                 if ($request->filled('action_costs_stone')) {
-                    $q->where('costs_stone', filter_var($request->get('action_costs_stone'), FILTER_VALIDATE_BOOLEAN));
+                    $costsStone = filter_var($request->get('action_costs_stone'), FILTER_VALIDATE_BOOLEAN);
+                    $q->where('stone_cost', $costsStone ? '>' : '=', 0);
                 }
                 if ($request->filled('action_range_min')) {
                     $q->where('range', '>=', (int) $request->get('action_range_min'));

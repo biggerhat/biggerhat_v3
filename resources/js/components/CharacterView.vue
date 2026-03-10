@@ -9,7 +9,7 @@ import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Download, ExternalLink, Library, Swords } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, Check, Copy, Download, ExternalLink, Library, Package, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -74,27 +74,37 @@ const isAuthenticated = computed(() => !!page.props.auth.user);
 const collectionIds = computed(() => page.props.auth.collection_miniature_ids ?? []);
 
 const currentMiniatureInCollection = computed(() => collectionIds.value.includes(props.miniature.id));
+const standardMiniatures = computed(
+    () => props.character.miniatures?.filter((m: any) => m.version === 'fourth_edition' || m.version === 'third_edition') ?? [],
+);
 const allStandardInCollection = computed(() => {
-    const standardMinis = props.character.miniatures?.filter((m: any) => m.version === 'fourth_edition' || m.version === 'third_edition') ?? [];
-    if (standardMinis.length === 0) return false;
-    return standardMinis.every((m: any) => collectionIds.value.includes(m.id));
+    if (standardMiniatures.value.length === 0) return false;
+    return standardMiniatures.value.every((m: any) => collectionIds.value.includes(m.id));
 });
 
 const collectionProcessing = ref(false);
 const toggleMiniature = () => {
     collectionProcessing.value = true;
-    router.post(route('collection.toggle'), { miniature_id: props.miniature.id }, {
-        preserveScroll: true,
-        onFinish: () => (collectionProcessing.value = false),
-    });
+    router.post(
+        route('collection.toggle'),
+        { miniature_id: props.miniature.id },
+        {
+            preserveScroll: true,
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 
 const addAllStandard = () => {
     collectionProcessing.value = true;
-    router.post(route('collection.add_character'), { character_id: props.character.id }, {
-        preserveScroll: true,
-        onFinish: () => (collectionProcessing.value = false),
-    });
+    router.post(
+        route('collection.add_character'),
+        { character_id: props.character.id },
+        {
+            preserveScroll: true,
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 </script>
 
@@ -237,6 +247,19 @@ const addAllStandard = () => {
                             </div>
                         </div>
 
+                        <!-- Packages -->
+                        <div v-if="character.packages?.length">
+                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Packages</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <Link v-for="pkg in character.packages" :key="pkg.id" :href="route('packages.view', { package: pkg.slug })">
+                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
+                                        <Package class="mr-1 h-3 w-3" />
+                                        {{ pkg.name }}
+                                    </Badge>
+                                </Link>
+                            </div>
+                        </div>
+
                         <!-- Totem -->
                         <div v-if="character.totem">
                             <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Totem</div>
@@ -318,7 +341,7 @@ const addAllStandard = () => {
                             {{ currentMiniatureInCollection ? 'In Collection' : 'Add This Sculpt' }}
                         </button>
                         <button
-                            v-if="!allStandardInCollection"
+                            v-if="!allStandardInCollection && standardMiniatures.length > 1"
                             class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                             :disabled="collectionProcessing"
                             @click="addAllStandard"
@@ -368,6 +391,22 @@ const addAllStandard = () => {
                         </a>
                     </CardContent>
                 </Card>
+
+                <!-- Lore -->
+                <Card v-if="character.lores?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <div v-for="lore in character.lores" :key="lore.id" class="flex items-center gap-2 border-t px-4 py-2">
+                            <BookOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 flex-1 text-sm">{{ lore.name }}</span>
+                            <Badge v-if="lore.media" variant="outline" class="shrink-0 text-[10px]">
+                                {{ lore.media.name }}
+                            </Badge>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             <!-- Image section -->
@@ -378,14 +417,32 @@ const addAllStandard = () => {
                 </div>
                 <!-- Desktop: combination image or front/back side by side -->
                 <div v-else-if="miniature.combination_image" class="overflow-hidden rounded-xl shadow-lg">
-                    <img :src="`/storage/${miniature.combination_image}`" :alt="miniature.display_name" class="w-full" />
+                    <img
+                        :src="`/storage/${miniature.combination_image}`"
+                        :alt="miniature.display_name"
+                        loading="lazy"
+                        decoding="async"
+                        class="w-full"
+                    />
                 </div>
                 <div v-else-if="miniature.front_image && miniature.back_image" class="grid grid-cols-2 gap-4">
                     <div class="overflow-hidden rounded-xl shadow-lg">
-                        <img :src="`/storage/${miniature.front_image}`" :alt="`${miniature.display_name} Front`" class="w-full" />
+                        <img
+                            :src="`/storage/${miniature.front_image}`"
+                            :alt="`${miniature.display_name} Front`"
+                            loading="lazy"
+                            decoding="async"
+                            class="w-full"
+                        />
                     </div>
                     <div class="overflow-hidden rounded-xl shadow-lg">
-                        <img :src="`/storage/${miniature.back_image}`" :alt="`${miniature.display_name} Back`" class="w-full" />
+                        <img
+                            :src="`/storage/${miniature.back_image}`"
+                            :alt="`${miniature.display_name} Back`"
+                            loading="lazy"
+                            decoding="async"
+                            class="w-full"
+                        />
                     </div>
                 </div>
                 <div v-else class="mx-auto max-w-sm">

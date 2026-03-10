@@ -14,8 +14,9 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
+    const suits = (row.getValue('suits') as string)?.toLowerCase() ?? '';
     const notes = (row.getValue('internal_notes') as string)?.toLowerCase() ?? '';
-    return name.includes(search) || notes.includes(search);
+    return name.includes(search) || suits.includes(search) || notes.includes(search);
 };
 
 const columns: ColumnDef<Triggers>[] = [
@@ -31,6 +32,14 @@ const columns: ColumnDef<Triggers>[] = [
         header: () => h('div', {}, 'Trigger'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
+        },
+    },
+    {
+        accessorKey: 'suits',
+        header: () => h('div', {}, 'Suits'),
+        cell: ({ row }) => {
+            const suits = row.getValue('suits') as string | null;
+            return h('div', { class: 'text-sm text-muted-foreground' }, suits ?? '-');
         },
     },
     {

@@ -99,7 +99,7 @@ const currentLabel = computed(() => {
         </div>
 
         <Dialog v-model:open="fullscreenOpen">
-            <DialogContent class="max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
+            <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
                 <DialogTitle class="sr-only">{{ currentLabel }}</DialogTitle>
                 <div class="flex items-center justify-center">
                     <img :src="currentImage" :alt="currentLabel" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
@@ -112,5 +112,20 @@ const currentLabel = computed(() => {
 <style scoped>
 .card-flipped {
     transform: rotateY(180deg);
+}
+</style>
+
+<style>
+.fullscreen-card-dialog > button {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    color: white;
+    opacity: 1;
+    border-radius: 9999px;
+    padding: 0.375rem;
+}
+
+.fullscreen-card-dialog > button:hover {
+    background-color: rgba(0, 0, 0, 0.85);
 }
 </style>

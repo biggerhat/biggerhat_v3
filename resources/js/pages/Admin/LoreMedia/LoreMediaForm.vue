@@ -31,7 +31,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.lore_media ? route('admin.lore_media.update', props.lore_media.slug) : route('admin.lore_media.store'), formInfo.value);
+    router.post(props.lore_media ? route('admin.lore_media.update', props.lore_media.id) : route('admin.lore_media.store'), formInfo.value);
 };
 
 onMounted(() => {

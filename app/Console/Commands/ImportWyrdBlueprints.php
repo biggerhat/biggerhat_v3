@@ -355,9 +355,9 @@ class ImportWyrdBlueprints extends Command
         $publishedAt = $post['date'] ? Carbon::parse($post['date']) : null;
         $sourceUrl = self::BASE_URL.$post['url'];
 
-        // Post-level character/miniature/package matching (fallback for all images)
+        // Post-level matching (fallback for images with generic filenames)
         $postCharacterIds = $this->matchCharacters($tags, $title);
-        $miniatureIds = $this->matchMiniatures($tags, $images);
+        $postMiniatureIds = $this->matchMiniatures($tags, $images);
         $packageIds = $this->matchPackages($sku, $title, $tags);
 
         if ($this->option('dry-run')) {
@@ -371,9 +371,12 @@ class ImportWyrdBlueprints extends Command
 
             foreach ($images as $imageUrl) {
                 $imageCharIds = $this->matchCharactersForImage($imageUrl);
-                $charIds = $this->resolveCharacterIds($imageCharIds, $postCharacterIds);
+                $charIds = $this->resolveIds($imageCharIds, $postCharacterIds);
+                $imageMiniIds = $this->matchMiniatureForImage($imageUrl);
+                $miniIds = $this->resolveIds($imageMiniIds, $postMiniatureIds);
                 $charNames = $this->allCharacters->whereIn('id', $charIds)->pluck('display_name')->join(', ');
-                $this->line('    <info>Image:</info> '.basename($imageUrl).' → '.($charNames ?: '(none)'));
+                $miniNames = $this->allMiniatures->whereIn('id', $miniIds)->pluck('display_name')->join(', ');
+                $this->line('    <info>Image:</info> '.basename($imageUrl).' → chars: '.($charNames ?: '(none)').', minis: '.($miniNames ?: '(none)'));
             }
 
             $counts['created'] = count($images);
@@ -411,9 +414,11 @@ class ImportWyrdBlueprints extends Command
             }
             $usedBasenames[] = $basename;
 
-            // Try to match characters specifically for this image filename
+            // Per-image character and miniature matching
             $imageCharIds = $this->matchCharactersForImage($imageUrl);
-            $characterIds = $this->resolveCharacterIds($imageCharIds, $postCharacterIds);
+            $characterIds = $this->resolveIds($imageCharIds, $postCharacterIds);
+            $imageMiniIds = $this->matchMiniatureForImage($imageUrl);
+            $miniatureIdsForImage = $this->resolveIds($imageMiniIds, $postMiniatureIds);
 
             $blueprint = Blueprint::create([
                 'name' => $title,
@@ -431,11 +436,12 @@ class ImportWyrdBlueprints extends Command
             $blueprint->update(['image_path' => $imagePath]);
 
             $blueprint->characters()->sync($characterIds);
-            $blueprint->miniatures()->sync($miniatureIds);
+            $blueprint->miniatures()->sync($miniatureIdsForImage);
             $blueprint->packages()->sync($packageIds);
 
             $charNames = $this->allCharacters->whereIn('id', $characterIds)->pluck('display_name')->join(', ');
-            $this->line("  <info>CREATED</info> {$title} → {$basename} [{$charNames}]");
+            $miniNames = $this->allMiniatures->whereIn('id', $miniatureIdsForImage)->pluck('display_name')->join(', ');
+            $this->line("  <info>CREATED</info> {$title} → {$basename} [chars: {$charNames}, minis: {$miniNames}]");
 
             $counts['created']++;
         }
@@ -473,40 +479,36 @@ class ImportWyrdBlueprints extends Command
     }
 
     /**
-     * Decide which character IDs to assign to a single blueprint image.
+     * Decide which IDs to assign to a single blueprint image.
      *
      * Priority:
      * 1. Image-level match (from filename) — always preferred
-     * 2. Post-level match — only if the post has exactly 1 character
-     *    (multi-character posts with generic filenames get no tags
-     *     rather than incorrectly tagging all characters)
+     * 2. Post-level match — only if the post has exactly 1 entry
+     *    (multi-entry posts with generic filenames get no tags
+     *     rather than incorrectly tagging everything)
      *
-     * @param  int[]  $imageCharIds  Characters matched from the image filename
-     * @param  int[]  $postCharacterIds  Characters matched from the post tags/title
+     * @param  int[]  $imageIds  IDs matched from the image filename
+     * @param  int[]  $postIds  IDs matched from the post tags/title
      * @return int[]
      */
-    private function resolveCharacterIds(array $imageCharIds, array $postCharacterIds): array
+    private function resolveIds(array $imageIds, array $postIds): array
     {
-        if (! empty($imageCharIds)) {
-            return $imageCharIds;
+        if (! empty($imageIds)) {
+            return $imageIds;
         }
 
-        // Only fall back to post-level characters when there's exactly one
-        // — avoids tagging all 3 characters on every image in a multi-character post
-        if (count($postCharacterIds) === 1) {
-            return $postCharacterIds;
+        if (count($postIds) === 1) {
+            return $postIds;
         }
 
         return [];
     }
 
     /**
-     * Match characters specifically from an image filename.
-     * e.g. "WYR24103-Sonnia-Criid-Front.png" → matches "Sonnia Criid"
-     *
-     * @return int[]
+     * Clean an image filename for matching against character/miniature names.
+     * e.g. "WYR24103-Sonnia-Criid-Front.png" → "Sonnia Criid"
      */
-    private function matchCharactersForImage(string $imageUrl): array
+    private function cleanImageFilename(string $imageUrl): ?string
     {
         $basename = pathinfo(parse_url($imageUrl, PHP_URL_PATH) ?: '', PATHINFO_FILENAME);
 
@@ -518,21 +520,49 @@ class ImportWyrdBlueprints extends Command
         $cleaned = str_replace('-', ' ', $cleaned);
 
         if (strlen($cleaned) < 3) {
-            return [];
+            return null;
         }
 
         // Skip generic filenames
         if (preg_match('/^image\s*asset/i', $cleaned)) {
+            return null;
+        }
+
+        return $cleaned;
+    }
+
+    /**
+     * Match characters specifically from an image filename.
+     *
+     * @return int[]
+     */
+    private function matchCharactersForImage(string $imageUrl): array
+    {
+        $cleaned = $this->cleanImageFilename($imageUrl);
+        if (! $cleaned) {
             return [];
         }
 
-        $ids = [];
         $character = $this->allCharacters->first(fn (Character $c) => $this->namesMatch($c->display_name, $cleaned));
-        if ($character) {
-            $ids[] = $character->id;
+
+        return $character ? [$character->id] : [];
+    }
+
+    /**
+     * Match miniatures specifically from an image filename.
+     *
+     * @return int[]
+     */
+    private function matchMiniatureForImage(string $imageUrl): array
+    {
+        $cleaned = $this->cleanImageFilename($imageUrl);
+        if (! $cleaned) {
+            return [];
         }
 
-        return $ids;
+        $miniature = $this->allMiniatures->first(fn (Miniature $m) => $this->namesMatch($m->display_name, $cleaned));
+
+        return $miniature ? [$miniature->id] : [];
     }
 
     /**

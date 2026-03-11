@@ -17,47 +17,36 @@ class FixBlueprintFilenames extends Command
         $fixed = 0;
         $dryRun = $this->option('dry-run');
 
-        Blueprint::withImages()->chunk(100, function ($blueprints) use (&$fixed, $dryRun) {
+        Blueprint::withImage()->chunk(200, function ($blueprints) use (&$fixed, $dryRun) {
             foreach ($blueprints as $blueprint) {
-                $images = $blueprint->images ?? [];
-                $newImages = [];
-                $changed = false;
+                $path = $blueprint->image_path;
+                if (str_starts_with($path, 'http')) {
+                    continue;
+                }
 
-                foreach ($images as $path) {
-                    $dir = dirname($path);
-                    $oldBasename = basename($path);
-                    $newBasename = $this->sanitize($oldBasename);
+                $dir = dirname($path);
+                $oldBasename = basename($path);
+                $newBasename = $this->sanitize($oldBasename);
 
-                    if ($oldBasename === $newBasename) {
-                        $newImages[] = $path;
+                if ($oldBasename === $newBasename) {
+                    continue;
+                }
 
-                        continue;
-                    }
+                $newPath = "{$dir}/{$newBasename}";
+                $this->line("  {$path} → {$newPath}");
 
-                    $newPath = "{$dir}/{$newBasename}";
-                    $this->line("  {$path} → {$newPath}");
-
-                    if (! $dryRun && Storage::disk('public')->exists($path)) {
+                if (! $dryRun) {
+                    if (Storage::disk('public')->exists($path)) {
                         Storage::disk('public')->move($path, $newPath);
                     }
-
-                    $newImages[] = $newPath;
-                    $changed = true;
+                    $blueprint->update(['image_path' => $newPath]);
                 }
 
-                if ($changed) {
-                    $fixed++;
-                    if (! $dryRun) {
-                        $blueprint->update([
-                            'images' => $newImages,
-                            'image' => $newImages[0] ?? null,
-                        ]);
-                    }
-                }
+                $fixed++;
             }
         });
 
-        $this->info(sprintf('%s %d blueprints.', $dryRun ? 'Would fix' : 'Fixed', $fixed));
+        $this->info(sprintf('%s %d images.', $dryRun ? 'Would fix' : 'Fixed', $fixed));
 
         return self::SUCCESS;
     }

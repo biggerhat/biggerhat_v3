@@ -10,6 +10,7 @@ use App\Models\Package;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,6 +20,7 @@ class ImportWyrdBlueprints extends Command
     protected $signature = 'app:import-wyrd-blueprints
         {--dry-run : Show what would be imported without saving}
         {--force : Update existing blueprints instead of skipping}
+        {--fresh : Delete all blueprints and images before importing}
         {--limit=0 : Limit the number of pages to scrape (0 = all)}';
 
     protected $description = 'Import build instructions (blueprints) from the Wyrd Games website';
@@ -43,6 +45,10 @@ class ImportWyrdBlueprints extends Command
 
     public function handle(): int
     {
+        if ($this->option('fresh')) {
+            $this->freshStart();
+        }
+
         $this->info('Fetching build instructions from Wyrd Games...');
 
         $this->allCharacters = Character::all();
@@ -65,17 +71,32 @@ class ImportWyrdBlueprints extends Command
 
         foreach ($posts as $post) {
             $result = $this->processPost($post);
-            match ($result) {
-                'created' => $created++,
-                'updated' => $updated++,
-                default => $skipped++,
-            };
+            $created += $result['created'];
+            $updated += $result['updated'];
+            $skipped += $result['skipped'];
         }
 
         $this->newLine();
         $this->info(sprintf('Done! Created: %d, Updated: %d, Skipped: %d', $created, $updated, $skipped));
 
         return self::SUCCESS;
+    }
+
+    private function freshStart(): void
+    {
+        $this->warn('Clearing all blueprints, images, and pivot data...');
+
+        // Clean morph pivot tables for Blueprint entries
+        DB::table('characterables')->where('characterable_type', Blueprint::class)->delete();
+        DB::table('miniatureables')->where('miniatureable_type', Blueprint::class)->delete();
+        DB::table('packageables')->where('packageable_type', Blueprint::class)->delete();
+
+        Blueprint::withTrashed()->forceDelete();
+
+        // Remove downloaded image files
+        Storage::disk('public')->deleteDirectory('blueprints');
+
+        $this->info('Cleared all blueprint data.');
     }
 
     /**
@@ -135,8 +156,6 @@ class ImportWyrdBlueprints extends Command
     {
         $posts = [];
 
-        // Match blog post article blocks - Squarespace uses article elements with entry-title links
-        // Pattern: find post URLs from the listing page
         if (! preg_match_all('/<a[^>]+href="(\/plastic-build-instructions\/(\d{4})\/(\d{1,2})\/(\d{1,2})\/([^"]+))"[^>]*>/i', $html, $matches, PREG_SET_ORDER)) {
             return [];
         }
@@ -146,7 +165,6 @@ class ImportWyrdBlueprints extends Command
             $path = $match[1];
             $slug = $match[5];
 
-            // Skip duplicates on the same page
             if (isset($seen[$slug])) {
                 continue;
             }
@@ -169,17 +187,12 @@ class ImportWyrdBlueprints extends Command
         return $posts;
     }
 
-    /**
-     * Extract the "Older Posts" pagination link.
-     */
     private function extractOlderPostsLink(string $html): ?string
     {
-        // Squarespace uses ?offset= for pagination
         if (preg_match('/href="(\/plastic-build-instructions\?offset=\d+)"[^>]*>.*?Older/si', $html, $match)) {
             return $match[1];
         }
 
-        // Also check for a "next" pagination link
         if (preg_match('/class="[^"]*older[^"]*"[^>]*href="([^"]+)"/i', $html, $match)) {
             return $match[1];
         }
@@ -205,17 +218,14 @@ class ImportWyrdBlueprints extends Command
 
         $html = $response->body();
 
-        // Extract title from og:title or entry-title
         $title = '';
         if (preg_match('/<meta\s+property="og:title"\s+content="([^"]+)"/i', $html, $m)) {
             $title = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
-            // Strip site name suffix (e.g. " — Wyrd Games")
             $title = (string) preg_replace('/\s*[—–\-]+\s*Wyrd Games\s*$/i', '', $title);
         } elseif (preg_match('/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>(.*?)<\/h1>/si', $html, $m)) {
             $title = trim(strip_tags($m[1]));
         }
 
-        // Extract images from Squarespace CDN — only build instruction images
         $images = [];
         if (preg_match_all('/https:\/\/images\.squarespace-cdn\.com\/content\/v1\/[^"\'>\s]+/i', $html, $imgMatches)) {
             foreach ($imgMatches[0] as $img) {
@@ -223,7 +233,6 @@ class ImportWyrdBlueprints extends Command
                 if (! $cleanImg || in_array($cleanImg, $images)) {
                     continue;
                 }
-                // Filter out non-blueprint images
                 $basename = basename($cleanImg);
                 if ($this->isJunkImage($basename)) {
                     continue;
@@ -232,7 +241,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Extract tags from Squarespace tag links (both ?tag= and /tag/ formats)
         $tags = [];
         if (preg_match_all('/<a[^>]+href="\/plastic-build-instructions\/tag\/([^"]+)"/i', $html, $tagMatches)) {
             foreach ($tagMatches[1] as $tag) {
@@ -251,7 +259,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Also try meta keywords
         if (preg_match('/<meta\s+name="keywords"\s+content="([^"]+)"/i', $html, $kwMatch)) {
             foreach (explode(',', $kwMatch[1]) as $kw) {
                 $kw = trim($kw);
@@ -261,9 +268,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Extract categories — nav filter links appear once (in the nav), actual post
-        // categories appear a second time in the article metadata. Count occurrences
-        // and only include categories that appear more than once on the page.
         $categories = [];
         $categoryCounts = [];
         if (preg_match_all('/<a[^>]+href="\/plastic-build-instructions\/category\/([^"]+)"/i', $html, $catMatches)) {
@@ -278,14 +282,12 @@ class ImportWyrdBlueprints extends Command
                 $categoryCounts[$decoded] = ($categoryCounts[$decoded] ?? 0) + 1;
             }
         }
-        // Categories appearing 2+ times are actually assigned to the post
         foreach ($categoryCounts as $cat => $count) {
             if ($count >= 2) {
                 $categories[] = $cat;
             }
         }
 
-        // Extract SKU from image filenames (e.g., WYR24103)
         $sku = null;
         foreach ($images as $img) {
             if (preg_match('/(WYR\d{4,5})/', basename($img), $skuMatch)) {
@@ -303,16 +305,23 @@ class ImportWyrdBlueprints extends Command
         ];
     }
 
-    private function processPost(array $post): string
+    /**
+     * Process a single post: create one Blueprint per image.
+     *
+     * @return array{created: int, updated: int, skipped: int}
+     */
+    private function processPost(array $post): array
     {
         $slug = $post['slug'];
+        $counts = ['created' => 0, 'updated' => 0, 'skipped' => 0];
 
-        $existing = Blueprint::where('wyrd_post_slug', $slug)->first();
+        $existingBlueprints = Blueprint::where('wyrd_post_slug', $slug)->get();
 
-        if ($existing && ! $this->option('force')) {
-            $this->line("  <comment>SKIP</comment> {$slug} (already exists)");
+        if ($existingBlueprints->isNotEmpty() && ! $this->option('force') && ! $this->option('fresh')) {
+            $this->line("  <comment>SKIP</comment> {$slug} ({$existingBlueprints->count()} entries already exist)");
+            $counts['skipped'] = $existingBlueprints->count();
 
-            return 'skipped';
+            return $counts;
         }
 
         // Fetch full post details
@@ -325,6 +334,13 @@ class ImportWyrdBlueprints extends Command
         $images = $details['images'];
         $sku = $details['sku'];
 
+        if (empty($images)) {
+            $this->line("  <comment>SKIP</comment> {$slug} (no images found)");
+            $counts['skipped']++;
+
+            return $counts;
+        }
+
         // Determine sculpt version from categories
         $sculptVersion = SculptVersionEnum::ThirdEdition;
         foreach ($categories as $category) {
@@ -332,82 +348,194 @@ class ImportWyrdBlueprints extends Command
                 $sculptVersion = self::EDITION_CATEGORY_MAP[$category];
             }
         }
-        // Fourth edition takes priority
         if (in_array('Malifaux Fourth Edition', $categories)) {
             $sculptVersion = SculptVersionEnum::FourthEdition;
         }
 
         $publishedAt = $post['date'] ? Carbon::parse($post['date']) : null;
+        $sourceUrl = self::BASE_URL.$post['url'];
 
-        // Match characters from tags
-        $characterIds = $this->matchCharacters($tags, $title);
-        // Match miniatures from tags and image filenames
+        // Post-level character/miniature/package matching (fallback for all images)
+        $postCharacterIds = $this->matchCharacters($tags, $title);
         $miniatureIds = $this->matchMiniatures($tags, $images);
-        // Match packages by SKU or name
         $packageIds = $this->matchPackages($sku, $title, $tags);
 
         if ($this->option('dry-run')) {
             $this->line(sprintf(
-                '  <info>%s</info> %s | %s | %d images | %s',
-                $existing ? 'UPDATE' : 'CREATE',
+                '  <info>CREATE</info> %s | %s | %d images | %s',
                 $title,
                 $sculptVersion->label(),
                 count($images),
                 $publishedAt?->format('Y-m-d') ?? 'no date',
             ));
 
-            if (! empty($characterIds)) {
-                $charNames = $this->allCharacters->whereIn('id', $characterIds)->pluck('display_name')->join(', ');
-                $this->line("    <info>Characters:</info> {$charNames}");
-            }
-            if (! empty($miniatureIds)) {
-                $miniNames = $this->allMiniatures->whereIn('id', $miniatureIds)->pluck('display_name')->join(', ');
-                $this->line("    <info>Miniatures:</info> {$miniNames}");
-            }
-            if (! empty($packageIds)) {
-                $pkgNames = $this->allPackages->whereIn('id', $packageIds)->pluck('name')->join(', ');
-                $this->line("    <info>Packages:</info> {$pkgNames}");
-            }
-            if (! empty($tags)) {
-                $this->line('    <comment>Tags:</comment> '.implode(', ', $tags));
+            foreach ($images as $imageUrl) {
+                $imageCharIds = $this->matchCharactersForImage($imageUrl);
+                $charIds = $this->resolveCharacterIds($imageCharIds, $postCharacterIds);
+                $charNames = $this->allCharacters->whereIn('id', $charIds)->pluck('display_name')->join(', ');
+                $this->line('    <info>Image:</info> '.basename($imageUrl).' → '.($charNames ?: '(none)'));
             }
 
-            return $existing ? 'updated' : 'created';
+            $counts['created'] = count($images);
+
+            return $counts;
         }
 
-        $sourceUrl = self::BASE_URL.$post['url'];
+        // Delete existing entries for this post when using --force
+        if ($existingBlueprints->isNotEmpty()) {
+            foreach ($existingBlueprints as $existing) {
+                $existing->characters()->detach();
+                $existing->miniatures()->detach();
+                $existing->packages()->detach();
+                $existing->forceDelete();
+            }
+        }
 
-        $data = [
-            'name' => $title,
-            'slug' => Str::slug($title),
-            'image' => $images[0] ?? null,
-            'images' => $images,
-            'source_url' => $sourceUrl,
-            'wyrd_post_slug' => $slug,
-            'sculpt_version' => $sculptVersion,
-            'published_at' => $publishedAt,
-        ];
+        $usedBasenames = [];
 
-        $blueprint = Blueprint::updateOrCreate(
-            ['wyrd_post_slug' => $slug],
-            $data,
-        );
-        $wasRecentlyCreated = $blueprint->wasRecentlyCreated;
+        foreach (array_values($images) as $sortOrder => $imageUrl) {
+            $basename = $this->sanitizeFilename(basename(parse_url($imageUrl, PHP_URL_PATH) ?: ''));
+            if (! $basename) {
+                continue;
+            }
 
-        $blueprint->characters()->sync($characterIds);
-        $blueprint->miniatures()->sync($miniatureIds);
-        $blueprint->packages()->sync($packageIds);
-        $this->downloadImages($blueprint);
+            // Deduplicate basenames
+            if (in_array($basename, $usedBasenames)) {
+                $ext = pathinfo($basename, PATHINFO_EXTENSION);
+                $name = pathinfo($basename, PATHINFO_FILENAME);
+                $counter = 2;
+                do {
+                    $basename = "{$name}-{$counter}.{$ext}";
+                    $counter++;
+                } while (in_array($basename, $usedBasenames));
+            }
+            $usedBasenames[] = $basename;
 
-        $action = $wasRecentlyCreated ? 'CREATED' : 'UPDATED';
-        $this->line("  <info>{$action}</info> {$title}");
+            // Try to match characters specifically for this image filename
+            $imageCharIds = $this->matchCharactersForImage($imageUrl);
+            $characterIds = $this->resolveCharacterIds($imageCharIds, $postCharacterIds);
 
-        return $wasRecentlyCreated ? 'created' : 'updated';
+            $blueprint = Blueprint::create([
+                'name' => $title,
+                'slug' => Str::slug($title).($sortOrder > 0 ? "-{$sortOrder}" : ''),
+                'image_path' => $imageUrl, // Will be updated after download
+                'source_url' => $sourceUrl,
+                'wyrd_post_slug' => $slug,
+                'sculpt_version' => $sculptVersion,
+                'published_at' => $publishedAt,
+            ]);
+
+            // Download image
+            $localPath = "blueprints/{$blueprint->id}/{$basename}";
+            $imagePath = $this->downloadImage($imageUrl, $localPath);
+            $blueprint->update(['image_path' => $imagePath]);
+
+            $blueprint->characters()->sync($characterIds);
+            $blueprint->miniatures()->sync($miniatureIds);
+            $blueprint->packages()->sync($packageIds);
+
+            $charNames = $this->allCharacters->whereIn('id', $characterIds)->pluck('display_name')->join(', ');
+            $this->line("  <info>CREATED</info> {$title} → {$basename} [{$charNames}]");
+
+            $counts['created']++;
+        }
+
+        return $counts;
     }
 
     /**
-     * Match characters from post tags and title.
+     * Download an image from a URL to local storage.
+     */
+    private function downloadImage(string $imageUrl, string $localPath): string
+    {
+        if (! str_starts_with($imageUrl, 'http')) {
+            return $imageUrl;
+        }
+
+        if (Storage::disk('public')->exists($localPath)) {
+            return $localPath;
+        }
+
+        try {
+            $response = Http::timeout(30)->get($imageUrl);
+            if ($response->successful()) {
+                Storage::disk('public')->put($localPath, $response->body());
+
+                return $localPath;
+            }
+        } catch (\Exception) {
+            // Keep CDN URL as fallback
+        }
+
+        usleep(100000);
+
+        return $imageUrl;
+    }
+
+    /**
+     * Decide which character IDs to assign to a single blueprint image.
      *
+     * Priority:
+     * 1. Image-level match (from filename) — always preferred
+     * 2. Post-level match — only if the post has exactly 1 character
+     *    (multi-character posts with generic filenames get no tags
+     *     rather than incorrectly tagging all characters)
+     *
+     * @param  int[]  $imageCharIds  Characters matched from the image filename
+     * @param  int[]  $postCharacterIds  Characters matched from the post tags/title
+     * @return int[]
+     */
+    private function resolveCharacterIds(array $imageCharIds, array $postCharacterIds): array
+    {
+        if (! empty($imageCharIds)) {
+            return $imageCharIds;
+        }
+
+        // Only fall back to post-level characters when there's exactly one
+        // — avoids tagging all 3 characters on every image in a multi-character post
+        if (count($postCharacterIds) === 1) {
+            return $postCharacterIds;
+        }
+
+        return [];
+    }
+
+    /**
+     * Match characters specifically from an image filename.
+     * e.g. "WYR24103-Sonnia-Criid-Front.png" → matches "Sonnia Criid"
+     *
+     * @return int[]
+     */
+    private function matchCharactersForImage(string $imageUrl): array
+    {
+        $basename = pathinfo(parse_url($imageUrl, PHP_URL_PATH) ?: '', PATHINFO_FILENAME);
+
+        // Strip WYR SKU prefix
+        $cleaned = (string) preg_replace('/^WYR\d+-?/i', '', $basename);
+        // Strip Front/Back/Side suffix
+        $cleaned = (string) preg_replace('/-(Front|Back|Side-?\d?)$/i', '', $cleaned);
+        // Replace hyphens with spaces
+        $cleaned = str_replace('-', ' ', $cleaned);
+
+        if (strlen($cleaned) < 3) {
+            return [];
+        }
+
+        // Skip generic filenames
+        if (preg_match('/^image\s*asset/i', $cleaned)) {
+            return [];
+        }
+
+        $ids = [];
+        $character = $this->allCharacters->first(fn (Character $c) => $this->namesMatch($c->display_name, $cleaned));
+        if ($character) {
+            $ids[] = $character->id;
+        }
+
+        return $ids;
+    }
+
+    /**
      * @param  string[]  $tags
      * @return int[]
      */
@@ -415,7 +543,6 @@ class ImportWyrdBlueprints extends Command
     {
         $ids = [];
 
-        // Try matching tags against character names
         foreach ($tags as $tag) {
             $character = $this->allCharacters->first(fn (Character $c) => $this->namesMatch($c->display_name, $tag));
 
@@ -424,7 +551,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Also try the post title (often contains the master's name)
         $titleParts = preg_split('/[,\-–—]/', $title);
         if ($titleParts) {
             foreach ($titleParts as $part) {
@@ -445,8 +571,6 @@ class ImportWyrdBlueprints extends Command
     }
 
     /**
-     * Match miniatures from tags and image filenames.
-     *
      * @param  string[]  $tags
      * @param  string[]  $images
      * @return int[]
@@ -455,11 +579,9 @@ class ImportWyrdBlueprints extends Command
     {
         $ids = [];
 
-        // Extract names from image filenames (e.g. "WYR24103-Sonnia-Criid-Unrelenting-Front.png")
         $imageNames = [];
         foreach ($images as $img) {
             $basename = pathinfo(parse_url($img, PHP_URL_PATH) ?: '', PATHINFO_FILENAME);
-            // Remove SKU prefix and -Front/-Back/-Side suffixes
             $cleaned = (string) preg_replace('/^WYR\d+-/', '', $basename);
             $cleaned = (string) preg_replace('/-(Front|Back|Side-?\d?)$/i', '', $cleaned);
             $cleaned = str_replace('-', ' ', $cleaned);
@@ -468,7 +590,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Combine tags and image names for matching
         $candidates = array_merge($tags, $imageNames);
 
         foreach ($candidates as $candidate) {
@@ -483,8 +604,6 @@ class ImportWyrdBlueprints extends Command
     }
 
     /**
-     * Match packages by SKU extracted from images or by title/tags.
-     *
      * @param  string[]  $tags
      * @return int[]
      */
@@ -492,7 +611,6 @@ class ImportWyrdBlueprints extends Command
     {
         $ids = [];
 
-        // Try SKU match first
         if ($sku) {
             $package = $this->allPackages->first(fn (Package $p) => $p->sku && stripos($p->sku, $sku) !== false);
 
@@ -501,7 +619,6 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Try matching by title
         if (empty($ids)) {
             $package = $this->allPackages->first(fn (Package $p) => $this->namesMatch($p->name, $title));
 
@@ -510,9 +627,7 @@ class ImportWyrdBlueprints extends Command
             }
         }
 
-        // Try matching individual tags
         foreach ($tags as $tag) {
-            // Skip generic tags
             $lower = strtolower($tag);
             if (in_array($lower, ['malifaux', 'versatile', 'nightmare edition', 'story', 'alt'])) {
                 continue;
@@ -528,86 +643,20 @@ class ImportWyrdBlueprints extends Command
         return $ids;
     }
 
-    /**
-     * Download CDN images to local storage and update the blueprint record.
-     */
-    private function downloadImages(Blueprint $blueprint): void
-    {
-        $images = $blueprint->images ?? [];
-        $localImages = [];
-        $changed = false;
-
-        foreach ($images as $imageUrl) {
-            if (! str_starts_with($imageUrl, 'http')) {
-                $localImages[] = $imageUrl;
-
-                continue;
-            }
-
-            $basename = $this->sanitizeFilename(basename(parse_url($imageUrl, PHP_URL_PATH) ?: ''));
-            if (! $basename) {
-                continue;
-            }
-
-            $localPath = "blueprints/{$blueprint->id}/{$basename}";
-
-            if (Storage::disk('public')->exists($localPath)) {
-                $localImages[] = $localPath;
-                $changed = true;
-
-                continue;
-            }
-
-            try {
-                $response = Http::timeout(30)->get($imageUrl);
-                if ($response->successful()) {
-                    Storage::disk('public')->put($localPath, $response->body());
-                    $localImages[] = $localPath;
-                    $changed = true;
-                } else {
-                    $localImages[] = $imageUrl;
-                }
-            } catch (\Exception) {
-                $localImages[] = $imageUrl;
-            }
-
-            usleep(100000);
-        }
-
-        if ($changed) {
-            $blueprint->update([
-                'images' => $localImages,
-                'image' => $localImages[0] ?? null,
-            ]);
-        }
-    }
-
-    /**
-     * Determine if an image basename is a non-blueprint junk image (site chrome, favicons, etc.).
-     */
     private function isJunkImage(string $basename): bool
     {
-        // Exact matches for recurring site images
         $junkNames = [
             'favicon.ico',
             'image+63.png',
             'image+13.png',
         ];
 
-        if (in_array($basename, $junkNames, true)) {
-            return true;
-        }
-
-        // image-asset.jpeg/png are Squarespace placeholder images
-        if (str_starts_with($basename, 'image-asset.')) {
-            return true;
-        }
-
-        return false;
+        return in_array($basename, $junkNames, true);
     }
 
     /**
-     * Fuzzy name matching — same logic as ImportWyrdPackages.
+     * Fuzzy name matching with word-boundary awareness.
+     * Prevents single-word names like "Guild" from matching multi-word names like "Guild Lawyer".
      */
     private function namesMatch(string $displayName, string $contentName): bool
     {
@@ -620,16 +669,20 @@ class ImportWyrdBlueprints extends Command
             return true;
         }
 
-        if (str_starts_with($a, $b) || str_starts_with($b, $a)) {
-            return true;
+        // Only allow prefix matching if the shorter string has 2+ words
+        $shorter = strlen($a) <= strlen($b) ? $a : $b;
+        $longer = strlen($a) <= strlen($b) ? $b : $a;
+
+        if (str_word_count($shorter) >= 2 && str_starts_with($longer, $shorter)) {
+            // Ensure match is on a word boundary
+            if (strlen($longer) === strlen($shorter) || $longer[strlen($shorter)] === ' ') {
+                return true;
+            }
         }
 
         return false;
     }
 
-    /**
-     * Sanitize a CDN filename: decode URL encoding, replace spaces/plus with hyphens.
-     */
     private function sanitizeFilename(string $filename): string
     {
         $decoded = urldecode($filename);

@@ -136,7 +136,7 @@ function buildShareUrl(): string {
     if (pickedDeployment.value) params.set('d', pickedDeployment.value.value);
     if (pickedStrategy.value) params.set('st', String(pickedStrategy.value.id));
     if (pickedSchemes.value.length) params.set('sc', pickedSchemes.value.map((s) => s.id).join(','));
-    return `${window.location.origin}${route('tools.scenario_generator')}?${params.toString()}`;
+    return `${route('tools.scenario_generator')}?${params.toString()}`;
 }
 
 const copied = ref(false);

@@ -9,7 +9,7 @@ class CleanBlueprintImages extends Command
 {
     protected $signature = 'app:clean-blueprint-images {--dry-run : Show changes without saving}';
 
-    protected $description = 'Remove non-blueprint images (favicons, site chrome) from existing blueprint records';
+    protected $description = 'Remove blueprint entries with junk images (favicons, site chrome)';
 
     private const JUNK_BASENAMES = [
         'favicon.ico',
@@ -19,51 +19,31 @@ class CleanBlueprintImages extends Command
 
     public function handle(): int
     {
-        $updated = 0;
+        $deleted = 0;
         $dryRun = $this->option('dry-run');
 
-        Blueprint::chunk(100, function ($blueprints) use (&$updated, $dryRun) {
+        Blueprint::withImage()->chunk(200, function ($blueprints) use (&$deleted, $dryRun) {
             foreach ($blueprints as $blueprint) {
-                $original = $blueprint->images ?? [];
-                $filtered = array_values(array_filter($original, function (string $url) {
-                    $basename = basename($url);
+                $basename = basename($blueprint->image_path);
 
-                    if (in_array($basename, self::JUNK_BASENAMES, true)) {
-                        return false;
-                    }
-
-                    if (str_starts_with($basename, 'image-asset.')) {
-                        return false;
-                    }
-
-                    return true;
-                }));
-
-                $removed = count($original) - count($filtered);
-                if ($removed === 0) {
+                if (! in_array($basename, self::JUNK_BASENAMES, true)) {
                     continue;
                 }
 
-                $this->line(sprintf(
-                    '  %s: %d → %d images (-%d)',
-                    $blueprint->name,
-                    count($original),
-                    count($filtered),
-                    $removed,
-                ));
+                $this->line("  [{$blueprint->name}] Removing: {$basename}");
 
                 if (! $dryRun) {
-                    $blueprint->update([
-                        'images' => $filtered,
-                        'image' => $filtered[0] ?? null,
-                    ]);
+                    $blueprint->characters()->detach();
+                    $blueprint->miniatures()->detach();
+                    $blueprint->packages()->detach();
+                    $blueprint->forceDelete();
                 }
 
-                $updated++;
+                $deleted++;
             }
         });
 
-        $this->info(sprintf('%s %d blueprints.', $dryRun ? 'Would update' : 'Updated', $updated));
+        $this->info(sprintf('%s %d junk blueprints.', $dryRun ? 'Would remove' : 'Removed', $deleted));
 
         return self::SUCCESS;
     }

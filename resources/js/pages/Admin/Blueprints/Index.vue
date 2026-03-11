@@ -54,11 +54,11 @@ const columns: ColumnDef<any>[] = [
         },
     },
     {
-        id: 'images',
-        header: () => h('div', {}, 'Images'),
+        id: 'image',
+        header: () => h('div', {}, 'Image'),
         cell: ({ row }) => {
-            const count = row.original.images?.length ?? 0;
-            return h('div', { class: 'text-sm text-muted-foreground' }, `${count}`);
+            const hasImage = !!row.original.image_path;
+            return h('div', { class: 'text-sm text-muted-foreground' }, hasImage ? 'Yes' : '-');
         },
     },
     {

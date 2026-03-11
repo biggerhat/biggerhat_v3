@@ -3,7 +3,7 @@
  * e.g. "WYR24103-Sonnia-Criid-Unrelenting-Front.png" → "Sonnia Criid Unrelenting (Front)"
  * e.g. "Instruction-WYR20139-GuildInvestigator.jpg" → "Guild Investigator"
  */
-export function imageLabel(url: string): string {
+export function imageLabel(url: string, index?: number): string {
     const basename = url.split('/').pop()?.split('?')[0] ?? '';
     const name = basename.replace(/\.[^.]+$/, ''); // strip extension
 
@@ -24,8 +24,9 @@ export function imageLabel(url: string): string {
     // Replace hyphens and plus signs with spaces
     cleaned = cleaned.replace(/[-+]/g, ' ').trim();
 
-    if (!cleaned) {
-        return basename;
+    // Generic Squarespace filenames get a friendlier label
+    if (!cleaned || /^image\s*asset(\s*\d+)?$/i.test(cleaned)) {
+        return `Diagram ${index !== undefined ? index + 1 : ''}`.trim();
     }
 
     return suffix ? `${cleaned} (${suffix})` : cleaned;

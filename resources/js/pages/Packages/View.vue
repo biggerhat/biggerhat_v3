@@ -306,15 +306,12 @@ const togglePackageCollection = () => {
                             <SheetTrigger as-child>
                                 <button class="group cursor-pointer text-left">
                                     <Card class="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
-                                        <div v-if="bp.images?.[0]" class="border-b bg-muted/30">
-                                            <img :src="imageSrc(bp.images[0])" :alt="bp.name" loading="lazy" decoding="async" class="h-32 w-full object-contain" />
+                                        <div v-if="bp.image_path" class="border-b bg-muted/30">
+                                            <img :src="imageSrc(bp.image_path)" :alt="bp.name" loading="lazy" decoding="async" class="h-32 w-full object-contain" />
                                         </div>
                                         <CardContent class="flex items-center gap-2 p-3">
                                             <FileImage class="h-4 w-4 shrink-0 text-muted-foreground" />
                                             <span class="text-sm font-medium group-hover:text-primary">{{ bp.name }}</span>
-                                            <Badge variant="secondary" class="ml-auto text-[10px]">
-                                                {{ bp.images?.length ?? 0 }} diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
-                                            </Badge>
                                         </CardContent>
                                     </Card>
                                 </button>
@@ -322,15 +319,10 @@ const togglePackageCollection = () => {
                             <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
                                 <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
                                 <SheetDescription class="text-sm text-muted-foreground">
-                                    {{ bp.images?.length ?? 0 }} assembly diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
+                                    {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
                                 </SheetDescription>
-                                <div v-if="bp.images?.length" class="mt-4 space-y-4">
-                                    <div v-for="(img, idx) in bp.images" :key="idx" class="overflow-hidden rounded-lg border">
-                                        <img :src="imageSrc(img)" :alt="imageLabel(img)" loading="lazy" decoding="async" class="w-full" />
-                                        <div class="border-t bg-muted/50 px-3 py-1.5">
-                                            <p class="text-xs font-medium text-muted-foreground">{{ imageLabel(img) }}</p>
-                                        </div>
-                                    </div>
+                                <div v-if="bp.image_path" class="mt-4">
+                                    <img :src="imageSrc(bp.image_path)" :alt="bp.name" loading="lazy" decoding="async" class="w-full rounded-lg border" />
                                 </div>
                             </SheetContent>
                         </Sheet>

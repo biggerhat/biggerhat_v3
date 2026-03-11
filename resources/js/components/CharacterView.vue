@@ -429,31 +429,31 @@ const addAllStandard = () => {
                             <Sheet>
                                 <SheetTrigger as-child>
                                     <button class="flex w-full cursor-pointer items-center gap-2 text-left">
-                                        <FileImage class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        <img
+                                            v-if="bp.image_path"
+                                            :src="imageSrc(bp.image_path)"
+                                            :alt="bp.name"
+                                            loading="lazy"
+                                            decoding="async"
+                                            class="h-8 w-10 shrink-0 rounded object-contain"
+                                        />
+                                        <FileImage v-else class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                         <span class="min-w-0 flex-1 text-sm text-primary hover:underline">{{ bp.name }}</span>
-                                        <Badge v-if="bp.images?.length" variant="secondary" class="text-[10px]">
-                                            {{ bp.images.length }} img{{ bp.images.length !== 1 ? 's' : '' }}
-                                        </Badge>
                                     </button>
                                 </SheetTrigger>
                                 <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
                                     <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
                                     <SheetDescription class="text-sm text-muted-foreground">
-                                        {{ bp.images?.length ?? 0 }} assembly diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
+                                        {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
                                     </SheetDescription>
-                                    <div v-if="bp.images?.length" class="mt-4 space-y-4">
-                                        <div v-for="(img, idx) in bp.images" :key="idx" class="overflow-hidden rounded-lg border">
-                                            <img
-                                                :src="imageSrc(img)"
-                                                :alt="imageLabel(img)"
-                                                loading="lazy"
-                                                decoding="async"
-                                                class="w-full"
-                                            />
-                                            <div class="border-t bg-muted/50 px-3 py-1.5">
-                                                <p class="text-xs font-medium text-muted-foreground">{{ imageLabel(img) }}</p>
-                                            </div>
-                                        </div>
+                                    <div v-if="bp.image_path" class="mt-4">
+                                        <img
+                                            :src="imageSrc(bp.image_path)"
+                                            :alt="bp.name"
+                                            loading="lazy"
+                                            decoding="async"
+                                            class="w-full rounded-lg border"
+                                        />
                                     </div>
                                 </SheetContent>
                             </Sheet>

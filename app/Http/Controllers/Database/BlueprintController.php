@@ -12,7 +12,7 @@ class BlueprintController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Blueprint::withImages()
+        $query = Blueprint::withImage()
             ->with(['characters.standardMiniatures', 'miniatures', 'packages'])
             ->withCount(['characters', 'miniatures', 'packages'])
             ->orderBy('name', 'ASC');

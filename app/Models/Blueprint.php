@@ -31,18 +31,19 @@ class Blueprint extends Model
     public function casts(): array
     {
         return [
-            'images' => 'array',
             'sculpt_version' => SculptVersionEnum::class,
             'published_at' => 'date',
         ];
     }
 
     /**
+     * Scope to only blueprints that have an image.
+     *
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    public function scopeWithImages(Builder $query): Builder
+    public function scopeWithImage(Builder $query): Builder
     {
-        return $query->whereJsonLength('images', '>', 0);
+        return $query->whereNotNull('image_path');
     }
 }

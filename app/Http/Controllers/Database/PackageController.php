@@ -82,7 +82,7 @@ class PackageController extends Controller
 
     public function view(Request $request, Package $package)
     {
-        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks', 'blueprints' => fn ($q) => $q->withImages()]);
+        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks', 'blueprints' => fn ($q) => $q->withImage()]);
 
         return inertia('Packages/View', [
             'package' => [
@@ -135,8 +135,7 @@ class PackageController extends Controller
                     'id' => $b->id,
                     'name' => $b->name,
                     'slug' => $b->slug,
-                    'image' => $b->image,
-                    'images' => $b->images,
+                    'image_path' => $b->image_path,
                     'source_url' => $b->source_url,
                     'sculpt_version' => $b->sculpt_version->value,
                 ]),

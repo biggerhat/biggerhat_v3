@@ -17,87 +17,56 @@ class DownloadBlueprintImages extends Command
 
     public function handle(): int
     {
-        $blueprints = Blueprint::withImages()->get();
-        $this->info("Processing {$blueprints->count()} blueprints...");
+        $blueprints = Blueprint::withImage()->whereRaw("image_path LIKE 'http%'")->get();
+        $this->info("Processing {$blueprints->count()} blueprints with CDN images...");
 
         $downloaded = 0;
         $skipped = 0;
         $failed = 0;
 
         foreach ($blueprints as $blueprint) {
-            $localImages = [];
-            $changed = false;
+            $basename = $this->sanitizeFilename(basename(parse_url($blueprint->image_path, PHP_URL_PATH) ?: ''));
+            if (! $basename) {
+                $failed++;
 
-            foreach ($blueprint->images as $imageUrl) {
-                // Already a local path
-                if (! str_starts_with($imageUrl, 'http')) {
-                    $localImages[] = $imageUrl;
+                continue;
+            }
 
-                    continue;
-                }
+            $localPath = "blueprints/{$blueprint->id}/{$basename}";
 
-                $basename = $this->sanitizeFilename(basename(parse_url($imageUrl, PHP_URL_PATH) ?: ''));
-                if (! $basename) {
+            if (! $this->option('force') && Storage::disk('public')->exists($localPath)) {
+                $blueprint->update(['image_path' => $localPath]);
+                $skipped++;
+
+                continue;
+            }
+
+            if ($this->option('dry-run')) {
+                $this->line("  <info>DOWNLOAD</info> {$basename} → {$localPath}");
+                $downloaded++;
+
+                continue;
+            }
+
+            try {
+                $response = Http::timeout(30)->get($blueprint->image_path);
+
+                if (! $response->successful()) {
+                    $this->warn("  Failed ({$response->status()}): {$basename}");
                     $failed++;
 
                     continue;
                 }
 
-                $localPath = "blueprints/{$blueprint->id}/{$basename}";
-
-                // Skip if already downloaded
-                if (! $this->option('force') && Storage::disk('public')->exists($localPath)) {
-                    $localImages[] = $localPath;
-                    $skipped++;
-
-                    continue;
-                }
-
-                if ($this->option('dry-run')) {
-                    $this->line("  <info>DOWNLOAD</info> {$basename} → {$localPath}");
-                    $localImages[] = $localPath;
-                    $downloaded++;
-
-                    continue;
-                }
-
-                try {
-                    $response = Http::timeout(30)->get($imageUrl);
-
-                    if (! $response->successful()) {
-                        $this->warn("  Failed ({$response->status()}): {$basename}");
-                        $localImages[] = $imageUrl; // Keep CDN URL as fallback
-                        $failed++;
-
-                        continue;
-                    }
-
-                    Storage::disk('public')->put($localPath, $response->body());
-                    $localImages[] = $localPath;
-                    $downloaded++;
-                    $changed = true;
-                } catch (\Exception $e) {
-                    $this->warn("  Error downloading {$basename}: {$e->getMessage()}");
-                    $localImages[] = $imageUrl;
-                    $failed++;
-                }
-
-                // Be polite
-                usleep(100000);
+                Storage::disk('public')->put($localPath, $response->body());
+                $blueprint->update(['image_path' => $localPath]);
+                $downloaded++;
+            } catch (\Exception $e) {
+                $this->warn("  Error downloading {$basename}: {$e->getMessage()}");
+                $failed++;
             }
 
-            if ($changed && ! $this->option('dry-run')) {
-                $blueprint->update([
-                    'images' => $localImages,
-                    'image' => $localImages[0] ?? null,
-                ]);
-            }
-
-            $this->line(sprintf(
-                '  %s: %d images',
-                $blueprint->name,
-                count($localImages),
-            ));
+            usleep(100000);
         }
 
         $this->newLine();
@@ -106,17 +75,11 @@ class DownloadBlueprintImages extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Sanitize a CDN filename: decode URL encoding, replace spaces/plus with hyphens.
-     */
     private function sanitizeFilename(string $filename): string
     {
         $decoded = urldecode($filename);
-        // Replace spaces and plus signs with hyphens
         $cleaned = (string) preg_replace('/[\s+]+/', '-', $decoded);
-        // Remove parentheses and other problematic chars
         $cleaned = (string) preg_replace('/[()]+/', '', $cleaned);
-        // Collapse multiple hyphens
         $cleaned = (string) preg_replace('/-{2,}/', '-', $cleaned);
 
         return trim($cleaned, '-');

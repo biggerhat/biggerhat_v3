@@ -15,11 +15,10 @@ import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
+import { imageSrc } from '@/composables/useBlueprintImages';
 import { cleanObject } from '@/composables/CleanObject';
 
 const props = defineProps<{
@@ -213,7 +212,7 @@ const formatVersion = (version: string) => {
                 <div class="min-w-0 flex-1">
                     <!-- Loading states -->
                     <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
-                        <TableSkeleton :rows="8" :cols="5" />
+                        <TableSkeleton :rows="8" :cols="4" />
                     </div>
                     <div v-else-if="isLoading">
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -226,16 +225,26 @@ const formatVersion = (version: string) => {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead>Image</TableHead>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Edition</TableHead>
-                                    <TableHead>Images</TableHead>
                                     <TableHead>Characters</TableHead>
-                                    <TableHead>View</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 <template v-if="props.blueprints?.data?.length">
                                     <TableRow v-for="bp in props.blueprints.data" :key="bp.id">
+                                        <TableCell class="w-20">
+                                            <img
+                                                v-if="bp.image_path"
+                                                :src="imageSrc(bp.image_path)"
+                                                :alt="bp.name"
+                                                loading="lazy"
+                                                decoding="async"
+                                                class="h-12 w-16 rounded object-contain"
+                                            />
+                                            <span v-else class="text-muted-foreground">-</span>
+                                        </TableCell>
                                         <TableCell class="font-medium">
                                             <span class="inline-flex items-center gap-1.5">
                                                 <FileImage class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -244,9 +253,6 @@ const formatVersion = (version: string) => {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" class="text-xs capitalize">{{ formatVersion(bp.sculpt_version) }}</Badge>
-                                        </TableCell>
-                                        <TableCell class="text-sm text-muted-foreground">
-                                            {{ bp.images?.length ?? 0 }}
                                         </TableCell>
                                         <TableCell>
                                             <div class="flex flex-wrap gap-1">
@@ -268,48 +274,11 @@ const formatVersion = (version: string) => {
                                                 <span v-if="!bp.characters?.length" class="text-sm text-muted-foreground">-</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
-                                            <Dialog v-if="bp.images?.length">
-                                                <DialogTrigger as-child>
-                                                    <button class="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline">
-                                                        <FileImage class="h-3 w-3" />
-                                                        {{ bp.images.length }} diagram{{ bp.images.length !== 1 ? 's' : '' }}
-                                                    </button>
-                                                </DialogTrigger>
-                                                <DialogContent class="max-h-[90vh] max-w-5xl overflow-y-auto">
-                                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
-                                                    <DialogDescription class="text-sm text-muted-foreground">
-                                                        {{ bp.images.length }} assembly diagram{{ bp.images.length !== 1 ? 's' : '' }}
-                                                    </DialogDescription>
-                                                    <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                                                        <div
-                                                            v-for="(img, idx) in bp.images"
-                                                            :key="idx"
-                                                            class="overflow-hidden rounded-lg border"
-                                                        >
-                                                            <img
-                                                                :src="imageSrc(img)"
-                                                                :alt="imageLabel(img)"
-                                                                loading="lazy"
-                                                                decoding="async"
-                                                                class="w-full"
-                                                            />
-                                                            <div class="border-t bg-muted/50 px-2 py-1.5">
-                                                                <p class="truncate text-[11px] font-medium text-muted-foreground">
-                                                                    {{ imageLabel(img) }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </DialogContent>
-                                            </Dialog>
-                                            <span v-else class="text-muted-foreground">-</span>
-                                        </TableCell>
                                     </TableRow>
                                 </template>
                                 <template v-else>
                                     <TableRow>
-                                        <TableCell :colspan="5">
+                                        <TableCell :colspan="4">
                                             <EmptyState />
                                         </TableCell>
                                     </TableRow>

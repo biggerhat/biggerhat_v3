@@ -145,6 +145,13 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Lore)]
     case DeleteLore = 'delete_lore';
 
+    #[PermissionGroup(PermissionGroupEnum::Blueprint)]
+    case ViewBlueprint = 'view_blueprint';
+    #[PermissionGroup(PermissionGroupEnum::Blueprint)]
+    case EditBlueprint = 'edit_blueprint';
+    #[PermissionGroup(PermissionGroupEnum::Blueprint)]
+    case DeleteBlueprint = 'delete_blueprint';
+
     /**
      * @return list<array{name: string, value: string}>
      */

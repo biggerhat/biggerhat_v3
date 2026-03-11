@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Dices } from 'lucide-vue-next';
-import { computed, nextTick, ref } from 'vue';
+import { Check, Dices, Pencil, Share2 } from 'lucide-vue-next';
+import { computed, nextTick, onMounted, ref } from 'vue';
 
 interface Season {
     value: string;
@@ -100,6 +100,74 @@ async function generate() {
 
 const resultCount = computed(() => (showResults.value ? 5 : 0));
 const { delays: resultDelays } = useStaggeredEntry(resultCount);
+
+// ─── Manual overrides ───
+const editingDeployment = ref(false);
+const editingStrategy = ref(false);
+const editingSchemeIndex = ref<number | null>(null);
+
+function setDeployment(value: string) {
+    const found = props.deployments.find((d) => d.value === value);
+    if (found) pickedDeployment.value = found;
+    editingDeployment.value = false;
+}
+
+function setStrategy(value: string) {
+    const found = props.strategies.find((s) => String(s.id) === value);
+    if (found) pickedStrategy.value = found;
+    editingStrategy.value = false;
+}
+
+function setScheme(index: number, value: string) {
+    const found = props.schemes.find((s) => String(s.id) === value);
+    if (found) pickedSchemes.value[index] = found;
+    editingSchemeIndex.value = null;
+}
+
+const availableSchemes = computed(() => {
+    const pickedIds = new Set(pickedSchemes.value.map((s) => s.id));
+    return (index: number) => props.schemes.filter((s) => s.id === pickedSchemes.value[index]?.id || !pickedIds.has(s.id));
+});
+
+// ─── Share link ───
+function buildShareUrl(): string {
+    const params = new URLSearchParams();
+    params.set('season', props.season.value);
+    if (pickedDeployment.value) params.set('d', pickedDeployment.value.value);
+    if (pickedStrategy.value) params.set('st', String(pickedStrategy.value.id));
+    if (pickedSchemes.value.length) params.set('sc', pickedSchemes.value.map((s) => s.id).join(','));
+    return `${window.location.origin}${route('tools.scenario_generator')}?${params.toString()}`;
+}
+
+const copied = ref(false);
+async function copyShareLink() {
+    const url = buildShareUrl();
+    await navigator.clipboard.writeText(url);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 2000);
+}
+
+// ─── Restore from URL params ───
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dParam = params.get('d');
+    const stParam = params.get('st');
+    const scParam = params.get('sc');
+
+    if (dParam && stParam && scParam) {
+        const deployment = props.deployments.find((d) => d.value === dParam);
+        const strategy = props.strategies.find((s) => s.id === Number(stParam));
+        const schemeIds = scParam.split(',').map(Number);
+        const schemes = schemeIds.map((id) => props.schemes.find((s) => s.id === id)).filter(Boolean) as SchemeItem[];
+
+        if (deployment && strategy && schemes.length > 0) {
+            pickedDeployment.value = deployment;
+            pickedStrategy.value = strategy;
+            pickedSchemes.value = schemes;
+            showResults.value = true;
+        }
+    }
+});
 </script>
 
 <template>
@@ -152,10 +220,17 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                                     </button>
                                 </nav>
 
-                                <Button class="w-full" :disabled="!canGenerate" @click="generate">
-                                    <Dices class="mr-2 size-4" />
-                                    {{ showResults ? 'Re-roll' : 'Generate' }}
-                                </Button>
+                                <div class="flex flex-col gap-2">
+                                    <Button class="w-full" :disabled="!canGenerate" @click="generate">
+                                        <Dices class="mr-2 size-4" />
+                                        {{ showResults ? 'Re-roll' : 'Generate' }}
+                                    </Button>
+                                    <Button v-if="showResults" variant="outline" class="w-full" @click="copyShareLink">
+                                        <Check v-if="copied" class="mr-2 size-4" />
+                                        <Share2 v-else class="mr-2 size-4" />
+                                        {{ copied ? 'Copied!' : 'Share Scenario' }}
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
@@ -164,10 +239,14 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                 <!-- Content -->
                 <div class="lg:col-span-6">
                     <!-- Mobile generate button -->
-                    <div class="mb-6 lg:hidden">
-                        <Button class="w-full" :disabled="!canGenerate" @click="generate">
+                    <div class="mb-6 flex gap-2 lg:hidden">
+                        <Button class="flex-1" :disabled="!canGenerate" @click="generate">
                             <Dices class="mr-2 size-4" />
                             {{ showResults ? 'Re-roll' : 'Generate' }}
+                        </Button>
+                        <Button v-if="showResults" variant="outline" @click="copyShareLink">
+                            <Check v-if="copied" class="size-4" />
+                            <Share2 v-else class="size-4" />
                         </Button>
                     </div>
 
@@ -185,7 +264,27 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                     <div v-else class="space-y-6 sm:space-y-8">
                         <!-- Deployment -->
                         <section v-if="pickedDeployment">
-                            <h2 class="mb-4 text-lg font-semibold">Deployment</h2>
+                            <div class="mb-4 flex items-center gap-2">
+                                <h2 class="text-lg font-semibold">Deployment</h2>
+                                <button
+                                    class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                    @click="editingDeployment = !editingDeployment"
+                                >
+                                    <Pencil class="size-3.5" />
+                                </button>
+                            </div>
+                            <div v-if="editingDeployment" class="mb-4">
+                                <Select :model-value="pickedDeployment.value" @update:model-value="setDeployment">
+                                    <SelectTrigger class="w-full sm:w-64">
+                                        <SelectValue placeholder="Select Deployment" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="d in deployments" :key="d.value" :value="d.value">
+                                            {{ d.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div class="animate-fade-in-up opacity-0" :style="resultDelays[0]">
                                 <Card class="overflow-hidden md:flex">
                                     <img
@@ -210,7 +309,27 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
 
                         <!-- Strategy -->
                         <section v-if="pickedStrategy">
-                            <h2 class="mb-4 text-lg font-semibold">Strategy</h2>
+                            <div class="mb-4 flex items-center gap-2">
+                                <h2 class="text-lg font-semibold">Strategy</h2>
+                                <button
+                                    class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                    @click="editingStrategy = !editingStrategy"
+                                >
+                                    <Pencil class="size-3.5" />
+                                </button>
+                            </div>
+                            <div v-if="editingStrategy" class="mb-4">
+                                <Select :model-value="String(pickedStrategy.id)" @update:model-value="setStrategy">
+                                    <SelectTrigger class="w-full sm:w-64">
+                                        <SelectValue placeholder="Select Strategy" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="s in strategies" :key="s.id" :value="String(s.id)">
+                                            {{ s.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div class="animate-fade-in-up opacity-0" :style="resultDelays[1]">
                                 <Link :href="route('strategies.view', pickedStrategy.slug)">
                                     <div
@@ -242,22 +361,46 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
                         <section v-if="pickedSchemes.length">
                             <h2 class="mb-4 text-lg font-semibold">Schemes</h2>
                             <div class="grid gap-4 sm:grid-cols-3">
-                                <Link
+                                <div
                                     v-for="(scheme, index) in pickedSchemes"
                                     :key="scheme.id"
-                                    :href="route('schemes.view', scheme.slug)"
                                     class="animate-fade-in-up opacity-0"
                                     :style="resultDelays[index + 2]"
                                 >
-                                    <div v-if="scheme.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg">
-                                        <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
+                                    <div v-if="editingSchemeIndex === index" class="mb-3">
+                                        <Select :model-value="String(scheme.id)" @update:model-value="(v: string) => setScheme(index, v)">
+                                            <SelectTrigger class="w-full">
+                                                <SelectValue placeholder="Select Scheme" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="s in availableSchemes(index)" :key="s.id" :value="String(s.id)">
+                                                    {{ s.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                    <Card v-else class="transition-shadow hover:shadow-lg">
-                                        <CardContent class="flex items-center justify-between p-4">
-                                            <span class="font-medium">{{ scheme.name }}</span>
-                                        </CardContent>
-                                    </Card>
-                                </Link>
+                                    <div class="relative">
+                                        <button
+                                            class="absolute right-2 top-2 z-10 rounded-md bg-background/80 p-1 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+                                            @click.prevent="editingSchemeIndex = editingSchemeIndex === index ? null : index"
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </button>
+                                        <Link :href="route('schemes.view', scheme.slug)">
+                                            <div
+                                                v-if="scheme.image_url"
+                                                class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg"
+                                            >
+                                                <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
+                                            </div>
+                                            <Card v-else class="transition-shadow hover:shadow-lg">
+                                                <CardContent class="flex items-center justify-between p-4">
+                                                    <span class="font-medium">{{ scheme.name }}</span>
+                                                </CardContent>
+                                            </Card>
+                                        </Link>
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     </div>

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AbilityAdminController;
 use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
+use App\Http\Controllers\Admin\BlueprintAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
@@ -153,6 +154,7 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::get('/', 'index')->name('index')->middleware('permission:view_user');
         Route::get('/edit/{user}', 'edit')->name('edit')->middleware('permission:view_user');
         Route::post('/update/{user}', 'update')->name('update')->middleware('permission:edit_user');
+        Route::post('/{user}/password-reset-link', 'generatePasswordResetLink')->name('password_reset_link')->middleware('permission:edit_user');
         Route::post('/delete/{user}', 'delete')->name('delete')->middleware('permission:delete_user');
     });
 
@@ -181,6 +183,15 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::post('/store', 'store')->name('store')->middleware('permission:edit_lore');
         Route::post('/update/{lore:id}', 'update')->name('update')->middleware('permission:edit_lore');
         Route::post('/delete/{lore:id}', 'delete')->name('delete')->middleware('permission:delete_lore');
+    });
+
+    Route::controller(BlueprintAdminController::class)->prefix('blueprints')->name('blueprints.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_blueprint');
+        Route::get('/edit/{blueprint}', 'edit')->name('edit')->middleware('permission:view_blueprint');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_blueprint');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_blueprint');
+        Route::post('/update/{blueprint}', 'update')->name('update')->middleware('permission:edit_blueprint');
+        Route::post('/delete/{blueprint}', 'delete')->name('delete')->middleware('permission:delete_blueprint');
     });
 
     // Blog admin routes — permission-based so content_creator role can also access

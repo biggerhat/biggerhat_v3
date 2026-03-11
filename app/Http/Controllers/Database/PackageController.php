@@ -6,6 +6,7 @@ use App\Enums\FactionEnum;
 use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Blueprint;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -33,6 +34,12 @@ class PackageController extends Controller
 
         if ($request->filled('sculpt_version')) {
             $query->where('sculpt_version', $request->get('sculpt_version'));
+        }
+
+        if ($request->filled('character')) {
+            $query->whereHas('characters', function ($q) use ($request) {
+                $q->where('characters.slug', $request->get('character'));
+            });
         }
 
         $pageView = $request->get('page_view', 'cards');
@@ -69,12 +76,13 @@ class PackageController extends Controller
             'factions' => fn () => FactionEnum::buildDetails(),
             'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
             'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 
     public function view(Request $request, Package $package)
     {
-        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks']);
+        $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks', 'blueprints' => fn ($q) => $q->withImages()]);
 
         return inertia('Packages/View', [
             'package' => [
@@ -122,6 +130,15 @@ class PackageController extends Controller
                 'store_links' => $package->storeLinks->map(fn ($link) => [
                     'store_name' => $link->store_name,
                     'url' => $link->url,
+                ]),
+                'blueprints' => $package->blueprints->map(fn (Blueprint $b) => [
+                    'id' => $b->id,
+                    'name' => $b->name,
+                    'slug' => $b->slug,
+                    'image' => $b->image,
+                    'images' => $b->images,
+                    'source_url' => $b->source_url,
+                    'sculpt_version' => $b->sculpt_version->value,
                 ]),
             ],
         ]);

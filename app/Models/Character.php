@@ -118,6 +118,12 @@ class Character extends Model
         return $this->morphedByMany(Token::class, 'characterable');
     }
 
+    /** @return MorphToMany<Blueprint, $this> */
+    public function blueprints(): MorphToMany
+    {
+        return $this->morphedByMany(Blueprint::class, 'characterable');
+    }
+
     public function totem(): BelongsTo
     {
         return $this->belongsTo(Character::class, 'has_totem_id', 'id');

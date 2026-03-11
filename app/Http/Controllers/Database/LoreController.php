@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Database;
 
 use App\Enums\LoreMediaTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Character;
 use App\Models\Lore;
 use App\Models\LoreMedia;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ class LoreController extends Controller
                 'name' => $m->name,
                 'value' => (string) $m->id,
             ]),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 }

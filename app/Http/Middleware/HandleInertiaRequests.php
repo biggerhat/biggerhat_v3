@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                 'message' => fn () => $request->session()->get('message'),
                 'messageTitle' => fn () => $request->session()->get('messageTitle'),
                 'messageType' => fn () => $request->session()->get('messageType'),
+                'reset_link' => fn () => $request->session()->get('reset_link'),
             ],
             'faction_info' => FactionEnum::buildDetails(),
             'auth' => [

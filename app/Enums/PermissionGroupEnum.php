@@ -29,4 +29,5 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Strategy = 'strategy';
     case Package = 'package';
     case Lore = 'lore';
+    case Blueprint = 'blueprint';
 }

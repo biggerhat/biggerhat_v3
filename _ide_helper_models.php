@@ -207,23 +207,42 @@ namespace App\Models{
  * 
  *
  * @property int $id
- * @property string $image
- * @property string $sculpt_version
- * @property string|null $deleted_at
+ * @property string $name
+ * @property string $slug
+ * @property string|null $image
+ * @property array<array-key, mixed>|null $images
+ * @property string|null $source_url
+ * @property string|null $wyrd_post_slug
+ * @property \App\Enums\SculptVersionEnum $sculpt_version
+ * @property \Illuminate\Support\Carbon|null $published_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $miniatures
  * @property-read int|null $miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
+ * @property-read int|null $packages_count
  * @method static \Database\Factories\BlueprintFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint onlyTrashed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereImages($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint wherePublishedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereSculptVersion($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereSourceUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereWyrdPostSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint withTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint withoutTrashed()
  * @mixin \Eloquent
  */
 	#[\AllowDynamicProperties]
@@ -268,6 +287,8 @@ namespace App\Models{
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Blueprint> $blueprints
+ * @property-read int|null $blueprints_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Characteristic> $characteristics
@@ -606,6 +627,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $released_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Blueprint> $blueprints
+ * @property-read int|null $blueprints_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords

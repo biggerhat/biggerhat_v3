@@ -345,14 +345,11 @@ const formatDefensiveType = (type: string) => {
                                             <span v-else>-</span>
                                         </TableCell>
                                         <TableCell>{{ ability.costs_stone ? 'Yes' : 'No' }}</TableCell>
-                                        <TableCell class="max-w-xs">
-                                            <span class="line-clamp-2">
-                                                <GameText
-                                                    :text="ability.description"
-                                                    :max-length="120"
-                                                    icon-class="h-4 inline-block align-text-bottom"
-                                                />
-                                            </span>
+                                        <TableCell class="max-w-md">
+                                            <GameText
+                                                :text="ability.description"
+                                                icon-class="h-4 inline-block align-text-bottom"
+                                            />
                                         </TableCell>
                                         <TableCell>
                                             <span class="inline-flex flex-wrap items-center gap-1">

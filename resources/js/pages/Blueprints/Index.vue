@@ -1,42 +1,42 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { BookOpen, ExternalLink, LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import { FileImage, LayoutGrid, List, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
+import BlueprintCard from '@/components/BlueprintCard.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
-import LoreCard from '@/components/LoreCard.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { cleanObject } from '@/composables/CleanObject';
 
 const props = defineProps<{
-    lores: any;
+    blueprints: any;
     result_count: number;
-    media_types: any[];
-    lore_media: any[];
+    sculpt_versions: any[];
     characters: any[];
 }>();
 
 const filterParams = ref({
     name_search: null as string | null,
-    media_type: null as string | null,
-    lore_media: null as string | null,
+    sculpt_version: null as string | null,
     character: null as string | null,
     page_view: null as string | null,
 });
 
-const filterKeys = ['name_search', 'media_type', 'lore_media', 'character'] as const;
+const filterKeys = ['name_search', 'sculpt_version', 'character'] as const;
 
 const activeFilterCount = computed(() => {
     return filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
@@ -50,8 +50,8 @@ const filter = () => {
         }
     }
     params.page = null;
-    router.get(route('lores.index'), cleanObject(params), {
-        only: ['lores', 'result_count'],
+    router.get(route('blueprints.index'), cleanObject(params), {
+        only: ['blueprints', 'result_count'],
         replace: true,
         preserveState: true,
     });
@@ -84,14 +84,13 @@ const handleViewChange = (value: string) => {
 const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
     filterParams.value.name_search = urlParams.get('name_search');
-    filterParams.value.media_type = urlParams.get('media_type');
-    filterParams.value.lore_media = urlParams.get('lore_media');
+    filterParams.value.sculpt_version = urlParams.get('sculpt_version');
     filterParams.value.character = urlParams.get('character');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'cards';
 });
 
-const loreCount = computed(() => props.lores?.data?.length ?? 0);
-const { delays } = useStaggeredEntry(loreCount);
+const blueprintCount = computed(() => props.blueprints?.data?.length ?? 0);
+const { delays } = useStaggeredEntry(blueprintCount);
 
 const isLoading = ref(false);
 onMounted(() => {
@@ -102,19 +101,23 @@ onMounted(() => {
         isLoading.value = false;
     });
 });
+
+const formatVersion = (version: string) => {
+    return version ? version.replace(/_/g, ' ') : '';
+};
 </script>
 
 <template>
-    <Head title="Lore" />
+    <Head title="Build Instructions" />
     <div class="relative">
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
-        <PageBanner title="Lore Directory" class="mb-2">
+        <PageBanner title="Build Instructions" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    {{ props.result_count }} {{ props.result_count === 1 ? 'story' : 'stories' }} found
+                    {{ props.result_count }} {{ props.result_count === 1 ? 'blueprint' : 'blueprints' }} found
                 </div>
             </template>
         </PageBanner>
@@ -126,7 +129,7 @@ onMounted(() => {
                 <Input
                     v-model="filterParams.name_search"
                     type="text"
-                    placeholder="Search lore by name..."
+                    placeholder="Search blueprints by name..."
                     class="border-2 border-primary pl-10 pr-10"
                     @keydown="handleNameKeydown"
                 />
@@ -158,7 +161,6 @@ onMounted(() => {
                 <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
-                <!-- Mobile-only filter trigger -->
                 <div class="md:hidden">
                     <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
                         <div class="grid gap-4">
@@ -172,20 +174,11 @@ onMounted(() => {
                                 />
                             </div>
                             <div class="space-y-2">
-                                <label class="text-sm font-medium">Media Type</label>
+                                <label class="text-sm font-medium">Sculpt Version</label>
                                 <ClearableSelect
-                                    v-model="filterParams.media_type"
-                                    placeholder="Any Type"
-                                    :options="props.media_types"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Media Source</label>
-                                <ClearableSelect
-                                    v-model="filterParams.lore_media"
-                                    placeholder="Any Source"
-                                    :options="props.lore_media"
+                                    v-model="filterParams.sculpt_version"
+                                    placeholder="Any Version"
+                                    :options="props.sculpt_versions"
                                     trigger-class="border-2 border-primary rounded"
                                 />
                             </div>
@@ -206,12 +199,8 @@ onMounted(() => {
                             <SearchableSelect v-model="filterParams.character" placeholder="Any Character" :options="props.characters" />
                         </div>
                         <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground">Media Type</label>
-                            <ClearableSelect v-model="filterParams.media_type" placeholder="Any Type" :options="props.media_types" />
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground">Media Source</label>
-                            <ClearableSelect v-model="filterParams.lore_media" placeholder="Any Source" :options="props.lore_media" />
+                            <label class="text-xs font-medium text-muted-foreground">Sculpt Version</label>
+                            <ClearableSelect v-model="filterParams.sculpt_version" placeholder="Any Version" :options="props.sculpt_versions" />
                         </div>
                         <div class="flex gap-2 pt-2">
                             <Button class="flex-1" @click="filter">Search</Button>
@@ -237,55 +226,32 @@ onMounted(() => {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Story</TableHead>
-                                    <TableHead>Media Source</TableHead>
-                                    <TableHead>Type</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Edition</TableHead>
+                                    <TableHead>Images</TableHead>
                                     <TableHead>Characters</TableHead>
+                                    <TableHead>View</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <template v-if="props.lores?.data?.length">
-                                    <TableRow v-for="lore in props.lores.data" :key="lore.id">
+                                <template v-if="props.blueprints?.data?.length">
+                                    <TableRow v-for="bp in props.blueprints.data" :key="bp.id">
                                         <TableCell class="font-medium">
                                             <span class="inline-flex items-center gap-1.5">
-                                                <BookOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                {{ lore.name }}
+                                                <FileImage class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                {{ bp.name }}
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <div v-if="lore.media?.length" class="space-y-0.5">
-                                                <div v-for="media in lore.media" :key="media.name">
-                                                    <a
-                                                        v-if="media.link"
-                                                        :href="media.link"
-                                                        target="_blank"
-                                                        class="inline-flex items-center gap-1 text-primary hover:underline"
-                                                    >
-                                                        {{ media.name }}
-                                                        <ExternalLink class="h-3 w-3" />
-                                                    </a>
-                                                    <span v-else>{{ media.name }}</span>
-                                                </div>
-                                            </div>
-                                            <span v-else class="text-muted-foreground">-</span>
+                                            <Badge variant="outline" class="text-xs capitalize">{{ formatVersion(bp.sculpt_version) }}</Badge>
                                         </TableCell>
-                                        <TableCell>
-                                            <div v-if="lore.media?.length" class="flex flex-wrap gap-1">
-                                                <Badge
-                                                    v-for="media in lore.media"
-                                                    :key="media.name"
-                                                    variant="outline"
-                                                    class="text-xs capitalize"
-                                                >
-                                                    {{ (media.type as string).replace(/_/g, ' ') }}
-                                                </Badge>
-                                            </div>
-                                            <span v-else>-</span>
+                                        <TableCell class="text-sm text-muted-foreground">
+                                            {{ bp.images?.length ?? 0 }}
                                         </TableCell>
                                         <TableCell>
                                             <div class="flex flex-wrap gap-1">
                                                 <Link
-                                                    v-for="character in lore.characters"
+                                                    v-for="character in bp.characters"
                                                     :key="character.slug"
                                                     :href="
                                                         route('characters.view', {
@@ -299,38 +265,75 @@ onMounted(() => {
                                                         {{ character.display_name }}
                                                     </Badge>
                                                 </Link>
-                                                <span v-if="!lore.characters?.length" class="text-sm text-muted-foreground">-</span>
+                                                <span v-if="!bp.characters?.length" class="text-sm text-muted-foreground">-</span>
                                             </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Dialog v-if="bp.images?.length">
+                                                <DialogTrigger as-child>
+                                                    <button class="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline">
+                                                        <FileImage class="h-3 w-3" />
+                                                        {{ bp.images.length }} diagram{{ bp.images.length !== 1 ? 's' : '' }}
+                                                    </button>
+                                                </DialogTrigger>
+                                                <DialogContent class="max-h-[90vh] max-w-5xl overflow-y-auto">
+                                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
+                                                    <DialogDescription class="text-sm text-muted-foreground">
+                                                        {{ bp.images.length }} assembly diagram{{ bp.images.length !== 1 ? 's' : '' }}
+                                                    </DialogDescription>
+                                                    <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                                        <div
+                                                            v-for="(img, idx) in bp.images"
+                                                            :key="idx"
+                                                            class="overflow-hidden rounded-lg border"
+                                                        >
+                                                            <img
+                                                                :src="imageSrc(img)"
+                                                                :alt="imageLabel(img)"
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                class="w-full"
+                                                            />
+                                                            <div class="border-t bg-muted/50 px-2 py-1.5">
+                                                                <p class="truncate text-[11px] font-medium text-muted-foreground">
+                                                                    {{ imageLabel(img) }}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+                                            <span v-else class="text-muted-foreground">-</span>
                                         </TableCell>
                                     </TableRow>
                                 </template>
                                 <template v-else>
                                     <TableRow>
-                                        <TableCell :colspan="4">
+                                        <TableCell :colspan="5">
                                             <EmptyState />
                                         </TableCell>
                                     </TableRow>
                                 </template>
                             </TableBody>
                         </Table>
-                        <InertiaPagination :paginator="props.lores" :only="['lores', 'result_count']" />
+                        <InertiaPagination :paginator="props.blueprints" :only="['blueprints', 'result_count']" />
                     </div>
 
                     <!-- Card view (default) -->
                     <div v-else>
-                        <template v-if="props.lores?.data?.length">
+                        <template v-if="props.blueprints?.data?.length">
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                <LoreCard
-                                    v-for="(lore, index) in props.lores.data"
-                                    :key="lore.id"
-                                    :lore="lore"
+                                <BlueprintCard
+                                    v-for="(bp, index) in props.blueprints.data"
+                                    :key="bp.id"
+                                    :blueprint="bp"
                                     class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                                     :style="delays[index]"
                                 />
                             </div>
                         </template>
                         <EmptyState v-else />
-                        <InertiaPagination :paginator="props.lores" :only="['lores', 'result_count']" />
+                        <InertiaPagination :paginator="props.blueprints" :only="['blueprints', 'result_count']" />
                     </div>
                 </div>
             </div>

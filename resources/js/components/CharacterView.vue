@@ -5,11 +5,13 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, BookOpen, Check, Copy, Download, ExternalLink, Library, Package, Swords } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, Check, Copy, Download, ExternalLink, FileImage, Library, Package, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -413,6 +415,48 @@ const addAllStandard = () => {
                                     {{ media.name }}
                                 </Badge>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <!-- Blueprints -->
+                <Card v-if="character.blueprints?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Build Instructions</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <div v-for="bp in character.blueprints" :key="bp.id" class="border-t px-4 py-2">
+                            <Sheet>
+                                <SheetTrigger as-child>
+                                    <button class="flex w-full cursor-pointer items-center gap-2 text-left">
+                                        <FileImage class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        <span class="min-w-0 flex-1 text-sm text-primary hover:underline">{{ bp.name }}</span>
+                                        <Badge v-if="bp.images?.length" variant="secondary" class="text-[10px]">
+                                            {{ bp.images.length }} img{{ bp.images.length !== 1 ? 's' : '' }}
+                                        </Badge>
+                                    </button>
+                                </SheetTrigger>
+                                <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
+                                    <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
+                                    <SheetDescription class="text-sm text-muted-foreground">
+                                        {{ bp.images?.length ?? 0 }} assembly diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
+                                    </SheetDescription>
+                                    <div v-if="bp.images?.length" class="mt-4 space-y-4">
+                                        <div v-for="(img, idx) in bp.images" :key="idx" class="overflow-hidden rounded-lg border">
+                                            <img
+                                                :src="imageSrc(img)"
+                                                :alt="imageLabel(img)"
+                                                loading="lazy"
+                                                decoding="async"
+                                                class="w-full"
+                                            />
+                                            <div class="border-t bg-muted/50 px-3 py-1.5">
+                                                <p class="text-xs font-medium text-muted-foreground">{{ imageLabel(img) }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </SheetContent>
+                            </Sheet>
                         </div>
                     </CardContent>
                 </Card>

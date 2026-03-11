@@ -7,6 +7,7 @@ use App\Http\Controllers\CrewBuilderController;
 use App\Http\Controllers\Database\AbilityController;
 use App\Http\Controllers\Database\ActionController;
 use App\Http\Controllers\Database\BlogController;
+use App\Http\Controllers\Database\BlueprintController;
 use App\Http\Controllers\Database\CharacterController;
 use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
@@ -22,7 +23,9 @@ use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
+use App\Models\BlogPost;
 use App\Models\Character;
+use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use Illuminate\Support\Facades\Route;
@@ -31,9 +34,42 @@ use Inertia\Inertia;
 Route::get('/', function () {
     $featured = Character::with('standardMiniatures')->inRandomOrder()->first();
 
+    $recentCrews = CrewBuild::where('is_public', true)
+        ->with('user:id,name', 'master:id,name,title,display_name,slug')
+        ->latest()
+        ->take(6)
+        ->get()
+        ->map(fn (CrewBuild $build) => [
+            'id' => $build->id,
+            'name' => $build->name,
+            'faction' => $build->faction->value,
+            'faction_label' => $build->faction->label(),
+            'faction_color' => $build->faction->color(),
+            'faction_logo' => $build->faction->logo(),
+            'master_name' => $build->master?->display_name,
+            'encounter_size' => $build->encounter_size,
+            'share_code' => $build->share_code,
+            'user_name' => $build->user?->name,
+            'created_at' => $build->created_at->diffForHumans(),
+        ]);
+
+    $recentArticles = BlogPost::published()
+        ->with('category:id,name')
+        ->latest('published_at')
+        ->take(3)
+        ->get()
+        ->map(fn (BlogPost $post) => [
+            'title' => $post->title,
+            'slug' => $post->slug,
+            'category' => $post->category?->name,
+            'published_at' => $post->published_at->diffForHumans(),
+        ]);
+
     return Inertia::render('Index', [
         'factions' => FactionEnum::buildDetails(),
         'featured_character' => $featured,
+        'recent_crews' => $recentCrews,
+        'recent_articles' => $recentArticles,
         'stats' => [
             'characters' => Character::count(),
             'keywords' => Keyword::count(),
@@ -96,6 +132,10 @@ Route::prefix('upgrades')->name('upgrades.')->group(function () {
 Route::prefix('packages')->name('packages.')->group(function () {
     Route::get('/', [PackageController::class, 'index'])->name('index');
     Route::get('/{package}', [PackageController::class, 'view'])->name('view');
+});
+
+Route::prefix('blueprints')->name('blueprints.')->group(function () {
+    Route::get('/', [BlueprintController::class, 'index'])->name('index');
 });
 
 Route::prefix('lore')->name('lores.')->group(function () {

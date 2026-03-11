@@ -57,7 +57,7 @@ const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) ===
         <CardContent class="flex flex-1 flex-col">
             <div v-if="ability.description" class="space-y-1.5 text-sm">
                 <p class="text-xs text-muted-foreground">
-                    <GameText :text="ability.description" :max-length="120" icon-class="h-4 inline-block align-text-bottom" />
+                    <GameText :text="ability.description" icon-class="h-4 inline-block align-text-bottom" />
                 </p>
             </div>
         </CardContent>

@@ -13,6 +13,7 @@ import {
     Calendar,
     CircleDollarSign,
     Dice6,
+    FileImage,
     FileText,
     KeyRound,
     Library,
@@ -190,6 +191,11 @@ const mainNavItems: NavItem[] = [
                 icon: BookOpen,
             },
             {
+                title: 'Build Instructions',
+                href: route('blueprints.index'),
+                icon: FileImage,
+            },
+            {
                 title: 'Gaining Grounds',
                 href: route('seasons.index'),
                 icon: Calendar,
@@ -328,6 +334,12 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.lore_media.index'),
         icon: BookOpen,
         permission: 'view_lore',
+    },
+    {
+        title: 'Blueprints',
+        href: route('admin.blueprints.index'),
+        icon: FileImage,
+        permission: 'view_blueprint',
     },
     {
         title: 'Users',

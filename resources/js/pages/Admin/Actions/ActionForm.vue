@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -252,22 +252,22 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="triggers">Triggers</Label>
-                                <CustomMultiselect
-                                    id="triggers"
+                                <SearchableMultiselect
                                     v-model="formInfo.triggers"
-                                    comboTitle="Select Triggers"
-                                    :choice-options="props.triggers"
+                                    placeholder="Select Triggers"
+                                    :options="props.triggers"
+                                    option-value="name"
                                 />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="characters">Characters</Label>
-                                <CustomMultiselect
-                                    id="characters"
+                                <SearchableMultiselect
                                     v-model="formInfo.characters"
-                                    comboTitle="Select Characters"
-                                    :choice-options="props.characters"
+                                    placeholder="Select Characters"
+                                    :options="props.characters"
+                                    option-value="name"
                                 />
                             </div>
                         </div>

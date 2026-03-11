@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -96,11 +96,11 @@ onMounted(() => {
 
                         <div class="flex flex-col space-y-1.5">
                             <Label for="lore_media">Media Sources</Label>
-                            <CustomMultiselect
-                                id="lore_media"
+                            <SearchableMultiselect
                                 v-model="formInfo.lore_media"
-                                comboTitle="Select Media Sources"
-                                :choice-options="props.lore_media"
+                                placeholder="Select Media Sources"
+                                :options="props.lore_media"
+                                option-value="name"
                             />
                         </div>
 
@@ -147,11 +147,11 @@ onMounted(() => {
 
                         <div class="flex flex-col space-y-1.5">
                             <Label for="characters">Characters</Label>
-                            <CustomMultiselect
-                                id="characters"
+                            <SearchableMultiselect
                                 v-model="formInfo.characters"
-                                comboTitle="Select Characters"
-                                :choice-options="props.characters"
+                                placeholder="Select Characters"
+                                :options="props.characters"
+                                option-value="name"
                             />
                         </div>
                     </div>

@@ -28,6 +28,14 @@ class Blueprint extends Model
 
     protected $guarded = ['id'];
 
+    /**
+     * Use ID for route model binding since slugs are not unique after flattening.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'id';
+    }
+
     public function casts(): array
     {
         return [

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -265,13 +265,14 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect v-model="formInfo.keywords" comboTitle="Select Keywords" :choice-options="props.keywords" />
+                            <SearchableMultiselect v-model="formInfo.keywords" placeholder="Select Keywords" :options="props.keywords" option-value="name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <CustomMultiselect
+                            <SearchableMultiselect
                                 v-model="formInfo.characteristics"
-                                comboTitle="Select Characteristics"
-                                :choice-options="props.characteristics"
+                                placeholder="Select Characteristics"
+                                :options="props.characteristics"
+                                option-value="name"
                             />
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -399,25 +400,26 @@ onMounted(() => {
                             </div>
                         </div>
                         <!--                        <div class="flex flex-col space-y-1.5">-->
-                        <!--                            <CustomMultiselect v-model="formInfo.miniatures" comboTitle="Select Miniatures" :choice-options="props.miniatures" />-->
+                        <!--                            <SearchableMultiselect v-model="formInfo.miniatures" placeholder="Select Miniatures" :options="props.miniatures" option-value="name" />-->
                         <!--                        </div>-->
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choice-options="props.abilities" />
+                                    <SearchableMultiselect v-model="formInfo.abilities" placeholder="Select Abilities" :options="props.abilities" option-value="name" />
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
+                                    <SearchableMultiselect v-model="formInfo.actions" placeholder="Select Actions" :options="props.actions" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect
+                                    <SearchableMultiselect
                                         v-model="formInfo.signature_actions"
-                                        comboTitle="Select Signature Actions"
-                                        :choice-options="props.actions"
+                                        placeholder="Select Signature Actions"
+                                        :options="props.actions"
+                                        option-value="name"
                                     />
                                 </div>
                             </div>
@@ -425,10 +427,10 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choice-options="props.markers" />
+                                    <SearchableMultiselect v-model="formInfo.markers" placeholder="Select Markers" :options="props.markers" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choice-options="props.tokens" />
+                                    <SearchableMultiselect v-model="formInfo.tokens" placeholder="Select Tokens" :options="props.tokens" option-value="name" />
                                 </div>
                             </div>
                         </div>

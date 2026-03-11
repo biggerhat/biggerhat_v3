@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TextBar from '@/components/TextBar.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -169,21 +169,21 @@ onMounted(() => {
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="masters">Masters</Label>
-                                    <CustomMultiselect
-                                        id="masters"
+                                    <SearchableMultiselect
                                         v-model="formInfo.characters"
-                                        comboTitle="Select Masters"
-                                        :choice-options="props.characters"
+                                        placeholder="Select Masters"
+                                        :options="props.characters"
+                                        option-value="name"
                                         class="my-auto"
                                     />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="keywords">Keywords</Label>
-                                    <CustomMultiselect
-                                        id="keywords"
+                                    <SearchableMultiselect
                                         v-model="formInfo.keywords"
-                                        comboTitle="Select Keywords"
-                                        :choice-options="props.keywords"
+                                        placeholder="Select Keywords"
+                                        :options="props.keywords"
+                                        option-value="name"
                                         class="my-auto"
                                     />
                                 </div>
@@ -249,26 +249,27 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.markers" comboTitle="Select Markers" :choice-options="props.markers" />
+                                    <SearchableMultiselect v-model="formInfo.markers" placeholder="Select Markers" :options="props.markers" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.tokens" comboTitle="Select Tokens" :choice-options="props.tokens" />
+                                    <SearchableMultiselect v-model="formInfo.tokens" placeholder="Select Tokens" :options="props.tokens" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.abilities" comboTitle="Select Abilities" :choice-options="props.abilities" />
+                                    <SearchableMultiselect v-model="formInfo.abilities" placeholder="Select Abilities" :options="props.abilities" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.actions" comboTitle="Select Actions" :choice-options="props.actions" />
+                                    <SearchableMultiselect v-model="formInfo.actions" placeholder="Select Actions" :options="props.actions" option-value="name" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect
+                                    <SearchableMultiselect
                                         v-model="formInfo.signature_actions"
-                                        comboTitle="Select Signature Actions"
-                                        :choice-options="props.actions"
+                                        placeholder="Select Signature Actions"
+                                        :options="props.actions"
+                                        option-value="name"
                                     />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <CustomMultiselect v-model="formInfo.triggers" comboTitle="Select Triggers" :choice-options="props.triggers" />
+                                    <SearchableMultiselect v-model="formInfo.triggers" placeholder="Select Triggers" :options="props.triggers" option-value="name" />
                                 </div>
                             </div>
                         </div>

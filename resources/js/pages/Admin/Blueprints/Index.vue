@@ -91,8 +91,8 @@ const columns: ColumnDef<any>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: blueprint.name,
-                    editRoute: route('admin.blueprints.edit', blueprint.slug),
-                    deleteRoute: route('admin.blueprints.delete', blueprint.slug),
+                    editRoute: route('admin.blueprints.edit', blueprint.id),
+                    deleteRoute: route('admin.blueprints.delete', blueprint.id),
                 }),
             );
         },

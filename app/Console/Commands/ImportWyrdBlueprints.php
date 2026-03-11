@@ -388,25 +388,21 @@ class ImportWyrdBlueprints extends Command
             'published_at' => $publishedAt,
         ];
 
-        if ($existing) {
-            $existing->update($data);
-            $existing->characters()->sync($characterIds);
-            $existing->miniatures()->sync($miniatureIds);
-            $existing->packages()->sync($packageIds);
-            $this->downloadImages($existing);
-            $this->line("  <info>UPDATED</info> {$title}");
+        $blueprint = Blueprint::updateOrCreate(
+            ['wyrd_post_slug' => $slug],
+            $data,
+        );
+        $wasRecentlyCreated = $blueprint->wasRecentlyCreated;
 
-            return 'updated';
-        }
-
-        $blueprint = Blueprint::create($data);
         $blueprint->characters()->sync($characterIds);
         $blueprint->miniatures()->sync($miniatureIds);
         $blueprint->packages()->sync($packageIds);
         $this->downloadImages($blueprint);
-        $this->line("  <info>CREATED</info> {$title}");
 
-        return 'created';
+        $action = $wasRecentlyCreated ? 'CREATED' : 'UPDATED';
+        $this->line("  <info>{$action}</info> {$title}");
+
+        return $wasRecentlyCreated ? 'created' : 'updated';
     }
 
     /**

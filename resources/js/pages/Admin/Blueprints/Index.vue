@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { imageSrc } from '@/composables/useBlueprintImages';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
@@ -11,23 +13,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
+const previewImage = ref<{ src: string; name: string } | null>(null);
+
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
     const characters = (row.original.characters ?? []).map((c: any) => (c.display_name as string)?.toLowerCase() ?? '');
-    return name.includes(search) || characters.some((n: string) => n.includes(search));
+    const miniatures = (row.original.miniatures ?? []).map((m: any) => (m.display_name as string)?.toLowerCase() ?? '');
+    return name.includes(search) || characters.some((n: string) => n.includes(search)) || miniatures.some((n: string) => n.includes(search));
 };
 
 const columns: ColumnDef<any>[] = [
     {
-        accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
-        cell: ({ row }) => h('div', {}, row.getValue('id')),
+        id: 'image',
+        header: () => h('div', {}, ''),
+        cell: ({ row }) => {
+            const path = row.original.image_path;
+            if (!path) return h('div', { class: 'h-10 w-14 rounded bg-muted' });
+            return h('img', {
+                src: imageSrc(path),
+                alt: row.getValue('name'),
+                class: 'h-10 w-14 cursor-pointer rounded object-contain transition-opacity hover:opacity-70',
+                loading: 'lazy',
+                onClick: () => {
+                    previewImage.value = { src: imageSrc(path), name: row.getValue('name') as string };
+                },
+            });
+        },
     },
     {
         accessorKey: 'name',
         header: () => h('div', {}, 'Blueprint'),
-        cell: ({ row }) => h('div', {}, row.getValue('name')),
+        cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
         accessorKey: 'sculpt_version',
@@ -41,24 +58,26 @@ const columns: ColumnDef<any>[] = [
         id: 'characters',
         header: () => h('div', {}, 'Characters'),
         cell: ({ row }) => {
-            const count = row.original.characters?.length ?? 0;
-            return h('div', { class: 'text-sm text-muted-foreground' }, `${count}`);
+            const chars = row.original.characters ?? [];
+            if (!chars.length) return h('span', { class: 'text-sm text-muted-foreground' }, '-');
+            return h(
+                'div',
+                { class: 'flex flex-wrap gap-1' },
+                chars.map((c: any) => h('span', { class: 'inline-block rounded bg-secondary px-1.5 py-0.5 text-xs' }, c.display_name)),
+            );
         },
     },
     {
         id: 'miniatures',
         header: () => h('div', {}, 'Miniatures'),
         cell: ({ row }) => {
-            const count = row.original.miniatures?.length ?? 0;
-            return h('div', { class: 'text-sm text-muted-foreground' }, `${count}`);
-        },
-    },
-    {
-        id: 'image',
-        header: () => h('div', {}, 'Image'),
-        cell: ({ row }) => {
-            const hasImage = !!row.original.image_path;
-            return h('div', { class: 'text-sm text-muted-foreground' }, hasImage ? 'Yes' : '-');
+            const minis = row.original.miniatures ?? [];
+            if (!minis.length) return h('span', { class: 'text-sm text-muted-foreground' }, '-');
+            return h(
+                'div',
+                { class: 'flex flex-wrap gap-1' },
+                minis.map((m: any) => h('span', { class: 'inline-block rounded bg-secondary px-1.5 py-0.5 text-xs' }, m.display_name)),
+            );
         },
     },
     {
@@ -118,7 +137,7 @@ const table = useVueTable({
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter by name or character..."
+                placeholder="Filter by name, character, or miniature..."
                 :model-value="globalFilter"
                 @update:model-value="table.setGlobalFilter($event)"
             />
@@ -155,4 +174,13 @@ const table = useVueTable({
             <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()"> Next </Button>
         </div>
     </div>
+
+    <!-- Image preview dialog -->
+    <Dialog :open="!!previewImage" @update:open="(open: boolean) => { if (!open) previewImage = null }">
+        <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+            <DialogTitle class="text-lg font-semibold">{{ previewImage?.name }}</DialogTitle>
+            <DialogDescription class="sr-only">Blueprint image preview</DialogDescription>
+            <img v-if="previewImage" :src="previewImage.src" :alt="previewImage.name" class="mt-2 w-full rounded-lg border" />
+        </DialogContent>
+    </Dialog>
 </template>

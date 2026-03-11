@@ -134,17 +134,17 @@ onMounted(() => {
 
                         <div class="flex flex-col space-y-1.5">
                             <Label>Characters</Label>
-                            <SearchableMultiselect v-model="formInfo.characters" placeholder="Search characters..." :options="props.characters" />
+                            <SearchableMultiselect v-model="formInfo.characters" placeholder="Search characters..." :options="props.characters" option-value="name" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
                             <Label>Miniatures</Label>
-                            <SearchableMultiselect v-model="formInfo.miniatures" placeholder="Search miniatures..." :options="props.miniatures" />
+                            <SearchableMultiselect v-model="formInfo.miniatures" placeholder="Search miniatures..." :options="props.miniatures" option-value="name" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
                             <Label>Packages</Label>
-                            <SearchableMultiselect v-model="formInfo.packages" placeholder="Search packages..." :options="props.packages" />
+                            <SearchableMultiselect v-model="formInfo.packages" placeholder="Search packages..." :options="props.packages" option-value="name" />
                         </div>
                     </div>
                 </form>

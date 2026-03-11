@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import CustomMultiselect from '@/components/CustomMultiselect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { imageSrc } from '@/composables/useBlueprintImages';
 import { router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
@@ -58,7 +59,7 @@ const formInfo = ref({
 
 const submit = () => {
     router.post(
-        props.blueprint ? route('admin.blueprints.update', props.blueprint.slug) : route('admin.blueprints.store'),
+        props.blueprint ? route('admin.blueprints.update', props.blueprint.id) : route('admin.blueprints.store'),
         formInfo.value,
     );
 };
@@ -91,6 +92,16 @@ onMounted(() => {
             <CardContent>
                 <form>
                     <div class="grid w-full items-center gap-4">
+                        <!-- Image preview -->
+                        <div v-if="props.blueprint?.image_path" class="flex flex-col space-y-1.5">
+                            <Label>Image</Label>
+                            <img
+                                :src="imageSrc(props.blueprint.image_path)"
+                                :alt="props.blueprint.name"
+                                class="max-h-48 w-auto rounded-lg border object-contain"
+                            />
+                        </div>
+
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Blueprint Name" autofocus />
@@ -122,33 +133,18 @@ onMounted(() => {
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Label for="characters">Characters</Label>
-                            <CustomMultiselect
-                                id="characters"
-                                v-model="formInfo.characters"
-                                comboTitle="Select Characters"
-                                :choice-options="props.characters"
-                            />
+                            <Label>Characters</Label>
+                            <SearchableMultiselect v-model="formInfo.characters" placeholder="Search characters..." :options="props.characters" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Label for="miniatures">Miniatures</Label>
-                            <CustomMultiselect
-                                id="miniatures"
-                                v-model="formInfo.miniatures"
-                                comboTitle="Select Miniatures"
-                                :choice-options="props.miniatures"
-                            />
+                            <Label>Miniatures</Label>
+                            <SearchableMultiselect v-model="formInfo.miniatures" placeholder="Search miniatures..." :options="props.miniatures" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Label for="packages">Packages</Label>
-                            <CustomMultiselect
-                                id="packages"
-                                v-model="formInfo.packages"
-                                comboTitle="Select Packages"
-                                :choice-options="props.packages"
-                            />
+                            <Label>Packages</Label>
+                            <SearchableMultiselect v-model="formInfo.packages" placeholder="Search packages..." :options="props.packages" />
                         </div>
                     </div>
                 </form>

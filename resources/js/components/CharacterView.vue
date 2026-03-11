@@ -5,7 +5,7 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
@@ -426,8 +426,8 @@ const addAllStandard = () => {
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <div v-for="bp in character.blueprints" :key="bp.id" class="border-t px-4 py-2">
-                            <Sheet>
-                                <SheetTrigger as-child>
+                            <Dialog>
+                                <DialogTrigger as-child>
                                     <button class="flex w-full cursor-pointer items-center gap-2 text-left">
                                         <img
                                             v-if="bp.image_path"
@@ -440,23 +440,22 @@ const addAllStandard = () => {
                                         <FileImage v-else class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                         <span class="min-w-0 flex-1 text-sm text-primary hover:underline">{{ bp.name }}</span>
                                     </button>
-                                </SheetTrigger>
-                                <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
-                                    <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
-                                    <SheetDescription class="text-sm text-muted-foreground">
+                                </DialogTrigger>
+                                <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
+                                    <DialogDescription class="text-sm text-muted-foreground">
                                         {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
-                                    </SheetDescription>
-                                    <div v-if="bp.image_path" class="mt-4">
-                                        <img
-                                            :src="imageSrc(bp.image_path)"
-                                            :alt="bp.name"
-                                            loading="lazy"
-                                            decoding="async"
-                                            class="w-full rounded-lg border"
-                                        />
-                                    </div>
-                                </SheetContent>
-                            </Sheet>
+                                    </DialogDescription>
+                                    <img
+                                        v-if="bp.image_path"
+                                        :src="imageSrc(bp.image_path)"
+                                        :alt="bp.name"
+                                        loading="lazy"
+                                        decoding="async"
+                                        class="mt-2 w-full rounded-lg border"
+                                    />
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     </CardContent>
                 </Card>

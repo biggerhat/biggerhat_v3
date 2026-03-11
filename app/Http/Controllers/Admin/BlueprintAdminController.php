@@ -25,7 +25,7 @@ class BlueprintAdminController extends Controller
     public function create(Request $request)
     {
         return inertia('Admin/Blueprints/BlueprintForm', [
-            'sculpt_versions' => SculptVersionEnum::toSelectOptions(),
+            'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'display_name'),
             'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'display_name'),
             'packages' => fn () => Package::toSelectOptions('name', 'name'),
@@ -36,7 +36,7 @@ class BlueprintAdminController extends Controller
     {
         return inertia('Admin/Blueprints/BlueprintForm', [
             'blueprint' => $blueprint->loadMissing(['characters', 'miniatures', 'packages']),
-            'sculpt_versions' => SculptVersionEnum::toSelectOptions(),
+            'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'display_name'),
             'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'display_name'),
             'packages' => fn () => Package::toSelectOptions('name', 'name'),

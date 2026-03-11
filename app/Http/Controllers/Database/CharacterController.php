@@ -21,27 +21,25 @@ class CharacterController extends Controller
         );
         $character->load(['blueprints' => fn ($q) => $q->withImage()]);
 
-        $relatedCharacters = Character::query()
-            ->where('id', '!=', $character->id)
-            ->where('is_hidden', false)
-            ->whereHas('keywords', fn ($q) => $q->whereIn('keywords.id', $character->keywords->pluck('id'))
-            )
-            ->with('miniatures')
-            ->whereHas('miniatures')
-            ->limit(12)
-            ->get()
-            ->map(fn ($c) => [
-                'display_name' => $c->display_name,
-                'slug' => $c->slug,
-                'faction' => $c->faction->value,
-                'miniature_id' => $c->miniatures->first()?->id,
-                'miniature_slug' => $c->miniatures->first()?->slug,
-            ]);
-
         return inertia('Characters/View', [
             'character' => $character,
             'miniature' => $miniature,
-            'related_characters' => $relatedCharacters,
+            /** @phpstan-ignore return.type */
+            'related_characters' => fn () => Character::query()
+                ->where('id', '!=', $character->id)
+                ->where('is_hidden', false)
+                ->whereHas('keywords', fn ($q) => $q->whereIn('keywords.id', $character->keywords->pluck('id')))
+                ->with('miniatures')
+                ->whereHas('miniatures')
+                ->limit(12)
+                ->get()
+                ->map(fn ($c) => [
+                    'display_name' => $c->display_name,
+                    'slug' => $c->slug,
+                    'faction' => $c->faction->value,
+                    'miniature_id' => $c->miniatures->first()?->id,
+                    'miniature_slug' => $c->miniatures->first()?->slug,
+                ]),
         ]);
     }
 

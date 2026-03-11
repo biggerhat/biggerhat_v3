@@ -346,10 +346,7 @@ const formatDefensiveType = (type: string) => {
                                         </TableCell>
                                         <TableCell>{{ ability.costs_stone ? 'Yes' : 'No' }}</TableCell>
                                         <TableCell class="max-w-md">
-                                            <GameText
-                                                :text="ability.description"
-                                                icon-class="h-4 inline-block align-text-bottom"
-                                            />
+                                            <GameText :text="ability.description" icon-class="h-4 inline-block align-text-bottom" />
                                         </TableCell>
                                         <TableCell>
                                             <span class="inline-flex flex-wrap items-center gap-1">

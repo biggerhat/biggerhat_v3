@@ -66,19 +66,19 @@ class CrewAdminController extends Controller
     private function getFormData(): array
     {
         return [
-            'characters' => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
+            'characters' => fn () => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
+            'factions' => fn () => FactionEnum::toSelectOptions(),
+            'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
+            'tokens' => fn () => Token::all(),
+            'markers' => fn () => Marker::all(),
+            'actions' => fn () => Action::all()->map(function (Action $action) {
                 return [
                     'slug' => $action->slug,
                     'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
                 ];
             }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
+            'abilities' => fn () => Ability::all(),
+            'triggers' => fn () => Trigger::all(),
         ];
     }
 

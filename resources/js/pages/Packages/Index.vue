@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
-import SearchableSelect from '@/components/SearchableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SearchableSelect from '@/components/SearchableSelect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -54,12 +54,7 @@ const formatType = (type: string) => {
                     <Library class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1">
-                            <a
-                                v-if="media.link"
-                                :href="media.link"
-                                target="_blank"
-                                class="text-xs text-primary hover:underline"
-                            >
+                            <a v-if="media.link" :href="media.link" target="_blank" class="text-xs text-primary hover:underline">
                                 {{ media.name }}
                                 <ExternalLink class="inline h-3 w-3" />
                             </a>

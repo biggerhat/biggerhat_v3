@@ -74,14 +74,14 @@ const filterByCategory = (categorySlug: string) => {
     const params: Record<string, string> = {};
     if (categorySlug !== 'all') params.category = categorySlug;
     if (props.active_faction) params.faction = props.active_faction;
-    router.get(route('blog.index'), params, { preserveState: true });
+    router.get(route('blog.index'), params, { only: ['posts', 'active_category', 'active_faction'], preserveState: true, replace: true });
 };
 
 const filterByFaction = (factionSlug: string) => {
     const params: Record<string, string> = {};
     if (props.active_category) params.category = props.active_category;
     if (factionSlug !== 'all') params.faction = factionSlug;
-    router.get(route('blog.index'), params, { preserveState: true });
+    router.get(route('blog.index'), params, { only: ['posts', 'active_category', 'active_faction'], preserveState: true, replace: true });
 };
 
 const formatDate = (dateStr: string) => {

@@ -22,9 +22,9 @@ class AbilityAdminController extends Controller
     public function create(Request $request)
     {
         return inertia('Admin/Abilities/AbilityForm', [
-            'defensive_ability_types' => DefensiveAbilityTypeEnum::toSelectOptions(),
-            'suits' => SuitEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
+            'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
+            'suits' => fn () => SuitEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 
@@ -32,9 +32,9 @@ class AbilityAdminController extends Controller
     {
         return inertia('Admin/Abilities/AbilityForm', [
             'ability' => $ability->loadMissing(['characters']),
-            'defensive_ability_types' => DefensiveAbilityTypeEnum::toSelectOptions(),
-            'suits' => SuitEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
+            'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
+            'suits' => fn () => SuitEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 

@@ -22,12 +22,12 @@ class LoreAdminController extends Controller
     public function create(Request $request)
     {
         return inertia('Admin/Lore/LoreForm', [
-            'lore_media' => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
+            'lore_media' => fn () => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
                 'name' => $m->name,
                 'value' => $m->name,
             ]),
-            'media_types' => LoreMediaTypeEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
+            'media_types' => fn () => LoreMediaTypeEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 
@@ -35,12 +35,12 @@ class LoreAdminController extends Controller
     {
         return inertia('Admin/Lore/LoreForm', [
             'lore' => $lore->loadMissing(['media', 'characters']),
-            'lore_media' => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
+            'lore_media' => fn () => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
                 'name' => $m->name,
                 'value' => $m->name,
             ]),
-            'media_types' => LoreMediaTypeEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
+            'media_types' => fn () => LoreMediaTypeEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
         ]);
     }
 

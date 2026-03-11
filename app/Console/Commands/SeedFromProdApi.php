@@ -282,9 +282,6 @@ class SeedFromProdApi extends Command
                     }
 
                     $displayName = $mini['display_name'] ?? $item['display_name'];
-                    if ($seenSlugs[$baseSlug] > 1) {
-                        $displayName .= ' (Sculpt '.$seenSlugs[$baseSlug].')';
-                    }
 
                     $miniature = Miniature::updateOrCreate(
                         ['character_id' => $character->id, 'slug' => $uniqueSlug, 'version' => $mini['version']],

@@ -34,7 +34,7 @@ class BlogController extends Controller
 
         return inertia('Blog/Index', [
             'posts' => $query->paginate(12),
-            'categories' => BlogCategory::orderBy('name')->get(),
+            'categories' => fn () => BlogCategory::orderBy('name')->get(),
             'active_category' => $request->get('category'),
             'active_faction' => $request->get('faction'),
         ]);

@@ -176,7 +176,14 @@ const table = useVueTable({
     </div>
 
     <!-- Image preview dialog -->
-    <Dialog :open="!!previewImage" @update:open="(open: boolean) => { if (!open) previewImage = null }">
+    <Dialog
+        :open="!!previewImage"
+        @update:open="
+            (open: boolean) => {
+                if (!open) previewImage = null;
+            }
+        "
+    >
         <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogTitle class="text-lg font-semibold">{{ previewImage?.name }}</DialogTitle>
             <DialogDescription class="sr-only">Blueprint image preview</DialogDescription>

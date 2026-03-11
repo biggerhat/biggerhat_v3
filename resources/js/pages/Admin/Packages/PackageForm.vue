@@ -175,7 +175,12 @@ onMounted(() => {
 
                         <TextBar text="Factions" />
                         <div class="flex flex-col space-y-1.5">
-                            <SearchableMultiselect v-model="formInfo.factions" placeholder="Select Factions" :options="props.factions" option-value="name" />
+                            <SearchableMultiselect
+                                v-model="formInfo.factions"
+                                placeholder="Select Factions"
+                                :options="props.factions"
+                                option-value="name"
+                            />
                         </div>
 
                         <TextBar text="Images" />
@@ -190,7 +195,7 @@ onMounted(() => {
                                         v-if="props.package?.front_image && !formInfo.front_image"
                                         :src="'/storage/' + props.package?.front_image"
                                         :alt="props.package?.name"
-                                        class="h-full w-full rounded-lg"
+                                        class="max-h-48 w-auto rounded-lg border object-contain"
                                     />
                                     <Label for="front_image">Front Image</Label>
                                     <Input
@@ -209,7 +214,7 @@ onMounted(() => {
                                         v-if="props.package?.back_image && !formInfo.back_image"
                                         :src="'/storage/' + props.package?.back_image"
                                         :alt="props.package?.name"
-                                        class="h-full w-full rounded-lg"
+                                        class="max-h-48 w-auto rounded-lg border object-contain"
                                     />
                                     <Label for="back_image">Back Image</Label>
                                     <Input
@@ -231,7 +236,7 @@ onMounted(() => {
                                     v-if="props.package?.combination_image && !formInfo.combination_image"
                                     :src="'/storage/' + props.package?.combination_image"
                                     :alt="props.package?.name"
-                                    class="h-full w-full rounded-lg"
+                                    class="max-h-48 w-auto rounded-lg border object-contain"
                                 />
                                 <Label for="combination_image">Combination Image (Optional Override)</Label>
                                 <Input

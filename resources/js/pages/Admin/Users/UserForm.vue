@@ -66,10 +66,14 @@ const resetLinkCopied = ref(false);
 
 const generateResetLink = () => {
     generatingResetLink.value = true;
-    router.post(route('admin.users.password_reset_link', { user: props.user.slug }), {}, {
-        preserveScroll: true,
-        onFinish: () => (generatingResetLink.value = false),
-    });
+    router.post(
+        route('admin.users.password_reset_link', { user: props.user.slug }),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (generatingResetLink.value = false),
+        },
+    );
 };
 
 const copyResetLink = async () => {

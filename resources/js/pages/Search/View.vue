@@ -9,11 +9,11 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
-import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -555,7 +555,12 @@ onMounted(() => {
                             <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">General</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Factions</label>
-                                <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
+                                <SearchableMultiselect
+                                    v-model="selectedFactions"
+                                    placeholder="Select Factions"
+                                    :options="props.factions"
+                                    option-value="name"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Station</label>
@@ -971,7 +976,12 @@ onMounted(() => {
                         <div class="space-y-3 px-1">
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Factions</label>
-                                <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
+                                <SearchableMultiselect
+                                    v-model="selectedFactions"
+                                    placeholder="Select Factions"
+                                    :options="props.factions"
+                                    option-value="name"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Station</label>

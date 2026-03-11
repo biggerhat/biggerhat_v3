@@ -19,6 +19,7 @@ class CharacterController extends Controller
             'lores.media',
             'totem.standardMiniatures', 'isTotemFor.standardMiniatures'
         );
+        $character->load(['blueprints' => fn ($q) => $q->withImages()]);
 
         $relatedCharacters = Character::query()
             ->where('id', '!=', $character->id)

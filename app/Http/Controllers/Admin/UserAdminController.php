@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 use Spatie\Permission\Models\Role;
 
 class UserAdminController extends Controller
@@ -34,6 +35,14 @@ class UserAdminController extends Controller
         $user->syncRoles($validated['roles'] ?? []);
 
         return to_route('admin.users.index')->withMessage($user->name.' updated successfully!');
+    }
+
+    public function generatePasswordResetLink(Request $request, User $user)
+    {
+        $token = Password::broker()->createToken($user);
+        $resetUrl = url(route('password.reset', ['token' => $token, 'email' => $user->email], false));
+
+        return back()->with('reset_link', $resetUrl);
     }
 
     public function delete(Request $request, User $user)

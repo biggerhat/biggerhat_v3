@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
+import SearchableSelect from '@/components/SearchableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
@@ -25,6 +26,7 @@ const props = defineProps<{
     factions: Record<string, any>;
     categories: any[];
     sculpt_versions: any[];
+    characters: any[];
 }>();
 
 const filterParams = ref({
@@ -32,10 +34,11 @@ const filterParams = ref({
     faction: null as string | null,
     category: null as string | null,
     sculpt_version: null as string | null,
+    character: null as string | null,
     page_view: null as string | null,
 });
 
-const filterKeys = ['name_search', 'faction', 'category', 'sculpt_version'] as const;
+const filterKeys = ['name_search', 'faction', 'category', 'sculpt_version', 'character'] as const;
 
 const activeFilterCount = computed(() => {
     return filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
@@ -91,6 +94,7 @@ onMounted(() => {
     filterParams.value.faction = urlParams.get('faction');
     filterParams.value.category = urlParams.get('category');
     filterParams.value.sculpt_version = urlParams.get('sculpt_version');
+    filterParams.value.character = urlParams.get('character');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'cards';
 });
 
@@ -187,6 +191,15 @@ const formatPrice = (cents: number | null) => {
                     <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
                         <div class="grid gap-4">
                             <div class="space-y-2">
+                                <label class="text-sm font-medium">Character</label>
+                                <SearchableSelect
+                                    v-model="filterParams.character"
+                                    placeholder="Any Character"
+                                    :options="props.characters"
+                                    trigger-class="border-2 border-primary rounded"
+                                />
+                            </div>
+                            <div class="space-y-2">
                                 <label class="text-sm font-medium">Category</label>
                                 <ClearableSelect
                                     v-model="filterParams.category"
@@ -216,6 +229,10 @@ const formatPrice = (cents: number | null) => {
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden w-64 shrink-0 md:block">
                     <div class="space-y-3 pr-2">
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground">Character</label>
+                            <SearchableSelect v-model="filterParams.character" placeholder="Any Character" :options="props.characters" />
+                        </div>
                         <div class="space-y-1">
                             <label class="text-xs font-medium text-muted-foreground">Category</label>
                             <ClearableSelect v-model="filterParams.category" placeholder="Any Category" :options="props.categories" />

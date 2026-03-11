@@ -3,10 +3,12 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
-import { onMounted } from 'vue';
+import { type SharedData } from '@/types';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Check, Copy, KeyRound, LoaderCircle } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     user: {
@@ -55,12 +57,33 @@ onMounted(() => {
 const submit = () => {
     form.post(route('admin.users.update', { user: props.user.slug }));
 };
+
+// ─── Password Reset Link ───
+const page = usePage<SharedData>();
+const resetLink = computed(() => (page.props.flash as any)?.reset_link ?? null);
+const generatingResetLink = ref(false);
+const resetLinkCopied = ref(false);
+
+const generateResetLink = () => {
+    generatingResetLink.value = true;
+    router.post(route('admin.users.password_reset_link', { user: props.user.slug }), {}, {
+        preserveScroll: true,
+        onFinish: () => (generatingResetLink.value = false),
+    });
+};
+
+const copyResetLink = async () => {
+    if (!resetLink.value) return;
+    await navigator.clipboard.writeText(resetLink.value);
+    resetLinkCopied.value = true;
+    setTimeout(() => (resetLinkCopied.value = false), 2000);
+};
 </script>
 
 <template>
     <Head title="User Information" />
 
-    <div class="mx-4 mt-6">
+    <div class="mx-4 mt-6 space-y-6">
         <Card>
             <CardHeader>
                 <CardTitle>User Form</CardTitle>
@@ -102,6 +125,33 @@ const submit = () => {
                         </Button>
                     </div>
                 </form>
+            </CardContent>
+        </Card>
+
+        <!-- Password Reset Link -->
+        <Card>
+            <CardHeader>
+                <CardTitle>Password Reset</CardTitle>
+                <CardDescription>Generate a one-time password reset link for this user</CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-4">
+                <Button variant="outline" class="gap-2" :disabled="generatingResetLink" @click="generateResetLink">
+                    <LoaderCircle v-if="generatingResetLink" class="size-4 animate-spin" />
+                    <KeyRound v-else class="size-4" />
+                    Generate Reset Link
+                </Button>
+
+                <div v-if="resetLink" class="space-y-2">
+                    <Label>Reset Link</Label>
+                    <p class="text-xs text-muted-foreground">This link expires in 60 minutes and can only be used once.</p>
+                    <div class="flex gap-2">
+                        <Input :model-value="resetLink" readonly class="flex-1 font-mono text-xs" />
+                        <Button variant="outline" size="icon" @click="copyResetLink">
+                            <Check v-if="resetLinkCopied" class="size-4" />
+                            <Copy v-else class="size-4" />
+                        </Button>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     </div>

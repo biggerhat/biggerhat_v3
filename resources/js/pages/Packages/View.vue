@@ -4,9 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, ExternalLink, Library, Package } from 'lucide-vue-next';
+import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface PackageData {
@@ -293,6 +295,45 @@ const togglePackageCollection = () => {
                         <Badge v-for="miniature in package.miniatures" :key="miniature.slug" variant="secondary">
                             {{ miniature.display_name }}
                         </Badge>
+                    </div>
+                </div>
+
+                <!-- Build Instructions -->
+                <div v-if="package.blueprints?.length" class="mt-8 lg:mt-12">
+                    <Separator label="Build Instructions" class="mb-6" />
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                        <Sheet v-for="bp in package.blueprints" :key="bp.id">
+                            <SheetTrigger as-child>
+                                <button class="group cursor-pointer text-left">
+                                    <Card class="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                                        <div v-if="bp.images?.[0]" class="border-b bg-muted/30">
+                                            <img :src="imageSrc(bp.images[0])" :alt="bp.name" loading="lazy" decoding="async" class="h-32 w-full object-contain" />
+                                        </div>
+                                        <CardContent class="flex items-center gap-2 p-3">
+                                            <FileImage class="h-4 w-4 shrink-0 text-muted-foreground" />
+                                            <span class="text-sm font-medium group-hover:text-primary">{{ bp.name }}</span>
+                                            <Badge variant="secondary" class="ml-auto text-[10px]">
+                                                {{ bp.images?.length ?? 0 }} diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
+                                            </Badge>
+                                        </CardContent>
+                                    </Card>
+                                </button>
+                            </SheetTrigger>
+                            <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
+                                <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
+                                <SheetDescription class="text-sm text-muted-foreground">
+                                    {{ bp.images?.length ?? 0 }} assembly diagram{{ (bp.images?.length ?? 0) !== 1 ? 's' : '' }}
+                                </SheetDescription>
+                                <div v-if="bp.images?.length" class="mt-4 space-y-4">
+                                    <div v-for="(img, idx) in bp.images" :key="idx" class="overflow-hidden rounded-lg border">
+                                        <img :src="imageSrc(img)" :alt="imageLabel(img)" loading="lazy" decoding="async" class="w-full" />
+                                        <div class="border-t bg-muted/50 px-3 py-1.5">
+                                            <p class="text-xs font-medium text-muted-foreground">{{ imageLabel(img) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
                     </div>
                 </div>
             </div>

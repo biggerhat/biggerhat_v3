@@ -47,6 +47,12 @@ class Package extends Model
         return $this->morphedByMany(Keyword::class, 'packageable');
     }
 
+    /** @return MorphToMany<Blueprint, $this> */
+    public function blueprints(): MorphToMany
+    {
+        return $this->morphedByMany(Blueprint::class, 'packageable');
+    }
+
     /** @return HasMany<PackageStoreLink, $this> */
     public function storeLinks(): HasMany
     {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from '@/components/ui/combobox';
-import { useFilter } from 'reka-ui';
 import { ChevronDown, X } from 'lucide-vue-next';
+import { useFilter } from 'reka-ui';
 import { computed, ref, watch } from 'vue';
 
 const modelValue = defineModel<string | null>();

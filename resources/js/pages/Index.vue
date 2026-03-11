@@ -118,7 +118,9 @@ function toggleDialog() {
                         :href="route('tools.crew_builder.index')"
                         class="group flex items-center gap-4 rounded-xl border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
                     >
-                        <div class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                        <div
+                            class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                        >
                             <Swords class="size-7" />
                         </div>
                         <div class="flex-1">
@@ -195,17 +197,14 @@ function toggleDialog() {
                     <div v-if="featured_character && featured_character.standard_miniatures?.length">
                         <div class="mb-3 flex items-center justify-between">
                             <h2 class="font-semibold">Featured Character</h2>
-                            <Button variant="ghost" size="sm" class="h-7 gap-1 px-2 text-xs" @click="router.reload()">
+                            <Button variant="ghost" size="sm" class="h-7 gap-1 px-2 text-xs" @click="router.reload({ only: ['featured_character'] })">
                                 <RefreshCw class="size-3" />
                                 Shuffle
                             </Button>
                         </div>
                         <div class="flex justify-center">
                             <div class="w-44 md:w-52">
-                                <CharacterCardView
-                                    :miniature="featured_character.standard_miniatures[0]"
-                                    :character-slug="featured_character.slug"
-                                />
+                                <CharacterCardView :miniature="featured_character.standard_miniatures[0]" :character-slug="featured_character.slug" />
                             </div>
                         </div>
                     </div>

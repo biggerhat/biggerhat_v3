@@ -44,8 +44,8 @@ class LoreController extends Controller
         return inertia('Lore/Index', [
             'lores' => $lores,
             'result_count' => $lores->total(),
-            'media_types' => LoreMediaTypeEnum::toSelectOptions(),
-            'lore_media' => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
+            'media_types' => fn () => LoreMediaTypeEnum::toSelectOptions(),
+            'lore_media' => fn () => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
                 'name' => $m->name,
                 'value' => (string) $m->id,
             ]),

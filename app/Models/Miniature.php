@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Observers\MiniatureObserver;
 use App\Traits\UsesSelectOptionsScope;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Support\Str;
 
 /**
  * @mixin IdeHelperMiniature
  */
+#[ObservedBy(MiniatureObserver::class)]
 class Miniature extends Model
 {
     /** @use HasFactory<\Database\Factories\MiniatureFactory> */
@@ -20,27 +22,6 @@ class Miniature extends Model
     use UsesSelectOptionsScope;
 
     protected $guarded = ['id'];
-
-    //    protected static function bootSlugDisplayName(): void
-    //    {
-    //        static::creating(function (self $model) {
-    //            $model->display_name = $model->name;
-    //            if ($model->title) {
-    //                $model->display_name .= ", {$model->title}";
-    //            }
-    //
-    //            $model->slug = Str::slug($model->display_name);
-    //        });
-    //
-    //        static::updating(function (self $model) {
-    //            $model->display_name = $model->name;
-    //            if ($model->title) {
-    //                $model->display_name .= ", {$model->title}";
-    //            }
-    //
-    //            $model->slug = Str::slug($model->display_name);
-    //        });
-    //    }
 
     public function character(): BelongsTo
     {

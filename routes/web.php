@@ -66,11 +66,11 @@ Route::get('/', function () {
         ]);
 
     return Inertia::render('Index', [
-        'factions' => FactionEnum::buildDetails(),
+        'factions' => fn () => FactionEnum::buildDetails(),
         'featured_character' => $featured,
-        'recent_crews' => $recentCrews,
-        'recent_articles' => $recentArticles,
-        'stats' => [
+        'recent_crews' => fn () => $recentCrews,
+        'recent_articles' => fn () => $recentArticles,
+        'stats' => fn () => [
             'characters' => Character::count(),
             'keywords' => Keyword::count(),
         ],

@@ -6,12 +6,12 @@ import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
-import SearchableSelect from '@/components/SearchableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import LoreCard from '@/components/LoreCard.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SearchableSelect from '@/components/SearchableSelect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -271,12 +271,7 @@ onMounted(() => {
                                         </TableCell>
                                         <TableCell>
                                             <div v-if="lore.media?.length" class="flex flex-wrap gap-1">
-                                                <Badge
-                                                    v-for="media in lore.media"
-                                                    :key="media.name"
-                                                    variant="outline"
-                                                    class="text-xs capitalize"
-                                                >
+                                                <Badge v-for="media in lore.media" :key="media.name" variant="outline" class="text-xs capitalize">
                                                     {{ (media.type as string).replace(/_/g, ' ') }}
                                                 </Badge>
                                             </div>

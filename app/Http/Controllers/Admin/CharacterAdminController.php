@@ -67,26 +67,26 @@ class CharacterAdminController extends Controller
     private function getFormData(): array
     {
         return [
-            'suits' => SuitEnum::toSelectOptions(),
-            'factions' => FactionEnum::toSelectOptions(),
-            'stations' => CharacterStationEnum::toSelectOptions(),
-            'base_sizes' => BaseSizeEnum::toSelectOptions(),
-            'keywords' => Keyword::toSelectOptions('name', 'slug'),
-            'characteristics' => Characteristic::toSelectOptions('name', 'slug'),
-            'miniatures' => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => Action::all()->map(function (Action $action) {
+            'suits' => fn () => SuitEnum::toSelectOptions(),
+            'factions' => fn () => FactionEnum::toSelectOptions(),
+            'stations' => fn () => CharacterStationEnum::toSelectOptions(),
+            'base_sizes' => fn () => BaseSizeEnum::toSelectOptions(),
+            'keywords' => fn () => Keyword::toSelectOptions('name', 'slug'),
+            'characteristics' => fn () => Characteristic::toSelectOptions('name', 'slug'),
+            'miniatures' => fn () => Miniature::toSelectOptions('name', 'slug'),
+            'actions' => fn () => Action::all()->map(function (Action $action) {
                 return [
                     'slug' => $action->slug,
                     'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
                 ];
             }),
-            'abilities' => Ability::toSelectOptions('name', 'slug'),
-            'markers' => Marker::toSelectOptions('name', 'slug'),
-            'tokens' => Token::toSelectOptions('name', 'slug'),
-            'totems' => Character::whereHas('characteristics', function (Builder $query) {
+            'abilities' => fn () => Ability::toSelectOptions('name', 'slug'),
+            'markers' => fn () => Marker::toSelectOptions('name', 'slug'),
+            'tokens' => fn () => Token::toSelectOptions('name', 'slug'),
+            'totems' => fn () => Character::whereHas('characteristics', function (Builder $query) {
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
-            'crew_upgrades' => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
+            'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
         ];
     }
 

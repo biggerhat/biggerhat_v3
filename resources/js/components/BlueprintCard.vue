@@ -30,7 +30,9 @@ const props = defineProps<{
 }>();
 
 const characterCount = computed(() => props.blueprint.characters_count ?? props.blueprint.characters?.length ?? 0);
-const singleCharacter = computed(() => (characterCount.value === 1 && props.blueprint.characters?.length === 1 ? props.blueprint.characters[0] : null));
+const singleCharacter = computed(() =>
+    characterCount.value === 1 && props.blueprint.characters?.length === 1 ? props.blueprint.characters[0] : null,
+);
 
 const formatVersion = (version: string) => {
     return version ? version.replace(/_/g, ' ') : '';
@@ -43,7 +45,13 @@ const formatVersion = (version: string) => {
         <Dialog v-if="blueprint.image_path">
             <DialogTrigger as-child>
                 <button class="cursor-pointer border-b bg-muted/30 transition-opacity hover:opacity-80">
-                    <img :src="imageSrc(blueprint.image_path)" :alt="blueprint.name" loading="lazy" decoding="async" class="h-40 w-full object-contain" />
+                    <img
+                        :src="imageSrc(blueprint.image_path)"
+                        :alt="blueprint.name"
+                        loading="lazy"
+                        decoding="async"
+                        class="h-40 w-full object-contain"
+                    />
                 </button>
             </DialogTrigger>
             <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -51,13 +59,7 @@ const formatVersion = (version: string) => {
                 <DialogDescription class="text-sm text-muted-foreground">
                     {{ imageLabel(blueprint.image_path) }}
                 </DialogDescription>
-                <img
-                    :src="imageSrc(blueprint.image_path)"
-                    :alt="blueprint.name"
-                    loading="lazy"
-                    decoding="async"
-                    class="mt-3 w-full rounded-lg border"
-                />
+                <img :src="imageSrc(blueprint.image_path)" :alt="blueprint.name" class="mt-3 w-full rounded-lg border" />
             </DialogContent>
         </Dialog>
 

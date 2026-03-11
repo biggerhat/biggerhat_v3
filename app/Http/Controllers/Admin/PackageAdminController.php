@@ -60,11 +60,11 @@ class PackageAdminController extends Controller
     private function getFormData(): array
     {
         return [
-            'factions' => FactionEnum::toSelectOptions(),
-            'sculpt_versions' => SculptVersionEnum::toSelectOptions(),
-            'characters' => Character::toSelectOptions('display_name', 'id'),
-            'miniatures' => Miniature::toSelectOptions('display_name', 'id'),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
+            'factions' => fn () => FactionEnum::toSelectOptions(),
+            'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'id'),
+            'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'id'),
+            'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
         ];
     }
 

@@ -25,29 +25,15 @@ class ActionAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/Actions/ActionForm', [
-            'action_types' => ActionTypeEnum::toSelectOptions(),
-            'range_types' => ActionRangeTypeEnum::toSelectOptions(),
-            'suits' => SuitEnum::toSelectOptions(),
-            'resistance_types' => ResistanceTypeEnum::toSelectOptions(),
-            'modifier_types' => ModifierTypeEnum::toSelectOptions(),
-            'triggers' => Trigger::toSelectOptions('name', 'slug'),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
-        ]);
+        return inertia('Admin/Actions/ActionForm', $this->getFormData());
     }
 
     public function edit(Request $request, Action $action)
     {
-        return inertia('Admin/Actions/ActionForm', [
-            'action' => $action->loadMissing(['triggers', 'characters']),
-            'action_types' => ActionTypeEnum::toSelectOptions(),
-            'range_types' => ActionRangeTypeEnum::toSelectOptions(),
-            'suits' => SuitEnum::toSelectOptions(),
-            'resistance_types' => ResistanceTypeEnum::toSelectOptions(),
-            'modifier_types' => ModifierTypeEnum::toSelectOptions(),
-            'triggers' => Trigger::toSelectOptions('name', 'slug'),
-            'characters' => Character::toSelectOptions('display_name', 'slug'),
-        ]);
+        return inertia('Admin/Actions/ActionForm', array_merge(
+            ['action' => $action->loadMissing(['triggers', 'characters'])],
+            $this->getFormData(),
+        ));
     }
 
     public function store(Request $request)
@@ -70,6 +56,19 @@ class ActionAdminController extends Controller
         $action->delete();
 
         return redirect()->route('admin.actions.index')->withMessage("{$name} has been deleted.");
+    }
+
+    private function getFormData(): array
+    {
+        return [
+            'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
+            'range_types' => fn () => ActionRangeTypeEnum::toSelectOptions(),
+            'suits' => fn () => SuitEnum::toSelectOptions(),
+            'resistance_types' => fn () => ResistanceTypeEnum::toSelectOptions(),
+            'modifier_types' => fn () => ModifierTypeEnum::toSelectOptions(),
+            'triggers' => fn () => Trigger::toSelectOptions('name', 'slug'),
+            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+        ];
     }
 
     private function validateAndSave(Request $request, ?Action $action = null): Action

@@ -4,8 +4,8 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
@@ -446,14 +446,7 @@ const addAllStandard = () => {
                                     <DialogDescription class="text-sm text-muted-foreground">
                                         {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
                                     </DialogDescription>
-                                    <img
-                                        v-if="bp.image_path"
-                                        :src="imageSrc(bp.image_path)"
-                                        :alt="bp.name"
-                                        loading="lazy"
-                                        decoding="async"
-                                        class="mt-2 w-full rounded-lg border"
-                                    />
+                                    <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
                                 </DialogContent>
                             </Dialog>
                         </div>

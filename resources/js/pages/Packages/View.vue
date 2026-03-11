@@ -3,8 +3,8 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -129,7 +129,13 @@ const togglePackageCollection = () => {
                         <div v-if="images.length > 0" class="space-y-3">
                             <!-- Main image -->
                             <div class="overflow-hidden rounded-xl shadow-lg">
-                                <img :src="images[activeImage].src" :alt="`${package.name} - ${images[activeImage].label}`" class="w-full" />
+                                <img
+                                    :src="images[activeImage].src"
+                                    :alt="`${package.name} - ${images[activeImage].label}`"
+                                    loading="lazy"
+                                    decoding="async"
+                                    class="w-full"
+                                />
                             </div>
                             <!-- Thumbnails when both images exist -->
                             <div v-if="images.length > 1" class="flex gap-3">
@@ -140,7 +146,13 @@ const togglePackageCollection = () => {
                                     class="overflow-hidden rounded-lg border-2 transition-all"
                                     :class="activeImage === index ? 'border-primary shadow-md' : 'border-transparent opacity-60 hover:opacity-100'"
                                 >
-                                    <img :src="img.src" :alt="img.label" class="h-24 w-20 object-cover sm:h-32 sm:w-24" />
+                                    <img
+                                        :src="img.src"
+                                        :alt="img.label"
+                                        loading="lazy"
+                                        decoding="async"
+                                        class="h-24 w-20 object-cover sm:h-32 sm:w-24"
+                                    />
                                 </button>
                             </div>
                         </div>
@@ -302,12 +314,20 @@ const togglePackageCollection = () => {
                 <div v-if="package.blueprints?.length" class="mt-8 lg:mt-12">
                     <Separator label="Build Instructions" class="mb-6" />
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                        <Sheet v-for="bp in package.blueprints" :key="bp.id">
-                            <SheetTrigger as-child>
+                        <Dialog v-for="bp in package.blueprints" :key="bp.id">
+                            <DialogTrigger as-child>
                                 <button class="group cursor-pointer text-left">
-                                    <Card class="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                                    <Card
+                                        class="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg"
+                                    >
                                         <div v-if="bp.image_path" class="border-b bg-muted/30">
-                                            <img :src="imageSrc(bp.image_path)" :alt="bp.name" loading="lazy" decoding="async" class="h-32 w-full object-contain" />
+                                            <img
+                                                :src="imageSrc(bp.image_path)"
+                                                :alt="bp.name"
+                                                loading="lazy"
+                                                decoding="async"
+                                                class="h-32 w-full object-contain"
+                                            />
                                         </div>
                                         <CardContent class="flex items-center gap-2 p-3">
                                             <FileImage class="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -315,17 +335,15 @@ const togglePackageCollection = () => {
                                         </CardContent>
                                     </Card>
                                 </button>
-                            </SheetTrigger>
-                            <SheetContent side="right" class="overflow-y-auto sm:max-w-lg">
-                                <SheetTitle class="text-lg font-semibold">{{ bp.name }}</SheetTitle>
-                                <SheetDescription class="text-sm text-muted-foreground">
+                            </DialogTrigger>
+                            <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+                                <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
+                                <DialogDescription class="text-sm text-muted-foreground">
                                     {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
-                                </SheetDescription>
-                                <div v-if="bp.image_path" class="mt-4">
-                                    <img :src="imageSrc(bp.image_path)" :alt="bp.name" loading="lazy" decoding="async" class="w-full rounded-lg border" />
-                                </div>
-                            </SheetContent>
-                        </Sheet>
+                                </DialogDescription>
+                                <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </div>
             </div>

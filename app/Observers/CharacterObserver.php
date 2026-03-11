@@ -48,6 +48,8 @@ class CharacterObserver
                         'slug' => $character->slug,
                     ]);
                 });
+
+            MiniatureObserver::refreshSculptSuffixes($character->id);
         }
     }
 

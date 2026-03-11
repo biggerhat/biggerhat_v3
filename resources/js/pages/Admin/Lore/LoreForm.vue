@@ -105,9 +105,7 @@ onMounted(() => {
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
-                            <Button type="button" variant="outline" size="sm" @click="addNewMedia">
-                                + Create New Media Source
-                            </Button>
+                            <Button type="button" variant="outline" size="sm" @click="addNewMedia"> + Create New Media Source </Button>
                         </div>
 
                         <template v-if="formInfo.new_media.length > 0">

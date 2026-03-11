@@ -265,7 +265,12 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <SearchableMultiselect v-model="formInfo.keywords" placeholder="Select Keywords" :options="props.keywords" option-value="name" />
+                            <SearchableMultiselect
+                                v-model="formInfo.keywords"
+                                placeholder="Select Keywords"
+                                :options="props.keywords"
+                                option-value="name"
+                            />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <SearchableMultiselect
@@ -405,14 +410,24 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <SearchableMultiselect v-model="formInfo.abilities" placeholder="Select Abilities" :options="props.abilities" option-value="name" />
+                                    <SearchableMultiselect
+                                        v-model="formInfo.abilities"
+                                        placeholder="Select Abilities"
+                                        :options="props.abilities"
+                                        option-value="name"
+                                    />
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <SearchableMultiselect v-model="formInfo.actions" placeholder="Select Actions" :options="props.actions" option-value="name" />
+                                    <SearchableMultiselect
+                                        v-model="formInfo.actions"
+                                        placeholder="Select Actions"
+                                        :options="props.actions"
+                                        option-value="name"
+                                    />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -427,10 +442,20 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex flex-col space-y-1.5">
-                                    <SearchableMultiselect v-model="formInfo.markers" placeholder="Select Markers" :options="props.markers" option-value="name" />
+                                    <SearchableMultiselect
+                                        v-model="formInfo.markers"
+                                        placeholder="Select Markers"
+                                        :options="props.markers"
+                                        option-value="name"
+                                    />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <SearchableMultiselect v-model="formInfo.tokens" placeholder="Select Tokens" :options="props.tokens" option-value="name" />
+                                    <SearchableMultiselect
+                                        v-model="formInfo.tokens"
+                                        placeholder="Select Tokens"
+                                        :options="props.tokens"
+                                        option-value="name"
+                                    />
                                 </div>
                             </div>
                         </div>

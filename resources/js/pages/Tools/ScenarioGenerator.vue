@@ -68,7 +68,7 @@ const suitBorderColor: Record<string, string> = {
 };
 
 const navigateToSeason = (season: string) => {
-    router.get(route('tools.scenario_generator'), { season });
+    router.get(route('tools.scenario_generator'), { season }, { only: ['season', 'strategies', 'schemes', 'deployments'], replace: true });
 };
 
 const pickedDeployment = ref<DeploymentItem | null>(null);

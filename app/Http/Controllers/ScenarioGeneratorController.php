@@ -49,11 +49,11 @@ class ScenarioGeneratorController extends Controller
                 'value' => $seasonEnum->value,
                 'label' => $seasonEnum->label(),
             ],
-            'seasons' => collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+            'seasons' => fn () => collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
                 'value' => $s->value,
                 'label' => $s->label(),
             ]),
-            'deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => [
+            'deployments' => fn () => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => [
                 'value' => $d->value,
                 'label' => $d->label(),
                 'suit' => $d->suit()->value,

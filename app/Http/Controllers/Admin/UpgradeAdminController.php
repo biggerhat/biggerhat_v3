@@ -67,21 +67,21 @@ class UpgradeAdminController extends Controller
     private function getFormData(): array
     {
         return [
-            'characters' => Character::toSelectOptions('display_name', 'id'),
-            'keywords' => Keyword::toSelectOptions('name', 'id'),
-            'factions' => FactionEnum::toSelectOptions(),
-            'types' => UpgradeTypeEnum::toSelectOptions(),
-            'limitations' => UpgradeLimitationEnum::toSelectOptions(),
-            'tokens' => Token::all(),
-            'markers' => Marker::all(),
-            'actions' => Action::all()->map(function (Action $action) {
+            'characters' => fn () => Character::toSelectOptions('display_name', 'id'),
+            'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
+            'factions' => fn () => FactionEnum::toSelectOptions(),
+            'types' => fn () => UpgradeTypeEnum::toSelectOptions(),
+            'limitations' => fn () => UpgradeLimitationEnum::toSelectOptions(),
+            'tokens' => fn () => Token::all(),
+            'markers' => fn () => Marker::all(),
+            'actions' => fn () => Action::all()->map(function (Action $action) {
                 return [
                     'slug' => $action->slug,
                     'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
                 ];
             }),
-            'abilities' => Ability::all(),
-            'triggers' => Trigger::all(),
+            'abilities' => fn () => Ability::all(),
+            'triggers' => fn () => Trigger::all(),
         ];
     }
 

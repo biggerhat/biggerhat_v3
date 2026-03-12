@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AddToWishlist from '@/components/AddToWishlist.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -268,6 +269,9 @@ const togglePackageCollection = () => {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        <!-- Wishlist -->
+                        <AddToWishlist type="package" :id="package.id" />
                     </div>
                 </div>
 

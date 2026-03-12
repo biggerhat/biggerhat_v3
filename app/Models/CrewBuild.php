@@ -47,4 +47,9 @@ class CrewBuild extends Model
     {
         return $this->belongsTo(Character::class, 'master_id');
     }
+
+    public function copiedFrom(): BelongsTo
+    {
+        return $this->belongsTo(CrewBuild::class, 'copied_from_id');
+    }
 }

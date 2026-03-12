@@ -6,6 +6,8 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
@@ -37,6 +39,7 @@ import {
     ShieldAlert,
     Star,
     Swords,
+    Printer,
     Trash2,
     UserMinus,
     UserPlus,
@@ -119,6 +122,7 @@ interface SavedBuild {
     is_archived: boolean;
     is_public: boolean;
     updated_at: string;
+    copied_from: { name: string; share_code: string; is_public: boolean } | null;
 }
 
 const props = defineProps<{
@@ -133,6 +137,7 @@ const isAuthenticated = computed(() => !!page.props.auth.user);
 
 // ─── Core State ───
 const encounterSize = ref(50);
+const allowOverhire = ref(false);
 const selectedFaction = ref<string | null>(null);
 const selectedMasterName = ref<string | null>(null);
 const selectedMasterTitle = ref<CharacterData | null>(null);
@@ -321,13 +326,19 @@ const selectMasterTitle = (master: CharacterData) => {
     poolFilter.value = 'in-keyword';
     activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
 
-    crew.value.push({
-        character: master,
-        miniature: master.miniatures?.[0] ?? null,
-        isTotem: false,
-        effectiveCost: 0,
-        hiringCategory: 'leader',
-    });
+    if (crewName.value === 'Untitled Crew' || crewName.value.startsWith('Untitled ')) {
+        crewName.value = `Untitled ${master.display_name} Crew`;
+    }
+
+    for (let i = 0; i < (master.count || 1); i++) {
+        crew.value.push({
+            character: master,
+            miniature: getNextMiniature(master),
+            isTotem: false,
+            effectiveCost: 0,
+            hiringCategory: 'leader',
+        });
+    }
 
     if (master.has_totem_id) {
         const totem = characterById.value.get(master.has_totem_id);
@@ -351,23 +362,30 @@ const swapMasterTitle = (master: CharacterData) => {
     selectedMasterTitle.value = master;
     activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
 
-    const leaderIdx = crew.value.findIndex((m) => m.hiringCategory === 'leader');
-    if (leaderIdx >= 0) {
-        crew.value[leaderIdx] = {
+    if (crewName.value === 'Untitled Crew' || crewName.value.startsWith('Untitled ')) {
+        crewName.value = `Untitled ${master.display_name} Crew`;
+    }
+
+    // Remove old leaders and totems
+    crew.value = crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem');
+
+    // Add new leader(s) at the start
+    const leaders: CrewMember[] = [];
+    for (let i = 0; i < (master.count || 1); i++) {
+        leaders.push({
             character: master,
-            miniature: master.miniatures?.[0] ?? null,
+            miniature: getNextMiniature(master),
             isTotem: false,
             effectiveCost: 0,
             hiringCategory: 'leader',
-        };
+        });
     }
-
-    crew.value = crew.value.filter((m) => m.hiringCategory !== 'totem');
+    crew.value.unshift(...leaders);
     if (master.has_totem_id) {
         const totem = characterById.value.get(master.has_totem_id);
         if (totem) {
             for (let i = 0; i < (totem.count || 1); i++) {
-                crew.value.splice(1, 0, {
+                crew.value.splice(leaders.length, 0, {
                     character: totem,
                     miniature: getNextMiniature(totem),
                     isTotem: true,
@@ -420,6 +438,7 @@ const soulstonePool = computed(() => {
     const r = remaining.value;
     return r > 6 ? 6 : Math.max(0, r);
 });
+const isOverBudget = computed(() => totalSpent.value > encounterSize.value);
 
 // ─── Crew Stats ───
 const crewStats = computed(() => {
@@ -459,7 +478,7 @@ const canHire = (character: CharacterData): { allowed: boolean; reason?: string 
     if (isLoyal(character) && !sharesKeyword) return { allowed: false, reason: 'Loyal' };
     const category = getHiringCategory(character);
     if (category === 'ook' && ookCount.value >= 2) return { allowed: false, reason: 'OOK limit (2)' };
-    if (getEffectiveCost(character) > remaining.value) return { allowed: false, reason: 'Over budget' };
+    if (!allowOverhire.value && getEffectiveCost(character) > remaining.value) return { allowed: false, reason: 'Over budget' };
     return { allowed: true };
 };
 
@@ -765,7 +784,9 @@ const rebuildCrew = (faction: string, masterId: number, crewData: number[]) => {
     activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
     crew.value = [];
 
-    crew.value.push({ character: master, miniature: master.miniatures?.[0] ?? null, isTotem: false, effectiveCost: 0, hiringCategory: 'leader' });
+    for (let i = 0; i < (master.count || 1); i++) {
+        crew.value.push({ character: master, miniature: getNextMiniature(master), isTotem: false, effectiveCost: 0, hiringCategory: 'leader' });
+    }
 
     if (master.has_totem_id) {
         const totem = characterById.value.get(master.has_totem_id);
@@ -804,16 +825,24 @@ const loadBuild = (build: SavedBuild) => {
     pushBuildToUrl();
 };
 
-const deleteBuild = async (build: SavedBuild) => {
+const deleteTarget = ref<SavedBuild | null>(null);
+const deleting = ref(false);
+
+const confirmDeleteBuild = async () => {
+    if (!deleteTarget.value) return;
+    deleting.value = true;
     try {
-        await fetch(route('tools.crew_builder.destroy', { crewBuild: build.id }), {
+        await fetch(route('tools.crew_builder.destroy', { crewBuild: deleteTarget.value.id }), {
             method: 'DELETE',
             headers: { 'X-CSRF-TOKEN': csrfToken() },
         });
-        savedBuilds.value = savedBuilds.value.filter((b) => b.id !== build.id);
-        if (currentBuildId.value === build.id) resetBuildState();
+        savedBuilds.value = savedBuilds.value.filter((b) => b.id !== deleteTarget.value!.id);
+        if (currentBuildId.value === deleteTarget.value.id) resetBuildState();
     } catch {
         // Silent fail
+    } finally {
+        deleting.value = false;
+        deleteTarget.value = null;
     }
 };
 
@@ -908,6 +937,31 @@ const generateShareLink = async () => {
     navigator.clipboard.writeText(`${route('tools.crew_builder.index')}?crew=${encoded}`);
     shareTooltip.value = true;
     setTimeout(() => (shareTooltip.value = false), 2000);
+};
+
+const printCrewPDF = () => {
+    if (crew.value.length === 0) return;
+
+    const cards: Array<{ card_type: string; id: number }> = [];
+
+    for (const member of crew.value) {
+        const mini = member.miniature ?? member.character.miniatures?.[0];
+        if (mini) {
+            cards.push({ card_type: 'miniature', id: mini.id });
+        }
+
+        // Insert crew upgrades right after the master
+        if (member.hiringCategory === 'leader') {
+            for (const upgrade of member.character.crew_upgrades ?? []) {
+                cards.push({ card_type: 'upgrade', id: upgrade.id });
+            }
+        }
+    }
+
+    if (cards.length === 0) return;
+
+    const options = { separate_images: false };
+    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
 };
 
 const startNewBuild = () => {
@@ -1019,6 +1073,16 @@ onUnmounted(() => {
                                                 </span>
                                                 <span>{{ (build.crew_data?.length ?? 0) + 1 }} models</span>
                                             </div>
+                                            <div v-if="build.copied_from" class="mt-1 text-xs text-muted-foreground">
+                                                Copied from
+                                                <a
+                                                    v-if="build.copied_from.is_public"
+                                                    :href="route('tools.crew_builder.share', build.copied_from.share_code)"
+                                                    class="font-medium text-primary hover:underline"
+                                                    >{{ build.copied_from.name }}</a
+                                                >
+                                                <span v-else class="font-medium">{{ build.copied_from.name }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <Separator class="my-3" />
@@ -1057,7 +1121,7 @@ onUnmounted(() => {
                                             variant="ghost"
                                             size="sm"
                                             class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteBuild(build)"
+                                            @click="deleteTarget = build"
                                         >
                                             <Trash2 class="size-3" />
                                         </Button>
@@ -1094,6 +1158,16 @@ onUnmounted(() => {
                                                 </span>
                                                 <span>{{ (build.crew_data?.length ?? 0) + 1 }} models</span>
                                             </div>
+                                            <div v-if="build.copied_from" class="mt-1 text-xs text-muted-foreground">
+                                                Copied from
+                                                <a
+                                                    v-if="build.copied_from.is_public"
+                                                    :href="route('tools.crew_builder.share', build.copied_from.share_code)"
+                                                    class="font-medium text-primary hover:underline"
+                                                    >{{ build.copied_from.name }}</a
+                                                >
+                                                <span v-else class="font-medium">{{ build.copied_from.name }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <Separator class="my-3" />
@@ -1110,7 +1184,7 @@ onUnmounted(() => {
                                             variant="ghost"
                                             size="sm"
                                             class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteBuild(build)"
+                                            @click="deleteTarget = build"
                                         >
                                             <Trash2 class="size-3" />
                                         </Button>
@@ -1242,6 +1316,14 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
+                            <!-- Overhire toggle -->
+                            <div class="mt-2">
+                                <label class="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                                    <Checkbox :checked="allowOverhire" @update:checked="(v: boolean) => (allowOverhire = v)" />
+                                    Allow over-hiring
+                                </label>
+                            </div>
+
                             <!-- Row 2: Title switcher (if multiple titles) -->
                             <div v-if="masterTitleVariants.length > 1" class="mt-2 flex flex-wrap gap-1.5">
                                 <Button
@@ -1297,6 +1379,10 @@ onUnmounted(() => {
                                 <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="showDescriptionEditor = !showDescriptionEditor">
                                     <FileText class="size-3.5" />
                                     {{ showDescriptionEditor ? 'Hide' : '' }} Notes
+                                </Button>
+                                <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" :disabled="crew.length === 0" @click="printCrewPDF">
+                                    <Printer class="size-3.5" />
+                                    PDF
                                 </Button>
 
                                 <div class="ml-auto flex items-center gap-2">
@@ -1403,8 +1489,8 @@ onUnmounted(() => {
                                                             </Badge>
                                                         </div>
                                                         <div class="flex flex-wrap items-center gap-1.5 text-xs text-white/70">
-                                                            <span class="text-sm font-bold text-white">
-                                                                {{ getEffectiveCost(filteredHiringPool[virtualRow.index]) }}ss
+                                                            <span class="flex items-center text-sm font-bold text-white">
+                                                                {{ getEffectiveCost(filteredHiringPool[virtualRow.index]) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                                 <span
                                                                     v-if="getHiringCategory(filteredHiringPool[virtualRow.index]) === 'ook'"
                                                                     class="text-xs font-normal text-red-300"
@@ -1476,6 +1562,14 @@ onUnmounted(() => {
 
                         <!-- Crew Panel (right on desktop, top on mobile) -->
                         <div class="order-1 md:order-2 md:col-span-2">
+                            <!-- Over budget warning -->
+                            <div
+                                v-if="isOverBudget"
+                                class="mb-2 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive"
+                            >
+                                <ShieldAlert class="size-4 shrink-0" />
+                                Over budget by {{ Math.abs(remaining) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                            </div>
                             <Card>
                                 <CardContent class="p-2 md:p-3">
                                     <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -1630,13 +1724,13 @@ onUnmounted(() => {
                                                         }}</span>
                                                     </div>
                                                     <div class="flex items-center gap-1.5 text-xs text-white/70">
-                                                        <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white"
-                                                            >{{ member.effectiveCost }}ss
+                                                        <span v-if="member.hiringCategory === 'ook'" class="flex items-center text-sm font-bold text-white"
+                                                            >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                             <span class="text-xs font-normal text-red-300"
                                                                 >({{ member.character.cost }}+1)</span
                                                             ></span
                                                         >
-                                                        <span v-else class="text-sm font-bold text-white">{{ member.effectiveCost }}ss</span>
+                                                        <span v-else class="flex items-center text-sm font-bold text-white">{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" /></span>
                                                         <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                             {{ categoryLabel(member.hiringCategory) }}
                                                         </Badge>
@@ -1705,17 +1799,17 @@ onUnmounted(() => {
                     <DrawerTitle class="text-center">
                         {{ previewCharacter.display_name }}
                         <span v-if="getHiringCategory(previewCharacter) === 'ook'" class="text-yellow-400"
-                            >({{ getEffectiveCost(previewCharacter) }}ss)</span
+                            >({{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
                         >
-                        <span v-else class="text-yellow-400">({{ getEffectiveCost(previewCharacter) }}ss)</span>
+                        <span v-else class="text-yellow-400">({{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
-                        <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="text-xs font-bold"
-                            >{{ getEffectiveCost(previewCharacter) }}ss
+                        <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
+                            >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                             <span class="font-normal opacity-70">({{ previewCharacter.cost }}+1)</span></Badge
                         >
-                        <Badge v-else variant="secondary" class="text-xs font-bold">{{ getEffectiveCost(previewCharacter) }}ss</Badge>
+                        <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
                         <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
@@ -1788,19 +1882,19 @@ onUnmounted(() => {
                         {{ crewPreviewMember.character.display_name }}
                         <template v-if="crewPreviewMember.character.cost != null">
                             <span v-if="crewPreviewMember.hiringCategory === 'ook'" class="text-yellow-400"
-                                >({{ crewPreviewMember.effectiveCost }}ss)</span
+                                >({{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
                             >
-                            <span v-else class="text-yellow-400">({{ crewPreviewMember.effectiveCost }}ss)</span>
+                            <span v-else class="text-yellow-400">({{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ crewPreviewMember.character.station }}</Badge>
                         <template v-if="crewPreviewMember.character.cost != null">
-                            <Badge v-if="crewPreviewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold"
-                                >{{ crewPreviewMember.effectiveCost }}ss
+                            <Badge v-if="crewPreviewMember.hiringCategory === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
+                                >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 <span class="font-normal opacity-70">({{ crewPreviewMember.character.cost }}+1)</span></Badge
                             >
-                            <Badge v-else variant="secondary" class="text-xs font-bold">{{ crewPreviewMember.effectiveCost }}ss</Badge>
+                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
                         </template>
                         <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
@@ -1902,4 +1996,22 @@ onUnmounted(() => {
             </div>
         </DrawerContent>
     </Drawer>
+
+    <!-- Delete confirmation dialog -->
+    <Dialog :open="!!deleteTarget" @update:open="(v: boolean) => { if (!v) deleteTarget = null }">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Delete Crew</DialogTitle>
+                <DialogDescription>
+                    Are you sure you want to delete <span class="font-semibold">"{{ deleteTarget?.name }}"</span>? This cannot be undone.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter class="gap-3 sm:gap-x-3">
+                <Button variant="outline" @click="deleteTarget = null" :disabled="deleting">Cancel</Button>
+                <Button variant="destructive" @click="confirmDeleteBuild" :disabled="deleting">
+                    {{ deleting ? 'Deleting...' : 'Delete' }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>

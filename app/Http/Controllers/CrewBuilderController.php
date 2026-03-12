@@ -18,6 +18,8 @@ class CrewBuilderController extends Controller
      */
     private function serializeBuilds($builds): array
     {
+        $builds->load(['copiedFrom' => fn ($q) => $q->select('id', 'name', 'share_code', 'is_public', 'user_id')]);
+
         return $builds->map(fn (CrewBuild $b) => [
             'id' => $b->id,
             'name' => $b->name,
@@ -30,6 +32,16 @@ class CrewBuilderController extends Controller
             'is_archived' => $b->is_archived,
             'is_public' => $b->is_public,
             'updated_at' => $b->updated_at->toISOString(),
+            'copied_from' => $b->copied_from_id ? (static function (CrewBuild $b) {
+                /** @var CrewBuild|null $source */
+                $source = $b->copiedFrom;
+
+                return $source ? [
+                    'name' => $source->name,
+                    'share_code' => $source->share_code,
+                    'is_public' => $source->is_public,
+                ] : null;
+            })($b) : null,
         ])->all();
     }
 
@@ -84,6 +96,7 @@ class CrewBuilderController extends Controller
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
             'crew_data' => 'present|array',
+            'copied_from_id' => 'nullable|exists:crew_builds,id',
         ]);
 
         $build = CrewBuild::create([

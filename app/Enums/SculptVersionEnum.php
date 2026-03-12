@@ -14,6 +14,7 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
     case SecondEdition = 'second_edition';
     case ThirdEdition = 'third_edition';
     case FourthEdition = 'fourth_edition';
+    case AlternateModel = 'alternate_model';
     case SpecialEdition = 'special_edition';
     case Nightmare = 'nightmare';
     case RottenHarvest = 'rotten_harvest';
@@ -49,6 +50,7 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
     {
         return [
             self::SpecialEdition,
+            self::AlternateModel,
             self::Nightmare,
             self::RottenHarvest,
         ];

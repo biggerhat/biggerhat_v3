@@ -85,12 +85,6 @@ function toggleDialog() {
                         <span class="hidden sm:inline">Search characters, keywords, factions...</span>
                         <span class="sm:hidden">Search...</span>
                     </Button>
-                    <Link :href="route('tools.crew_builder.index')">
-                        <Button class="gap-2">
-                            <Swords class="size-4" />
-                            Crew Builder
-                        </Button>
-                    </Link>
                 </div>
             </div>
 

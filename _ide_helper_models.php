@@ -209,10 +209,9 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
- * @property string|null $image
- * @property array<array-key, mixed>|null $images
  * @property string|null $source_url
  * @property string|null $wyrd_post_slug
+ * @property string|null $image_path
  * @property \App\Enums\SculptVersionEnum $sculpt_version
  * @property \Illuminate\Support\Carbon|null $published_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
@@ -232,8 +231,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereImage($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereImages($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereImagePath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint wherePublishedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereSculptVersion($value)
@@ -241,6 +239,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereSourceUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint whereWyrdPostSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint withImage()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint withTrashed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Blueprint withoutTrashed()
  * @mixin \Eloquent
@@ -394,6 +393,7 @@ namespace App\Models{
  * @property array<array-key, mixed>|null $description
  * @property string $share_code
  * @property int|null $user_id
+ * @property int|null $copied_from_id
  * @property \App\Enums\FactionEnum $faction
  * @property int $master_id
  * @property int $encounter_size
@@ -402,12 +402,14 @@ namespace App\Models{
  * @property bool $is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read CrewBuild|null $copiedFrom
  * @property-read \App\Models\Character $master
  * @property-read \App\Models\User|null $user
  * @method static \Database\Factories\CrewBuildFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCopiedFromId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewData($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereDescription($value)
@@ -979,6 +981,8 @@ namespace App\Models{
  * @property-read int|null $permissions_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Role> $roles
  * @property-read int|null $roles_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Wishlist> $wishlists
+ * @property-read int|null $wishlists_count
  * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User newQuery()
@@ -1002,5 +1006,64 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperUser {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property string $name
+ * @property string $share_code
+ * @property bool $is_public
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\WishlistItem> $items
+ * @property-read int|null $items_count
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereShareCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Wishlist whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperWishlist {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $wishlist_id
+ * @property string $wishlistable_type
+ * @property int $wishlistable_id
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Wishlist $wishlist
+ * @property-read \Illuminate\Database\Eloquent\Model|\Eloquent $wishlistable
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereWishlistId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereWishlistableId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WishlistItem whereWishlistableType($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperWishlistItem {}
 }
 

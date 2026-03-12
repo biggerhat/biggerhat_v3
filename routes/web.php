@@ -23,6 +23,7 @@ use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
+use App\Http\Controllers\WishlistController;
 use App\Models\BlogPost;
 use App\Models\Character;
 use App\Models\CrewBuild;
@@ -173,6 +174,22 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
         Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');
         Route::delete('/{crewBuild}', [CrewBuilderController::class, 'destroy'])->name('destroy')->middleware('auth');
+    });
+});
+
+Route::prefix('wishlists')->name('wishlists.')->group(function () {
+    Route::get('/share/{shareCode}', [WishlistController::class, 'share'])->name('share');
+
+    Route::middleware('auth')->group(function () {
+        Route::get('/', [WishlistController::class, 'index'])->name('index');
+        Route::post('/', [WishlistController::class, 'store'])->name('store');
+        Route::get('/{wishlist}', [WishlistController::class, 'show'])->name('show');
+        Route::put('/{wishlist}', [WishlistController::class, 'update'])->name('update');
+        Route::delete('/{wishlist}', [WishlistController::class, 'destroy'])->name('destroy');
+        Route::post('/{wishlist}/items', [WishlistController::class, 'addItem'])->name('items.add');
+        Route::delete('/{wishlist}/items/{wishlistItem}', [WishlistController::class, 'removeItem'])->name('items.remove');
+        Route::post('/{wishlist}/add-keyword', [WishlistController::class, 'addKeyword'])->name('add_keyword');
+        Route::post('/{wishlist}/toggle-public', [WishlistController::class, 'togglePublic'])->name('toggle_public');
     });
 });
 

@@ -57,11 +57,50 @@ class HandleInertiaRequests extends Middleware
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
+                'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
+                'wishlist_items' => fn () => $this->getWishlistItems($request),
             ],
             'ziggy' => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
         ];
+    }
+
+    /**
+     * @return array<int, array{characters: int[], miniatures: int[], packages: int[]}>
+     */
+    private function getWishlistItems(Request $request): array
+    {
+        $user = $request->user();
+        if (! $user) {
+            return [];
+        }
+
+        $items = \App\Models\WishlistItem::query()
+            ->whereIn('wishlist_id', $user->wishlists()->select('id'))
+            ->select('wishlist_id', 'wishlistable_type', 'wishlistable_id')
+            ->get();
+
+        $result = [];
+        foreach ($items as $item) {
+            $wid = $item->wishlist_id;
+            if (! isset($result[$wid])) {
+                $result[$wid] = ['characters' => [], 'miniatures' => [], 'packages' => []];
+            }
+
+            $key = match ($item->wishlistable_type) {
+                \App\Models\Character::class => 'characters',
+                \App\Models\Miniature::class => 'miniatures',
+                \App\Models\Package::class => 'packages',
+                default => null,
+            };
+
+            if ($key) {
+                $result[$wid][$key][] = $item->wishlistable_id;
+            }
+        }
+
+        return $result;
     }
 }

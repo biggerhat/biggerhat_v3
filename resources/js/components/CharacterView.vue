@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AddToWishlist from '@/components/AddToWishlist.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
@@ -353,6 +354,9 @@ const addAllStandard = () => {
                         </button>
                     </CardContent>
                 </Card>
+
+                <!-- Wishlist -->
+                <AddToWishlist type="character" :id="character.id" :miniatures="character.miniatures ?? []" :current-miniature-id="miniature.id" />
 
                 <!-- Quick Tools -->
                 <Card>

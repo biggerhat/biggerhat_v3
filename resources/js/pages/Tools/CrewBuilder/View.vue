@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Loader2, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
+import { ArrowLeft, Check, Copy, Loader2, Printer, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 interface Keyword {
@@ -240,6 +240,7 @@ const copyToMyBuilds = async () => {
                 master_id: props.build.master_id,
                 encounter_size: props.build.encounter_size,
                 crew_data: props.build.crew_data,
+                copied_from_id: props.build.id,
             }),
         });
         if (response.ok) {
@@ -251,18 +252,46 @@ const copyToMyBuilds = async () => {
     }
 };
 
+// ─── Print to PDF ───
+const printCrewPDF = () => {
+    if (crew.value.length === 0) return;
+
+    const cards: Array<{ card_type: string; id: number }> = [];
+
+    for (const member of crew.value) {
+        const mini = member.miniature ?? member.character.miniatures?.[0];
+        if (mini) {
+            cards.push({ card_type: 'miniature', id: mini.id });
+        }
+
+        // Insert crew upgrades right after the master
+        if (member.hiringCategory === 'leader') {
+            for (const upgrade of member.character.crew_upgrades ?? []) {
+                cards.push({ card_type: 'upgrade', id: upgrade.id });
+            }
+        }
+    }
+
+    if (cards.length === 0) return;
+
+    const options = { separate_images: false };
+    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
+};
+
 // ─── Build crew from data ───
 const rebuildCrew = () => {
     if (!master.value) return;
     crew.value = [];
 
-    crew.value.push({
-        character: master.value,
-        miniature: master.value.miniatures?.[0] ?? null,
-        isTotem: false,
-        effectiveCost: 0,
-        hiringCategory: 'leader',
-    });
+    for (let i = 0; i < (master.value.count || 1); i++) {
+        crew.value.push({
+            character: master.value,
+            miniature: getNextMiniature(master.value),
+            isTotem: false,
+            effectiveCost: 0,
+            hiringCategory: 'leader',
+        });
+    }
 
     if (master.value.has_totem_id) {
         const totem = characterById.value.get(master.value.has_totem_id);
@@ -461,11 +490,11 @@ onMounted(rebuildCrew);
                                             <span class="truncate">{{ member.miniature?.display_name || member.character.display_name }}</span>
                                         </div>
                                         <div class="flex items-center gap-1.5 text-xs text-white/70">
-                                            <span v-if="member.hiringCategory === 'ook'" class="text-sm font-bold text-white"
-                                                >{{ member.effectiveCost }}ss
+                                            <span v-if="member.hiringCategory === 'ook'" class="flex items-center text-sm font-bold text-white"
+                                                >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                 <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span
                                             >
-                                            <span v-else class="text-sm font-bold text-white">{{ member.effectiveCost }}ss</span>
+                                            <span v-else class="flex items-center text-sm font-bold text-white">{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" /></span>
                                             <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.hiringCategory) }}
                                             </Badge>
@@ -491,6 +520,10 @@ onMounted(rebuildCrew);
                             <Button v-if="!isAuthenticated" variant="outline" class="gap-1.5" as="a" :href="route('login')">
                                 Log in to save this crew
                             </Button>
+                            <Button variant="outline" class="gap-1.5" :disabled="crew.length === 0" @click="printCrewPDF">
+                                <Printer class="size-4" />
+                                PDF
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -506,18 +539,18 @@ onMounted(rebuildCrew);
                     <DrawerTitle class="text-center">
                         {{ previewMember.character.display_name }}
                         <template v-if="previewMember.character.cost != null">
-                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400">({{ previewMember.effectiveCost }}ss)</span>
-                            <span v-else class="text-yellow-400">({{ previewMember.effectiveCost }}ss)</span>
+                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400">({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
+                            <span v-else class="text-yellow-400">({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewMember.character.station }}</Badge>
                         <template v-if="previewMember.character.cost != null">
-                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="text-xs font-bold"
-                                >{{ previewMember.effectiveCost }}ss
+                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
+                                >{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge
                             >
-                            <Badge v-else variant="secondary" class="text-xs font-bold">{{ previewMember.effectiveCost }}ss</Badge>
+                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
                         </template>
                         <Badge :class="categoryColorTheme(previewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(previewMember.hiringCategory) }}

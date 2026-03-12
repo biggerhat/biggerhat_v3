@@ -8,6 +8,8 @@ export interface Auth {
     can_publish_posts: boolean;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
+    wishlists: Array<{ id: number; name: string }>;
+    wishlist_items: Record<number, { characters: number[]; miniatures: number[]; packages: number[] }>;
 }
 
 export interface BreadcrumbItem {

@@ -17,5 +17,6 @@ enum LoreMediaTypeEnum: string implements HasDefaultEnumMethods
     case Broadcast = 'broadcast';
     case PennyDreadful = 'penny_dreadful';
     case WyrdNews = 'wyrd_news';
+    case Event = 'event';
     case Other = 'other';
 }

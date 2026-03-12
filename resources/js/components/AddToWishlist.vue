@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type SharedData } from '@/types';
-import { router, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { Check, Heart, Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -74,7 +74,7 @@ const targetOptions = computed(() => {
     return opts;
 });
 
-function addToWishlist() {
+async function addToWishlist() {
     if (!selectedWishlist.value) return;
 
     let addType = props.type;
@@ -86,18 +86,32 @@ function addToWishlist() {
     }
 
     processing.value = true;
-    router.post(
-        route('wishlists.items.add', selectedWishlist.value),
-        { type: addType, id: addId },
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                added.value = true;
-                setTimeout(() => (added.value = false), 2000);
+
+    // Optimistically update shared wishlist data
+    const wid = Number(selectedWishlist.value);
+    const items = page.props.auth.wishlist_items;
+    if (!items[wid]) {
+        items[wid] = { characters: [], miniatures: [], packages: [] };
+    }
+    const key = addType === 'character' ? 'characters' : addType === 'package' ? 'packages' : 'miniatures';
+    if (!items[wid][key].includes(addId)) {
+        items[wid][key].push(addId);
+    }
+
+    try {
+        await fetch(route('wishlists.items.add', selectedWishlist.value), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
             },
-            onFinish: () => (processing.value = false),
-        },
-    );
+            body: JSON.stringify({ type: addType, id: addId }),
+        });
+        added.value = true;
+        setTimeout(() => (added.value = false), 2000);
+    } finally {
+        processing.value = false;
+    }
 }
 </script>
 

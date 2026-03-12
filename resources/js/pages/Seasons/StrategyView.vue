@@ -85,7 +85,7 @@ defineProps<{
                     <!-- Image — shown second on mobile -->
                     <div v-if="strategy.image_url" class="order-2 lg:order-1 lg:col-span-2">
                         <div class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="strategy.image_url" :alt="strategy.name" class="w-full" />
+                            <img :src="strategy.image_url" :alt="strategy.name" loading="lazy" decoding="async" class="w-full" />
                         </div>
                     </div>
                 </div>

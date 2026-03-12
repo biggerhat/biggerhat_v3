@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
+import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { valueUpdater } from '@/lib/utils';
@@ -16,32 +18,59 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { FlexRender, getCoreRowModel, getFilteredRowModel, useVueTable } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Markers>[] = [
+interface MarkerData {
+    name: string;
+    slug: string;
+    description: string;
+    base: string | null;
+}
+
+const columns: ColumnDef<MarkerData>[] = [
     {
         accessorKey: 'name',
         header: () => h('div', {}, 'Marker'),
         cell: ({ row }) => {
-            return h('div', { class: 'w-auto' }, row.getValue('name'));
+            const base = row.original.base;
+            const children = [row.getValue('name') as string];
+            if (base) {
+                children.push(` (${base}mm)`);
+            }
+            return h('div', { class: 'w-auto font-medium' }, children);
         },
     },
     {
         accessorKey: 'description',
         header: () => h('div', {}, 'Description'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('description'));
+            return h(GameText, { text: row.getValue('description') as string });
         },
     },
 ];
 
 const props = defineProps<{
-    markers: TData[];
+    markers: MarkerData[];
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);
+const selectedSize = ref<string | null>(null);
+
+const availableSizes = computed(() => {
+    const sizes = [...new Set(props.markers.map((m) => m.base).filter(Boolean))] as string[];
+    return sizes.sort((a, b) => Number(a) - Number(b));
+});
+
+const toggleSize = (size: string) => {
+    selectedSize.value = selectedSize.value === size ? null : size;
+};
+
+const sizeFilteredMarkers = computed(() => {
+    if (!selectedSize.value) return props.markers;
+    return props.markers.filter((m) => m.base === selectedSize.value);
+});
 
 const table = useVueTable({
     get data() {
-        return props.markers;
+        return sizeFilteredMarkers.value;
     },
     get columns() {
         return columns;
@@ -59,7 +88,7 @@ const table = useVueTable({
 const filteredMarkers = computed(() => table.getFilteredRowModel().rows.map((row) => row.original));
 const filteredCount = computed(() => filteredMarkers.value.length);
 const totalCount = computed(() => props.markers.length);
-const isFiltered = computed(() => filteredCount.value !== totalCount.value);
+const isFiltered = computed(() => filteredCount.value !== totalCount.value || selectedSize.value !== null);
 
 const { delays } = useStaggeredEntry(filteredCount);
 </script>
@@ -77,14 +106,30 @@ const { delays } = useStaggeredEntry(filteredCount);
             </template>
         </PageBanner>
         <div class="container mx-auto mt-6 px-4">
-            <div class="flex items-center justify-between py-4">
+            <div class="flex flex-wrap items-center gap-3 py-4">
                 <Input
                     class="max-w-sm"
                     placeholder="Filter Markers"
                     :model-value="table.getColumn('name')?.getFilterValue() as string"
                     @update:model-value="table.getColumn('name')?.setFilterValue($event)"
                 />
-                <div v-if="isFiltered" class="text-sm text-muted-foreground">Showing {{ filteredCount }} of {{ totalCount }}</div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-muted-foreground">Size:</span>
+                    <button
+                        v-for="size in availableSizes"
+                        :key="size"
+                        class="rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors"
+                        :class="
+                            selectedSize === size
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        "
+                        @click="toggleSize(size)"
+                    >
+                        {{ size }}mm
+                    </button>
+                </div>
+                <div v-if="isFiltered" class="ml-auto text-sm text-muted-foreground">Showing {{ filteredCount }} of {{ totalCount }}</div>
             </div>
 
             <Tabs default-value="cards">
@@ -110,10 +155,15 @@ const { delays } = useStaggeredEntry(filteredCount);
                             :style="delays[index]"
                         >
                             <CardHeader class="pb-2">
-                                <CardTitle class="text-base">{{ marker.name }}</CardTitle>
+                                <CardTitle class="flex items-center gap-2 text-base">
+                                    {{ marker.name }}
+                                    <Badge v-if="marker.base" variant="outline" class="text-xs font-normal">{{ marker.base }}mm</Badge>
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p class="text-sm text-muted-foreground">{{ marker.description }}</p>
+                                <p class="text-sm text-muted-foreground">
+                                    <GameText :text="marker.description" />
+                                </p>
                             </CardContent>
                         </Card>
                     </div>

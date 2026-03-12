@@ -179,6 +179,7 @@ class WishlistController extends Controller
         /** @var \Illuminate\Database\Eloquent\Collection<int, WishlistItem> $items */
         $items = $wishlist->items()->with(['wishlistable' => function ($morphTo) {
             $morphTo->morphWith([
+                Character::class => ['standardMiniatures'],
                 Miniature::class => ['character'],
             ]);
         }])->get();
@@ -198,7 +199,7 @@ class WishlistController extends Controller
 
             if ($model instanceof Character) {
                 /** @var Miniature|null $standardMini */
-                $standardMini = $model->standardMiniatures()->first();
+                $standardMini = $model->standardMiniatures->first();
                 $grouped['characters'][] = [
                     'item_id' => $item->id,
                     'id' => $model->id,

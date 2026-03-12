@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\FactionEnum;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CrewBuilderController;
@@ -67,7 +66,6 @@ Route::get('/', function () {
         ]);
 
     return Inertia::render('Index', [
-        'factions' => fn () => FactionEnum::buildDetails(),
         'featured_character' => $featured,
         'recent_crews' => fn () => $recentCrews,
         'recent_articles' => fn () => $recentArticles,
@@ -169,7 +167,8 @@ Route::prefix('tools')->name('tools.')->group(function () {
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
     Route::prefix('crew-builder')->name('crew_builder.')->group(function () {
-        Route::get('/', [CrewBuilderController::class, 'index'])->name('index');
+        Route::get('/', [CrewBuilderController::class, 'browse'])->name('index');
+        Route::get('/editor', [CrewBuilderController::class, 'editor'])->name('editor');
         Route::get('/share/{shareCode}', [CrewBuilderController::class, 'share'])->name('share');
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
         Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');
@@ -201,8 +200,10 @@ Route::prefix('collection')->name('collection.')->group(function () {
         Route::post('/toggle', [CollectionController::class, 'toggle'])->name('toggle');
         Route::post('/toggle-public', [CollectionController::class, 'togglePublic'])->name('toggle_public');
         Route::post('/add-character', [CollectionController::class, 'addCharacter'])->name('add_character');
+        Route::post('/add-characters', [CollectionController::class, 'addCharacters'])->name('add_characters');
         Route::post('/add-package', [CollectionController::class, 'addPackage'])->name('add_package');
         Route::post('/toggle-package', [CollectionController::class, 'togglePackage'])->name('toggle_package');
+        Route::post('/update-status', [CollectionController::class, 'updateStatus'])->name('update_status');
         Route::post('/remove', [CollectionController::class, 'remove'])->name('remove');
     });
 });

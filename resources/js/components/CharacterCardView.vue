@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import Button from '@/components/ui/button/Button.vue';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { router } from '@inertiajs/vue3';
-import { Maximize2 } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { router, usePage } from '@inertiajs/vue3';
+import { BookMarked, Heart, Maximize2, Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const flipped = ref(false);
@@ -34,7 +35,58 @@ const props = defineProps({
             return '';
         },
     },
+    allMiniatureIds: {
+        type: Array as () => number[],
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
+
+const page = usePage<SharedData>();
+
+const miniatureIds = computed(() => (props.allMiniatureIds.length ? props.allMiniatureIds : [props.miniature?.id].filter(Boolean)));
+
+const inCollection = computed(() => {
+    const collectionIds = page.props.auth?.collection_miniature_ids ?? [];
+    return miniatureIds.value.some((id) => collectionIds.includes(id));
+});
+
+const onWishlist = computed(() => {
+    const wishlistItems = page.props.auth?.wishlist_items ?? {};
+    const characterId = props.miniature?.character_id;
+    return Object.values(wishlistItems).some(
+        (wl) =>
+            miniatureIds.value.some((id) => wl.miniatures.includes(id)) ||
+            (characterId && wl.characters.includes(characterId)),
+    );
+});
+
+const isLoggedIn = computed(() => !!page.props.auth?.user);
+
+const addingToCollection = ref(false);
+const addToCollection = async () => {
+    const characterId = props.miniature?.character_id;
+    if (!characterId || inCollection.value) return;
+    addingToCollection.value = true;
+
+    // Optimistically update shared auth data
+    const ids = page.props.auth.collection_miniature_ids;
+    for (const id of miniatureIds.value) {
+        if (!ids.includes(id)) ids.push(id);
+    }
+
+    try {
+        await fetch(route('collection.add_character'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: JSON.stringify({ character_id: characterId }),
+        });
+    } finally {
+        addingToCollection.value = false;
+    }
+};
 
 const currentImage = computed(() => {
     const path = flipped.value ? props.miniature.back_image : props.miniature.front_image;
@@ -83,6 +135,28 @@ const currentLabel = computed(() => {
             >
                 <Maximize2 class="size-3.5" />
             </button>
+        </div>
+        <div v-if="inCollection || onWishlist" class="mt-1 flex items-center justify-center gap-2">
+            <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                <BookMarked class="size-3" />
+                Collected
+            </span>
+            <span v-if="onWishlist" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                <Heart class="size-3 fill-current" />
+                Wishlisted
+            </span>
+        </div>
+        <div v-if="isLoggedIn && !inCollection" class="mt-1">
+            <Button
+                variant="ghost"
+                size="sm"
+                class="h-6 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                :disabled="addingToCollection"
+                @click="addToCollection"
+            >
+                <Plus class="size-3" />
+                Add to Collection
+            </Button>
         </div>
         <div class="mt-1" v-if="props.showLink === true">
             <Button

@@ -49,6 +49,8 @@ const props = defineProps({
 
 const formInfo = ref({
     name: null as string | null,
+    file: null as File | null,
+    remove_file: false,
     lore_media: [] as string[],
     characters: [] as string[],
     new_media: [] as NewMediaEntry[],
@@ -92,6 +94,32 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Story Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Lore Story Name" />
+                        </div>
+
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="file">File (Image or PDF)</Label>
+                            <div v-if="props.lore?.file && !formInfo.file && !formInfo.remove_file" class="flex items-center gap-3">
+                                <a :href="'/storage/' + props.lore.file" target="_blank" class="text-sm text-primary hover:underline">
+                                    {{ props.lore.file.split('/').pop() }}
+                                </a>
+                                <Button type="button" variant="ghost" size="sm" class="h-7 text-xs text-destructive" @click="formInfo.remove_file = true">
+                                    <Trash2 class="mr-1 size-3" />
+                                    Remove
+                                </Button>
+                            </div>
+                            <div v-if="formInfo.remove_file && !formInfo.file" class="text-sm text-muted-foreground">
+                                File will be removed on save.
+                                <Button type="button" variant="link" size="sm" class="h-auto p-0 text-xs" @click="formInfo.remove_file = false">Undo</Button>
+                            </div>
+                            <Input
+                                id="file"
+                                type="file"
+                                accept=".jpeg,.jpg,.png,.webp,.pdf"
+                                @input="
+                                    formInfo.file = ($event.target as HTMLInputElement).files?.[0] ?? null;
+                                    formInfo.remove_file = false;
+                                "
+                            />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">

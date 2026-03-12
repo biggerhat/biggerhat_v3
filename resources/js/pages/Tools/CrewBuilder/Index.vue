@@ -197,7 +197,9 @@ const savedBuilds = ref<SavedBuild[]>([...(props.savedBuilds as SavedBuild[])]);
 const buildsTab = ref('active');
 
 // ─── View mode: 'builds' (list) or 'editor' (crew builder) ───
-const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value ? 'builds' : 'editor');
+const urlParams = new URLSearchParams(window.location.search);
+const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew');
+const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value && !startInEditor ? 'builds' : 'editor');
 
 const isOwner = computed(() => {
     if (!currentBuildId.value || !isAuthenticated.value) return false;
@@ -934,7 +936,7 @@ const generateShareLink = async () => {
         n: crewName.value,
     };
     const encoded = btoa(JSON.stringify(state));
-    navigator.clipboard.writeText(`${route('tools.crew_builder.index')}?crew=${encoded}`);
+    navigator.clipboard.writeText(`${route('tools.crew_builder.editor')}?crew=${encoded}`);
     shareTooltip.value = true;
     setTimeout(() => (shareTooltip.value = false), 2000);
 };

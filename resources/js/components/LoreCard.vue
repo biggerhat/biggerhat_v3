@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, ExternalLink, Library, Users } from 'lucide-vue-next';
+import { BookOpen, ExternalLink, FileText, Library, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface LoreCharacter {
@@ -22,6 +22,7 @@ interface LoreMediaItem {
 interface LoreData {
     id: number;
     name: string;
+    file?: string | null;
     media?: LoreMediaItem[];
     characters?: LoreCharacter[];
 }
@@ -33,6 +34,8 @@ const props = defineProps<{
 const characterCount = computed(() => props.lore.characters?.length ?? 0);
 const singleCharacter = computed(() => (characterCount.value === 1 ? props.lore.characters![0] : null));
 const mediaList = computed(() => props.lore.media ?? []);
+const fileUrl = computed(() => (props.lore.file ? `/storage/${props.lore.file}` : null));
+const isPdf = computed(() => props.lore.file?.endsWith('.pdf') ?? false);
 
 const formatType = (type: string) => {
     return type ? type.replace(/_/g, ' ') : '';
@@ -45,6 +48,18 @@ const formatType = (type: string) => {
         <div class="flex items-center gap-2 border-b bg-secondary px-3 py-2">
             <BookOpen class="h-4 w-4 shrink-0 text-muted-foreground" />
             <h3 class="text-sm font-semibold leading-tight">{{ lore.name }}</h3>
+        </div>
+
+        <!-- File attachment -->
+        <div v-if="fileUrl" class="border-b px-3 py-2">
+            <a v-if="isPdf" :href="fileUrl" target="_blank" class="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                <FileText class="h-3.5 w-3.5 shrink-0" />
+                View PDF
+                <ExternalLink class="h-3 w-3" />
+            </a>
+            <a v-else :href="fileUrl" target="_blank">
+                <img :src="fileUrl" :alt="lore.name" class="max-h-32 w-full rounded object-contain" loading="lazy" />
+            </a>
         </div>
 
         <!-- Body: media sources -->

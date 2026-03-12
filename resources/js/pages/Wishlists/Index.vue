@@ -39,6 +39,7 @@ function confirmDelete() {
     if (!deleteTarget.value) return;
     deleting.value = true;
     router.delete(route('wishlists.destroy', deleteTarget.value.id), {
+        preserveScroll: true,
         onFinish: () => {
             deleting.value = false;
             deleteTarget.value = null;

@@ -59,7 +59,7 @@ const hasRelatedContent = () => {
 
     <!-- Hero image header -->
     <div v-if="post.featured_image" class="relative h-[240px] w-full overflow-hidden sm:h-[360px] lg:h-[480px]">
-        <img :src="`/storage/${post.featured_image}`" :alt="post.title" class="h-full w-full object-cover" />
+        <img :src="`/storage/${post.featured_image}`" :alt="post.title" loading="lazy" decoding="async" class="h-full w-full object-cover" />
         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         <div class="container absolute inset-x-0 bottom-0 mx-auto px-4 pb-6 sm:pb-8 md:pb-12">
             <Badge v-if="post.category" variant="secondary" class="animate-fade-in-up mb-2 opacity-0 sm:mb-3">{{ post.category.name }}</Badge>

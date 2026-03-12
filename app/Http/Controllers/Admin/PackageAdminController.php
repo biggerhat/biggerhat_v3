@@ -157,40 +157,6 @@ class PackageAdminController extends Controller
         $package->miniatures()->sync($miniatures->pluck('id'));
         $package->keywords()->sync($keywords->pluck('id'));
 
-        if ($package->front_image && $package->back_image && ! $package->combination_image) {
-            $this->generateComboImage($package);
-        } elseif ($package->front_image && ! $package->back_image) {
-            $package->update([
-                'combination_image' => $package->front_image,
-            ]);
-        }
-
         return $package;
-    }
-
-    private function generateComboImage(Package $package): void
-    {
-        [$widthFront, $heightFront] = getimagesize(Storage::disk('public')->path($package->front_image));
-        [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($package->back_image));
-        $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
-
-        header('Content-Type: image/jpeg');
-        $outputImage = $background;
-
-        $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($package->front_image));
-        $backUrl = imagecreatefromjpeg(Storage::disk('public')->path($package->back_image));
-
-        imagecopymerge($outputImage, $frontUrl, 0, 0, 0, 0, $widthFront, $heightFront, 100);
-        imagecopymerge($outputImage, $backUrl, $widthFront, 0, 0, 0, $widthBack, $heightBack, 100);
-
-        $extension = 'jpg';
-        $uuid = Str::uuid();
-        $fileName = sprintf('%s_%s_combo.%s', $package->slug, $uuid, $extension);
-        $filePath = "packages/{$package->slug}/{$fileName}";
-
-        $path = Storage::disk('public')->path('/');
-        imagejpeg($outputImage, $path.$filePath);
-        $package->update(['combination_image' => $filePath]);
-        imagedestroy($outputImage);
     }
 }

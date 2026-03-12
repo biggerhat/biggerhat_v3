@@ -157,7 +157,7 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                                 :style="deploymentDelays[index]"
                             >
                                 <Card class="overflow-hidden">
-                                    <img v-if="deployment.image_url" :src="deployment.image_url" :alt="deployment.label" class="w-full" />
+                                    <img v-if="deployment.image_url" :src="deployment.image_url" :alt="deployment.label" loading="lazy" decoding="async" class="w-full" />
                                     <CardContent class="border-l-4 p-4" :class="suitBorderColor[deployment.suit] ?? 'border-l-border'">
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium">{{ deployment.label }}</span>
@@ -186,7 +186,7 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                             >
                                 <!-- Image card -->
                                 <div v-if="strategy.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg">
-                                    <img :src="strategy.image_url" :alt="strategy.name" class="w-full rounded-lg" />
+                                    <img :src="strategy.image_url" :alt="strategy.name" loading="lazy" decoding="async" class="w-full rounded-lg" />
                                 </div>
 
                                 <!-- Text fallback -->
@@ -223,7 +223,7 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                             >
                                 <!-- Image card -->
                                 <div v-if="scheme.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg">
-                                    <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
+                                    <img :src="scheme.image_url" :alt="scheme.name" loading="lazy" decoding="async" class="w-full rounded-lg" />
                                 </div>
 
                                 <!-- Text fallback -->

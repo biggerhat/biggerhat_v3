@@ -81,8 +81,15 @@ const stationCounts = computed(() => {
     ].filter((s) => s.value > 0);
 });
 
-let globalIndex = 0;
-const getDelay = () => delays.value[globalIndex++] ?? {};
+const groupOffsets = computed(() => {
+    const offsets: number[] = [];
+    let running = 0;
+    for (const group of groupedCharacters.value) {
+        offsets.push(running);
+        running += group.characters.length;
+    }
+    return offsets;
+});
 </script>
 
 <template>
@@ -117,10 +124,18 @@ const getDelay = () => delays.value[globalIndex++] ?? {};
             <div class="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
                 <template v-for="master in masters" :key="master.slug">
                     <div v-if="master.standard_miniatures?.[0]">
-                        <CharacterCardView :miniature="master.standard_miniatures[0]" :character-slug="master.slug" />
+                        <CharacterCardView
+                            :miniature="master.standard_miniatures[0]"
+                            :character-slug="master.slug"
+                            :all-miniature-ids="master.standard_miniatures.map((m: any) => m.id)"
+                        />
                     </div>
                     <div v-if="master.totem?.standard_miniatures?.[0]">
-                        <CharacterCardView :miniature="master.totem.standard_miniatures[0]" :character-slug="master.totem.slug" />
+                        <CharacterCardView
+                            :miniature="master.totem.standard_miniatures[0]"
+                            :character-slug="master.totem.slug"
+                            :all-miniature-ids="master.totem.standard_miniatures.map((m: any) => m.id)"
+                        />
                     </div>
                     <div v-for="upgrade in master.crew_upgrades ?? []" :key="upgrade.slug">
                         <UpgradeCardView :upgrade="upgrade" />
@@ -130,14 +145,20 @@ const getDelay = () => delays.value[globalIndex++] ?? {};
         </div>
 
         <!-- Non-master characters by station -->
-        <div v-for="group in groupedCharacters" :key="group.station">
+        <div v-for="(group, groupIdx) in groupedCharacters" :key="group.station">
             <Separator :label="group.label" class="mb-3" />
             <div class="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
-                <div v-for="character in group.characters" :key="character.slug" class="animate-fade-in-up opacity-0" :style="getDelay()">
+                <div
+                    v-for="(character, charIdx) in group.characters"
+                    :key="character.slug"
+                    class="animate-fade-in-up opacity-0"
+                    :style="delays[groupOffsets[groupIdx] + charIdx] ?? {}"
+                >
                     <CharacterCardView
                         v-if="character.standard_miniatures?.[0]"
                         :miniature="character.standard_miniatures[0]"
                         :character-slug="character.slug"
+                        :all-miniature-ids="character.standard_miniatures.map((m: any) => m.id)"
                     />
                 </div>
             </div>

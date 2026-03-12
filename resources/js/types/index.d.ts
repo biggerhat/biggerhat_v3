@@ -25,10 +25,18 @@ export interface NavItem {
     permission?: string;
 }
 
+export interface FactionInfo {
+    slug: string;
+    name: string;
+    color: string;
+    logo: string;
+}
+
 export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    faction_info: Record<string, FactionInfo>;
     ziggy: Config & { location: string };
 }
 

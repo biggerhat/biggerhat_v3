@@ -6,19 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Separator } from '@/components/ui/separator';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BookOpen, Dice6, FileDown, FileImage, Newspaper, Package, RefreshCw, Search, Swords } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+
+const page = usePage<SharedData>();
+const factions = computed(() => page.props.faction_info);
 
 defineProps({
-    factions: {
-        type: Object,
-        required: true,
-        default() {
-            return {};
-        },
-    },
     featured_character: {
         type: Object,
         required: false,

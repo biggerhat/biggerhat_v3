@@ -17,6 +17,7 @@ class BlueprintAdminController extends Controller
     {
         return inertia('Admin/Blueprints/Index', [
             'blueprints' => Blueprint::with(['characters', 'miniatures', 'packages'])
+                ->withCount(['characters', 'miniatures'])
                 ->orderBy('name', 'ASC')
                 ->get(),
         ]);

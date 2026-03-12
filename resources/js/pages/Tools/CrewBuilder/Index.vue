@@ -41,7 +41,7 @@ import {
     UserMinus,
     UserPlus,
 } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface Keyword {
     id: number;
@@ -229,6 +229,48 @@ const selectFaction = (factionSlug: string) => {
     crew.value = [];
 };
 
+const lastPushedCode = ref<string | null>(null);
+
+const pushBuildToUrl = () => {
+    if (!currentShareCode.value) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('build', currentShareCode.value);
+    if (lastPushedCode.value !== currentShareCode.value) {
+        window.history.pushState({ crewBuilder: true }, '', url.toString());
+        lastPushedCode.value = currentShareCode.value;
+    } else {
+        window.history.replaceState({ crewBuilder: true }, '', url.toString());
+    }
+};
+
+const clearBuildFromUrl = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('build');
+    url.searchParams.delete('crew');
+    window.history.replaceState({}, '', url.toString());
+    lastPushedCode.value = null;
+};
+
+const onPopState = () => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('build') && !params.has('crew')) {
+        currentBuildId.value = null;
+        currentShareCode.value = null;
+        lastSavedAt.value = null;
+        crewName.value = 'Untitled Crew';
+        crewDescription.value = null;
+        showDescriptionEditor.value = false;
+        encounterSize.value = 50;
+        selectedFaction.value = null;
+        selectedMasterName.value = null;
+        selectedMasterTitle.value = null;
+        activeCrewUpgradeId.value = null;
+        crew.value = [];
+        lastPushedCode.value = null;
+        viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
+    }
+};
+
 const resetBuildState = () => {
     currentBuildId.value = null;
     currentShareCode.value = null;
@@ -242,6 +284,7 @@ const resetBuildState = () => {
     selectedMasterTitle.value = null;
     activeCrewUpgradeId.value = null;
     crew.value = [];
+    clearBuildFromUrl();
 };
 
 // ─── Masters for selected faction ───
@@ -587,8 +630,10 @@ const goBack = () => {
 
 // ─── Crew upgrade display ───
 const activeCrewUpgradeId = ref<number | null>(null);
+const hasSingleCrewUpgrade = computed(() => (selectedMasterTitle.value?.crew_upgrades?.length ?? 0) === 1);
 
 const toggleCrewUpgradeActive = (upgrade: CrewUpgrade) => {
+    if (hasSingleCrewUpgrade.value) return;
     activeCrewUpgradeId.value = activeCrewUpgradeId.value === upgrade.id ? null : upgrade.id;
 };
 
@@ -683,6 +728,7 @@ const saveBuild = async () => {
             } as SavedBuild);
         }
         lastSavedAt.value = new Date().toLocaleTimeString();
+        pushBuildToUrl();
     } catch {
         saveError.value = 'Network error saving crew';
     } finally {
@@ -755,6 +801,7 @@ const loadBuild = (build: SavedBuild) => {
     rebuildCrew(build.faction, build.master_id, build.crew_data);
     lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
     viewMode.value = 'editor';
+    pushBuildToUrl();
 };
 
 const deleteBuild = async (build: SavedBuild) => {
@@ -872,7 +919,21 @@ const startNewBuild = () => {
 
 // ─── Init: handle anonymous share via URL param ───
 onMounted(() => {
-    const crewParam = new URLSearchParams(window.location.search).get('crew');
+    window.addEventListener('popstate', onPopState);
+
+    const params = new URLSearchParams(window.location.search);
+
+    const buildParam = params.get('build');
+    if (buildParam) {
+        const build = savedBuilds.value.find((b) => b.share_code === buildParam);
+        if (build) {
+            lastPushedCode.value = buildParam;
+            loadBuild(build);
+            return;
+        }
+    }
+
+    const crewParam = params.get('crew');
     if (crewParam) {
         try {
             const state = JSON.parse(atob(crewParam));
@@ -886,6 +947,10 @@ onMounted(() => {
             // Invalid param
         }
     }
+});
+
+onUnmounted(() => {
+    window.removeEventListener('popstate', onPopState);
 });
 </script>
 
@@ -1486,7 +1551,7 @@ onMounted(() => {
                                             :key="upgrade.id"
                                             class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 transition-colors"
                                             :class="[
-                                                activeCrewUpgradeId === upgrade.id
+                                                activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
                                                     ? 'border-amber-500/50 bg-amber-500/10'
                                                     : 'border-border/50 bg-accent/30 opacity-60',
                                                 upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
@@ -1494,6 +1559,7 @@ onMounted(() => {
                                             @click="openUpgradePreview(upgrade)"
                                         >
                                             <button
+                                                v-if="!hasSingleCrewUpgrade"
                                                 class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
                                                 :title="
                                                     activeCrewUpgradeId === upgrade.id ? 'Deselect crew upgrade' : 'Select as active crew upgrade'
@@ -1507,10 +1573,11 @@ onMounted(() => {
                                                     "
                                                 />
                                             </button>
+                                            <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                                 <div class="text-[10px] text-muted-foreground">
-                                                    {{ activeCrewUpgradeId === upgrade.id ? 'Active Crew Upgrade' : 'Crew Upgrade' }}
+                                                    {{ activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade ? 'Active Crew Upgrade' : 'Crew Upgrade' }}
                                                 </div>
                                             </div>
                                         </div>

@@ -26,6 +26,7 @@ import {
     Swords,
     TextSearch,
     Users,
+    DiscIcon,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
@@ -375,7 +376,12 @@ const footerNavItems: NavItem[] = [
         title: 'Donate on Ko-fi',
         href: 'https://ko-fi.com/biggerhat',
         icon: CircleDollarSign,
-    },
+    }, {
+        title: 'Join Our Discord',
+        href: 'https://discord.gg/veGzyuTvGW',
+        icon: DiscIcon,
+
+    }
 ];
 </script>
 

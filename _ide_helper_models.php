@@ -469,6 +469,7 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
+ * @property string|null $file
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -481,6 +482,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereFile($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore whereSlug($value)

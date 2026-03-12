@@ -60,7 +60,7 @@ class User extends Authenticatable
     public function collectionMiniatures(): BelongsToMany
     {
         return $this->belongsToMany(Miniature::class, 'user_miniatures')
-            ->withPivot('quantity')
+            ->withPivot('quantity', 'is_built', 'is_painted')
             ->withTimestamps();
     }
 

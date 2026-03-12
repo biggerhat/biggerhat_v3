@@ -105,7 +105,7 @@ defineProps<{
                     <!-- Image — shown second on mobile -->
                     <div v-if="scheme.image_url" class="order-2 lg:order-1 lg:col-span-2">
                         <div class="overflow-hidden rounded-xl shadow-lg">
-                            <img :src="scheme.image_url" :alt="scheme.name" class="w-full" />
+                            <img :src="scheme.image_url" :alt="scheme.name" loading="lazy" decoding="async" class="w-full" />
                         </div>
                     </div>
                 </div>

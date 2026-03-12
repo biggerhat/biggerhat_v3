@@ -82,9 +82,69 @@ class CrewBuilderController extends Controller
         ];
     }
 
-    public function index(Request $request)
+    public function editor(Request $request)
     {
         return inertia('Tools/CrewBuilder/Index', $this->getBaseProps($request));
+    }
+
+    public function browse(Request $request)
+    {
+        $query = CrewBuild::where('is_public', true)
+            ->where('is_archived', false)
+            ->with('user:id,name', 'master:id,name,title,display_name,slug')
+            ->latest();
+
+        if ($faction = $request->get('faction')) {
+            $query->where('faction', $faction);
+        }
+
+        if ($search = $request->get('search')) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $publicCrews = $query->paginate(12)->through(fn (CrewBuild $build) => [
+            'id' => $build->id,
+            'name' => $build->name,
+            'faction' => $build->getRawOriginal('faction'),
+            'faction_label' => $build->faction->label(),
+            'faction_color' => $build->faction->color(),
+            'faction_logo' => $build->faction->logo(),
+            'master_name' => $build->master->display_name,
+            'encounter_size' => $build->encounter_size,
+            'share_code' => $build->share_code,
+            'user_name' => $build->user?->name,
+            'created_at' => $build->created_at->diffForHumans(),
+        ]);
+
+        $myCrews = Auth::check()
+            ? CrewBuild::where('user_id', Auth::id())
+                ->where('is_archived', false)
+                ->with('master:id,name,title,display_name,slug')
+                ->latest('updated_at')
+                ->take(6)
+                ->get()
+                ->map(fn (CrewBuild $build) => [
+                    'id' => $build->id,
+                    'name' => $build->name,
+                    'faction' => $build->getRawOriginal('faction'),
+                    'faction_label' => $build->faction->label(),
+                    'faction_color' => $build->faction->color(),
+                    'faction_logo' => $build->faction->logo(),
+                    'master_name' => $build->master->display_name,
+                    'encounter_size' => $build->encounter_size,
+                    'share_code' => $build->share_code,
+                    'is_public' => $build->is_public,
+                    'updated_at' => $build->updated_at->diffForHumans(),
+                ])
+            : [];
+
+        return inertia('Tools/CrewBuilder/Browse', [
+            'crews' => $publicCrews,
+            'my_crews' => fn () => $myCrews,
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'active_faction' => $request->get('faction'),
+            'active_search' => $request->get('search'),
+        ]);
     }
 
     public function store(Request $request)

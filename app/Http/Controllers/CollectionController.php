@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Models\Character;
 use App\Models\Keyword;
@@ -121,6 +120,29 @@ class CollectionController extends Controller
         return back();
     }
 
+    public function addCharacters(Request $request)
+    {
+        $validated = $request->validate([
+            'character_ids' => 'required|array',
+            'character_ids.*' => 'integer|exists:characters,id',
+        ]);
+
+        $user = Auth::user();
+
+        DB::transaction(function () use ($user, $validated) {
+            $characters = Character::with('standardMiniatures')->whereIn('id', $validated['character_ids'])->get();
+            $miniatureIds = $characters->flatMap(fn ($c) => $c->standardMiniatures->pluck('id'));
+            $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
+            $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
+
+            if ($toAttach->isNotEmpty()) {
+                $user->collectionMiniatures()->attach($toAttach);
+            }
+        });
+
+        return back();
+    }
+
     public function addPackage(Request $request)
     {
         $validated = $request->validate([
@@ -160,6 +182,32 @@ class CollectionController extends Controller
             $user->collectionPackages()->detach($packageId);
         } else {
             $user->collectionPackages()->attach($packageId);
+        }
+
+        return back();
+    }
+
+    public function updateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'miniature_id' => 'required|exists:miniatures,id',
+            'is_built' => 'nullable|boolean',
+            'is_painted' => 'nullable|boolean',
+        ]);
+
+        $user = Auth::user();
+        $miniatureId = $validated['miniature_id'];
+
+        $data = [];
+        if (isset($validated['is_built'])) {
+            $data['is_built'] = $validated['is_built'];
+        }
+        if (isset($validated['is_painted'])) {
+            $data['is_painted'] = $validated['is_painted'];
+        }
+
+        if (! empty($data)) {
+            $user->collectionMiniatures()->updateExistingPivot($miniatureId, $data);
         }
 
         return back();
@@ -212,35 +260,21 @@ class CollectionController extends Controller
             ];
         }
 
-        // Keyword stats — eager load characters to avoid N+1
+        // Keyword stats — use withCount to avoid loading all character IDs
         $keywordStats = [];
-        $ownedCharacterIds = $ownedCharacters->pluck('id');
-        $allKeywords = Keyword::with('characters:id')->withCount('characters')->orderBy('name')->get();
+        $ownedCharacterIds = $ownedCharacters->pluck('id')->all();
+        $allKeywords = Keyword::withCount([
+            'characters',
+            'characters as owned_characters_count' => fn ($q) => $q->whereIn('characters.id', $ownedCharacterIds),
+        ])->orderBy('name')->get();
         foreach ($allKeywords as $keyword) {
             if ($keyword->characters_count > 0) {
-                $ownedCount = $keyword->characters->whereIn('id', $ownedCharacterIds)->count();
                 $keywordStats[] = [
                     'name' => $keyword->name,
                     'slug' => $keyword->slug,
                     'total' => $keyword->characters_count,
-                    'owned' => $ownedCount,
-                    'percent' => round(($ownedCount / $keyword->characters_count) * 100, 1),
-                ];
-            }
-        }
-
-        // Station breakdown
-        $stationStats = [];
-        foreach (CharacterStationEnum::cases() as $station) {
-            $total = $allCharacters->where('station', $station)->count();
-            $owned = $ownedCharacters->where('station', $station)->count();
-            if ($total > 0) {
-                $stationStats[] = [
-                    'station' => $station->value,
-                    'name' => $station->label(),
-                    'total' => $total,
-                    'owned' => $owned,
-                    'percent' => round(($owned / $total) * 100, 1),
+                    'owned' => $keyword->owned_characters_count,
+                    'percent' => round(($keyword->owned_characters_count / $keyword->characters_count) * 100, 1),
                 ];
             }
         }
@@ -264,6 +298,8 @@ class CollectionController extends Controller
                     'station' => $character->station?->value,
                     'keywords' => $character->keywords->pluck('name')->toArray(),
                     'quantity' => $m->pivot->quantity ?? 1,
+                    'is_built' => (bool) ($m->pivot->is_built ?? false),
+                    'is_painted' => (bool) ($m->pivot->is_painted ?? false),
                     'standard_miniature_id' => $character->standardMiniatures->first()?->id,
                 ];
             });
@@ -284,12 +320,15 @@ class CollectionController extends Controller
                 ]),
             ]);
 
+        $totalMiniatures = $collectionItems->count();
+        $builtCount = $collectionItems->where('is_built', '===', true)->count();
+        $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
+
         return [
             'collection' => $collectionItems,
             'owned_packages' => $ownedPackages,
             'faction_stats' => $factionStats,
             'keyword_stats' => $keywordStats,
-            'station_stats' => $stationStats,
             'totals' => [
                 'characters' => $allCharacters->count(),
                 'owned_characters' => $ownedCharacters->count(),
@@ -298,6 +337,10 @@ class CollectionController extends Controller
                 'percent' => $allCharacters->count() > 0
                     ? round(($ownedCharacters->count() / $allCharacters->count()) * 100, 1)
                     : 0,
+                'built' => $builtCount,
+                'painted' => $paintedCount,
+                'built_percent' => $totalMiniatures > 0 ? round(($builtCount / $totalMiniatures) * 100, 1) : 0,
+                'painted_percent' => $totalMiniatures > 0 ? round(($paintedCount / $totalMiniatures) * 100, 1) : 0,
             ],
             'factions' => FactionEnum::buildDetails(),
         ];

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Check, Copy, Globe, Grid2x2, Library, Lock, Minus, Package, Plus, Search, Trash2, X } from 'lucide-vue-next';
+import { BarChart3, BookOpen, Check, Copy, Globe, Grid2x2, Hammer, Library, Lock, Minus, Package, Paintbrush, Plus, Search, Trash2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CollectionItem {
@@ -25,6 +25,8 @@ interface CollectionItem {
     station: string | null;
     keywords: string[];
     quantity: number;
+    is_built: boolean;
+    is_painted: boolean;
     standard_miniature_id: number | null;
 }
 
@@ -46,14 +48,6 @@ interface KeywordStat {
     percent: number;
 }
 
-interface StationStat {
-    station: string;
-    name: string;
-    total: number;
-    owned: number;
-    percent: number;
-}
-
 interface OwnedPackage {
     id: number;
     name: string;
@@ -67,13 +61,16 @@ const props = defineProps<{
     owned_packages: OwnedPackage[];
     faction_stats: FactionStat[];
     keyword_stats: KeywordStat[];
-    station_stats: StationStat[];
     totals: {
         characters: number;
         owned_characters: number;
         owned_miniatures: number;
         owned_packages: number;
         percent: number;
+        built: number;
+        painted: number;
+        built_percent: number;
+        painted_percent: number;
     };
     factions: Record<string, { slug: string; name: string; color: string; logo: string }>;
     is_owner: boolean;
@@ -104,11 +101,13 @@ const togglePublic = () => {
 // ─── Filters ───
 const filterText = ref('');
 const filterFaction = ref<string | null>(null);
-const hasActiveFilter = computed(() => !!filterText.value || !!filterFaction.value);
+const filterStatus = ref<string | null>(null);
+const hasActiveFilter = computed(() => !!filterText.value || !!filterFaction.value || !!filterStatus.value);
 
 const clearFilters = () => {
     filterText.value = '';
     filterFaction.value = null;
+    filterStatus.value = null;
 };
 
 // Filtered collection
@@ -125,6 +124,22 @@ const filteredCollection = computed(() => {
     }
     if (filterFaction.value) {
         items = items.filter((i) => i.faction === filterFaction.value);
+    }
+    if (filterStatus.value) {
+        switch (filterStatus.value) {
+            case 'unbuilt':
+                items = items.filter((i) => !i.is_built);
+                break;
+            case 'built':
+                items = items.filter((i) => i.is_built);
+                break;
+            case 'unpainted':
+                items = items.filter((i) => !i.is_painted);
+                break;
+            case 'painted':
+                items = items.filter((i) => i.is_painted);
+                break;
+        }
     }
     return items;
 });
@@ -171,6 +186,15 @@ const updateQuantity = (miniatureId: number, quantity: number) => {
     );
 };
 
+const updateStatus = (miniatureId: number, field: 'is_built' | 'is_painted', value: boolean) => {
+    processing.value = true;
+    router.post(
+        route('collection.update_status'),
+        { miniature_id: miniatureId, [field]: value },
+        { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) },
+    );
+};
+
 const removeMiniature = (miniatureId: number) => {
     processing.value = true;
     router.post(
@@ -199,6 +223,11 @@ const removePackage = (packageId: number) => {
 
 // Sorted keyword stats
 const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) => b.percent - a.percent));
+
+// Top factions by owned count
+const topFactions = computed(() =>
+    [...props.faction_stats].filter((f) => f.owned > 0).sort((a, b) => b.owned - a.owned || b.percent - a.percent).slice(0, 5),
+);
 </script>
 
 <template>
@@ -319,6 +348,17 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                 <SelectItem v-for="(f, key) in factions" :key="key" :value="key">{{ f.name }}</SelectItem>
                             </SelectContent>
                         </Select>
+                        <Select v-model="filterStatus">
+                            <SelectTrigger class="w-40 shrink-0">
+                                <SelectValue placeholder="All Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="unbuilt">Unbuilt</SelectItem>
+                                <SelectItem value="built">Built</SelectItem>
+                                <SelectItem value="unpainted">Unpainted</SelectItem>
+                                <SelectItem value="painted">Painted</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <Button v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters"> Clear </Button>
                     </div>
 
@@ -367,6 +407,42 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
                                         {{ item.miniature_name }}
                                     </div>
                                 </Link>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <Button
+                                        v-if="is_owner"
+                                        :variant="item.is_built ? 'default' : 'outline'"
+                                        size="icon"
+                                        class="size-7"
+                                        :class="item.is_built ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-muted-foreground'"
+                                        :disabled="processing"
+                                        :title="item.is_built ? 'Mark as unbuilt' : 'Mark as built'"
+                                        @click="updateStatus(item.miniature_id, 'is_built', !item.is_built)"
+                                    >
+                                        <Hammer class="size-3.5" />
+                                    </Button>
+                                    <Hammer
+                                        v-else-if="item.is_built"
+                                        class="size-3.5 text-amber-600 dark:text-amber-400"
+                                        title="Built"
+                                    />
+                                    <Button
+                                        v-if="is_owner"
+                                        :variant="item.is_painted ? 'default' : 'outline'"
+                                        size="icon"
+                                        class="size-7"
+                                        :class="item.is_painted ? 'bg-violet-600 text-white hover:bg-violet-700' : 'text-muted-foreground'"
+                                        :disabled="processing"
+                                        :title="item.is_painted ? 'Mark as unpainted' : 'Mark as painted'"
+                                        @click="updateStatus(item.miniature_id, 'is_painted', !item.is_painted)"
+                                    >
+                                        <Paintbrush class="size-3.5" />
+                                    </Button>
+                                    <Paintbrush
+                                        v-else-if="item.is_painted"
+                                        class="size-3.5 text-violet-600 dark:text-violet-400"
+                                        title="Painted"
+                                    />
+                                </div>
                                 <div v-if="is_owner" class="flex shrink-0 items-center gap-1">
                                     <Button
                                         variant="ghost"
@@ -512,24 +588,69 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
 
                 <!-- Stats Tab -->
                 <TabsContent value="stats">
+                    <!-- Built / Painted progress -->
+                    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Card>
+                            <CardContent class="p-4">
+                                <div class="mb-3 flex items-center gap-2.5">
+                                    <div class="flex size-8 items-center justify-center rounded-md bg-amber-100 dark:bg-amber-900/30">
+                                        <Hammer class="size-4 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold">Built</div>
+                                        <div class="text-xs text-muted-foreground">{{ totals.built }} of {{ collection.length }} miniatures</div>
+                                    </div>
+                                    <Badge variant="secondary" class="ml-auto tabular-nums">{{ totals.built_percent }}%</Badge>
+                                </div>
+                                <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                        class="h-full rounded-full bg-amber-500 transition-all duration-500"
+                                        :style="{ width: `${totals.built_percent}%` }"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent class="p-4">
+                                <div class="mb-3 flex items-center gap-2.5">
+                                    <div class="flex size-8 items-center justify-center rounded-md bg-violet-100 dark:bg-violet-900/30">
+                                        <Paintbrush class="size-4 text-violet-600 dark:text-violet-400" />
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold">Painted</div>
+                                        <div class="text-xs text-muted-foreground">{{ totals.painted }} of {{ collection.length }} miniatures</div>
+                                    </div>
+                                    <Badge variant="secondary" class="ml-auto tabular-nums">{{ totals.painted_percent }}%</Badge>
+                                </div>
+                                <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                        class="h-full rounded-full bg-violet-500 transition-all duration-500"
+                                        :style="{ width: `${totals.painted_percent}%` }"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                        <!-- Station breakdown -->
+                        <!-- Top factions -->
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">By Station</CardTitle>
+                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Top Factions</CardTitle>
                             </CardHeader>
                             <CardContent class="space-y-4">
-                                <div v-for="stat in station_stats" :key="stat.station" class="space-y-1.5">
-                                    <div class="flex items-center justify-between text-sm">
+                                <div v-for="stat in topFactions" :key="stat.faction" class="space-y-1.5">
+                                    <div class="flex items-center gap-2.5 text-sm">
+                                        <img :src="stat.logo" :alt="stat.name" class="size-5" />
                                         <span class="font-medium">{{ stat.name }}</span>
-                                        <span class="tabular-nums text-muted-foreground"
+                                        <span class="ml-auto tabular-nums text-muted-foreground"
                                             >{{ stat.owned }} / {{ stat.total }} ({{ stat.percent }}%)</span
                                         >
                                     </div>
                                     <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
                                         <div
-                                            class="h-full rounded-full bg-primary transition-all duration-500"
-                                            :style="{ width: `${stat.percent}%` }"
+                                            class="h-full rounded-full transition-all duration-500"
+                                            :style="{ width: `${stat.percent}%`, backgroundColor: `hsl(var(--${stat.color}))` }"
                                         />
                                     </div>
                                 </div>

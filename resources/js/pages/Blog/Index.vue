@@ -55,7 +55,7 @@ const props = defineProps<{
     active_faction: string | null;
 }>();
 
-const factionInfo = computed(() => page.props.faction_info as Record<string, { name: string; slug: string; color: string; logo: string }>);
+const factionInfo = computed(() => page.props.faction_info);
 
 const isFirstPageNoFilters = computed(() => props.posts.current_page === 1 && !props.active_category && !props.active_faction);
 
@@ -142,6 +142,8 @@ const formatDate = (dateStr: string) => {
                                 v-if="featuredPost.featured_image"
                                 :src="`/storage/${featuredPost.featured_image}`"
                                 :alt="featuredPost.title"
+                                loading="lazy"
+                                decoding="async"
                                 class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                             <div v-else class="flex h-full min-h-48 items-center justify-center bg-muted">
@@ -180,6 +182,8 @@ const formatDate = (dateStr: string) => {
                                     v-if="post.featured_image"
                                     :src="`/storage/${post.featured_image}`"
                                     :alt="post.title"
+                                    loading="lazy"
+                                    decoding="async"
                                     class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 />
                                 <div v-else class="flex h-full items-center justify-center bg-muted">

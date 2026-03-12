@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
+import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Input } from '@/components/ui/input';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
@@ -28,7 +29,7 @@ const columns: ColumnDef<Tokens>[] = [
         accessorKey: 'description',
         header: () => h('div', {}, 'Description'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('description'));
+            return h(GameText, { text: row.getValue('description') as string });
         },
     },
 ];
@@ -113,7 +114,9 @@ const { delays } = useStaggeredEntry(filteredCount);
                                 <CardTitle class="text-base">{{ token.name }}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p class="text-sm text-muted-foreground">{{ token.description }}</p>
+                                <p class="text-sm text-muted-foreground">
+                                    <GameText :text="token.description" />
+                                </p>
                             </CardContent>
                         </Card>
                     </div>

@@ -8,7 +8,9 @@ use App\Models\Character;
 use App\Models\Lore;
 use App\Models\LoreMedia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Str;
 
 class LoreAdminController extends Controller
 {
@@ -70,6 +72,8 @@ class LoreAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'file' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg,png,webp,pdf'],
+            'remove_file' => ['nullable', 'boolean'],
             'lore_media' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
             // Inline new media creation (array of objects)
@@ -78,6 +82,23 @@ class LoreAdminController extends Controller
             'new_media.*.type' => ['required_with:new_media', 'string', Rule::enum(LoreMediaTypeEnum::class)],
             'new_media.*.link' => ['nullable', 'string', 'max:500'],
         ]);
+
+        // Handle file upload
+        $fileData = [];
+        if (isset($validated['file']) && $validated['file']) {
+            $extension = $validated['file']->extension();
+            $slug = Str::slug($validated['name']);
+            $uuid = Str::uuid();
+            $fileName = sprintf('%s_%s.%s', $slug, $uuid, $extension);
+            $filePath = "lore/{$fileName}";
+            Storage::disk('public')->put($filePath, file_get_contents($validated['file']));
+            $fileData['file'] = $filePath;
+        } elseif (! empty($validated['remove_file'])) {
+            if ($lore?->file) {
+                Storage::disk('public')->delete($lore->file);
+            }
+            $fileData['file'] = null;
+        }
 
         // Resolve existing media by name
         $mediaIds = LoreMedia::whereIn('name', $validated['lore_media'] ?? [])->pluck('id')->toArray();
@@ -97,9 +118,9 @@ class LoreAdminController extends Controller
         $characters = Character::whereIn('display_name', $validated['characters'] ?? [])->get();
 
         if (! $lore) {
-            $lore = Lore::create(['name' => $validated['name']]);
+            $lore = Lore::create(['name' => $validated['name'], ...$fileData]);
         } else {
-            $lore->update(['name' => $validated['name']]);
+            $lore->update(['name' => $validated['name'], ...$fileData]);
         }
 
         $lore->media()->sync($mediaIds);

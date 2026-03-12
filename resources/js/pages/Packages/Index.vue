@@ -16,8 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cleanObject } from '@/composables/CleanObject';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { LayoutGrid, List, Search, X } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { BookMarked, Heart, LayoutGrid, List, Plus, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps<{
@@ -56,6 +57,7 @@ const filter = () => {
         only: ['packages', 'result_count'],
         replace: true,
         preserveState: true,
+        preserveScroll: true,
     });
 };
 
@@ -110,6 +112,33 @@ onMounted(() => {
         isLoading.value = false;
     });
 });
+
+const page = usePage<SharedData>();
+
+const collectionPackageIds = computed(() => new Set(page.props.auth?.collection_package_ids ?? []));
+const wishlistPackageIds = computed(() => {
+    const ids = new Set<number>();
+    for (const wl of Object.values(page.props.auth?.wishlist_items ?? {})) {
+        for (const id of wl.packages) ids.add(id);
+    }
+    return ids;
+});
+
+const isLoggedIn = computed(() => !!page.props.auth?.user);
+const isCollected = (pkgId: number) => collectionPackageIds.value.has(pkgId);
+const isWishlisted = (pkgId: number) => wishlistPackageIds.value.has(pkgId);
+
+const addPackageToCollection = async (packageId: number) => {
+    // Optimistically update shared auth data
+    const pkgIds = page.props.auth.collection_package_ids;
+    if (!pkgIds.includes(packageId)) pkgIds.push(packageId);
+
+    await fetch(route('collection.add_package'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+        body: JSON.stringify({ package_id: packageId }),
+    });
+};
 
 const formatPrice = (cents: number | null) => {
     if (!cents) return '-';
@@ -276,9 +305,31 @@ const formatPrice = (cents: number | null) => {
                                 <template v-if="props.packages?.data?.length">
                                     <TableRow v-for="pkg in props.packages.data" :key="pkg.id">
                                         <TableCell class="font-medium">
-                                            <Link :href="route('packages.view', { package: pkg.slug })" class="text-primary hover:underline">
-                                                {{ pkg.name }}
-                                            </Link>
+                                            <div class="flex items-center gap-1.5">
+                                                <Link :href="route('packages.view', { package: pkg.slug })" class="text-primary hover:underline">
+                                                    {{ pkg.name }}
+                                                </Link>
+                                                <BookMarked
+                                                    v-if="isCollected(pkg.id)"
+                                                    class="size-3.5 shrink-0"
+                                                    style="color: #059669"
+                                                    title="In Collection"
+                                                />
+                                                <button
+                                                    v-else-if="isLoggedIn"
+                                                    class="inline-flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                                    title="Add to Collection"
+                                                    @click="addPackageToCollection(pkg.id)"
+                                                >
+                                                    <Plus class="size-3.5" />
+                                                </button>
+                                                <Heart
+                                                    v-if="isWishlisted(pkg.id)"
+                                                    class="size-3.5 shrink-0 fill-current"
+                                                    style="color: #f43f5e"
+                                                    title="On Wishlist"
+                                                />
+                                            </div>
                                         </TableCell>
                                         <TableCell>{{ pkg.sku ?? '-' }}</TableCell>
                                         <TableCell>
@@ -348,6 +399,24 @@ const formatPrice = (cents: number | null) => {
                                                 </Badge>
                                                 <span class="ml-auto text-xs text-muted-foreground">{{ pkg.characters_count }} Characters</span>
                                             </div>
+                                            <div v-if="isCollected(pkg.id) || isWishlisted(pkg.id)" class="mt-1.5 flex items-center gap-2">
+                                                <span v-if="isCollected(pkg.id)" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                                                    <BookMarked class="size-3" />
+                                                    Collected
+                                                </span>
+                                                <span v-if="isWishlisted(pkg.id)" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                                                    <Heart class="size-3 fill-current" />
+                                                    Wishlisted
+                                                </span>
+                                            </div>
+                                            <button
+                                                v-if="isLoggedIn && !isCollected(pkg.id)"
+                                                class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                                                @click.prevent="addPackageToCollection(pkg.id)"
+                                            >
+                                                <Plus class="size-3" />
+                                                Add to Collection
+                                            </button>
                                         </CardContent>
                                     </Card>
                                 </Link>

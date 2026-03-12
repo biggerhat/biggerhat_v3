@@ -17,7 +17,7 @@ import { ArrowLeft, Lock } from 'lucide-vue-next';
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4">
-                <Button variant="outline" size="sm" class="gap-1.5" as="a" :href="route('tools.crew_builder.index')">
+                <Button variant="outline" size="sm" class="gap-1.5" as="a" :href="`${route('tools.crew_builder.editor')}?new`">
                     <ArrowLeft class="size-4" />
                     <span class="hidden sm:inline">Build a Crew</span>
                 </Button>
@@ -31,7 +31,7 @@ import { ArrowLeft, Lock } from 'lucide-vue-next';
                         </div>
                         <h2 class="text-lg font-semibold">This crew list is private</h2>
                         <p class="text-sm text-muted-foreground">The owner has made this crew list private. It is no longer available for viewing.</p>
-                        <Button as="a" :href="route('tools.crew_builder.index')" class="mt-2"> Build Your Own Crew </Button>
+                        <Button as="a" :href="`${route('tools.crew_builder.editor')}?new`" class="mt-2"> Build Your Own Crew </Button>
                     </CardContent>
                 </Card>
             </div>

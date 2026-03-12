@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, router } from '@inertiajs/vue3';
-import { BookOpen, ChevronDown, Grid2x2, LayoutGrid, List } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { BookOpen, ChevronDown, Grid2x2, LayoutGrid, Library, List, Plus } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CharacterCardView from '@/components/CharacterCardView.vue';
@@ -175,6 +176,42 @@ onMounted(() => {
     if (hasSorting) sectionsOpen.value.sorting = true;
 });
 
+const page = usePage<SharedData>();
+const isLoggedIn = computed(() => !!page.props.auth?.user);
+
+const collectionIds = computed(() => new Set(page.props.auth?.collection_miniature_ids ?? []));
+
+const uncollectedCharacters = computed(() => {
+    return (props.characters ?? []).filter(
+        (c: any) => !(c.standard_miniatures ?? []).some((m: any) => collectionIds.value.has(m.id)),
+    );
+});
+
+const addingAll = ref(false);
+const addAllToCollection = async () => {
+    const chars = uncollectedCharacters.value;
+    if (!chars.length) return;
+    addingAll.value = true;
+
+    // Optimistically update shared auth data
+    const ids = page.props.auth.collection_miniature_ids;
+    for (const c of chars) {
+        for (const m of c.standard_miniatures ?? []) {
+            if (!ids.includes(m.id)) ids.push(m.id);
+        }
+    }
+
+    try {
+        await fetch(route('collection.add_characters'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: JSON.stringify({ character_ids: chars.map((c: any) => c.id) }),
+        });
+    } finally {
+        addingAll.value = false;
+    }
+};
+
 const characterCount = computed(() => props.characters?.length ?? 0);
 const { delays } = useStaggeredEntry(characterCount);
 
@@ -234,6 +271,18 @@ onMounted(() => {
                 </TabsList>
             </Tabs>
             <div class="flex items-center gap-2">
+                <Button
+                    v-if="isLoggedIn && uncollectedCharacters.length > 0"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1 text-xs"
+                    :disabled="addingAll"
+                    @click="addAllToCollection"
+                >
+                    <Library class="size-3.5" />
+                    <Plus class="size-3" />
+                    Add All ({{ uncollectedCharacters.length }})
+                </Button>
                 <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
@@ -433,7 +482,11 @@ onMounted(() => {
                                     class="animate-fade-in-up opacity-0"
                                     :style="delays[index]"
                                 >
-                                    <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
+                                    <CharacterCardView
+                                        :miniature="character.standard_miniatures[0]"
+                                        :character-slug="character.slug"
+                                        :all-miniature-ids="character.standard_miniatures.map((m: any) => m.id)"
+                                    />
                                 </div>
                             </div>
                         </template>

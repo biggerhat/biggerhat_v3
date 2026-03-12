@@ -7,9 +7,8 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { type BreadcrumbItem, type SharedData, type User } from '@/types';
+import { type SharedData, type User } from '@/types';
 
 interface Props {
     mustVerifyEmail: boolean;
@@ -17,13 +16,6 @@ interface Props {
 }
 
 defineProps<Props>();
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Profile settings',
-        href: '/settings/profile',
-    },
-];
 
 const page = usePage<SharedData>();
 const user = page.props.auth.user as User;
@@ -41,10 +33,9 @@ const submit = () => {
 </script>
 
 <template>
-    <AppLayout :breadcrumbs="breadcrumbs">
-        <Head title="Profile settings" />
+    <Head title="Profile settings" />
 
-        <SettingsLayout>
+    <SettingsLayout>
             <div class="flex flex-col space-y-6">
                 <HeadingSmall title="Profile information" description="Update your name and email address" />
 
@@ -103,6 +94,5 @@ const submit = () => {
             </div>
 
             <DeleteUser />
-        </SettingsLayout>
-    </AppLayout>
+    </SettingsLayout>
 </template>

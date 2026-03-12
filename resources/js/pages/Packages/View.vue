@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -75,29 +75,52 @@ const isAuthenticated = computed(() => !!page.props.auth.user);
 const collectionPackageIds = computed(() => page.props.auth.collection_package_ids ?? []);
 const packageInCollection = computed(() => collectionPackageIds.value.includes(props.package.id));
 
+const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+
 const collectionProcessing = ref(false);
-const addPackageToCollection = () => {
+const addPackageToCollection = async () => {
     collectionProcessing.value = true;
-    router.post(
-        route('collection.add_package'),
-        { package_id: props.package.id },
-        {
-            preserveScroll: true,
-            onFinish: () => (collectionProcessing.value = false),
-        },
-    );
+    const pkgIds = page.props.auth.collection_package_ids;
+    if (!pkgIds.includes(props.package.id)) pkgIds.push(props.package.id);
+
+    // Also optimistically add character miniatures
+    const miniIds = page.props.auth.collection_miniature_ids;
+    for (const c of props.package.characters ?? []) {
+        if (c.standard_miniature && !miniIds.includes(c.standard_miniature.id)) {
+            miniIds.push(c.standard_miniature.id);
+        }
+    }
+
+    try {
+        await fetch(route('collection.add_package'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ package_id: props.package.id }),
+        });
+    } finally {
+        collectionProcessing.value = false;
+    }
 };
 
-const togglePackageCollection = () => {
+const togglePackageCollection = async () => {
     collectionProcessing.value = true;
-    router.post(
-        route('collection.toggle_package'),
-        { package_id: props.package.id },
-        {
-            preserveScroll: true,
-            onFinish: () => (collectionProcessing.value = false),
-        },
-    );
+    const pkgIds = page.props.auth.collection_package_ids;
+    const idx = pkgIds.indexOf(props.package.id);
+    if (idx !== -1) {
+        pkgIds.splice(idx, 1);
+    } else {
+        pkgIds.push(props.package.id);
+    }
+
+    try {
+        await fetch(route('collection.toggle_package'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ package_id: props.package.id }),
+        });
+    } finally {
+        collectionProcessing.value = false;
+    }
 };
 </script>
 

@@ -11,7 +11,7 @@ import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, BookOpen, Check, Copy, Download, ExternalLink, FileImage, Library, Package, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -33,7 +33,7 @@ const props = defineProps({
     },
 });
 
-const factionInfo = computed(() => (page.props as any).faction_info as Record<string, { name: string; slug: string; color: string; logo: string }>);
+const factionInfo = computed(() => page.props.faction_info);
 
 const factionName = computed(() => factionInfo.value[props.character.faction]?.name ?? props.character.faction);
 
@@ -85,29 +85,48 @@ const allStandardInCollection = computed(() => {
     return standardMiniatures.value.every((m: any) => collectionIds.value.includes(m.id));
 });
 
+const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+
 const collectionProcessing = ref(false);
-const toggleMiniature = () => {
+const toggleMiniature = async () => {
     collectionProcessing.value = true;
-    router.post(
-        route('collection.toggle'),
-        { miniature_id: props.miniature.id },
-        {
-            preserveScroll: true,
-            onFinish: () => (collectionProcessing.value = false),
-        },
-    );
+    const ids = page.props.auth.collection_miniature_ids;
+    const miniatureId = props.miniature.id;
+
+    if (currentMiniatureInCollection.value) {
+        const idx = ids.indexOf(miniatureId);
+        if (idx !== -1) ids.splice(idx, 1);
+    } else {
+        if (!ids.includes(miniatureId)) ids.push(miniatureId);
+    }
+
+    try {
+        await fetch(route('collection.toggle'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ miniature_id: miniatureId }),
+        });
+    } finally {
+        collectionProcessing.value = false;
+    }
 };
 
-const addAllStandard = () => {
+const addAllStandard = async () => {
     collectionProcessing.value = true;
-    router.post(
-        route('collection.add_character'),
-        { character_id: props.character.id },
-        {
-            preserveScroll: true,
-            onFinish: () => (collectionProcessing.value = false),
-        },
-    );
+    const ids = page.props.auth.collection_miniature_ids;
+    for (const m of standardMiniatures.value) {
+        if (!ids.includes(m.id)) ids.push(m.id);
+    }
+
+    try {
+        await fetch(route('collection.add_character'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ character_id: props.character.id }),
+        });
+    } finally {
+        collectionProcessing.value = false;
+    }
 };
 </script>
 

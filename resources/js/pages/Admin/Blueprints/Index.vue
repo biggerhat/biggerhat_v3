@@ -1,32 +1,44 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { imageSrc } from '@/composables/useBlueprintImages';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
-import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
-import { h, ref } from 'vue';
+import type { ColumnDef, FilterFn, SortingState } from '@tanstack/vue-table';
+import { computed, h, ref } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useVueTable } from '@tanstack/vue-table';
 
 const previewImage = ref<{ src: string; name: string } | null>(null);
+const showUnattachedOnly = ref(false);
+const searchText = ref('');
 
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
-    const search = (filterValue as string).toLowerCase();
+    const { search, unattachedOnly } = filterValue as { search: string; unattachedOnly: boolean };
+    const term = search.toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
     const characters = (row.original.characters ?? []).map((c: any) => (c.display_name as string)?.toLowerCase() ?? '');
     const miniatures = (row.original.miniatures ?? []).map((m: any) => (m.display_name as string)?.toLowerCase() ?? '');
-    return name.includes(search) || characters.some((n: string) => n.includes(search)) || miniatures.some((n: string) => n.includes(search));
+
+    const matchesSearch = !term || name.includes(term) || characters.some((n: string) => n.includes(term)) || miniatures.some((n: string) => n.includes(term));
+
+    if (unattachedOnly) {
+        return matchesSearch && row.original.characters_count === 0 && row.original.miniatures_count === 0;
+    }
+
+    return matchesSearch;
 };
 
 const columns: ColumnDef<any>[] = [
     {
         id: 'image',
         header: () => h('div', {}, ''),
+        enableSorting: false,
         cell: ({ row }) => {
             const path = row.original.image_path;
             if (!path) return h('div', { class: 'h-10 w-14 rounded bg-muted' });
@@ -55,11 +67,12 @@ const columns: ColumnDef<any>[] = [
         },
     },
     {
-        id: 'characters',
+        accessorKey: 'characters_count',
         header: () => h('div', {}, 'Characters'),
         cell: ({ row }) => {
+            const count = row.getValue('characters_count') as number;
             const chars = row.original.characters ?? [];
-            if (!chars.length) return h('span', { class: 'text-sm text-muted-foreground' }, '-');
+            if (!count) return h('span', { class: 'text-sm text-muted-foreground' }, '0');
             return h(
                 'div',
                 { class: 'flex flex-wrap gap-1' },
@@ -68,11 +81,12 @@ const columns: ColumnDef<any>[] = [
         },
     },
     {
-        id: 'miniatures',
+        accessorKey: 'miniatures_count',
         header: () => h('div', {}, 'Miniatures'),
         cell: ({ row }) => {
+            const count = row.getValue('miniatures_count') as number;
             const minis = row.original.miniatures ?? [];
-            if (!minis.length) return h('span', { class: 'text-sm text-muted-foreground' }, '-');
+            if (!count) return h('span', { class: 'text-sm text-muted-foreground' }, '0');
             return h(
                 'div',
                 { class: 'flex flex-wrap gap-1' },
@@ -83,6 +97,7 @@ const columns: ColumnDef<any>[] = [
     {
         id: 'actions',
         enableHiding: false,
+        enableSorting: false,
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
             const blueprint = row.original;
@@ -103,7 +118,9 @@ const props = defineProps<{
     blueprints: any[];
 }>();
 
-const globalFilter = ref('');
+const sorting = ref<SortingState>([]);
+
+const globalFilterValue = computed(() => ({ search: searchText.value, unattachedOnly: showUnattachedOnly.value }));
 
 const table = useVueTable({
     get data() {
@@ -115,11 +132,15 @@ const table = useVueTable({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: globalSearchFilter,
-    onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),
+    onSortingChange: (updaterOrValue) => valueUpdater(updaterOrValue, sorting),
     state: {
         get globalFilter() {
-            return globalFilter.value;
+            return globalFilterValue.value;
+        },
+        get sorting() {
+            return sorting.value;
         },
     },
     initialState: {
@@ -135,21 +156,36 @@ const table = useVueTable({
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input
-                class="max-w-sm"
-                placeholder="Filter by name, character, or miniature..."
-                :model-value="globalFilter"
-                @update:model-value="table.setGlobalFilter($event)"
-            />
-            <div>Total {{ props.blueprints.length }}</div>
+            <div class="flex items-center gap-4">
+                <Input
+                    class="max-w-sm"
+                    placeholder="Filter by name, character, or miniature..."
+                    :model-value="searchText"
+                    @update:model-value="searchText = $event"
+                />
+                <label class="flex cursor-pointer items-center gap-2 text-sm whitespace-nowrap">
+                    <Checkbox :checked="showUnattachedOnly" @update:checked="(val: boolean) => (showUnattachedOnly = val)" />
+                    Unattached only
+                </label>
+            </div>
+            <div>Total {{ table.getFilteredRowModel().rows.length }}</div>
             <Button @click="router.get(route('admin.blueprints.create'))"> Create New Blueprint </Button>
         </div>
         <div class="rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
-                        <TableHead v-for="header in headerGroup.headers" :key="header.id">
-                            <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                        <TableHead
+                            v-for="header in headerGroup.headers"
+                            :key="header.id"
+                            :class="{ 'cursor-pointer select-none': header.column.getCanSort() }"
+                            @click="header.column.getToggleSortingHandler()?.($event)"
+                        >
+                            <div class="flex items-center gap-1">
+                                <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                                <span v-if="header.column.getIsSorted() === 'asc'">↑</span>
+                                <span v-else-if="header.column.getIsSorted() === 'desc'">↓</span>
+                            </div>
                         </TableHead>
                     </TableRow>
                 </TableHeader>

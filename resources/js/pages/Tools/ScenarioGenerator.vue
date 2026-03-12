@@ -96,6 +96,7 @@ async function generate() {
     pickedSchemes.value = shuffleArray(props.schemes).slice(0, 3);
 
     showResults.value = true;
+    nextTick(() => pushScenarioToUrl());
 }
 
 const resultCount = computed(() => (showResults.value ? 5 : 0));
@@ -104,24 +105,26 @@ const { delays: resultDelays } = useStaggeredEntry(resultCount);
 // ─── Manual overrides ───
 const editingDeployment = ref(false);
 const editingStrategy = ref(false);
-const editingSchemeIndex = ref<number | null>(null);
+const editingSchemes = ref(false);
 
 function setDeployment(value: string) {
     const found = props.deployments.find((d) => d.value === value);
     if (found) pickedDeployment.value = found;
     editingDeployment.value = false;
+    pushScenarioToUrl();
 }
 
 function setStrategy(value: string) {
     const found = props.strategies.find((s) => String(s.id) === value);
     if (found) pickedStrategy.value = found;
     editingStrategy.value = false;
+    pushScenarioToUrl();
 }
 
 function setScheme(index: number, value: string) {
     const found = props.schemes.find((s) => String(s.id) === value);
     if (found) pickedSchemes.value[index] = found;
-    editingSchemeIndex.value = null;
+    pushScenarioToUrl();
 }
 
 const availableSchemes = computed(() => {
@@ -137,6 +140,12 @@ function buildShareUrl(): string {
     if (pickedStrategy.value) params.set('st', String(pickedStrategy.value.id));
     if (pickedSchemes.value.length) params.set('sc', pickedSchemes.value.map((s) => s.id).join(','));
     return `${route('tools.scenario_generator')}?${params.toString()}`;
+}
+
+function pushScenarioToUrl() {
+    if (!showResults.value) return;
+    const url = buildShareUrl();
+    window.history.replaceState({}, '', url);
 }
 
 const copied = ref(false);
@@ -359,7 +368,29 @@ onMounted(() => {
 
                         <!-- Schemes -->
                         <section v-if="pickedSchemes.length">
-                            <h2 class="mb-4 text-lg font-semibold">Schemes</h2>
+                            <div class="mb-4 flex items-center gap-2">
+                                <h2 class="text-lg font-semibold">Schemes</h2>
+                                <button
+                                    class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                    @click="editingSchemes = !editingSchemes"
+                                >
+                                    <Pencil class="size-3.5" />
+                                </button>
+                            </div>
+                            <div v-if="editingSchemes" class="mb-4 grid gap-3 sm:grid-cols-3">
+                                <div v-for="(scheme, index) in pickedSchemes" :key="'edit-' + index">
+                                    <Select :model-value="String(scheme.id)" @update:model-value="(v: string) => setScheme(index, v)">
+                                        <SelectTrigger class="w-full">
+                                            <SelectValue placeholder="Select Scheme" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="s in availableSchemes(index)" :key="s.id" :value="String(s.id)">
+                                                {{ s.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                             <div class="grid gap-4 sm:grid-cols-3">
                                 <div
                                     v-for="(scheme, index) in pickedSchemes"
@@ -367,39 +398,19 @@ onMounted(() => {
                                     class="animate-fade-in-up opacity-0"
                                     :style="resultDelays[index + 2]"
                                 >
-                                    <div v-if="editingSchemeIndex === index" class="mb-3">
-                                        <Select :model-value="String(scheme.id)" @update:model-value="(v: string) => setScheme(index, v)">
-                                            <SelectTrigger class="w-full">
-                                                <SelectValue placeholder="Select Scheme" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem v-for="s in availableSchemes(index)" :key="s.id" :value="String(s.id)">
-                                                    {{ s.name }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div class="relative">
-                                        <button
-                                            class="absolute right-2 top-2 z-10 rounded-md bg-background/80 p-1 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
-                                            @click.prevent="editingSchemeIndex = editingSchemeIndex === index ? null : index"
+                                    <Link :href="route('schemes.view', scheme.slug)">
+                                        <div
+                                            v-if="scheme.image_url"
+                                            class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg"
                                         >
-                                            <Pencil class="size-3.5" />
-                                        </button>
-                                        <Link :href="route('schemes.view', scheme.slug)">
-                                            <div
-                                                v-if="scheme.image_url"
-                                                class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg"
-                                            >
-                                                <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
-                                            </div>
-                                            <Card v-else class="transition-shadow hover:shadow-lg">
-                                                <CardContent class="flex items-center justify-between p-4">
-                                                    <span class="font-medium">{{ scheme.name }}</span>
-                                                </CardContent>
-                                            </Card>
-                                        </Link>
-                                    </div>
+                                            <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
+                                        </div>
+                                        <Card v-else class="transition-shadow hover:shadow-lg">
+                                            <CardContent class="flex items-center justify-between p-4">
+                                                <span class="font-medium">{{ scheme.name }}</span>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
                                 </div>
                             </div>
                         </section>

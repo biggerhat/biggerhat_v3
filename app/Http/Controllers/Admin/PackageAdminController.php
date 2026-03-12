@@ -18,7 +18,9 @@ class PackageAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Packages/Index', [
-            'packages' => Package::orderBy('name', 'ASC')->get(),
+            'packages' => Package::withCount(['characters', 'miniatures'])
+                ->orderBy('name', 'ASC')
+                ->get(),
         ]);
     }
 

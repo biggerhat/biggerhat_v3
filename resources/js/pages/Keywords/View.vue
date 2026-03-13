@@ -212,7 +212,7 @@ onMounted(() => {
                 </div>
             </template>
         </PageBanner>
-        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
+        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -244,7 +244,7 @@ onMounted(() => {
                 >
                     <Library class="size-3.5" />
                     <Plus class="size-3" />
-                    Add All ({{ uncollectedCharacters.length }})
+                    <span class="hidden sm:inline">Add All</span> ({{ uncollectedCharacters.length }})
                 </Button>
             </div>
             <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">

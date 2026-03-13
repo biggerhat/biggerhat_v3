@@ -273,7 +273,7 @@ const topFactions = computed(() =>
             <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card class="overflow-hidden">
                     <CardContent class="p-4 text-center">
-                        <div class="text-3xl font-bold tracking-tight">{{ totals.owned_characters }}</div>
+                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_characters }}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">Characters ({{ totals.percent }}%)</div>
                         <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                             <div class="h-full rounded-full bg-primary transition-all duration-500" :style="{ width: `${totals.percent}%` }" />
@@ -282,19 +282,19 @@ const topFactions = computed(() =>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
-                        <div class="text-3xl font-bold tracking-tight">{{ totals.owned_miniatures }}</div>
+                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_miniatures }}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">Total Miniatures</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
-                        <div class="text-3xl font-bold tracking-tight">{{ totals.owned_packages }}</div>
+                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_packages }}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">Packages</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
-                        <div class="text-3xl font-bold tracking-tight">{{ totals.characters }}</div>
+                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.characters }}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">Total Available</div>
                     </CardContent>
                 </Card>
@@ -328,7 +328,7 @@ const topFactions = computed(() =>
                 <!-- Collection Tab -->
                 <TabsContent value="collection">
                     <!-- Filters -->
-                    <div class="mb-4 flex flex-wrap items-center gap-2">
+                    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <div class="relative min-w-0 flex-1">
                             <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input v-model="filterText" placeholder="Search collection..." class="pl-9 pr-9" />
@@ -340,26 +340,28 @@ const topFactions = computed(() =>
                                 <X class="size-4" />
                             </button>
                         </div>
-                        <Select v-model="filterFaction">
-                            <SelectTrigger class="w-40 shrink-0">
-                                <SelectValue placeholder="All Factions" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="(f, key) in factions" :key="key" :value="key">{{ f.name }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select v-model="filterStatus">
-                            <SelectTrigger class="w-40 shrink-0">
-                                <SelectValue placeholder="All Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="unbuilt">Unbuilt</SelectItem>
-                                <SelectItem value="built">Built</SelectItem>
-                                <SelectItem value="unpainted">Unpainted</SelectItem>
-                                <SelectItem value="painted">Painted</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters"> Clear </Button>
+                        <div class="flex items-center gap-2">
+                            <Select v-model="filterFaction">
+                                <SelectTrigger class="w-full sm:w-40">
+                                    <SelectValue placeholder="All Factions" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="(f, key) in factions" :key="key" :value="key">{{ f.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select v-model="filterStatus">
+                                <SelectTrigger class="w-full sm:w-40">
+                                    <SelectValue placeholder="All Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unbuilt">Unbuilt</SelectItem>
+                                    <SelectItem value="built">Built</SelectItem>
+                                    <SelectItem value="unpainted">Unpainted</SelectItem>
+                                    <SelectItem value="painted">Painted</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters"> Clear </Button>
+                        </div>
                     </div>
 
                     <div v-if="hasActiveFilter" class="mb-3 text-sm text-muted-foreground">
@@ -388,28 +390,46 @@ const topFactions = computed(() =>
                             <div
                                 v-for="(item, itemIndex) in group.miniatures"
                                 :key="item.miniature_id"
-                                class="flex items-center gap-3 px-4 py-2.5"
+                                class="px-3 py-2.5 sm:px-4"
                                 :class="{ 'border-t border-border/50': itemIndex > 0 }"
                             >
-                                <FactionLogo v-if="item.faction" :faction="item.faction" class-name="size-5 shrink-0" />
-                                <Link
-                                    :href="
-                                        route('characters.view', {
-                                            character: item.character_slug,
-                                            miniature: item.standard_miniature_id ?? item.miniature_id,
-                                            slug: item.miniature_slug,
-                                        })
-                                    "
-                                    class="min-w-0 flex-1"
-                                >
-                                    <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.character_name }}</div>
-                                    <div v-if="item.miniature_name !== item.character_name" class="truncate text-xs text-muted-foreground">
-                                        {{ item.miniature_name }}
-                                    </div>
-                                </Link>
-                                <div class="flex shrink-0 items-center gap-1">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <FactionLogo v-if="item.faction" :faction="item.faction" class-name="size-5 shrink-0" />
+                                    <Link
+                                        :href="
+                                            route('characters.view', {
+                                                character: item.character_slug,
+                                                miniature: item.standard_miniature_id ?? item.miniature_id,
+                                                slug: item.miniature_slug,
+                                            })
+                                        "
+                                        class="min-w-0 flex-1"
+                                    >
+                                        <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.character_name }}</div>
+                                        <div v-if="item.miniature_name !== item.character_name" class="truncate text-xs text-muted-foreground">
+                                            {{ item.miniature_name }}
+                                        </div>
+                                    </Link>
+                                    <!-- Status icons (view-only, non-owner) -->
+                                    <template v-if="!is_owner">
+                                        <div class="flex shrink-0 items-center gap-1">
+                                            <Hammer
+                                                v-if="item.is_built"
+                                                class="size-3.5 text-amber-600 dark:text-amber-400"
+                                                title="Built"
+                                            />
+                                            <Paintbrush
+                                                v-if="item.is_painted"
+                                                class="size-3.5 text-violet-600 dark:text-violet-400"
+                                                title="Painted"
+                                            />
+                                        </div>
+                                        <span class="text-sm tabular-nums text-muted-foreground">&times;{{ item.quantity }}</span>
+                                    </template>
+                                </div>
+                                <!-- Owner controls: second row on mobile, inline on desktop -->
+                                <div v-if="is_owner" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
                                     <Button
-                                        v-if="is_owner"
                                         :variant="item.is_built ? 'default' : 'outline'"
                                         size="icon"
                                         class="size-7"
@@ -420,13 +440,7 @@ const topFactions = computed(() =>
                                     >
                                         <Hammer class="size-3.5" />
                                     </Button>
-                                    <Hammer
-                                        v-else-if="item.is_built"
-                                        class="size-3.5 text-amber-600 dark:text-amber-400"
-                                        title="Built"
-                                    />
                                     <Button
-                                        v-if="is_owner"
                                         :variant="item.is_painted ? 'default' : 'outline'"
                                         size="icon"
                                         class="size-7"
@@ -437,44 +451,37 @@ const topFactions = computed(() =>
                                     >
                                         <Paintbrush class="size-3.5" />
                                     </Button>
-                                    <Paintbrush
-                                        v-else-if="item.is_painted"
-                                        class="size-3.5 text-violet-600 dark:text-violet-400"
-                                        title="Painted"
-                                    />
-                                </div>
-                                <div v-if="is_owner" class="flex shrink-0 items-center gap-1">
+                                    <div class="ml-1 flex shrink-0 items-center gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            class="size-7"
+                                            :disabled="processing"
+                                            @click="updateQuantity(item.miniature_id, item.quantity - 1)"
+                                        >
+                                            <Minus class="size-3" />
+                                        </Button>
+                                        <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            class="size-7"
+                                            :disabled="processing"
+                                            @click="updateQuantity(item.miniature_id, item.quantity + 1)"
+                                        >
+                                            <Plus class="size-3" />
+                                        </Button>
+                                    </div>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        class="size-7"
+                                        class="ml-auto size-7 text-destructive hover:text-destructive"
                                         :disabled="processing"
-                                        @click="updateQuantity(item.miniature_id, item.quantity - 1)"
+                                        @click="removeMiniature(item.miniature_id)"
                                     >
-                                        <Minus class="size-3" />
-                                    </Button>
-                                    <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        class="size-7"
-                                        :disabled="processing"
-                                        @click="updateQuantity(item.miniature_id, item.quantity + 1)"
-                                    >
-                                        <Plus class="size-3" />
+                                        <Trash2 class="size-3" />
                                     </Button>
                                 </div>
-                                <span v-else class="text-sm tabular-nums text-muted-foreground">&times;{{ item.quantity }}</span>
-                                <Button
-                                    v-if="is_owner"
-                                    variant="ghost"
-                                    size="icon"
-                                    class="size-7 text-destructive hover:text-destructive"
-                                    :disabled="processing"
-                                    @click="removeMiniature(item.miniature_id)"
-                                >
-                                    <Trash2 class="size-3" />
-                                </Button>
                             </div>
                         </div>
                     </div>
@@ -567,20 +574,20 @@ const topFactions = computed(() =>
                         <div
                             v-for="(stat, index) in sortedKeywordStats"
                             :key="stat.slug"
-                            class="animate-fade-in-up flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 opacity-0 transition-all duration-200 hover:shadow-md"
+                            class="animate-fade-in-up rounded-lg border bg-card px-3 py-2.5 opacity-0 transition-all duration-200 hover:shadow-md sm:px-4"
                             :style="keywordDelays[index]"
                         >
-                            <Link :href="route('keywords.view', stat.slug)" class="min-w-0 flex-1">
-                                <span class="text-sm font-medium transition-colors hover:text-primary">{{ stat.name }}</span>
-                            </Link>
-                            <div class="flex shrink-0 items-center gap-3">
-                                <span class="text-xs tabular-nums text-muted-foreground">{{ stat.owned }} / {{ stat.total }}</span>
-                                <div class="h-2 w-20 overflow-hidden rounded-full bg-muted">
-                                    <div class="h-full rounded-full bg-primary transition-all duration-500" :style="{ width: `${stat.percent}%` }" />
-                                </div>
-                                <Badge :variant="stat.percent === 100 ? 'default' : 'secondary'" class="w-14 justify-center text-[10px] tabular-nums">
+                            <div class="flex items-center gap-2 sm:gap-3">
+                                <Link :href="route('keywords.view', stat.slug)" class="min-w-0 flex-1">
+                                    <span class="text-sm font-medium transition-colors hover:text-primary">{{ stat.name }}</span>
+                                </Link>
+                                <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
+                                <Badge :variant="stat.percent === 100 ? 'default' : 'secondary'" class="w-14 shrink-0 justify-center text-[10px] tabular-nums">
                                     {{ stat.percent }}%
                                 </Badge>
+                            </div>
+                            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                <div class="h-full rounded-full bg-primary transition-all duration-500" :style="{ width: `${stat.percent}%` }" />
                             </div>
                         </div>
                     </div>
@@ -640,12 +647,13 @@ const topFactions = computed(() =>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div v-for="stat in topFactions" :key="stat.faction" class="space-y-1.5">
-                                    <div class="flex items-center gap-2.5 text-sm">
-                                        <img :src="stat.logo" :alt="stat.name" class="size-5" />
-                                        <span class="font-medium">{{ stat.name }}</span>
-                                        <span class="ml-auto tabular-nums text-muted-foreground"
-                                            >{{ stat.owned }} / {{ stat.total }} ({{ stat.percent }}%)</span
-                                        >
+                                    <div class="flex items-center gap-2 text-sm">
+                                        <img :src="stat.logo" :alt="stat.name" class="size-5 shrink-0" />
+                                        <span class="min-w-0 truncate font-medium">{{ stat.name }}</span>
+                                        <span class="ml-auto shrink-0 tabular-nums text-muted-foreground">
+                                            {{ stat.owned }}/{{ stat.total }}
+                                            <span class="hidden sm:inline">({{ stat.percent }}%)</span>
+                                        </span>
                                     </div>
                                     <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
                                         <div
@@ -668,12 +676,12 @@ const topFactions = computed(() =>
                                 <div
                                     v-for="stat in sortedKeywordStats.slice(0, 10)"
                                     :key="stat.slug"
-                                    class="flex items-center justify-between text-sm"
+                                    class="flex items-center justify-between gap-2 text-sm"
                                 >
-                                    <Link :href="route('keywords.view', stat.slug)" class="font-medium transition-colors hover:text-primary">{{
-                                        stat.name
-                                    }}</Link>
-                                    <div class="flex items-center gap-2">
+                                    <Link :href="route('keywords.view', stat.slug)" class="min-w-0 truncate font-medium transition-colors hover:text-primary">
+                                        {{ stat.name }}
+                                    </Link>
+                                    <div class="flex shrink-0 items-center gap-2">
                                         <span class="tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
                                         <Badge
                                             :variant="stat.percent === 100 ? 'default' : 'secondary'"

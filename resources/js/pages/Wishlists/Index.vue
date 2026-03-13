@@ -66,17 +66,19 @@ function confirmDelete() {
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <!-- Create new -->
             <div class="mb-6">
-                <div v-if="showCreate" class="flex items-center gap-2">
+                <div v-if="showCreate" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                         v-model="newName"
                         placeholder="Wishlist name..."
-                        class="max-w-sm"
+                        class="w-full sm:max-w-sm"
                         autofocus
                         @keydown.enter="createWishlist"
                         @keydown.escape="showCreate = false"
                     />
-                    <Button @click="createWishlist" :disabled="!newName.trim()">Create</Button>
-                    <Button variant="ghost" @click="showCreate = false">Cancel</Button>
+                    <div class="flex items-center gap-2">
+                        <Button @click="createWishlist" :disabled="!newName.trim()">Create</Button>
+                        <Button variant="ghost" @click="showCreate = false">Cancel</Button>
+                    </div>
                 </div>
                 <Button v-else @click="showCreate = true">
                     <Plus class="mr-2 size-4" />

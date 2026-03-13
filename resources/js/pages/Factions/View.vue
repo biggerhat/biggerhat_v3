@@ -240,16 +240,18 @@ onMounted(() => {
                 </div>
             </template>
             <template #subtitle>
-                <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:flex md:py-2 md:text-sm md:text-foreground">
-                    <div class="border-r-2 border-r-primary pr-2">{{ props.statistics.characters }} Characters</div>
-                    <div class="border-r-2 border-r-primary pl-2 pr-2">{{ props.statistics.miniatures }} Miniatures</div>
-                    <div class="pl-2">{{ props.statistics.keywords }} Keywords</div>
+                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                    <span>{{ props.statistics.characters }} Characters</span>
+                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span>{{ props.statistics.miniatures }} Miniatures</span>
+                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span>{{ props.statistics.keywords }} Keywords</span>
                 </div>
             </template>
         </PageBanner>
 
         <!-- Tabs + mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
+        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -281,7 +283,7 @@ onMounted(() => {
                 >
                     <Library class="size-3.5" />
                     <Plus class="size-3" />
-                    Add All ({{ uncollectedCharacters.length }})
+                    <span class="hidden sm:inline">Add All</span> ({{ uncollectedCharacters.length }})
                 </Button>
                 <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
@@ -372,7 +374,7 @@ onMounted(() => {
         <div class="container mx-auto px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
-                <aside class="hidden w-72 shrink-0 md:block">
+                <aside class="hidden w-56 shrink-0 md:block lg:w-72">
                     <div class="space-y-2 pr-2">
                         <!-- Filters -->
                         <Collapsible :open="sectionsOpen.filters" @update:open="toggleSection('filters')">

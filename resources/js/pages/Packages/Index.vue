@@ -198,7 +198,7 @@ const formatPrice = (cents: number | null) => {
         </div>
 
         <!-- Tabs + filter trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
+        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="cards">
@@ -256,7 +256,7 @@ const formatPrice = (cents: number | null) => {
         <div class="container mx-auto px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
-                <aside class="hidden w-64 shrink-0 md:block">
+                <aside class="hidden w-56 shrink-0 md:block lg:w-64">
                     <div class="space-y-3 pr-2">
                         <div class="space-y-1">
                             <label class="text-xs font-medium text-muted-foreground">Character</label>

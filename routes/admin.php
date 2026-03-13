@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
+use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Admin\RoleAdminController;
 use App\Http\Controllers\Admin\SchemeAdminController;
 use App\Http\Controllers\Admin\StrategyAdminController;
 use App\Http\Controllers\Admin\TokenAdminController;
+use App\Http\Controllers\Admin\TransmissionAdminController;
 use App\Http\Controllers\Admin\TriggerAdminController;
 use App\Http\Controllers\Admin\UpgradeAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
@@ -192,6 +194,24 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         Route::post('/store', 'store')->name('store')->middleware('permission:edit_blueprint');
         Route::post('/update/{blueprint}', 'update')->name('update')->middleware('permission:edit_blueprint');
         Route::post('/delete/{blueprint}', 'delete')->name('delete')->middleware('permission:delete_blueprint');
+    });
+
+    Route::controller(ChannelAdminController::class)->prefix('channels')->name('channels.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_channel');
+        Route::get('/edit/{channel}', 'edit')->name('edit')->middleware('permission:view_channel');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_channel');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_channel');
+        Route::post('/update/{channel}', 'update')->name('update')->middleware('permission:edit_channel');
+        Route::post('/delete/{channel}', 'delete')->name('delete')->middleware('permission:delete_channel');
+    });
+
+    Route::controller(TransmissionAdminController::class)->prefix('transmissions')->name('transmissions.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_channel');
+        Route::get('/edit/{transmission}', 'edit')->name('edit')->middleware('permission:view_channel');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_channel');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_channel');
+        Route::post('/update/{transmission}', 'update')->name('update')->middleware('permission:edit_channel');
+        Route::post('/delete/{transmission}', 'delete')->name('delete')->middleware('permission:delete_channel');
     });
 
     // Blog admin routes — permission-based so content_creator role can also access

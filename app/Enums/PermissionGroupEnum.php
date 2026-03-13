@@ -30,4 +30,5 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Package = 'package';
     case Lore = 'lore';
     case Blueprint = 'blueprint';
+    case Channel = 'channel';
 }

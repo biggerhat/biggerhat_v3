@@ -80,4 +80,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Wishlist::class);
     }
+
+    /**
+     * @return BelongsToMany<Channel, $this>
+     */
+    public function channels(): BelongsToMany
+    {
+        return $this->belongsToMany(Channel::class);
+    }
 }

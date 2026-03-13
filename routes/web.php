@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CrewBuilderController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
+use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\WishlistController;
 use App\Models\BlogPost;
 use App\Models\Character;
@@ -144,6 +146,19 @@ Route::prefix('lore')->name('lores.')->group(function () {
 Route::prefix('blog')->name('blog.')->group(function () {
     Route::get('/', [BlogController::class, 'index'])->name('index');
     Route::get('/{blogPost}', [BlogController::class, 'view'])->name('view');
+});
+
+Route::prefix('channels')->name('channels.')->group(function () {
+    Route::get('/', [ChannelController::class, 'index'])->name('index');
+    Route::get('/{channel}', [ChannelController::class, 'view'])->name('view');
+});
+
+Route::middleware('auth')->prefix('channels/{channel}/transmissions')->name('transmissions.')->group(function () {
+    Route::get('/create', [TransmissionController::class, 'create'])->name('create');
+    Route::post('/store', [TransmissionController::class, 'store'])->name('store');
+    Route::get('/edit/{transmission}', [TransmissionController::class, 'edit'])->name('edit');
+    Route::post('/update/{transmission}', [TransmissionController::class, 'update'])->name('update');
+    Route::post('/delete/{transmission}', [TransmissionController::class, 'delete'])->name('delete');
 });
 
 Route::prefix('seasons')->name('seasons.')->group(function () {

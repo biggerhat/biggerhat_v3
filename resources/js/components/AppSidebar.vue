@@ -21,6 +21,7 @@ import {
     Newspaper,
     Package,
     Puzzle,
+    Radio,
     Radius,
     Shield,
     ShieldCheck,
@@ -80,6 +81,11 @@ const mainNavItems: NavItem[] = [
                 title: 'Articles',
                 href: route('blog.index'),
                 icon: Newspaper,
+            },
+            {
+                title: 'Across the Aethervox',
+                href: route('channels.index'),
+                icon: Radio,
             },
         ],
     },
@@ -346,6 +352,18 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.blueprints.index'),
         icon: FileImage,
         permission: 'view_blueprint',
+    },
+    {
+        title: 'Channels',
+        href: route('admin.channels.index'),
+        icon: Radio,
+        permission: 'view_channel',
+    },
+    {
+        title: 'Transmissions',
+        href: route('admin.transmissions.index'),
+        icon: Radio,
+        permission: 'view_channel',
     },
     {
         title: 'Users',

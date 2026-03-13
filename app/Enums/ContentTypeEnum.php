@@ -14,4 +14,5 @@ enum ContentTypeEnum: string implements HasDefaultEnumMethods
     case Lore = 'lore';
     case DeepDives = 'deep_dives';
     case BattleReports = 'battle_reports';
+    case Rules = 'rules';
 }

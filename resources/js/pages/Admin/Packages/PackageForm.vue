@@ -179,7 +179,6 @@ onMounted(() => {
                                 v-model="formInfo.factions"
                                 placeholder="Select Factions"
                                 :options="props.factions"
-                                option-value="name"
                             />
                         </div>
 

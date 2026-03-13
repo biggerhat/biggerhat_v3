@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Enums\FactionEnum;
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -38,12 +37,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
-
         return [
             ...parent::share($request),
             'name' => config('app.name'),
-            'quote' => ['message' => trim($message), 'author' => trim($author)],
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'messageTitle' => fn () => $request->session()->get('messageTitle'),
@@ -59,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
                 'wishlist_items' => fn () => $this->getWishlistItems($request),
+                'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],
             ],
             'ziggy' => [
                 ...(new Ziggy)->toArray(),

@@ -152,6 +152,15 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Blueprint)]
     case DeleteBlueprint = 'delete_blueprint';
 
+    #[PermissionGroup(PermissionGroupEnum::Channel)]
+    case ViewChannel = 'view_channel';
+    #[PermissionGroup(PermissionGroupEnum::Channel)]
+    case EditChannel = 'edit_channel';
+    #[PermissionGroup(PermissionGroupEnum::Channel)]
+    case DeleteChannel = 'delete_channel';
+    #[PermissionGroup(PermissionGroupEnum::Channel)]
+    case ManageOwnTransmissions = 'manage_own_transmissions';
+
     /**
      * @return list<array{name: string, value: string}>
      */

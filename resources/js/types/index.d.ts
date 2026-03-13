@@ -10,6 +10,7 @@ export interface Auth {
     collection_package_ids: number[];
     wishlists: Array<{ id: number; name: string }>;
     wishlist_items: Record<number, { characters: number[]; miniatures: number[]; packages: number[] }>;
+    channel_ids: number[];
 }
 
 export interface BreadcrumbItem {

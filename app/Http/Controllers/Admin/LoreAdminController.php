@@ -86,13 +86,11 @@ class LoreAdminController extends Controller
         // Handle file upload
         $fileData = [];
         if (isset($validated['file']) && $validated['file']) {
-            $extension = $validated['file']->extension();
+            $extension = $validated['file']->extension() ?: $validated['file']->getClientOriginalExtension();
             $slug = Str::slug($validated['name']);
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s.%s', $slug, $uuid, $extension);
-            $filePath = "lore/{$fileName}";
-            Storage::disk('public')->put($filePath, file_get_contents($validated['file']));
-            $fileData['file'] = $filePath;
+            $fileData['file'] = $validated['file']->storeAs('lore', $fileName, 'public');
         } elseif (! empty($validated['remove_file'])) {
             if ($lore?->file) {
                 Storage::disk('public')->delete($lore->file);

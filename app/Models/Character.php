@@ -139,4 +139,10 @@ class Character extends Model
     {
         return $this->belongsToMany(Lore::class, 'character_lore');
     }
+
+    /** @return MorphToMany<Transmission, $this> */
+    public function transmissions(): MorphToMany
+    {
+        return $this->morphToMany(Transmission::class, 'taggable', 'transmission_taggables');
+    }
 }

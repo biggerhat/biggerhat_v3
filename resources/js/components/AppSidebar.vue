@@ -36,25 +36,37 @@ const page = usePage<SharedData>();
 const permissions = computed(() => page.props.auth.permissions ?? []);
 const isAuthenticated = computed(() => !!page.props.auth.user);
 
+const channelIds = computed(() => page.props.auth.channel_ids ?? []);
+
 const myHatNavItems = computed(() => {
     if (!isAuthenticated.value) return [];
+    const items = [
+        {
+            title: 'My Collection',
+            href: route('collection.index'),
+            icon: Library,
+        },
+        {
+            title: 'My Wishlists',
+            href: route('wishlists.index'),
+            icon: Heart,
+        },
+    ];
+
+    if (channelIds.value.length > 0) {
+        items.push({
+            title: 'My Channels',
+            href: route('channels.my'),
+            icon: Radio,
+        });
+    }
+
     return [
         {
             title: 'My Hat',
             collapsible: true,
             collapsed: false,
-            items: [
-                {
-                    title: 'My Collection',
-                    href: route('collection.index'),
-                    icon: Library,
-                },
-                {
-                    title: 'My Wishlists',
-                    href: route('wishlists.index'),
-                    icon: Heart,
-                },
-            ],
+            items,
         },
     ];
 });

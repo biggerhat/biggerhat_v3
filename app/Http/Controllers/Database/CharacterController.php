@@ -20,6 +20,7 @@ class CharacterController extends Controller
             'totem.standardMiniatures', 'isTotemFor.standardMiniatures'
         );
         $character->load(['blueprints' => fn ($q) => $q->withImage()]);
+        $character->load(['transmissions' => fn ($q) => $q->with('channel:id,name,slug,image')->latest('release_date')->limit(3)]);
 
         return inertia('Characters/View', [
             'character' => $character,

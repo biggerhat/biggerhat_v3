@@ -14,7 +14,7 @@ import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Swords } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Radio, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -103,8 +103,16 @@ const navigateToSculpt = (sculptId: string) => {
 };
 
 const hasSecondaryContent = computed(
-    () => props.character.packages?.length || props.character.lores?.length || props.character.blueprints?.length,
+    () =>
+        props.character.packages?.length ||
+        props.character.lores?.length ||
+        props.character.blueprints?.length ||
+        props.character.transmissions?.length,
 );
+
+const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
 
 // ─── Collection ───
 const isAuthenticated = computed(() => !!page.props.auth.user);
@@ -556,6 +564,40 @@ const addAllStandard = async () => {
                                 </DialogContent>
                             </Dialog>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <!-- Transmissions -->
+                <Card v-if="character.transmissions?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Across the Aethervox</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <a
+                            v-for="tx in character.transmissions"
+                            :key="tx.id"
+                            :href="tx.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                            <Radio class="size-4 shrink-0 text-muted-foreground" />
+                            <div class="min-w-0 flex-1">
+                                <div class="font-medium">{{ tx.title }}</div>
+                                <div class="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <span v-if="tx.channel">{{ tx.channel.name }}</span>
+                                    <span v-if="tx.channel && tx.release_date">&middot;</span>
+                                    <span v-if="tx.release_date">{{ formatDate(tx.release_date) }}</span>
+                                </div>
+                            </div>
+                            <ExternalLink class="size-3.5 shrink-0 text-muted-foreground" />
+                        </a>
+                        <Link
+                            :href="route('channels.index', { character: character.slug })"
+                            class="flex items-center justify-center border-t px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent"
+                        >
+                            View all transmissions
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

@@ -254,7 +254,7 @@ function toggleDialog() {
             <!-- ═══ Stats Footer ═══ -->
             <div class="animate-fade-in-up" style="animation-delay: 240ms">
                 <Separator class="mb-4" />
-                <div class="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+                <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground sm:gap-6">
                     <span>{{ stats.characters }} Characters</span>
                     <span>{{ stats.keywords }} Keywords</span>
                     <span>8 Factions</span>

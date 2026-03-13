@@ -97,7 +97,7 @@ const groupOffsets = computed(() => {
         <!-- Header: keyword name + stats -->
         <div class="rounded-lg border bg-card p-3 sm:p-4">
             <div class="mb-2 text-lg font-semibold">{{ keywordName }}</div>
-            <div v-if="hasStats" class="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <div v-if="hasStats" class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
                 <div v-if="statistics.factions?.length" class="flex items-center gap-1.5">
                     <Link v-for="f in statistics.factions" :key="f.value" :href="route('factions.view', f.value)">
                         <Badge variant="secondary" class="cursor-pointer gap-1.5 transition-colors hover:bg-accent">
@@ -121,7 +121,7 @@ const groupOffsets = computed(() => {
         <!-- Masters: card + totem + crew upgrades -->
         <div v-if="masters.length">
             <Separator label="Masters" class="mb-3" />
-            <div class="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
                 <template v-for="master in masters" :key="master.slug">
                     <div v-if="master.standard_miniatures?.[0]">
                         <CharacterCardView
@@ -147,7 +147,7 @@ const groupOffsets = computed(() => {
         <!-- Non-master characters by station -->
         <div v-for="(group, groupIdx) in groupedCharacters" :key="group.station">
             <Separator :label="group.label" class="mb-3" />
-            <div class="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-6">
                 <div
                     v-for="(character, charIdx) in group.characters"
                     :key="character.slug"

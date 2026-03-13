@@ -357,9 +357,9 @@ function miniatureHref(mini: MiniatureItem): string {
                         <p class="mb-2 text-xs text-muted-foreground">
                             Adds all characters in the keyword and their associated packages.
                         </p>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Select v-model="selectedKeyword">
-                                <SelectTrigger class="w-full max-w-sm">
+                                <SelectTrigger class="w-full sm:max-w-sm">
                                     <SelectValue placeholder="Select a keyword..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -368,7 +368,7 @@ function miniatureHref(mini: MiniatureItem): string {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button :disabled="!selectedKeyword || processing" @click="addKeyword">
+                            <Button class="shrink-0" :disabled="!selectedKeyword || processing" @click="addKeyword">
                                 <KeyRound class="mr-2 size-4" />
                                 Add
                             </Button>
@@ -378,9 +378,9 @@ function miniatureHref(mini: MiniatureItem): string {
                     <!-- Add individual items -->
                     <div>
                         <p class="mb-2 text-sm font-medium">Add Individual Item</p>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Select v-model="addType">
-                                <SelectTrigger class="w-36 shrink-0">
+                                <SelectTrigger class="w-full sm:w-36 sm:shrink-0">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -389,7 +389,7 @@ function miniatureHref(mini: MiniatureItem): string {
                                     <SelectItem value="package">Package</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Input v-model="addSearch" :placeholder="`Search ${addType}s...`" class="max-w-sm" />
+                            <Input v-model="addSearch" :placeholder="`Search ${addType}s...`" class="w-full sm:max-w-sm" />
                         </div>
                         <div v-if="addSearch.length >= 2" class="mt-2 max-h-48 overflow-y-auto rounded-md border">
                             <div v-if="searchResults.length === 0" class="p-3 text-center text-sm text-muted-foreground">No results found.</div>

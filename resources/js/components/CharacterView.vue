@@ -6,13 +6,15 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, BookOpen, Check, Copy, Download, ExternalLink, FileImage, Library, Package, Swords } from 'lucide-vue-next';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -71,6 +73,38 @@ const copyLink = async () => {
 };
 
 const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
+
+const standardVersions = ['first_edition', 'second_edition', 'third_edition', 'fourth_edition'];
+const versionLabels: Record<string, string> = {
+    alternate_model: 'Alt',
+    special_edition: 'Special',
+    nightmare: 'Nightmare',
+    rotten_harvest: 'Rotten Harvest',
+};
+const sortedMiniatures = computed(() => {
+    if (!props.character.miniatures?.length) return [];
+    return [...props.character.miniatures].sort((a: any, b: any) => {
+        const aStd = standardVersions.includes(a.version) ? 0 : 1;
+        const bStd = standardVersions.includes(b.version) ? 0 : 1;
+        return aStd - bStd;
+    });
+});
+
+const sculptLabel = (sculpt: any) => {
+    const version = !standardVersions.includes(sculpt.version) ? ` (${versionLabels[sculpt.version] ?? sculpt.version})` : '';
+    return `${sculpt.display_name}${version}`;
+};
+
+const navigateToSculpt = (sculptId: string) => {
+    const sculpt = sortedMiniatures.value.find((m: any) => String(m.id) === sculptId);
+    if (sculpt) {
+        router.visit(route('characters.view', { character: props.character.slug, miniature: sculpt.id, slug: sculpt.slug }));
+    }
+};
+
+const hasSecondaryContent = computed(
+    () => props.character.packages?.length || props.character.lores?.length || props.character.blueprints?.length,
+);
 
 // ─── Collection ───
 const isAuthenticated = computed(() => !!page.props.auth.user);
@@ -143,18 +177,15 @@ const addAllStandard = async () => {
 
         <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
             <!-- Info panel -->
-            <div class="order-2 space-y-3 lg:order-2 lg:space-y-4">
+            <div class="order-2 space-y-3 lg:space-y-4">
                 <!-- Main info card -->
                 <Card>
                     <CardHeader class="pb-3">
                         <div class="flex items-center gap-2.5">
-                            <FactionLogo :faction="character.faction" class-name="h-8 w-8 shrink-0" />
+                            <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
                             <CardTitle class="text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
                         </div>
-                    </CardHeader>
-                    <CardContent class="space-y-4">
-                        <!-- Station & faction badges -->
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-1.5">
                             <Badge v-if="stationLabel" variant="secondary">{{ stationLabel }}</Badge>
                             <Link :href="route('factions.view', character.faction)">
                                 <Badge class="cursor-pointer transition-opacity hover:opacity-80" :style="factionBadgeStyle(character.faction)">
@@ -170,44 +201,41 @@ const addAllStandard = async () => {
                                 </Badge>
                             </Link>
                         </div>
-
+                    </CardHeader>
+                    <CardContent class="space-y-4">
                         <!-- Stat block -->
-                        <div class="grid grid-cols-3 gap-2 sm:gap-3">
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
-                                    <GameIcon type="soulstone" class-name="inline text-xs sm:text-sm" /> Cost
+                        <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    <GameIcon type="soulstone" class-name="inline text-xs" /> Cost
                                 </div>
-                                <div class="text-base font-bold sm:text-lg">{{ character.cost }}</div>
+                                <div class="text-base font-bold">{{ character.cost }}</div>
                             </div>
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Health</div>
-                                <div class="text-base font-bold sm:text-lg">{{ character.health }}</div>
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Health</div>
+                                <div class="text-base font-bold">{{ character.health }}</div>
                             </div>
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Speed</div>
-                                <div class="text-base font-bold sm:text-lg">{{ character.speed }}</div>
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Speed</div>
+                                <div class="text-base font-bold">{{ character.speed }}</div>
                             </div>
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Defense</div>
-                                <div class="text-base font-bold sm:text-lg">
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Defense</div>
+                                <div class="text-base font-bold">
                                     {{ character.defense
-                                    }}<GameIcon v-if="character.defense_suit" :type="character.defense_suit" class-name="inline text-xs sm:text-sm" />
+                                    }}<GameIcon v-if="character.defense_suit" :type="character.defense_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Willpower</div>
-                                <div class="text-base font-bold sm:text-lg">
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Willpower</div>
+                                <div class="text-base font-bold">
                                     {{ character.willpower
-                                    }}<GameIcon
-                                        v-if="character.willpower_suit"
-                                        :type="character.willpower_suit"
-                                        class-name="inline text-xs sm:text-sm"
-                                    />
+                                    }}<GameIcon v-if="character.willpower_suit" :type="character.willpower_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
-                            <div class="rounded-lg border bg-muted/40 p-2 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">Base</div>
-                                <div class="text-base font-bold sm:text-lg">{{ baseLabel }}</div>
+                            <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
+                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Base</div>
+                                <div class="text-base font-bold">{{ baseLabel }}</div>
                             </div>
                         </div>
 
@@ -269,216 +297,121 @@ const addAllStandard = async () => {
                             </div>
                         </div>
 
-                        <!-- Packages -->
-                        <div v-if="character.packages?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Packages</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Link v-for="pkg in character.packages" :key="pkg.id" :href="route('packages.view', { package: pkg.slug })">
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
-                                        <Package class="mr-1 h-3 w-3" />
-                                        {{ pkg.name }}
-                                    </Badge>
-                                </Link>
-                            </div>
-                        </div>
-
                         <!-- Totem -->
                         <div v-if="character.totem">
                             <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Totem</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Link
-                                    :href="
-                                        route('characters.view', {
-                                            character: character.totem.slug,
-                                            miniature: character.totem.standard_miniatures[0].id,
-                                            slug: character.totem.standard_miniatures[0].slug,
-                                        })
-                                    "
-                                >
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
-                                        {{ character.totem.display_name }}
-                                    </Badge>
-                                </Link>
-                            </div>
+                            <Link
+                                :href="
+                                    route('characters.view', {
+                                        character: character.totem.slug,
+                                        miniature: character.totem.standard_miniatures[0].id,
+                                        slug: character.totem.standard_miniatures[0].slug,
+                                    })
+                                "
+                            >
+                                <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
+                                    {{ character.totem.display_name }}
+                                </Badge>
+                            </Link>
                         </div>
 
                         <!-- Totem For -->
                         <div v-if="character.is_totem_for">
                             <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Totem For</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Link
-                                    :href="
-                                        route('characters.view', {
-                                            character: character.is_totem_for.slug,
-                                            miniature: character.is_totem_for.standard_miniatures[0].id,
-                                            slug: character.is_totem_for.standard_miniatures[0].slug,
-                                        })
-                                    "
-                                >
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
-                                        {{ character.is_totem_for.display_name }}
-                                    </Badge>
-                                </Link>
-                            </div>
+                            <Link
+                                :href="
+                                    route('characters.view', {
+                                        character: character.is_totem_for.slug,
+                                        miniature: character.is_totem_for.standard_miniatures[0].id,
+                                        slug: character.is_totem_for.standard_miniatures[0].slug,
+                                    })
+                                "
+                            >
+                                <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
+                                    {{ character.is_totem_for.display_name }}
+                                </Badge>
+                            </Link>
                         </div>
                     </CardContent>
                 </Card>
 
                 <!-- Sculpt selector -->
-                <Card v-if="character.miniatures?.length > 1">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Sculpts</CardTitle>
-                    </CardHeader>
-                    <CardContent class="px-0 pb-2">
-                        <Link
-                            v-for="sculpt in character.miniatures"
-                            :key="sculpt.id"
-                            :href="route('characters.view', { character: character.slug, miniature: sculpt.id, slug: sculpt.slug })"
-                            class="block border-t px-4 py-2 text-sm transition-colors hover:bg-accent"
-                            :class="{ 'bg-accent/60 font-medium': sculpt.id === miniature.id }"
-                        >
-                            {{ sculpt.display_name }}
-                        </Link>
+                <Card v-if="sortedMiniatures.length > 1">
+                    <CardContent class="space-y-2 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sculpt</div>
+                        <Select :model-value="String(miniature.id)" @update:model-value="navigateToSculpt">
+                            <SelectTrigger class="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="sculpt in sortedMiniatures" :key="sculpt.id" :value="String(sculpt.id)">
+                                    {{ sculptLabel(sculpt) }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </CardContent>
                 </Card>
 
-                <!-- Collection -->
+                <!-- Collection & Wishlist -->
                 <Card v-if="isAuthenticated">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Collection</CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid grid-cols-1 gap-2">
-                        <button
-                            class="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
-                            :class="
-                                currentMiniatureInCollection
-                                    ? 'bg-green-600 text-white hover:bg-green-700'
-                                    : 'border border-input bg-background hover:bg-accent hover:text-accent-foreground'
-                            "
+                    <CardContent class="space-y-2 p-4">
+                        <Button
+                            class="w-full gap-2"
+                            :variant="currentMiniatureInCollection ? 'default' : 'outline'"
+                            :class="currentMiniatureInCollection ? 'bg-green-600 hover:bg-green-700' : ''"
                             :disabled="collectionProcessing"
                             @click="toggleMiniature"
                         >
-                            <Check v-if="currentMiniatureInCollection" class="h-4 w-4" />
-                            <Library v-else class="h-4 w-4" />
-                            {{ currentMiniatureInCollection ? 'In Collection' : 'Add This Sculpt' }}
-                        </button>
-                        <button
+                            <Check v-if="currentMiniatureInCollection" class="size-4" />
+                            <Library v-else class="size-4" />
+                            {{ currentMiniatureInCollection ? 'In Collection' : 'Add to Collection' }}
+                        </Button>
+                        <Button
                             v-if="!allStandardInCollection && standardMiniatures.length > 1"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                            variant="outline"
+                            class="w-full gap-2"
                             :disabled="collectionProcessing"
                             @click="addAllStandard"
                         >
-                            <Library class="h-4 w-4" />
+                            <Library class="size-4" />
                             Add All Standard Sculpts
-                        </button>
+                        </Button>
                     </CardContent>
                 </Card>
 
                 <!-- Wishlist -->
                 <AddToWishlist type="character" :id="character.id" :miniatures="character.miniatures ?? []" :current-miniature-id="miniature.id" />
 
-                <!-- Quick Tools -->
-                <Card>
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Quick Tools</CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid grid-cols-2 gap-2">
-                        <button
-                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                            @click="downloadPdf"
-                        >
-                            <Download class="h-4 w-4" />
-                            PDF
-                        </button>
-                        <button
-                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                            @click="copyLink"
-                        >
-                            <Check v-if="copied" class="h-4 w-4 text-green-500" />
-                            <Copy v-else class="h-4 w-4" />
-                            {{ copied ? 'Copied!' : 'Share' }}
-                        </button>
-                        <Link
-                            v-if="primaryKeyword"
-                            :href="route('keywords.view', primaryKeyword.slug)"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                            <Swords class="h-4 w-4" />
-                            Keyword
+                <!-- Quick Tools — mobile: card pane -->
+                <Card class="lg:hidden">
+                    <CardContent class="grid grid-cols-2 gap-2 p-4">
+                        <Button variant="default" size="sm" class="w-full gap-1.5" @click="downloadPdf">
+                            <Download class="size-4" />
+                            Download PDF
+                        </Button>
+                        <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
+                            <Check v-if="copied" class="size-4 text-green-500" />
+                            <Copy v-else class="size-4" />
+                            {{ copied ? 'Copied!' : 'Share Link' }}
+                        </Button>
+                        <Link v-if="primaryKeyword" :href="route('keywords.view', primaryKeyword.slug)">
+                            <Button variant="outline" size="sm" class="w-full gap-1.5">
+                                <Swords class="size-4" />
+                                {{ primaryKeyword.name }}
+                            </Button>
                         </Link>
-                        <a
-                            :href="`/api/v1/characters/${character.slug}`"
-                            target="_blank"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                            <ExternalLink class="h-4 w-4" />
-                            API
+                        <a :href="`/api/v1/characters/${character.slug}`" target="_blank">
+                            <Button variant="outline" size="sm" class="w-full gap-1.5">
+                                <ExternalLink class="size-4" />
+                                API
+                            </Button>
                         </a>
-                    </CardContent>
-                </Card>
-
-                <!-- Lore -->
-                <Card v-if="character.lores?.length">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
-                    </CardHeader>
-                    <CardContent class="px-0 pb-2">
-                        <div v-for="lore in character.lores" :key="lore.id" class="border-t px-4 py-2">
-                            <div class="flex items-center gap-2">
-                                <BookOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <Link
-                                    :href="route('lores.index', { name_search: lore.name })"
-                                    class="min-w-0 flex-1 text-sm text-primary hover:underline"
-                                >
-                                    {{ lore.name }}
-                                </Link>
-                            </div>
-                            <div v-if="lore.media?.length" class="ml-5.5 mt-0.5 flex flex-wrap gap-1">
-                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
-                                    {{ media.name }}
-                                </Badge>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <!-- Blueprints -->
-                <Card v-if="character.blueprints?.length">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Build Instructions</CardTitle>
-                    </CardHeader>
-                    <CardContent class="px-0 pb-2">
-                        <div v-for="bp in character.blueprints" :key="bp.id" class="border-t px-4 py-2">
-                            <Dialog>
-                                <DialogTrigger as-child>
-                                    <button class="flex w-full cursor-pointer items-center gap-2 text-left">
-                                        <img
-                                            v-if="bp.image_path"
-                                            :src="imageSrc(bp.image_path)"
-                                            :alt="bp.name"
-                                            loading="lazy"
-                                            decoding="async"
-                                            class="h-8 w-10 shrink-0 rounded object-contain"
-                                        />
-                                        <FileImage v-else class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                        <span class="min-w-0 flex-1 text-sm text-primary hover:underline">{{ bp.name }}</span>
-                                    </button>
-                                </DialogTrigger>
-                                <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
-                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
-                                    <DialogDescription class="text-sm text-muted-foreground">
-                                        {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
-                                    </DialogDescription>
-                                    <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
-                                </DialogContent>
-                            </Dialog>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
 
             <!-- Image section -->
-            <div class="order-1 lg:order-1 lg:col-span-2">
+            <div class="order-1 lg:col-span-2">
                 <!-- Mobile: flip card -->
                 <div v-if="isMobileDevice()" class="mx-auto max-w-xs">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
@@ -493,7 +426,7 @@ const addAllStandard = async () => {
                         class="w-full"
                     />
                 </div>
-                <div v-else-if="miniature.front_image && miniature.back_image" class="grid grid-cols-2 gap-4">
+                <div v-else-if="miniature.front_image && miniature.back_image" class="grid grid-cols-2 gap-2 sm:gap-4">
                     <div class="overflow-hidden rounded-xl shadow-lg">
                         <img
                             :src="`/storage/${miniature.front_image}`"
@@ -516,25 +449,132 @@ const addAllStandard = async () => {
                 <div v-else class="mx-auto max-w-sm">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
                 </div>
+
+                <!-- Quick Tools — desktop: below image -->
+                <div class="mt-4 hidden grid-cols-4 gap-2 lg:grid">
+                    <Button variant="default" size="sm" class="w-full gap-1.5" @click="downloadPdf">
+                        <Download class="size-4" />
+                        Download PDF
+                    </Button>
+                    <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
+                        <Check v-if="copied" class="size-4 text-green-500" />
+                        <Copy v-else class="size-4" />
+                        {{ copied ? 'Copied!' : 'Share Link' }}
+                    </Button>
+                    <Link v-if="primaryKeyword" :href="route('keywords.view', primaryKeyword.slug)">
+                        <Button variant="outline" size="sm" class="w-full gap-1.5">
+                            <Swords class="size-4" />
+                            {{ primaryKeyword.name }}
+                        </Button>
+                    </Link>
+                    <a :href="`/api/v1/characters/${character.slug}`" target="_blank">
+                        <Button variant="outline" size="sm" class="w-full gap-1.5">
+                            <ExternalLink class="size-4" />
+                            API
+                        </Button>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Packages, Lore, Blueprints — full-width below -->
+        <div v-if="hasSecondaryContent" class="mt-6 lg:mt-8">
+            <Separator class="mb-6" />
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- Packages -->
+                <Card v-if="character.packages?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Packages</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <Link
+                            v-for="pkg in character.packages"
+                            :key="pkg.id"
+                            :href="route('packages.view', { package: pkg.slug })"
+                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                            <Package class="size-4 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 flex-1 font-medium">{{ pkg.name }}</span>
+                            <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                <!-- Lore -->
+                <Card v-if="character.lores?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <div v-for="lore in character.lores" :key="lore.id" class="border-t px-4 py-2.5">
+                            <div class="flex items-center gap-2">
+                                <BookOpen class="size-4 shrink-0 text-muted-foreground" />
+                                <Link
+                                    :href="route('lores.index', { name_search: lore.name })"
+                                    class="min-w-0 flex-1 text-sm font-medium text-primary hover:underline"
+                                >
+                                    {{ lore.name }}
+                                </Link>
+                            </div>
+                            <div v-if="lore.media?.length" class="ml-6 mt-1 flex flex-wrap gap-1">
+                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
+                                    {{ media.name }}
+                                </Badge>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <!-- Build Instructions -->
+                <Card v-if="character.blueprints?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Build Instructions</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <div v-for="bp in character.blueprints" :key="bp.id" class="border-t px-4 py-2.5">
+                            <Dialog>
+                                <DialogTrigger as-child>
+                                    <button class="flex w-full cursor-pointer items-center gap-2.5 text-left">
+                                        <img
+                                            v-if="bp.image_path"
+                                            :src="imageSrc(bp.image_path)"
+                                            :alt="bp.name"
+                                            loading="lazy"
+                                            decoding="async"
+                                            class="h-8 w-10 shrink-0 rounded object-contain"
+                                        />
+                                        <FileImage v-else class="size-4 shrink-0 text-muted-foreground" />
+                                        <span class="min-w-0 flex-1 text-sm font-medium text-primary hover:underline">{{ bp.name }}</span>
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
+                                    <DialogDescription class="text-sm text-muted-foreground">
+                                        {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
+                                    </DialogDescription>
+                                    <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
 
         <!-- Related Characters -->
         <div v-if="relatedCharacters.length > 0" class="mt-8 lg:mt-12">
             <Separator label="Related Characters" class="mb-6" />
-            <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
                 <Link
                     v-for="related in relatedCharacters as any[]"
                     :key="related.slug"
                     :href="route('characters.view', { character: related.slug, miniature: related.miniature_id, slug: related.miniature_slug })"
                 >
                     <Card class="h-full transition-colors hover:bg-accent/50">
-                        <CardHeader class="p-3 sm:p-4">
-                            <div class="flex items-center gap-2">
-                                <FactionLogo v-if="related.faction" :faction="related.faction" class-name="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-                                <CardTitle class="text-xs leading-tight sm:text-sm">{{ related.display_name }}</CardTitle>
-                            </div>
-                        </CardHeader>
+                        <CardContent class="flex items-center gap-2 p-3">
+                            <FactionLogo v-if="related.faction" :faction="related.faction" class-name="size-5 shrink-0" />
+                            <span class="text-xs font-medium leading-tight sm:text-sm">{{ related.display_name }}</span>
+                        </CardContent>
                     </Card>
                 </Link>
             </div>

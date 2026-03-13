@@ -17,13 +17,13 @@ class Channel extends Model
 
     protected $appends = ['image_url'];
 
-    public function getImageUrlAttribute(): string
+    public function getImageUrlAttribute(): ?string
     {
         if (! array_key_exists('image', $this->attributes)) {
-            return '/images/placeholder-channel.png';
+            return null;
         }
 
-        return $this->attributes['image'] ? '/storage/'.$this->attributes['image'] : '/images/placeholder-channel.png';
+        return $this->attributes['image'] ? '/storage/'.$this->attributes['image'] : null;
     }
 
     /** @return BelongsToMany<User, $this> */

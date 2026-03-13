@@ -15,7 +15,7 @@ class ChannelController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
-        $query = Transmission::with(['channel:id,name,slug', 'characters', 'keywords'])->latest();
+        $query = Transmission::with(['channel:id,name,slug,image', 'characters', 'keywords'])->latest('release_date');
 
         $this->applyFilters($query, $request);
 
@@ -33,9 +33,18 @@ class ChannelController extends Controller
         ]);
     }
 
+    public function myChannels(Request $request): \Inertia\Response|\Inertia\ResponseFactory
+    {
+        $channels = $request->user()->channels()->withCount('transmissions')->orderBy('name')->get();
+
+        return inertia('Channels/MyChannels', [
+            'channels' => $channels,
+        ]);
+    }
+
     public function view(Request $request, Channel $channel): \Inertia\Response|\Inertia\ResponseFactory
     {
-        $query = $channel->transmissions()->with(['characters', 'keywords'])->latest();
+        $query = $channel->transmissions()->with(['characters', 'keywords'])->latest('release_date');
 
         $this->applyFilters($query, $request);
 

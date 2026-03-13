@@ -35,7 +35,7 @@ interface Channel {
     name: string;
     slug: string;
     description: string | null;
-    image_url: string;
+    image_url: string | null;
     users: Array<{ id: number; name: string }>;
 }
 
@@ -119,7 +119,7 @@ const formatDate = (dateStr: string) => {
         />
 
         <div class="container mx-auto flex items-center gap-6 px-4 pb-6 pt-10">
-            <img :src="channel.image_url" :alt="channel.name" class="h-24 w-24 shrink-0 rounded-lg object-cover shadow-md" />
+            <img v-if="channel.image_url" :src="channel.image_url" :alt="channel.name" class="h-24 w-24 shrink-0 rounded-lg object-cover shadow-md" />
             <div>
                 <h1 class="text-3xl font-bold tracking-tight">{{ channel.name }}</h1>
                 <p v-if="channel.description" class="mt-1 max-w-2xl text-sm text-muted-foreground">{{ channel.description }}</p>
@@ -224,29 +224,27 @@ const formatDate = (dateStr: string) => {
                     <div v-if="transmissions.length" class="space-y-4">
                         <Card v-for="transmission in transmissions" :key="transmission.id">
                             <CardHeader class="pb-2">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div>
-                                        <a
-                                            :href="transmission.url"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="group/title flex items-center gap-1.5"
-                                        >
-                                            <h3 class="text-lg font-bold leading-tight group-hover/title:underline">{{ transmission.title }}</h3>
-                                            <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                        </a>
-                                        <div v-if="transmission.release_date" class="mt-1 text-xs text-muted-foreground">
-                                            {{ formatDate(transmission.release_date) }}
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <Badge variant="secondary" class="capitalize">{{ transmission.transmission_type }}</Badge>
-                                        <Badge variant="outline" class="capitalize">{{ formatContentType(transmission.content_type) }}</Badge>
+                                <div>
+                                    <a
+                                        :href="transmission.url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="group/title flex items-center gap-1.5"
+                                    >
+                                        <h3 class="text-lg font-bold leading-tight group-hover/title:underline">{{ transmission.title }}</h3>
+                                        <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    </a>
+                                    <div v-if="transmission.release_date" class="mt-1 text-xs text-muted-foreground">
+                                        {{ formatDate(transmission.release_date) }}
                                     </div>
                                 </div>
                             </CardHeader>
                             <CardContent>
                                 <p v-if="transmission.description" class="mb-3 text-sm text-muted-foreground">{{ transmission.description }}</p>
+                                <div class="mb-2 flex items-center gap-2">
+                                    <Badge variant="secondary" class="capitalize">{{ transmission.transmission_type }}</Badge>
+                                    <Badge variant="outline" class="capitalize">{{ formatContentType(transmission.content_type) }}</Badge>
+                                </div>
                                 <div class="flex flex-wrap gap-1.5">
                                     <Badge
                                         v-for="faction in transmission.factions ?? []"

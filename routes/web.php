@@ -150,6 +150,7 @@ Route::prefix('blog')->name('blog.')->group(function () {
 
 Route::prefix('channels')->name('channels.')->group(function () {
     Route::get('/', [ChannelController::class, 'index'])->name('index');
+    Route::get('/my-channels', [ChannelController::class, 'myChannels'])->middleware('auth')->name('my');
     Route::get('/{channel}', [ChannelController::class, 'view'])->name('view');
 });
 

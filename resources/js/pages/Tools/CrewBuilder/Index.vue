@@ -448,6 +448,13 @@ const crewStats = computed(() => {
     const hirable = crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem');
     const nums = (arr: (number | null | undefined)[]) => arr.filter((v): v is number => typeof v === 'number' && v > 0);
     const avg = (vals: number[]) => (vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null);
+    const suitCounts: Record<string, number> = {};
+    for (const member of crew.value) {
+        for (const suit of member.character.trigger_suits ?? []) {
+            suitCounts[suit] = (suitCounts[suit] ?? 0) + 1;
+        }
+    }
+
     return {
         models: crew.value.length,
         avgCost: avg(nums(hirable.map((m) => m.effectiveCost))),
@@ -455,6 +462,7 @@ const crewStats = computed(() => {
         avgSpeed: avg(nums(crew.value.map((m) => m.character.speed))),
         avgDefense: avg(nums(crew.value.map((m) => m.character.defense))),
         avgWillpower: avg(nums(crew.value.map((m) => m.character.willpower))),
+        suitCounts,
     };
 });
 
@@ -1597,12 +1605,12 @@ onUnmounted(() => {
 
                                     <!-- Crew Stats Panel -->
                                     <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
-                                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-4">
                                             <div class="text-center">
                                                 <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                             </div>
-                                            <Separator orientation="vertical" class="h-6" />
+                                            <Separator orientation="vertical" class="hidden h-6 sm:block" />
                                             <div v-if="crewStats.avgCost != null" class="text-center">
                                                 <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
@@ -1623,6 +1631,18 @@ onUnmounted(() => {
                                                 <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                             </div>
+                                            <template v-if="Object.keys(crewStats.suitCounts).length">
+                                                <Separator orientation="vertical" class="hidden h-6 sm:block" />
+                                                <Badge
+                                                    v-for="suit in ['crow', 'mask', 'ram', 'tome'].filter((s) => crewStats!.suitCounts[s])"
+                                                    :key="suit"
+                                                    variant="outline"
+                                                    class="gap-1 text-xs"
+                                                >
+                                                    <GameIcon :type="suit" class-name="h-3.5" />
+                                                    {{ crewStats.suitCounts[suit] }}
+                                                </Badge>
+                                            </template>
                                         </div>
                                     </div>
 

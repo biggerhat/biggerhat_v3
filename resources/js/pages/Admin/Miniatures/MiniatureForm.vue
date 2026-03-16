@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
@@ -39,6 +40,7 @@ const formInfo = ref({
     back_image: null,
     combination_image: null,
     version: null,
+    use_existing_back: false,
 });
 
 const submit = () => {
@@ -111,7 +113,26 @@ onMounted(() => {
                                 </div>
                                 <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label for="back_image">Back of Card Image</Label>
-                                    <Input id="back_image" type="file" accept=".jpeg, .jpg" @input="formInfo.back_image = $event.target.files[0]" />
+                                    <div class="flex items-center gap-2">
+                                        <Checkbox
+                                            id="use_existing_back"
+                                            :checked="formInfo.use_existing_back"
+                                            @update:checked="formInfo.use_existing_back = $event"
+                                        />
+                                        <Label for="use_existing_back" class="text-sm font-normal">
+                                            Use existing back from another miniature of this character
+                                        </Label>
+                                    </div>
+                                    <Input
+                                        v-if="!formInfo.use_existing_back"
+                                        id="back_image"
+                                        type="file"
+                                        accept=".jpeg, .jpg"
+                                        @input="formInfo.back_image = $event.target.files[0]"
+                                    />
+                                    <span v-else class="text-xs text-muted-foreground">
+                                        The back image will be copied from an existing miniature of the selected character.
+                                    </span>
                                 </div>
                             </div>
                         </div>

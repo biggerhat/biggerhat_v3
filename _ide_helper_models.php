@@ -254,6 +254,38 @@ namespace App\Models{
  *
  * @property int $id
  * @property string $name
+ * @property string $slug
+ * @property string|null $description
+ * @property string|null $image
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read string|null $image_url
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Transmission> $transmissions
+ * @property-read int|null $transmissions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $users
+ * @property-read int|null $users_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Channel whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperChannel {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $name
  * @property string|null $title
  * @property string $display_name
  * @property string $slug
@@ -313,6 +345,8 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Token> $tokens
  * @property-read int|null $tokens_count
  * @property-read Character|null $totem
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Transmission> $transmissions
+ * @property-read int|null $transmissions_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
  * @property-read int|null $upgrades_count
  * @method static \Database\Factories\CharacterFactory factory($count = null, $state = [])
@@ -433,6 +467,7 @@ namespace App\Models{
 /**
  * 
  *
+ * @property-read int|null $owned_characters_count
  * @property int $id
  * @property string $name
  * @property string $slug
@@ -861,6 +896,48 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property int $channel_id
+ * @property string $title
+ * @property string $slug
+ * @property string|null $description
+ * @property string $url
+ * @property \App\Enums\TransmissionTypeEnum $transmission_type
+ * @property \App\Enums\ContentTypeEnum $content_type
+ * @property array<array-key, mixed>|null $factions
+ * @property \Illuminate\Support\Carbon|null $release_date
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Channel $channel
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
+ * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
+ * @property-read int|null $keywords_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereChannelId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereContentType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereFactions($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereReleaseDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereTransmissionType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transmission whereUrl($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTransmission {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property string $name
  * @property string $slug
  * @property int $stone_cost
@@ -973,6 +1050,8 @@ namespace App\Models{
  * @property int $collection_is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Channel> $channels
+ * @property-read int|null $channels_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $collectionMiniatures
  * @property-read int|null $collection_miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $collectionPackages

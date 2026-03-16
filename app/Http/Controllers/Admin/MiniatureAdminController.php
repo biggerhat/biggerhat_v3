@@ -71,6 +71,7 @@ class MiniatureAdminController extends Controller
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'version' => ['required', 'string', Rule::enum(SculptVersionEnum::class)],
+            'use_existing_back' => ['nullable', 'boolean'],
         ]);
 
         $character = Character::findOrFail($validated['character_id']);
@@ -97,7 +98,22 @@ class MiniatureAdminController extends Controller
             unset($validated['front_image']);
         }
 
-        if ($validated['back_image']) {
+        $useExistingBack = $validated['use_existing_back'] ?? false;
+        unset($validated['use_existing_back']);
+
+        if ($useExistingBack) {
+            $existingMiniature = Miniature::where('character_id', $character->id)
+                ->whereNotNull('back_image')
+                ->whereIn('version', collect(SculptVersionEnum::standardEditions())->map->value)
+                ->when($miniature, fn ($q) => $q->where('id', '!=', $miniature->id))
+                ->first();
+
+            if ($existingMiniature) {
+                $validated['back_image'] = $existingMiniature->back_image;
+            } else {
+                unset($validated['back_image']);
+            }
+        } elseif ($validated['back_image']) {
             $extension = $validated['back_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_back.%s', $character->id, $uuid, $extension);
@@ -114,34 +130,57 @@ class MiniatureAdminController extends Controller
             $miniature->update($validated);
         }
 
-        $this->generateComboImage($miniature);
+        if ($miniature->front_image && $miniature->back_image) {
+            $this->generateComboImage($miniature);
+        } elseif ($miniature->front_image && ! $miniature->back_image) {
+            $miniature->update(['combination_image' => $miniature->front_image]);
+        }
 
         return $miniature;
     }
 
     private function generateComboImage(Miniature $miniature)
     {
-        [$widthFront, $heightFront] = getimagesize(Storage::disk('public')->path($miniature->front_image));
-        [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($miniature->back_image));
-        $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
+        $targetWidth = 550;
+        $targetHeight = 950;
 
-        header('Content-Type: image/jpeg');
-        $outputImage = $background;
+        $frontSrc = imagecreatefromjpeg(Storage::disk('public')->path($miniature->front_image));
+        $backSrc = imagecreatefromjpeg(Storage::disk('public')->path($miniature->back_image));
 
-        $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($miniature->front_image));
-        $backUrl = imagecreatefromjpeg(Storage::disk('public')->path($miniature->back_image));
+        $front = $this->resizeToTarget($frontSrc, $targetWidth, $targetHeight);
+        $back = $this->resizeToTarget($backSrc, $targetWidth, $targetHeight);
 
-        imagecopymerge($outputImage, $frontUrl, 0, 0, 0, 0, $widthFront, $heightFront, 100);
-        imagecopymerge($outputImage, $backUrl, $widthFront, 0, 0, 0, $widthBack, $heightBack, 100);
+        imagedestroy($frontSrc);
+        imagedestroy($backSrc);
 
-        $extension = 'jpg';
+        $outputImage = imagecreatetruecolor($targetWidth * 2, $targetHeight);
+        imagecopy($outputImage, $front, 0, 0, 0, 0, $targetWidth, $targetHeight);
+        imagecopy($outputImage, $back, $targetWidth, 0, 0, 0, $targetWidth, $targetHeight);
+
+        imagedestroy($front);
+        imagedestroy($back);
+
         $uuid = Str::uuid();
-        $fileName = sprintf('%s_%s_combo.%s', $miniature->character_id, $uuid, $extension);
+        $fileName = sprintf('%s_%s_combo.jpg', $miniature->character_id, $uuid);
         $filePath = "characters/{$miniature->character_id}/{$fileName}";
 
-        $path = Storage::disk('public')->path('/');
-        imagejpeg($outputImage, $path.$filePath);
+        imagejpeg($outputImage, Storage::disk('public')->path($filePath));
         $miniature->update(['combination_image' => $filePath]);
         imagedestroy($outputImage);
+    }
+
+    private function resizeToTarget(\GdImage $source, int $targetWidth, int $targetHeight): \GdImage
+    {
+        $srcWidth = imagesx($source);
+        $srcHeight = imagesy($source);
+
+        if ($srcWidth === $targetWidth && $srcHeight === $targetHeight) {
+            return $source;
+        }
+
+        $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $srcWidth, $srcHeight);
+
+        return $resized;
     }
 }

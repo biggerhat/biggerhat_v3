@@ -54,6 +54,18 @@ class CharacterCrewBuilderResource extends JsonResource
                     'slug' => $k->slug,
                 ]) : [],
             ])),
+            'trigger_suits' => $this->whenLoaded('actions', function () {
+                $suits = [];
+                foreach ($this->actions as $action) {
+                    foreach ($action->triggers as $trigger) {
+                        if ($trigger->suits) {
+                            $suits[] = strtolower($trigger->suits);
+                        }
+                    }
+                }
+
+                return $suits;
+            }),
             'totem_slug' => $this->when($this->relationLoaded('totem'), fn () => $this->totem?->slug),
             /** @phpstan-ignore-next-line */
             'miniatures' => $this->whenLoaded('miniatures', fn () => $this->miniatures->map(fn ($m) => [

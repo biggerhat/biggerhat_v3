@@ -28,7 +28,14 @@ interface Transmission {
     factions: string[] | null;
     release_date: string | null;
     channel: { id: number; name: string; slug: string; image_url: string | null };
-    characters: Array<{ id: number; display_name: string; slug: string }>;
+    characters: Array<{
+        id: number;
+        display_name: string;
+        slug: string;
+        faction: string | null;
+        faction_color: string | null;
+        standard_miniatures: Array<{ id: number; slug: string }>;
+    }>;
     keywords: Array<{ id: number; name: string; slug: string }>;
 }
 
@@ -94,6 +101,7 @@ onMounted(() => {
 
 const getFactionLabel = (slug: string) => factionInfo.value[slug]?.name ?? slug;
 const getFactionLogo = (slug: string) => factionInfo.value[slug]?.logo ?? '';
+const getFactionColor = (slug: string) => factionInfo.value[slug]?.color ?? '';
 const formatContentType = (value: string) => value.replace(/_/g, ' ');
 const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -218,7 +226,7 @@ const formatDate = (dateStr: string) => {
                 <!-- Main content -->
                 <div class="min-w-0 flex-1">
                     <div v-if="transmissions.length" class="space-y-4">
-                        <Card v-for="transmission in transmissions" :key="transmission.id" class="flex flex-row">
+                        <Card v-for="transmission in transmissions" :key="transmission.id" class="flex flex-col sm:flex-row">
                             <div class="min-w-0 flex-1">
                                 <CardHeader class="pb-2">
                                     <a
@@ -230,23 +238,32 @@ const formatDate = (dateStr: string) => {
                                         <h3 class="text-lg font-bold leading-tight group-hover/title:underline">{{ transmission.title }}</h3>
                                         <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                     </a>
-                                    <div v-if="transmission.release_date" class="mt-1 text-xs text-muted-foreground">
-                                        {{ formatDate(transmission.release_date) }}
+                                    <div class="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span v-if="transmission.release_date">{{ formatDate(transmission.release_date) }}</span>
+                                        <Link
+                                            v-if="transmission.channel"
+                                            :href="route('channels.view', transmission.channel.slug)"
+                                            class="font-medium hover:text-foreground sm:hidden"
+                                        >
+                                            {{ transmission.channel.name }}
+                                        </Link>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
                                     <p v-if="transmission.description" class="mb-3 text-sm text-muted-foreground">{{ transmission.description }}</p>
                                     <div class="mb-2 flex items-center gap-2">
-                                        <Badge variant="secondary" class="capitalize">{{ transmission.transmission_type }}</Badge>
-                                        <Badge variant="outline" class="capitalize">{{ formatContentType(transmission.content_type) }}</Badge>
+                                        <Badge variant="secondary" class="cursor-pointer capitalize hover:bg-secondary/80" @click="filterByTag('transmission_type', transmission.transmission_type)">{{ transmission.transmission_type }}</Badge>
+                                        <Badge variant="outline" class="cursor-pointer capitalize hover:bg-accent" @click="filterByTag('content_type', transmission.content_type)">{{ formatContentType(transmission.content_type) }}</Badge>
                                     </div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Badge
                                             v-for="faction in transmission.factions ?? []"
                                             :key="faction"
-                                            variant="secondary"
-                                            class="flex cursor-pointer items-center gap-1 text-xs"
-                                            @click="filterByTag('faction', faction)"
+                                            class="flex cursor-pointer items-center gap-1 border-transparent text-xs text-white hover:opacity-80"
+                                            :style="{
+                                                backgroundColor: `hsl(var(--${getFactionColor(faction)}))`,
+                                            }"
+                                            @click="router.visit(route('factions.view', faction))"
                                         >
                                             <img :src="getFactionLogo(faction)" class="h-3 w-3" :alt="getFactionLabel(faction)" />
                                             {{ getFactionLabel(faction) }}
@@ -256,15 +273,28 @@ const formatDate = (dateStr: string) => {
                                             :key="'k-' + keyword.id"
                                             variant="outline"
                                             class="cursor-pointer text-xs hover:bg-accent"
-                                            @click="filterByTag('keyword', keyword.slug)"
+                                            @click="router.visit(route('keywords.view', keyword.slug))"
                                         >
                                             {{ keyword.name }}
                                         </Badge>
                                         <Badge
                                             v-for="character in transmission.characters"
                                             :key="'c-' + character.id"
-                                            class="cursor-pointer text-xs hover:bg-primary/80"
-                                            @click="filterByTag('character', character.slug)"
+                                            class="cursor-pointer border-transparent text-xs text-white hover:opacity-80"
+                                            :style="{
+                                                backgroundColor: character.faction_color
+                                                    ? `hsl(var(--${character.faction_color}))`
+                                                    : undefined,
+                                            }"
+                                            @click="
+                                                router.visit(
+                                                    route('characters.view', {
+                                                        character: character.slug,
+                                                        miniature: character.standard_miniatures[0]?.id ?? 1,
+                                                        slug: character.standard_miniatures[0]?.slug ?? 'view',
+                                                    }),
+                                                )
+                                            "
                                         >
                                             {{ character.display_name }}
                                         </Badge>
@@ -274,7 +304,7 @@ const formatDate = (dateStr: string) => {
                             <Link
                                 v-if="transmission.channel"
                                 :href="route('channels.view', transmission.channel.slug)"
-                                class="flex w-28 shrink-0 flex-col items-center justify-center gap-1 border-l px-3 text-center text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                                class="hidden w-28 shrink-0 flex-col items-center justify-center gap-1 border-l px-3 text-center text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground sm:flex"
                             >
                                 <img
                                     v-if="transmission.channel.image_url"

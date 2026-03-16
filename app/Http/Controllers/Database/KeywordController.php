@@ -27,7 +27,7 @@ class KeywordController extends Controller
 
     public function view(Request $request, Keyword $keyword)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures')
+        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')
             ->whereHas('standardMiniatures')
             ->whereHas('keywords', function ($query) use ($keyword) {
                 $query->where('slug', $keyword->slug);
@@ -93,6 +93,18 @@ class KeywordController extends Controller
 
         $totalUnique = $characters->whereNull('station')->count();
 
+        $suitCounts = [];
+        foreach ($characters as $character) {
+            foreach ($character->actions as $action) {
+                foreach ($action->triggers as $trigger) {
+                    if ($trigger->suits) {
+                        $suit = strtolower($trigger->suits);
+                        $suitCounts[$suit] = ($suitCounts[$suit] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
         $statistics = [
             'total_characters' => $characters->count(),
             'total_masters' => $masters->count(),
@@ -109,6 +121,7 @@ class KeywordController extends Controller
                 'value' => $f->value,
                 'name' => $f->label(),
             ]),
+            'suit_counts' => $suitCounts,
         ];
 
         return inertia('Keywords/View', [

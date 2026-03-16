@@ -186,6 +186,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/', [CrewBuilderController::class, 'browse'])->name('index');
         Route::get('/editor', [CrewBuilderController::class, 'editor'])->name('editor');
         Route::get('/share/{shareCode}', [CrewBuilderController::class, 'share'])->name('share');
+        Route::get('/{crewBuild}/details', [CrewBuilderController::class, 'details'])->name('details')->middleware('auth');
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
         Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');
         Route::delete('/{crewBuild}', [CrewBuilderController::class, 'destroy'])->name('destroy')->middleware('auth');

@@ -59,10 +59,9 @@ class CharacterCrewBuilderResource extends JsonResource
                 foreach ($this->actions as $action) {
                     foreach ($action->triggers as $trigger) {
                         if ($trigger->suits) {
-                            $suits[] = [
-                                'suit' => strtolower($trigger->suits),
-                                'stone_cost' => $trigger->stone_cost ?? 0,
-                            ];
+                            $suits[] = strtolower($trigger->suits);
+                        } elseif ($trigger->stone_cost > 0) {
+                            $suits[] = 'soulstone';
                         }
                     }
                 }

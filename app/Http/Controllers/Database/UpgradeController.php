@@ -80,7 +80,7 @@ class UpgradeController extends Controller
 
     public function view(Request $request, Upgrade $upgrade)
     {
-        $upgrade->load(['masters', 'keywords', 'characters.standardMiniatures', 'actions', 'abilities', 'triggers', 'markers', 'tokens']);
+        $upgrade->load(['masters.standardMiniatures', 'keywords', 'characters.standardMiniatures', 'actions', 'abilities', 'triggers', 'markers', 'tokens']);
 
         return inertia('Upgrades/View', [
             'upgrade' => [
@@ -105,6 +105,8 @@ class UpgradeController extends Controller
                     'display_name' => $m->display_name,
                     'slug' => $m->slug,
                     'faction' => $m->faction->value,
+                    'miniature_id' => $m->standardMiniatures->first()?->id,
+                    'miniature_slug' => $m->standardMiniatures->first()?->slug,
                 ]),
                 'keywords' => $upgrade->keywords->map(fn ($k) => [
                     'name' => $k->name,
@@ -114,6 +116,8 @@ class UpgradeController extends Controller
                     'display_name' => $c->display_name,
                     'slug' => $c->slug,
                     'faction' => $c->faction->value,
+                    'miniature_id' => $c->standardMiniatures->first()?->id,
+                    'miniature_slug' => $c->standardMiniatures->first()?->slug,
                 ]),
                 'actions' => $upgrade->actions->map(fn ($a) => [
                     'name' => $a->name,

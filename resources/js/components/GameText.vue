@@ -39,6 +39,7 @@ const tagToIconType: Record<string, string> = {
     negative: 'negative',
     fortitude: 'physical_defense',
     warding: 'magical_defense',
+    unusual: 'unusual_defense',
     unusualdefense: 'unusual_defense',
     signatureaction: 'signature_action',
     '+': 'positive',

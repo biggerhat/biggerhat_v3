@@ -74,7 +74,7 @@ const copyLink = async () => {
     setTimeout(() => (copied.value = false), 2000);
 };
 
-const primaryKeyword = computed(() => props.character.keywords?.[0] ?? null);
+
 
 const standardVersions = ['first_edition', 'second_edition', 'third_edition', 'fourth_edition'];
 const versionLabels: Record<string, string> = {
@@ -105,12 +105,7 @@ const navigateToSculpt = (sculptId: string) => {
 };
 
 const hasSecondaryContent = computed(
-    () =>
-        props.character.packages?.length ||
-        props.character.lores?.length ||
-        props.character.blueprints?.length ||
-        props.character.transmissions?.length ||
-        props.character.character_upgrades?.length,
+    () => props.character.packages?.length || props.character.lores?.length || props.character.blueprints?.length || props.character.transmissions?.length,
 );
 
 const formatDate = (dateStr: string) => {
@@ -261,18 +256,9 @@ const openUpgradeDrawer = (upgrade: any) => {
 
                         <!-- Stat flags -->
                         <div
-                            v-if="
-                                character.generates_stone ||
-                                character.is_unhirable ||
-                                character.is_beta ||
-                                character.count > 1 ||
-                                character.summon_target_number
-                            "
+                            v-if="character.is_unhirable || character.is_beta || character.count > 1 || character.summon_target_number"
                             class="flex flex-wrap gap-1.5"
                         >
-                            <Badge v-if="character.generates_stone" variant="outline">
-                                <GameIcon type="soulstone" class-name="mr-1 inline text-xs" />Generates Soulstone
-                            </Badge>
                             <Badge v-if="character.is_unhirable" variant="outline">Unhirable</Badge>
                             <Badge v-if="character.is_beta" variant="outline">Beta</Badge>
                             <Badge v-if="character.count > 1" variant="outline">Count ({{ character.count }})</Badge>
@@ -369,6 +355,25 @@ const openUpgradeDrawer = (upgrade: any) => {
                     </CardContent>
                 </Card>
 
+                <!-- Character Upgrades -->
+                <Card v-if="character.character_upgrades?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <button
+                            v-for="upgrade in character.character_upgrades"
+                            :key="upgrade.id"
+                            class="flex w-full items-center gap-2.5 border-t px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                            @click="openUpgradeDrawer(upgrade)"
+                        >
+                            <ArrowUpCircle class="size-4 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 flex-1 font-medium">{{ upgrade.name }}</span>
+                            <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+                        </button>
+                    </CardContent>
+                </Card>
+
                 <!-- Collection & Wishlist -->
                 <Card v-if="isAuthenticated">
                     <CardContent class="space-y-2 p-4">
@@ -411,10 +416,10 @@ const openUpgradeDrawer = (upgrade: any) => {
                             <Copy v-else class="size-4" />
                             {{ copied ? 'Copied!' : 'Share Link' }}
                         </Button>
-                        <Link v-if="primaryKeyword" :href="route('keywords.view', primaryKeyword.slug)">
+                        <Link v-for="keyword in character.keywords" :key="keyword.id" :href="route('keywords.view', keyword.slug)">
                             <Button variant="outline" size="sm" class="w-full gap-1.5">
                                 <Swords class="size-4" />
-                                {{ primaryKeyword.name }}
+                                {{ keyword.name }}
                             </Button>
                         </Link>
                         <a :href="`/api/v1/characters/${character.slug}`" target="_blank">
@@ -478,10 +483,10 @@ const openUpgradeDrawer = (upgrade: any) => {
                         <Copy v-else class="size-4" />
                         {{ copied ? 'Copied!' : 'Share Link' }}
                     </Button>
-                    <Link v-if="primaryKeyword" :href="route('keywords.view', primaryKeyword.slug)">
+                    <Link v-for="keyword in character.keywords" :key="keyword.id" :href="route('keywords.view', keyword.slug)">
                         <Button variant="outline" size="sm" class="w-full gap-1.5">
                             <Swords class="size-4" />
-                            {{ primaryKeyword.name }}
+                            {{ keyword.name }}
                         </Button>
                     </Link>
                     <a :href="`/api/v1/characters/${character.slug}`" target="_blank">
@@ -610,24 +615,6 @@ const openUpgradeDrawer = (upgrade: any) => {
                     </CardContent>
                 </Card>
 
-                <!-- Character Upgrades -->
-                <Card v-if="character.character_upgrades?.length">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</CardTitle>
-                    </CardHeader>
-                    <CardContent class="px-0 pb-2">
-                        <button
-                            v-for="upgrade in character.character_upgrades"
-                            :key="upgrade.id"
-                            class="flex w-full items-center gap-2.5 border-t px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent"
-                            @click="openUpgradeDrawer(upgrade)"
-                        >
-                            <ArrowUpCircle class="size-4 shrink-0 text-muted-foreground" />
-                            <span class="min-w-0 flex-1 font-medium">{{ upgrade.name }}</span>
-                            <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
-                        </button>
-                    </CardContent>
-                </Card>
             </div>
         </div>
 

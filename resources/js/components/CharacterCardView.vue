@@ -148,7 +148,7 @@ const currentLabel = computed(() => {
         </div>
         <div v-if="isLoggedIn && !inCollection" class="mt-1">
             <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 class="h-6 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                 :disabled="addingToCollection"

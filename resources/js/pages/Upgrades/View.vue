@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FactionLogo from '@/components/FactionLogo.vue';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { ArrowLeft, ChevronRight } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface UpgradeData {
@@ -27,9 +28,9 @@ interface UpgradeData {
     back_image: string | null;
     combination_image: string | null;
     plentiful: number | null;
-    masters: Array<{ display_name: string; slug: string; faction: string | null }>;
+    masters: Array<{ display_name: string; slug: string; faction: string | null; miniature_id: number | null; miniature_slug: string | null }>;
     keywords: Array<{ name: string; slug: string }>;
-    characters: Array<{ display_name: string; slug: string; faction: string | null }>;
+    characters: Array<{ display_name: string; slug: string; faction: string | null; miniature_id: number | null; miniature_slug: string | null }>;
     actions: Array<{ name: string; slug: string }>;
     abilities: Array<{ name: string; slug: string }>;
     triggers: Array<{ name: string; slug: string }>;
@@ -49,7 +50,6 @@ const backLabel = computed(() => (props.upgrade.domain === 'crew' ? 'Back to Cre
 
 const hasRelatedContent = computed(
     () =>
-        props.upgrade.characters.length > 0 ||
         props.upgrade.keywords.length > 0 ||
         props.upgrade.actions.length > 0 ||
         props.upgrade.abilities.length > 0 ||
@@ -121,7 +121,11 @@ const hasRelatedContent = computed(
                                         <Link
                                             v-for="master in upgrade.masters"
                                             :key="master.slug"
-                                            :href="route('characters.view', { character: master.slug, miniature: 1, slug: 'view' })"
+                                            :href="
+                                                master.miniature_id
+                                                    ? route('characters.view', { character: master.slug, miniature: master.miniature_id, slug: master.miniature_slug })
+                                                    : '#'
+                                            "
                                         >
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
                                                 {{ master.display_name }}
@@ -141,6 +145,29 @@ const hasRelatedContent = computed(
                                         </Link>
                                     </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        <!-- Characters Pane -->
+                        <Card v-if="upgrade.characters.length">
+                            <CardHeader class="pb-3">
+                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Characters</CardTitle>
+                            </CardHeader>
+                            <CardContent class="px-0 pb-2">
+                                <Link
+                                    v-for="character in upgrade.characters"
+                                    :key="character.slug"
+                                    :href="
+                                        character.miniature_id
+                                            ? route('characters.view', { character: character.slug, miniature: character.miniature_id, slug: character.miniature_slug })
+                                            : '#'
+                                    "
+                                    class="flex items-center gap-2.5 border-t px-4 py-2.5 transition-colors hover:bg-accent"
+                                >
+                                    <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-4 shrink-0" />
+                                    <span class="min-w-0 flex-1 text-sm font-medium">{{ character.display_name }}</span>
+                                    <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+                                </Link>
                             </CardContent>
                         </Card>
                     </div>
@@ -186,22 +213,6 @@ const hasRelatedContent = computed(
                     <Separator label="Related Content" class="mb-6" />
 
                     <div class="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-                        <!-- Characters -->
-                        <div v-if="upgrade.characters.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characters</h4>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Link
-                                    v-for="character in upgrade.characters"
-                                    :key="character.slug"
-                                    :href="route('characters.view', { character: character.slug, miniature: 1, slug: 'view' })"
-                                >
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
-                                        {{ character.display_name }}
-                                    </Badge>
-                                </Link>
-                            </div>
-                        </div>
-
                         <!-- Actions -->
                         <div v-if="upgrade.actions.length">
                             <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</h4>

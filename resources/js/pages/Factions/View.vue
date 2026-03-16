@@ -11,6 +11,7 @@ import CharacterView from '@/components/CharacterView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
+import GameIcon from '@/components/GameIcon.vue';
 import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -215,6 +216,37 @@ const addAllToCollection = async () => {
 const characterCount = computed(() => props.characters?.length ?? 0);
 const { delays } = useStaggeredEntry(characterCount);
 
+const statItems = computed(() => {
+    const s = props.statistics;
+    if (!s) return [];
+    return [
+        { label: 'Avg Cost', value: s.avg_cost },
+        { label: 'Avg HP', value: s.avg_health },
+        { label: 'Avg Spd', value: s.avg_speed },
+        { label: 'Avg Def', value: s.avg_defense },
+        { label: 'Avg Wp', value: s.avg_willpower },
+    ].filter((i: any) => i.value != null);
+});
+
+const stationCounts = computed(() => {
+    const s = props.statistics;
+    if (!s) return [];
+    return [
+        { label: 'Masters', value: s.total_masters },
+        { label: 'Henchmen', value: s.total_henchmen },
+        { label: 'Unique', value: s.total_unique },
+        { label: 'Minions', value: s.total_minions },
+        { label: 'Peons', value: s.total_peons },
+    ].filter((i: any) => i.value > 0);
+});
+
+const suitOrder = ['crow', 'mask', 'ram', 'tome', 'soulstone'];
+const suitStats = computed(() => {
+    const counts = props.statistics?.suit_counts as Record<string, number> | undefined;
+    if (!counts) return [];
+    return suitOrder.filter((s) => counts[s] > 0).map((s) => ({ suit: s, count: counts[s] }));
+});
+
 const isLoading = ref(false);
 onMounted(() => {
     router.on('start', () => {
@@ -249,6 +281,29 @@ onMounted(() => {
                 </div>
             </template>
         </PageBanner>
+
+        <!-- Stats Block -->
+        <div v-if="!isLoading" class="container mx-auto mb-2 px-4">
+            <div class="rounded-lg border bg-card p-3 sm:p-4">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
+                    <div v-if="stationCounts.length" class="flex items-center gap-1.5">
+                        <Badge v-for="s in stationCounts" :key="s.label" variant="outline" class="text-xs"> {{ s.value }} {{ s.label }} </Badge>
+                    </div>
+                    <div v-if="statItems.length" class="flex items-center gap-3">
+                        <div v-for="stat in statItems" :key="stat.label" class="text-center">
+                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
+                            <div class="text-sm font-bold leading-tight">{{ stat.value }}</div>
+                        </div>
+                    </div>
+                    <div v-if="suitStats.length" class="flex items-center gap-3">
+                        <div v-for="s in suitStats" :key="s.suit" class="text-center">
+                            <GameIcon :type="s.suit" class-name="mx-auto h-4" />
+                            <div class="text-sm font-bold leading-tight">{{ s.count }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Tabs + mobile filter trigger -->
         <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">

@@ -119,7 +119,7 @@ class KeywordController extends Controller
             'avg_speed' => round($nonMasters->avg('speed'), 1),
             'avg_defense' => round($nonMasters->avg('defense'), 1),
             'avg_willpower' => round($nonMasters->avg('willpower'), 1),
-            'factions' => $characters->pluck('faction')->unique()->values()->map(fn (FactionEnum $f) => [
+            'factions' => $characters->pluck('faction')->unique(fn (FactionEnum $f) => $f->value)->values()->map(fn (FactionEnum $f) => [
                 'value' => $f->value,
                 'name' => $f->label(),
             ]),

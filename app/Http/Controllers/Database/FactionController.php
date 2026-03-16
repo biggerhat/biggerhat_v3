@@ -17,7 +17,7 @@ class FactionController extends Controller
 {
     public function view(Request $request, FactionEnum $factionEnum)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
+        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
 
         $keywords = Keyword::whereHas('characters', function ($query) use ($factionEnum) {
             $query->where('faction', $factionEnum->value);
@@ -131,12 +131,26 @@ class FactionController extends Controller
             }
         }
 
+        $masters = $characters->where('station', CharacterStationEnum::Master)->values();
+        $nonMasters = $characters->reject(fn ($c) => $c->station === CharacterStationEnum::Master)->values();
+
+        $suitCounts = [];
+        foreach ($characters as $character) {
+            foreach ($character->actions as $action) {
+                foreach ($action->triggers as $trigger) {
+                    if ($trigger->suits) {
+                        $suit = strtolower($trigger->suits);
+                        $suitCounts[$suit] = ($suitCounts[$suit] ?? 0) + 1;
+                    } elseif ($trigger->stone_cost > 0) {
+                        $suitCounts['soulstone'] = ($suitCounts['soulstone'] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
         return inertia('Factions/View', [
             'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo(), 'route' => $factionEnum->value],
             'characters' => $characters,
-            //            'station_sort' => $characters->groupBy('station')->sortBy(function ($item, $key) {
-            //                return array_search($key, CharacterStationEnum::sortOrder());
-            //            }),
             'keyword_breakdown' => $keywordBreakdown,
             'keywords' => $keywords,
             'characteristics' => $characteristics,
@@ -144,6 +158,17 @@ class FactionController extends Controller
                 'characters' => $characters->count(),
                 'miniatures' => (int) $characters->sum('count'),
                 'keywords' => $keywords->count(),
+                'total_masters' => $masters->count(),
+                'total_henchmen' => $characters->where('station', CharacterStationEnum::Henchman)->count(),
+                'total_unique' => $characters->whereNull('station')->count(),
+                'total_minions' => $characters->where('station', CharacterStationEnum::Minion)->count(),
+                'total_peons' => $characters->where('station', CharacterStationEnum::Peon)->count(),
+                'avg_cost' => round($nonMasters->avg('cost'), 1),
+                'avg_health' => round($nonMasters->avg('health'), 1),
+                'avg_speed' => round($nonMasters->avg('speed'), 1),
+                'avg_defense' => round($nonMasters->avg('defense'), 1),
+                'avg_willpower' => round($nonMasters->avg('willpower'), 1),
+                'suit_counts' => $suitCounts,
             ],
             'stations' => CharacterStationEnum::toSelectOptions(),
             'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),

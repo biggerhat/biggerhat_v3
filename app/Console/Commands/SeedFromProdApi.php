@@ -6,6 +6,8 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
@@ -14,6 +16,7 @@ use App\Models\Miniature;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
+use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -23,7 +26,7 @@ class SeedFromProdApi extends Command
 {
     protected $signature = 'app:seed-from-prod
         {--skip-images : Skip downloading images}
-        {--only= : Only seed specific types (characters,keywords,upgrades,markers,tokens,strategies,schemes)}';
+        {--only= : Only seed specific types (characters,keywords,upgrades,markers,tokens,strategies,schemes,actions,abilities)}';
 
     protected $description = 'Seed the local database from the production BiggerHat API';
 
@@ -35,7 +38,7 @@ class SeedFromProdApi extends Command
     {
         $only = $this->option('only')
             ? explode(',', $this->option('only'))
-            : ['keywords', 'markers', 'tokens', 'characters', 'upgrades', 'strategies', 'schemes'];
+            : ['keywords', 'markers', 'tokens', 'characters', 'upgrades', 'strategies', 'schemes', 'actions', 'abilities'];
 
         $seeders = [
             'keywords' => fn () => $this->seedKeywords(),
@@ -45,6 +48,8 @@ class SeedFromProdApi extends Command
             'upgrades' => fn () => $this->seedUpgrades(),
             'strategies' => fn () => $this->seedStrategies(),
             'schemes' => fn () => $this->seedSchemes(),
+            'actions' => fn () => $this->seedActionsAndTriggers(),
+            'abilities' => fn () => $this->seedAbilities(),
         ];
 
         $ran = 0;
@@ -466,6 +471,208 @@ class SeedFromProdApi extends Command
         $bar->finish();
         $this->newLine();
         $this->info('  Schemes seeded: '.count($items));
+    }
+
+    // ─── Actions, Triggers & Abilities ───
+
+    private function seedActionsAndTriggers(): void
+    {
+        $this->newLine();
+        $this->info('Seeding actions, triggers & character linkage...');
+
+        // Fetch all character slugs from the local database
+        $characterSlugs = Character::pluck('slug')->all();
+
+        if (empty($characterSlugs)) {
+            $this->warn('  No characters in database. Run characters seeder first.');
+
+            return;
+        }
+
+        $this->info('  Fetching details for '.count($characterSlugs).' characters...');
+
+        $bar = $this->output->createProgressBar(count($characterSlugs));
+        $bar->start();
+
+        $actionCount = 0;
+        $triggerCount = 0;
+        $linkCount = 0;
+
+        foreach ($characterSlugs as $slug) {
+            $data = $this->fetchWithRetry(self::BASE_URL."/characters/{$slug}", []);
+
+            if (! $data || ! isset($data['data'])) {
+                $bar->advance();
+                usleep(300_000);
+
+                continue;
+            }
+
+            $charData = $data['data'];
+            $character = Character::where('slug', $slug)->first();
+
+            if (! $character || empty($charData['actions'])) {
+                $bar->advance();
+                usleep(300_000);
+
+                continue;
+            }
+
+            $actionIds = [];
+
+            foreach ($charData['actions'] as $actionData) {
+                $action = $this->findOrCreateAction($actionData);
+                $actionIds[$action->id] = ['is_signature_action' => $actionData['is_signature'] ?? false];
+                $actionCount++;
+
+                // Sync triggers for this action
+                $triggerIds = [];
+                foreach ($actionData['triggers'] ?? [] as $triggerData) {
+                    $trigger = $this->findOrCreateTrigger($triggerData);
+                    $triggerIds[] = $trigger->id;
+                    $triggerCount++;
+                }
+
+                if (! empty($triggerIds)) {
+                    $action->triggers()->syncWithoutDetaching($triggerIds);
+                }
+            }
+
+            $character->actions()->sync($actionIds);
+            $linkCount++;
+
+            $bar->advance();
+
+            // Rate limiting between character fetches
+            usleep(300_000);
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->info("  Actions processed: {$actionCount}, Triggers processed: {$triggerCount}, Characters linked: {$linkCount}");
+    }
+
+    private function findOrCreateAction(array $data): Action
+    {
+        // Actions have id-based slugs on update, so match by name for reliability
+        $action = Action::where('name', $data['name'])->first();
+
+        if ($action) {
+            $action->update([
+                'type' => $data['type'] ?? 'attack',
+                'is_signature' => $data['is_signature'] ?? false,
+                'stone_cost' => $data['stone_cost'] ?? 0,
+                'range' => $data['range'],
+                'range_type' => $data['range_type'],
+                'stat' => $data['stat'],
+                'stat_suits' => $data['stat_suits'],
+                'stat_modifier' => $data['stat_modifier'],
+                'resisted_by' => $data['resisted_by'],
+                'target_number' => $data['target_number'],
+                'target_suits' => $data['target_suits'],
+                'description' => $data['description'],
+                'damage' => $data['damage'],
+            ]);
+
+            return $action;
+        }
+
+        return Action::create([
+            'name' => $data['name'],
+            'type' => $data['type'] ?? 'attack',
+            'is_signature' => $data['is_signature'] ?? false,
+            'stone_cost' => $data['stone_cost'] ?? 0,
+            'range' => $data['range'],
+            'range_type' => $data['range_type'],
+            'stat' => $data['stat'],
+            'stat_suits' => $data['stat_suits'],
+            'stat_modifier' => $data['stat_modifier'],
+            'resisted_by' => $data['resisted_by'],
+            'target_number' => $data['target_number'],
+            'target_suits' => $data['target_suits'],
+            'description' => $data['description'],
+            'damage' => $data['damage'],
+        ]);
+    }
+
+    private function findOrCreateTrigger(array $data): Trigger
+    {
+        return Trigger::updateOrCreate(
+            ['name' => $data['name'], 'suits' => $data['suits'] ?? null],
+            [
+                'stone_cost' => $data['stone_cost'] ?? 0,
+                'description' => $data['description'] ?? null,
+            ]
+        );
+    }
+
+    private function seedAbilities(): void
+    {
+        $this->newLine();
+        $this->info('Seeding abilities & character linkage...');
+
+        $characterSlugs = Character::pluck('slug')->all();
+
+        if (empty($characterSlugs)) {
+            $this->warn('  No characters in database. Run characters seeder first.');
+
+            return;
+        }
+
+        $this->info('  Fetching details for '.count($characterSlugs).' characters...');
+
+        $bar = $this->output->createProgressBar(count($characterSlugs));
+        $bar->start();
+
+        $abilityCount = 0;
+        $linkCount = 0;
+
+        foreach ($characterSlugs as $slug) {
+            $data = $this->fetchWithRetry(self::BASE_URL."/characters/{$slug}", []);
+
+            if (! $data || ! isset($data['data'])) {
+                $bar->advance();
+                usleep(300_000);
+
+                continue;
+            }
+
+            $charData = $data['data'];
+            $character = Character::where('slug', $slug)->first();
+
+            if (! $character || empty($charData['abilities'])) {
+                $bar->advance();
+                usleep(300_000);
+
+                continue;
+            }
+
+            $abilityIds = [];
+
+            foreach ($charData['abilities'] as $abilityData) {
+                $ability = Ability::updateOrCreate(
+                    ['name' => $abilityData['name']],
+                    [
+                        'suits' => $abilityData['suits'] ?? null,
+                        'defensive_ability_type' => $abilityData['defensive_ability_type'] ?? null,
+                        'costs_stone' => $abilityData['costs_stone'] ?? false,
+                        'description' => $abilityData['description'] ?? null,
+                    ]
+                );
+                $abilityIds[] = $ability->id;
+                $abilityCount++;
+            }
+
+            $character->abilities()->sync($abilityIds);
+            $linkCount++;
+
+            $bar->advance();
+            usleep(300_000);
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->info("  Abilities processed: {$abilityCount}, Characters linked: {$linkCount}");
     }
 
     // ─── Image Downloading ───

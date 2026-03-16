@@ -11,7 +11,7 @@ it('displays the crew builder page', function () {
         'is_hidden' => false,
     ]);
 
-    $response = $this->get(route('tools.crew_builder.index'));
+    $response = $this->get(route('tools.crew_builder.editor'));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -28,7 +28,7 @@ it('returns saved builds for authenticated users', function () {
     $master = Character::factory()->create(['station' => CharacterStationEnum::Master, 'is_hidden' => false]);
     CrewBuild::factory()->count(2)->create(['user_id' => $user->id, 'master_id' => $master->id]);
 
-    $response = $this->actingAs($user)->get(route('tools.crew_builder.index'));
+    $response = $this->actingAs($user)->get(route('tools.crew_builder.editor'));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -38,7 +38,7 @@ it('returns saved builds for authenticated users', function () {
 });
 
 it('returns empty saved builds for guests', function () {
-    $response = $this->get(route('tools.crew_builder.index'));
+    $response = $this->get(route('tools.crew_builder.editor'));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -246,7 +246,7 @@ it('returns saved builds with faction as string', function () {
     $user = User::factory()->create();
     $build = CrewBuild::factory()->create(['user_id' => $user->id]);
 
-    $response = $this->actingAs($user)->get(route('tools.crew_builder.index'));
+    $response = $this->actingAs($user)->get(route('tools.crew_builder.editor'));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -277,7 +277,7 @@ it('excludes hidden characters from the hiring pool', function () {
     Character::factory()->create(['station' => CharacterStationEnum::Henchman, 'is_hidden' => true, 'cost' => 7, 'is_unhirable' => false]);
     Character::factory()->create(['station' => CharacterStationEnum::Henchman, 'is_hidden' => false, 'cost' => 5, 'is_unhirable' => false]);
 
-    $response = $this->get(route('tools.crew_builder.index'));
+    $response = $this->get(route('tools.crew_builder.editor'));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page

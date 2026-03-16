@@ -209,6 +209,108 @@ class CrewBuilderController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function details(CrewBuild $crewBuild)
+    {
+        if (Auth::id() !== $crewBuild->user_id) {
+            abort(403);
+        }
+
+        $master = Character::with(['keywords', 'crewUpgrades.keywords', 'totem'])
+            ->find($crewBuild->master_id);
+
+        if (! $master) {
+            return response()->json(['members' => [], 'total_spent' => 0, 'soulstone_pool' => 0, 'ook_count' => 0]);
+        }
+
+        // Build leader keyword slugs
+        $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
+        foreach ($master->crewUpgrades as $upgrade) {
+            foreach ($upgrade->keywords as $keyword) {
+                $leaderKeywordSlugs[] = $keyword->slug;
+            }
+        }
+        $leaderKeywordSlugs = array_unique($leaderKeywordSlugs);
+
+        $members = [];
+
+        // Add master
+        for ($i = 0; $i < max(1, $master->count ?? 1); $i++) {
+            $members[] = [
+                'display_name' => $master->display_name,
+                'cost' => 0,
+                'effective_cost' => 0,
+                'category' => 'leader',
+                'faction' => $master->faction->value,
+            ];
+        }
+
+        // Add totem
+        if ($master->has_totem_id && $master->totem) {
+            $totem = $master->totem;
+            for ($i = 0; $i < max(1, $totem->count ?? 1); $i++) {
+                $members[] = [
+                    'display_name' => $totem->display_name,
+                    'cost' => 0,
+                    'effective_cost' => 0,
+                    'category' => 'totem',
+                    'faction' => $totem->faction->value,
+                ];
+            }
+        }
+
+        // Add crew members
+        $crewCharacters = Character::with(['keywords', 'characteristics'])
+            ->whereIn('id', $crewBuild->crew_data ?? [])
+            ->get()
+            ->keyBy('id');
+
+        $totalSpent = 0;
+        $ookCount = 0;
+
+        foreach ($crewBuild->crew_data ?? [] as $charId) {
+            $character = $crewCharacters->get($charId);
+            if (! $character) {
+                continue;
+            }
+
+            $sharesKeyword = $character->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
+            $isVersatile = $character->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+
+            if ($sharesKeyword) {
+                $category = 'in-keyword';
+            } elseif ($isVersatile) {
+                $category = 'versatile';
+            } else {
+                $category = 'ook';
+            }
+
+            $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
+            $totalSpent += $effectiveCost;
+
+            if ($category === 'ook') {
+                $ookCount++;
+            }
+
+            $members[] = [
+                'display_name' => $character->display_name,
+                'cost' => $character->cost,
+                'effective_cost' => $effectiveCost,
+                'category' => $category,
+                'faction' => $character->faction->value,
+            ];
+        }
+
+        $remaining = $crewBuild->encounter_size - $totalSpent;
+        $soulstonePool = $remaining > 6 ? 6 : max(0, $remaining);
+
+        return response()->json([
+            'members' => $members,
+            'total_spent' => $totalSpent,
+            'soulstone_pool' => $soulstonePool,
+            'ook_count' => $ookCount,
+        ]);
+    }
+
     public function share(Request $request, string $shareCode)
     {
         /** @var CrewBuild $build */

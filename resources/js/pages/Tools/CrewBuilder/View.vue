@@ -534,7 +534,7 @@ onMounted(rebuildCrew);
                                 <Copy v-else class="size-4" />
                                 {{ copySuccess ? 'Saved to My Builds' : 'Copy to My Builds' }}
                             </Button>
-                            <Button v-if="isOwner" variant="outline" class="gap-1.5" as="a" :href="route('tools.crew_builder.editor')">
+                            <Button v-if="isOwner" variant="outline" class="gap-1.5" as="a" :href="route('tools.crew_builder.editor') + '?build=' + build.share_code">
                                 Edit in Crew Builder
                             </Button>
                             <Button v-if="!isAuthenticated" variant="outline" class="gap-1.5" as="a" :href="route('login')">

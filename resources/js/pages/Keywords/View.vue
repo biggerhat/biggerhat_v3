@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { BookOpen, Grid2x2, LayoutGrid, Library, List, Plus } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
@@ -9,9 +9,12 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
+import GameIcon from '@/components/GameIcon.vue';
 import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -187,6 +190,37 @@ const addAllToCollection = async () => {
 const characterCount = computed(() => props.characters?.length ?? 0);
 const { delays } = useStaggeredEntry(characterCount);
 
+const hasStats = computed(() => props.statistics && Object.keys(props.statistics).length > 0);
+
+const statItems = computed(() => {
+    if (!hasStats.value) return [];
+    return [
+        { label: 'Avg Cost', value: props.statistics.avg_cost },
+        { label: 'Avg HP', value: props.statistics.avg_health },
+        { label: 'Avg Spd', value: props.statistics.avg_speed },
+        { label: 'Avg Def', value: props.statistics.avg_defense },
+        { label: 'Avg Wp', value: props.statistics.avg_willpower },
+    ].filter((s: any) => s.value != null);
+});
+
+const stationCounts = computed(() => {
+    if (!hasStats.value) return [];
+    return [
+        { label: 'Masters', value: props.statistics.total_masters },
+        { label: 'Henchmen', value: props.statistics.total_henchmen },
+        { label: 'Unique', value: props.statistics.total_unique },
+        { label: 'Minions', value: props.statistics.total_minions },
+        { label: 'Peons', value: props.statistics.total_peons },
+    ].filter((s: any) => s.value > 0);
+});
+
+const suitOrder = ['crow', 'mask', 'ram', 'tome'];
+const suitStats = computed(() => {
+    if (!hasStats.value || !props.statistics.suit_counts) return [];
+    const counts = props.statistics.suit_counts as Record<string, number>;
+    return suitOrder.filter((s) => counts[s] > 0).map((s) => ({ suit: s, count: counts[s] }));
+});
+
 const isLoading = ref(false);
 onMounted(() => {
     router.on('start', () => {
@@ -318,6 +352,36 @@ onMounted(() => {
                 </div>
             </FilterPanel>
         </div>
+        <!-- Stats Block -->
+        <div v-if="hasStats && !isLoading" class="container mx-auto mb-4 px-4">
+            <div class="rounded-lg border bg-card p-3 sm:p-4">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
+                    <div v-if="statistics.factions?.length" class="flex items-center gap-1.5">
+                        <Link v-for="f in statistics.factions" :key="f.value" :href="route('factions.view', f.value)">
+                            <Badge variant="secondary" class="cursor-pointer gap-1.5 transition-colors hover:bg-accent">
+                                <FactionLogo :faction="f.value" class-name="h-4 w-4" />
+                                {{ f.name }}
+                            </Badge>
+                        </Link>
+                    </div>
+                    <div v-if="stationCounts.length" class="flex items-center gap-1.5">
+                        <Badge v-for="s in stationCounts" :key="s.label" variant="outline" class="text-xs"> {{ s.value }} {{ s.label }} </Badge>
+                    </div>
+                    <div v-if="statItems.length" class="flex items-center gap-3">
+                        <div v-for="stat in statItems" :key="stat.label" class="text-center">
+                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
+                            <div class="text-sm font-bold leading-tight">{{ stat.value }}</div>
+                        </div>
+                    </div>
+                    <div v-if="suitStats.length" class="flex items-center gap-2">
+                        <Badge v-for="s in suitStats" :key="s.suit" variant="outline" class="gap-1 text-xs">
+                            <GameIcon :type="s.suit" class-name="h-3.5" />
+                            {{ s.count }}
+                        </Badge>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div
             v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
             class="container mx-auto mt-4 items-center overflow-auto px-4"
@@ -331,7 +395,7 @@ onMounted(() => {
         </div>
         <div v-else-if="filterParams.page_view === 'keyword_breakdown'" class="container mx-auto items-center px-4">
             <template v-if="props.keyword_breakdown">
-                <KeywordBreakdown :keyword="props.keyword_breakdown" :statistics="props.statistics" />
+                <KeywordBreakdown :keyword="props.keyword_breakdown" />
             </template>
             <EmptyState v-else />
         </div>

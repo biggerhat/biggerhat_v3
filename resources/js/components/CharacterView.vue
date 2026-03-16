@@ -107,7 +107,8 @@ const hasSecondaryContent = computed(
         props.character.packages?.length ||
         props.character.lores?.length ||
         props.character.blueprints?.length ||
-        props.character.transmissions?.length,
+        props.character.transmissions?.length ||
+        props.character.character_upgrades?.length,
 );
 
 const formatDate = (dateStr: string) => {
@@ -597,6 +598,25 @@ const addAllStandard = async () => {
                             class="flex items-center justify-center border-t px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent"
                         >
                             View all transmissions
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                <!-- Character Upgrades -->
+                <Card v-if="character.character_upgrades?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <Link
+                            v-for="upgrade in character.character_upgrades"
+                            :key="upgrade.id"
+                            :href="route('upgrades.view', upgrade.slug)"
+                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                            <ArrowUpCircle class="size-4 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 flex-1 font-medium">{{ upgrade.name }}</span>
+                            <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
                         </Link>
                     </CardContent>
                 </Card>

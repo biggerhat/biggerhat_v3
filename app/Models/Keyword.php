@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 /**
  * @property-read int|null $owned_characters_count
- *
  * @mixin IdeHelperKeyword
  */
 class Keyword extends Model

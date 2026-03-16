@@ -53,7 +53,7 @@ class CrewBuilderController extends Controller
             ->pluck('has_totem_id')
             ->unique();
 
-        return Character::with(['keywords', 'characteristics', 'crewUpgrades.keywords', 'totem', 'miniatures'])
+        return Character::with(['keywords', 'characteristics', 'crewUpgrades.keywords', 'totem', 'miniatures', 'actions.triggers'])
             ->where('is_hidden', false)
             ->where(function ($query) use ($totemIds) {
                 $query->where('station', 'master')
@@ -235,7 +235,7 @@ class CrewBuilderController extends Controller
                 'crew_data' => $build->crew_data,
                 'is_public' => $build->is_public,
                 'user_id' => $build->user_id,
-                'user_name' => $build->user()->value('name'),
+                'user_name' => $build->user?->name,
                 'updated_at' => $build->updated_at->toISOString(),
             ],
         ]);

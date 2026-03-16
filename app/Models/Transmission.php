@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperTransmission
+ */
 class Transmission extends Model
 {
     use HasFactory;

@@ -37,7 +37,7 @@ class UpgradeAdminController extends Controller
     public function edit(Request $request, Upgrade $upgrade)
     {
         return inertia('Admin/Upgrades/Characters/UpgradeForm', array_merge(
-            ['upgrade' => $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers'])],
+            ['upgrade' => $upgrade->loadMissing(['characters', 'keywords', 'tokens', 'markers', 'actions', 'abilities', 'triggers'])],
             $this->getFormData(),
         ));
     }

@@ -94,16 +94,14 @@ class KeywordController extends Controller
         $totalUnique = $characters->whereNull('station')->count();
 
         $suitCounts = [];
-        $suitStoneCounts = [];
         foreach ($characters as $character) {
             foreach ($character->actions as $action) {
                 foreach ($action->triggers as $trigger) {
                     if ($trigger->suits) {
                         $suit = strtolower($trigger->suits);
                         $suitCounts[$suit] = ($suitCounts[$suit] ?? 0) + 1;
-                        if ($trigger->stone_cost > 0) {
-                            $suitStoneCounts[$suit] = ($suitStoneCounts[$suit] ?? 0) + 1;
-                        }
+                    } elseif ($trigger->stone_cost > 0) {
+                        $suitCounts['soulstone'] = ($suitCounts['soulstone'] ?? 0) + 1;
                     }
                 }
             }
@@ -126,7 +124,6 @@ class KeywordController extends Controller
                 'name' => $f->label(),
             ]),
             'suit_counts' => $suitCounts,
-            'suit_stone_counts' => $suitStoneCounts,
         ];
 
         return inertia('Keywords/View', [

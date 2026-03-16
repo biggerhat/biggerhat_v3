@@ -214,14 +214,13 @@ const stationCounts = computed(() => {
     ].filter((s: any) => s.value > 0);
 });
 
-const suitOrder = ['crow', 'mask', 'ram', 'tome'];
+const suitOrder = ['crow', 'mask', 'ram', 'tome', 'soulstone'];
 const suitStats = computed(() => {
     if (!hasStats.value || !props.statistics.suit_counts) return [];
     const counts = props.statistics.suit_counts as Record<string, number>;
-    const stoneCounts = (props.statistics.suit_stone_counts ?? {}) as Record<string, number>;
     return suitOrder
         .filter((s) => counts[s] > 0)
-        .map((s) => ({ suit: s, count: counts[s], stoneCount: stoneCounts[s] ?? 0 }));
+        .map((s) => ({ suit: s, count: counts[s] }));
 });
 
 const isLoading = ref(false);
@@ -380,9 +379,6 @@ onMounted(() => {
                         <div v-for="s in suitStats" :key="s.suit" class="text-center">
                             <GameIcon :type="s.suit" class-name="mx-auto h-4" />
                             <div class="text-sm font-bold leading-tight">{{ s.count }}</div>
-                            <div v-if="s.stoneCount > 0" class="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
-                                <GameIcon type="soulstone" class-name="h-2.5" />{{ s.stoneCount }}
-                            </div>
                         </div>
                     </div>
                 </div>

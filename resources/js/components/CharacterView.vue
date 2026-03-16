@@ -6,15 +6,17 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Radio, Swords } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Radio, Star, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -171,6 +173,15 @@ const addAllStandard = async () => {
         collectionProcessing.value = false;
     }
 };
+
+// ─── Upgrade Drawer ───
+const upgradeDrawerOpen = ref(false);
+const activeUpgrade = ref<any>(null);
+
+const openUpgradeDrawer = (upgrade: any) => {
+    activeUpgrade.value = upgrade;
+    upgradeDrawerOpen.value = true;
+};
 </script>
 
 <template>
@@ -290,19 +301,16 @@ const addAllStandard = async () => {
                         <div v-if="character.crew_upgrades?.length">
                             <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Crew Upgrades</div>
                             <div class="flex flex-wrap gap-1.5">
-                                <Link v-for="upgrade in character.crew_upgrades" :key="upgrade.id" :href="route('upgrades.view', upgrade.slug)">
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">{{ upgrade.name }}</Badge>
-                                </Link>
-                            </div>
-                        </div>
-
-                        <!-- Character Upgrades -->
-                        <div v-if="character.character_upgrades?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Link v-for="upgrade in character.character_upgrades" :key="upgrade.id" :href="route('upgrades.view', upgrade.slug)">
-                                    <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">{{ upgrade.name }}</Badge>
-                                </Link>
+                                <Badge
+                                    v-for="upgrade in character.crew_upgrades"
+                                    :key="upgrade.id"
+                                    variant="outline"
+                                    class="cursor-pointer gap-1 transition-colors hover:bg-accent"
+                                    @click="openUpgradeDrawer(upgrade)"
+                                >
+                                    <Star class="size-3 text-amber-500" />
+                                    {{ upgrade.name }}
+                                </Badge>
                             </div>
                         </div>
 
@@ -515,22 +523,23 @@ const addAllStandard = async () => {
                         <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
-                        <div v-for="lore in character.lores" :key="lore.id" class="border-t px-4 py-2.5">
+                        <Link
+                            v-for="lore in character.lores"
+                            :key="lore.id"
+                            :href="route('lores.index', { name_search: lore.name })"
+                            class="block border-t px-4 py-2.5 transition-colors hover:bg-accent"
+                        >
                             <div class="flex items-center gap-2">
                                 <BookOpen class="size-4 shrink-0 text-muted-foreground" />
-                                <Link
-                                    :href="route('lores.index', { name_search: lore.name })"
-                                    class="min-w-0 flex-1 text-sm font-medium text-primary hover:underline"
-                                >
-                                    {{ lore.name }}
-                                </Link>
+                                <span class="min-w-0 flex-1 text-sm font-medium">{{ lore.name }}</span>
+                                <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
                             </div>
                             <div v-if="lore.media?.length" class="ml-6 mt-1 flex flex-wrap gap-1">
                                 <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
                                     {{ media.name }}
                                 </Badge>
                             </div>
-                        </div>
+                        </Link>
                     </CardContent>
                 </Card>
 
@@ -540,22 +549,22 @@ const addAllStandard = async () => {
                         <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Build Instructions</CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
-                        <div v-for="bp in character.blueprints" :key="bp.id" class="border-t px-4 py-2.5">
-                            <Dialog>
-                                <DialogTrigger as-child>
-                                    <button class="flex w-full cursor-pointer items-center gap-2.5 text-left">
-                                        <img
-                                            v-if="bp.image_path"
-                                            :src="imageSrc(bp.image_path)"
-                                            :alt="bp.name"
-                                            loading="lazy"
-                                            decoding="async"
-                                            class="h-8 w-10 shrink-0 rounded object-contain"
-                                        />
-                                        <FileImage v-else class="size-4 shrink-0 text-muted-foreground" />
-                                        <span class="min-w-0 flex-1 text-sm font-medium text-primary hover:underline">{{ bp.name }}</span>
-                                    </button>
-                                </DialogTrigger>
+                        <Dialog v-for="bp in character.blueprints" :key="bp.id">
+                            <DialogTrigger as-child>
+                                <button class="flex w-full cursor-pointer items-center gap-2.5 border-t px-4 py-2.5 text-left transition-colors hover:bg-accent">
+                                    <img
+                                        v-if="bp.image_path"
+                                        :src="imageSrc(bp.image_path)"
+                                        :alt="bp.name"
+                                        loading="lazy"
+                                        decoding="async"
+                                        class="h-8 w-10 shrink-0 rounded object-contain"
+                                    />
+                                    <FileImage v-else class="size-4 shrink-0 text-muted-foreground" />
+                                    <span class="min-w-0 flex-1 text-sm font-medium">{{ bp.name }}</span>
+                                    <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+                                </button>
+                            </DialogTrigger>
                                 <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
                                     <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
                                     <DialogDescription class="text-sm text-muted-foreground">
@@ -563,8 +572,7 @@ const addAllStandard = async () => {
                                     </DialogDescription>
                                     <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
                                 </DialogContent>
-                            </Dialog>
-                        </div>
+                        </Dialog>
                     </CardContent>
                 </Card>
 
@@ -608,16 +616,16 @@ const addAllStandard = async () => {
                         <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
-                        <Link
+                        <button
                             v-for="upgrade in character.character_upgrades"
                             :key="upgrade.id"
-                            :href="route('upgrades.view', upgrade.slug)"
-                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                            class="flex w-full items-center gap-2.5 border-t px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                            @click="openUpgradeDrawer(upgrade)"
                         >
                             <ArrowUpCircle class="size-4 shrink-0 text-muted-foreground" />
                             <span class="min-w-0 flex-1 font-medium">{{ upgrade.name }}</span>
                             <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
-                        </Link>
+                        </button>
                     </CardContent>
                 </Card>
             </div>
@@ -642,4 +650,42 @@ const addAllStandard = async () => {
             </div>
         </div>
     </div>
+
+    <!-- Upgrade Drawer -->
+    <Drawer v-model:open="upgradeDrawerOpen">
+        <DrawerContent>
+            <div v-if="activeUpgrade" class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">{{ activeUpgrade.name }}</DrawerTitle>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">
+                        {{ activeUpgrade.domain === 'crew' ? 'Crew Upgrade' : 'Character Upgrade' }}
+                    </div>
+                </DrawerHeader>
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
+                    <div v-if="activeUpgrade.front_image" class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <UpgradeFlipCard
+                            :front-image="activeUpgrade.front_image"
+                            :back-image="activeUpgrade.back_image"
+                            :alt-text="activeUpgrade.name"
+                            :upgrade-slug="activeUpgrade.slug"
+                            :show-link="true"
+                        />
+                    </div>
+                    <div v-else class="py-8 text-center text-sm text-muted-foreground">
+                        No card image available
+                        <div class="mt-2">
+                            <Link :href="route('upgrades.view', activeUpgrade.slug)">
+                                <Button variant="outline" size="sm">View Upgrade Page</Button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+                <DrawerFooter class="shrink-0 pt-2">
+                    <DrawerClose as-child>
+                        <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
 </template>

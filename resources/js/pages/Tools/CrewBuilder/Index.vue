@@ -449,9 +449,15 @@ const crewStats = computed(() => {
     const nums = (arr: (number | null | undefined)[]) => arr.filter((v): v is number => typeof v === 'number' && v > 0);
     const avg = (vals: number[]) => (vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null);
     const suitCounts: Record<string, number> = {};
+    const suitStoneCounts: Record<string, number> = {};
     for (const member of crew.value) {
-        for (const suit of member.character.trigger_suits ?? []) {
+        for (const trigger of member.character.trigger_suits ?? []) {
+            const suit = typeof trigger === 'string' ? trigger : trigger.suit;
+            const stoneCost = typeof trigger === 'string' ? 0 : trigger.stone_cost ?? 0;
             suitCounts[suit] = (suitCounts[suit] ?? 0) + 1;
+            if (stoneCost > 0) {
+                suitStoneCounts[suit] = (suitStoneCounts[suit] ?? 0) + 1;
+            }
         }
     }
 
@@ -463,6 +469,7 @@ const crewStats = computed(() => {
         avgDefense: avg(nums(crew.value.map((m) => m.character.defense))),
         avgWillpower: avg(nums(crew.value.map((m) => m.character.willpower))),
         suitCounts,
+        suitStoneCounts,
     };
 });
 
@@ -1633,15 +1640,17 @@ onUnmounted(() => {
                                             </div>
                                             <template v-if="Object.keys(crewStats.suitCounts).length">
                                                 <Separator orientation="vertical" class="hidden h-6 sm:block" />
-                                                <Badge
+                                                <div
                                                     v-for="suit in ['crow', 'mask', 'ram', 'tome'].filter((s) => crewStats!.suitCounts[s])"
                                                     :key="suit"
-                                                    variant="outline"
-                                                    class="gap-1 text-xs"
+                                                    class="text-center"
                                                 >
-                                                    <GameIcon :type="suit" class-name="h-3.5" />
-                                                    {{ crewStats.suitCounts[suit] }}
-                                                </Badge>
+                                                    <GameIcon :type="suit" class-name="mx-auto h-4" />
+                                                    <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
+                                                    <div v-if="crewStats.suitStoneCounts[suit]" class="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
+                                                        <GameIcon type="soulstone" class-name="h-2.5" />{{ crewStats.suitStoneCounts[suit] }}
+                                                    </div>
+                                                </div>
                                             </template>
                                         </div>
                                     </div>

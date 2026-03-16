@@ -218,7 +218,10 @@ const suitOrder = ['crow', 'mask', 'ram', 'tome'];
 const suitStats = computed(() => {
     if (!hasStats.value || !props.statistics.suit_counts) return [];
     const counts = props.statistics.suit_counts as Record<string, number>;
-    return suitOrder.filter((s) => counts[s] > 0).map((s) => ({ suit: s, count: counts[s] }));
+    const stoneCounts = (props.statistics.suit_stone_counts ?? {}) as Record<string, number>;
+    return suitOrder
+        .filter((s) => counts[s] > 0)
+        .map((s) => ({ suit: s, count: counts[s], stoneCount: stoneCounts[s] ?? 0 }));
 });
 
 const isLoading = ref(false);
@@ -373,11 +376,14 @@ onMounted(() => {
                             <div class="text-sm font-bold leading-tight">{{ stat.value }}</div>
                         </div>
                     </div>
-                    <div v-if="suitStats.length" class="flex items-center gap-2">
-                        <Badge v-for="s in suitStats" :key="s.suit" variant="outline" class="gap-1 text-xs">
-                            <GameIcon :type="s.suit" class-name="h-3.5" />
-                            {{ s.count }}
-                        </Badge>
+                    <div v-if="suitStats.length" class="flex items-center gap-3">
+                        <div v-for="s in suitStats" :key="s.suit" class="text-center">
+                            <GameIcon :type="s.suit" class-name="mx-auto h-4" />
+                            <div class="text-sm font-bold leading-tight">{{ s.count }}</div>
+                            <div v-if="s.stoneCount > 0" class="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
+                                <GameIcon type="soulstone" class-name="h-2.5" />{{ s.stoneCount }}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TextBar from '@/components/TextBar.vue';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { CircleX } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
 
@@ -107,6 +108,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Package Form" />
     <div class="container mx-auto mt-6 h-full px-2">
         <Card>
             <CardHeader>
@@ -119,20 +121,24 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Package Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
 
                         <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="sku">SKU</Label>
                                 <Input id="sku" v-model="formInfo.sku" placeholder="SKU" />
+                                <InputError :message="usePage().props.errors.sku" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="upc">UPC</Label>
                                 <Input id="upc" v-model="formInfo.upc" placeholder="UPC" />
+                                <InputError :message="usePage().props.errors.upc" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="msrp">MSRP (cents)</Label>
                                 <Input id="msrp" v-model="formInfo.msrp" type="number" placeholder="MSRP" />
+                                <InputError :message="usePage().props.errors.msrp" />
                             </div>
                             <div class="my-auto flex w-full flex-col space-y-1.5">
                                 <Label for="sculpt_version">Sculpt Version</Label>
@@ -153,24 +159,29 @@ onMounted(() => {
                                         @click="formInfo.sculpt_version = null"
                                     />
                                 </div>
+                                <InputError :message="usePage().props.errors.sculpt_version" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="released_at">Release Date</Label>
                                 <Input id="released_at" v-model="formInfo.released_at" type="date" />
+                                <InputError :message="usePage().props.errors.released_at" />
                             </div>
                             <div class="flex items-center space-x-2 pt-6">
                                 <Checkbox id="is_preassembled" v-model:checked="formInfo.is_preassembled" />
                                 <Label for="is_preassembled">Pre-assembled</Label>
+                                <InputError :message="usePage().props.errors.is_preassembled" />
                             </div>
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Package description" />
+                            <InputError :message="usePage().props.errors.description" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="distributor_description">Distributor Description</Label>
                             <Textarea id="distributor_description" v-model="formInfo.distributor_description" placeholder="Distributor description" />
+                            <InputError :message="usePage().props.errors.distributor_description" />
                         </div>
 
                         <TextBar text="Factions" />
@@ -180,6 +191,7 @@ onMounted(() => {
                                 placeholder="Select Factions"
                                 :options="props.factions"
                             />
+                            <InputError :message="usePage().props.errors.factions" />
                         </div>
 
                         <TextBar text="Images" />
@@ -203,6 +215,7 @@ onMounted(() => {
                                         accept=".heic, .jpeg, .jpg, .png, .webp"
                                         @input="formInfo.front_image = $event.target.files[0]"
                                     />
+                                    <InputError :message="usePage().props.errors.front_image" />
                                 </div>
                                 <div class="mx-auto flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label v-if="props.package?.back_image && !formInfo.back_image" for="current_back_image"
@@ -222,6 +235,7 @@ onMounted(() => {
                                         accept=".heic, .jpeg, .jpg, .png, .webp"
                                         @input="formInfo.back_image = $event.target.files[0]"
                                     />
+                                    <InputError :message="usePage().props.errors.back_image" />
                                 </div>
                             </div>
                         </div>
@@ -244,6 +258,7 @@ onMounted(() => {
                                     accept=".heic, .jpeg, .jpg, .png, .webp"
                                     @input="formInfo.combination_image = $event.target.files[0]"
                                 />
+                                <InputError :message="usePage().props.errors.combination_image" />
                             </div>
                         </div>
 
@@ -258,6 +273,7 @@ onMounted(() => {
                                         :options="props.characters"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.characters" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="miniatures">Miniatures</Label>
@@ -267,6 +283,7 @@ onMounted(() => {
                                         :options="props.miniatures"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.miniatures" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="keywords">Keywords</Label>
@@ -276,6 +293,7 @@ onMounted(() => {
                                         :options="props.keywords"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.keywords" />
                                 </div>
                             </div>
                         </div>

@@ -42,6 +42,12 @@ class PackageController extends Controller
             });
         }
 
+        if ($request->filled('keyword')) {
+            $query->whereHas('keywords', function ($q) use ($request) {
+                $q->where('keywords.slug', $request->get('keyword'));
+            });
+        }
+
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 

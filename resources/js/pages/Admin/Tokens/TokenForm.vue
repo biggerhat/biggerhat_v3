@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -33,6 +34,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Tokens - Admin" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -45,10 +47,12 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Token Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Type the token description here." />
+                            <InputError :message="usePage().props.errors.description" />
                         </div>
                     </div>
                 </form>

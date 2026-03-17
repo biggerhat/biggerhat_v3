@@ -19,6 +19,8 @@ interface Transmission {
     transmission_type: string;
     content_type: string;
     channel: { id: number; name: string; slug: string };
+    factions: string[] | null;
+    release_date: string | null;
 }
 
 const columns: ColumnDef<Transmission>[] = [
@@ -48,6 +50,21 @@ const columns: ColumnDef<Transmission>[] = [
         header: () => h('div', {}, 'Content'),
         cell: ({ row }) => {
             return h('div', { class: 'capitalize' }, String(row.getValue('content_type')).replace(/_/g, ' '));
+        },
+    },
+    {
+        id: 'factions',
+        header: () => h('div', {}, 'Factions'),
+        cell: ({ row }) => {
+            const factions = row.original.factions;
+            return h('div', {}, factions?.length ? factions.join(', ') : '-');
+        },
+    },
+    {
+        accessorKey: 'release_date',
+        header: () => h('div', {}, 'Release Date'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('release_date') ?? '-');
         },
     },
     {

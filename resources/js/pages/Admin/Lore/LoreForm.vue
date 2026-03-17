@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Trash2 } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
 
@@ -82,6 +83,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Lore Form" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -94,6 +96,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Story Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Lore Story Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -120,6 +123,7 @@ onMounted(() => {
                                     formInfo.remove_file = false;
                                 "
                             />
+                            <InputError :message="usePage().props.errors.file" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -130,6 +134,7 @@ onMounted(() => {
                                 :options="props.lore_media"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.lore_media" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -149,6 +154,7 @@ onMounted(() => {
                                     <div class="flex flex-col space-y-1.5">
                                         <Label :for="`new_media_name_${index}`">Media Name</Label>
                                         <Input :id="`new_media_name_${index}`" v-model="entry.name" placeholder="Media Name" />
+                                        <InputError :message="usePage().props.errors[`new_media.${index}.name`]" />
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
                                         <Label :for="`new_media_type_${index}`">Media Type</Label>
@@ -162,10 +168,12 @@ onMounted(() => {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        <InputError :message="usePage().props.errors[`new_media.${index}.type`]" />
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
                                         <Label :for="`new_media_link_${index}`">Link (optional)</Label>
                                         <Input :id="`new_media_link_${index}`" v-model="entry.link" placeholder="https://..." />
+                                        <InputError :message="usePage().props.errors[`new_media.${index}.link`]" />
                                     </div>
                                 </div>
                             </div>
@@ -179,6 +187,7 @@ onMounted(() => {
                                 :options="props.characters"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.characters" />
                         </div>
                     </div>
                 </form>

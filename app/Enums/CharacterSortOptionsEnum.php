@@ -12,6 +12,7 @@ enum CharacterSortOptionsEnum: string implements HasDefaultEnumMethods
     use UsesEnumSelectOptions;
 
     case Name = 'name';
+    case Faction = 'faction';
     case Station = 'station';
     case Cost = 'cost';
     case Health = 'health';

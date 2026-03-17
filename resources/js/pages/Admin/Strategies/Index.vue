@@ -20,6 +20,20 @@ const columns: ColumnDef<Strategies>[] = [
         },
     },
     {
+        accessorKey: 'season',
+        header: () => h('div', {}, 'Season'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('season'));
+        },
+    },
+    {
+        accessorKey: 'suit',
+        header: () => h('div', {}, 'Suit'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('suit') ?? '-');
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

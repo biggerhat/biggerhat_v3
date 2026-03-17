@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -43,6 +44,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Markers - Admin" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -55,10 +57,12 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Marker Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Type the marker description here." />
+                            <InputError :message="usePage().props.errors.description" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="base">Base Size</Label>
@@ -72,6 +76,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.base" />
                         </div>
                     </div>
                 </form>

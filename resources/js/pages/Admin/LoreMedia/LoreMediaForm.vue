@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -42,6 +43,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Lore Media - Admin" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -54,6 +56,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Lore Media Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="type">Type</Label>
@@ -67,10 +70,12 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.type" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="link">Link (optional)</Label>
                             <Input id="link" v-model="formInfo.link" placeholder="https://..." />
+                            <InputError :message="usePage().props.errors.link" />
                         </div>
                     </div>
                 </form>

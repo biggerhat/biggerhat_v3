@@ -18,7 +18,7 @@ class KeywordController extends Controller
 {
     public function index(Request $request)
     {
-        $keywords = Keyword::orderBy('name', 'ASC')->with(['masters.crewUpgrades', 'characters'])->get();
+        $keywords = Keyword::orderBy('name', 'ASC')->withCount('packages')->with(['masters.crewUpgrades', 'masters.standardMiniatures', 'characters.standardMiniatures'])->get();
 
         return inertia('Keywords/Index', [
             'keywords' => KeywordResource::collection($keywords)->toArray($request),
@@ -56,6 +56,7 @@ class KeywordController extends Controller
         }
 
         $sort = match ($request->get('sort')) {
+            CharacterSortOptionsEnum::Faction->value => 'faction',
             CharacterSortOptionsEnum::Cost->value => 'cost',
             CharacterSortOptionsEnum::Health->value => 'health',
             CharacterSortOptionsEnum::Speed->value => 'speed',

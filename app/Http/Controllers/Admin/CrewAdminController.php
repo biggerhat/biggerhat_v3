@@ -25,7 +25,7 @@ class CrewAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Upgrades/Crews/Index', [
-            'upgrades' => Upgrade::forCrews()->orderBy('name', 'ASC')->get(),
+            'upgrades' => Upgrade::forCrews()->with('characters')->orderBy('name', 'ASC')->get(),
         ]);
     }
 
@@ -36,7 +36,7 @@ class CrewAdminController extends Controller
 
     public function edit(Request $request, Upgrade $upgrade)
     {
-        $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']);
+        $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']);
 
         // Decompose hiring_rules JSON into individual form fields
         $hiringRules = $upgrade->hiring_rules;

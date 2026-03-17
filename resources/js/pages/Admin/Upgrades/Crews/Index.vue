@@ -35,6 +35,21 @@ const columns: ColumnDef<Upgrades>[] = [
         },
     },
     {
+        id: 'characters',
+        header: () => h('div', {}, 'Linked Characters'),
+        cell: ({ row }) => {
+            const characters = row.original.characters ?? [];
+            if (characters.length === 0) return h('span', { class: 'text-muted-foreground' }, '—');
+            return h(
+                'div',
+                { class: 'flex flex-wrap gap-1' },
+                characters.map((c: { display_name: string }) =>
+                    h('span', { class: 'rounded bg-muted px-1.5 py-0.5 text-xs' }, c.display_name),
+                ),
+            );
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

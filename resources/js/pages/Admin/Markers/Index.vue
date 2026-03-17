@@ -20,6 +20,13 @@ const columns: ColumnDef<Markers>[] = [
         },
     },
     {
+        accessorKey: 'base',
+        header: () => h('div', {}, 'Base'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('base'));
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

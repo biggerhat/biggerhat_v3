@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -68,6 +69,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Ability Form" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -80,6 +82,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" autofocus v-model="formInfo.name" placeholder="Ability Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -95,10 +98,12 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.defensive_ability_type" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="suits">Required Suits</Label>
                                     <Input id="suits" v-model="formInfo.suits" placeholder="Required Suits" />
+                                    <InputError :message="usePage().props.errors.suits" />
                                 </div>
                             </div>
                         </div>
@@ -109,6 +114,7 @@ onMounted(() => {
                                         <Switch id="costs_stone" v-model="formInfo.costs_stone" />
                                         <Label for="costs_stone">Costs A Stone</Label>
                                     </div>
+                                    <InputError :message="usePage().props.errors.costs_stone" />
                                 </div>
                             </div>
                         </div>
@@ -116,6 +122,7 @@ onMounted(() => {
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="description">Ability Text</Label>
                                 <Textarea id="description" v-model="formInfo.description" placeholder="Type the ability text here." />
+                                <InputError :message="usePage().props.errors.description" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -127,6 +134,7 @@ onMounted(() => {
                                     :options="props.characters"
                                     option-value="name"
                                 />
+                                <InputError :message="usePage().props.errors.characters" />
                             </div>
                         </div>
                     </div>

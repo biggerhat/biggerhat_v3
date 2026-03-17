@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -56,6 +57,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Miniature" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -69,11 +71,13 @@ onMounted(() => {
                             <Label for="name">Name (Optional)</Label>
                             <span class="text-xs text-red-600">Leave Blank If Normal Sculpt Or No Alternate Name</span>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Miniature Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="title">Title (Optional)</Label>
                             <span class="text-xs text-red-600">Leave Blank If Normal Sculpt Or No Alternate Title</span>
                             <Input id="title" v-model="formInfo.title" autofocus placeholder="Miniature Title" />
+                            <InputError :message="usePage().props.errors.title" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -89,6 +93,7 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.character_id" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="sculpt_version">Sculpt Version</Label>
@@ -102,16 +107,30 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.version" />
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
                                 <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
+                                    <img
+                                        v-if="props.miniature?.front_image && !formInfo.front_image"
+                                        :src="'/storage/' + props.miniature.front_image"
+                                        :alt="props.miniature?.display_name"
+                                        class="w-full rounded-lg"
+                                    />
                                     <Label for="front_image">Front of Card Image</Label>
                                     <Input id="front_image" type="file" accept=".jpeg, .jpg" @input="formInfo.front_image = $event.target.files[0]" />
+                                    <InputError :message="usePage().props.errors.front_image" />
                                 </div>
                                 <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
+                                    <img
+                                        v-if="props.miniature?.back_image && !formInfo.back_image && !formInfo.use_existing_back"
+                                        :src="'/storage/' + props.miniature.back_image"
+                                        :alt="props.miniature?.display_name"
+                                        class="w-full rounded-lg"
+                                    />
                                     <Label for="back_image">Back of Card Image</Label>
                                     <div class="flex items-center gap-2">
                                         <Checkbox
@@ -133,6 +152,7 @@ onMounted(() => {
                                     <span v-else class="text-xs text-muted-foreground">
                                         The back image will be copied from an existing miniature of the selected character.
                                     </span>
+                                    <InputError :message="usePage().props.errors.back_image" />
                                 </div>
                             </div>
                         </div>

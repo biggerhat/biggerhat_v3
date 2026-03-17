@@ -43,6 +43,14 @@ const columns: ColumnDef<Triggers>[] = [
         },
     },
     {
+        accessorKey: 'stone_cost',
+        header: () => h('div', {}, 'Stone Cost'),
+        cell: ({ row }) => {
+            const cost = row.getValue('stone_cost') as number;
+            return h('div', {}, cost > 0 ? String(cost) : '-');
+        },
+    },
+    {
         accessorKey: 'internal_notes',
         header: () => h('div', {}, 'Internal Notes'),
         cell: ({ row }) => {

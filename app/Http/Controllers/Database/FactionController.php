@@ -47,6 +47,7 @@ class FactionController extends Controller
 
         if (! $isStationSort) {
             $sort = match ($request->get('sort')) {
+                CharacterSortOptionsEnum::Faction->value => 'faction',
                 CharacterSortOptionsEnum::Cost->value => 'cost',
                 CharacterSortOptionsEnum::Health->value => 'health',
                 CharacterSortOptionsEnum::Speed->value => 'speed',

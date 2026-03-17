@@ -34,6 +34,20 @@ const columns: ColumnDef<Characteristics>[] = [
         },
     },
     {
+        accessorKey: 'type',
+        header: () => h('div', {}, 'Type'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('type'));
+        },
+    },
+    {
+        accessorKey: 'is_signature',
+        header: () => h('div', {}, 'Signature'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('is_signature') ? 'Yes' : 'No');
+        },
+    },
+    {
         accessorKey: 'internal_notes',
         header: () => h('div', {}, 'Internal Notes'),
         cell: ({ row }) => {

@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 interface SelectOption {
@@ -60,6 +61,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Channel" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -72,14 +74,17 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Channel Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Channel description..." />
+                            <InputError :message="usePage().props.errors.description" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="image">Image</Label>
                             <Input id="image" type="file" accept="image/*" @change="onFileChange" />
+                            <InputError :message="usePage().props.errors.image" />
                             <img
                                 v-if="channel?.image_url"
                                 :src="channel.image_url"
@@ -90,6 +95,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label>Owners</Label>
                             <SearchableMultiselect v-model="formInfo.user_ids" :options="users" placeholder="Search users..." />
+                            <InputError :message="usePage().props.errors.user_ids" />
                         </div>
                     </div>
                 </form>

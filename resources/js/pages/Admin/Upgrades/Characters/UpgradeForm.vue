@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TextBar from '@/components/TextBar.vue';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { CircleX } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
 
@@ -160,6 +161,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Upgrade Form" />
     <div class="container mx-auto mt-6 h-full px-2">
         <Card>
             <CardHeader>
@@ -172,6 +174,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Upgrade Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="faction">Faction</Label>
@@ -185,6 +188,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.faction" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -203,6 +207,7 @@ onMounted(() => {
                                         </Select>
                                         <CircleX class="my-auto ml-2 text-destructive" v-if="formInfo.type" @click="formInfo.type = null" />
                                     </div>
+                                    <InputError :message="usePage().props.errors.type" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="power_bar_count">Power Bar Count</Label>
@@ -212,6 +217,7 @@ onMounted(() => {
                                         type="number"
                                         placeholder="Power Bar Count (Optional)"
                                     />
+                                    <InputError :message="usePage().props.errors.power_bar_count" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="plentiful">Plentiful Count</Label>
@@ -222,6 +228,7 @@ onMounted(() => {
                                         min="1"
                                         placeholder="Plentiful Count (Optional)"
                                     />
+                                    <InputError :message="usePage().props.errors.plentiful" />
                                 </div>
                                 <div class="my-auto flex w-full flex-col space-y-1.5">
                                     <Label for="type">Limitations (Optional)</Label>
@@ -242,6 +249,7 @@ onMounted(() => {
                                             @click="formInfo.limitations = null"
                                         />
                                     </div>
+                                    <InputError :message="usePage().props.errors.limitations" />
                                 </div>
                             </div>
                         </div>
@@ -249,6 +257,7 @@ onMounted(() => {
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="description">Upgrade Text</Label>
                                 <Textarea id="description" v-model="formInfo.description" placeholder="Type the upgrade text here." />
+                                <InputError :message="usePage().props.errors.description" />
                             </div>
                         </div>
 
@@ -271,6 +280,7 @@ onMounted(() => {
                                         accept=".heic, .jpeg, .jpg, .png, .webp"
                                         @input="formInfo.front_image = $event.target.files[0]"
                                     />
+                                    <InputError :message="usePage().props.errors.front_image" />
                                 </div>
                                 <div class="mx-auto flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
                                     <Label v-if="props.upgrade?.back_image && !formInfo.back_image" for="current_back_image">Current Image</Label>
@@ -288,6 +298,7 @@ onMounted(() => {
                                         accept=".heic, .jpeg, .jpg, .png, .webp"
                                         @input="formInfo.back_image = $event.target.files[0]"
                                     />
+                                    <InputError :message="usePage().props.errors.back_image" />
                                 </div>
                             </div>
                         </div>
@@ -304,6 +315,7 @@ onMounted(() => {
                                         option-value="name"
                                         class="my-auto"
                                     />
+                                    <InputError :message="usePage().props.errors.keywords" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -312,6 +324,7 @@ onMounted(() => {
                                         :options="props.markers"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.markers" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -320,6 +333,7 @@ onMounted(() => {
                                         :options="props.tokens"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.tokens" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -328,6 +342,7 @@ onMounted(() => {
                                         :options="props.abilities"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.abilities" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -336,6 +351,7 @@ onMounted(() => {
                                         :options="props.actions"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -344,6 +360,7 @@ onMounted(() => {
                                         :options="props.actions"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.signature_actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -352,6 +369,7 @@ onMounted(() => {
                                         :options="props.triggers"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.triggers" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -360,6 +378,7 @@ onMounted(() => {
                                         :options="props.characters"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.characters" />
                                 </div>
                             </div>
                         </div>

@@ -27,6 +27,27 @@ const columns: ColumnDef<Abilities>[] = [
         },
     },
     {
+        accessorKey: 'suits',
+        header: () => h('div', {}, 'Suits'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('suits') ?? '-');
+        },
+    },
+    {
+        accessorKey: 'defensive_ability_type',
+        header: () => h('div', {}, 'Defensive Type'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('defensive_ability_type') ?? '-');
+        },
+    },
+    {
+        accessorKey: 'costs_stone',
+        header: () => h('div', {}, 'Costs Stone'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('costs_stone') ? 'Yes' : 'No');
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

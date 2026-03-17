@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -200,6 +201,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Character Form" />
     <div class="container mx-auto mb-6 mt-6">
         <Card>
             <CardHeader>
@@ -212,14 +214,17 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Character Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="title">Title</Label>
                             <Input id="title" v-model="formInfo.title" placeholder="Character Title" />
+                            <InputError :message="usePage().props.errors.title" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="nicknames">Nicknames (For Bot Lookup, Not Previous Edition Names)</Label>
                             <Input id="nicknames" v-model="formInfo.nicknames" placeholder="Nicknames" />
+                            <InputError :message="usePage().props.errors.nicknames" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="faction">Faction</Label>
@@ -233,6 +238,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.faction" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="station">Station</Label>
@@ -246,6 +252,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.station" />
                         </div>
                         <div class="flex flex-col space-y-1.5" v-if="formInfo.station === 'master'">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -261,6 +268,7 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.totem" />
                                 </div>
                             </div>
                         </div>
@@ -271,6 +279,7 @@ onMounted(() => {
                                 :options="props.keywords"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.keywords" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <SearchableMultiselect
@@ -279,6 +288,7 @@ onMounted(() => {
                                 :options="props.characteristics"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.characteristics" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="base">Base Size</Label>
@@ -292,12 +302,14 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.base" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-3">
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="cost">Cost</Label>
                                     <Input id="cost" v-model="formInfo.cost" type="number" placeholder="Character Cost" />
+                                    <InputError :message="usePage().props.errors.cost" />
                                 </div>
                                 <div class="flex flex-col">
                                     <NumberField id="health" v-model="formInfo.health" :default-value="0" :min="0">
@@ -308,6 +320,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.health" />
                                 </div>
                                 <div class="flex flex-col">
                                     <NumberField id="size" v-model="formInfo.size" :default-value="0" :min="0">
@@ -318,6 +331,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.size" />
                                 </div>
                                 <div class="flex flex-col">
                                     <NumberField id="speed" v-model="formInfo.speed" :default-value="0" :min="0">
@@ -328,6 +342,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.speed" />
                                 </div>
                                 <div class="flex flex-col">
                                     <NumberField id="count" v-model="formInfo.count" :default-value="1" :min="1">
@@ -338,6 +353,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.count" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="summon_target_number">Summon Target Number</Label>
@@ -347,6 +363,7 @@ onMounted(() => {
                                         type="number"
                                         placeholder="Summon Target Number"
                                     />
+                                    <InputError :message="usePage().props.errors.summon_target_number" />
                                 </div>
                             </div>
                         </div>
@@ -361,6 +378,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.defense" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="defense_suit">Defense Suit</Label>
@@ -374,6 +392,7 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.defense_suit" />
                                 </div>
                             </div>
                         </div>
@@ -388,6 +407,7 @@ onMounted(() => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <InputError :message="usePage().props.errors.willpower" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="willpower_suit">Willpower Suit</Label>
@@ -401,6 +421,7 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.willpower_suit" />
                                 </div>
                             </div>
                         </div>
@@ -416,6 +437,7 @@ onMounted(() => {
                                         :options="props.abilities"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.abilities" />
                                 </div>
                             </div>
                         </div>
@@ -428,6 +450,7 @@ onMounted(() => {
                                         :options="props.actions"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.actions" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -436,6 +459,7 @@ onMounted(() => {
                                         :options="props.actions"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.signature_actions" />
                                 </div>
                             </div>
                         </div>
@@ -448,6 +472,7 @@ onMounted(() => {
                                         :options="props.markers"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.markers" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <SearchableMultiselect
@@ -456,6 +481,7 @@ onMounted(() => {
                                         :options="props.tokens"
                                         option-value="name"
                                     />
+                                    <InputError :message="usePage().props.errors.tokens" />
                                 </div>
                             </div>
                         </div>

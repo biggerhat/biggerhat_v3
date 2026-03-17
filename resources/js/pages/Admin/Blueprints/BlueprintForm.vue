@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { imageSrc } from '@/composables/useBlueprintImages';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -80,6 +81,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Blueprint" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -102,6 +104,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Blueprint Name" autofocus />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
 
                         <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -117,16 +120,19 @@ onMounted(() => {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                                <InputError :message="usePage().props.errors.sculpt_version" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="published_at">Published Date</Label>
                                 <Input id="published_at" v-model="formInfo.published_at" type="date" />
+                                <InputError :message="usePage().props.errors.published_at" />
                             </div>
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
                             <Label for="source_url">Source URL</Label>
                             <Input id="source_url" v-model="formInfo.source_url" placeholder="https://..." />
+                            <InputError :message="usePage().props.errors.source_url" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -137,6 +143,7 @@ onMounted(() => {
                                 :options="props.characters"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.characters" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -147,6 +154,7 @@ onMounted(() => {
                                 :options="props.miniatures"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.miniatures" />
                         </div>
 
                         <div class="flex flex-col space-y-1.5">
@@ -157,6 +165,7 @@ onMounted(() => {
                                 :options="props.packages"
                                 option-value="name"
                             />
+                            <InputError :message="usePage().props.errors.packages" />
                         </div>
                     </div>
                 </form>

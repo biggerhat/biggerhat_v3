@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -59,6 +60,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Strategy" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -71,6 +73,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Strategy Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="season">Season</Label>
@@ -84,6 +87,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.season" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="suit">Suit</Label>
@@ -97,18 +101,22 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.suit" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="setup">Setup</Label>
                             <Textarea id="setup" v-model="formInfo.setup" placeholder="Type the setup info here." />
+                            <InputError :message="usePage().props.errors.setup" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="rules">Rules</Label>
                             <Textarea id="rules" v-model="formInfo.rules" placeholder="Type the rules info here." />
+                            <InputError :message="usePage().props.errors.rules" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="scoring">Scoring</Label>
                             <Textarea id="scoring" v-model="formInfo.scoring" placeholder="Type the scoring info here." />
+                            <InputError :message="usePage().props.errors.scoring" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="additional_scoring">Additional Scoring</Label>
@@ -117,9 +125,16 @@ onMounted(() => {
                                 v-model="formInfo.additional_scoring"
                                 placeholder="Type the additional scoring info here."
                             />
+                            <InputError :message="usePage().props.errors.additional_scoring" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
+                                <img
+                                    v-if="props.strategy?.image && !formInfo.image"
+                                    :src="'/storage/' + props.strategy.image"
+                                    :alt="props.strategy?.name"
+                                    class="w-full rounded-lg"
+                                />
                                 <Label for="image">Image</Label>
                                 <Input
                                     id="image"
@@ -127,6 +142,7 @@ onMounted(() => {
                                     accept=".heic, .jpeg, .jpg, .png, .webp"
                                     @input="formInfo.image = $event.target.files[0]"
                                 />
+                                <InputError :message="usePage().props.errors.image" />
                             </div>
                         </div>
                     </div>

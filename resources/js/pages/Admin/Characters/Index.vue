@@ -20,6 +20,27 @@ const columns: ColumnDef<Characters>[] = [
         },
     },
     {
+        accessorKey: 'faction',
+        header: () => h('div', {}, 'Faction'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('faction') ?? '-');
+        },
+    },
+    {
+        accessorKey: 'station',
+        header: () => h('div', {}, 'Station'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('station') ?? '-');
+        },
+    },
+    {
+        accessorKey: 'cost',
+        header: () => h('div', {}, 'Cost'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('cost') ?? '-');
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

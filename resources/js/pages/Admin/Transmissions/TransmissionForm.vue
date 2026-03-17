@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 interface SelectOption {
@@ -112,6 +113,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Transmission" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -124,14 +126,17 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="title">Title</Label>
                             <Input id="title" v-model="formInfo.title" placeholder="Transmission Title" />
+                            <InputError :message="usePage().props.errors.title" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="url">URL</Label>
                             <Input id="url" v-model="formInfo.url" placeholder="https://..." />
+                            <InputError :message="usePage().props.errors.url" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Transmission description..." />
+                            <InputError :message="usePage().props.errors.description" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="channel_id">Channel</Label>
@@ -145,6 +150,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.channel_id" />
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="flex flex-col space-y-1.5">
@@ -159,6 +165,7 @@ onMounted(() => {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                                <InputError :message="usePage().props.errors.transmission_type" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="content_type">Content Type</Label>
@@ -172,11 +179,13 @@ onMounted(() => {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                                <InputError :message="usePage().props.errors.content_type" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="release_date">Release Date</Label>
                             <Input id="release_date" type="date" v-model="formInfo.release_date" />
+                            <InputError :message="usePage().props.errors.release_date" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label>Factions</Label>
@@ -189,14 +198,17 @@ onMounted(() => {
                                     {{ faction.name }}
                                 </label>
                             </div>
+                            <InputError :message="usePage().props.errors.factions" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label>Characters</Label>
                             <SearchableMultiselect v-model="formInfo.characters" :options="characters" placeholder="Search characters..." />
+                            <InputError :message="usePage().props.errors.characters" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label>Keywords</Label>
                             <SearchableMultiselect v-model="formInfo.keywords" :options="keywords" placeholder="Search keywords..." />
+                            <InputError :message="usePage().props.errors.keywords" />
                         </div>
                     </div>
                 </form>

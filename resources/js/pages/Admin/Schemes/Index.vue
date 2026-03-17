@@ -20,6 +20,13 @@ const columns: ColumnDef<Schemes>[] = [
         },
     },
     {
+        accessorKey: 'season',
+        header: () => h('div', {}, 'Season'),
+        cell: ({ row }) => {
+            return h('div', {}, row.getValue('season'));
+        },
+    },
+    {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),

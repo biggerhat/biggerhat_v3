@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -120,6 +121,7 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Action Form" />
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
@@ -132,6 +134,7 @@ onMounted(() => {
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" placeholder="Action Name" />
+                            <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="type">Action Type</Label>
@@ -145,6 +148,7 @@ onMounted(() => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <InputError :message="usePage().props.errors.type" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -160,10 +164,12 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.range_type" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="range">Range</Label>
                                     <Input id="range" v-model="formInfo.range" placeholder="Range" />
+                                    <InputError :message="usePage().props.errors.range" />
                                 </div>
                             </div>
                         </div>
@@ -172,6 +178,7 @@ onMounted(() => {
                                 <div class="flex flex-col">
                                     <Label for="stat">Skill</Label>
                                     <Input id="stat" v-model="formInfo.stat" placeholder="Skill" />
+                                    <InputError :message="usePage().props.errors.stat" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="stat_modifier">Skill Modifier</Label>
@@ -185,10 +192,12 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.stat_modifier" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="stat_suits">Built In Stats</Label>
                                     <Input id="stat_suits" v-model="formInfo.stat_suits" placeholder="Built In Stats" />
+                                    <InputError :message="usePage().props.errors.stat_suits" />
                                 </div>
                             </div>
                         </div>
@@ -210,14 +219,17 @@ onMounted(() => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <InputError :message="usePage().props.errors.resisted_by" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="target_number">Target Number</Label>
                                     <Input id="target_number" v-model="formInfo.target_number" placeholder="Target Number" />
+                                    <InputError :message="usePage().props.errors.target_number" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="target_suits">Target Suits</Label>
                                     <Input id="target_suits" v-model="formInfo.target_suits" placeholder="Target Suits" />
+                                    <InputError :message="usePage().props.errors.target_suits" />
                                 </div>
                             </div>
                         </div>
@@ -226,10 +238,12 @@ onMounted(() => {
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="damage">Damage</Label>
                                     <Input id="damage" v-model="formInfo.damage" placeholder="Damage" />
+                                    <InputError :message="usePage().props.errors.damage" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="stone_cost">Stone Cost</Label>
                                     <Input id="stone_cost" v-model="formInfo.stone_cost" type="number" min="0" max="10" placeholder="0" />
+                                    <InputError :message="usePage().props.errors.stone_cost" />
                                 </div>
                             </div>
                         </div>
@@ -237,6 +251,7 @@ onMounted(() => {
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="description">Action Text</Label>
                                 <Textarea id="description" v-model="formInfo.description" placeholder="Type the action text here." />
+                                <InputError :message="usePage().props.errors.description" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -247,6 +262,7 @@ onMounted(() => {
                                     v-model="formInfo.internal_notes"
                                     placeholder="Type internal notes here, they will appear in the action name when searching admin section."
                                 />
+                                <InputError :message="usePage().props.errors.internal_notes" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -258,6 +274,7 @@ onMounted(() => {
                                     :options="props.triggers"
                                     option-value="name"
                                 />
+                                <InputError :message="usePage().props.errors.triggers" />
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -269,6 +286,7 @@ onMounted(() => {
                                     :options="props.characters"
                                     option-value="name"
                                 />
+                                <InputError :message="usePage().props.errors.characters" />
                             </div>
                         </div>
                     </div>

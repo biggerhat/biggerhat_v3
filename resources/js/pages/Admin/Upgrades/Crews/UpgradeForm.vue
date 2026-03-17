@@ -145,7 +145,7 @@ onMounted(() => {
         formInfo.value.triggers.push(trigger.name);
     });
 
-    props.upgrade?.masters.forEach((character) => {
+    props.upgrade?.characters.forEach((character) => {
         formInfo.value.characters.push(character.display_name);
     });
 
@@ -212,11 +212,11 @@ onMounted(() => {
                                     <InputError :message="usePage().props.errors.faction" />
                                 </div>
                                 <div class="flex flex-col space-y-1.5">
-                                    <Label for="masters">Masters</Label>
+                                    <Label for="characters">Linked Characters</Label>
                                     <SearchableMultiselect
                                         v-model="formInfo.characters"
-                                        placeholder="Select Masters"
-                                        :options="props.characters"
+                                        placeholder="Select Characters"
+                                        :options="props.all_characters"
                                         option-value="name"
                                         class="my-auto"
                                     />

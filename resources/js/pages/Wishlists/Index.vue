@@ -86,18 +86,10 @@ function confirmDelete() {
                 </Button>
             </div>
 
-            <EmptyState
-                v-if="wishlists.length === 0"
-                title="No wishlists yet"
-                description="Create a wishlist to start tracking items you want."
-            />
+            <EmptyState v-if="wishlists.length === 0" title="No wishlists yet" description="Create a wishlist to start tracking items you want." />
 
             <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Card
-                    v-for="wishlist in wishlists"
-                    :key="wishlist.id"
-                    class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                >
+                <Card v-for="wishlist in wishlists" :key="wishlist.id" class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <CardContent class="p-4">
                         <div class="flex items-start justify-between gap-3">
                             <Link :href="route('wishlists.show', wishlist.id)" class="min-w-0 flex-1">
@@ -130,13 +122,20 @@ function confirmDelete() {
     </div>
 
     <!-- Delete confirmation dialog -->
-    <Dialog :open="!!deleteTarget" @update:open="(v: boolean) => { if (!v) deleteTarget = null }">
+    <Dialog
+        :open="!!deleteTarget"
+        @update:open="
+            (v: boolean) => {
+                if (!v) deleteTarget = null;
+            }
+        "
+    >
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Delete Wishlist</DialogTitle>
                 <DialogDescription>
-                    Are you sure you want to delete <span class="font-semibold">"{{ deleteTarget?.name }}"</span>? This will remove all items and cannot be
-                    undone.
+                    Are you sure you want to delete <span class="font-semibold">"{{ deleteTarget?.name }}"</span>? This will remove all items and
+                    cannot be undone.
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter class="gap-3 sm:gap-x-3">

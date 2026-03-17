@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { SharedData } from '@/types';
 import { valueUpdater } from '@/lib/utils';
+import type { SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
 import { BookMarked, Heart, Plus } from 'lucide-vue-next';
@@ -42,7 +42,10 @@ const addToCollection = async (character: any) => {
 
     await fetch(route('collection.add_character'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+        },
         body: JSON.stringify({ character_id: character.id }),
     });
 };

@@ -134,13 +134,8 @@ const table = useVueTable({
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-4">
-                <Input
-                    class="max-w-sm"
-                    placeholder="Filter Packages"
-                    :model-value="searchText"
-                    @update:model-value="searchText = $event"
-                />
-                <label class="flex cursor-pointer items-center gap-2 text-sm whitespace-nowrap">
+                <Input class="max-w-sm" placeholder="Filter Packages" :model-value="searchText" @update:model-value="searchText = $event" />
+                <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <Checkbox :checked="showUnattachedOnly" @update:checked="(val: boolean) => (showUnattachedOnly = val)" />
                     Unattached only
                 </label>

@@ -4,6 +4,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -15,8 +16,22 @@ import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowUpCircle, BookOpen, Check, ChevronRight, Copy, Download, ExternalLink, FileImage, Library, Package, Radio, Star, Swords } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    ArrowUpCircle,
+    BookOpen,
+    Check,
+    ChevronRight,
+    Copy,
+    Download,
+    ExternalLink,
+    FileImage,
+    Library,
+    Package,
+    Radio,
+    Star,
+    Swords,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const page = usePage<SharedData>();
@@ -74,8 +89,6 @@ const copyLink = async () => {
     setTimeout(() => (copied.value = false), 2000);
 };
 
-
-
 const standardVersions = ['first_edition', 'second_edition', 'third_edition', 'fourth_edition'];
 const versionLabels: Record<string, string> = {
     alternate_model: 'Alt',
@@ -105,7 +118,11 @@ const navigateToSculpt = (sculptId: string) => {
 };
 
 const hasSecondaryContent = computed(
-    () => props.character.packages?.length || props.character.lores?.length || props.character.blueprints?.length || props.character.transmissions?.length,
+    () =>
+        props.character.packages?.length ||
+        props.character.lores?.length ||
+        props.character.blueprints?.length ||
+        props.character.transmissions?.length,
 );
 
 const formatDate = (dateStr: string) => {
@@ -556,7 +573,9 @@ const openUpgradeDrawer = (upgrade: any) => {
                     <CardContent class="px-0 pb-2">
                         <Dialog v-for="bp in character.blueprints" :key="bp.id">
                             <DialogTrigger as-child>
-                                <button class="flex w-full cursor-pointer items-center gap-2.5 border-t px-4 py-2.5 text-left transition-colors hover:bg-accent">
+                                <button
+                                    class="flex w-full cursor-pointer items-center gap-2.5 border-t px-4 py-2.5 text-left transition-colors hover:bg-accent"
+                                >
                                     <img
                                         v-if="bp.image_path"
                                         :src="imageSrc(bp.image_path)"
@@ -570,13 +589,13 @@ const openUpgradeDrawer = (upgrade: any) => {
                                     <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
                                 </button>
                             </DialogTrigger>
-                                <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
-                                    <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
-                                    <DialogDescription class="text-sm text-muted-foreground">
-                                        {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
-                                    </DialogDescription>
-                                    <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
-                                </DialogContent>
+                            <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+                                <DialogTitle class="text-lg font-semibold">{{ bp.name }}</DialogTitle>
+                                <DialogDescription class="text-sm text-muted-foreground">
+                                    {{ bp.image_path ? imageLabel(bp.image_path) : 'Assembly diagram' }}
+                                </DialogDescription>
+                                <img v-if="bp.image_path" :src="imageSrc(bp.image_path)" :alt="bp.name" class="mt-2 w-full rounded-lg border" />
+                            </DialogContent>
                         </Dialog>
                     </CardContent>
                 </Card>
@@ -614,7 +633,6 @@ const openUpgradeDrawer = (upgrade: any) => {
                         </Link>
                     </CardContent>
                 </Card>
-
             </div>
         </div>
 
@@ -649,7 +667,10 @@ const openUpgradeDrawer = (upgrade: any) => {
                     </div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div v-if="activeUpgrade.front_image" class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <div
+                        v-if="activeUpgrade.front_image"
+                        class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain"
+                    >
                         <UpgradeFlipCard
                             :front-image="activeUpgrade.front_image"
                             :back-image="activeUpgrade.back_image"

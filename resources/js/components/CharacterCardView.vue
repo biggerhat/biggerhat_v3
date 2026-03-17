@@ -57,9 +57,7 @@ const onWishlist = computed(() => {
     const wishlistItems = page.props.auth?.wishlist_items ?? {};
     const characterId = props.miniature?.character_id;
     return Object.values(wishlistItems).some(
-        (wl) =>
-            miniatureIds.value.some((id) => wl.miniatures.includes(id)) ||
-            (characterId && wl.characters.includes(characterId)),
+        (wl) => miniatureIds.value.some((id) => wl.miniatures.includes(id)) || (characterId && wl.characters.includes(characterId)),
     );
 });
 
@@ -80,7 +78,10 @@ const addToCollection = async () => {
     try {
         await fetch(route('collection.add_character'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
             body: JSON.stringify({ character_id: characterId }),
         });
     } finally {

@@ -5,10 +5,10 @@ import FilterPanel from '@/components/FilterPanel.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { cleanObject } from '@/composables/CleanObject';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { ExternalLink } from 'lucide-vue-next';
-import { cleanObject } from '@/composables/CleanObject';
 import { computed, onMounted, ref } from 'vue';
 
 interface SelectOption {
@@ -250,8 +250,18 @@ const formatDate = (dateStr: string) => {
                             <CardContent>
                                 <p v-if="transmission.description" class="mb-3 text-sm text-muted-foreground">{{ transmission.description }}</p>
                                 <div class="mb-2 flex items-center gap-2">
-                                    <Badge variant="secondary" class="cursor-pointer capitalize hover:bg-secondary/80" @click="filterByTag('transmission_type', transmission.transmission_type)">{{ transmission.transmission_type }}</Badge>
-                                    <Badge variant="outline" class="cursor-pointer capitalize hover:bg-accent" @click="filterByTag('content_type', transmission.content_type)">{{ formatContentType(transmission.content_type) }}</Badge>
+                                    <Badge
+                                        variant="secondary"
+                                        class="cursor-pointer capitalize hover:bg-secondary/80"
+                                        @click="filterByTag('transmission_type', transmission.transmission_type)"
+                                        >{{ transmission.transmission_type }}</Badge
+                                    >
+                                    <Badge
+                                        variant="outline"
+                                        class="cursor-pointer capitalize hover:bg-accent"
+                                        @click="filterByTag('content_type', transmission.content_type)"
+                                        >{{ formatContentType(transmission.content_type) }}</Badge
+                                    >
                                 </div>
                                 <div class="flex flex-wrap gap-1.5">
                                     <Badge
@@ -280,9 +290,7 @@ const formatDate = (dateStr: string) => {
                                         :key="'c-' + character.id"
                                         class="cursor-pointer border-transparent text-xs text-white hover:opacity-80"
                                         :style="{
-                                            backgroundColor: character.faction_color
-                                                ? `hsl(var(--${character.faction_color}))`
-                                                : undefined,
+                                            backgroundColor: character.faction_color ? `hsl(var(--${character.faction_color}))` : undefined,
                                         }"
                                         @click="
                                             router.visit(

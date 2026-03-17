@@ -53,6 +53,7 @@ class CharacterCrewBuilderResource extends JsonResource
                     'name' => $k->name,
                     'slug' => $k->slug,
                 ]) : [],
+                'hiring_rules' => $u->hiring_rules,
             ])),
             'trigger_suits' => $this->whenLoaded('actions', function () {
                 $suits = [];

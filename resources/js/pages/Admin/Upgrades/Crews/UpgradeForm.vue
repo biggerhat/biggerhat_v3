@@ -75,6 +75,27 @@ const props = defineProps({
             return [];
         },
     },
+    all_characters: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
+    characteristics: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
+    hiring_rules_fields: {
+        type: Object,
+        required: false,
+        default() {
+            return null;
+        },
+    },
 });
 
 const formInfo = ref({
@@ -93,6 +114,13 @@ const formInfo = ref({
     abilities: [],
     characters: [],
     keywords: [],
+    hiring_rules_type: null,
+    alternate_leader: null,
+    any_faction: false,
+    fixed_crew_keyword: null,
+    fixed_cache: null,
+    required_characteristic: null,
+    required_count: null,
 });
 
 const submit = () => {
@@ -136,6 +164,18 @@ onMounted(() => {
     props.upgrade?.abilities.forEach((ability) => {
         formInfo.value.abilities.push(ability.name);
     });
+
+    // Decompose hiring_rules from backend
+    const hrf = props.hiring_rules_fields;
+    if (hrf) {
+        formInfo.value.hiring_rules_type = hrf.hiring_rules_type ?? null;
+        formInfo.value.alternate_leader = hrf.alternate_leader != null ? String(hrf.alternate_leader) : null;
+        formInfo.value.any_faction = hrf.any_faction ?? false;
+        formInfo.value.fixed_crew_keyword = hrf.fixed_crew_keyword ?? null;
+        formInfo.value.fixed_cache = hrf.fixed_cache ?? null;
+        formInfo.value.required_characteristic = hrf.required_characteristic ?? null;
+        formInfo.value.required_count = hrf.required_count ?? null;
+    }
 });
 </script>
 
@@ -312,6 +352,80 @@ onMounted(() => {
                                     />
                                     <InputError :message="usePage().props.errors.triggers" />
                                 </div>
+                            </div>
+                        </div>
+
+                        <TextBar text="Hiring Rules" />
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5 md:col-span-2">
+                                    <Label for="hiring_rules_type">Rule Type</Label>
+                                    <Select id="hiring_rules_type" v-model="formInfo.hiring_rules_type">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="None (Normal Upgrade)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem :value="null">None</SelectItem>
+                                            <SelectItem value="fixed_crew">Fixed Crew (On Tour style)</SelectItem>
+                                            <SelectItem value="required_hires">Required Hires (Riders of Fate style)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <!-- Fixed Crew fields -->
+                                <template v-if="formInfo.hiring_rules_type === 'fixed_crew'">
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="alternate_leader">Alternate Leader</Label>
+                                        <Select id="alternate_leader" v-model="formInfo.alternate_leader">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Alternate Leader" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="char in props.all_characters" :key="char.value" :value="String(char.value)">
+                                                    {{ char.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError :message="usePage().props.errors.alternate_leader" />
+                                    </div>
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="fixed_crew_keyword">Fixed Crew Keyword (slug)</Label>
+                                        <Input id="fixed_crew_keyword" v-model="formInfo.fixed_crew_keyword" placeholder="e.g. crossroads" />
+                                        <InputError :message="usePage().props.errors.fixed_crew_keyword" />
+                                    </div>
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="fixed_cache">Fixed Soulstone Cache</Label>
+                                        <Input id="fixed_cache" v-model="formInfo.fixed_cache" type="number" placeholder="e.g. 6" />
+                                        <InputError :message="usePage().props.errors.fixed_cache" />
+                                    </div>
+                                    <div class="flex items-center space-x-2 self-end">
+                                        <input id="any_faction" type="checkbox" v-model="formInfo.any_faction" class="rounded border-gray-300" />
+                                        <Label for="any_faction">Any Faction</Label>
+                                    </div>
+                                </template>
+
+                                <!-- Required Hires fields -->
+                                <template v-if="formInfo.hiring_rules_type === 'required_hires'">
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="required_characteristic">Required Characteristic</Label>
+                                        <Select id="required_characteristic" v-model="formInfo.required_characteristic">
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Characteristic" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="char in props.characteristics" :key="char.value" :value="char.value">
+                                                    {{ char.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError :message="usePage().props.errors.required_characteristic" />
+                                    </div>
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="required_count">Required Count</Label>
+                                        <Input id="required_count" v-model="formInfo.required_count" type="number" placeholder="e.g. 4" />
+                                        <InputError :message="usePage().props.errors.required_count" />
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </div>

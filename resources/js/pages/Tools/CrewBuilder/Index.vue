@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { refDebounced } from '@vueuse/core';
 import {
@@ -33,13 +33,13 @@ import {
     Lock,
     Pencil,
     Plus,
+    Printer,
     Save,
     Search,
     Shield,
     ShieldAlert,
     Star,
     Swords,
-    Printer,
     Trash2,
     UserMinus,
     UserPlus,
@@ -52,6 +52,15 @@ interface Keyword {
     slug: string;
 }
 
+interface HiringRules {
+    alternate_leader_id?: number;
+    any_faction?: boolean;
+    fixed_crew_keyword?: string;
+    fixed_cache?: number;
+    required_characteristic?: string;
+    required_count?: number;
+}
+
 interface CrewUpgrade {
     id: number;
     name: string;
@@ -59,6 +68,7 @@ interface CrewUpgrade {
     front_image: string | null;
     back_image: string | null;
     keywords: Keyword[];
+    hiring_rules: HiringRules | null;
 }
 
 interface MiniatureData {
@@ -107,7 +117,7 @@ interface CrewMember {
     miniature: MiniatureData | null;
     isTotem: boolean;
     effectiveCost: number;
-    hiringCategory: 'leader' | 'totem' | 'in-keyword' | 'versatile' | 'ook';
+    hiringCategory: 'leader' | 'totem' | 'in-keyword' | 'versatile' | 'ook' | 'fixed-crew' | 'required';
 }
 
 interface SavedBuild {
@@ -119,6 +129,7 @@ interface SavedBuild {
     master_id: number;
     encounter_size: number;
     crew_data: number[];
+    crew_upgrade_id: number | null;
     is_archived: boolean;
     is_public: boolean;
     updated_at: string;
@@ -189,6 +200,7 @@ const showDescriptionEditor = ref(false);
 const currentBuildId = ref<number | null>(null);
 const currentShareCode = ref<string | null>(null);
 const isSaving = ref(false);
+let currentSavePromise: Promise<void> | null = null;
 const saveDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const lastSavedAt = ref<string | null>(null);
 const shareTooltip = ref(false);
@@ -196,10 +208,25 @@ const saveError = ref<string | null>(null);
 const savedBuilds = ref<SavedBuild[]>([...(props.savedBuilds as SavedBuild[])]);
 const buildsTab = ref('active');
 
+// Keep local builds in sync when props refresh (e.g. after Inertia reload)
+watch(
+    () => props.savedBuilds,
+    (newBuilds) => {
+        savedBuilds.value = [...(newBuilds as SavedBuild[])];
+    },
+);
+
 // ─── View mode: 'builds' (list) or 'editor' (crew builder) ───
 const urlParams = new URLSearchParams(window.location.search);
-const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew');
+const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew') || urlParams.has('step');
 const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value && !startInEditor ? 'builds' : 'editor');
+
+// Refresh builds from server when entering builds list (cross-device/tab sync)
+watch(viewMode, (mode) => {
+    if (mode === 'builds' && isAuthenticated.value) {
+        router.reload({ only: ['savedBuilds'] });
+    }
+});
 
 const isOwner = computed(() => {
     if (!currentBuildId.value || !isAuthenticated.value) return false;
@@ -234,48 +261,140 @@ const selectFaction = (factionSlug: string) => {
     selectedMasterName.value = null;
     selectedMasterTitle.value = null;
     crew.value = [];
+    syncUrlToState(true);
 };
 
-const lastPushedCode = ref<string | null>(null);
+const lastPushedUrl = ref<string | null>(null);
+
+/** Build a clean URL with only the given params */
+const buildUrl = (params: Record<string, string>): string => {
+    const url = new URL(window.location.href);
+    // Clear all crew builder params
+    for (const key of ['build', 'crew', 'new', 'step', 'faction', 'master']) {
+        url.searchParams.delete(key);
+    }
+    for (const [k, v] of Object.entries(params)) {
+        url.searchParams.set(k, v);
+    }
+    return url.toString();
+};
+
+/** Push or replace the URL to reflect current editor state */
+const syncUrlToState = (push = false) => {
+    let url: string;
+
+    if (viewMode.value === 'builds') {
+        url = buildUrl({});
+    } else if (currentShareCode.value) {
+        url = buildUrl({ build: currentShareCode.value });
+    } else if (editorStep.value === 'hiring' && selectedMasterTitle.value) {
+        url = buildUrl({ step: 'hiring', faction: selectedFaction.value!, master: String(selectedMasterTitle.value.id) });
+    } else if (editorStep.value === 'master-title' && selectedFaction.value && selectedMasterName.value) {
+        url = buildUrl({ step: 'title', faction: selectedFaction.value, master: selectedMasterName.value });
+    } else if (editorStep.value === 'master-name' && selectedFaction.value) {
+        url = buildUrl({ step: 'master', faction: selectedFaction.value });
+    } else {
+        url = buildUrl({ step: 'faction' });
+    }
+
+    if (url === lastPushedUrl.value) return;
+
+    if (push) {
+        window.history.pushState({ crewBuilder: true }, '', url);
+    } else {
+        window.history.replaceState({ crewBuilder: true }, '', url);
+    }
+    lastPushedUrl.value = url;
+};
 
 const pushBuildToUrl = () => {
     if (!currentShareCode.value) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set('build', currentShareCode.value);
-    if (lastPushedCode.value !== currentShareCode.value) {
-        window.history.pushState({ crewBuilder: true }, '', url.toString());
-        lastPushedCode.value = currentShareCode.value;
-    } else {
-        window.history.replaceState({ crewBuilder: true }, '', url.toString());
-    }
+    syncUrlToState(true);
 };
 
 const clearBuildFromUrl = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('build');
-    url.searchParams.delete('crew');
-    window.history.replaceState({}, '', url.toString());
-    lastPushedCode.value = null;
+    syncUrlToState(false);
+};
+
+const restoreFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    lastPushedUrl.value = window.location.href;
+
+    const buildParam = params.get('build');
+    if (buildParam) {
+        const build = savedBuilds.value.find((b) => b.share_code === buildParam);
+        if (build) {
+            loadBuild(build);
+            return;
+        }
+    }
+
+    const crewParam = params.get('crew');
+    if (crewParam) {
+        try {
+            const state = JSON.parse(atob(crewParam));
+            crewName.value = state.n || 'Untitled Crew';
+            encounterSize.value = state.e || 50;
+            rebuildCrew(state.f, state.m, state.c ?? [], state.u ?? null);
+            currentBuildId.value = null;
+            currentShareCode.value = null;
+            lastSavedAt.value = null;
+            viewMode.value = 'editor';
+        } catch {
+            // Invalid param
+        }
+        return;
+    }
+
+    const step = params.get('step');
+    if (step) {
+        viewMode.value = 'editor';
+        const faction = params.get('faction');
+        const masterParam = params.get('master');
+
+        if (step === 'faction') {
+            selectedFaction.value = null;
+            selectedMasterName.value = null;
+            selectedMasterTitle.value = null;
+            crew.value = [];
+        } else if (step === 'master' && faction) {
+            selectedFaction.value = faction;
+            selectedMasterName.value = null;
+            selectedMasterTitle.value = null;
+            crew.value = [];
+        } else if (step === 'title' && faction && masterParam) {
+            selectedFaction.value = faction;
+            selectedMasterName.value = masterParam;
+            selectedMasterTitle.value = null;
+            crew.value = [];
+        } else if (step === 'hiring' && faction && masterParam) {
+            const masterId = Number(masterParam);
+            const master = characterById.value.get(masterId);
+            if (master) {
+                rebuildCrew(faction, masterId, [], null);
+            }
+        }
+        return;
+    }
+
+    // No relevant params — go to builds list
+    currentBuildId.value = null;
+    currentShareCode.value = null;
+    lastSavedAt.value = null;
+    crewName.value = 'Untitled Crew';
+    crewDescription.value = null;
+    showDescriptionEditor.value = false;
+    encounterSize.value = 50;
+    selectedFaction.value = null;
+    selectedMasterName.value = null;
+    selectedMasterTitle.value = null;
+    activeCrewUpgradeId.value = null;
+    crew.value = [];
+    viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
 };
 
 const onPopState = () => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('build') && !params.has('crew')) {
-        currentBuildId.value = null;
-        currentShareCode.value = null;
-        lastSavedAt.value = null;
-        crewName.value = 'Untitled Crew';
-        crewDescription.value = null;
-        showDescriptionEditor.value = false;
-        encounterSize.value = 50;
-        selectedFaction.value = null;
-        selectedMasterName.value = null;
-        selectedMasterTitle.value = null;
-        activeCrewUpgradeId.value = null;
-        crew.value = [];
-        lastPushedCode.value = null;
-        viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
-    }
+    restoreFromUrl();
 };
 
 const resetBuildState = () => {
@@ -297,15 +416,61 @@ const resetBuildState = () => {
 // ─── Masters for selected faction ───
 const mastersForFaction = computed(() => {
     if (!selectedFaction.value) return [];
-    return (props.characters as CharacterData[]).filter(
+    const masters = (props.characters as CharacterData[]).filter(
         (c) => c.station === 'master' && (c.faction === selectedFaction.value || c.second_faction === selectedFaction.value),
     );
+
+    // Include alternate leaders (e.g., Wrath from On Tour)
+    for (const alt of alternateLeaders.value) {
+        if (
+            alt.upgrade.hiring_rules?.any_faction ||
+            alt.character.faction === selectedFaction.value ||
+            alt.character.second_faction === selectedFaction.value
+        ) {
+            if (!masters.some((m) => m.id === alt.character.id)) {
+                masters.push(alt.character);
+            }
+        }
+    }
+
+    return masters;
 });
 
 const uniqueMasterNames = computed(() => {
     const names = new Set<string>();
     mastersForFaction.value.forEach((m) => names.add(m.name));
     return [...names].sort();
+});
+
+interface MasterNameInfo {
+    name: string;
+    titles: CharacterData[];
+    keywords: Keyword[];
+    miniature: MiniatureData | null;
+    isAlternateLeader: boolean;
+}
+
+const masterNameDetails = computed((): MasterNameInfo[] => {
+    return uniqueMasterNames.value.map((name) => {
+        const titles = mastersForFaction.value.filter((m) => m.name === name);
+        // Collect unique keywords across all titles
+        const keywordMap = new Map<string, Keyword>();
+        for (const title of titles) {
+            for (const kw of title.keywords) {
+                if (!keywordMap.has(kw.slug)) keywordMap.set(kw.slug, kw);
+            }
+        }
+        // Use the first title's first miniature as the representative image
+        const miniature = titles[0]?.miniatures?.[0] ?? null;
+        const isAlt = alternateLeaders.value.some((a) => a.character.name === name);
+        return {
+            name,
+            titles,
+            keywords: [...keywordMap.values()],
+            miniature,
+            isAlternateLeader: isAlt,
+        };
+    });
 });
 
 // ─── Master title variants ───
@@ -319,6 +484,8 @@ const selectMasterName = (name: string) => {
     const variants = mastersForFaction.value.filter((m) => m.name === name);
     if (variants.length === 1) {
         selectMasterTitle(variants[0]);
+    } else {
+        syncUrlToState(true);
     }
 };
 
@@ -326,7 +493,14 @@ const selectMasterTitle = (master: CharacterData) => {
     selectedMasterTitle.value = master;
     crew.value = [];
     poolFilter.value = 'in-keyword';
-    activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
+
+    // Check if this is an alternate leader — find the upgrade that references them
+    const altLeaderEntry = alternateLeaders.value.find((a) => a.character.id === master.id);
+    if (altLeaderEntry) {
+        activeCrewUpgradeId.value = altLeaderEntry.upgrade.id;
+    } else {
+        activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
+    }
 
     if (crewName.value === 'Untitled Crew' || crewName.value.startsWith('Untitled ')) {
         crewName.value = `Untitled ${master.display_name} Crew`;
@@ -351,6 +525,15 @@ const selectMasterTitle = (master: CharacterData) => {
         }
     }
 
+    // Apply hiring rules if the active upgrade has them
+    const rules = activeUpgradeHiringRules.value;
+    if (rules) {
+        applyHiringRules(rules);
+    }
+
+    // Push URL for the hiring step
+    syncUrlToState(true);
+
     // Save immediately for new builds, debounce for existing
     if (isAuthenticated.value && !currentBuildId.value) {
         saveBuild();
@@ -368,8 +551,10 @@ const swapMasterTitle = (master: CharacterData) => {
         crewName.value = `Untitled ${master.display_name} Crew`;
     }
 
-    // Remove old leaders and totems
-    crew.value = crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem');
+    // Remove old leaders, totems, and special category members
+    crew.value = crew.value.filter(
+        (m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem' && m.hiringCategory !== 'fixed-crew' && m.hiringCategory !== 'required',
+    );
 
     // Add new leader(s) at the start
     const leaders: CrewMember[] = [];
@@ -399,6 +584,13 @@ const swapMasterTitle = (master: CharacterData) => {
     }
 
     recalculateHiringCategories();
+
+    // Apply hiring rules if active upgrade has them
+    const rules = activeUpgradeHiringRules.value;
+    if (rules) {
+        applyHiringRules(rules);
+    }
+
     triggerAutosave();
 };
 
@@ -437,6 +629,9 @@ const ookCount = computed(() => crew.value.filter((m) => m.hiringCategory === 'o
 const totalSpent = computed(() => crew.value.reduce((sum, m) => sum + m.effectiveCost, 0));
 const remaining = computed(() => encounterSize.value - totalSpent.value);
 const soulstonePool = computed(() => {
+    if (isFixedCrew.value && activeUpgradeHiringRules.value?.fixed_cache != null) {
+        return activeUpgradeHiringRules.value.fixed_cache;
+    }
     const r = remaining.value;
     return r > 6 ? 6 : Math.max(0, r);
 });
@@ -524,19 +719,28 @@ const addToCrewWithMiniature = (character: CharacterData, miniature: MiniatureDa
 };
 
 const removeFromCrew = (index: number) => {
-    if (crew.value[index].hiringCategory === 'leader' || crew.value[index].hiringCategory === 'totem') return;
+    const cat = crew.value[index].hiringCategory;
+    if (cat === 'leader' || cat === 'totem' || cat === 'fixed-crew' || cat === 'required') return;
     crew.value.splice(index, 1);
     triggerAutosave();
 };
 
 const clearHiredModels = () => {
-    crew.value = crew.value.filter((m) => m.hiringCategory === 'leader' || m.hiringCategory === 'totem');
+    crew.value = crew.value.filter(
+        (m) => m.hiringCategory === 'leader' || m.hiringCategory === 'totem' || m.hiringCategory === 'fixed-crew' || m.hiringCategory === 'required',
+    );
     triggerAutosave();
 };
 
 const recalculateHiringCategories = () => {
     crew.value.forEach((member) => {
-        if (member.hiringCategory === 'leader' || member.hiringCategory === 'totem') return;
+        if (
+            member.hiringCategory === 'leader' ||
+            member.hiringCategory === 'totem' ||
+            member.hiringCategory === 'fixed-crew' ||
+            member.hiringCategory === 'required'
+        )
+            return;
         const cat = getHiringCategory(member.character);
         member.hiringCategory = cat;
         member.effectiveCost = cat === 'ook' ? member.character.cost + 1 : member.character.cost;
@@ -573,10 +777,15 @@ const stationSortOrder = (character: CharacterData): number => {
 
 const hiringPool = computed(() => {
     if (!selectedMasterTitle.value || !selectedFaction.value) return [];
+    if (isFixedCrew.value) return []; // No hiring pool for fixed crews
+
+    const requiredIds = new Set(requiredHires.value.map((c) => c.id));
+
     return (props.characters as CharacterData[]).filter((c) => {
         if (c.station === 'master') return false;
         if (c.cost == null) return false;
         if (isTotemOfAnotherMaster(c)) return false;
+        if (requiredIds.has(c.id)) return false; // Exclude required hires from normal pool
         // Keyword models can be hired regardless of faction
         if (characterSharesKeyword(c)) {
             // Loyal models must share a keyword (already true if we're here) — allow
@@ -620,6 +829,29 @@ const filteredHiringPool = computed(() => {
     return filtered;
 });
 
+interface PoolEntry {
+    character: CharacterData;
+    category: 'in-keyword' | 'versatile' | 'ook';
+    effectiveCost: number;
+    hireCheck: { allowed: boolean; reason?: string };
+    henchman: boolean;
+    unique: boolean;
+}
+
+const augmentedPool = computed((): PoolEntry[] =>
+    filteredHiringPool.value.map((c) => {
+        const category = getHiringCategory(c);
+        return {
+            character: c,
+            category,
+            effectiveCost: category === 'ook' ? c.cost + 1 : c.cost,
+            hireCheck: canHire(c),
+            henchman: isHenchman(c),
+            unique: isUnique(c),
+        };
+    }),
+);
+
 const poolFilterCounts = computed(() => ({
     'in-keyword': hiringPool.value.filter((c) => getHiringCategory(c) === 'in-keyword').length,
     versatile: hiringPool.value.filter((c) => getHiringCategory(c) === 'versatile').length,
@@ -631,7 +863,7 @@ const poolFilterCounts = computed(() => ({
 const poolScrollRef = ref<HTMLElement | null>(null);
 const poolVirtualizer = useVirtualizer(
     computed(() => ({
-        count: filteredHiringPool.value.length,
+        count: augmentedPool.value.length,
         getScrollElement: () => poolScrollRef.value,
         estimateSize: () => 56,
         overscan: 10,
@@ -652,8 +884,10 @@ const goBack = () => {
         }
     } else if (editorStep.value === 'master-title') {
         selectedMasterName.value = null;
+        syncUrlToState(true);
     } else if (editorStep.value === 'master-name') {
         selectedFaction.value = null;
+        syncUrlToState(true);
     }
 };
 
@@ -663,12 +897,99 @@ const hasSingleCrewUpgrade = computed(() => (selectedMasterTitle.value?.crew_upg
 
 const toggleCrewUpgradeActive = (upgrade: CrewUpgrade) => {
     if (hasSingleCrewUpgrade.value) return;
-    activeCrewUpgradeId.value = activeCrewUpgradeId.value === upgrade.id ? null : upgrade.id;
+    const wasActive = activeCrewUpgradeId.value === upgrade.id;
+    const hadRules = activeUpgradeHiringRules.value;
+
+    // Always clear special members from previous upgrade before switching
+    if (hadRules) {
+        crew.value = crew.value.filter((m) => m.hiringCategory !== 'fixed-crew' && m.hiringCategory !== 'required');
+    }
+
+    activeCrewUpgradeId.value = wasActive ? null : upgrade.id;
+
+    // If activating a new rules-based upgrade, apply it
+    if (!wasActive && upgrade.hiring_rules) {
+        applyHiringRules(upgrade.hiring_rules);
+    }
+
+    triggerAutosave();
+};
+
+// ─── Hiring rules computeds ───
+const activeUpgradeHiringRules = computed((): HiringRules | null => {
+    if (!activeCrewUpgradeId.value || !selectedMasterTitle.value) return null;
+    const upgrade = selectedMasterTitle.value.crew_upgrades?.find((u) => u.id === activeCrewUpgradeId.value);
+    return upgrade?.hiring_rules ?? null;
+});
+
+const isFixedCrew = computed(() => !!activeUpgradeHiringRules.value?.fixed_crew_keyword);
+
+const requiredHires = computed((): CharacterData[] => {
+    const rules = activeUpgradeHiringRules.value;
+    if (!rules?.required_characteristic) return [];
+    return (props.characters as CharacterData[]).filter((c) => c.characteristics.includes(rules.required_characteristic!));
+});
+
+// ─── Alternate leaders ───
+const alternateLeaders = computed((): { character: CharacterData; upgrade: CrewUpgrade }[] => {
+    const results: { character: CharacterData; upgrade: CrewUpgrade }[] = [];
+    for (const char of props.characters as CharacterData[]) {
+        for (const upgrade of char.crew_upgrades ?? []) {
+            if (upgrade.hiring_rules?.alternate_leader_id) {
+                const altChar = characterById.value.get(upgrade.hiring_rules.alternate_leader_id);
+                if (altChar) {
+                    results.push({ character: altChar, upgrade });
+                }
+            }
+        }
+    }
+    return results;
+});
+
+const applyHiringRules = (rules: HiringRules) => {
+    if (rules.fixed_crew_keyword) {
+        // Fixed crew: clear hired models, add keyword members
+        crew.value = crew.value.filter((m) => m.hiringCategory === 'leader' || m.hiringCategory === 'totem');
+        const keywordMembers = (props.characters as CharacterData[]).filter(
+            (c) => c.keywords.some((k) => k.slug === rules.fixed_crew_keyword) && c.id !== selectedMasterTitle.value?.id,
+        );
+        for (const char of keywordMembers) {
+            for (let i = 0; i < (char.count || 1); i++) {
+                crew.value.push({
+                    character: char,
+                    miniature: getNextMiniature(char),
+                    isTotem: false,
+                    effectiveCost: char.cost ?? 0,
+                    hiringCategory: 'fixed-crew',
+                });
+            }
+        }
+    } else if (rules.required_characteristic) {
+        // Required hires: add required models (don't clear existing)
+        crew.value = crew.value.filter((m) => m.hiringCategory !== 'required');
+        for (const char of requiredHires.value) {
+            crew.value.push({
+                character: char,
+                miniature: getNextMiniature(char),
+                isTotem: false,
+                effectiveCost: char.cost ?? 0,
+                hiringCategory: 'required',
+            });
+        }
+    }
 };
 
 // ─── Category helpers ───
 const categoryLabel = (cat: string): string =>
-    ({ leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' })[cat] ?? cat;
+    ({
+        leader: 'Leader',
+        totem: 'Totem',
+        'in-keyword': 'In Keyword',
+        versatile: 'Versatile',
+        ook: 'Out of Keyword',
+        'fixed-crew': 'Preset',
+        required: 'Required',
+    })[cat] ?? cat;
 
 // Colors for faction-colored bars (white text context)
 const categoryColor = (cat: string): string =>
@@ -678,6 +999,8 @@ const categoryColor = (cat: string): string =>
         'in-keyword': 'bg-green-400/20 text-green-200',
         versatile: 'bg-blue-400/20 text-blue-200',
         ook: 'bg-red-400/20 text-red-200',
+        'fixed-crew': 'bg-cyan-400/20 text-cyan-200',
+        required: 'bg-orange-400/20 text-orange-200',
     })[cat] ?? '';
 
 // Colors for normal theme backgrounds (drawers, cards)
@@ -688,6 +1011,8 @@ const categoryColorTheme = (cat: string): string =>
         'in-keyword': 'bg-green-500/10 text-green-700 dark:text-green-400',
         versatile: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
         ook: 'bg-red-500/10 text-red-700 dark:text-red-400',
+        'fixed-crew': 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400',
+        required: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
     })[cat] ?? '';
 
 // ═══════════════════════════════════════
@@ -704,11 +1029,13 @@ const buildPayload = () => ({
     master_id: selectedMasterTitle.value?.id,
     encounter_size: encounterSize.value,
     crew_data: buildCrewData(),
+    crew_upgrade_id: activeCrewUpgradeId.value,
 });
 
-const saveBuild = async () => {
+const saveBuild = () => {
     if (!isAuthenticated.value || !selectedMasterTitle.value || isSaving.value) return;
 
+    const doSave = async () => {
     isSaving.value = true;
     saveError.value = null;
     try {
@@ -763,6 +1090,9 @@ const saveBuild = async () => {
     } finally {
         isSaving.value = false;
     }
+    };
+    currentSavePromise = doSave();
+    return currentSavePromise;
 };
 
 const triggerAutosave = () => {
@@ -784,14 +1114,14 @@ watch(crewDescription, () => {
 });
 
 // ─── Rebuild crew from a saved/shared build data ───
-const rebuildCrew = (faction: string, masterId: number, crewData: number[]) => {
+const rebuildCrew = (faction: string, masterId: number, crewData: number[], crewUpgradeId?: number | null) => {
     selectedFaction.value = faction;
     const master = characterById.value.get(masterId);
     if (!master) return;
 
     selectedMasterName.value = master.name;
     selectedMasterTitle.value = master;
-    activeCrewUpgradeId.value = master.crew_upgrades?.[0]?.id ?? null;
+    activeCrewUpgradeId.value = crewUpgradeId ?? master.crew_upgrades?.[0]?.id ?? null;
     crew.value = [];
 
     for (let i = 0; i < (master.count || 1); i++) {
@@ -807,19 +1137,46 @@ const rebuildCrew = (faction: string, masterId: number, crewData: number[]) => {
         }
     }
 
-    crewData?.forEach((charId: number) => {
-        const character = characterById.value.get(charId);
-        if (character) {
-            const cat = getHiringCategory(character);
-            crew.value.push({
-                character,
-                miniature: getNextMiniature(character),
-                isTotem: false,
-                effectiveCost: cat === 'ook' ? character.cost + 1 : character.cost,
-                hiringCategory: cat,
-            });
-        }
-    });
+    // Resolve hiring rules for the active upgrade
+    const activeUpgrade = master.crew_upgrades?.find((u) => u.id === activeCrewUpgradeId.value);
+    const rules = activeUpgrade?.hiring_rules;
+
+    if (rules?.fixed_crew_keyword) {
+        // Fixed crew mode — apply rules instead of crewData
+        applyHiringRules(rules);
+    } else {
+        // Determine required character IDs for required_characteristic mode
+        const requiredCharacteristic = rules?.required_characteristic;
+        const requiredIds = new Set(
+            requiredCharacteristic
+                ? (props.characters as CharacterData[]).filter((c) => c.characteristics.includes(requiredCharacteristic)).map((c) => c.id)
+                : [],
+        );
+
+        crewData?.forEach((charId: number) => {
+            const character = characterById.value.get(charId);
+            if (character) {
+                if (requiredIds.has(character.id)) {
+                    crew.value.push({
+                        character,
+                        miniature: getNextMiniature(character),
+                        isTotem: false,
+                        effectiveCost: character.cost,
+                        hiringCategory: 'required',
+                    });
+                } else {
+                    const cat = getHiringCategory(character);
+                    crew.value.push({
+                        character,
+                        miniature: getNextMiniature(character),
+                        isTotem: false,
+                        effectiveCost: cat === 'ook' ? character.cost + 1 : character.cost,
+                        hiringCategory: cat,
+                    });
+                }
+            }
+        });
+    }
 };
 
 const loadBuild = (build: SavedBuild) => {
@@ -829,7 +1186,7 @@ const loadBuild = (build: SavedBuild) => {
     crewDescription.value = build.description ?? null;
     showDescriptionEditor.value = !!build.description;
     encounterSize.value = build.encounter_size;
-    rebuildCrew(build.faction, build.master_id, build.crew_data);
+    rebuildCrew(build.faction, build.master_id, build.crew_data, build.crew_upgrade_id);
     lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
     viewMode.value = 'editor';
     pushBuildToUrl();
@@ -842,12 +1199,14 @@ const confirmDeleteBuild = async () => {
     if (!deleteTarget.value) return;
     deleting.value = true;
     try {
-        await fetch(route('tools.crew_builder.destroy', { crewBuild: deleteTarget.value.id }), {
+        const response = await fetch(route('tools.crew_builder.destroy', { crewBuild: deleteTarget.value.id }), {
             method: 'DELETE',
             headers: { 'X-CSRF-TOKEN': csrfToken() },
         });
-        savedBuilds.value = savedBuilds.value.filter((b) => b.id !== deleteTarget.value!.id);
-        if (currentBuildId.value === deleteTarget.value.id) resetBuildState();
+        if (response.ok) {
+            savedBuilds.value = savedBuilds.value.filter((b) => b.id !== deleteTarget.value!.id);
+            if (currentBuildId.value === deleteTarget.value.id) resetBuildState();
+        }
     } catch {
         // Silent fail
     } finally {
@@ -925,8 +1284,8 @@ const generateShareLink = async () => {
             clearTimeout(saveDebounceTimer.value);
             saveDebounceTimer.value = null;
         }
-        while (isSaving.value) {
-            await new Promise((r) => setTimeout(r, 100));
+        if (currentSavePromise) {
+            await currentSavePromise;
         }
 
         await saveBuild();
@@ -942,6 +1301,7 @@ const generateShareLink = async () => {
         e: encounterSize.value,
         c: buildCrewData(),
         n: crewName.value,
+        u: activeCrewUpgradeId.value,
     };
     const encoded = btoa(JSON.stringify(state));
     navigator.clipboard.writeText(`${route('tools.crew_builder.editor')}?crew=${encoded}`);
@@ -977,44 +1337,29 @@ const printCrewPDF = () => {
 const startNewBuild = () => {
     resetBuildState();
     viewMode.value = 'editor';
+    syncUrlToState(true);
 };
 
 // ─── Init ───
 
-// ─── Init: handle anonymous share via URL param ───
+// ─── Init ───
 onMounted(() => {
     window.addEventListener('popstate', onPopState);
 
     const params = new URLSearchParams(window.location.search);
+    const hasParams = params.has('build') || params.has('crew') || params.has('step');
 
-    const buildParam = params.get('build');
-    if (buildParam) {
-        const build = savedBuilds.value.find((b) => b.share_code === buildParam);
-        if (build) {
-            lastPushedCode.value = buildParam;
-            loadBuild(build);
-            return;
-        }
-    }
-
-    const crewParam = params.get('crew');
-    if (crewParam) {
-        try {
-            const state = JSON.parse(atob(crewParam));
-            crewName.value = state.n || 'Untitled Crew';
-            encounterSize.value = state.e || 50;
-            rebuildCrew(state.f, state.m, state.c ?? []);
-            currentBuildId.value = null;
-            currentShareCode.value = null;
-            lastSavedAt.value = null;
-        } catch {
-            // Invalid param
-        }
+    if (hasParams) {
+        restoreFromUrl();
     }
 });
 
 onUnmounted(() => {
     window.removeEventListener('popstate', onPopState);
+    if (saveDebounceTimer.value) {
+        clearTimeout(saveDebounceTimer.value);
+        saveDebounceTimer.value = null;
+    }
 });
 </script>
 
@@ -1254,19 +1599,60 @@ onUnmounted(() => {
                             <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
                             <h2 class="text-lg font-semibold">Choose Your Master</h2>
                         </div>
-                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                            <button
-                                v-for="name in uniqueMasterNames"
-                                :key="name"
-                                @click="selectMasterName(name)"
-                                class="rounded-lg border-2 border-transparent p-4 text-center transition-all hover:border-primary/50 hover:bg-accent"
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <Card
+                                v-for="info in masterNameDetails"
+                                :key="info.name"
+                                class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
+                                @click="selectMasterName(info.name)"
                             >
-                                <div class="text-sm font-semibold">{{ name }}</div>
-                                <div class="text-xs text-muted-foreground">
-                                    {{ mastersForFaction.filter((m) => m.name === name).length }}
-                                    {{ mastersForFaction.filter((m) => m.name === name).length === 1 ? 'title' : 'titles' }}
-                                </div>
-                            </button>
+                                <CardContent class="flex items-start gap-3 p-4">
+                                    <div
+                                        v-if="info.miniature?.front_image"
+                                        class="shrink-0 overflow-hidden rounded-md"
+                                        @click.stop="openCardPreview(info.titles[0], info.miniature)"
+                                    >
+                                        <img
+                                            :src="'/storage/' + info.miniature.front_image"
+                                            :alt="info.name"
+                                            class="size-20 object-cover object-top transition-transform hover:scale-105"
+                                        />
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="font-semibold">{{ info.name }}</span>
+                                            <Badge
+                                                v-if="info.isAlternateLeader"
+                                                variant="outline"
+                                                class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
+                                            >
+                                                Alt. Leader
+                                            </Badge>
+                                        </div>
+                                        <div class="mt-1.5 flex flex-wrap gap-1">
+                                            <Badge
+                                                v-for="kw in info.keywords"
+                                                :key="kw.slug"
+                                                variant="secondary"
+                                                class="px-1.5 py-0.5 text-xs"
+                                            >
+                                                {{ kw.name }}
+                                            </Badge>
+                                        </div>
+                                        <div class="mt-2 flex flex-wrap gap-1">
+                                            <Badge
+                                                v-for="title in info.titles"
+                                                :key="title.id"
+                                                variant="outline"
+                                                class="cursor-pointer px-1.5 py-0.5 text-xs hover:bg-accent"
+                                                @click.stop="openCardPreview(title, title.miniatures?.[0])"
+                                            >
+                                                {{ title.title || 'Base' }}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
 
@@ -1276,23 +1662,58 @@ onUnmounted(() => {
                             <img :src="factions[selectedFaction!].logo" :alt="factions[selectedFaction!].name" class="size-8" />
                             <h2 class="text-lg font-semibold">Choose Title for {{ selectedMasterName }}</h2>
                         </div>
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                            <button
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <Card
                                 v-for="master in masterTitleVariants"
                                 :key="master.id"
+                                class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
                                 @click="selectMasterTitle(master)"
-                                class="rounded-lg border-2 border-transparent p-4 text-left transition-all hover:border-primary/50 hover:bg-accent"
                             >
-                                <div class="text-sm font-semibold">{{ master.display_name }}</div>
-                                <div class="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                                    <Badge v-for="kw in master.keywords" :key="kw.slug" variant="secondary" class="px-1 py-0 text-[10px]">
-                                        {{ kw.name }}
-                                    </Badge>
-                                </div>
-                                <div v-if="master.crew_upgrades?.length" class="mt-1 text-xs text-muted-foreground">
-                                    Crew: {{ master.crew_upgrades.map((u: CrewUpgrade) => u.name).join(', ') }}
-                                </div>
-                            </button>
+                                <CardContent class="flex items-start gap-3 p-4">
+                                    <div
+                                        v-if="master.miniatures?.[0]?.front_image"
+                                        class="shrink-0 overflow-hidden rounded-md"
+                                        @click.stop="openCardPreview(master, master.miniatures[0])"
+                                    >
+                                        <img
+                                            :src="'/storage/' + master.miniatures[0].front_image"
+                                            :alt="master.display_name"
+                                            class="size-20 object-cover object-top transition-transform hover:scale-105"
+                                        />
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-semibold">{{ master.display_name }}</div>
+                                        <div class="mt-1.5 flex flex-wrap gap-1">
+                                            <Badge
+                                                v-for="kw in master.keywords"
+                                                :key="kw.slug"
+                                                variant="secondary"
+                                                class="px-1.5 py-0.5 text-xs"
+                                            >
+                                                {{ kw.name }}
+                                            </Badge>
+                                        </div>
+                                        <div v-if="master.crew_upgrades?.length" class="mt-2 flex flex-wrap gap-1">
+                                            <Badge
+                                                v-for="upgrade in master.crew_upgrades"
+                                                :key="upgrade.id"
+                                                variant="outline"
+                                                class="cursor-pointer px-1.5 py-0.5 text-xs hover:bg-accent"
+                                                @click.stop="openUpgradePreview(upgrade)"
+                                            >
+                                                <Star class="mr-0.5 size-2.5 text-amber-500" />
+                                                {{ upgrade.name }}
+                                            </Badge>
+                                        </div>
+                                        <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            <span>HP {{ master.health }}</span>
+                                            <span>Spd {{ master.speed }}</span>
+                                            <span>Def {{ master.defense }}</span>
+                                            <span>Wp {{ master.willpower }}</span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 </div>
@@ -1411,9 +1832,9 @@ onUnmounted(() => {
                         <TipTapEditor v-model="crewDescription" />
                     </div>
 
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
+                    <div :class="isFixedCrew ? 'mx-auto max-w-xl' : 'grid grid-cols-1 gap-4 md:grid-cols-5'">
                         <!-- Hiring Pool (left on desktop, below on mobile) -->
-                        <div class="order-2 md:order-1 md:col-span-3">
+                        <div v-if="!isFixedCrew" class="order-2 md:order-1 md:col-span-3">
                             <Card>
                                 <CardContent class="p-2 md:p-3">
                                     <div class="mb-3 flex items-center gap-2">
@@ -1436,7 +1857,7 @@ onUnmounted(() => {
                                             {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
                                             <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
                                         </Button>
-                                        <span class="ml-auto text-xs text-muted-foreground">{{ filteredHiringPool.length }} shown</span>
+                                        <span class="ml-auto text-xs text-muted-foreground">{{ augmentedPool.length }} shown</span>
                                     </div>
                                     <div class="mb-2 flex items-center gap-1">
                                         <span class="text-[11px] text-muted-foreground">Sort:</span>
@@ -1478,67 +1899,69 @@ onUnmounted(() => {
                                                 }"
                                             >
                                                 <div
+                                                    v-if="augmentedPool[virtualRow.index]"
                                                     :class="[
-                                                        factionBackground(filteredHiringPool[virtualRow.index].faction),
-                                                        !canHire(filteredHiringPool[virtualRow.index]).allowed ? 'opacity-40' : '',
+                                                        factionBackground(augmentedPool[virtualRow.index].character.faction),
+                                                        !augmentedPool[virtualRow.index].hireCheck.allowed ? 'opacity-40' : '',
                                                     ]"
                                                     class="my-0.5 flex items-center justify-between rounded-md border border-white/20 px-2 py-1.5 text-white transition-colors hover:brightness-110"
                                                 >
                                                     <div
                                                         class="min-w-0 flex-1 cursor-pointer"
-                                                        @click="openCardPreview(filteredHiringPool[virtualRow.index])"
+                                                        @click="openCardPreview(augmentedPool[virtualRow.index].character)"
                                                     >
                                                         <div class="flex items-center gap-1.5 text-sm font-semibold">
-                                                            {{ filteredHiringPool[virtualRow.index].display_name }}
+                                                            {{ augmentedPool[virtualRow.index].character.display_name }}
                                                             <Badge
-                                                                v-if="filteredHiringPool[virtualRow.index].miniatures?.length > 1"
+                                                                v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                 variant="outline"
                                                                 class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
                                                             >
-                                                                {{ filteredHiringPool[virtualRow.index].miniatures.length }} sculpts
+                                                                {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                             </Badge>
                                                         </div>
                                                         <div class="flex flex-wrap items-center gap-1.5 text-xs text-white/70">
                                                             <span class="flex items-center text-sm font-bold text-white">
-                                                                {{ getEffectiveCost(filteredHiringPool[virtualRow.index]) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                                {{ augmentedPool[virtualRow.index].effectiveCost
+                                                                }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                                 <span
-                                                                    v-if="getHiringCategory(filteredHiringPool[virtualRow.index]) === 'ook'"
+                                                                    v-if="augmentedPool[virtualRow.index].category === 'ook'"
                                                                     class="text-xs font-normal text-red-300"
-                                                                    >({{ filteredHiringPool[virtualRow.index].cost }}+1)</span
+                                                                    >({{ augmentedPool[virtualRow.index].character.cost }}+1)</span
                                                                 >
                                                             </span>
                                                             <Badge
                                                                 variant="secondary"
                                                                 class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
                                                             >
-                                                                {{ filteredHiringPool[virtualRow.index].station }}
-                                                                <span v-if="filteredHiringPool[virtualRow.index].count > 1">
-                                                                    ({{ hiredCountOf(filteredHiringPool[virtualRow.index].id) }}/{{
-                                                                        filteredHiringPool[virtualRow.index].count
+                                                                {{ augmentedPool[virtualRow.index].character.station }}
+                                                                <span v-if="augmentedPool[virtualRow.index].character.count > 1">
+                                                                    ({{ hiredCountOf(augmentedPool[virtualRow.index].character.id) }}/{{
+                                                                        augmentedPool[virtualRow.index].character.count
                                                                     }})
                                                                 </span>
                                                             </Badge>
                                                             <Badge
-                                                                :class="categoryColor(getHiringCategory(filteredHiringPool[virtualRow.index]))"
+                                                                :class="categoryColor(augmentedPool[virtualRow.index].category)"
                                                                 class="px-1 py-0 text-[10px]"
                                                             >
-                                                                {{ categoryLabel(getHiringCategory(filteredHiringPool[virtualRow.index])) }}
+                                                                {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
                                                             </Badge>
                                                             <Badge
-                                                                v-if="isHenchman(filteredHiringPool[virtualRow.index])"
+                                                                v-if="augmentedPool[virtualRow.index].henchman"
                                                                 class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
                                                             >
                                                                 Henchman
                                                             </Badge>
                                                             <Badge
-                                                                v-if="isUnique(filteredHiringPool[virtualRow.index])"
+                                                                v-if="augmentedPool[virtualRow.index].unique"
                                                                 class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
                                                             >
                                                                 Unique
                                                             </Badge>
                                                             <span class="hidden truncate text-white/50 sm:inline">
                                                                 {{
-                                                                    filteredHiringPool[virtualRow.index].keywords
+                                                                    augmentedPool[virtualRow.index].character.keywords
                                                                         .map((k: Keyword) => k.name)
                                                                         .join(', ')
                                                                 }}
@@ -1547,17 +1970,17 @@ onUnmounted(() => {
                                                     </div>
                                                     <div class="flex shrink-0 items-center gap-1">
                                                         <span
-                                                            v-if="!canHire(filteredHiringPool[virtualRow.index]).allowed"
+                                                            v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
                                                             class="text-[10px] text-white/50"
                                                         >
-                                                            {{ canHire(filteredHiringPool[virtualRow.index]).reason }}
+                                                            {{ augmentedPool[virtualRow.index].hireCheck.reason }}
                                                         </span>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             class="size-7 text-white hover:bg-white/10 hover:text-white"
-                                                            :disabled="!canHire(filteredHiringPool[virtualRow.index]).allowed"
-                                                            @click.stop="addToCrewById(filteredHiringPool[virtualRow.index])"
+                                                            :disabled="!augmentedPool[virtualRow.index].hireCheck.allowed"
+                                                            @click.stop="addToCrewById(augmentedPool[virtualRow.index].character)"
                                                         >
                                                             <UserPlus class="size-4" />
                                                         </Button>
@@ -1571,7 +1994,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Crew Panel (right on desktop, top on mobile) -->
-                        <div class="order-1 md:order-2 md:col-span-2">
+                        <div :class="isFixedCrew ? '' : 'order-1 md:order-2 md:col-span-2'">
                             <!-- Over budget warning -->
                             <div
                                 v-if="isOverBudget"
@@ -1634,7 +2057,9 @@ onUnmounted(() => {
                                             <template v-if="Object.keys(crewStats.suitCounts).length">
                                                 <Separator orientation="vertical" class="hidden h-6 sm:block" />
                                                 <div
-                                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
+                                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
+                                                        (s) => crewStats!.suitCounts[s],
+                                                    )"
                                                     :key="suit"
                                                     class="text-center"
                                                 >
@@ -1645,7 +2070,25 @@ onUnmounted(() => {
                                         </div>
                                     </div>
 
-                                    <div class="mb-3 flex items-center justify-end">
+                                    <!-- Fixed Crew Notice -->
+                                    <div
+                                        v-if="isFixedCrew"
+                                        class="mb-3 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-400"
+                                    >
+                                        <Star class="size-3.5 shrink-0" />
+                                        Fixed roster — crew is preset by upgrade
+                                    </div>
+
+                                    <!-- Required Hires Notice -->
+                                    <div
+                                        v-else-if="requiredHires.length > 0 && activeUpgradeHiringRules?.required_characteristic"
+                                        class="mb-3 flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-400"
+                                    >
+                                        <Star class="size-3.5 shrink-0" />
+                                        {{ requiredHires.length }} required {{ activeUpgradeHiringRules.required_characteristic }} models auto-added
+                                    </div>
+
+                                    <div v-if="!isFixedCrew" class="mb-3 flex items-center justify-end">
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -1692,7 +2135,11 @@ onUnmounted(() => {
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                                 <div class="text-[10px] text-muted-foreground">
-                                                    {{ activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade ? 'Active Crew Upgrade' : 'Crew Upgrade' }}
+                                                    {{
+                                                        activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
+                                                            ? 'Active Crew Upgrade'
+                                                            : 'Crew Upgrade'
+                                                    }}
                                                 </div>
                                             </div>
                                         </div>
@@ -1745,20 +2192,31 @@ onUnmounted(() => {
                                                         }}</span>
                                                     </div>
                                                     <div class="flex items-center gap-1.5 text-xs text-white/70">
-                                                        <span v-if="member.hiringCategory === 'ook'" class="flex items-center text-sm font-bold text-white"
-                                                            >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                        <span
+                                                            v-if="member.hiringCategory === 'ook'"
+                                                            class="flex items-center text-sm font-bold text-white"
+                                                            >{{ member.effectiveCost
+                                                            }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                             <span class="text-xs font-normal text-red-300"
                                                                 >({{ member.character.cost }}+1)</span
                                                             ></span
                                                         >
-                                                        <span v-else class="flex items-center text-sm font-bold text-white">{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" /></span>
+                                                        <span v-else class="flex items-center text-sm font-bold text-white"
+                                                            >{{ member.effectiveCost
+                                                            }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
+                                                        /></span>
                                                         <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                             {{ categoryLabel(member.hiringCategory) }}
                                                         </Badge>
                                                     </div>
                                                 </div>
                                                 <Button
-                                                    v-if="member.hiringCategory !== 'leader' && member.hiringCategory !== 'totem'"
+                                                    v-if="
+                                                        member.hiringCategory !== 'leader' &&
+                                                        member.hiringCategory !== 'totem' &&
+                                                        member.hiringCategory !== 'fixed-crew' &&
+                                                        member.hiringCategory !== 'required'
+                                                    "
                                                     variant="ghost"
                                                     size="icon"
                                                     class="size-7 shrink-0 text-white hover:bg-white/10 hover:text-white"
@@ -1812,25 +2270,28 @@ onUnmounted(() => {
         </div>
     </div>
 
-    <!-- Card Preview Drawer (hiring pool) -->
+    <!-- Card Preview Drawer (hiring pool + master selection) -->
     <Drawer v-model:open="previewDrawerOpen">
         <DrawerContent>
             <div v-if="previewCharacter" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">
                         {{ previewCharacter.display_name }}
-                        <span v-if="getHiringCategory(previewCharacter) === 'ook'" class="text-yellow-400"
-                            >({{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
-                        >
-                        <span v-else class="text-yellow-400">({{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
+                        <template v-if="editorStep === 'hiring'">
+                            <span class="text-yellow-400"
+                                >({{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
+                            >
+                        </template>
                     </DrawerTitle>
-                    <div class="mt-1 flex items-center justify-center gap-1.5">
+                    <div v-if="editorStep === 'hiring'" class="mt-1 flex items-center justify-center gap-1.5">
                         <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
                         <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
                             >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                             <span class="font-normal opacity-70">({{ previewCharacter.cost }}+1)</span></Badge
                         >
-                        <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
+                        <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
+                            >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block"
+                        /></Badge>
                         <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
@@ -1871,20 +2332,22 @@ onUnmounted(() => {
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <div class="flex flex-wrap items-center justify-center gap-2">
-                        <Button
-                            v-if="canHire(previewCharacter).allowed"
-                            class="gap-1.5"
-                            @click="
-                                addToCrewWithMiniature(previewCharacter!, previewMiniature);
-                                previewDrawerOpen = false;
-                            "
-                        >
-                            <Plus class="size-4" />
-                            Add to Crew
-                        </Button>
-                        <div v-else class="text-xs text-muted-foreground">
-                            {{ canHire(previewCharacter).reason }}
-                        </div>
+                        <template v-if="editorStep === 'hiring'">
+                            <Button
+                                v-if="canHire(previewCharacter).allowed"
+                                class="gap-1.5"
+                                @click="
+                                    addToCrewWithMiniature(previewCharacter!, previewMiniature);
+                                    previewDrawerOpen = false;
+                                "
+                            >
+                                <Plus class="size-4" />
+                                Add to Crew
+                            </Button>
+                            <div v-else class="text-xs text-muted-foreground">
+                                {{ canHire(previewCharacter).reason }}
+                            </div>
+                        </template>
                         <DrawerClose as-child>
                             <Button variant="outline">Close</Button>
                         </DrawerClose>
@@ -1905,7 +2368,9 @@ onUnmounted(() => {
                             <span v-if="crewPreviewMember.hiringCategory === 'ook'" class="text-yellow-400"
                                 >({{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
                             >
-                            <span v-else class="text-yellow-400">({{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
+                            <span v-else class="text-yellow-400"
+                                >({{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
+                            >
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
@@ -1915,7 +2380,9 @@ onUnmounted(() => {
                                 >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 <span class="font-normal opacity-70">({{ crewPreviewMember.character.cost }}+1)</span></Badge
                             >
-                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
+                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
+                                >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block"
+                            /></Badge>
                         </template>
                         <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
@@ -1970,7 +2437,12 @@ onUnmounted(() => {
                             Add Another
                         </Button>
                         <Button
-                            v-if="crewPreviewMember.hiringCategory !== 'leader' && crewPreviewMember.hiringCategory !== 'totem'"
+                            v-if="
+                                crewPreviewMember.hiringCategory !== 'leader' &&
+                                crewPreviewMember.hiringCategory !== 'totem' &&
+                                crewPreviewMember.hiringCategory !== 'fixed-crew' &&
+                                crewPreviewMember.hiringCategory !== 'required'
+                            "
                             variant="destructive"
                             class="gap-1.5"
                             @click="
@@ -2019,7 +2491,14 @@ onUnmounted(() => {
     </Drawer>
 
     <!-- Delete confirmation dialog -->
-    <Dialog :open="!!deleteTarget" @update:open="(v: boolean) => { if (!v) deleteTarget = null }">
+    <Dialog
+        :open="!!deleteTarget"
+        @update:open="
+            (v: boolean) => {
+                if (!v) deleteTarget = null;
+            }
+        "
+    >
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Delete Crew</DialogTitle>

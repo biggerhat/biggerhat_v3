@@ -183,9 +183,7 @@ const isLoggedIn = computed(() => !!page.props.auth?.user);
 const collectionIds = computed(() => new Set(page.props.auth?.collection_miniature_ids ?? []));
 
 const uncollectedCharacters = computed(() => {
-    return (props.characters ?? []).filter(
-        (c: any) => !(c.standard_miniatures ?? []).some((m: any) => collectionIds.value.has(m.id)),
-    );
+    return (props.characters ?? []).filter((c: any) => !(c.standard_miniatures ?? []).some((m: any) => collectionIds.value.has(m.id)));
 });
 
 const addingAll = ref(false);
@@ -205,7 +203,10 @@ const addAllToCollection = async () => {
     try {
         await fetch(route('collection.add_characters'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
             body: JSON.stringify({ character_ids: chars.map((c: any) => c.id) }),
         });
     } finally {
@@ -272,7 +273,9 @@ onMounted(() => {
                 </div>
             </template>
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                <div
+                    class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
                     <span>{{ props.statistics.characters }} Characters</span>
                     <span class="text-muted-foreground/50">&middot;</span>
                     <span>{{ props.statistics.miniatures }} Miniatures</span>

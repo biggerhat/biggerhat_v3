@@ -147,8 +147,16 @@ function openMasterDrawer(master: any, event: Event) {
                         >
                             <Card class="h-full overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                                 <div class="flex">
-                                    <div v-if="keyword.image" class="hidden w-32 shrink-0 items-center justify-center bg-muted/50 p-2 sm:flex lg:w-40">
-                                        <img :src="'/storage/' + keyword.image" :alt="keyword.name" class="h-full w-full object-contain" loading="lazy" />
+                                    <div
+                                        v-if="keyword.image"
+                                        class="hidden w-32 shrink-0 items-center justify-center bg-muted/50 p-2 sm:flex lg:w-40"
+                                    >
+                                        <img
+                                            :src="'/storage/' + keyword.image"
+                                            :alt="keyword.name"
+                                            class="h-full w-full object-contain"
+                                            loading="lazy"
+                                        />
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <CardHeader class="pb-2">
@@ -169,7 +177,7 @@ function openMasterDrawer(master: any, event: Event) {
                                                     v-for="f in keyword.factions"
                                                     :key="f.value"
                                                     variant="outline"
-                                                    class="gap-1.5 border-transparent py-1 pr-2 pl-1.5 font-normal text-white"
+                                                    class="gap-1.5 border-transparent py-1 pl-1.5 pr-2 font-normal text-white"
                                                     :style="{ backgroundColor: `hsl(var(--${f.value.replace(/_/g, '')}) / 0.85)` }"
                                                 >
                                                     <FactionLogo :faction="f.value" class-name="size-3.5" />
@@ -179,7 +187,11 @@ function openMasterDrawer(master: any, event: Event) {
                                             </div>
                                             <!-- Masters + their crew upgrades -->
                                             <div v-if="keyword.master_summaries?.length" class="space-y-1.5">
-                                                <div v-for="master in keyword.master_summaries" :key="master.slug" class="flex flex-wrap items-center gap-1.5">
+                                                <div
+                                                    v-for="master in keyword.master_summaries"
+                                                    :key="master.slug"
+                                                    class="flex flex-wrap items-center gap-1.5"
+                                                >
                                                     <Badge
                                                         v-if="master.miniature"
                                                         variant="outline"

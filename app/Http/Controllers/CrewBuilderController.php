@@ -7,6 +7,7 @@ use App\Http\Resources\CharacterCrewBuilderResource;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Keyword;
+use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -29,6 +30,7 @@ class CrewBuilderController extends Controller
             'master_id' => $b->master_id,
             'encounter_size' => $b->encounter_size,
             'crew_data' => $b->crew_data,
+            'crew_upgrade_id' => $b->crew_upgrade_id,
             'is_archived' => $b->is_archived,
             'is_public' => $b->is_public,
             'updated_at' => $b->updated_at->toISOString(),
@@ -156,6 +158,7 @@ class CrewBuilderController extends Controller
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
             'crew_data' => 'present|array',
+            'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'copied_from_id' => 'nullable|exists:crew_builds,id',
         ]);
 
@@ -184,6 +187,7 @@ class CrewBuilderController extends Controller
             'master_id' => 'sometimes|exists:characters,id',
             'encounter_size' => 'sometimes|integer|min:1',
             'crew_data' => 'sometimes|array',
+            'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'is_archived' => 'sometimes|boolean',
             'is_public' => 'sometimes|boolean',
         ]);
@@ -222,6 +226,39 @@ class CrewBuilderController extends Controller
             return response()->json(['members' => [], 'total_spent' => 0, 'soulstone_pool' => 0, 'ook_count' => 0]);
         }
 
+        // Resolve active crew upgrade and its hiring rules
+        $activeUpgrade = $crewBuild->crew_upgrade_id ? Upgrade::find($crewBuild->crew_upgrade_id) : null;
+        $hiringRules = $activeUpgrade?->hiring_rules;
+
+        // Fixed crew mode (e.g. On Tour)
+        if ($hiringRules && isset($hiringRules['fixed_crew_keyword'])) {
+            $keyword = Keyword::where('slug', $hiringRules['fixed_crew_keyword'])->first();
+            $fixedMembers = $keyword
+                ? Character::whereHas('keywords', fn ($q) => $q->where('keywords.id', $keyword->id))
+                    ->where('is_hidden', false)
+                    ->get()
+                : collect();
+
+            $members = [];
+            foreach ($fixedMembers as $char) {
+                $isLeader = isset($hiringRules['alternate_leader_id']) && $char->id === $hiringRules['alternate_leader_id'];
+                $members[] = [
+                    'display_name' => $char->display_name,
+                    'cost' => $isLeader ? 0 : $char->cost,
+                    'effective_cost' => $isLeader ? 0 : $char->cost,
+                    'category' => $isLeader ? 'leader' : 'fixed-crew',
+                    'faction' => $char->faction->value,
+                ];
+            }
+
+            return response()->json([
+                'members' => $members,
+                'total_spent' => 0,
+                'soulstone_pool' => $hiringRules['fixed_cache'] ?? 6,
+                'ook_count' => 0,
+            ]);
+        }
+
         // Build leader keyword slugs
         $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
         foreach ($master->crewUpgrades as $upgrade) {
@@ -230,6 +267,15 @@ class CrewBuilderController extends Controller
             }
         }
         $leaderKeywordSlugs = array_unique($leaderKeywordSlugs);
+
+        // Required hires mode (e.g. Riders of Fate)
+        $requiredCharIds = [];
+        if ($hiringRules && isset($hiringRules['required_characteristic'])) {
+            $requiredCharIds = Character::whereHas('characteristics', fn ($q) => $q->whereRaw('LOWER(name) = ?', [strtolower($hiringRules['required_characteristic'])]))
+                ->where('is_hidden', false)
+                ->pluck('id')
+                ->toArray();
+        }
 
         $members = [];
 
@@ -270,6 +316,20 @@ class CrewBuilderController extends Controller
         foreach ($crewBuild->crew_data ?? [] as $charId) {
             $character = $crewCharacters->get($charId);
             if (! $character) {
+                continue;
+            }
+
+            // Required hires get base cost, no OOK penalty
+            if (in_array($character->id, $requiredCharIds)) {
+                $totalSpent += $character->cost;
+                $members[] = [
+                    'display_name' => $character->display_name,
+                    'cost' => $character->cost,
+                    'effective_cost' => $character->cost,
+                    'category' => 'required',
+                    'faction' => $character->faction->value,
+                ];
+
                 continue;
             }
 
@@ -335,6 +395,7 @@ class CrewBuilderController extends Controller
                 'master_id' => $build->master_id,
                 'encounter_size' => $build->encounter_size,
                 'crew_data' => $build->crew_data,
+                'crew_upgrade_id' => $build->crew_upgrade_id,
                 'is_public' => $build->is_public,
                 'user_id' => $build->user_id,
                 'user_name' => $build->user?->name,

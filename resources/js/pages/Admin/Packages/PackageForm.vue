@@ -186,11 +186,7 @@ onMounted(() => {
 
                         <TextBar text="Factions" />
                         <div class="flex flex-col space-y-1.5">
-                            <SearchableMultiselect
-                                v-model="formInfo.factions"
-                                placeholder="Select Factions"
-                                :options="props.factions"
-                            />
+                            <SearchableMultiselect v-model="formInfo.factions" placeholder="Select Factions" :options="props.factions" />
                             <InputError :message="usePage().props.errors.factions" />
                         </div>
 

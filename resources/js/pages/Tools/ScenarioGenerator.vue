@@ -399,10 +399,7 @@ onMounted(() => {
                                     :style="resultDelays[index + 2]"
                                 >
                                     <Link :href="route('schemes.view', scheme.slug)">
-                                        <div
-                                            v-if="scheme.image_url"
-                                            class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg"
-                                        >
+                                        <div v-if="scheme.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg">
                                             <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" />
                                         </div>
                                         <Card v-else class="transition-shadow hover:shadow-lg">

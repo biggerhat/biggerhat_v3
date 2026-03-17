@@ -98,10 +98,14 @@ const editName = ref(props.wishlist.name);
 
 function saveName() {
     if (!editName.value.trim()) return;
-    router.put(route('wishlists.update', props.wishlist.id), { name: editName.value.trim() }, {
-        preserveScroll: true,
-        onSuccess: () => (editingName.value = false),
-    });
+    router.put(
+        route('wishlists.update', props.wishlist.id),
+        { name: editName.value.trim() },
+        {
+            preserveScroll: true,
+            onSuccess: () => (editingName.value = false),
+        },
+    );
 }
 
 // ─── Sharing ───
@@ -128,11 +132,7 @@ const selectedKeyword = ref<string | null>(null);
 
 function addItem(type: string, id: number) {
     processing.value = true;
-    router.post(
-        route('wishlists.items.add', props.wishlist.id),
-        { type, id },
-        { preserveScroll: true, onFinish: () => (processing.value = false) },
-    );
+    router.post(route('wishlists.items.add', props.wishlist.id), { type, id }, { preserveScroll: true, onFinish: () => (processing.value = false) });
 }
 
 function addKeyword() {
@@ -354,9 +354,7 @@ function miniatureHref(mini: MiniatureItem): string {
                     <!-- Add by keyword -->
                     <div>
                         <p class="mb-2 text-sm font-medium">Add by Keyword</p>
-                        <p class="mb-2 text-xs text-muted-foreground">
-                            Adds all characters in the keyword and their associated packages.
-                        </p>
+                        <p class="mb-2 text-xs text-muted-foreground">Adds all characters in the keyword and their associated packages.</p>
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Select v-model="selectedKeyword">
                                 <SelectTrigger class="w-full sm:max-w-sm">
@@ -442,9 +440,7 @@ function miniatureHref(mini: MiniatureItem): string {
                             <Package class="mr-1.5 size-4" />
                             Packages ({{ items.packages.length }})
                         </TabsTrigger>
-                        <TabsTrigger v-if="items.miniatures.length" value="miniatures">
-                            Miniatures ({{ items.miniatures.length }})
-                        </TabsTrigger>
+                        <TabsTrigger v-if="items.miniatures.length" value="miniatures"> Miniatures ({{ items.miniatures.length }}) </TabsTrigger>
                     </TabsList>
 
                     <!-- All -->
@@ -467,7 +463,10 @@ function miniatureHref(mini: MiniatureItem): string {
                                 <Link :href="itemHref(item)" class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2">
                                         <span class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.name }}</span>
-                                        <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize" :class="typeBadgeClass[item.type]">
+                                        <span
+                                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize"
+                                            :class="typeBadgeClass[item.type]"
+                                        >
                                             {{ item.type }}
                                         </span>
                                     </div>

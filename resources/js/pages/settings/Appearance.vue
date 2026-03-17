@@ -11,9 +11,9 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
     <Head title="Appearance settings" />
 
     <SettingsLayout>
-            <div class="space-y-6">
-                <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
-                <AppearanceTabs />
-            </div>
+        <div class="space-y-6">
+            <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
+            <AppearanceTabs />
+        </div>
     </SettingsLayout>
 </template>

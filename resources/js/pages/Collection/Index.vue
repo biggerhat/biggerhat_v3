@@ -10,7 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Check, Copy, Globe, Grid2x2, Hammer, Library, Lock, Minus, Package, Paintbrush, Plus, Search, Trash2, X } from 'lucide-vue-next';
+import {
+    BarChart3,
+    BookOpen,
+    Check,
+    Copy,
+    Globe,
+    Grid2x2,
+    Hammer,
+    Library,
+    Lock,
+    Minus,
+    Package,
+    Paintbrush,
+    Plus,
+    Search,
+    Trash2,
+    X,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CollectionItem {
@@ -226,7 +243,10 @@ const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) =
 
 // Top factions by owned count
 const topFactions = computed(() =>
-    [...props.faction_stats].filter((f) => f.owned > 0).sort((a, b) => b.owned - a.owned || b.percent - a.percent).slice(0, 5),
+    [...props.faction_stats]
+        .filter((f) => f.owned > 0)
+        .sort((a, b) => b.owned - a.owned || b.percent - a.percent)
+        .slice(0, 5),
 );
 </script>
 
@@ -413,11 +433,7 @@ const topFactions = computed(() =>
                                     <!-- Status icons (view-only, non-owner) -->
                                     <template v-if="!is_owner">
                                         <div class="flex shrink-0 items-center gap-1">
-                                            <Hammer
-                                                v-if="item.is_built"
-                                                class="size-3.5 text-amber-600 dark:text-amber-400"
-                                                title="Built"
-                                            />
+                                            <Hammer v-if="item.is_built" class="size-3.5 text-amber-600 dark:text-amber-400" title="Built" />
                                             <Paintbrush
                                                 v-if="item.is_painted"
                                                 class="size-3.5 text-violet-600 dark:text-violet-400"
@@ -582,7 +598,10 @@ const topFactions = computed(() =>
                                     <span class="text-sm font-medium transition-colors hover:text-primary">{{ stat.name }}</span>
                                 </Link>
                                 <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
-                                <Badge :variant="stat.percent === 100 ? 'default' : 'secondary'" class="w-14 shrink-0 justify-center text-[10px] tabular-nums">
+                                <Badge
+                                    :variant="stat.percent === 100 ? 'default' : 'secondary'"
+                                    class="w-14 shrink-0 justify-center text-[10px] tabular-nums"
+                                >
                                     {{ stat.percent }}%
                                 </Badge>
                             </div>
@@ -678,7 +697,10 @@ const topFactions = computed(() =>
                                     :key="stat.slug"
                                     class="flex items-center justify-between gap-2 text-sm"
                                 >
-                                    <Link :href="route('keywords.view', stat.slug)" class="min-w-0 truncate font-medium transition-colors hover:text-primary">
+                                    <Link
+                                        :href="route('keywords.view', stat.slug)"
+                                        class="min-w-0 truncate font-medium transition-colors hover:text-primary"
+                                    >
                                         {{ stat.name }}
                                     </Link>
                                     <div class="flex shrink-0 items-center gap-2">

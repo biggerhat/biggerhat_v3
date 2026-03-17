@@ -105,14 +105,22 @@ onMounted(() => {
                                 <a :href="'/storage/' + props.lore.file" target="_blank" class="text-sm text-primary hover:underline">
                                     {{ props.lore.file.split('/').pop() }}
                                 </a>
-                                <Button type="button" variant="ghost" size="sm" class="h-7 text-xs text-destructive" @click="formInfo.remove_file = true">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-7 text-xs text-destructive"
+                                    @click="formInfo.remove_file = true"
+                                >
                                     <Trash2 class="mr-1 size-3" />
                                     Remove
                                 </Button>
                             </div>
                             <div v-if="formInfo.remove_file && !formInfo.file" class="text-sm text-muted-foreground">
                                 File will be removed on save.
-                                <Button type="button" variant="link" size="sm" class="h-auto p-0 text-xs" @click="formInfo.remove_file = false">Undo</Button>
+                                <Button type="button" variant="link" size="sm" class="h-auto p-0 text-xs" @click="formInfo.remove_file = false"
+                                    >Undo</Button
+                                >
                             </div>
                             <Input
                                 id="file"

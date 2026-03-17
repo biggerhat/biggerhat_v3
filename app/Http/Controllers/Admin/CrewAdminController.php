@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
+use App\Models\Characteristic;
 use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Token;
@@ -35,8 +36,36 @@ class CrewAdminController extends Controller
 
     public function edit(Request $request, Upgrade $upgrade)
     {
+        $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']);
+
+        // Decompose hiring_rules JSON into individual form fields
+        $hiringRules = $upgrade->hiring_rules;
+        $decomposed = [
+            'hiring_rules_type' => null,
+            'alternate_leader' => null,
+            'any_faction' => false,
+            'fixed_crew_keyword' => null,
+            'fixed_cache' => null,
+            'required_characteristic' => null,
+            'required_count' => null,
+        ];
+
+        if ($hiringRules) {
+            if (isset($hiringRules['fixed_crew_keyword'])) {
+                $decomposed['hiring_rules_type'] = 'fixed_crew';
+                $decomposed['alternate_leader'] = $hiringRules['alternate_leader_id'] ?? null;
+                $decomposed['any_faction'] = $hiringRules['any_faction'] ?? false;
+                $decomposed['fixed_crew_keyword'] = $hiringRules['fixed_crew_keyword'] ?? null;
+                $decomposed['fixed_cache'] = $hiringRules['fixed_cache'] ?? null;
+            } elseif (isset($hiringRules['required_characteristic'])) {
+                $decomposed['hiring_rules_type'] = 'required_hires';
+                $decomposed['required_characteristic'] = $hiringRules['required_characteristic'] ?? null;
+                $decomposed['required_count'] = $hiringRules['required_count'] ?? null;
+            }
+        }
+
         return inertia('Admin/Upgrades/Crews/UpgradeForm', array_merge(
-            ['upgrade' => $upgrade->loadMissing(['masters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords'])],
+            ['upgrade' => $upgrade, 'hiring_rules_fields' => $decomposed],
             $this->getFormData(),
         ));
     }
@@ -67,6 +96,8 @@ class CrewAdminController extends Controller
     {
         return [
             'characters' => fn () => Character::forStation(CharacterStationEnum::Master)->toSelectOptions('display_name', 'id'),
+            'all_characters' => fn () => Character::where('is_hidden', false)->orderBy('display_name')->get(['id', 'display_name'])->map(fn ($c) => ['value' => $c->id, 'name' => $c->display_name]),
+            'characteristics' => fn () => Characteristic::orderBy('name')->get(['id', 'name', 'slug'])->map(fn ($c) => ['value' => $c->slug, 'name' => $c->name]),
             'factions' => fn () => FactionEnum::toSelectOptions(),
             'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
             'tokens' => fn () => Token::all(),
@@ -109,7 +140,34 @@ class CrewAdminController extends Controller
             'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
+            'hiring_rules_type' => ['nullable', 'string', 'in:fixed_crew,required_hires'],
+            'alternate_leader' => ['nullable', 'integer', 'exists:characters,id'],
+            'any_faction' => ['nullable'],
+            'fixed_crew_keyword' => ['nullable', 'string'],
+            'fixed_cache' => ['nullable', 'integer', 'min:0'],
+            'required_characteristic' => ['nullable', 'string'],
+            'required_count' => ['nullable', 'integer', 'min:1'],
         ]);
+
+        // Build hiring_rules JSON from subfields
+        $hiringRulesType = $validated['hiring_rules_type'] ?? null;
+        unset($validated['hiring_rules_type'], $validated['alternate_leader'], $validated['any_faction'], $validated['fixed_crew_keyword'], $validated['fixed_cache'], $validated['required_characteristic'], $validated['required_count']);
+
+        if ($hiringRulesType === 'fixed_crew') {
+            $validated['hiring_rules'] = array_filter([
+                'alternate_leader_id' => $request->input('alternate_leader') ? (int) $request->input('alternate_leader') : null,
+                'any_faction' => (bool) $request->input('any_faction'),
+                'fixed_crew_keyword' => $request->input('fixed_crew_keyword'),
+                'fixed_cache' => $request->input('fixed_cache') !== null ? (int) $request->input('fixed_cache') : null,
+            ], fn ($v) => $v !== null && $v !== false);
+        } elseif ($hiringRulesType === 'required_hires') {
+            $validated['hiring_rules'] = array_filter([
+                'required_characteristic' => $request->input('required_characteristic'),
+                'required_count' => $request->input('required_count') !== null ? (int) $request->input('required_count') : null,
+            ], fn ($v) => $v !== null);
+        } else {
+            $validated['hiring_rules'] = null;
+        }
 
         $validated['domain'] = UpgradeDomainTypeEnum::Crew->value;
 

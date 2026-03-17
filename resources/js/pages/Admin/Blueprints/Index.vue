@@ -25,7 +25,8 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const characters = (row.original.characters ?? []).map((c: any) => (c.display_name as string)?.toLowerCase() ?? '');
     const miniatures = (row.original.miniatures ?? []).map((m: any) => (m.display_name as string)?.toLowerCase() ?? '');
 
-    const matchesSearch = !term || name.includes(term) || characters.some((n: string) => n.includes(term)) || miniatures.some((n: string) => n.includes(term));
+    const matchesSearch =
+        !term || name.includes(term) || characters.some((n: string) => n.includes(term)) || miniatures.some((n: string) => n.includes(term));
 
     if (unattachedOnly) {
         return matchesSearch && row.original.characters_count === 0 && row.original.miniatures_count === 0;
@@ -163,7 +164,7 @@ const table = useVueTable({
                     :model-value="searchText"
                     @update:model-value="searchText = $event"
                 />
-                <label class="flex cursor-pointer items-center gap-2 text-sm whitespace-nowrap">
+                <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <Checkbox :checked="showUnattachedOnly" @update:checked="(val: boolean) => (showUnattachedOnly = val)" />
                     Unattached only
                 </label>

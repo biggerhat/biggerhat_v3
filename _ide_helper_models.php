@@ -432,11 +432,13 @@ namespace App\Models{
  * @property int $master_id
  * @property int $encounter_size
  * @property array<array-key, mixed> $crew_data
+ * @property int|null $crew_upgrade_id
  * @property bool $is_archived
  * @property bool $is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read CrewBuild|null $copiedFrom
+ * @property-read \App\Models\Upgrade|null $crewUpgrade
  * @property-read \App\Models\Character $master
  * @property-read \App\Models\User|null $user
  * @method static \Database\Factories\CrewBuildFactory factory($count = null, $state = [])
@@ -446,6 +448,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCopiedFromId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewData($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewUpgradeId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereEncounterSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereFaction($value)
@@ -979,6 +982,7 @@ namespace App\Models{
  * @property string $slug
  * @property \App\Enums\UpgradeDomainTypeEnum $domain
  * @property string|null $description
+ * @property array<array-key, mixed>|null $hiring_rules
  * @property int|null $power_bar_count
  * @property string|null $front_image
  * @property string|null $back_image
@@ -1021,6 +1025,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereDomain($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereFrontImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereHiringRules($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereLimitations($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereName($value)

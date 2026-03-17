@@ -21,6 +21,15 @@ interface Keyword {
     slug: string;
 }
 
+interface HiringRules {
+    alternate_leader_id?: number;
+    any_faction?: boolean;
+    fixed_crew_keyword?: string;
+    fixed_cache?: number;
+    required_characteristic?: string;
+    required_count?: number;
+}
+
 interface CrewUpgrade {
     id: number;
     name: string;
@@ -28,6 +37,7 @@ interface CrewUpgrade {
     front_image: string | null;
     back_image: string | null;
     keywords: Keyword[];
+    hiring_rules: HiringRules | null;
 }
 
 interface MiniatureData {
@@ -76,7 +86,7 @@ interface CrewMember {
     miniature: MiniatureData | null;
     isTotem: boolean;
     effectiveCost: number;
-    hiringCategory: 'leader' | 'totem' | 'in-keyword' | 'versatile' | 'ook';
+    hiringCategory: 'leader' | 'totem' | 'in-keyword' | 'versatile' | 'ook' | 'fixed-crew' | 'required';
 }
 
 interface BuildData {
@@ -88,6 +98,7 @@ interface BuildData {
     master_id: number;
     encounter_size: number;
     crew_data: number[];
+    crew_upgrade_id: number | null;
     is_public: boolean;
     user_id: number | null;
     user_name: string | null;
@@ -145,7 +156,15 @@ const crewUpgrades = computed(() => master.value?.crew_upgrades ?? []);
 
 // ─── Category helpers ───
 const categoryLabel = (cat: string): string =>
-    ({ leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' })[cat] ?? cat;
+    ({
+        leader: 'Leader',
+        totem: 'Totem',
+        'in-keyword': 'In Keyword',
+        versatile: 'Versatile',
+        ook: 'Out of Keyword',
+        'fixed-crew': 'Preset',
+        required: 'Required',
+    })[cat] ?? cat;
 
 const categoryColor = (cat: string): string =>
     ({
@@ -154,6 +173,8 @@ const categoryColor = (cat: string): string =>
         'in-keyword': 'bg-green-400/20 text-green-200',
         versatile: 'bg-blue-400/20 text-blue-200',
         ook: 'bg-red-400/20 text-red-200',
+        'fixed-crew': 'bg-cyan-400/20 text-cyan-200',
+        required: 'bg-orange-400/20 text-orange-200',
     })[cat] ?? '';
 
 const categoryColorTheme = (cat: string): string =>
@@ -163,12 +184,25 @@ const categoryColorTheme = (cat: string): string =>
         'in-keyword': 'bg-green-500/10 text-green-700 dark:text-green-400',
         versatile: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
         ook: 'bg-red-500/10 text-red-700 dark:text-red-400',
+        'fixed-crew': 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400',
+        required: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
     })[cat] ?? '';
+
+// ─── Resolve active crew upgrade and hiring rules ───
+const activeCrewUpgrade = computed((): CrewUpgrade | null => {
+    if (!props.build.crew_upgrade_id || !master.value) return null;
+    return master.value.crew_upgrades?.find((u) => u.id === props.build.crew_upgrade_id) ?? null;
+});
+const activeHiringRules = computed(() => activeCrewUpgrade.value?.hiring_rules ?? null);
+const isFixedCrew = computed(() => !!activeHiringRules.value?.fixed_crew_keyword);
 
 // ─── Stats ───
 const totalSpent = computed(() => crew.value.reduce((sum, m) => sum + m.effectiveCost, 0));
 const remaining = computed(() => props.build.encounter_size - totalSpent.value);
 const soulstonePool = computed(() => {
+    if (isFixedCrew.value && activeHiringRules.value?.fixed_cache != null) {
+        return activeHiringRules.value.fixed_cache;
+    }
     const r = remaining.value;
     return r > 6 ? 6 : Math.max(0, r);
 });
@@ -248,6 +282,7 @@ const copyToMyBuilds = async () => {
                 master_id: props.build.master_id,
                 encounter_size: props.build.encounter_size,
                 crew_data: props.build.crew_data,
+                crew_upgrade_id: props.build.crew_upgrade_id,
                 copied_from_id: props.build.id,
             }),
         });
@@ -310,19 +345,57 @@ const rebuildCrew = () => {
         }
     }
 
-    props.build.crew_data?.forEach((charId: number) => {
-        const character = characterById.value.get(charId);
-        if (character) {
-            const cat = getHiringCategory(character);
-            crew.value.push({
-                character,
-                miniature: getNextMiniature(character),
-                isTotem: false,
-                effectiveCost: cat === 'ook' ? character.cost + 1 : character.cost,
-                hiringCategory: cat,
-            });
+    const rules = activeHiringRules.value;
+
+    if (rules?.fixed_crew_keyword) {
+        // Fixed crew: load keyword members
+        const keywordMembers = (props.characters as CharacterData[]).filter(
+            (c) => c.keywords.some((k) => k.slug === rules.fixed_crew_keyword) && c.id !== master.value!.id,
+        );
+        for (const char of keywordMembers) {
+            for (let i = 0; i < (char.count || 1); i++) {
+                crew.value.push({
+                    character: char,
+                    miniature: getNextMiniature(char),
+                    isTotem: false,
+                    effectiveCost: char.cost ?? 0,
+                    hiringCategory: 'fixed-crew',
+                });
+            }
         }
-    });
+    } else {
+        // Determine required character IDs
+        const requiredCharacteristic = rules?.required_characteristic;
+        const requiredIds = new Set(
+            requiredCharacteristic
+                ? (props.characters as CharacterData[]).filter((c) => c.characteristics.includes(requiredCharacteristic)).map((c) => c.id)
+                : [],
+        );
+
+        props.build.crew_data?.forEach((charId: number) => {
+            const character = characterById.value.get(charId);
+            if (character) {
+                if (requiredIds.has(character.id)) {
+                    crew.value.push({
+                        character,
+                        miniature: getNextMiniature(character),
+                        isTotem: false,
+                        effectiveCost: character.cost,
+                        hiringCategory: 'required',
+                    });
+                } else {
+                    const cat = getHiringCategory(character);
+                    crew.value.push({
+                        character,
+                        miniature: getNextMiniature(character),
+                        isTotem: false,
+                        effectiveCost: cat === 'ook' ? character.cost + 1 : character.cost,
+                        hiringCategory: cat,
+                    });
+                }
+            }
+        });
+    }
 };
 
 onMounted(rebuildCrew);
@@ -389,6 +462,15 @@ onMounted(rebuildCrew);
                         </div>
 
                         <Separator class="mb-4" />
+
+                        <!-- Fixed Crew Indicator -->
+                        <div
+                            v-if="isFixedCrew"
+                            class="mb-4 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-400"
+                        >
+                            <Star class="size-3.5 shrink-0" />
+                            Preset Crew — fixed roster from crew upgrade
+                        </div>
 
                         <!-- Stats -->
                         <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -513,7 +595,9 @@ onMounted(rebuildCrew);
                                                 >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                                 <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span
                                             >
-                                            <span v-else class="flex items-center text-sm font-bold text-white">{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" /></span>
+                                            <span v-else class="flex items-center text-sm font-bold text-white"
+                                                >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
+                                            /></span>
                                             <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.hiringCategory) }}
                                             </Badge>
@@ -533,7 +617,13 @@ onMounted(rebuildCrew);
                                 <Copy v-else class="size-4" />
                                 {{ copySuccess ? 'Saved to My Builds' : 'Copy to My Builds' }}
                             </Button>
-                            <Button v-if="isOwner" variant="outline" class="gap-1.5" as="a" :href="route('tools.crew_builder.editor') + '?build=' + build.share_code">
+                            <Button
+                                v-if="isOwner"
+                                variant="outline"
+                                class="gap-1.5"
+                                as="a"
+                                :href="route('tools.crew_builder.editor') + '?build=' + build.share_code"
+                            >
                                 Edit in Crew Builder
                             </Button>
                             <Button v-if="!isAuthenticated" variant="outline" class="gap-1.5" as="a" :href="route('login')">
@@ -558,8 +648,12 @@ onMounted(rebuildCrew);
                     <DrawerTitle class="text-center">
                         {{ previewMember.character.display_name }}
                         <template v-if="previewMember.character.cost != null">
-                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400">({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
-                            <span v-else class="text-yellow-400">({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span>
+                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400"
+                                >({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
+                            >
+                            <span v-else class="text-yellow-400"
+                                >({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
+                            >
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
@@ -569,7 +663,9 @@ onMounted(rebuildCrew);
                                 >{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge
                             >
-                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold">{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" /></Badge>
+                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
+                                >{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block"
+                            /></Badge>
                         </template>
                         <Badge :class="categoryColorTheme(previewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
                             {{ categoryLabel(previewMember.hiringCategory) }}

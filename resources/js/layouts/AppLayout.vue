@@ -90,9 +90,7 @@ withDefaults(defineProps<Props>(), {
                     <a href="https://discord.gg/veGzyuTvGW" target="_blank" class="inline-flex items-center gap-1 hover:underline">
                         Join Our Discord
                     </a>
-                    <a href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline">
-                        Donate on Ko-fi
-                    </a>
+                    <a href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline"> Donate on Ko-fi </a>
                 </div>
                 <div class="my-2 block px-2 text-xs lg:px-0">
                     Portions of the materials used are copyrighted works of

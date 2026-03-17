@@ -41,11 +41,7 @@ const columns: ColumnDef<Channel>[] = [
         header: () => h('div', {}, 'Owners'),
         cell: ({ row }) => {
             const channel = row.original;
-            return h(
-                'div',
-                {},
-                channel.users.map((u) => u.name).join(', ') || '-',
-            );
+            return h('div', {}, channel.users.map((u) => u.name).join(', ') || '-');
         },
     },
     {

@@ -135,7 +135,10 @@ const addPackageToCollection = async (packageId: number) => {
 
     await fetch(route('collection.add_package'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+        },
         body: JSON.stringify({ package_id: packageId }),
     });
 };

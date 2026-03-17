@@ -52,4 +52,9 @@ class CrewBuild extends Model
     {
         return $this->belongsTo(CrewBuild::class, 'copied_from_id');
     }
+
+    public function crewUpgrade(): BelongsTo
+    {
+        return $this->belongsTo(Upgrade::class, 'crew_upgrade_id');
+    }
 }

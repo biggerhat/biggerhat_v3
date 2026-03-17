@@ -100,7 +100,7 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
         </PageBanner>
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
-            <div class="grid gap-4 lg:gap-8 lg:grid-cols-8">
+            <div class="grid gap-4 lg:grid-cols-8 lg:gap-8">
                 <!-- Sidebar: season selector -->
                 <aside class="lg:col-span-2">
                     <!-- Mobile: dropdown -->
@@ -157,7 +157,14 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                                 :style="deploymentDelays[index]"
                             >
                                 <Card class="overflow-hidden">
-                                    <img v-if="deployment.image_url" :src="deployment.image_url" :alt="deployment.label" loading="lazy" decoding="async" class="w-full" />
+                                    <img
+                                        v-if="deployment.image_url"
+                                        :src="deployment.image_url"
+                                        :alt="deployment.label"
+                                        loading="lazy"
+                                        decoding="async"
+                                        class="w-full"
+                                    />
                                     <CardContent class="border-l-4 p-4" :class="suitBorderColor[deployment.suit] ?? 'border-l-border'">
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium">{{ deployment.label }}</span>

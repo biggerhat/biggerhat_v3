@@ -20,9 +20,9 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cleanObject } from '@/composables/CleanObject';
 
-import { Button } from '@/components/ui/button';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
     keyword: {
@@ -157,9 +157,7 @@ const isLoggedIn = computed(() => !!page.props.auth?.user);
 const collectionIds = computed(() => new Set(page.props.auth?.collection_miniature_ids ?? []));
 
 const uncollectedCharacters = computed(() => {
-    return (props.characters ?? []).filter(
-        (c: any) => !(c.standard_miniatures ?? []).some((m: any) => collectionIds.value.has(m.id)),
-    );
+    return (props.characters ?? []).filter((c: any) => !(c.standard_miniatures ?? []).some((m: any) => collectionIds.value.has(m.id)));
 });
 
 const addingAll = ref(false);
@@ -179,7 +177,10 @@ const addAllToCollection = async () => {
     try {
         await fetch(route('collection.add_characters'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
             body: JSON.stringify({ character_ids: chars.map((c: any) => c.id) }),
         });
     } finally {
@@ -218,9 +219,7 @@ const suitOrder = ['crow', 'mask', 'ram', 'tome', 'soulstone'];
 const suitStats = computed(() => {
     if (!hasStats.value || !props.statistics.suit_counts) return [];
     const counts = props.statistics.suit_counts as Record<string, number>;
-    return suitOrder
-        .filter((s) => counts[s] > 0)
-        .map((s) => ({ suit: s, count: counts[s] }));
+    return suitOrder.filter((s) => counts[s] > 0).map((s) => ({ suit: s, count: counts[s] }));
 });
 
 const isLoading = ref(false);

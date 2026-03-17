@@ -150,7 +150,15 @@ const toggleExpand = async (crew: CrewCard) => {
 };
 
 const categoryLabel = (cat: string): string =>
-    ({ leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' })[cat] ?? cat;
+    ({
+        leader: 'Leader',
+        totem: 'Totem',
+        'in-keyword': 'In Keyword',
+        versatile: 'Versatile',
+        ook: 'Out of Keyword',
+        'fixed-crew': 'Preset',
+        required: 'Required',
+    })[cat] ?? cat;
 
 const categoryColor = (cat: string): string =>
     ({
@@ -159,6 +167,8 @@ const categoryColor = (cat: string): string =>
         'in-keyword': 'bg-green-500/10 text-green-700 dark:text-green-400',
         versatile: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
         ook: 'bg-red-500/10 text-red-700 dark:text-red-400',
+        'fixed-crew': 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400',
+        required: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
     })[cat] ?? '';
 
 // ─── Actions ───
@@ -253,24 +263,16 @@ const copyShareLink = (crew: CrewCard) => {
                     </Link>
                 </div>
                 <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                    <div
-                        v-for="(crew, index) in localMyCrews"
-                        :key="crew.id"
-                        class="animate-fade-in-up opacity-0"
-                        :style="myCrewDelays[index]"
-                    >
+                    <div v-for="(crew, index) in localMyCrews" :key="crew.id" class="animate-fade-in-up opacity-0" :style="myCrewDelays[index]">
                         <Card
                             class="transition-all duration-200"
                             :class="[
-                                expandedCrewId === crew.id ? 'ring-1 ring-primary/50 shadow-md' : 'hover:-translate-y-0.5 hover:shadow-md',
-                                (crew as any)._deleting ? 'opacity-50 pointer-events-none' : '',
+                                expandedCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:-translate-y-0.5 hover:shadow-md',
+                                (crew as any)._deleting ? 'pointer-events-none opacity-50' : '',
                             ]"
                         >
                             <!-- Card header — clickable to expand -->
-                            <CardContent
-                                class="flex cursor-pointer items-start gap-3 p-3"
-                                @click="toggleExpand(crew)"
-                            >
+                            <CardContent class="flex cursor-pointer items-start gap-3 p-3" @click="toggleExpand(crew)">
                                 <FactionLogo :faction="crew.faction" class-name="size-7 shrink-0 mt-0.5" />
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-medium">{{ crew.name }}</p>
@@ -379,12 +381,7 @@ const copyShareLink = (crew: CrewCard) => {
                                             <ExternalLink class="size-3" />
                                             View
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            @click.stop="copyShareLink(crew)"
-                                        >
+                                        <Button variant="outline" size="sm" class="h-7 gap-1 text-xs" @click.stop="copyShareLink(crew)">
                                             <Check v-if="copiedId === crew.id" class="size-3" />
                                             <Copy v-else class="size-3" />
                                             {{ copiedId === crew.id ? 'Copied' : 'Share' }}

@@ -34,6 +34,7 @@ class Upgrade extends Model
             'faction' => FactionEnum::class,
             'type' => UpgradeTypeEnum::class,
             'limitations' => UpgradeLimitationEnum::class,
+            'hiring_rules' => 'array',
         ];
     }
 

@@ -123,7 +123,11 @@ const hasRelatedContent = computed(
                                             :key="master.slug"
                                             :href="
                                                 master.miniature_id
-                                                    ? route('characters.view', { character: master.slug, miniature: master.miniature_id, slug: master.miniature_slug })
+                                                    ? route('characters.view', {
+                                                          character: master.slug,
+                                                          miniature: master.miniature_id,
+                                                          slug: master.miniature_slug,
+                                                      })
                                                     : '#'
                                             "
                                         >
@@ -159,7 +163,11 @@ const hasRelatedContent = computed(
                                     :key="character.slug"
                                     :href="
                                         character.miniature_id
-                                            ? route('characters.view', { character: character.slug, miniature: character.miniature_id, slug: character.miniature_slug })
+                                            ? route('characters.view', {
+                                                  character: character.slug,
+                                                  miniature: character.miniature_id,
+                                                  slug: character.miniature_slug,
+                                              })
                                             : '#'
                                     "
                                     class="flex items-center gap-2.5 border-t px-4 py-2.5 transition-colors hover:bg-accent"

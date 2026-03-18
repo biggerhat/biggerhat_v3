@@ -19,6 +19,7 @@ use App\Http\Controllers\Database\SearchController;
 use App\Http\Controllers\Database\SeasonController;
 use App\Http\Controllers\Database\StrategyController;
 use App\Http\Controllers\Database\TokenController;
+use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
@@ -124,6 +125,10 @@ Route::prefix('tokens')->name('tokens.')->group(function () {
 
 Route::prefix('actions')->name('actions.')->group(function () {
     Route::get('/', [ActionController::class, 'index'])->name('index');
+});
+
+Route::prefix('triggers')->name('triggers.')->group(function () {
+    Route::get('/', [TriggerController::class, 'index'])->name('index');
 });
 
 Route::prefix('abilities')->name('abilities.')->group(function () {

@@ -80,6 +80,13 @@ const props = defineProps({
             return {};
         },
     },
+    trigger_names: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
 });
 
 const filterKeys = [
@@ -100,6 +107,7 @@ const filterKeys = [
     'tn_max',
     'target_suits',
     'damage',
+    'trigger',
     'description',
 ] as const;
 
@@ -122,6 +130,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
         tn_max: null as string | null,
         target_suits: null as string | null,
         damage: null as string | null,
+        trigger: null as string | null,
         description: null as string | null,
         page_view: null as string | null,
     },
@@ -157,6 +166,7 @@ onMounted(() => {
         filterParams.value.name ||
         filterParams.value.name_search ||
         filterParams.value.type ||
+        filterParams.value.trigger ||
         filterParams.value.is_signature ||
         filterParams.value.costs_stone;
     const hasCombat =
@@ -240,6 +250,15 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.type"
                                     placeholder="Any Type"
                                     :options="props.action_types"
+                                    trigger-class="border-2 border-primary rounded"
+                                />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium">Trigger</label>
+                                <ClearableSelect
+                                    v-model="filterParams.trigger"
+                                    placeholder="Any Trigger"
+                                    :options="props.trigger_names"
                                     trigger-class="border-2 border-primary rounded"
                                 />
                             </div>
@@ -427,6 +446,10 @@ const formatRangeType = (rangeType: string) => {
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Type</label>
                                     <ClearableSelect v-model="filterParams.type" placeholder="Any Type" :options="props.action_types" />
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Trigger</label>
+                                    <ClearableSelect v-model="filterParams.trigger" placeholder="Any Trigger" :options="props.trigger_names" />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Signature</label>

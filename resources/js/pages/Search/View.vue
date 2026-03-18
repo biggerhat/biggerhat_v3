@@ -96,6 +96,13 @@ const props = defineProps({
             return {};
         },
     },
+    triggers: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
     action_types: {
         type: [Object, Array],
         required: false,
@@ -203,6 +210,7 @@ const filterParams = ref({
     ability_defensive_type: null as string | null,
     ability_costs_stone: null as string | null,
     ability_description: null as string | null,
+    trigger: null as string | null,
     page_view: null as string | null,
     sort: null as string | null,
     sort_type: null as string | null,
@@ -255,6 +263,7 @@ const filterKeys = [
     'ability_defensive_type',
     'ability_costs_stone',
     'ability_description',
+    'trigger',
 ] as const;
 
 const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size'] as const;
@@ -338,7 +347,7 @@ const clearName = () => {
     filter();
 };
 
-const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities'] as const;
+const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities', 'advancedTriggers'] as const;
 
 const sectionsOpen = ref({
     advanced: false,
@@ -347,6 +356,7 @@ const sectionsOpen = ref({
     advancedFlags: false,
     advancedActions: false,
     advancedAbilities: false,
+    advancedTriggers: false,
     sorting: false,
 });
 
@@ -416,6 +426,7 @@ onMounted(() => {
     filterParams.value.ability_defensive_type = urlParams.get('ability_defensive_type');
     filterParams.value.ability_costs_stone = urlParams.get('ability_costs_stone');
     filterParams.value.ability_description = urlParams.get('ability_description');
+    filterParams.value.trigger = urlParams.get('trigger');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
     filterParams.value.sort = urlParams.get('sort') ?? 'name';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
@@ -462,13 +473,15 @@ onMounted(() => {
         filterParams.value.ability_defensive_type ||
         filterParams.value.ability_costs_stone ||
         filterParams.value.ability_description;
-    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities) {
+    const hasTriggers = filterParams.value.trigger;
+    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities || hasTriggers) {
         sectionsOpen.value.advanced = true;
         if (hasStats) sectionsOpen.value.advancedStats = true;
         if (hasBaseSuits) sectionsOpen.value.advancedBaseSuits = true;
         if (hasFlags) sectionsOpen.value.advancedFlags = true;
         if (hasActions) sectionsOpen.value.advancedActions = true;
         if (hasAbilities) sectionsOpen.value.advancedAbilities = true;
+        if (hasTriggers) sectionsOpen.value.advancedTriggers = true;
     }
     if (filterParams.value.sort !== 'name' || filterParams.value.sort_type !== 'ascending') {
         sectionsOpen.value.sorting = true;
@@ -940,6 +953,27 @@ onMounted(() => {
                                 </CollapsibleContent>
                             </Collapsible>
 
+                            <!-- Triggers -->
+                            <Collapsible :open="sectionsOpen.advancedTriggers" @update:open="toggleAdvancedSection('advancedTriggers')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Triggers
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTriggers }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Trigger</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.trigger"
+                                            placeholder="Any Trigger"
+                                            :options="props.triggers"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
                             <!-- Sorting -->
                             <div class="border-t pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sorting</div>
                             <div class="space-y-2">
@@ -1295,6 +1329,21 @@ onMounted(() => {
                                                 placeholder="Search description..."
                                                 class="h-8 text-xs"
                                             />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                                <!-- Triggers -->
+                                <Collapsible :open="sectionsOpen.advancedTriggers" @update:open="toggleAdvancedSection('advancedTriggers')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        Triggers
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTriggers }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Trigger</label>
+                                            <ClearableSelect v-model="filterParams.trigger" placeholder="Any Trigger" :options="props.triggers" />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>

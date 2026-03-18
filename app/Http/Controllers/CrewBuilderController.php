@@ -380,17 +380,9 @@ class CrewBuilderController extends Controller
         ])['ids'];
 
         $characters = Character::with([
-            'markers:id,name,slug,description,base',
-            'tokens:id,name,slug,description',
-            'characterUpgrades:id,name,slug,front_image,back_image',
-            'summons:id,name,title,display_name,slug,faction',
-            'summons.miniatures:id,character_id,front_image,slug',
-            'summonedBy:id,name,title,display_name,slug,faction',
-            'summonedBy.miniatures:id,character_id,front_image,slug',
-            'replacesInto:id,name,title,display_name,slug,faction',
-            'replacesInto.miniatures:id,character_id,front_image,slug',
-            'replacedBy:id,name,title,display_name,slug,faction',
-            'replacedBy.miniatures:id,character_id,front_image,slug',
+            'markers', 'tokens', 'characterUpgrades',
+            'summons.miniatures', 'summonedBy.miniatures',
+            'replacesInto.miniatures', 'replacedBy.miniatures',
         ])->whereIn('id', $ids)->get();
 
         // Also gather references from summoned/replaced characters
@@ -399,11 +391,8 @@ class CrewBuilderController extends Controller
         )->unique()->diff($ids)->values();
 
         $linkedCharacters = $linkedCharacterIds->isNotEmpty()
-            ? Character::with([
-                'markers:id,name,slug,description,base',
-                'tokens:id,name,slug,description',
-                'characterUpgrades:id,name,slug,front_image,back_image',
-            ])->whereIn('id', $linkedCharacterIds)->get()
+            ? Character::with(['markers', 'tokens', 'characterUpgrades'])
+                ->whereIn('id', $linkedCharacterIds)->get()
             : collect();
 
         $allCharacters = $characters->merge($linkedCharacters);

@@ -55,4 +55,15 @@ enum SculptVersionEnum: string implements HasDefaultEnumMethods
             self::RottenHarvest,
         ];
     }
+
+    public function promotionalTitle(): string
+    {
+        return match ($this) {
+            self::AlternateModel => 'Alt',
+            self::SpecialEdition => 'Special Edition',
+            self::Nightmare => 'Nightmare',
+            self::RottenHarvest => 'Rotten Harvest',
+            default => '',
+        };
+    }
 }

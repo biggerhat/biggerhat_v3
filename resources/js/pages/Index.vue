@@ -4,13 +4,11 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Separator } from '@/components/ui/separator';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
-import { BookOpen, Dice6, FileDown, FileImage, Newspaper, Package, RefreshCw, Search, Swords } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { BookOpen, Dice6, FileDown, FileImage, Newspaper, Package, Radio, RefreshCw, Search, Swords } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 const page = usePage<SharedData>();
 const factions = computed(() => page.props.faction_info);
@@ -35,6 +33,13 @@ defineProps({
             return [];
         },
     },
+    recent_transmissions: {
+        type: Array,
+        required: false,
+        default() {
+            return [];
+        },
+    },
     stats: {
         type: Object,
         required: true,
@@ -43,23 +48,6 @@ defineProps({
         },
     },
 });
-
-const open = ref(false);
-const commandSearch = ref({});
-
-const commandRoute = (cmdRoute: string) => {
-    router.get(cmdRoute);
-    open.value = false;
-};
-
-function toggleDialog() {
-    if (!commandSearch.value.length) {
-        axios.get(route('command')).then(function (response) {
-            commandSearch.value = response.data;
-        });
-    }
-    open.value = true;
-}
 </script>
 
 <template>
@@ -71,17 +59,19 @@ function toggleDialog() {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto flex flex-col gap-10 sm:px-4 pb-12 pt-6 lg:gap-14">
+        <div class="container mx-auto flex flex-col gap-10 pb-12 pt-6 sm:px-4 lg:gap-14">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-6 lg:pt-10">
                 <img src="/images/hat_side.webp" class="h-36 md:h-48" alt="BiggerHat.net" />
                 <p class="mt-3 text-center text-muted-foreground">Malifaux Character Database & Tools</p>
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-3">
-                    <Button variant="outline" class="gap-2" @click="toggleDialog">
-                        <Search class="size-4" />
-                        <span class="hidden sm:inline">Search characters, keywords, factions...</span>
-                        <span class="sm:hidden">Search...</span>
-                    </Button>
+                    <Link :href="route('search.view')">
+                        <Button variant="outline" class="gap-2">
+                            <Search class="size-4" />
+                            <span class="hidden sm:inline">Search characters, keywords, factions...</span>
+                            <span class="sm:hidden">Search...</span>
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -94,7 +84,7 @@ function toggleDialog() {
                         :href="route('factions.view', key)"
                         class="flex flex-col items-center gap-1.5 rounded-lg p-2 transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:bg-muted sm:p-3"
                     >
-                        <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12 md:size-14" />
+                        <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12 md:size-14" loading="lazy" decoding="async" />
                         <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
                     </Link>
                 </div>
@@ -102,7 +92,7 @@ function toggleDialog() {
 
             <!-- ═══ Main Content: 2-column on large screens ═══ -->
             <div class="animate-fade-in-up grid gap-10 lg:grid-cols-5 lg:gap-8" style="animation-delay: 160ms">
-                <!-- Left column: Crew Builder + Recent Crews -->
+                <!-- Left column -->
                 <div class="space-y-8 lg:col-span-3">
                     <!-- Crew Builder CTA -->
                     <Link
@@ -182,7 +172,7 @@ function toggleDialog() {
                     </div>
                 </div>
 
-                <!-- Right column: Featured Character + Quick Links -->
+                <!-- Right column -->
                 <div class="space-y-8 lg:col-span-2">
                     <!-- Featured Character -->
                     <div v-if="featured_character && featured_character.standard_miniatures?.length">
@@ -200,54 +190,92 @@ function toggleDialog() {
                         </div>
                     </div>
 
-                    <!-- Quick Links -->
-                    <div>
-                        <h2 class="mb-3 font-semibold">Explore</h2>
-                        <div class="grid grid-cols-2 gap-2">
+                    <!-- Across the Aethervox -->
+                    <div v-if="recent_transmissions.length">
+                        <div class="mb-3 flex items-center justify-between">
+                            <h2 class="font-semibold">Across the Aethervox</h2>
+                            <Link :href="route('channels.index')" class="text-xs text-primary hover:underline">View all</Link>
+                        </div>
+                        <div class="space-y-2">
                             <Link
-                                :href="route('keywords.index')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                                v-for="transmission in recent_transmissions"
+                                :key="transmission.id"
+                                :href="route('channels.view', transmission.channel_slug)"
+                                class="group flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 hover:border-primary/30 hover:bg-muted/50"
                             >
-                                <BookOpen class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">Keywords</span>
-                            </Link>
-                            <Link
-                                :href="route('packages.index')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                            >
-                                <Package class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">Packages</span>
-                            </Link>
-                            <Link
-                                :href="route('blueprints.index')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                            >
-                                <FileImage class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">Build Instructions</span>
-                            </Link>
-                            <Link
-                                :href="route('tools.pdf.index')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                            >
-                                <FileDown class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">PDF Generator</span>
-                            </Link>
-                            <Link
-                                :href="route('tools.scenario_generator')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                            >
-                                <Dice6 class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">Scenario Generator</span>
-                            </Link>
-                            <Link
-                                :href="route('blog.index')"
-                                class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                            >
-                                <Newspaper class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                                <span class="text-xs font-medium">Articles</span>
+                                <img
+                                    v-if="transmission.channel_image"
+                                    :src="'/storage/' + transmission.channel_image"
+                                    :alt="transmission.channel_name"
+                                    class="mt-0.5 size-8 shrink-0 rounded-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                                <Radio v-else class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium group-hover:text-primary">{{ transmission.title }}</p>
+                                    <p v-if="transmission.description" class="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                        {{ transmission.description }}
+                                    </p>
+                                    <div class="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                        <span>{{ transmission.channel_name }}</span>
+                                        <span>&middot;</span>
+                                        <span>{{ transmission.release_date }}</span>
+                                    </div>
+                                </div>
                             </Link>
                         </div>
                     </div>
+
+                </div>
+            </div>
+
+            <!-- ═══ Explore ═══ -->
+            <div class="animate-fade-in-up" style="animation-delay: 200ms">
+                <h2 class="mb-3 font-semibold">Explore</h2>
+                <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    <Link
+                        :href="route('keywords.index')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <BookOpen class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">Keywords</span>
+                    </Link>
+                    <Link
+                        :href="route('packages.index')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <Package class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">Packages</span>
+                    </Link>
+                    <Link
+                        :href="route('blueprints.index')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <FileImage class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">Build Instructions</span>
+                    </Link>
+                    <Link
+                        :href="route('tools.pdf.index')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <FileDown class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">PDF Generator</span>
+                    </Link>
+                    <Link
+                        :href="route('tools.scenario_generator')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <Dice6 class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">Scenario Generator</span>
+                    </Link>
+                    <Link
+                        :href="route('channels.index')"
+                        class="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
+                        <Radio class="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <span class="text-xs font-medium">Aethervox</span>
+                    </Link>
                 </div>
             </div>
 
@@ -256,60 +284,11 @@ function toggleDialog() {
                 <Separator class="mb-4" />
                 <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground sm:gap-6">
                     <span>{{ stats.characters }} Characters</span>
+                    <span>{{ stats.miniatures }} Miniatures</span>
                     <span>{{ stats.keywords }} Keywords</span>
                     <span>8 Factions</span>
                 </div>
             </div>
         </div>
     </div>
-
-    <CommandDialog v-model:open="open">
-        <CommandInput placeholder="Search for a topic..." />
-        <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Factions">
-                <CommandItem
-                    v-for="faction in commandSearch.factions"
-                    v-bind:key="faction.name"
-                    @select="commandRoute(faction.route)"
-                    :value="faction.name"
-                >
-                    {{ faction.name }}
-                </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Keywords">
-                <CommandItem
-                    v-for="keyword in commandSearch.keywords"
-                    v-bind:key="keyword.name"
-                    @select="commandRoute(keyword.route)"
-                    :value="keyword.name"
-                >
-                    {{ keyword.name }}
-                </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Characters">
-                <CommandItem
-                    v-for="character in commandSearch.characters"
-                    v-bind:key="character.name"
-                    @select="commandRoute(character.route)"
-                    :value="character.name"
-                >
-                    {{ character.name }}
-                </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Upgrades">
-                <CommandItem
-                    v-for="upgrade in commandSearch.upgrades"
-                    v-bind:key="upgrade.name"
-                    @select="commandRoute(upgrade.route)"
-                    :value="upgrade.name"
-                >
-                    {{ upgrade.name }}
-                </CommandItem>
-            </CommandGroup>
-        </CommandList>
-    </CommandDialog>
 </template>

@@ -83,6 +83,15 @@ class MiniatureAdminController extends Controller
             $displayName .= ', '.$character->title;
         }
 
+        // Append promotional title for special editions without custom name/title
+        if (! $validated['name'] && ! $validated['title']) {
+            $version = SculptVersionEnum::from($validated['version']);
+            $promoTitle = $version->promotionalTitle();
+            if ($promoTitle) {
+                $displayName .= ' ('.$promoTitle.')';
+            }
+        }
+
         $validated['display_name'] = $displayName;
         $validated['slug'] = Str::slug($displayName);
 

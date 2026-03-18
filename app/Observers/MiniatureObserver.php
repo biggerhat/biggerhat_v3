@@ -13,7 +13,7 @@ class MiniatureObserver
 
     public function updated(Miniature $miniature): void
     {
-        if ($miniature->isDirty('character_id') || $miniature->isDirty('name') || $miniature->isDirty('title')) {
+        if ($miniature->isDirty('character_id') || $miniature->isDirty('name') || $miniature->isDirty('title') || $miniature->isDirty('version')) {
             static::refreshSculptSuffixes($miniature->character_id);
 
             if ($miniature->isDirty('character_id')) {

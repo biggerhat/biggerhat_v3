@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Enums\CharacterStationEnum;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Support\Str;
@@ -19,6 +20,7 @@ class CharacterObserver
         }
 
         $character->slug = Str::slug($character->display_name);
+        $character->station_sort_order = $character->station?->sortOrder() ?? CharacterStationEnum::NON_STATION_SORT_ORDER;
     }
 
     /**
@@ -31,6 +33,8 @@ class CharacterObserver
      */
     public function updating(Character $character): void
     {
+        $character->station_sort_order = $character->station?->sortOrder() ?? CharacterStationEnum::NON_STATION_SORT_ORDER;
+
         if ($character->isDirty('name') || $character->isDirty('title')) {
             $character->display_name = $character->name;
             if ($character->title) {

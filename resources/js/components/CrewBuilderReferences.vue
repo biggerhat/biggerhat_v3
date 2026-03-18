@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
+import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -30,6 +31,7 @@ interface ReferenceUpgrade {
     slug: string;
     front_image: string | null;
     back_image: string | null;
+    type: string | null;
 }
 
 interface ReferenceCharacter {
@@ -136,7 +138,6 @@ const activeTab = ref('characters');
                     >
                         <FactionLogo :faction="char.faction" class-name="size-4 shrink-0" />
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ char.display_name }}</span>
-                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">{{ char.type }}</Badge>
                     </button>
                 </div>
             </TabsContent>
@@ -151,6 +152,7 @@ const activeTab = ref('characters');
                         @click="openUpgrade(upgrade)"
                     >
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ upgrade.name }}</span>
+                        <Badge v-if="upgrade.type" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">{{ upgrade.type }}</Badge>
                     </button>
                 </div>
             </TabsContent>
@@ -196,10 +198,7 @@ const activeTab = ref('characters');
                     <div class="mt-1 text-center text-xs text-muted-foreground">{{ activeCharacter.type }}</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div
-                        v-if="activeCharacter.front_image"
-                        class="flex min-h-0 flex-1 items-start justify-center"
-                    >
+                    <div v-if="activeCharacter.front_image" class="flex min-h-0 flex-1 items-start justify-center">
                         <img
                             :src="'/storage/' + activeCharacter.front_image"
                             :alt="activeCharacter.display_name"
@@ -262,7 +261,7 @@ const activeTab = ref('characters');
                     </div>
                 </DrawerHeader>
                 <div class="px-4 pb-4">
-                    <p class="text-sm leading-relaxed">{{ textDrawerDescription }}</p>
+                    <p class="text-sm leading-relaxed"><GameText :text="textDrawerDescription" /></p>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>

@@ -79,11 +79,6 @@ const mainNavItems: NavItem[] = [
                 icon: TextSearch,
             },
             {
-                title: 'Random Character',
-                href: route('characters.random'),
-                icon: Dice6,
-            },
-            {
                 title: 'Crew Builder',
                 href: route('tools.crew_builder.index'),
                 icon: Swords,

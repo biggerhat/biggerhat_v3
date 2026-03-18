@@ -137,7 +137,7 @@ const togglePackageCollection = async () => {
             }"
         />
 
-        <div class="container mx-auto sm:px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
+        <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
             <Link
                 :href="route('packages.index')"
                 class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"

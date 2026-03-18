@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, HTMLAttributes } from 'vue';
+import { type HTMLAttributes, onMounted, ref } from 'vue';
 
 defineOptions({
     inheritAttrs: false,
@@ -11,8 +11,9 @@ interface Props {
 
 defineProps<Props>();
 
-const currentTheme = computed(() => {
-    return localStorage.theme;
+const currentTheme = ref('dark');
+onMounted(() => {
+    currentTheme.value = localStorage.theme ?? (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
 });
 </script>
 

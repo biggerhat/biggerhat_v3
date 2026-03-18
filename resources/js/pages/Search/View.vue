@@ -360,8 +360,8 @@ const toggleAdvancedSection = (section: (typeof advancedSubSections)[number]) =>
     }
 };
 
-const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
+    const urlParams = new URLSearchParams(window.location.search);
     filterParams.value.name = urlParams.get('name');
     // Restore faction multi-select from comma-separated URL param
     const factionParam = urlParams.get('faction');

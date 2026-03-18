@@ -34,46 +34,56 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    $featured = Character::with('standardMiniatures')->inRandomOrder()->first();
-
-    $recentCrews = CrewBuild::where('is_public', true)
-        ->with('user:id,name', 'master:id,name,title,display_name,slug')
-        ->latest()
-        ->take(6)
-        ->get()
-        ->map(fn (CrewBuild $build) => [
-            'id' => $build->id,
-            'name' => $build->name,
-            'faction' => $build->faction->value,
-            'faction_label' => $build->faction->label(),
-            'faction_color' => $build->faction->color(),
-            'faction_logo' => $build->faction->logo(),
-            'master_name' => $build->master?->display_name,
-            'encounter_size' => $build->encounter_size,
-            'share_code' => $build->share_code,
-            'user_name' => $build->user?->name,
-            'created_at' => $build->created_at->diffForHumans(),
-        ]);
-
-    $recentArticles = BlogPost::published()
-        ->with('category:id,name')
-        ->latest('published_at')
-        ->take(3)
-        ->get()
-        ->map(fn (BlogPost $post) => [
-            'title' => $post->title,
-            'slug' => $post->slug,
-            'category' => $post->category?->name,
-            'published_at' => $post->published_at->diffForHumans(),
-        ]);
-
     return Inertia::render('Index', [
-        'featured_character' => $featured,
-        'recent_crews' => fn () => $recentCrews,
-        'recent_articles' => fn () => $recentArticles,
+        'featured_character' => fn () => Character::with(['standardMiniatures' => fn ($q) => $q->limit(1)])
+            ->whereHas('standardMiniatures')
+            ->inRandomOrder()
+            ->first(),
+        'recent_crews' => fn () => CrewBuild::where('is_public', true)
+            ->with('user:id,name', 'master:id,name,title,display_name,slug')
+            ->latest()
+            ->take(6)
+            ->get()
+            ->map(fn (CrewBuild $build) => [
+                'id' => $build->id,
+                'name' => $build->name,
+                'faction' => $build->faction->value,
+                'faction_label' => $build->faction->label(),
+                'faction_logo' => $build->faction->logo(),
+                'master_name' => $build->master?->display_name,
+                'encounter_size' => $build->encounter_size,
+                'share_code' => $build->share_code,
+                'user_name' => $build->user?->name,
+                'created_at' => $build->created_at->diffForHumans(),
+            ]),
+        'recent_articles' => fn () => BlogPost::published()
+            ->with('category:id,name')
+            ->latest('published_at')
+            ->take(3)
+            ->get()
+            ->map(fn (BlogPost $post) => [
+                'title' => $post->title,
+                'slug' => $post->slug,
+                'category' => $post->category?->name,
+                'published_at' => $post->published_at->diffForHumans(),
+            ]),
+        'recent_transmissions' => fn () => \App\Models\Transmission::with('channel:id,name,slug,image')
+            ->latest('release_date')
+            ->take(4)
+            ->get()
+            ->map(fn (\App\Models\Transmission $t) => [
+                'id' => $t->id,
+                'title' => $t->title,
+                'description' => $t->description,
+                'release_date' => $t->release_date->diffForHumans(),
+                'channel_name' => $t->channel?->name,
+                'channel_slug' => $t->channel?->slug,
+                'channel_image' => $t->channel?->image,
+            ]),
         'stats' => fn () => [
             'characters' => Character::count(),
             'keywords' => Keyword::count(),
+            'miniatures' => Miniature::count(),
         ],
     ]);
 })->name('index');

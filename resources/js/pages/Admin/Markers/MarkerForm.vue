@@ -104,19 +104,11 @@ onMounted(() => {
                             <InputError :message="usePage().props.errors.base" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <SearchableMultiselect
-                                v-model="formInfo.characters"
-                                placeholder="Linked Characters"
-                                :options="props.all_characters"
-                            />
+                            <SearchableMultiselect v-model="formInfo.characters" placeholder="Linked Characters" :options="props.all_characters" />
                             <InputError :message="usePage().props.errors.characters" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <SearchableMultiselect
-                                v-model="formInfo.upgrades"
-                                placeholder="Linked Upgrades"
-                                :options="props.all_upgrades"
-                            />
+                            <SearchableMultiselect v-model="formInfo.upgrades" placeholder="Linked Upgrades" :options="props.all_upgrades" />
                             <InputError :message="usePage().props.errors.upgrades" />
                         </div>
                     </div>

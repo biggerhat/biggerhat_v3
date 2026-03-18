@@ -221,7 +221,7 @@ watch(
 );
 
 // ─── View mode: 'builds' (list) or 'editor' (crew builder) ───
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew') || urlParams.has('step');
 const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value && !startInEditor ? 'builds' : 'editor');
 
@@ -1077,60 +1077,60 @@ const saveBuild = () => {
     if (!isAuthenticated.value || !selectedMasterTitle.value || isSaving.value) return;
 
     const doSave = async () => {
-    isSaving.value = true;
-    saveError.value = null;
-    try {
-        if (currentBuildId.value && isOwner.value) {
-            const response = await fetch(route('tools.crew_builder.update', { crewBuild: currentBuildId.value }), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-                body: JSON.stringify(buildPayload()),
-            });
-            if (!response.ok) {
-                saveError.value = 'Failed to save crew';
-                return;
-            }
-            const data = await response.json();
-            currentShareCode.value = data.share_code;
-            const idx = savedBuilds.value.findIndex((b) => b.id === currentBuildId.value);
-            if (idx >= 0) {
-                savedBuilds.value[idx] = {
-                    ...savedBuilds.value[idx],
-                    ...buildPayload(),
+        isSaving.value = true;
+        saveError.value = null;
+        try {
+            if (currentBuildId.value && isOwner.value) {
+                const response = await fetch(route('tools.crew_builder.update', { crewBuild: currentBuildId.value }), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                    body: JSON.stringify(buildPayload()),
+                });
+                if (!response.ok) {
+                    saveError.value = 'Failed to save crew';
+                    return;
+                }
+                const data = await response.json();
+                currentShareCode.value = data.share_code;
+                const idx = savedBuilds.value.findIndex((b) => b.id === currentBuildId.value);
+                if (idx >= 0) {
+                    savedBuilds.value[idx] = {
+                        ...savedBuilds.value[idx],
+                        ...buildPayload(),
+                        share_code: data.share_code,
+                        is_public: data.is_public,
+                        updated_at: new Date().toISOString(),
+                    } as SavedBuild;
+                }
+            } else {
+                const response = await fetch(route('tools.crew_builder.store'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                    body: JSON.stringify(buildPayload()),
+                });
+                if (!response.ok) {
+                    saveError.value = 'Failed to create crew';
+                    return;
+                }
+                const data = await response.json();
+                currentBuildId.value = data.id;
+                currentShareCode.value = data.share_code;
+                savedBuilds.value.unshift({
+                    id: data.id,
                     share_code: data.share_code,
+                    is_archived: false,
                     is_public: data.is_public,
                     updated_at: new Date().toISOString(),
-                } as SavedBuild;
+                    ...buildPayload(),
+                } as SavedBuild);
             }
-        } else {
-            const response = await fetch(route('tools.crew_builder.store'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-                body: JSON.stringify(buildPayload()),
-            });
-            if (!response.ok) {
-                saveError.value = 'Failed to create crew';
-                return;
-            }
-            const data = await response.json();
-            currentBuildId.value = data.id;
-            currentShareCode.value = data.share_code;
-            savedBuilds.value.unshift({
-                id: data.id,
-                share_code: data.share_code,
-                is_archived: false,
-                is_public: data.is_public,
-                updated_at: new Date().toISOString(),
-                ...buildPayload(),
-            } as SavedBuild);
+            lastSavedAt.value = new Date().toLocaleTimeString();
+            pushBuildToUrl();
+        } catch {
+            saveError.value = 'Network error saving crew';
+        } finally {
+            isSaving.value = false;
         }
-        lastSavedAt.value = new Date().toLocaleTimeString();
-        pushBuildToUrl();
-    } catch {
-        saveError.value = 'Network error saving crew';
-    } finally {
-        isSaving.value = false;
-    }
     };
     currentSavePromise = doSave();
     return currentSavePromise;
@@ -1671,12 +1671,7 @@ onUnmounted(() => {
                                             </Badge>
                                         </div>
                                         <div class="mt-1.5 flex flex-wrap gap-1">
-                                            <Badge
-                                                v-for="kw in info.keywords"
-                                                :key="kw.slug"
-                                                variant="secondary"
-                                                class="px-1.5 py-0.5 text-xs"
-                                            >
+                                            <Badge v-for="kw in info.keywords" :key="kw.slug" variant="secondary" class="px-1.5 py-0.5 text-xs">
                                                 {{ kw.name }}
                                             </Badge>
                                         </div>
@@ -1725,12 +1720,7 @@ onUnmounted(() => {
                                     <div class="min-w-0 flex-1">
                                         <div class="font-semibold">{{ master.display_name }}</div>
                                         <div class="mt-1.5 flex flex-wrap gap-1">
-                                            <Badge
-                                                v-for="kw in master.keywords"
-                                                :key="kw.slug"
-                                                variant="secondary"
-                                                class="px-1.5 py-0.5 text-xs"
-                                            >
+                                            <Badge v-for="kw in master.keywords" :key="kw.slug" variant="secondary" class="px-1.5 py-0.5 text-xs">
                                                 {{ kw.name }}
                                             </Badge>
                                         </div>
@@ -1935,13 +1925,14 @@ onUnmounted(() => {
                                 </div>
                             </div>
                         </div>
-                        <div v-if="crewStats && Object.keys(crewStats.suitCounts).length" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
+                        <div
+                            v-if="crewStats && Object.keys(crewStats.suitCounts).length"
+                            class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2"
+                        >
                             <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                 <div
-                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
-                                        (s) => crewStats!.suitCounts[s],
-                                    )"
+                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
                                     :key="suit"
                                     class="text-center"
                                 >
@@ -2129,7 +2120,8 @@ onUnmounted(() => {
                                             class="mb-3 flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-400"
                                         >
                                             <Star class="size-3.5 shrink-0" />
-                                            {{ requiredHires.length }} required {{ activeUpgradeHiringRules.required_characteristic }} models auto-added
+                                            {{ requiredHires.length }} required {{ activeUpgradeHiringRules.required_characteristic }} models
+                                            auto-added
                                         </div>
 
                                         <div class="mb-3 flex items-center justify-end">
@@ -2171,7 +2163,9 @@ onUnmounted(() => {
                                                     <Star
                                                         class="size-3.5"
                                                         :class="
-                                                            activeCrewUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'
+                                                            activeCrewUpgradeId === upgrade.id
+                                                                ? 'fill-amber-500 text-amber-500'
+                                                                : 'text-muted-foreground'
                                                         "
                                                     />
                                                 </button>
@@ -2275,7 +2269,8 @@ onUnmounted(() => {
                                                         :model-value="String(member.miniature?.id ?? '')"
                                                         @update:model-value="
                                                             (val: string) => {
-                                                                member.miniature = member.character.miniatures.find((m) => m.id === Number(val)) ?? null;
+                                                                member.miniature =
+                                                                    member.character.miniatures.find((m) => m.id === Number(val)) ?? null;
                                                                 triggerAutosave();
                                                             }
                                                         "
@@ -2306,7 +2301,7 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Desktop: Side-by-side grid layout / Fixed crew: centered -->
-                    <div v-if="!isMobile || isFixedCrew" :class="isFixedCrew ? 'mx-auto max-w-xl' : 'grid gap-4 grid-cols-5'">
+                    <div v-if="!isMobile || isFixedCrew" :class="isFixedCrew ? 'mx-auto max-w-xl' : 'grid grid-cols-5 gap-4'">
                         <!-- Hiring Pool (left on desktop) -->
                         <div v-if="!isFixedCrew" class="md:col-span-3">
                             <Card>
@@ -2534,9 +2529,7 @@ onUnmounted(() => {
                                         <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                             <div
-                                                v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
-                                                    (s) => crewStats!.suitCounts[s],
-                                                )"
+                                                v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
                                                 :key="suit"
                                                 class="text-center"
                                             >

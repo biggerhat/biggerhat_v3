@@ -45,7 +45,7 @@ const goToPage = (page: number) => {
     } else {
         url.searchParams.set('page', String(page));
     }
-    router.get(url.pathname + url.search, {}, { only: props.only, preserveState: true, replace: true });
+    router.get(url.pathname + url.search, {}, { only: props.only, preserveState: true, preserveScroll: true, replace: true });
 };
 </script>
 
@@ -64,7 +64,7 @@ const goToPage = (page: number) => {
                 <PaginationFirst />
                 <PaginationPrevious />
 
-                <template v-for="(item, index) in page.items" :key="index">
+                <template v-for="(item, index) in page.items" :key="item.type + '-' + item.value">
                     <PaginationItem v-if="item.type === 'page'" :value="item.value" :is-active="item.value === paginator.current_page">
                         {{ item.value }}
                     </PaginationItem>

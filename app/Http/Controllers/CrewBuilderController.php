@@ -421,6 +421,7 @@ class CrewBuilderController extends Controller
                 'slug' => $u->slug,
                 'front_image' => $u->front_image,
                 'back_image' => $u->back_image,
+                'type' => $u->type?->label(),
             ]);
 
         // Collect all linked characters (summons + replaces, both directions)

@@ -133,6 +133,7 @@ const filter = () => {
         only: ['characters', 'keyword_breakdown'],
         replace: true,
         preserveState: true,
+        preserveScroll: true,
     });
 };
 
@@ -159,8 +160,8 @@ const toggleSection = (section: SectionKey) => {
     }
 };
 
-const urlParams = new URLSearchParams(window.location.search);
 onMounted(() => {
+    const urlParams = new URLSearchParams(window.location.search);
     filterParams.value.keyword = urlParams.get('keyword');
     filterParams.value.station = urlParams.get('station');
     filterParams.value.characteristic = urlParams.get('characteristic');

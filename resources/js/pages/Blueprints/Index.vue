@@ -1,25 +1,23 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { FileImage, LayoutGrid, List, Search, X } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { FileImage } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 import BlueprintCard from '@/components/BlueprintCard.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
+import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cleanObject } from '@/composables/CleanObject';
 import { imageSrc } from '@/composables/useBlueprintImages';
+import { useListFiltering } from '@/composables/useListFiltering';
 
 const props = defineProps<{
     blueprints: any;
@@ -28,78 +26,24 @@ const props = defineProps<{
     characters: any[];
 }>();
 
-const filterParams = ref({
-    name_search: null as string | null,
-    sculpt_version: null as string | null,
-    character: null as string | null,
-    page_view: null as string | null,
-});
-
 const filterKeys = ['name_search', 'sculpt_version', 'character'] as const;
 
-const activeFilterCount = computed(() => {
-    return filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
-});
-
-const filter = () => {
-    const params: Record<string, string | null> = { ...filterParams.value };
-    for (const key in params) {
-        if (params[key] === '') {
-            params[key] = null;
-        }
-    }
-    params.page = null;
-    router.get(route('blueprints.index'), cleanObject(params), {
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
+    {
+        name_search: null as string | null,
+        sculpt_version: null as string | null,
+        character: null as string | null,
+        page_view: null as string | null,
+    },
+    {
+        routeName: 'blueprints.index',
+        filterKeys,
         only: ['blueprints', 'result_count'],
-        replace: true,
-        preserveState: true,
-    });
-};
-
-const clear = () => {
-    for (const key of filterKeys) {
-        filterParams.value[key] = null;
-    }
-    filterParams.value.page_view = 'cards';
-    filter();
-};
-
-const handleNameKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-        filter();
-    }
-};
-
-const clearNameSearch = () => {
-    filterParams.value.name_search = null;
-    filter();
-};
-
-const handleViewChange = (value: string) => {
-    filterParams.value.page_view = value;
-    filter();
-};
-
-const urlParams = new URLSearchParams(window.location.search);
-onMounted(() => {
-    filterParams.value.name_search = urlParams.get('name_search');
-    filterParams.value.sculpt_version = urlParams.get('sculpt_version');
-    filterParams.value.character = urlParams.get('character');
-    filterParams.value.page_view = urlParams.get('page_view') ?? 'cards';
-});
+    },
+);
 
 const blueprintCount = computed(() => props.blueprints?.data?.length ?? 0);
 const { delays } = useStaggeredEntry(blueprintCount);
-
-const isLoading = ref(false);
-onMounted(() => {
-    router.on('start', () => {
-        isLoading.value = true;
-    });
-    router.on('finish', () => {
-        isLoading.value = false;
-    });
-});
 
 const formatVersion = (version: string) => {
     return version ? version.replace(/_/g, ' ') : '';
@@ -121,71 +65,41 @@ const formatVersion = (version: string) => {
             </template>
         </PageBanner>
 
-        <!-- Search bar -->
-        <div class="container mx-auto mb-3 sm:px-4">
-            <div class="relative">
-                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                    v-model="filterParams.name_search"
-                    type="text"
-                    placeholder="Search blueprints by name..."
-                    class="border-2 border-primary pl-10 pr-10"
-                    @keydown="handleNameKeydown"
-                />
-                <button
-                    v-if="filterParams.name_search"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    @click="clearNameSearch"
-                >
-                    <X class="h-4 w-4" />
-                </button>
-            </div>
-        </div>
-
-        <!-- Tabs + filter badge + mobile trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-between sm:px-4">
-            <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
-                <TabsList>
-                    <TabsTrigger value="cards">
-                        <LayoutGrid class="h-4 w-4" />
-                        <span class="hidden sm:inline">Cards</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="table">
-                        <List class="h-4 w-4" />
-                        <span class="hidden sm:inline">Table</span>
-                    </TabsTrigger>
-                </TabsList>
-            </Tabs>
-            <div class="flex items-center gap-2">
-                <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
-                    {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
-                </Badge>
-                <div class="md:hidden">
-                    <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
-                        <div class="grid gap-4">
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Character</label>
-                                <SearchableSelect
-                                    v-model="filterParams.character"
-                                    placeholder="Any Character"
-                                    :options="props.characters"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Sculpt Version</label>
-                                <ClearableSelect
-                                    v-model="filterParams.sculpt_version"
-                                    placeholder="Any Version"
-                                    :options="props.sculpt_versions"
-                                    trigger-class="border-2 border-primary rounded"
-                                />
-                            </div>
-                        </div>
-                    </FilterPanel>
+        <ListSearchBar
+            v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
+            @update:page-view="handleViewChange"
+            :active-filter-count="activeFilterCount"
+            placeholder="Search blueprints by name..."
+            has-filters
+            @name-keydown="handleNameKeydown"
+            @clear-search="clearNameSearch"
+            @filter="filter"
+            @clear="clear"
+        >
+            <template #filters>
+                <div class="grid gap-4">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium">Character</label>
+                        <SearchableSelect
+                            v-model="filterParams.character"
+                            placeholder="Any Character"
+                            :options="props.characters"
+                            trigger-class="border-2 border-primary rounded"
+                        />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium">Sculpt Version</label>
+                        <ClearableSelect
+                            v-model="filterParams.sculpt_version"
+                            placeholder="Any Version"
+                            :options="props.sculpt_versions"
+                            trigger-class="border-2 border-primary rounded"
+                        />
+                    </div>
                 </div>
-            </div>
-        </div>
+            </template>
+        </ListSearchBar>
 
         <!-- Main content area -->
         <div class="container mx-auto sm:px-4">

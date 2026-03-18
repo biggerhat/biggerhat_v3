@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,12 +25,28 @@ const props = defineProps({
             return null;
         },
     },
+    all_characters: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    all_upgrades: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
 });
 
 const formInfo = ref({
     name: null,
     base: null,
     description: null,
+    characters: [] as string[],
+    upgrades: [] as string[],
 });
 
 const submit = () => {
@@ -40,6 +57,14 @@ onMounted(() => {
     formInfo.value.name = props.marker?.name ?? null;
     formInfo.value.description = props.marker?.description ?? null;
     formInfo.value.base = Number(props.marker?.base) ?? null;
+
+    props.marker?.characters?.forEach((c: any) => {
+        formInfo.value.characters.push(c.slug);
+    });
+
+    props.marker?.upgrades?.forEach((u: any) => {
+        formInfo.value.upgrades.push(u.slug);
+    });
 });
 </script>
 
@@ -77,6 +102,22 @@ onMounted(() => {
                                 </SelectContent>
                             </Select>
                             <InputError :message="usePage().props.errors.base" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <SearchableMultiselect
+                                v-model="formInfo.characters"
+                                placeholder="Linked Characters"
+                                :options="props.all_characters"
+                            />
+                            <InputError :message="usePage().props.errors.characters" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <SearchableMultiselect
+                                v-model="formInfo.upgrades"
+                                placeholder="Linked Upgrades"
+                                :options="props.all_upgrades"
+                            />
+                            <InputError :message="usePage().props.errors.upgrades" />
                         </div>
                     </div>
                 </form>

@@ -43,9 +43,7 @@ const columns: ColumnDef<Upgrades>[] = [
             return h(
                 'div',
                 { class: 'flex flex-wrap gap-1' },
-                characters.map((c: { display_name: string }) =>
-                    h('span', { class: 'rounded bg-muted px-1.5 py-0.5 text-xs' }, c.display_name),
-                ),
+                characters.map((c: { display_name: string }) => h('span', { class: 'rounded bg-muted px-1.5 py-0.5 text-xs' }, c.display_name)),
             );
         },
     },

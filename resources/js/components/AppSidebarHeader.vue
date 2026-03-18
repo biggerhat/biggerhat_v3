@@ -98,6 +98,28 @@ function toggleDialog() {
                         {{ upgrade.name }}
                     </CommandItem>
                 </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup heading="Miniatures">
+                    <CommandItem
+                        v-for="mini in commandSearch.miniatures"
+                        v-bind:key="mini.name"
+                        @select="commandRoute(mini.route)"
+                        :value="mini.name"
+                    >
+                        {{ mini.name }}
+                    </CommandItem>
+                </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup heading="Packages">
+                    <CommandItem
+                        v-for="pkg in commandSearch.packages"
+                        v-bind:key="pkg.name"
+                        @select="commandRoute(pkg.route)"
+                        :value="pkg.name"
+                    >
+                        {{ pkg.name }}
+                    </CommandItem>
+                </CommandGroup>
             </CommandList>
         </CommandDialog>
     </div>

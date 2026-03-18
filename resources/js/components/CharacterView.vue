@@ -3,6 +3,7 @@ import AddToWishlist from '@/components/AddToWishlist.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -212,7 +213,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 </script>
 
 <template>
-    <div class="container mx-auto sm:px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
+    <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
         <!-- Back link -->
         <Link
             :href="route('factions.view', character.faction)"
@@ -340,7 +341,9 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                     :key="marker.id"
                                     variant="outline"
                                     class="cursor-pointer transition-colors hover:bg-accent"
-                                    @click="openTextDrawer(marker.name, 'Marker', marker.description, marker.base ? marker.base + 'mm base' : undefined)"
+                                    @click="
+                                        openTextDrawer(marker.name, 'Marker', marker.description, marker.base ? marker.base + 'mm base' : undefined)
+                                    "
                                 >
                                     {{ marker.name }}
                                 </Badge>
@@ -853,7 +856,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     </div>
                 </DrawerHeader>
                 <div class="px-4 pb-4">
-                    <p class="text-sm leading-relaxed">{{ textDrawerDescription }}</p>
+                    <p class="text-sm leading-relaxed"><GameText :text="textDrawerDescription" /></p>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>

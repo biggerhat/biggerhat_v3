@@ -122,7 +122,7 @@ const clear = () => {
     filterParams.value.station = null;
     filterParams.value.characteristic = null;
     filterParams.value.page_view = 'images';
-    filterParams.value.sort = 'name';
+    filterParams.value.sort = 'station';
     filterParams.value.sort_type = 'ascending';
     filter();
 };
@@ -132,6 +132,7 @@ const filter = () => {
         only: ['characters', 'keyword_breakdown', 'statistics'],
         replace: true,
         preserveState: true,
+        preserveScroll: true,
     });
 };
 
@@ -140,14 +141,13 @@ const handleViewChange = (value: string) => {
     filter();
 };
 
-const urlParams = new URLSearchParams(window.location.search);
-
 onMounted(() => {
+    const urlParams = new URLSearchParams(window.location.search);
     filterParams.value.faction = urlParams.get('faction');
     filterParams.value.station = urlParams.get('station');
     filterParams.value.characteristic = urlParams.get('characteristic');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
-    filterParams.value.sort = urlParams.get('sort') ?? 'name';
+    filterParams.value.sort = urlParams.get('sort') ?? 'station';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
 });
 

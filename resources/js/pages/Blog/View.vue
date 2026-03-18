@@ -61,7 +61,7 @@ const hasRelatedContent = () => {
     <div v-if="post.featured_image" class="relative h-[240px] w-full overflow-hidden sm:h-[360px] lg:h-[480px]">
         <img :src="`/storage/${post.featured_image}`" :alt="post.title" loading="lazy" decoding="async" class="h-full w-full object-cover" />
         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div class="container absolute inset-x-0 bottom-0 mx-auto sm:px-4 pb-6 sm:pb-8 md:pb-12">
+        <div class="container absolute inset-x-0 bottom-0 mx-auto pb-6 sm:px-4 sm:pb-8 md:pb-12">
             <Badge v-if="post.category" variant="secondary" class="animate-fade-in-up mb-2 opacity-0 sm:mb-3">{{ post.category.name }}</Badge>
             <h1
                 class="animate-fade-in-up mb-3 max-w-3xl text-2xl font-bold leading-tight text-white opacity-0 [animation-delay:100ms] sm:mb-4 sm:text-3xl md:text-4xl lg:text-5xl"
@@ -87,7 +87,7 @@ const hasRelatedContent = () => {
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
-        <div class="container mx-auto sm:px-4 pb-4 pt-6 sm:pb-6 md:pt-12">
+        <div class="container mx-auto pb-4 pt-6 sm:px-4 sm:pb-6 md:pt-12">
             <Badge v-if="post.category" variant="secondary" class="animate-fade-in-up mb-2 opacity-0 sm:mb-3">{{ post.category.name }}</Badge>
             <h1
                 class="animate-fade-in-up mb-3 max-w-3xl text-2xl font-bold leading-tight opacity-0 [animation-delay:100ms] sm:mb-4 sm:text-3xl md:text-4xl lg:text-5xl"
@@ -107,7 +107,7 @@ const hasRelatedContent = () => {
         </div>
     </div>
 
-    <article class="container mx-auto sm:px-4 pb-8 lg:pb-16">
+    <article class="container mx-auto pb-8 sm:px-4 lg:pb-16">
         <div class="mx-auto max-w-3xl">
             <!-- Back link -->
             <Link

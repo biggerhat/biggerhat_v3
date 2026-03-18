@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import FilterPanel from '@/components/FilterPanel.vue';
+import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { cleanObject } from '@/composables/CleanObject';
+import { useListFiltering } from '@/composables/useListFiltering';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ExternalLink } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 
 interface SelectOption {
     name: string;
@@ -53,51 +53,30 @@ defineProps<{
 
 const factionInfo = computed(() => page.props.faction_info);
 
-const filterParams = ref({
-    channel: null as string | null,
-    transmission_type: null as string | null,
-    content_type: null as string | null,
-    faction: null as string | null,
-    keyword: null as string | null,
-    character: null as string | null,
-});
-
 const filterKeys = ['channel', 'transmission_type', 'content_type', 'faction', 'keyword', 'character'] as const;
 
-const activeFilterCount = computed(() => {
-    return filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
-});
-
-const filter = () => {
-    const params: Record<string, string | null> = { ...filterParams.value };
-    router.get(route('channels.index'), cleanObject(params), {
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange } = useListFiltering(
+    {
+        channel: null as string | null,
+        transmission_type: null as string | null,
+        content_type: null as string | null,
+        faction: null as string | null,
+        keyword: null as string | null,
+        character: null as string | null,
+        name_search: null as string | null,
+        page_view: null as string | null,
+    },
+    {
+        routeName: 'channels.index',
+        filterKeys,
         only: ['transmissions'],
-        replace: true,
-        preserveState: true,
-    });
-};
-
-const clear = () => {
-    for (const key of filterKeys) {
-        filterParams.value[key] = null;
-    }
-    filter();
-};
+    },
+);
 
 const filterByTag = (key: string, value: string) => {
-    filterParams.value[key] = value;
+    (filterParams.value as Record<string, string | null>)[key] = value;
     filter();
 };
-
-onMounted(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    filterParams.value.channel = urlParams.get('channel');
-    filterParams.value.transmission_type = urlParams.get('transmission_type');
-    filterParams.value.content_type = urlParams.get('content_type');
-    filterParams.value.faction = urlParams.get('faction');
-    filterParams.value.keyword = urlParams.get('keyword');
-    filterParams.value.character = urlParams.get('character');
-});
 
 const getFactionLabel = (slug: string) => factionInfo.value[slug]?.name ?? slug;
 const getFactionLogo = (slug: string) => factionInfo.value[slug]?.logo ?? '';
@@ -125,9 +104,19 @@ const formatDate = (dateStr: string) => {
             </template>
         </PageBanner>
 
-        <!-- Mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-end sm:px-4 md:hidden">
-            <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
+        <ListSearchBar
+            v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
+            @update:page-view="handleViewChange"
+            :active-filter-count="activeFilterCount"
+            placeholder="Search transmissions by name..."
+            has-filters
+            @name-keydown="handleNameKeydown"
+            @clear-search="clearNameSearch"
+            @filter="filter"
+            @clear="clear"
+        >
+            <template #filters>
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Channel</label>
@@ -184,8 +173,8 @@ const formatDate = (dateStr: string) => {
                         />
                     </div>
                 </div>
-            </FilterPanel>
-        </div>
+            </template>
+        </ListSearchBar>
 
         <div class="container mx-auto sm:px-4">
             <div class="flex gap-6">

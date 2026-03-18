@@ -57,6 +57,7 @@ class KeywordController extends Controller
 
         $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Faction->value => 'faction',
+            CharacterSortOptionsEnum::Station->value => 'station_sort_order',
             CharacterSortOptionsEnum::Cost->value => 'cost',
             CharacterSortOptionsEnum::Health->value => 'health',
             CharacterSortOptionsEnum::Speed->value => 'speed',
@@ -64,7 +65,7 @@ class KeywordController extends Controller
             CharacterSortOptionsEnum::Willpower->value => 'willpower',
             CharacterSortOptionsEnum::Size->value => 'size',
             CharacterSortOptionsEnum::BaseSize->value => 'base',
-            default => 'display_name',
+            default => 'station_sort_order',
         };
 
         $sortType = match ($request->get('sort_type')) {
@@ -72,7 +73,9 @@ class KeywordController extends Controller
             default => 'ASC',
         };
 
-        $characters = $query->orderBy($sort, $sortType)->get();
+        $characters = $query->orderBy($sort, $sortType)
+            ->orderBy('display_name')
+            ->get();
 
         $factions = $characters->pluck('faction')->flatten()->unique()->map(function (FactionEnum $faction) {
             return [

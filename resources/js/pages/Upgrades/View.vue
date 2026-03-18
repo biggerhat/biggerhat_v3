@@ -75,7 +75,7 @@ const hasRelatedContent = computed(
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto sm:px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
+        <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
             <!-- Back link -->
             <Link
                 :href="backRoute"

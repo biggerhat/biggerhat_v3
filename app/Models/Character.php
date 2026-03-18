@@ -145,4 +145,40 @@ class Character extends Model
     {
         return $this->morphToMany(Transmission::class, 'taggable', 'transmission_taggables');
     }
+
+    /** Characters this model summons. */
+    public function summons(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
+            ->wherePivot('type', 'summons')
+            ->withPivot('type')
+            ->withTimestamps();
+    }
+
+    /** Characters that summon this model. */
+    public function summonedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'character_links', 'linked_character_id', 'character_id')
+            ->wherePivot('type', 'summons')
+            ->withPivot('type')
+            ->withTimestamps();
+    }
+
+    /** Characters this model replaces into. */
+    public function replacesInto(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
+            ->wherePivot('type', 'replaces_into')
+            ->withPivot('type')
+            ->withTimestamps();
+    }
+
+    /** Characters that replace into this model. */
+    public function replacedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'character_links', 'linked_character_id', 'character_id')
+            ->wherePivot('type', 'replaces_into')
+            ->withPivot('type')
+            ->withTimestamps();
+    }
 }

@@ -8,6 +8,7 @@ use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\Upgrade;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -368,6 +369,83 @@ class CrewBuilderController extends Controller
             'total_spent' => $totalSpent,
             'soulstone_pool' => $soulstonePool,
             'ook_count' => $ookCount,
+        ]);
+    }
+
+    public function references(Request $request): JsonResponse
+    {
+        $ids = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ])['ids'];
+
+        $characters = Character::with([
+            'markers:id,name,slug,description,base',
+            'tokens:id,name,slug,description',
+            'characterUpgrades:id,name,slug,front_image,back_image',
+            'summons:id,name,title,display_name,slug,faction',
+            'summons.miniatures:id,character_id,front_image,slug',
+            'summonedBy:id,name,title,display_name,slug,faction',
+            'summonedBy.miniatures:id,character_id,front_image,slug',
+            'replacesInto:id,name,title,display_name,slug,faction',
+            'replacesInto.miniatures:id,character_id,front_image,slug',
+            'replacedBy:id,name,title,display_name,slug,faction',
+            'replacedBy.miniatures:id,character_id,front_image,slug',
+        ])->whereIn('id', $ids)->get();
+
+        // Also gather references from summoned/replaced characters
+        $linkedCharacterIds = $characters->flatMap(fn ($c) => $c->summons->pluck('id')
+            ->merge($c->replacesInto->pluck('id'))
+        )->unique()->diff($ids)->values();
+
+        $linkedCharacters = $linkedCharacterIds->isNotEmpty()
+            ? Character::with([
+                'markers:id,name,slug,description,base',
+                'tokens:id,name,slug,description',
+                'characterUpgrades:id,name,slug,front_image,back_image',
+            ])->whereIn('id', $linkedCharacterIds)->get()
+            : collect();
+
+        $allCharacters = $characters->merge($linkedCharacters);
+
+        $markers = $allCharacters->flatMap->markers->unique('id')->sortBy('name')->values()
+            ->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'slug' => $m->slug, 'description' => $m->description, 'base' => $m->base]);
+
+        $tokens = $allCharacters->flatMap->tokens->unique('id')->sortBy('name')->values()
+            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug, 'description' => $t->description]);
+
+        $upgrades = $allCharacters->flatMap->characterUpgrades->unique('id')->sortBy('name')->values()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'slug' => $u->slug,
+                'front_image' => $u->front_image,
+                'back_image' => $u->back_image,
+            ]);
+
+        // Collect all linked characters (summons + replaces, both directions)
+        // Collect all linked characters (summons + replaces, both directions)
+        $linkedChars = collect();
+        $mapLinked = function (Character $s, string $type) use ($linkedChars): void {
+            $linkedChars->push([
+                ...$s->only('id', 'display_name', 'slug', 'faction'),
+                'type' => $type,
+                'front_image' => $s->miniatures->first()?->front_image,
+            ]);
+        };
+        foreach ($characters as $c) {
+            $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons')); // @phpstan-ignore argument.type
+            $c->summonedBy->each(fn (Character $s) => $mapLinked($s, 'Summoned by')); // @phpstan-ignore argument.type
+            $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into')); // @phpstan-ignore argument.type
+            $c->replacedBy->each(fn (Character $s) => $mapLinked($s, 'Replaced by')); // @phpstan-ignore argument.type
+        }
+        $linkedChars = $linkedChars->unique('id')->sortBy('display_name')->values();
+
+        return response()->json([
+            'markers' => $markers,
+            'tokens' => $tokens,
+            'upgrades' => $upgrades,
+            'characters' => $linkedChars,
         ]);
     }
 

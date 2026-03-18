@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import TipTapEditor from '@/components/blog/TipTapEditor.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +44,9 @@ import {
     UserMinus,
     UserPlus,
 } from 'lucide-vue-next';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
+
+const TipTapEditor = defineAsyncComponent(() => import('@/components/blog/TipTapEditor.vue'));
 
 interface Keyword {
     id: number;
@@ -860,6 +862,43 @@ const poolFilterCounts = computed(() => ({
     ook: hiringPool.value.filter((c) => getHiringCategory(c) === 'ook').length,
     all: hiringPool.value.length,
 }));
+
+// ─── References ───
+interface ReferenceData {
+    markers: { id: number; name: string; slug: string }[];
+    tokens: { id: number; name: string; slug: string }[];
+    upgrades: { id: number; name: string; slug: string; front_image: string | null; back_image: string | null }[];
+    characters: { id: number; display_name: string; slug: string; faction: string; type: string }[];
+}
+
+const references = ref<ReferenceData | null>(null);
+const referencesLoading = ref(false);
+
+const crewCharacterIds = computed(() => crew.value.map((m) => m.character.id));
+
+const debouncedCrewIds = refDebounced(crewCharacterIds, 500);
+
+watch(
+    debouncedCrewIds,
+    async (ids) => {
+        if (ids.length === 0) {
+            references.value = null;
+            return;
+        }
+        referencesLoading.value = true;
+        try {
+            const params = new URLSearchParams();
+            ids.forEach((id) => params.append('ids[]', String(id)));
+            const res = await fetch(route('tools.crew_builder.references') + '?' + params.toString());
+            references.value = await res.json();
+        } catch {
+            references.value = null;
+        } finally {
+            referencesLoading.value = false;
+        }
+    },
+    { immediate: true },
+);
 
 // ─── Virtual scroller ───
 const poolScrollRef = ref<HTMLElement | null>(null);
@@ -1894,18 +1933,21 @@ onUnmounted(() => {
                                     <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                 </div>
-                                <template v-if="Object.keys(crewStats.suitCounts).length">
-                                    <div
-                                        v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
-                                            (s) => crewStats!.suitCounts[s],
-                                        )"
-                                        :key="suit"
-                                        class="text-center"
-                                    >
-                                        <GameIcon :type="suit" class-name="mx-auto h-4" />
-                                        <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
-                                    </div>
-                                </template>
+                            </div>
+                        </div>
+                        <div v-if="crewStats && Object.keys(crewStats.suitCounts).length" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
+                            <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                <div
+                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
+                                        (s) => crewStats!.suitCounts[s],
+                                    )"
+                                    :key="suit"
+                                    class="text-center"
+                                >
+                                    <GameIcon :type="suit" class-name="mx-auto h-4" />
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
+                                </div>
                             </div>
                         </div>
 
@@ -2254,6 +2296,9 @@ onUnmounted(() => {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- References -->
+                                        <CrewBuilderReferences :references="references" :loading="referencesLoading" />
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -2483,19 +2528,21 @@ onUnmounted(() => {
                                                 <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                             </div>
-                                            <template v-if="Object.keys(crewStats.suitCounts).length">
-                                                <Separator orientation="vertical" class="hidden h-6 sm:block" />
-                                                <div
-                                                    v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
-                                                        (s) => crewStats!.suitCounts[s],
-                                                    )"
-                                                    :key="suit"
-                                                    class="text-center"
-                                                >
-                                                    <GameIcon :type="suit" class-name="mx-auto h-4" />
-                                                    <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
-                                                </div>
-                                            </template>
+                                        </div>
+                                    </div>
+                                    <div v-if="Object.keys(crewStats.suitCounts).length" class="mt-2 border-t border-border/30 pt-2">
+                                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                            <div
+                                                v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
+                                                    (s) => crewStats!.suitCounts[s],
+                                                )"
+                                                :key="suit"
+                                                class="text-center"
+                                            >
+                                                <GameIcon :type="suit" class-name="mx-auto h-4" />
+                                                <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -2681,6 +2728,9 @@ onUnmounted(() => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- References -->
+                                    <CrewBuilderReferences :references="references" :loading="referencesLoading" />
                                 </CardContent>
                             </Card>
                         </div>

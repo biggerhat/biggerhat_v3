@@ -185,6 +185,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::prefix('crew-builder')->name('crew_builder.')->group(function () {
         Route::get('/', [CrewBuilderController::class, 'browse'])->name('index');
         Route::get('/editor', [CrewBuilderController::class, 'editor'])->name('editor');
+        Route::get('/references', [CrewBuilderController::class, 'references'])->name('references');
         Route::get('/share/{shareCode}', [CrewBuilderController::class, 'share'])->name('share');
         Route::get('/{crewBuild}/details', [CrewBuilderController::class, 'details'])->name('details')->middleware('auth');
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');

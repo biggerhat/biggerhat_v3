@@ -17,7 +17,9 @@ class CharacterController extends Controller
             'miniatures', 'keywords', 'characteristics',
             'crewUpgrades', 'characterUpgrades', 'packages',
             'lores.media',
-            'totem.standardMiniatures', 'isTotemFor.standardMiniatures'
+            'totem.standardMiniatures', 'isTotemFor.standardMiniatures',
+            'summons.miniatures', 'summonedBy.miniatures',
+            'replacesInto.miniatures', 'replacedBy.miniatures',
         );
         $character->load(['blueprints' => fn ($q) => $q->withImage()]);
         $character->load(['transmissions' => fn ($q) => $q->with('channel:id,name,slug,image')->latest('release_date')->limit(3)]);

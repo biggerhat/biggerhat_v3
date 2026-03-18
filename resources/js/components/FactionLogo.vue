@@ -28,5 +28,5 @@ const info = computed(() => factionMap[props.faction] ?? { src: '', alt: props.f
 </script>
 
 <template>
-    <img :src="info.src" :class="className" :alt="info.alt" />
+    <img :src="info.src" :class="className" :alt="info.alt" loading="lazy" decoding="async" />
 </template>

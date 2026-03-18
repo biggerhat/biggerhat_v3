@@ -37,7 +37,7 @@ class CharacterAdminController extends Controller
     public function edit(Request $request, Character $character)
     {
         return inertia('Admin/Characters/CharacterForm', array_merge(
-            ['character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem'])],
+            ['character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem', 'summons', 'replacesInto'])],
             $this->getFormData(),
         ));
     }
@@ -87,6 +87,7 @@ class CharacterAdminController extends Controller
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
             'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
+            'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
         ];
     }
 
@@ -122,6 +123,8 @@ class CharacterAdminController extends Controller
             'is_unhirable' => ['required', 'boolean'],
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
+            'summons' => ['nullable', 'array'],
+            'replaces_into' => ['nullable', 'array'],
         ]);
 
         if ($validated['station']) {
@@ -172,6 +175,12 @@ class CharacterAdminController extends Controller
         $tokens = Token::whereIn('name', $validated['tokens'])->get();
         unset($validated['tokens']);
 
+        $summonIds = Character::whereIn('slug', $validated['summons'] ?? [])->pluck('id');
+        unset($validated['summons']);
+
+        $replacesIntoIds = Character::whereIn('slug', $validated['replaces_into'] ?? [])->pluck('id');
+        unset($validated['replaces_into']);
+
         if (! ($character)) {
             $character = Character::create($validated);
         } else {
@@ -188,6 +197,9 @@ class CharacterAdminController extends Controller
         $character->abilities()->sync($abilities->pluck('id'));
         $character->markers()->sync($markers->pluck('id'));
         $character->tokens()->sync($tokens->pluck('id'));
+
+        $character->summons()->sync($summonIds);
+        $character->replacesInto()->sync($replacesIntoIds);
 
         return $character;
     }

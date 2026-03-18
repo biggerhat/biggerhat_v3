@@ -198,8 +198,8 @@ class CharacterAdminController extends Controller
         $character->markers()->sync($markers->pluck('id'));
         $character->tokens()->sync($tokens->pluck('id'));
 
-        $character->summons()->sync($summonIds);
-        $character->replacesInto()->sync($replacesIntoIds);
+        $character->summons()->sync($summonIds->mapWithKeys(fn ($id) => [$id => ['type' => 'summons']]));
+        $character->replacesInto()->sync($replacesIntoIds->mapWithKeys(fn ($id) => [$id => ['type' => 'replaces_into']]));
 
         return $character;
     }

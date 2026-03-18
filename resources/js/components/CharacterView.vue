@@ -194,6 +194,21 @@ const openUpgradeDrawer = (upgrade: any) => {
     activeUpgrade.value = upgrade;
     upgradeDrawerOpen.value = true;
 };
+
+// ─── Token/Marker Drawer ───
+const textDrawerOpen = ref(false);
+const textDrawerTitle = ref('');
+const textDrawerLabel = ref('');
+const textDrawerDescription = ref('');
+const textDrawerSubtitle = ref('');
+
+const openTextDrawer = (name: string, label: string, description: string | null, subtitle?: string) => {
+    textDrawerTitle.value = name;
+    textDrawerLabel.value = label;
+    textDrawerDescription.value = description || 'No description available.';
+    textDrawerSubtitle.value = subtitle || '';
+    textDrawerOpen.value = true;
+};
 </script>
 
 <template>
@@ -297,6 +312,38 @@ const openUpgradeDrawer = (upgrade: any) => {
                                 <Link v-for="keyword in character.keywords" :key="keyword.id" :href="route('keywords.view', keyword.slug)">
                                     <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">{{ keyword.name }}</Badge>
                                 </Link>
+                            </div>
+                        </div>
+
+                        <!-- Tokens -->
+                        <div v-if="character.tokens?.length">
+                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tokens</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <Badge
+                                    v-for="token in character.tokens"
+                                    :key="token.id"
+                                    variant="outline"
+                                    class="cursor-pointer transition-colors hover:bg-accent"
+                                    @click="openTextDrawer(token.name, 'Token', token.description)"
+                                >
+                                    {{ token.name }}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <!-- Markers -->
+                        <div v-if="character.markers?.length">
+                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Markers</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <Badge
+                                    v-for="marker in character.markers"
+                                    :key="marker.id"
+                                    variant="outline"
+                                    class="cursor-pointer transition-colors hover:bg-accent"
+                                    @click="openTextDrawer(marker.name, 'Marker', marker.description, marker.base ? marker.base + 'mm base' : undefined)"
+                                >
+                                    {{ marker.name }}
+                                </Badge>
                             </div>
                         </div>
 
@@ -785,6 +832,28 @@ const openUpgradeDrawer = (upgrade: any) => {
                             </Link>
                         </div>
                     </div>
+                </div>
+                <DrawerFooter class="shrink-0 pt-2">
+                    <DrawerClose as-child>
+                        <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
+
+    <!-- Token/Marker Drawer -->
+    <Drawer v-model:open="textDrawerOpen">
+        <DrawerContent>
+            <div class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">{{ textDrawerTitle }}</DrawerTitle>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">
+                        {{ textDrawerLabel }}<span v-if="textDrawerSubtitle"> &middot; {{ textDrawerSubtitle }}</span>
+                    </div>
+                </DrawerHeader>
+                <div class="px-4 pb-4">
+                    <p class="text-sm leading-relaxed">{{ textDrawerDescription }}</p>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>

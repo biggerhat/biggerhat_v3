@@ -179,6 +179,11 @@ const mainNavItems: NavItem[] = [
                 icon: Shield,
             },
             {
+                title: 'Triggers',
+                href: route('triggers.index'),
+                icon: Swords,
+            },
+            {
                 title: 'Keywords',
                 href: route('keywords.index'),
                 icon: KeyRound,

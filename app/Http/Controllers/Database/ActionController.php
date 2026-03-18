@@ -9,6 +9,7 @@ use App\Enums\ResistanceTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Action;
+use App\Models\Trigger;
 use Illuminate\Http\Request;
 
 class ActionController extends Controller
@@ -96,6 +97,10 @@ class ActionController extends Controller
             $query->where('description', 'LIKE', '%'.$request->get('description').'%');
         }
 
+        if ($request->filled('trigger')) {
+            $query->whereHas('triggers', fn ($q) => $q->where('name', $request->get('trigger')));
+        }
+
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
@@ -110,6 +115,8 @@ class ActionController extends Controller
             'suits' => fn () => SuitEnum::toSelectOptions(),
             'stat_modifiers' => fn () => ModifierTypeEnum::toSelectOptions(),
             'resistance_types' => fn () => ResistanceTypeEnum::toSelectOptions(),
+            'trigger_names' => fn () => Trigger::select('name')->distinct()->orderBy('name', 'ASC')
+                ->get()->map(fn ($t) => ['name' => $t->name, 'value' => $t->name]),
         ]);
     }
 }

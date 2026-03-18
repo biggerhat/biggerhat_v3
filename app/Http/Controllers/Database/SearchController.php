@@ -20,6 +20,7 @@ use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
+use App\Models\Trigger;
 use Illuminate\Http\Request;
 
 class SearchController extends Controller
@@ -198,6 +199,11 @@ class SearchController extends Controller
             });
         }
 
+        // Trigger filter (via actions → triggers)
+        if ($request->filled('trigger')) {
+            $query->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $tq->where('name', $request->get('trigger'))));
+        }
+
         // Sorting
         $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Faction->value => 'faction',
@@ -240,6 +246,7 @@ class SearchController extends Controller
             'action_range_types' => fn () => ActionRangeTypeEnum::toSelectOptions(),
             'stat_modifiers' => fn () => ModifierTypeEnum::toSelectOptions(),
             'resistance_types' => fn () => ResistanceTypeEnum::toSelectOptions(),
+            'triggers' => fn () => Trigger::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($t) => ['name' => $t->name, 'value' => $t->name]),
             'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
             'sort_options' => fn () => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => fn () => SortTypeEnum::toSelectOptions(),

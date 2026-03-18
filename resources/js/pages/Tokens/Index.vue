@@ -77,7 +77,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                 <div class="px-2 text-sm text-muted-foreground">{{ totalCount }} Tokens</div>
             </template>
         </PageBanner>
-        <div class="container mx-auto mt-6 px-4">
+        <div class="container mx-auto mt-6 sm:px-4">
             <div class="flex items-center justify-between py-4">
                 <Input
                     class="max-w-sm"

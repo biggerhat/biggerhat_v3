@@ -30,7 +30,7 @@ defineProps<{
 
         <PageBanner title="My Channels" class="mb-2" />
 
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <div v-if="channels.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Card v-for="channel in channels" :key="channel.id" class="flex flex-col">
                     <CardHeader class="pb-2">

@@ -85,7 +85,7 @@ withDefaults(defineProps<Props>(), {
             <!--                </ul>-->
             <!--            </div>-->
             <!--        </div>-->
-            <div class="container mx-auto px-4">
+            <div class="container mx-auto sm:px-4">
                 <div class="my-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-xs lg:px-0">
                     <a href="https://discord.gg/veGzyuTvGW" target="_blank" class="inline-flex items-center gap-1 hover:underline">
                         Join Our Discord

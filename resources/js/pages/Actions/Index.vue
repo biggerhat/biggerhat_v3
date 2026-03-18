@@ -271,7 +271,7 @@ const formatRangeType = (rangeType: string) => {
         </PageBanner>
 
         <!-- Search bar -->
-        <div class="container mx-auto mb-3 px-4">
+        <div class="container mx-auto mb-3 sm:px-4">
             <div class="relative">
                 <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -292,7 +292,7 @@ const formatRangeType = (rangeType: string) => {
         </div>
 
         <!-- Tabs + mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-between px-4">
+        <div class="container mx-auto mb-2 flex items-center justify-between sm:px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="cards">
@@ -505,7 +505,7 @@ const formatRangeType = (rangeType: string) => {
         </div>
 
         <!-- Main content area -->
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden w-72 shrink-0 md:block">

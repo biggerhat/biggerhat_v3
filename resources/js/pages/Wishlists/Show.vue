@@ -337,7 +337,7 @@ function miniatureHref(mini: MiniatureItem): string {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <!-- Rename inline -->
             <div v-if="editingName && is_owner" class="mb-4 flex items-center gap-2">
                 <Input v-model="editName" class="max-w-sm" @keydown.enter="saveName" @keydown.escape="editingName = false" />

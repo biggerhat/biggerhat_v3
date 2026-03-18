@@ -286,7 +286,7 @@ onMounted(() => {
         </PageBanner>
 
         <!-- Stats Block -->
-        <div v-if="!isLoading" class="container mx-auto mb-2 px-4">
+        <div v-if="!isLoading" class="container mx-auto mb-2 sm:px-4">
             <div class="rounded-lg border bg-card p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
                     <div v-if="stationCounts.length" class="flex items-center gap-1.5">
@@ -309,7 +309,7 @@ onMounted(() => {
         </div>
 
         <!-- Tabs + mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">
+        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -429,7 +429,7 @@ onMounted(() => {
         </div>
 
         <!-- Main content area -->
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden w-56 shrink-0 md:block lg:w-72">

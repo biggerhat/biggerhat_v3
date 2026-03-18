@@ -83,7 +83,7 @@ const { delays } = useStaggeredEntry(filteredCount);
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <div class="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <Input v-model="searchQuery" class="max-w-sm" placeholder="Filter by name or master..." />
                 <div class="flex items-center gap-3">

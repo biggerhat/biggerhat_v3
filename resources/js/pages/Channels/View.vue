@@ -126,7 +126,7 @@ const formatDate = (dateStr: string) => {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto flex items-center gap-6 px-4 pb-6 pt-10">
+        <div class="container mx-auto flex items-center gap-6 sm:px-4 pb-6 pt-10">
             <img v-if="channel.image_url" :src="channel.image_url" :alt="channel.name" class="h-24 w-24 shrink-0 rounded-lg object-cover shadow-md" />
             <div>
                 <h1 class="text-3xl font-bold tracking-tight">{{ channel.name }}</h1>
@@ -138,7 +138,7 @@ const formatDate = (dateStr: string) => {
         </div>
 
         <!-- Mobile filter trigger + Add button -->
-        <div class="container mx-auto mb-2 flex items-center justify-between px-4 md:hidden">
+        <div class="container mx-auto mb-2 flex items-center justify-between sm:px-4 md:hidden">
             <Button v-if="canManage" size="sm" @click="router.get(route('transmissions.create', channel.slug))">Add Transmission</Button>
             <div v-else />
             <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
@@ -192,7 +192,7 @@ const formatDate = (dateStr: string) => {
             </FilterPanel>
         </div>
 
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden w-72 shrink-0 md:block">

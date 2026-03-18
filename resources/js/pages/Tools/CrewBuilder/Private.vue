@@ -15,7 +15,7 @@ import { ArrowLeft, Lock } from 'lucide-vue-next';
         />
         <PageBanner title="Crew Builder" />
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <div class="mb-4">
                 <Button variant="outline" size="sm" class="gap-1.5" as="a" :href="`${route('tools.crew_builder.editor')}?new`">
                     <ArrowLeft class="size-4" />

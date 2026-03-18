@@ -247,7 +247,7 @@ onMounted(() => {
                 </div>
             </template>
         </PageBanner>
-        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 px-4">
+        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
                     <TabsTrigger value="images">
@@ -354,7 +354,7 @@ onMounted(() => {
             </FilterPanel>
         </div>
         <!-- Stats Block -->
-        <div v-if="hasStats && !isLoading" class="container mx-auto mb-4 px-4">
+        <div v-if="hasStats && !isLoading" class="container mx-auto mb-4 sm:px-4">
             <div class="rounded-lg border bg-card p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
                     <div v-if="statistics.factions?.length" class="flex items-center gap-1.5">
@@ -385,25 +385,25 @@ onMounted(() => {
         </div>
         <div
             v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
-            class="container mx-auto mt-4 items-center overflow-auto px-4"
+            class="container mx-auto mt-4 items-center overflow-auto sm:px-4"
         >
             <TableSkeleton :rows="8" :cols="7" />
         </div>
-        <div v-else-if="isLoading" class="container mx-auto mt-4 items-center px-4">
+        <div v-else-if="isLoading" class="container mx-auto mt-4 items-center sm:px-4">
             <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
         </div>
-        <div v-else-if="filterParams.page_view === 'keyword_breakdown'" class="container mx-auto items-center px-4">
+        <div v-else-if="filterParams.page_view === 'keyword_breakdown'" class="container mx-auto items-center sm:px-4">
             <template v-if="props.keyword_breakdown">
                 <KeywordBreakdown :keyword="props.keyword_breakdown" />
             </template>
             <EmptyState v-else />
         </div>
-        <div v-else-if="filterParams.page_view === 'table'" class="container mx-auto items-center overflow-auto px-4">
+        <div v-else-if="filterParams.page_view === 'table'" class="container mx-auto items-center overflow-auto sm:px-4">
             <CharacterTable :characters="props.characters" />
         </div>
-        <div v-else-if="filterParams.page_view === 'full'" class="container mx-auto items-center px-4">
+        <div v-else-if="filterParams.page_view === 'full'" class="container mx-auto items-center sm:px-4">
             <template v-if="props.characters?.length">
                 <div v-for="character in props.characters" v-bind:key="character.slug">
                     <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
@@ -411,7 +411,7 @@ onMounted(() => {
             </template>
             <EmptyState v-else />
         </div>
-        <div v-else class="container mx-auto items-center px-4">
+        <div v-else class="container mx-auto items-center sm:px-4">
             <template v-if="props.characters?.length">
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
                     <div

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Marker;
 use App\Models\Token;
@@ -85,6 +86,19 @@ class LinkTokensAndMarkers extends Command
             foreach ($matchingUpgradeActions as $action) {
                 if ($this->textContainsReference($action->description, $model->name, $type)) {
                     $upgradeIds = $upgradeIds->merge($action->upgrades->pluck('id'));
+                }
+            }
+
+            // Search Abilities for "{Name} Token/Marker"
+            $matchingAbilities = Ability::whereNotNull('description')
+                ->where('description', 'like', "%{$model->name}%")
+                ->with('characters', 'upgrades')
+                ->get();
+
+            foreach ($matchingAbilities as $ability) {
+                if ($this->textContainsReference($ability->description, $model->name, $type)) {
+                    $characterIds = $characterIds->merge($ability->characters->pluck('id'));
+                    $upgradeIds = $upgradeIds->merge($ability->upgrades->pluck('id'));
                 }
             }
 

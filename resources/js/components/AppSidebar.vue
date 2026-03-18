@@ -14,7 +14,6 @@ import {
     CircleDollarSign,
     Dice6,
     FileImage,
-    FileText,
     Heart,
     KeyRound,
     Library,
@@ -88,6 +87,11 @@ const mainNavItems: NavItem[] = [
                 title: 'Crew Builder',
                 href: route('tools.crew_builder.index'),
                 icon: Swords,
+            },
+            {
+                title: 'Scenario Generator',
+                href: route('tools.scenario_generator'),
+                icon: Dice6,
             },
             {
                 title: 'Articles',
@@ -226,28 +230,28 @@ const mainNavItems: NavItem[] = [
             },
         ],
     },
-    {
-        title: 'Tools',
-        collapsible: true,
-        collapsed: false,
-        items: [
-            // {
-            //     title: 'Hat Gamin Discord Bot',
-            //     href: route('tools.hat_gamin'),
-            //     icon: Bot,
-            // },
-            {
-                title: 'PDF Generator',
-                href: route('tools.pdf.index'),
-                icon: FileText,
-            },
-            {
-                title: 'Scenario Generator',
-                href: route('tools.scenario_generator'),
-                icon: Dice6,
-            },
-        ],
-    },
+    // {
+    //     title: 'Tools',
+    //     collapsible: true,
+    //     collapsed: false,
+    //     items: [
+    //         // {
+    //         //     title: 'Hat Gamin Discord Bot',
+    //         //     href: route('tools.hat_gamin'),
+    //         //     icon: Bot,
+    //         // },
+    //         {
+    //             title: 'PDF Generator',
+    //             href: route('tools.pdf.index'),
+    //             icon: FileText,
+    //         },
+    //         {
+    //             title: 'Scenario Generator',
+    //             href: route('tools.scenario_generator'),
+    //             icon: Dice6,
+    //         },
+    //     ],
+    // },
 ];
 
 const allAdminNavItems: NavItem[] = [

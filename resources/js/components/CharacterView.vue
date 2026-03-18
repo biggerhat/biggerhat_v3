@@ -636,6 +636,104 @@ const openUpgradeDrawer = (upgrade: any) => {
             </div>
         </div>
 
+        <!-- Summons -->
+        <div v-if="character.summons?.length || character.summoned_by?.length" class="mt-8 lg:mt-12">
+            <Separator label="Summons" class="mb-6" />
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+                <Link
+                    v-for="linked in character.summons"
+                    :key="'summons-' + linked.id"
+                    :href="
+                        route('characters.view', {
+                            character: linked.slug,
+                            miniature: linked.miniatures?.[0]?.id,
+                            slug: linked.miniatures?.[0]?.slug,
+                        })
+                    "
+                >
+                    <Card class="h-full transition-colors hover:bg-accent/50">
+                        <CardContent class="flex items-center gap-2 p-3">
+                            <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
+                            <div class="min-w-0">
+                                <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
+                                <div class="text-[10px] text-muted-foreground">Summons</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link
+                    v-for="linked in character.summoned_by"
+                    :key="'summoned-by-' + linked.id"
+                    :href="
+                        route('characters.view', {
+                            character: linked.slug,
+                            miniature: linked.miniatures?.[0]?.id,
+                            slug: linked.miniatures?.[0]?.slug,
+                        })
+                    "
+                >
+                    <Card class="h-full transition-colors hover:bg-accent/50">
+                        <CardContent class="flex items-center gap-2 p-3">
+                            <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
+                            <div class="min-w-0">
+                                <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
+                                <div class="text-[10px] text-muted-foreground">Summoned by</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+            </div>
+        </div>
+
+        <!-- Replaces -->
+        <div v-if="character.replaces_into?.length || character.replaced_by?.length" class="mt-8 lg:mt-12">
+            <Separator label="Replaces" class="mb-6" />
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+                <Link
+                    v-for="linked in character.replaces_into"
+                    :key="'replaces-' + linked.id"
+                    :href="
+                        route('characters.view', {
+                            character: linked.slug,
+                            miniature: linked.miniatures?.[0]?.id,
+                            slug: linked.miniatures?.[0]?.slug,
+                        })
+                    "
+                >
+                    <Card class="h-full transition-colors hover:bg-accent/50">
+                        <CardContent class="flex items-center gap-2 p-3">
+                            <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
+                            <div class="min-w-0">
+                                <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
+                                <div class="text-[10px] text-muted-foreground">Replaces into</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link
+                    v-for="linked in character.replaced_by"
+                    :key="'replaced-by-' + linked.id"
+                    :href="
+                        route('characters.view', {
+                            character: linked.slug,
+                            miniature: linked.miniatures?.[0]?.id,
+                            slug: linked.miniatures?.[0]?.slug,
+                        })
+                    "
+                >
+                    <Card class="h-full transition-colors hover:bg-accent/50">
+                        <CardContent class="flex items-center gap-2 p-3">
+                            <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
+                            <div class="min-w-0">
+                                <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
+                                <div class="text-[10px] text-muted-foreground">Replaced by</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+            </div>
+        </div>
+
         <!-- Related Characters -->
         <div v-if="relatedCharacters.length > 0" class="mt-8 lg:mt-12">
             <Separator label="Related Characters" class="mb-6" />

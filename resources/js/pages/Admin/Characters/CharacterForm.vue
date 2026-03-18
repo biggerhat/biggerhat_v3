@@ -110,6 +110,13 @@ const props = defineProps({
             return [];
         },
     },
+    all_characters: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
 });
 
 const formInfo = ref({
@@ -141,6 +148,8 @@ const formInfo = ref({
     is_unhirable: false,
     is_beta: false,
     is_hidden: false,
+    summons: [],
+    replaces_into: [],
 });
 
 const submit = () => {
@@ -196,6 +205,14 @@ onMounted(() => {
 
     props.character?.tokens.forEach((token) => {
         formInfo.value.tokens.push(token.name);
+    });
+
+    props.character?.summons?.forEach((c) => {
+        formInfo.value.summons.push(c.slug);
+    });
+
+    props.character?.replaces_into?.forEach((c) => {
+        formInfo.value.replaces_into.push(c.slug);
     });
 });
 </script>
@@ -482,6 +499,26 @@ onMounted(() => {
                                         option-value="name"
                                     />
                                     <InputError :message="usePage().props.errors.tokens" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <SearchableMultiselect
+                                        v-model="formInfo.summons"
+                                        placeholder="Summons Characters"
+                                        :options="props.all_characters"
+                                    />
+                                    <InputError :message="usePage().props.errors.summons" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <SearchableMultiselect
+                                        v-model="formInfo.replaces_into"
+                                        placeholder="Replaces Into Characters"
+                                        :options="props.all_characters"
+                                    />
+                                    <InputError :message="usePage().props.errors.replaces_into" />
                                 </div>
                             </div>
                         </div>

@@ -413,7 +413,7 @@ onMounted(rebuildCrew);
             <PageBanner title="Crew Builder" />
         </template>
 
-        <div :class="embed ? '' : 'container mx-auto mt-6 px-4 lg:px-6'">
+        <div :class="embed ? '' : 'container mx-auto mt-6 sm:px-4 lg:px-6'">
             <!-- Back button (not in embed mode) -->
             <div v-if="!embed" class="mb-4 flex items-center gap-2">
                 <Button variant="outline" size="sm" class="shrink-0 gap-1.5" as="a" :href="route('tools.crew_builder.index')">

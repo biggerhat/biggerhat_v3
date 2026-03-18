@@ -105,7 +105,7 @@ const formatDate = (dateStr: string) => {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <!-- Filter bar -->
             <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <Tabs :model-value="activeCategoryTab" @update:model-value="filterByCategory($event as string)">

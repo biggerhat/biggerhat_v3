@@ -63,7 +63,7 @@ function confirmDelete() {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <!-- Create new -->
             <div class="mb-6">
                 <div v-if="showCreate" class="flex flex-col gap-2 sm:flex-row sm:items-center">

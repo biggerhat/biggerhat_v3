@@ -126,7 +126,7 @@ const formatDate = (dateStr: string) => {
         </PageBanner>
 
         <!-- Mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex items-center justify-end px-4 md:hidden">
+        <div class="container mx-auto mb-2 flex items-center justify-end sm:px-4 md:hidden">
             <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
                 <div class="grid gap-4">
                     <div class="space-y-2">
@@ -187,7 +187,7 @@ const formatDate = (dateStr: string) => {
             </FilterPanel>
         </div>
 
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters -->
                 <aside class="hidden w-72 shrink-0 md:block">

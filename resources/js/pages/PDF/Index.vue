@@ -220,7 +220,7 @@ onMounted(() => {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <Tabs v-model="activeTab" default-value="characters">
                 <TabsList class="w-full md:w-auto">
                     <TabsTrigger value="characters" class="flex-1 gap-1.5 md:flex-none">

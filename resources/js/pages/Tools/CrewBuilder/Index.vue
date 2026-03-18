@@ -19,7 +19,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { useVirtualizer } from '@tanstack/vue-virtual';
-import { refDebounced } from '@vueuse/core';
+import { refDebounced, useMediaQuery } from '@vueuse/core';
 import {
     Archive,
     ArchiveRestore,
@@ -194,6 +194,8 @@ const openCrewMemberPreview = (index: number) => {
 };
 
 // ─── Save State ───
+const isMobile = useMediaQuery('(max-width: 767px)');
+const mobileBuilderTab = ref<'crew' | 'hiring'>('crew');
 const crewName = ref('Untitled Crew');
 const crewDescription = ref<Record<string, unknown> | null>(null);
 const showDescriptionEditor = ref(false);
@@ -1378,7 +1380,7 @@ onUnmounted(() => {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto px-4 lg:px-6" :class="viewMode === 'builds' || editorStep !== 'hiring' ? 'mt-6' : 'mt-4'">
+        <div class="container mx-auto sm:px-4 lg:px-6" :class="viewMode === 'builds' || editorStep !== 'hiring' ? 'mt-6' : 'mt-4'">
             <!-- ═══════════════════════════════════════════ -->
             <!-- BUILDS LIST (authenticated landing page)   -->
             <!-- ═══════════════════════════════════════════ -->
@@ -1832,9 +1834,436 @@ onUnmounted(() => {
                         <TipTapEditor v-model="crewDescription" />
                     </div>
 
-                    <div :class="isFixedCrew ? 'mx-auto max-w-xl' : 'grid grid-cols-1 gap-4 md:grid-cols-5'">
-                        <!-- Hiring Pool (left on desktop, below on mobile) -->
-                        <div v-if="!isFixedCrew" class="order-2 md:order-1 md:col-span-3">
+                    <!-- Mobile: Stats + Tabbed layout -->
+                    <div v-if="!isFixedCrew && isMobile">
+                        <!-- Over budget warning -->
+                        <div
+                            v-if="isOverBudget"
+                            class="mb-2 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive"
+                        >
+                            <ShieldAlert class="size-4 shrink-0" />
+                            Over budget by {{ Math.abs(remaining) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                        </div>
+
+                        <!-- Stats bar -->
+                        <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                            <div class="flex items-center gap-1">
+                                <span class="text-muted-foreground">Spent:</span>
+                                <span class="font-medium" :class="totalSpent > encounterSize ? 'text-destructive' : ''">
+                                    {{ totalSpent }} / {{ encounterSize }}
+                                </span>
+                                <GameIcon type="soulstone" class-name="h-4 inline-block" />
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-muted-foreground">Pool:</span>
+                                <span class="font-medium">{{ soulstonePool }}</span>
+                                <GameIcon type="soulstone" class-name="h-4 inline-block" />
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-muted-foreground">OOK:</span>
+                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
+                                    {{ ookCount }} / 2
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Crew Stats Panel -->
+                        <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                <div class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
+                                </div>
+                                <div v-if="crewStats.avgCost != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
+                                </div>
+                                <div v-if="crewStats.avgHealth != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
+                                </div>
+                                <div v-if="crewStats.avgSpeed != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
+                                </div>
+                                <div v-if="crewStats.avgDefense != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
+                                </div>
+                                <div v-if="crewStats.avgWillpower != null" class="text-center">
+                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                    <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
+                                </div>
+                                <template v-if="Object.keys(crewStats.suitCounts).length">
+                                    <div
+                                        v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter(
+                                            (s) => crewStats!.suitCounts[s],
+                                        )"
+                                        :key="suit"
+                                        class="text-center"
+                                    >
+                                        <GameIcon :type="suit" class-name="mx-auto h-4" />
+                                        <div class="text-sm font-bold leading-tight">{{ crewStats.suitCounts[suit] }}</div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Tabs: Crew / Hiring Pool -->
+                        <Tabs v-model="mobileBuilderTab" class="w-full">
+                            <TabsList class="mb-3 grid w-full grid-cols-2">
+                                <TabsTrigger value="crew">
+                                    Crew
+                                    <Badge v-if="crew.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                                        {{ crew.length }}
+                                    </Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="hiring">Hiring Pool</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="hiring">
+                                <Card>
+                                    <CardContent class="p-2">
+                                        <div class="mb-3 flex items-center gap-2">
+                                            <div class="relative flex-1">
+                                                <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input v-model="filterText" placeholder="Search models..." class="pl-9" />
+                                            </div>
+                                            <CircleX v-if="filterText" class="shrink-0 cursor-pointer text-destructive" @click="filterText = ''" />
+                                        </div>
+
+                                        <div class="mb-2 flex flex-wrap items-center gap-1">
+                                            <Button
+                                                v-for="f in ['in-keyword', 'versatile', 'ook', 'all'] as const"
+                                                :key="f"
+                                                :variant="poolFilter === f ? 'default' : 'outline'"
+                                                size="sm"
+                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                @click="poolFilter = f"
+                                            >
+                                                {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
+                                                <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                            </Button>
+                                            <span class="ml-auto text-xs text-muted-foreground">{{ augmentedPool.length }} shown</span>
+                                        </div>
+                                        <div class="mb-2 flex items-center gap-1">
+                                            <span class="text-[11px] text-muted-foreground">Sort:</span>
+                                            <Button
+                                                v-for="s in ['station', 'name', 'cost'] as const"
+                                                :key="s"
+                                                :variant="poolSort === s ? 'default' : 'ghost'"
+                                                size="sm"
+                                                class="h-5 px-1.5 text-[10px]"
+                                                @click="poolSort = s"
+                                            >
+                                                {{ { station: 'Station', name: 'Name', cost: 'Cost' }[s] }}
+                                            </Button>
+                                        </div>
+
+                                        <div ref="poolScrollRef" class="h-[60vh] overflow-y-auto">
+                                            <div
+                                                :style="{
+                                                    height: `${poolVirtualizer.getTotalSize()}px`,
+                                                    position: 'relative',
+                                                    width: '100%',
+                                                }"
+                                            >
+                                                <div
+                                                    v-for="virtualRow in poolVirtualizer.getVirtualItems()"
+                                                    :key="virtualRow.key"
+                                                    :data-index="virtualRow.index"
+                                                    :ref="
+                                                        (el) => {
+                                                            if (el) poolVirtualizer.measureElement(el as Element);
+                                                        }
+                                                    "
+                                                    :style="{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        transform: `translateY(${virtualRow.start}px)`,
+                                                    }"
+                                                >
+                                                    <div
+                                                        v-if="augmentedPool[virtualRow.index]"
+                                                        :class="[
+                                                            factionBackground(augmentedPool[virtualRow.index].character.faction),
+                                                            !augmentedPool[virtualRow.index].hireCheck.allowed ? 'opacity-40' : '',
+                                                        ]"
+                                                        class="my-0.5 flex items-center justify-between rounded-md border border-white/20 px-2 py-1.5 text-white transition-colors hover:brightness-110"
+                                                    >
+                                                        <div
+                                                            class="min-w-0 flex-1 cursor-pointer"
+                                                            @click="openCardPreview(augmentedPool[virtualRow.index].character)"
+                                                        >
+                                                            <div class="flex items-center gap-1.5 text-sm font-semibold">
+                                                                {{ augmentedPool[virtualRow.index].character.display_name }}
+                                                                <Badge
+                                                                    v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
+                                                                    variant="outline"
+                                                                    class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
+                                                                >
+                                                                    {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
+                                                                </Badge>
+                                                            </div>
+                                                            <div class="flex flex-wrap items-center gap-1.5 text-xs text-white/70">
+                                                                <span class="flex items-center text-sm font-bold text-white">
+                                                                    {{ augmentedPool[virtualRow.index].effectiveCost
+                                                                    }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                                    <span
+                                                                        v-if="augmentedPool[virtualRow.index].category === 'ook'"
+                                                                        class="text-xs font-normal text-red-300"
+                                                                        >({{ augmentedPool[virtualRow.index].character.cost }}+1)</span
+                                                                    >
+                                                                </span>
+                                                                <Badge
+                                                                    variant="secondary"
+                                                                    class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
+                                                                >
+                                                                    {{ augmentedPool[virtualRow.index].character.station }}
+                                                                    <span v-if="augmentedPool[virtualRow.index].character.count > 1">
+                                                                        ({{ hiredCountOf(augmentedPool[virtualRow.index].character.id) }}/{{
+                                                                            augmentedPool[virtualRow.index].character.count
+                                                                        }})
+                                                                    </span>
+                                                                </Badge>
+                                                                <Badge
+                                                                    :class="categoryColor(augmentedPool[virtualRow.index].category)"
+                                                                    class="px-1 py-0 text-[10px]"
+                                                                >
+                                                                    {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
+                                                                </Badge>
+                                                                <Badge
+                                                                    v-if="augmentedPool[virtualRow.index].henchman"
+                                                                    class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
+                                                                >
+                                                                    Henchman
+                                                                </Badge>
+                                                                <Badge
+                                                                    v-if="augmentedPool[virtualRow.index].unique"
+                                                                    class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
+                                                                >
+                                                                    Unique
+                                                                </Badge>
+                                                                <span class="hidden truncate text-white/50 sm:inline">
+                                                                    {{
+                                                                        augmentedPool[virtualRow.index].character.keywords
+                                                                            .map((k: Keyword) => k.name)
+                                                                            .join(', ')
+                                                                    }}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex shrink-0 items-center gap-1">
+                                                            <span
+                                                                v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
+                                                                class="text-[10px] text-white/50"
+                                                            >
+                                                                {{ augmentedPool[virtualRow.index].hireCheck.reason }}
+                                                            </span>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                class="size-7 text-white hover:bg-white/10 hover:text-white"
+                                                                :disabled="!augmentedPool[virtualRow.index].hireCheck.allowed"
+                                                                @click.stop="addToCrewById(augmentedPool[virtualRow.index].character)"
+                                                            >
+                                                                <UserPlus class="size-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                            <TabsContent value="crew">
+                                <Card>
+                                    <CardContent class="p-2">
+                                        <!-- Required Hires Notice -->
+                                        <div
+                                            v-if="requiredHires.length > 0 && activeUpgradeHiringRules?.required_characteristic"
+                                            class="mb-3 flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-400"
+                                        >
+                                            <Star class="size-3.5 shrink-0" />
+                                            {{ requiredHires.length }} required {{ activeUpgradeHiringRules.required_characteristic }} models auto-added
+                                        </div>
+
+                                        <div class="mb-3 flex items-center justify-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                class="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                                                @click="clearHiredModels"
+                                            >
+                                                <Trash2 class="size-3" />
+                                                Clear Hired
+                                            </Button>
+                                        </div>
+
+                                        <Separator class="mb-3" />
+
+                                        <!-- Crew Upgrades -->
+                                        <div v-if="selectedMasterTitle?.crew_upgrades?.length" class="mb-3 space-y-1">
+                                            <div
+                                                v-for="upgrade in selectedMasterTitle.crew_upgrades"
+                                                :key="upgrade.id"
+                                                class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 transition-colors"
+                                                :class="[
+                                                    activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
+                                                        ? 'border-amber-500/50 bg-amber-500/10'
+                                                        : 'border-border/50 bg-accent/30 opacity-60',
+                                                    upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
+                                                ]"
+                                                @click="openUpgradePreview(upgrade)"
+                                            >
+                                                <button
+                                                    v-if="!hasSingleCrewUpgrade"
+                                                    class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
+                                                    :title="
+                                                        activeCrewUpgradeId === upgrade.id ? 'Deselect crew upgrade' : 'Select as active crew upgrade'
+                                                    "
+                                                    @click.stop="toggleCrewUpgradeActive(upgrade)"
+                                                >
+                                                    <Star
+                                                        class="size-3.5"
+                                                        :class="
+                                                            activeCrewUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'
+                                                        "
+                                                    />
+                                                </button>
+                                                <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="text-xs font-semibold">{{ upgrade.name }}</div>
+                                                    <div class="text-[10px] text-muted-foreground">
+                                                        {{
+                                                            activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
+                                                                ? 'Active Crew Upgrade'
+                                                                : 'Crew Upgrade'
+                                                        }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Crew list -->
+                                        <div class="max-h-[50vh] space-y-0.5 overflow-y-auto">
+                                            <div v-if="crew.length === 0" class="py-8 text-center text-sm text-muted-foreground">
+                                                Select a master to begin hiring
+                                            </div>
+
+                                            <div
+                                                v-for="(member, index) in crew"
+                                                :key="index"
+                                                :class="factionBackground(member.character.faction)"
+                                                class="rounded-md border border-white/20 px-2 py-1.5 text-white transition-colors hover:brightness-110"
+                                            >
+                                                <div class="flex items-center justify-between">
+                                                    <div class="min-w-0 flex-1 cursor-pointer" @click="openCrewMemberPreview(index)">
+                                                        <div class="flex items-center gap-1.5 text-sm font-semibold">
+                                                            <TooltipProvider
+                                                                v-if="
+                                                                    member.hiringCategory === 'leader' ||
+                                                                    member.hiringCategory === 'totem' ||
+                                                                    member.hiringCategory === 'ook'
+                                                                "
+                                                            >
+                                                                <Tooltip>
+                                                                    <TooltipTrigger as-child>
+                                                                        <Shield
+                                                                            v-if="member.hiringCategory === 'leader'"
+                                                                            class="size-3.5 shrink-0 text-amber-300"
+                                                                        />
+                                                                        <Swords
+                                                                            v-if="member.hiringCategory === 'totem'"
+                                                                            class="size-3.5 shrink-0 text-purple-300"
+                                                                        />
+                                                                        <ShieldAlert
+                                                                            v-if="member.hiringCategory === 'ook'"
+                                                                            class="size-3.5 shrink-0 text-red-300"
+                                                                        />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top">
+                                                                        <p class="text-xs">{{ categoryLabel(member.hiringCategory) }}</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                            <span class="truncate">{{
+                                                                member.miniature?.display_name || member.character.display_name
+                                                            }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5 text-xs text-white/70">
+                                                            <span
+                                                                v-if="member.hiringCategory === 'ook'"
+                                                                class="flex items-center text-sm font-bold text-white"
+                                                                >{{ member.effectiveCost
+                                                                }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                                <span class="text-xs font-normal text-red-300"
+                                                                    >({{ member.character.cost }}+1)</span
+                                                                ></span
+                                                            >
+                                                            <span v-else class="flex items-center text-sm font-bold text-white"
+                                                                >{{ member.effectiveCost
+                                                                }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
+                                                            /></span>
+                                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
+                                                                {{ categoryLabel(member.hiringCategory) }}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        v-if="
+                                                            member.hiringCategory !== 'leader' &&
+                                                            member.hiringCategory !== 'totem' &&
+                                                            member.hiringCategory !== 'fixed-crew' &&
+                                                            member.hiringCategory !== 'required'
+                                                        "
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        class="size-7 shrink-0 text-white hover:bg-white/10 hover:text-white"
+                                                        @click="removeFromCrew(index)"
+                                                    >
+                                                        <UserMinus class="size-4 text-red-300" />
+                                                    </Button>
+                                                </div>
+                                                <!-- Miniature version selector -->
+                                                <div v-if="member.character.miniatures?.length > 1" class="mt-1">
+                                                    <Select
+                                                        :model-value="String(member.miniature?.id ?? '')"
+                                                        @update:model-value="
+                                                            (val: string) => {
+                                                                member.miniature = member.character.miniatures.find((m) => m.id === Number(val)) ?? null;
+                                                                triggerAutosave();
+                                                            }
+                                                        "
+                                                    >
+                                                        <SelectTrigger class="h-6 border-white/20 bg-white/10 text-[11px] text-white">
+                                                            <SelectValue placeholder="Select miniature..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem
+                                                                v-for="mini in member.character.miniatures"
+                                                                :key="mini.id"
+                                                                :value="String(mini.id)"
+                                                            >
+                                                                {{ mini.display_name }}
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+
+                    <!-- Desktop: Side-by-side grid layout / Fixed crew: centered -->
+                    <div v-if="!isMobile || isFixedCrew" :class="isFixedCrew ? 'mx-auto max-w-xl' : 'grid gap-4 grid-cols-5'">
+                        <!-- Hiring Pool (left on desktop) -->
+                        <div v-if="!isFixedCrew" class="md:col-span-3">
                             <Card>
                                 <CardContent class="p-2 md:p-3">
                                     <div class="mb-3 flex items-center gap-2">
@@ -1873,7 +2302,7 @@ onUnmounted(() => {
                                         </Button>
                                     </div>
 
-                                    <div ref="poolScrollRef" class="h-[40vh] overflow-y-auto sm:h-[50vh] md:h-[calc(100vh-18rem)]">
+                                    <div ref="poolScrollRef" class="h-[calc(100vh-18rem)] overflow-y-auto">
                                         <div
                                             :style="{
                                                 height: `${poolVirtualizer.getTotalSize()}px`,
@@ -1994,7 +2423,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Crew Panel (right on desktop, top on mobile) -->
-                        <div :class="isFixedCrew ? '' : 'order-1 md:order-2 md:col-span-2'">
+                        <div :class="isFixedCrew ? '' : 'md:col-span-2'">
                             <!-- Over budget warning -->
                             <div
                                 v-if="isOverBudget"
@@ -2146,7 +2575,7 @@ onUnmounted(() => {
                                     </div>
 
                                     <!-- Crew list -->
-                                    <div class="max-h-[30vh] space-y-0.5 overflow-y-auto sm:max-h-[40vh] md:max-h-[calc(100vh-20rem)]">
+                                    <div class="max-h-[calc(100vh-20rem)] space-y-0.5 overflow-y-auto">
                                         <div v-if="crew.length === 0" class="py-8 text-center text-sm text-muted-foreground">
                                             Select a master to begin hiring
                                         </div>

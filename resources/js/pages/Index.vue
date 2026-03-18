@@ -71,7 +71,7 @@ function toggleDialog() {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto flex flex-col gap-10 px-4 pb-12 pt-6 lg:gap-14">
+        <div class="container mx-auto flex flex-col gap-10 sm:px-4 pb-12 pt-6 lg:gap-14">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-6 lg:pt-10">
                 <img src="/images/hat_side.webp" class="h-36 md:h-48" alt="BiggerHat.net" />

@@ -197,7 +197,7 @@ const openUpgradeDrawer = (upgrade: any) => {
 </script>
 
 <template>
-    <div class="container mx-auto px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
+    <div class="container mx-auto sm:px-4 pb-8 pt-4 lg:pb-16 lg:pt-6">
         <!-- Back link -->
         <Link
             :href="route('factions.view', character.faction)"

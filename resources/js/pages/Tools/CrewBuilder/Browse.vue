@@ -250,7 +250,7 @@ const copyShareLink = (crew: CrewCard) => {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto sm:px-4">
             <!-- My Crews -->
             <div v-if="isAuthenticated && localMyCrews.length > 0" class="mb-8">
                 <div class="mb-3 flex items-center justify-between">

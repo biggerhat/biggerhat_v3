@@ -40,7 +40,7 @@ const icon = computed(() => icons[props.type]);
 
 <template>
     <template v-if="icon">
-        <img v-if="currentTheme === 'light'" :src="icon.black" :class="className" :alt="icon.alt" />
-        <img v-else :src="icon.white" :class="className" :alt="icon.alt" />
+        <img v-if="currentTheme === 'light'" :src="icon.black" :class="className" :alt="icon.alt" loading="lazy" decoding="async" />
+        <img v-else :src="icon.white" :class="className" :alt="icon.alt" loading="lazy" decoding="async" />
     </template>
 </template>

@@ -27,6 +27,8 @@ const typeAbbr = computed(() => {
         token: 'Tk',
         marker: 'Mk',
         package: 'Pk',
+        trigger: 'Tr',
+        crew: 'Cr',
     };
     return map[props.node.attrs.entityType] ?? '?';
 });
@@ -44,6 +46,8 @@ const typeColor = computed(() => {
         token: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
         marker: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
         package: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
+        trigger: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
+        crew: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
     };
     return map[props.node.attrs.entityType] ?? 'bg-gray-100 text-gray-800';
 });

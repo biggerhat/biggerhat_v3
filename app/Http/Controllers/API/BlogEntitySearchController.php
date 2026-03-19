@@ -9,12 +9,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
+use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Package;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
+use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -163,6 +165,32 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
+        $triggers = Trigger::where('name', 'LIKE', "%{$q}%")
+            ->limit(5)
+            ->get(['id', 'name', 'slug']);
+        foreach ($triggers as $trigger) {
+            $results[] = [
+                'entityType' => 'trigger',
+                'entityId' => $trigger->id,
+                'entitySlug' => $trigger->slug,
+                'displayName' => $trigger->name,
+            ];
+        }
+
+        $crews = CrewBuild::where('is_public', true)
+            ->where('name', 'LIKE', "%{$q}%")
+            ->with('master:id,display_name', 'user:id,name')
+            ->limit(5)
+            ->get();
+        foreach ($crews as $crew) {
+            $results[] = [
+                'entityType' => 'crew',
+                'entityId' => $crew->id,
+                'entitySlug' => $crew->share_code,
+                'displayName' => $crew->name,
+            ];
+        }
+
         return response()->json(['results' => $results]);
     }
 
@@ -180,6 +208,8 @@ class BlogEntitySearchController extends Controller
             'token' => $this->showToken($slug),
             'marker' => $this->showMarker($slug),
             'package' => $this->showPackage($slug),
+            'trigger' => $this->showTrigger($slug),
+            'crew' => $this->showCrew($slug),
             default => response()->json(['error' => 'Unknown entity type'], 404),
         };
     }
@@ -423,7 +453,7 @@ class BlogEntitySearchController extends Controller
 
     private function showPackage(string $slug): JsonResponse
     {
-        $package = Package::where('slug', $slug)->first();
+        $package = Package::where('slug', $slug)->withCount('characters', 'miniatures')->first();
 
         if (! $package) {
             return response()->json(['error' => 'Not found'], 404);
@@ -433,8 +463,59 @@ class BlogEntitySearchController extends Controller
             'name' => $package->name,
             'type' => 'package',
             'slug' => $package->slug,
+            'front_image' => $package->front_image,
             'factions' => $package->factions,
+            'characters_count' => $package->characters_count,
+            'miniatures_count' => $package->miniatures_count,
             'link' => route('packages.view', $package->slug),
+        ]);
+    }
+
+    private function showTrigger(string $slug): JsonResponse
+    {
+        $trigger = Trigger::where('slug', $slug)->withCount('actions')->first();
+
+        if (! $trigger) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $trigger->name,
+            'type' => 'trigger',
+            'slug' => $trigger->slug,
+            'suits' => $trigger->suits,
+            'stone_cost' => $trigger->stone_cost,
+            'description' => $trigger->description,
+            'actions_count' => $trigger->actions_count,
+            'link' => route('triggers.index', ['name' => $trigger->name]),
+        ]);
+    }
+
+    private function showCrew(string $shareCode): JsonResponse
+    {
+        $crew = CrewBuild::where('share_code', $shareCode)
+            ->where('is_public', true)
+            ->with('master:id,name,title,display_name,slug,faction', 'user:id,name')
+            ->first();
+
+        if (! $crew) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        $memberCount = count($crew->crew_data ?? []) + 1; // +1 for leader
+
+        return response()->json([
+            'name' => $crew->name,
+            'type' => 'crew',
+            'slug' => $crew->share_code,
+            'faction' => $crew->getRawOriginal('faction'),
+            'faction_label' => $crew->faction->label(),
+            'faction_logo' => $crew->faction->logo(),
+            'master_name' => $crew->master->display_name,
+            'encounter_size' => $crew->encounter_size,
+            'member_count' => $memberCount,
+            'user_name' => $crew->user?->name,
+            'link' => route('tools.crew_builder.share', $crew->share_code),
         ]);
     }
 }

@@ -62,7 +62,7 @@ defineProps({
         <div class="container mx-auto flex flex-col gap-10 pb-12 pt-6 sm:px-4 lg:gap-14">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-6 lg:pt-10">
-                <img src="/images/hat_side.webp" class="h-36 md:h-48" alt="BiggerHat.net" />
+                <img src="/images/hat_side.webp" class="h-36 md:h-48" alt="BiggerHat.net" fetchpriority="high" />
                 <p class="mt-3 text-center text-muted-foreground">Malifaux Character Database & Tools</p>
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-3">
                     <Link :href="route('search.view')">

@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import BlogContent from '@/components/blog/BlogContent.vue';
-import CharacterCardView from '@/components/CharacterCardView.vue';
+import CrewListDisplay, { type CrewMemberDisplay, type CrewUpgradeDisplay } from '@/components/CrewListDisplay.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Loader2, Printer, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
+import { ArrowLeft, Check, Copy, Loader2, Printer, Star } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 interface Keyword {
@@ -154,39 +150,26 @@ const getHiringCategory = (character: CharacterData): 'in-keyword' | 'versatile'
 // ─── Crew upgrade ───
 const crewUpgrades = computed(() => master.value?.crew_upgrades ?? []);
 
-// ─── Category helpers ───
-const categoryLabel = (cat: string): string =>
-    ({
-        leader: 'Leader',
-        totem: 'Totem',
-        'in-keyword': 'In Keyword',
-        versatile: 'Versatile',
-        ook: 'Out of Keyword',
-        'fixed-crew': 'Preset',
-        required: 'Required',
-    })[cat] ?? cat;
+const crewUpgradesForDisplay = computed((): CrewUpgradeDisplay[] =>
+    crewUpgrades.value.map((u: CrewUpgrade) => ({
+        id: u.id,
+        name: u.name,
+        front_image: u.front_image,
+        back_image: u.back_image,
+        is_active: u.id === props.build.crew_upgrade_id,
+    })),
+);
 
-const categoryColor = (cat: string): string =>
-    ({
-        leader: 'bg-amber-400/20 text-amber-200',
-        totem: 'bg-purple-400/20 text-purple-200',
-        'in-keyword': 'bg-green-400/20 text-green-200',
-        versatile: 'bg-blue-400/20 text-blue-200',
-        ook: 'bg-red-400/20 text-red-200',
-        'fixed-crew': 'bg-cyan-400/20 text-cyan-200',
-        required: 'bg-orange-400/20 text-orange-200',
-    })[cat] ?? '';
-
-const categoryColorTheme = (cat: string): string =>
-    ({
-        leader: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-        totem: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
-        'in-keyword': 'bg-green-500/10 text-green-700 dark:text-green-400',
-        versatile: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-        ook: 'bg-red-500/10 text-red-700 dark:text-red-400',
-        'fixed-crew': 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400',
-        required: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
-    })[cat] ?? '';
+const crewMembersForDisplay = computed((): CrewMemberDisplay[] =>
+    crew.value.map((m) => ({
+        display_name: m.miniature?.display_name || m.character.display_name,
+        faction: m.character.faction,
+        cost: m.character.cost ?? 0,
+        effective_cost: m.effectiveCost,
+        category: m.hiringCategory,
+        front_image: m.miniature?.front_image ?? m.character.miniatures?.[0]?.front_image ?? null,
+    })),
+);
 
 // ─── Resolve active crew upgrade and hiring rules ───
 const activeCrewUpgrade = computed((): CrewUpgrade | null => {
@@ -231,30 +214,6 @@ const crewStats = computed(() => {
         suitCounts,
     };
 });
-
-// ─── Card Preview Drawer ───
-const previewDrawerOpen = ref(false);
-const previewIndex = ref<number | null>(null);
-const previewMember = computed(() => (previewIndex.value !== null ? (crew.value[previewIndex.value] ?? null) : null));
-
-const openPreview = (index: number) => {
-    const member = crew.value[index];
-    if (!member) return;
-    const mini = member.miniature ?? member.character.miniatures?.[0] ?? null;
-    if (!mini?.front_image) return;
-    previewIndex.value = index;
-    previewDrawerOpen.value = true;
-};
-
-// ─── Upgrade Preview ───
-const upgradePreviewOpen = ref(false);
-const upgradePreviewUpgrade = ref<CrewUpgrade | null>(null);
-
-const openUpgradePreview = (upgrade: CrewUpgrade) => {
-    if (!upgrade.front_image) return;
-    upgradePreviewUpgrade.value = upgrade;
-    upgradePreviewOpen.value = true;
-};
 
 // ─── Miniature assignment ───
 const getNextMiniature = (character: CharacterData): MiniatureData | null => {
@@ -541,71 +500,10 @@ onMounted(rebuildCrew);
                             </div>
                         </div>
 
-                        <!-- Crew Upgrades -->
-                        <div v-if="crewUpgrades.length" class="mb-4 space-y-1">
-                            <div
-                                v-for="upgrade in crewUpgrades"
-                                :key="upgrade.id"
-                                class="flex items-center gap-1.5 rounded-md border border-border/50 bg-accent/50 px-2 py-1.5 transition-colors"
-                                :class="upgrade.front_image ? 'cursor-pointer hover:bg-accent' : ''"
-                                @click="openUpgradePreview(upgrade)"
-                            >
-                                <Star class="size-3.5 shrink-0 text-amber-500" />
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                                    <div class="text-[10px] text-muted-foreground">Crew Upgrade</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Crew List -->
-                        <div class="space-y-0.5">
-                            <div
-                                v-for="(member, index) in crew"
-                                :key="index"
-                                :class="factionBackground(member.character.faction)"
-                                class="cursor-pointer rounded-md border border-white/20 px-2 py-1.5 text-white transition-colors hover:brightness-110"
-                                @click="openPreview(index)"
-                            >
-                                <div class="flex items-center justify-between">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center gap-1.5 text-sm font-semibold">
-                                            <TooltipProvider
-                                                v-if="
-                                                    member.hiringCategory === 'leader' ||
-                                                    member.hiringCategory === 'totem' ||
-                                                    member.hiringCategory === 'ook'
-                                                "
-                                            >
-                                                <Tooltip>
-                                                    <TooltipTrigger as-child>
-                                                        <Shield v-if="member.hiringCategory === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
-                                                        <Swords v-if="member.hiringCategory === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
-                                                        <ShieldAlert v-if="member.hiringCategory === 'ook'" class="size-3.5 shrink-0 text-red-300" />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top">
-                                                        <p class="text-xs">{{ categoryLabel(member.hiringCategory) }}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                            <span class="truncate">{{ member.miniature?.display_name || member.character.display_name }}</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5 text-xs text-white/70">
-                                            <span v-if="member.hiringCategory === 'ook'" class="flex items-center text-sm font-bold text-white"
-                                                >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                                <span class="text-xs font-normal text-red-300">({{ member.character.cost }}+1)</span></span
-                                            >
-                                            <span v-else class="flex items-center text-sm font-bold text-white"
-                                                >{{ member.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
-                                            /></span>
-                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
-                                                {{ categoryLabel(member.hiringCategory) }}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <CrewListDisplay
+                            :members="crewMembersForDisplay"
+                            :crew-upgrades="crewUpgradesForDisplay"
+                        />
 
                         <Separator class="my-4" />
 
@@ -640,84 +538,5 @@ onMounted(rebuildCrew);
         </div>
     </div>
 
-    <!-- Card Preview Drawer -->
-    <Drawer v-model:open="previewDrawerOpen">
-        <DrawerContent>
-            <div v-if="previewMember" class="mx-auto w-full max-w-sm">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">
-                        {{ previewMember.character.display_name }}
-                        <template v-if="previewMember.character.cost != null">
-                            <span v-if="previewMember.hiringCategory === 'ook'" class="text-yellow-400"
-                                >({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
-                            >
-                            <span v-else class="text-yellow-400"
-                                >({{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)</span
-                            >
-                        </template>
-                    </DrawerTitle>
-                    <div class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ previewMember.character.station }}</Badge>
-                        <template v-if="previewMember.character.cost != null">
-                            <Badge v-if="previewMember.hiringCategory === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
-                                >{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
-                                <span class="font-normal opacity-70">({{ previewMember.character.cost }}+1)</span></Badge
-                            >
-                            <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
-                                >{{ previewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block"
-                            /></Badge>
-                        </template>
-                        <Badge :class="categoryColorTheme(previewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
-                            {{ categoryLabel(previewMember.hiringCategory) }}
-                        </Badge>
-                    </div>
-                </DrawerHeader>
-                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
-                        <CharacterCardView
-                            v-if="previewMember.miniature?.front_image"
-                            :key="previewMember.miniature?.id"
-                            :miniature="previewMember.miniature"
-                            :show-link="true"
-                            :character-slug="previewMember.character.slug"
-                        />
-                        <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
-                    </div>
-                </div>
-                <DrawerFooter class="shrink-0 pt-2">
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
 
-    <!-- Upgrade Preview Drawer -->
-    <Drawer v-model:open="upgradePreviewOpen">
-        <DrawerContent>
-            <div v-if="upgradePreviewUpgrade" class="mx-auto w-full max-w-sm">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ upgradePreviewUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
-                </DrawerHeader>
-                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
-                        <UpgradeFlipCard
-                            :front-image="upgradePreviewUpgrade.front_image!"
-                            :back-image="upgradePreviewUpgrade.back_image"
-                            :alt-text="upgradePreviewUpgrade.name"
-                            :upgrade-slug="upgradePreviewUpgrade.slug"
-                            :show-link="true"
-                        />
-                    </div>
-                </div>
-                <DrawerFooter class="shrink-0 pt-2">
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
 </template>

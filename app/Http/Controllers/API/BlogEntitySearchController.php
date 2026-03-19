@@ -495,14 +495,85 @@ class BlogEntitySearchController extends Controller
     {
         $crew = CrewBuild::where('share_code', $shareCode)
             ->where('is_public', true)
-            ->with('master:id,name,title,display_name,slug,faction', 'user:id,name')
+            ->with('master.keywords', 'master.miniatures', 'master.crewUpgrades', 'user:id,name')
             ->first();
 
         if (! $crew) {
             return response()->json(['error' => 'Not found'], 404);
         }
 
-        $memberCount = count($crew->crew_data ?? []) + 1; // +1 for leader
+        $master = $crew->master;
+        $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
+
+        // Crew upgrade info
+        $activeUpgradeId = $crew->crew_upgrade_id;
+        $crewUpgrades = $master->crewUpgrades->map(fn ($u) => [
+            'id' => $u->id,
+            'name' => $u->name,
+            'front_image' => $u->front_image,
+            'back_image' => $u->back_image,
+            'is_active' => $u->id === $activeUpgradeId,
+        ]);
+
+        // Build members
+        $crewCharacterIds = $crew->crew_data ?? [];
+        $crewCharacters = Character::with('keywords', 'characteristics', 'miniatures')
+            ->whereIn('id', $crewCharacterIds)
+            ->get()
+            ->keyBy('id');
+
+        $masterMini = $master->miniatures->first();
+        $members = [];
+
+        // Leader
+        $members[] = [
+            'display_name' => $master->display_name,
+            'faction' => $master->getRawOriginal('faction'),
+            'cost' => 0,
+            'category' => 'leader',
+            'front_image' => $masterMini?->front_image,
+        ];
+
+        // Totem(s) — respect count for multi-copy totems
+        if ($master->has_totem_id) {
+            $totem = $crewCharacters->get($master->has_totem_id) ?? Character::with('miniatures')->find($master->has_totem_id);
+            if ($totem) {
+                $totemCount = max(1, $totem->count ?? 1);
+                for ($i = 0; $i < $totemCount; $i++) {
+                    $members[] = [
+                        'display_name' => $totem->display_name,
+                        'faction' => $totem->getRawOriginal('faction'),
+                        'cost' => 0,
+                        'category' => 'totem',
+                        'front_image' => $totem->miniatures->first()?->front_image,
+                    ];
+                }
+            }
+        }
+
+        foreach ($crewCharacterIds as $charId) {
+            $character = $crewCharacters->get($charId);
+            if (! $character) {
+                continue;
+            }
+
+            $sharesKeyword = $character->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
+            $isVersatile = $character->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+            $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+            $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
+
+            $members[] = [
+                'display_name' => $character->display_name,
+                'faction' => $character->getRawOriginal('faction'),
+                'cost' => $effectiveCost,
+                'category' => $category,
+                'front_image' => $character->miniatures->first()?->front_image,
+            ];
+        }
+
+        $totalSpent = collect($members)->sum('cost');
+        $remaining = $crew->encounter_size - $totalSpent;
+        $soulstonePool = $remaining > 6 ? 6 : max(0, $remaining);
 
         return response()->json([
             'name' => $crew->name,
@@ -511,9 +582,13 @@ class BlogEntitySearchController extends Controller
             'faction' => $crew->getRawOriginal('faction'),
             'faction_label' => $crew->faction->label(),
             'faction_logo' => $crew->faction->logo(),
-            'master_name' => $crew->master->display_name,
+            'master_name' => $master->display_name,
             'encounter_size' => $crew->encounter_size,
-            'member_count' => $memberCount,
+            'total_spent' => $totalSpent,
+            'soulstone_pool' => $soulstonePool,
+            'member_count' => count($members),
+            'members' => $members,
+            'crew_upgrades' => $crewUpgrades,
             'user_name' => $crew->user?->name,
             'link' => route('tools.crew_builder.share', $crew->share_code),
         ]);

@@ -62,7 +62,7 @@ const getHeadingTag = (level: number) => {
 
             <!-- Image -->
             <figure v-else-if="node.type === 'image'">
-                <img :src="(node.attrs as Record<string, string>).src" :alt="(node.attrs as Record<string, string>).alt ?? ''" class="rounded-lg" />
+                <img :src="(node.attrs as Record<string, string>).src" :alt="(node.attrs as Record<string, string>).alt ?? ''" class="rounded-lg" loading="lazy" decoding="async" />
             </figure>
 
             <!-- Entity Embed -->

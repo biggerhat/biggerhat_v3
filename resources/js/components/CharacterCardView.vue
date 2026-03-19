@@ -115,7 +115,7 @@ const currentLabel = computed(() => {
                             :alt="miniature.display_name"
                             loading="lazy"
                             decoding="async"
-                            class="h-full w-full rounded-lg"
+                            class="aspect-[550/950] h-full w-full rounded-lg object-cover"
                         />
                     </div>
                     <div class="card-face absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
@@ -124,7 +124,7 @@ const currentLabel = computed(() => {
                             :alt="miniature.display_name"
                             loading="lazy"
                             decoding="async"
-                            class="h-full w-full rounded-lg"
+                            class="aspect-[550/950] h-full w-full rounded-lg object-cover"
                         />
                     </div>
                 </div>
@@ -177,7 +177,7 @@ const currentLabel = computed(() => {
             <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
                 <DialogTitle class="sr-only">{{ currentLabel }}</DialogTitle>
                 <div class="flex items-center justify-center">
-                    <img :src="currentImage" :alt="currentLabel" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
+                    <img :src="currentImage" :alt="currentLabel" loading="lazy" decoding="async" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
                 </div>
             </DialogContent>
         </Dialog>

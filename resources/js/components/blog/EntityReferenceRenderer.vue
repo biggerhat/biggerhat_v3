@@ -6,7 +6,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { Loader2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -66,7 +66,16 @@ const navigateToEntity = () => {
 </script>
 
 <template>
+    <!-- Crew: direct link to share page -->
+    <Link v-if="entityType === 'crew'" :href="route('tools.crew_builder.share', entitySlug)">
+        <Badge :class="['cursor-pointer border-0', typeColor]" variant="outline">
+            {{ displayName }}
+        </Badge>
+    </Link>
+
+    <!-- All other types: drawer preview -->
     <Drawer
+        v-else
         @update:open="
             (open: boolean) => {
                 open && loadEntityData();

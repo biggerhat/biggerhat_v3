@@ -88,4 +88,10 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Channel::class);
     }
+
+    /** @return HasMany<BlogPost, $this> */
+    public function blogPosts(): HasMany
+    {
+        return $this->hasMany(BlogPost::class);
+    }
 }

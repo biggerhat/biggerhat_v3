@@ -32,4 +32,10 @@ class Keyword extends Model
     {
         return $this->characters()->where('station', CharacterStationEnum::Master->value);
     }
+
+    /** @return MorphToMany<BlogPost, $this> */
+    public function blogPosts(): MorphToMany
+    {
+        return $this->morphToMany(BlogPost::class, 'taggable', 'blog_post_taggables');
+    }
 }

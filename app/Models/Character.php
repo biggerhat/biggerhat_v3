@@ -146,6 +146,12 @@ class Character extends Model
         return $this->morphToMany(Transmission::class, 'taggable', 'transmission_taggables');
     }
 
+    /** @return MorphToMany<BlogPost, $this> */
+    public function blogPosts(): MorphToMany
+    {
+        return $this->morphToMany(BlogPost::class, 'taggable', 'blog_post_taggables');
+    }
+
     /** Characters this model summons. */
     public function summons(): BelongsToMany
     {

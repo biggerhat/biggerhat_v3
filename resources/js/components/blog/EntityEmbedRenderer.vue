@@ -2,12 +2,12 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import CrewListDisplay from '@/components/CrewListDisplay.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -215,31 +215,28 @@ onMounted(async () => {
             </div>
 
             <!-- Crew -->
-            <div
-                v-else-if="entityType === 'crew'"
-                class="cursor-pointer rounded-lg border bg-card transition-colors hover:bg-accent/50"
-                @click="navigateToEntity"
-            >
-                <Card class="border-0 shadow-none">
-                    <CardContent class="flex items-start gap-3 p-3">
-                        <FactionLogo v-if="entityData.faction" :faction="entityData.faction as string" class-name="size-8 shrink-0 mt-0.5" />
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold">{{ entityData.name ?? displayName }}</p>
-                            <div class="mt-1 flex flex-wrap items-center gap-1">
-                                <Badge v-if="entityData.faction_label" variant="outline" class="text-[10px]">{{ entityData.faction_label }}</Badge>
-                                <Badge v-if="entityData.master_name" variant="secondary" class="text-[10px]">{{ entityData.master_name }}</Badge>
-                                <Badge variant="secondary" class="text-[10px]">{{ entityData.encounter_size }}ss</Badge>
-                                <Badge variant="secondary" class="text-[10px]">
-                                    <Users class="mr-0.5 size-3" />
-                                    {{ entityData.member_count }}
-                                </Badge>
-                            </div>
-                            <div v-if="entityData.user_name" class="mt-1 text-[11px] text-muted-foreground">
-                                by {{ entityData.user_name }}
-                            </div>
+            <div v-else-if="entityType === 'crew'" class="rounded-lg border bg-card">
+                <div class="flex items-start gap-3 border-b p-3">
+                    <FactionLogo v-if="entityData.faction" :faction="entityData.faction as string" class-name="size-7 shrink-0 mt-0.5" />
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold">{{ entityData.name ?? displayName }}</p>
+                        <div class="mt-1 flex flex-wrap items-center gap-1">
+                            <Badge v-if="entityData.faction_label" variant="outline" class="text-[10px]">{{ entityData.faction_label }}</Badge>
+                            <Badge variant="secondary" class="text-[10px]">{{ entityData.encounter_size }}ss</Badge>
+                            <Badge variant="secondary" class="text-[10px]">Pool: {{ entityData.soulstone_pool }}ss</Badge>
+                            <Badge variant="secondary" class="text-[10px]">{{ entityData.member_count }} models</Badge>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div v-if="entityData.user_name" class="mt-1 text-[11px] text-muted-foreground">by {{ entityData.user_name }}</div>
+                    </div>
+                    <Button v-if="entityData.link" size="sm" variant="outline" class="shrink-0" @click="navigateToEntity">View Crew</Button>
+                </div>
+                <div class="p-2">
+                    <CrewListDisplay
+                        :members="(entityData.members as any[]) ?? []"
+                        :crew-upgrades="(entityData.crew_upgrades as any[]) ?? []"
+                        compact
+                    />
+                </div>
             </div>
 
             <!-- Keyword -->

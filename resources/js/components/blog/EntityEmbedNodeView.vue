@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import AbilityCard from '@/components/AbilityCard.vue';
-import ActionCard from '@/components/ActionCard.vue';
-import CharacterCardView from '@/components/CharacterCardView.vue';
-import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { NodeViewWrapper } from '@tiptap/vue-3';
-import axios from 'axios';
-import { Loader2, Users } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps<{
     node: {
@@ -20,9 +14,6 @@ const props = defineProps<{
     };
     selected: boolean;
 }>();
-
-const entityData = ref<Record<string, unknown> | null>(null);
-const loading = ref(true);
 
 const typeColor = computed(() => {
     const map: Record<string, string> = {
@@ -61,113 +52,13 @@ const typeLabel = computed(() => {
     };
     return map[props.node.attrs.entityType] ?? props.node.attrs.entityType;
 });
-
-onMounted(async () => {
-    try {
-        const response = await axios.get(route('api.blog.entity-show', { type: props.node.attrs.entityType, slug: props.node.attrs.entitySlug }));
-        entityData.value = response.data;
-    } catch (err) {
-        console.error('Entity embed load failed:', err);
-    } finally {
-        loading.value = false;
-    }
-});
 </script>
 
 <template>
-    <NodeViewWrapper as="div" :class="['my-4', selected ? 'rounded-lg ring-2 ring-primary' : '']">
-        <div v-if="loading" class="flex items-center justify-center rounded-lg border p-4 py-8">
-            <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+    <NodeViewWrapper as="div" :class="['my-2', selected ? 'rounded-lg ring-2 ring-primary' : '']">
+        <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
+            <Badge :class="['shrink-0 border-0 text-[10px]', typeColor]" variant="outline">{{ typeLabel }}</Badge>
+            <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ node.attrs.displayName }}</span>
         </div>
-        <template v-else>
-            <!-- Character -->
-            <div v-if="node.attrs.entityType === 'character' && entityData && (entityData.miniature as any)" class="flex justify-center">
-                <div class="w-72">
-                    <CharacterCardView :miniature="entityData.miniature as any" :character-slug="node.attrs.entitySlug" :show-link="false" />
-                </div>
-            </div>
-
-            <!-- Action -->
-            <ActionCard v-else-if="node.attrs.entityType === 'action' && entityData" :action="entityData as any" />
-
-            <!-- Ability -->
-            <AbilityCard v-else-if="node.attrs.entityType === 'ability' && entityData" :ability="entityData as any" />
-
-            <!-- Upgrade -->
-            <div
-                v-else-if="node.attrs.entityType === 'upgrade' && entityData && (entityData.front_image || entityData.back_image)"
-                class="flex justify-center"
-            >
-                <div class="w-72">
-                    <UpgradeFlipCard
-                        :front-image="entityData.front_image as string"
-                        :back-image="entityData.back_image as string"
-                        :alt-text="(entityData.name ?? node.attrs.displayName) as string"
-                    />
-                </div>
-            </div>
-
-            <!-- Scheme / Strategy with image -->
-            <div
-                v-else-if="(node.attrs.entityType === 'scheme' || node.attrs.entityType === 'strategy') && entityData && entityData.image"
-                class="flex justify-center"
-            >
-                <div class="w-72">
-                    <img :src="entityData.image as string" :alt="(entityData.name ?? node.attrs.displayName) as string" class="w-full rounded-lg" />
-                </div>
-            </div>
-
-            <!-- Keyword -->
-            <div v-else-if="node.attrs.entityType === 'keyword' && entityData" class="rounded-lg border p-4">
-                <div class="flex items-center gap-3">
-                    <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline"
-                        >Keyword</Badge
-                    >
-                    <span class="text-lg font-semibold">{{ entityData.name ?? node.attrs.displayName }}</span>
-                </div>
-                <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span v-if="entityData.masters_count" class="flex items-center gap-1">
-                        <Users class="size-3.5" />
-                        {{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}
-                    </span>
-                    <span v-if="entityData.characters_count">
-                        {{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}
-                    </span>
-                </div>
-                <div v-if="(entityData.factions as any[])?.length" class="mt-2 flex flex-wrap gap-1.5">
-                    <Badge v-for="f in entityData.factions as any[]" :key="f.slug" variant="secondary" class="gap-1.5">
-                        <img :src="f.logo" :alt="f.name" class="size-4" />
-                        {{ f.name }}
-                    </Badge>
-                </div>
-            </div>
-
-            <!-- Faction -->
-            <div v-else-if="node.attrs.entityType === 'faction' && entityData" class="rounded-lg border p-4">
-                <div class="flex items-center gap-3">
-                    <img v-if="entityData.logo" :src="entityData.logo as string" :alt="entityData.name as string" class="size-10" />
-                    <div>
-                        <div class="text-lg font-semibold">{{ entityData.name ?? node.attrs.displayName }}</div>
-                        <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            <span v-if="entityData.masters_count"
-                                >{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span
-                            >
-                            <span v-if="entityData.characters_count"
-                                >{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span
-                            >
-                            <span v-if="entityData.keywords_count"
-                                >{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span
-                            >
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Other types -->
-            <div v-else class="flex items-center gap-3 rounded-lg border p-4">
-                <Badge :class="['border-0 text-xs', typeColor]" variant="outline">{{ typeLabel }}</Badge>
-                <span class="font-semibold">{{ entityData?.name ?? node.attrs.displayName }}</span>
-            </div>
-        </template>
     </NodeViewWrapper>
 </template>

@@ -43,10 +43,10 @@ const hasRelatedContent = () => {
 
     <!-- Preview banner -->
     <div v-if="isPreview" class="border-b border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950">
-        <div class="container mx-auto flex items-center justify-between">
+        <div class="container mx-auto flex items-center justify-between sm:px-4">
             <div class="flex items-center gap-2 text-sm font-medium text-yellow-800 dark:text-yellow-200">
                 <Badge variant="outline" class="border-yellow-400 text-yellow-800 dark:border-yellow-600 dark:text-yellow-200">Preview</Badge>
-                This is a preview — the post is not yet visible to the public.
+                This is a preview — not yet visible to the public.
             </div>
             <Link
                 :href="route('admin.blog.posts.edit', post.slug)"
@@ -57,72 +57,59 @@ const hasRelatedContent = () => {
         </div>
     </div>
 
-    <!-- Hero image header -->
-    <div v-if="post.featured_image" class="relative h-[240px] w-full overflow-hidden sm:h-[360px] lg:h-[480px]">
-        <img :src="`/storage/${post.featured_image}`" :alt="post.title" loading="lazy" decoding="async" class="h-full w-full object-cover" />
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div class="container absolute inset-x-0 bottom-0 mx-auto pb-6 sm:px-4 sm:pb-8 md:pb-12">
-            <Badge v-if="post.category" variant="secondary" class="animate-fade-in-up mb-2 opacity-0 sm:mb-3">{{ post.category.name }}</Badge>
-            <h1
-                class="animate-fade-in-up mb-3 max-w-3xl text-2xl font-bold leading-tight text-white opacity-0 [animation-delay:100ms] sm:mb-4 sm:text-3xl md:text-4xl lg:text-5xl"
-            >
-                {{ post.title }}
-            </h1>
-            <div class="animate-fade-in-up flex items-center gap-3 opacity-0 [animation-delay:200ms]">
-                <Avatar size="sm">
-                    <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
-                </Avatar>
-                <div class="text-sm text-white/90">
-                    <span class="font-medium">{{ post.author.name }}</span>
-                    <span class="mx-2">&middot;</span>
-                    <time>{{ formatDate(post.published_at) }}</time>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- No-image fallback header -->
-    <div v-else class="relative">
+    <div class="relative">
+        <!-- Background gradient -->
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
-        <div class="container mx-auto pb-4 pt-6 sm:px-4 sm:pb-6 md:pt-12">
-            <Badge v-if="post.category" variant="secondary" class="animate-fade-in-up mb-2 opacity-0 sm:mb-3">{{ post.category.name }}</Badge>
-            <h1
-                class="animate-fade-in-up mb-3 max-w-3xl text-2xl font-bold leading-tight opacity-0 [animation-delay:100ms] sm:mb-4 sm:text-3xl md:text-4xl lg:text-5xl"
-            >
-                {{ post.title }}
-            </h1>
-            <div class="animate-fade-in-up flex items-center gap-3 opacity-0 [animation-delay:200ms]">
-                <Avatar size="sm">
-                    <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
-                </Avatar>
-                <div class="text-sm text-muted-foreground">
-                    <span class="font-medium text-foreground">{{ post.author.name }}</span>
-                    <span class="mx-2">&middot;</span>
-                    <time>{{ formatDate(post.published_at) }}</time>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <article class="container mx-auto pb-8 sm:px-4 lg:pb-16">
-        <div class="mx-auto max-w-3xl">
+        <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
             <!-- Back link -->
             <Link
                 :href="isPreview ? route('admin.blog.posts.edit', post.slug) : route('blog.index')"
-                class="group mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-8"
+                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >
                 <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                 {{ isPreview ? 'Back to Editor' : 'Back to Articles' }}
             </Link>
 
+            <!-- Hero image -->
+            <div v-if="post.featured_image" class="mb-6 overflow-hidden rounded-xl lg:mb-8">
+                <img
+                    :src="`/storage/${post.featured_image}`"
+                    :alt="post.title"
+                    loading="lazy"
+                    decoding="async"
+                    class="w-full object-cover"
+                    style="max-height: 420px"
+                />
+            </div>
+
+            <!-- Article header -->
+            <div class="mx-auto mb-6 max-w-3xl lg:mb-8">
+                <div class="mb-3 flex flex-wrap items-center gap-2">
+                    <Badge v-if="post.category" variant="secondary">{{ post.category.name }}</Badge>
+                    <span class="text-sm text-muted-foreground">{{ formatDate(post.published_at) }}</span>
+                </div>
+                <h1 class="mb-4 text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
+                    {{ post.title }}
+                </h1>
+                <div class="flex items-center gap-3">
+                    <Avatar size="sm">
+                        <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
+                    </Avatar>
+                    <span class="text-sm font-medium">{{ post.author.name }}</span>
+                </div>
+            </div>
+
             <!-- Content -->
-            <BlogContent :content="post.content" />
+            <article class="mx-auto max-w-3xl">
+                <BlogContent :content="post.content" />
+            </article>
 
             <!-- Related Content -->
-            <aside v-if="hasRelatedContent()" class="mt-8 lg:mt-12">
+            <aside v-if="hasRelatedContent()" class="mx-auto mt-8 max-w-3xl lg:mt-12">
                 <Separator label="Related Content" class="mb-6" />
 
                 <div class="space-y-4 sm:space-y-6">
@@ -168,5 +155,5 @@ const hasRelatedContent = () => {
                 </div>
             </aside>
         </div>
-    </article>
+    </div>
 </template>

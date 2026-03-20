@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::table('game_crew_members', function (Blueprint $table) {
             $table->index('character_id');
-            $table->index(['game_id', 'game_player_id']);
         });
 
         Schema::table('game_turns', function (Blueprint $table) {
@@ -22,7 +21,6 @@ return new class extends Migration
     {
         Schema::table('game_crew_members', function (Blueprint $table) {
             $table->dropIndex(['character_id']);
-            $table->dropIndex(['game_id', 'game_player_id']);
         });
 
         Schema::table('game_turns', function (Blueprint $table) {

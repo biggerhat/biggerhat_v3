@@ -224,12 +224,13 @@ const formatDate = (dateStr: string) => {
             <DialogHeader>
                 <DialogTitle>Delete Game</DialogTitle>
                 <DialogDescription>
-                    Are you sure you want to delete "{{ gameToDelete?.name || (gameToDelete?.encounter_size ?? '') + 'ss Encounter' }}"? This cannot be undone.
+                    Are you sure you want to remove "{{ gameToDelete?.name || (gameToDelete?.encounter_size ?? '') + 'ss Encounter' }}" from your game list?
+                    <span v-if="!gameToDelete?.is_solo && (gameToDelete?.players?.length ?? 0) > 1" class="mt-1 block text-xs">Your opponent will still be able to see this game.</span>
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="deleteDialogOpen = false">Cancel</Button>
-                <Button variant="destructive" @click="executeDelete">Delete</Button>
+                <Button variant="destructive" @click="executeDelete">Remove</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

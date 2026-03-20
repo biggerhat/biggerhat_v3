@@ -25,13 +25,13 @@ class GameController extends Controller
     {
         $userId = Auth::id();
 
-        $activeGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId))
+        $activeGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
             ->with(['players.user:id,name', 'strategy:id,name'])
             ->latest()
             ->get();
 
-        $recentGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId))
+        $recentGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
             ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
             ->latest('completed_at')
@@ -552,14 +552,35 @@ class GameController extends Controller
 
     public function destroy(Game $game)
     {
-        if ($game->creator_id !== Auth::id()) {
+        $userId = Auth::id();
+
+        // Must be a participant
+        $player = $game->players()->where('user_id', $userId)->first();
+        if (! $player && $game->creator_id !== $userId) {
             abort(403);
         }
 
-        $game->delete();
+        // Solo games or games still in setup (no opponent yet): hard delete
+        if ($game->is_solo || $game->players()->count() <= 1) {
+            $game->delete();
+
+            return redirect()->route('games.index')
+                ->withMessage('Game deleted.');
+        }
+
+        // Duel game: soft-hide for this player
+        if ($player) {
+            $player->update(['hidden_at' => now()]);
+        }
+
+        // If all players have hidden, hard delete
+        $allHidden = $game->players()->whereNull('hidden_at')->count() === 0;
+        if ($allHidden) {
+            $game->delete();
+        }
 
         return redirect()->route('games.index')
-            ->withMessage('Game deleted.');
+            ->withMessage('Game removed from your list.');
     }
 
     private function getNextSchemesForPlayer(Game $game, int $slot): array

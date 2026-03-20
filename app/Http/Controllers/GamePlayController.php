@@ -133,6 +133,9 @@ class GamePlayController extends Controller
             ->where('game_player_id', $player->id)
             ->max('sort_order') ?? 0;
 
+        $summonToken = \App\Models\Token::where('slug', 'summon')->first(['id', 'name']);
+        $summonTokens = $summonToken ? [['id' => $summonToken->id, 'name' => $summonToken->name]] : [];
+
         $member = GameCrewMember::create([
             'game_id' => $game->id,
             'game_player_id' => $player->id,
@@ -148,7 +151,7 @@ class GamePlayController extends Controller
             'back_image' => $character->miniatures->first()?->back_image,
             'is_summoned' => true,
             'attached_upgrades' => [],
-            'attached_tokens' => [],
+            'attached_tokens' => $summonTokens,
             'attached_markers' => [],
             'sort_order' => $maxSort + 1,
         ]);

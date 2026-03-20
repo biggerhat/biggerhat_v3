@@ -17,7 +17,7 @@ import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface GamePlayer {
     id: number;
@@ -503,6 +503,14 @@ const toggleOpponentRefs = () => {
     loadReferences(ids, 'opponent');
 };
 
+// Auto-load references when game is in progress
+onMounted(() => {
+    if (props.game.status === 'in_progress') {
+        toggleMyRefs();
+        toggleOpponentRefs();
+    }
+});
+
 // ─── Gameplay ───
 const gameplayTab = ref<'scenario' | 'my-crew' | 'opponent'>('my-crew');
 const schemeHidden = ref(false);
@@ -558,6 +566,10 @@ const updateHealth = (member: any, delta: number) => {
     if (newHealth === member.current_health) return;
     // Optimistic update
     member.current_health = newHealth;
+    if (newHealth === 0) {
+        killMember(member);
+        return;
+    }
     fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
@@ -1698,7 +1710,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </div>
                                     <div v-if="schemeHidden" class="text-sm font-medium text-muted-foreground">Hidden</div>
-                                    <div v-else class="text-sm font-medium">{{ findScheme(myPlayer?.current_scheme_id)?.name }}</div>
+                                    <button v-else class="text-sm font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(myPlayer?.current_scheme_id)!)">
+                                        {{ findScheme(myPlayer?.current_scheme_id)?.name }}
+                                    </button>
                                 </div>
 
                                 <!-- Opponent's Possible Schemes (duel only — solo shows scheme directly) -->
@@ -1856,7 +1870,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <h3 class="text-sm font-semibold">Your Crew</h3>
                             <div class="flex items-center gap-1">
                                 <button class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(-1)"><Minus class="size-3" /></button>
-                                <span class="flex items-center gap-0.5 text-xs font-bold">
+                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                     {{ myPlayer?.soulstone_pool ?? 0 }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 </span>
                                 <button class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(1)"><Plus class="size-3" /></button>
@@ -1886,19 +1900,32 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
                                 :style="member.is_activated ? 'opacity: 0.5' : ''"
                             >
-                                <div class="flex items-center justify-between">
-                                    <div class="flex min-w-0 flex-1 items-center gap-1">
-                                        <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)" :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'">
-                                            <Check v-if="member.is_activated" class="size-3.5 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                            <Circle v-else class="size-3.5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                        </button>
-                                        <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                <div class="flex items-start justify-between gap-1">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1">
+                                            <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)" :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'">
+                                                <Check v-if="member.is_activated" class="size-3.5 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                                <Circle v-else class="size-3.5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                            </button>
+                                            <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
+                                            <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                        </div>
+                                        <!-- Health pips -->
+                                        <div class="mt-0.5 flex gap-0.5 pl-6">
+                                            <div
+                                                v-for="pip in member.max_health"
+                                                :key="'hp-' + pip"
+                                                class="size-2 rounded-sm"
+                                                :class="pip <= member.current_health
+                                                    ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
+                                                    : 'bg-black/30 ring-1 ring-inset ring-white/10'"
+                                            />
+                                        </div>
                                     </div>
-                                    <div class="flex items-center gap-0.5">
-                                        <button class="rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
-                                        <button class="rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                    <div class="flex shrink-0 items-center gap-0.5">
                                         <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3" /></button>
-                                        <span class="flex items-center gap-0.5 text-xs font-bold">
+                                        <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                             <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
@@ -1951,7 +1978,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <Plus class="size-3" /> Summon
                         </Button>
                         <!-- Crew References -->
-                        <details class="mt-2 rounded-lg border" @toggle="($event.target as HTMLDetailsElement)?.open && toggleMyRefs()">
+                        <details open class="mt-2 rounded-lg border" @toggle="($event.target as HTMLDetailsElement)?.open && toggleMyRefs()">
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
@@ -1967,7 +1994,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <template v-if="isSolo">
                                     <button class="rounded p-0.5 hover:bg-muted" @click="updateOpponentSoulstonePool(-1)"><Minus class="size-3" /></button>
                                 </template>
-                                <span class="flex items-center gap-0.5 text-xs font-bold" :class="!isSolo ? 'text-muted-foreground' : ''">
+                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold" :class="!isSolo ? 'text-muted-foreground' : ''">
                                     {{ opponent?.soulstone_pool ?? 0 }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 </span>
                                 <template v-if="isSolo">
@@ -2022,34 +2049,47 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
                                 :style="member.is_activated ? 'opacity: 0.5' : ''"
                             >
-                                <div class="flex items-center justify-between">
-                                    <div class="flex min-w-0 flex-1 items-center gap-1">
-                                        <!-- Solo: full activation toggle; Normal: read-only indicator -->
-                                        <template v-if="isSolo">
-                                            <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)">
-                                                <Check v-if="member.is_activated" class="size-3.5 text-green-300" />
-                                                <Circle v-else class="size-3.5 text-white/30" />
-                                            </button>
-                                        </template>
-                                        <template v-else>
-                                            <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                            <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                        </template>
-                                        <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                <div class="flex items-start justify-between gap-1">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1">
+                                            <!-- Solo: full activation toggle; Normal: read-only indicator -->
+                                            <template v-if="isSolo">
+                                                <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)">
+                                                    <Check v-if="member.is_activated" class="size-3.5 text-green-300" />
+                                                    <Circle v-else class="size-3.5 text-white/30" />
+                                                </button>
+                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                            </template>
+                                            <template v-else>
+                                                <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                                <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                            </template>
+                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                        </div>
+                                        <!-- Health pips -->
+                                        <div class="mt-0.5 flex gap-0.5" :class="isSolo ? 'pl-6' : 'pl-5'">
+                                            <div
+                                                v-for="pip in member.max_health"
+                                                :key="'ohp-' + pip"
+                                                class="size-2 rounded-sm"
+                                                :class="pip <= member.current_health
+                                                    ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
+                                                    : 'bg-black/30 ring-1 ring-inset ring-white/10'"
+                                            />
+                                        </div>
                                     </div>
                                     <!-- Solo: full health controls; Normal: read-only -->
-                                    <div v-if="isSolo" class="flex items-center gap-0.5">
-                                        <button class="rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
-                                        <button class="rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                    <div v-if="isSolo" class="flex shrink-0 items-center gap-0.5">
                                         <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3" /></button>
-                                        <span class="flex items-center gap-0.5 text-xs font-bold">
+                                        <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                             <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
                                         <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3" /></button>
                                         <button class="ml-0.5 rounded bg-black/30 p-0.5 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3" /></button>
                                     </div>
-                                    <span v-else class="flex items-center gap-0.5 text-xs font-bold">
+                                    <span v-else class="flex shrink-0 min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                         <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                         {{ member.current_health }}/{{ member.max_health }}
                                     </span>
@@ -2100,7 +2140,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <Plus class="size-3" /> Summon
                         </Button>
                         <!-- Opponent Crew References -->
-                        <details v-if="opponentCrewMembers.length" class="mt-2 rounded-lg border" @toggle="($event.target as HTMLDetailsElement)?.open && toggleOpponentRefs()">
+                        <details v-if="opponentCrewMembers.length" open class="mt-2 rounded-lg border" @toggle="($event.target as HTMLDetailsElement)?.open && toggleOpponentRefs()">
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
@@ -2299,25 +2339,36 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div v-if="player.turns?.find((t: any) => t.turn_number === turn)?.crew_snapshot?.length" class="mt-2">
                                             <div class="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Crew</div>
                                             <div class="space-y-0.5">
-                                                <div
-                                                    v-for="(member, mIdx) in player.turns.find((t: any) => t.turn_number === turn).crew_snapshot"
-                                                    :key="'snap-' + turn + '-' + player.id + '-' + mIdx"
-                                                    :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                                    class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
-                                                    :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
-                                                >
-                                                    <div class="flex min-w-0 items-center gap-1">
-                                                        <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge v-if="member.is_summoned" class="bg-cyan-400/20 px-0.5 py-0 text-[8px] text-cyan-200">S</Badge>
+                                                <div :key="'snap-' + turn + '-' + player.id + '-' + mIdx" v-for="(member, mIdx) in player.turns.find((t: any) => t.turn_number === turn).crew_snapshot">
+                                                    <div
+                                                        :class="factionBackground(member.faction ?? player.faction ?? '')"
+                                                        class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
+                                                        :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
+                                                    >
+                                                        <div class="flex min-w-0 items-center gap-1">
+                                                            <span class="truncate font-medium">{{ member.display_name }}</span>
+                                                            <Badge v-if="member.is_summoned" class="bg-cyan-400/20 px-0.5 py-0 text-[8px] text-cyan-200">S</Badge>
+                                                        </div>
+                                                        <div class="flex items-center gap-1">
+                                                            <template v-if="member.attached_tokens?.length">
+                                                                <div v-for="token in member.attached_tokens" :key="token.id" class="rounded bg-cyan-900/50 px-0.5 text-[8px] text-cyan-200">{{ token.name }}</div>
+                                                            </template>
+                                                            <span class="flex items-center gap-0.5 font-bold">
+                                                                <Heart class="size-2.5" :class="member.is_killed ? 'text-red-400' : member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                                {{ member.current_health }}/{{ member.max_health }}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div class="flex items-center gap-1">
-                                                        <template v-if="member.attached_tokens?.length">
-                                                            <div v-for="token in member.attached_tokens" :key="token.id" class="rounded bg-cyan-900/50 px-0.5 text-[8px] text-cyan-200">{{ token.name }}</div>
-                                                        </template>
-                                                        <span class="flex items-center gap-0.5 font-bold">
-                                                            <Heart class="size-2.5" :class="member.is_killed ? 'text-red-400' : member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                                                            {{ member.current_health }}/{{ member.max_health }}
-                                                        </span>
+                                                    <!-- Attached upgrades in snapshot -->
+                                                    <div v-if="member.attached_upgrades?.length" class="space-y-0.5 pl-3">
+                                                        <div
+                                                            v-for="upgrade in member.attached_upgrades"
+                                                            :key="'su-' + upgrade.id"
+                                                            class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-[9px] text-amber-300"
+                                                        >
+                                                            <ArrowUpCircle class="size-2 shrink-0" />
+                                                            <span class="truncate">{{ upgrade.name }}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2378,7 +2429,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </span>
                                             <Badge v-if="member.is_summoned" variant="secondary" class="bg-cyan-500/20 px-1 py-0 text-[9px] text-cyan-200">Summoned</Badge>
                                         </div>
-                                        <span class="flex items-center gap-0.5 text-xs font-bold">
+                                        <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                             <Heart class="size-3" :class="member.is_killed ? 'text-red-400' : member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
@@ -2404,7 +2455,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Strategy Drawer -->
     <Drawer v-model:open="strategyDrawerOpen">
         <DrawerContent>
-            <div v-if="game.strategy" class="mx-auto w-full max-w-sm">
+            <div v-if="game.strategy" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ game.strategy.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Strategy</div>
@@ -2449,7 +2500,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Deployment Drawer -->
     <Drawer v-model:open="deploymentDrawerOpen">
         <DrawerContent>
-            <div v-if="deployment" class="mx-auto w-full max-w-sm">
+            <div v-if="deployment" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ deployment.label }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Deployment</div>
@@ -2477,7 +2528,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Scheme Drawer -->
     <Drawer v-model:open="schemeDrawerOpen">
         <DrawerContent>
-            <div v-if="activeScheme" class="mx-auto w-full max-w-sm">
+            <div v-if="activeScheme" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ activeScheme.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Scheme</div>
@@ -2518,15 +2569,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Crew Member Card Preview Drawer -->
     <Drawer v-model:open="crewMemberDrawerOpen">
         <DrawerContent>
-            <div v-if="previewMember" class="mx-auto w-full max-w-sm">
+            <div v-if="previewMember" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewMember.display_name }}</DrawerTitle>
                 </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <CharacterCardView
                         v-if="previewMember.front_image"
                         :miniature="{ id: previewMember.id, display_name: previewMember.display_name, slug: '', front_image: previewMember.front_image, back_image: previewMember.back_image }"
                         :show-link="false"
+                        :show-collection="false"
                     />
                     <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
                 </div>
@@ -2542,12 +2594,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Crew Upgrade Preview Drawer -->
     <Drawer v-model:open="upgradeDrawerOpen">
         <DrawerContent>
-            <div v-if="previewUpgrade" class="mx-auto w-full max-w-sm">
+            <div v-if="previewUpgrade" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewUpgrade.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
                 </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <UpgradeFlipCard
                         :front-image="previewUpgrade.front_image"
                         :back-image="previewUpgrade.back_image"
@@ -2594,19 +2646,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>Set Opponent's Scheme</DialogTitle>
-                <DialogDescription>Select a scheme from the pool or next schemes.</DialogDescription>
+                <DialogDescription>{{ opponent?.current_scheme_id ? 'Keep current or choose from the next scheme chain.' : 'Select a scheme from the pool.' }}</DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
-                <button
-                    v-for="scheme in [...schemes, ...opponent_next_schemes.filter((ns) => !schemes.find((s) => s.id === ns.id))]"
-                    :key="'opp-scheme-' + scheme.id"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    :class="opponent?.current_scheme_id === scheme.id ? 'bg-primary/10 font-medium' : ''"
-                    @click="setOpponentScheme(scheme.id)"
-                >
-                    {{ scheme.name }}
-                    <Badge v-if="opponent?.current_scheme_id === scheme.id" variant="outline" class="text-[9px]">Current</Badge>
-                </button>
+                <!-- No scheme yet: show initial pool -->
+                <template v-if="!opponent?.current_scheme_id">
+                    <button
+                        v-for="scheme in schemes"
+                        :key="'opp-scheme-' + scheme.id"
+                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                        @click="setOpponentScheme(scheme.id)"
+                    >
+                        {{ scheme.name }}
+                    </button>
+                </template>
+                <!-- Has scheme: show current + next chain -->
+                <template v-else>
+                    <button
+                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm bg-primary/10 font-medium"
+                        @click="opponentSchemeDialogOpen = false"
+                    >
+                        {{ findScheme(opponent.current_scheme_id)?.name }} <Badge variant="outline" class="text-[9px]">Current</Badge>
+                    </button>
+                    <button
+                        v-for="scheme in opponent_next_schemes.filter((ns) => ns.id !== opponent?.current_scheme_id)"
+                        :key="'opp-scheme-' + scheme.id"
+                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                        @click="setOpponentScheme(scheme.id)"
+                    >
+                        {{ scheme.name }}
+                    </button>
+                </template>
             </div>
         </DialogContent>
     </Dialog>
@@ -2707,12 +2777,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Attached Upgrade Preview Drawer -->
     <Drawer v-model:open="attachedUpgradeDrawerOpen">
         <DrawerContent>
-            <div v-if="previewAttachedUpgrade" class="mx-auto w-full max-w-sm">
+            <div v-if="previewAttachedUpgrade" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewAttachedUpgrade.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Character Upgrade</div>
                 </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <UpgradeFlipCard
                         :front-image="previewAttachedUpgrade.front_image"
                         :back-image="previewAttachedUpgrade.back_image"

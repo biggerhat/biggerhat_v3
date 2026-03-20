@@ -30,6 +30,30 @@ class CharacterAPIController extends Controller
         return $miniatures->unique('character_id');
     }
 
+    public function search(Request $request)
+    {
+        $q = $request->get('q', '');
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $characters = Character::where('display_name', 'LIKE', "%{$q}%")
+            ->orWhere('name', 'LIKE', "%{$q}%")
+            ->with('miniatures')
+            ->limit(15)
+            ->get();
+
+        return $characters->map(fn (Character $c) => [
+            'id' => $c->id,
+            'display_name' => $c->display_name,
+            'station' => $c->station?->value,
+            'count' => $c->count ?? 1,
+            'front_image' => $c->miniatures->first()?->front_image
+                ? '/storage/'.$c->miniatures->first()->front_image
+                : null,
+        ]);
+    }
+
     public function images(Request $request)
     {
         $storageUrl = config('filesystems.disks.public.url').'/';

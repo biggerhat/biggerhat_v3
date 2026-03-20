@@ -28,6 +28,13 @@ const props = defineProps({
             return true;
         },
     },
+    showCollection: {
+        type: [Boolean],
+        required: false,
+        default() {
+            return true;
+        },
+    },
     characterSlug: {
         type: String,
         required: false,
@@ -137,7 +144,7 @@ const currentLabel = computed(() => {
                 <Maximize2 class="size-3.5" />
             </button>
         </div>
-        <div v-if="inCollection || onWishlist" class="mt-1 flex items-center justify-center gap-2">
+        <div v-if="props.showCollection && (inCollection || onWishlist)" class="mt-1 flex items-center justify-center gap-2">
             <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
                 <BookMarked class="size-3" />
                 Collected
@@ -147,7 +154,7 @@ const currentLabel = computed(() => {
                 Wishlisted
             </span>
         </div>
-        <div v-if="isLoggedIn && !inCollection" class="mt-1">
+        <div v-if="props.showCollection && isLoggedIn && !inCollection" class="mt-1">
             <Button
                 variant="outline"
                 size="sm"

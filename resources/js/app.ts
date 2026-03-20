@@ -1,4 +1,5 @@
 import '../css/app.css';
+import './echo';
 
 import AppLayout from '@/layouts/AppLayout.vue';
 import { createInertiaApp, Head, Link } from '@inertiajs/vue3';

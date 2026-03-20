@@ -21,6 +21,9 @@ use App\Http\Controllers\Database\StrategyController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
+use App\Http\Controllers\GameController;
+use App\Http\Controllers\GamePlayController;
+use App\Http\Controllers\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
@@ -31,8 +34,11 @@ use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\Miniature;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+Broadcast::routes(['middleware' => ['web', 'auth']]);
 
 Route::get('/', function () {
     return Inertia::render('Index', [
@@ -222,6 +228,40 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
         Route::delete('/{wishlist}/items/{wishlistItem}', [WishlistController::class, 'removeItem'])->name('items.remove');
         Route::post('/{wishlist}/add-keyword', [WishlistController::class, 'addKeyword'])->name('add_keyword');
         Route::post('/{wishlist}/toggle-public', [WishlistController::class, 'togglePublic'])->name('toggle_public');
+    });
+});
+
+Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
+    Route::get('/', [GameController::class, 'index'])->name('index');
+    Route::get('/create', [GameController::class, 'create'])->name('create');
+    Route::post('/', [GameController::class, 'store'])->name('store');
+    Route::get('/{game:uuid}/join', [GameController::class, 'join'])->name('join');
+    Route::get('/{game:uuid}', [GameController::class, 'show'])->name('show');
+    Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
+    Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');
+    Route::delete('/{game:uuid}', [GameController::class, 'destroy'])->name('destroy');
+    Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');
+
+    // Setup steps
+    Route::prefix('/{game:uuid}/setup')->name('setup.')->group(function () {
+        Route::post('/faction', [GameSetupController::class, 'submitFaction'])->name('faction');
+        Route::post('/master', [GameSetupController::class, 'submitMaster'])->name('master');
+        Route::post('/crew', [GameSetupController::class, 'submitCrew'])->name('crew');
+        Route::post('/crew/skip', [GameSetupController::class, 'skipCrew'])->name('crew.skip');
+        Route::post('/scheme', [GameSetupController::class, 'submitScheme'])->name('scheme');
+        Route::post('/swap-roles', [GameSetupController::class, 'swapRoles'])->name('swap_roles');
+        Route::post('/opponent-name', [GameSetupController::class, 'updateOpponentName'])->name('opponent_name');
+    });
+
+    // Gameplay
+    Route::prefix('/{game:uuid}/play')->name('play.')->group(function () {
+        Route::patch('/crew/{gameCrewMember}', [GamePlayController::class, 'updateCrewMember'])->name('crew.update');
+        Route::post('/crew/{gameCrewMember}/kill', [GamePlayController::class, 'killCrewMember'])->name('crew.kill');
+        Route::post('/crew/{gameCrewMember}/revive', [GamePlayController::class, 'reviveCrewMember'])->name('crew.revive');
+        Route::post('/crew/summon', [GamePlayController::class, 'summonCrewMember'])->name('crew.summon');
+        Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
+        Route::post('/turns', [GamePlayController::class, 'submitTurnScore'])->name('turns.store');
+        Route::post('/complete', [GamePlayController::class, 'markComplete'])->name('complete');
     });
 });
 

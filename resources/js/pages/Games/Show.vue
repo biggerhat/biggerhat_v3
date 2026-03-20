@@ -759,6 +759,27 @@ const quickRemoveToken = async (member: any, tokenId: number) => {
     router.reload({ only: ['game'], preserveScroll: true });
 };
 
+// Reference characters from loaded references (summons/replaces)
+const referenceCharacters = computed(() => {
+    const chars: any[] = [];
+    const seen = new Set<number>();
+    for (const c of myReferences.value?.characters ?? []) {
+        if (!seen.has(c.id)) { seen.add(c.id); chars.push(c); }
+    }
+    for (const c of opponentReferences.value?.characters ?? []) {
+        if (!seen.has(c.id)) { seen.add(c.id); chars.push(c); }
+    }
+    return chars;
+});
+
+// Reference token IDs from loaded references
+const referenceTokenIds = computed(() => {
+    const ids = new Set<number>();
+    for (const t of myReferences.value?.tokens ?? []) ids.add(t.id);
+    for (const t of opponentReferences.value?.tokens ?? []) ids.add(t.id);
+    return ids;
+});
+
 const memberHasToken = (tokenId: number) => {
     return (tokenMember.value?.attached_tokens ?? []).some((t: any) => t.id === tokenId);
 };
@@ -1885,7 +1906,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <button class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(1)"><Plus class="size-3" /></button>
                             </div>
                         </div>
-                        <!-- Crew Upgrades -->
+                        <!-- Reference Upgrades -->
                         <div v-if="myCrewUpgrades.length" class="mb-2 space-y-1">
                             <div
                                 v-for="upgrade in myCrewUpgrades"
@@ -2034,7 +2055,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </div>
                         </div>
 
-                        <!-- Opponent Crew Upgrades -->
+                        <!-- Opponent Reference Upgrades -->
                         <div v-if="opponentCrewUpgrades.length" class="mb-2 space-y-1">
                             <div
                                 v-for="upgrade in opponentCrewUpgrades"
@@ -2655,37 +2676,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>Set Opponent's Scheme</DialogTitle>
-                <DialogDescription>{{ opponent?.current_scheme_id ? 'Keep current or choose from the next scheme chain.' : 'Select a scheme from the pool.' }}</DialogDescription>
+                <DialogDescription>Select a scheme from the pool.</DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
-                <!-- No scheme yet: show initial pool -->
-                <template v-if="!opponent?.current_scheme_id">
-                    <button
-                        v-for="scheme in schemes"
-                        :key="'opp-scheme-' + scheme.id"
-                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                        @click="setOpponentScheme(scheme.id)"
-                    >
-                        {{ scheme.name }}
-                    </button>
-                </template>
-                <!-- Has scheme: show current + next chain -->
-                <template v-else>
-                    <button
-                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm bg-primary/10 font-medium"
-                        @click="opponentSchemeDialogOpen = false"
-                    >
-                        {{ findScheme(opponent.current_scheme_id)?.name }} <Badge variant="outline" class="text-[9px]">Current</Badge>
-                    </button>
-                    <button
-                        v-for="scheme in opponent_next_schemes.filter((ns) => ns.id !== opponent?.current_scheme_id)"
-                        :key="'opp-scheme-' + scheme.id"
-                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                        @click="setOpponentScheme(scheme.id)"
-                    >
-                        {{ scheme.name }}
-                    </button>
-                </template>
+                <button
+                    v-for="scheme in schemes"
+                    :key="'opp-scheme-' + scheme.id"
+                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                    :class="opponent?.current_scheme_id === scheme.id ? 'bg-primary/10 font-medium' : ''"
+                    @click="setOpponentScheme(scheme.id)"
+                >
+                    {{ scheme.name }}
+                    <Badge v-if="opponent?.current_scheme_id === scheme.id" variant="outline" class="text-[9px]">Current</Badge>
+                </button>
             </div>
         </DialogContent>
     </Dialog>
@@ -2695,38 +2698,68 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>Summon Character</DialogTitle>
-                <DialogDescription>Search for a character to summon into your crew.</DialogDescription>
+                <DialogDescription>Select a reference character or search for any character.</DialogDescription>
             </DialogHeader>
-            <Input
-                :model-value="summonSearch"
-                placeholder="Search characters..."
-                @update:model-value="searchSummon($event as string)"
-            />
-            <div class="max-h-60 space-y-1 overflow-y-auto">
-                <div v-if="summonLoading" class="flex justify-center py-4">
-                    <Loader2 class="size-5 animate-spin text-muted-foreground" />
-                </div>
-                <template v-else-if="summonResults.length">
+            <!-- Reference characters -->
+            <div v-if="referenceCharacters.length">
+                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Characters</div>
+                <div class="max-h-40 space-y-0.5 overflow-y-auto">
                     <button
-                        v-for="char in summonResults"
-                        :key="char.id"
+                        v-for="char in referenceCharacters"
+                        :key="'ref-sum-' + char.id"
                         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
-                        :class="summonCrewCount(char.id) >= (char.count ?? 1) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'"
-                        :disabled="summonCrewCount(char.id) >= (char.count ?? 1)"
+                        :class="summonCrewCount(char.id) >= (char.count ?? 99) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'"
+                        :disabled="summonCrewCount(char.id) >= (char.count ?? 99)"
                         @click="summonCharacter(char.id)"
                     >
-                        <img v-if="char.front_image" :src="char.front_image" class="size-8 rounded object-cover" />
+                        <img v-if="char.front_image" :src="'/storage/' + char.front_image" class="size-8 rounded object-cover" />
                         <div class="min-w-0 flex-1">
-                            <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
-                            <div v-if="char.station" class="text-xs text-muted-foreground capitalize">{{ char.station }}</div>
+                            <div class="truncate font-medium">{{ char.display_name }}</div>
+                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
                         </div>
                         <span v-if="summonCrewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
-                            {{ summonCrewCount(char.id) }}/{{ char.count ?? 1 }}
+                            {{ summonCrewCount(char.id) }}
                         </span>
                     </button>
-                </template>
-                <div v-else-if="summonSearch.length >= 2" class="py-4 text-center text-sm text-muted-foreground">No characters found</div>
+                </div>
             </div>
+            <!-- Search all characters -->
+            <details class="rounded-md border">
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Search All Characters</summary>
+                <div class="border-t px-1 pb-1 pt-1">
+                    <Input
+                        :model-value="summonSearch"
+                        placeholder="Search..."
+                        class="mb-1"
+                        @update:model-value="searchSummon($event as string)"
+                    />
+                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
+                        <div v-if="summonLoading" class="flex justify-center py-3">
+                            <Loader2 class="size-4 animate-spin text-muted-foreground" />
+                        </div>
+                        <template v-else-if="summonResults.length">
+                            <button
+                                v-for="char in summonResults"
+                                :key="char.id"
+                                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+                                :class="summonCrewCount(char.id) >= (char.count ?? 1) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'"
+                                :disabled="summonCrewCount(char.id) >= (char.count ?? 1)"
+                                @click="summonCharacter(char.id)"
+                            >
+                                <img v-if="char.front_image" :src="char.front_image" class="size-8 rounded object-cover" />
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
+                                    <div v-if="char.station" class="text-xs text-muted-foreground capitalize">{{ char.station }}</div>
+                                </div>
+                                <span v-if="summonCrewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
+                                    {{ summonCrewCount(char.id) }}/{{ char.count ?? 1 }}
+                                </span>
+                            </button>
+                        </template>
+                        <div v-else-if="summonSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No characters found</div>
+                    </div>
+                </div>
+            </details>
         </DialogContent>
     </Dialog>
 
@@ -2756,14 +2789,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </div>
             </div>
-            <!-- Available upgrades -->
-            <div>
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Add Upgrade</div>
-                <Input v-model="upgradeSearch" placeholder="Filter upgrades..." class="mb-2" />
-                <div class="max-h-48 space-y-0.5 overflow-y-auto">
+            <!-- Reference upgrades -->
+            <div v-if="filteredUpgrades.filter((u) => memberReferenceUpgradeIds.has(u.id)).length">
+                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Upgrades</div>
+                <div class="max-h-32 space-y-0.5 overflow-y-auto">
                     <button
-                        v-for="upgrade in filteredUpgrades"
-                        :key="upgrade.id"
+                        v-for="upgrade in filteredUpgrades.filter((u) => memberReferenceUpgradeIds.has(u.id))"
+                        :key="'ref-' + upgrade.id"
                         class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
                         :class="[
                             memberHasUpgrade(upgrade.id) ? 'bg-amber-500/10 font-medium' : '',
@@ -2775,11 +2807,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
                         <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                         <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                        <Badge v-if="memberReferenceUpgradeIds.has(upgrade.id)" variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Ref</Badge>
                         <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground">{{ upgradeUsageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}</span>
                     </button>
                 </div>
             </div>
+            <!-- All upgrades -->
+            <details class="rounded-md border">
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Upgrades</summary>
+                <div class="border-t px-1 pb-1 pt-1">
+                    <Input v-model="upgradeSearch" placeholder="Filter..." class="mb-1" />
+                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
+                        <button
+                            v-for="upgrade in filteredUpgrades"
+                            :key="upgrade.id"
+                            class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
+                            :class="[
+                                memberHasUpgrade(upgrade.id) ? 'bg-amber-500/10 font-medium' : '',
+                                !memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent',
+                            ]"
+                            :disabled="!memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful)"
+                            @click="toggleUpgrade(upgrade)"
+                        >
+                            <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
+                            <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
+                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground">{{ upgradeUsageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}</span>
+                        </button>
+                    </div>
+                </div>
+            </details>
         </DialogContent>
     </Dialog>
 
@@ -2831,14 +2887,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </Badge>
                 </div>
             </div>
-            <!-- Available tokens -->
-            <div>
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Toggle Tokens</div>
-                <Input v-model="tokenSearch" placeholder="Filter tokens..." class="mb-2" />
-                <div class="max-h-48 space-y-0.5 overflow-y-auto">
+            <!-- Reference tokens -->
+            <div v-if="props.tokens.filter((t) => referenceTokenIds.has(t.id)).length">
+                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Tokens</div>
+                <div class="max-h-32 space-y-0.5 overflow-y-auto">
                     <button
-                        v-for="token in props.tokens.filter((t) => !tokenSearch || t.name.toLowerCase().includes(tokenSearch.toLowerCase()))"
-                        :key="token.id"
+                        v-for="token in props.tokens.filter((t) => referenceTokenIds.has(t.id))"
+                        :key="'ref-' + token.id"
                         class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
                         :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
                         @click="toggleToken(token.id, token.name)"
@@ -2849,6 +2904,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </button>
                 </div>
             </div>
+            <!-- All tokens -->
+            <details class="rounded-md border">
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Tokens</summary>
+                <div class="border-t px-1 pb-1 pt-1">
+                    <Input v-model="tokenSearch" placeholder="Filter..." class="mb-1" />
+                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
+                        <button
+                            v-for="token in props.tokens.filter((t) => !tokenSearch || t.name.toLowerCase().includes(tokenSearch.toLowerCase()))"
+                            :key="token.id"
+                            class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
+                            :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
+                            @click="toggleToken(token.id, token.name)"
+                        >
+                            <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
+                            <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
+                            {{ token.name }}
+                        </button>
+                    </div>
+                </div>
+            </details>
         </DialogContent>
     </Dialog>
 

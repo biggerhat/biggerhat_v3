@@ -84,6 +84,11 @@ const mainNavItems: NavItem[] = [
                 icon: Swords,
             },
             {
+                title: 'Game Tracker',
+                href: route('games.index'),
+                icon: Swords,
+            },
+            {
                 title: 'Scenario Generator',
                 href: route('tools.scenario_generator'),
                 icon: Dice6,

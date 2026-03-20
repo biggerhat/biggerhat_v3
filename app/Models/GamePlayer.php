@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\FactionEnum;
+use App\Enums\GameRoleEnum;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * @property User $user
+ */
+class GamePlayer extends Model
+{
+    protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'faction' => FactionEnum::class,
+            'role' => GameRoleEnum::class,
+            'is_turn_complete' => 'boolean',
+            'is_game_complete' => 'boolean',
+        ];
+    }
+
+    public function game(): BelongsTo
+    {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function master(): BelongsTo
+    {
+        return $this->belongsTo(Character::class, 'master_id');
+    }
+
+    public function crewBuild(): BelongsTo
+    {
+        return $this->belongsTo(CrewBuild::class);
+    }
+
+    public function currentScheme(): BelongsTo
+    {
+        return $this->belongsTo(Scheme::class, 'current_scheme_id');
+    }
+
+    public function crewMembers(): HasMany
+    {
+        return $this->hasMany(GameCrewMember::class)->orderBy('sort_order');
+    }
+
+    public function turns(): HasMany
+    {
+        return $this->hasMany(GameTurn::class);
+    }
+}

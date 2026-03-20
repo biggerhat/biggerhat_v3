@@ -142,12 +142,53 @@ class GamePlayController extends Controller
         }
 
         $validated = $request->validate([
-            'strategy_points' => ['required', 'integer', 'min:0', 'max:5'],
-            'scheme_points' => ['required', 'integer', 'min:0', 'max:5'],
+            'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
+            'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
             'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
         ]);
 
+        // Validate scoring rules against previous turns
+        $previousTurns = GameTurn::where('game_id', $game->id)
+            ->where('game_player_id', $player->id)
+            ->get();
+
+        // Strategy: max 1/turn + 1 bonus once per game (max 2 any single turn)
+        if ($validated['strategy_points'] > 1) {
+            $bonusUsed = $previousTurns->contains(fn (GameTurn $t) => $t->strategy_points > 1);
+            if ($bonusUsed) {
+                return response()->json(['error' => 'Strategy bonus already used this game'], 422);
+            }
+        }
+
+        // Scheme: max 2/turn, max 6 total across the game
+        $totalSchemeScored = $previousTurns->sum('scheme_points');
+        $schemeRemaining = 6 - $totalSchemeScored;
+        if ($validated['scheme_points'] > $schemeRemaining) {
+            return response()->json(['error' => 'Scheme scoring would exceed 6 VP game maximum'], 422);
+        }
+
         $totalTurnPoints = $validated['strategy_points'] + $validated['scheme_points'];
+
+        // Snapshot crew state at end of turn
+        $crewSnapshot = GameCrewMember::where('game_id', $game->id)
+            ->where('game_player_id', $player->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (GameCrewMember $m) => [
+                'id' => $m->id,
+                'character_id' => $m->character_id,
+                'display_name' => $m->display_name,
+                'current_health' => $m->current_health,
+                'max_health' => $m->max_health,
+                'is_killed' => $m->is_killed,
+                'is_summoned' => $m->is_summoned,
+                'is_activated' => $m->is_activated,
+                'attached_tokens' => $m->attached_tokens ?? [],
+                'attached_upgrades' => $m->attached_upgrades ?? [],
+                'hiring_category' => $m->hiring_category,
+                'cost' => $m->cost,
+            ])
+            ->toArray();
 
         // Record the turn
         GameTurn::updateOrCreate(
@@ -161,6 +202,7 @@ class GamePlayController extends Controller
                 'strategy_points' => $validated['strategy_points'],
                 'scheme_points' => $validated['scheme_points'],
                 'points_scored' => $totalTurnPoints,
+                'crew_snapshot' => $crewSnapshot,
             ]
         );
 
@@ -182,6 +224,14 @@ class GamePlayController extends Controller
         // Check if both players are done
         $bothDone = $game->players()->where('is_turn_complete', true)->count() === 2;
         if ($bothDone) {
+            // If this was the last turn, auto-complete the game
+            if ($game->current_turn >= $game->max_turns) {
+                $game->players()->update(['is_game_complete' => true]);
+                $this->finalizeGame($game);
+
+                return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
+            }
+
             DB::transaction(function () use ($game) {
                 $game->increment('current_turn');
                 $game->players()->update(['is_turn_complete' => false]);

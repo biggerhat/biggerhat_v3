@@ -20,6 +20,7 @@ class GamePlayer extends Model
         return [
             'faction' => FactionEnum::class,
             'role' => GameRoleEnum::class,
+            'crew_skipped' => 'boolean',
             'is_turn_complete' => 'boolean',
             'is_game_complete' => 'boolean',
         ];

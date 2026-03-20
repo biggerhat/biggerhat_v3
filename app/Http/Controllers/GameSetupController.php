@@ -16,6 +16,7 @@ use App\Models\Scheme;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class GameSetupController extends Controller
@@ -110,18 +111,26 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Not your crew'], 403);
         }
 
-        $player->update(['crew_build_id' => $crewBuild->id]);
+        DB::transaction(function () use ($player, $game, $crewBuild) {
+            // Update crew selection and lock in the master title from the crew build
+            $crewMaster = $crewBuild->master;
+            $player->update([
+                'crew_build_id' => $crewBuild->id,
+                'master_name' => $crewMaster ? $crewMaster->display_name : $player->master_name,
+                'master_id' => $crewMaster ? $crewMaster->id : $player->master_id,
+            ]);
 
-        // Copy crew into game_crew_members
-        $this->copyCrewToGame($game, $player, $crewBuild);
+            // Copy crew into game_crew_members
+            $this->copyCrewToGame($game, $player, $crewBuild);
 
-        // Calculate soulstone pool
-        $totalSpent = GameCrewMember::where('game_id', $game->id)
-            ->where('game_player_id', $player->id)
-            ->sum('cost');
-        $remaining = $game->encounter_size - $totalSpent;
-        $pool = $remaining > 6 ? 6 : max(0, $remaining);
-        $player->update(['soulstone_pool' => $pool]);
+            // Calculate soulstone pool from inserted crew
+            $totalSpent = GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->sum('cost');
+            $remaining = $game->encounter_size - $totalSpent;
+            $pool = $remaining > 6 ? 6 : max(0, $remaining);
+            $player->update(['soulstone_pool' => $pool]);
+        });
 
         // In solo, opponent crew is optional — check with skip support
         $crewDoneCount = $game->players()
@@ -224,6 +233,21 @@ class GameSetupController extends Controller
                 broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers();
             }
         }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function updateOpponentName(Request $request, Game $game): JsonResponse
+    {
+        if (! $game->is_solo || $game->creator_id !== Auth::id()) {
+            return response()->json(['error' => 'Only available in solo mode'], 403);
+        }
+
+        $validated = $request->validate([
+            'opponent_name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $game->players()->where('slot', 2)->update(['opponent_name' => $validated['opponent_name']]);
 
         return response()->json(['success' => true]);
     }

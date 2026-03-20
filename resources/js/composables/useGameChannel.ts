@@ -11,6 +11,10 @@ export function useGameChannel(gameUuid: string) {
     const opponentOnline = ref(false);
     let channel: any = null;
 
+    const reload = (only: string[]) => {
+        router.reload({ only, preserveScroll: true });
+    };
+
     const joinChannel = () => {
         if (!window.Echo || !gameUuid) return;
 
@@ -28,19 +32,19 @@ export function useGameChannel(gameUuid: string) {
                 opponentOnline.value = onlineMembers.value.length > 1;
             })
             .listen('.GamePlayerJoined', () => {
-                router.reload({ only: ['game', 'schemes', 'deployment', 'factions', 'masters', 'my_crews'] });
+                reload(['game']);
             })
             .listen('.GameStatusChanged', () => {
-                router.reload({ only: ['game', 'schemes', 'deployment', 'factions', 'masters', 'my_crews'] });
+                reload(['game', 'schemes', 'deployment', 'masters', 'my_crews']);
             })
             .listen('.GameSetupStepCompleted', () => {
-                router.reload({ only: ['game', 'masters', 'my_crews'] });
+                reload(['game']);
             })
             .listen('.GameCrewMemberUpdated', () => {
-                router.reload({ only: ['game', 'next_schemes'] });
+                reload(['game']);
             })
             .listen('.GameTurnAdvanced', () => {
-                router.reload({ only: ['game', 'schemes', 'next_schemes'] });
+                reload(['game', 'next_schemes']);
             });
     };
 

@@ -9,6 +9,13 @@ class GameTurn extends Model
 {
     protected $guarded = ['id'];
 
+    public function casts(): array
+    {
+        return [
+            'crew_snapshot' => 'array',
+        ];
+    }
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);

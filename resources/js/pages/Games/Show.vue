@@ -133,8 +133,7 @@ const props = defineProps<{
     all_deployments: { value: string; label: string }[];
     next_schemes: SchemeData[];
     opponent_next_schemes: SchemeData[];
-    tokens: { id: number; name: string; slug: string }[];
-    markers: { id: number; name: string; slug: string }[];
+    tokens: { id: number; name: string; slug: string; description: string | null }[];
 }>();
 
 const page = usePage<SharedData>();
@@ -175,12 +174,16 @@ const saveScenarioField = async (field: string, value: unknown) => {
         deployment: field === 'deployment' ? value : (props.deployment?.value ?? null),
         scheme_pool: field === 'scheme_pool' ? value : props.schemes.map((s) => s.id),
     };
-    await fetch(route('games.scenario.update', props.game.uuid), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify(body),
-    });
-    router.reload({ only: ['game', 'schemes', 'deployment'] });
+    try {
+        await fetch(route('games.scenario.update', props.game.uuid), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify(body),
+        });
+        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+    } catch (e) {
+        console.error('Scenario update error:', e);
+    }
 };
 
 const regenerateScenario = () => {
@@ -214,12 +217,15 @@ const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
     submitting.value = true;
     try {
-        await fetch(endpoint, {
+        const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
             body: JSON.stringify(body),
         });
-        router.reload();
+        if (!res.ok) console.error('Setup failed:', res.status);
+        router.reload({ preserveScroll: true });
+    } catch (e) {
+        console.error('Setup error:', e);
     } finally {
         submitting.value = false;
     }
@@ -235,20 +241,10 @@ const availableMasters = computed(() => {
     return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
 });
 const selectedMasterName = ref<string | null>(null);
-const selectedMasterInfo = computed(() => availableMasters.value.find((m) => m.name === selectedMasterName.value));
-const masterHasMultipleTitles = computed(() => (selectedMasterInfo.value?.titles.length ?? 0) > 1);
-
-const selectMasterTitle = (title: MasterTitle) => {
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: title.display_name });
-};
-
 const selectMasterName = (name: string) => {
     selectedMasterName.value = name;
-    const info = availableMasters.value.find((m) => m.name === name);
-    // If only one title, submit immediately
-    if (info && info.titles.length === 1) {
-        selectMasterTitle(info.titles[0]);
-    }
+    // Submit the base master name — title is chosen during crew select
+    postSetup(route('games.setup.master', props.game.uuid), { master_name: name });
 };
 
 // Master title switching during crew select
@@ -259,13 +255,12 @@ const masterTitleOptions = computed(() => {
     return masterGroup?.titles ?? [];
 });
 
-const switchMasterTitle = (title: MasterTitle) => {
-    if (title.id === myPlayer.value?.master_id) return;
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: title.display_name });
-};
+// Title filter for crew select (filters visible crews, doesn't submit)
+const filterTitleId = ref<number | null>(null);
 
 // Crew select
 const expandedCrewId = ref<number | null>(null);
+const expandedOpponentCrewId = ref<number | null>(null);
 const newCrewUrl = computed(() => {
     const faction = myPlayer.value?.faction ?? '';
     const masterId = myPlayer.value?.master_id;
@@ -276,12 +271,50 @@ const newCrewUrl = computed(() => {
     return route('tools.crew_builder.editor') + '?step=title&faction=' + encodeURIComponent(faction) + '&master=' + encodeURIComponent(masterName);
 });
 const matchingCrews = computed(() => {
-    if (!myPlayer.value?.faction) return props.my_crews;
-    return props.my_crews.filter((c) => c.faction === myPlayer.value!.faction);
+    if (!myPlayer.value?.master_name) return [];
+    const baseName = myPlayer.value.master_name.split(',')[0].trim();
+    let crews = props.my_crews.filter((c) => {
+        const crewBaseName = c.master_name.split(',')[0].trim();
+        return crewBaseName === baseName;
+    });
+    // If a title filter is active, narrow to that specific title's crews
+    if (filterTitleId.value) {
+        const title = masterTitleOptions.value.find((t) => t.id === filterTitleId.value);
+        if (title) {
+            crews = crews.filter((c) => c.master_name === title.display_name);
+        }
+    }
+    return crews;
 });
 
 // Solo mode: setup for opponent (slot 2)
 const opponentPlayer = computed(() => props.game.players.find((p) => p.slot === 2));
+
+// Opponent title filter and matching crews (for solo crew select)
+const opponentFilterTitleId = ref<number | null>(null);
+const opponentTitleOptions = computed(() => {
+    const oppMasterName = opponentPlayer.value?.master_name;
+    if (!oppMasterName) return [];
+    const baseName = oppMasterName.split(',')[0].trim();
+    const masterGroup = props.masters.find((m) => m.name === baseName);
+    return masterGroup?.titles ?? [];
+});
+const opponentMatchingCrews = computed(() => {
+    const oppMasterName = opponentPlayer.value?.master_name;
+    if (!oppMasterName) return [];
+    const baseName = oppMasterName.split(',')[0].trim();
+    let crews = props.my_crews.filter((c) => {
+        const crewBaseName = c.master_name.split(',')[0].trim();
+        return crewBaseName === baseName;
+    });
+    if (opponentFilterTitleId.value) {
+        const title = opponentTitleOptions.value.find((t) => t.id === opponentFilterTitleId.value);
+        if (title) {
+            crews = crews.filter((c) => c.master_name === title.display_name);
+        }
+    }
+    return crews;
+});
 const playerName = (player: GamePlayer | undefined) => player?.user?.name ?? player?.opponent_name ?? 'Opponent';
 
 const selectedOpponentFaction = ref<string | null>(null);
@@ -291,9 +324,6 @@ const opponentAvailableMasters = computed(() => {
     if (!f) return [];
     return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
 });
-const selectedOpponentMasterInfo = computed(() => opponentAvailableMasters.value.find((m) => m.name === selectedOpponentMasterName.value));
-const opponentMasterHasMultipleTitles = computed(() => (selectedOpponentMasterInfo.value?.titles.length ?? 0) > 1);
-
 const opponentStepDone = (step: string) => {
     if (!opponentPlayer.value) return false;
     switch (step) {
@@ -312,18 +342,32 @@ const selectOpponentFaction = () => {
 
 const selectOpponentMasterName = (name: string) => {
     selectedOpponentMasterName.value = name;
-    const info = opponentAvailableMasters.value.find((m) => m.name === name);
-    if (info && info.titles.length === 1) {
-        postSetup(route('games.setup.master', props.game.uuid), { master_name: info.titles[0].display_name, slot: 2 });
-    }
-};
-
-const selectOpponentMasterTitle = (title: MasterTitle) => {
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: title.display_name, slot: 2 });
+    postSetup(route('games.setup.master', props.game.uuid), { master_name: name, slot: 2 });
 };
 
 const skipOpponentCrew = () => {
     postSetup(route('games.setup.crew.skip', props.game.uuid), {});
+};
+
+// Solo: edit opponent name
+const editingOpponentName = ref(false);
+const opponentNameInput = ref('');
+
+const startEditOpponentName = () => {
+    opponentNameInput.value = opponentPlayer.value?.opponent_name ?? 'Opponent';
+    editingOpponentName.value = true;
+};
+
+const saveOpponentName = async () => {
+    const name = opponentNameInput.value.trim();
+    if (!name) { editingOpponentName.value = false; return; }
+    await fetch(route('games.setup.opponent_name', props.game.uuid), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ opponent_name: name }),
+    });
+    editingOpponentName.value = false;
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
 const swapRoles = async () => {
@@ -331,7 +375,7 @@ const swapRoles = async () => {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken() },
     });
-    router.reload({ only: ['game'] });
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
 // Solo gameplay: opponent scoring
@@ -356,7 +400,7 @@ const submitOpponentTurnScore = async () => {
     opponentSchemePoints.value = 0;
     opponentNextSchemeId.value = null;
     scoringTurn.value = false;
-    router.reload({ only: ['game', 'next_schemes', 'opponent_next_schemes'] });
+    router.reload({ only: ['game', 'next_schemes', 'opponent_next_schemes'], preserveScroll: true });
 };
 
 const updateOpponentSoulstonePool = (delta: number) => {
@@ -375,7 +419,7 @@ const setOpponentScheme = async (schemeId: number) => {
         body: JSON.stringify({ scheme_id: schemeId, slot: 2 }),
     });
     opponentSchemeDialogOpen.value = false;
-    router.reload({ only: ['game', 'opponent_next_schemes'] });
+    router.reload({ only: ['game', 'opponent_next_schemes'], preserveScroll: true });
 };
 
 // Solo: summon for opponent
@@ -403,6 +447,7 @@ const myStepDone = (step: string) => {
 };
 
 const abandonDialogOpen = ref(false);
+const expandedTurn = ref<number | null>(null);
 const executeAbandon = () => {
     router.post(route('games.abandon', props.game.uuid));
     abandonDialogOpen.value = false;
@@ -447,10 +492,15 @@ const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter(
 const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
 
 const postPlay = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
-    const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } };
-    if (body) opts.body = JSON.stringify(body);
-    await fetch(url, opts);
-    router.reload({ only: ['game'] });
+    try {
+        const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (!res.ok) console.error('Play action failed:', res.status);
+        router.reload({ only: ['game'], preserveScroll: true });
+    } catch (e) {
+        console.error('Play action error:', e);
+    }
 };
 
 const updateHealth = (member: any, delta: number) => {
@@ -480,6 +530,28 @@ const scoringTurn = ref(false);
 const isLastTurn = computed(() => props.game.current_turn >= props.game.max_turns);
 const currentSchemeScored = computed(() => schemePoints.value > 0);
 
+// Strategy: 1/turn + 1 bonus once per game (max 2 any turn)
+const myStrategyBonusUsed = computed(() => {
+    return (myPlayer.value?.turns ?? []).some((t: any) => t.strategy_points > 1);
+});
+const maxStrategyThisTurn = computed(() => myStrategyBonusUsed.value ? 1 : 2);
+
+// Scheme: max 2/turn, max 6 total across game
+const myTotalSchemeScored = computed(() => {
+    return (myPlayer.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
+});
+const maxSchemeThisTurn = computed(() => Math.min(2, 6 - myTotalSchemeScored.value));
+
+// Opponent scoring limits (solo)
+const opponentStrategyBonusUsed = computed(() => {
+    return (opponent.value?.turns ?? []).some((t: any) => t.strategy_points > 1);
+});
+const opponentMaxStrategyThisTurn = computed(() => opponentStrategyBonusUsed.value ? 1 : 2);
+const opponentTotalSchemeScored = computed(() => {
+    return (opponent.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
+});
+const opponentMaxSchemeThisTurn = computed(() => Math.min(2, 6 - opponentTotalSchemeScored.value));
+
 const submitTurnScore = async () => {
     scoringTurn.value = true;
     await fetch(route('games.play.turns.store', props.game.uuid), {
@@ -495,7 +567,7 @@ const submitTurnScore = async () => {
     schemePoints.value = 0;
     nextSchemeId.value = null;
     scoringTurn.value = false;
-    router.reload({ only: ['game', 'next_schemes', 'opponent_next_schemes'] });
+    router.reload({ only: ['game', 'next_schemes', 'opponent_next_schemes'], preserveScroll: true });
 };
 
 const markGameComplete = async () => {
@@ -503,7 +575,7 @@ const markGameComplete = async () => {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken() },
     });
-    router.reload({ only: ['game'] });
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
 // Summon modal
@@ -545,10 +617,10 @@ const summonCharacter = async (characterId: number) => {
     summonDialogOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
-    router.reload({ only: ['game'] });
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
-// Token/marker management
+// Token management (1 of each kind max)
 const tokenDialogOpen = ref(false);
 const tokenMember = ref<any>(null);
 const tokenSearch = ref('');
@@ -559,34 +631,76 @@ const openTokenDialog = (member: any) => {
     tokenSearch.value = '';
 };
 
-const addToken = async (tokenId: number, tokenName: string, type: 'token' | 'marker' = 'token') => {
-    if (!tokenMember.value) return;
-    const current = tokenMember.value.attached_tokens ?? [];
-    const key = `${type}-${tokenId}`;
-    const existing = current.find((t: any) => t.key === key);
-    const updated = existing
-        ? current.map((t: any) => t.key === key ? { ...t, count: t.count + 1 } : t)
-        : [...current, { key, id: tokenId, name: tokenName, type, count: 1 }];
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ attached_tokens: updated }),
-    });
-    router.reload({ only: ['game'] });
+// Token info drawer
+const tokenInfoDrawerOpen = ref(false);
+const tokenInfoData = ref<{ id: number; name: string; description: string | null } | null>(null);
+const tokenInfoMember = ref<any>(null);
+
+const openTokenInfo = (tokenId: number, member: any) => {
+    const token = props.tokens.find((t) => t.id === tokenId);
+    if (token) {
+        tokenInfoData.value = token;
+        tokenInfoMember.value = member;
+        tokenInfoDrawerOpen.value = true;
+    }
 };
 
-const removeToken = async (key: string) => {
+const removeTokenFromInfo = async () => {
+    if (!tokenInfoMember.value || !tokenInfoData.value) return;
+    const current = tokenInfoMember.value.attached_tokens ?? [];
+    const updated = current.filter((t: any) => t.id !== tokenInfoData.value!.id);
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenInfoMember.value.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ attached_tokens: updated }),
+    });
+    tokenInfoDrawerOpen.value = false;
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const quickRemoveToken = async (member: any, tokenId: number) => {
+    const current = member.attached_tokens ?? [];
+    const updated = current.filter((t: any) => t.id !== tokenId);
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ attached_tokens: updated }),
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const memberHasToken = (tokenId: number) => {
+    return (tokenMember.value?.attached_tokens ?? []).some((t: any) => t.id === tokenId);
+};
+
+const toggleToken = async (tokenId: number, tokenName: string) => {
     if (!tokenMember.value) return;
     const current = tokenMember.value.attached_tokens ?? [];
-    const updated = current
-        .map((t: any) => t.key === key ? { ...t, count: t.count - 1 } : t)
-        .filter((t: any) => t.count > 0);
+    const has = current.some((t: any) => t.id === tokenId);
+    const updated = has
+        ? current.filter((t: any) => t.id !== tokenId)
+        : [...current, { id: tokenId, name: tokenName }];
+    // Optimistic update for responsive dialog
+    tokenMember.value = { ...tokenMember.value, attached_tokens: updated };
     await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
         body: JSON.stringify({ attached_tokens: updated }),
     });
-    router.reload({ only: ['game'] });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const removeToken = async (tokenId: number) => {
+    if (!tokenMember.value) return;
+    const current = tokenMember.value.attached_tokens ?? [];
+    const updated = current.filter((t: any) => t.id !== tokenId);
+    tokenMember.value = { ...tokenMember.value, attached_tokens: updated };
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ attached_tokens: updated }),
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
 // Crew display helpers
@@ -752,7 +866,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-medium">{{ playerName(player) }}</span>
+                                    <!-- Solo opponent: editable name -->
+                                    <template v-if="isSolo && !player.user && game.status !== 'completed' && game.status !== 'abandoned'">
+                                        <template v-if="editingOpponentName">
+                                            <Input
+                                                v-model="opponentNameInput"
+                                                class="h-6 w-32 text-sm font-medium"
+                                                @keydown.enter="saveOpponentName"
+                                                @blur="saveOpponentName"
+                                            />
+                                        </template>
+                                        <button v-else class="flex items-center gap-1 font-medium hover:text-primary" @click="startEditOpponentName">
+                                            {{ playerName(player) }}
+                                            <Pencil class="size-2.5 text-muted-foreground" />
+                                        </button>
+                                    </template>
+                                    <span v-else class="font-medium">{{ playerName(player) }}</span>
                                     <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[9px] capitalize">
                                         <Shield v-if="player.role === 'defender'" class="mr-0.5 size-3" />
                                         <ShieldAlert v-else class="mr-0.5 size-3" />
@@ -946,13 +1075,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <p v-else class="mb-4 text-xs text-muted-foreground">Choose the master for the opponent.</p>
 
                     <template v-if="!myStepDone('master')">
-                        <!-- Step 1: Choose master name -->
-                        <div v-if="!masterHasMultipleTitles" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Card
                                 v-for="master in availableMasters"
                                 :key="master.name"
                                 class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                :class="selectedMasterName === master.name ? 'ring-2 ring-primary' : ''"
                                 @click="selectMasterName(master.name)"
                             >
                                 <CardContent class="flex items-start gap-3 p-3">
@@ -977,30 +1104,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </Badge>
                                         </div>
                                         <div v-if="master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
-                                            {{ master.titles.length }} titles
+                                            {{ master.titles.length }} titles — choose during crew select
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                        </div>
-
-                        <!-- Step 2: Choose title (if multiple) -->
-                        <div v-else>
-                            <button class="mb-3 text-xs text-primary hover:underline" @click="selectedMasterName = null">
-                                &larr; Back to masters
-                            </button>
-                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <Card
-                                    v-for="title in selectedMasterInfo!.titles"
-                                    :key="title.id"
-                                    class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                    @click="selectMasterTitle(title)"
-                                >
-                                    <CardContent class="p-3">
-                                        <span class="text-sm font-semibold">{{ title.display_name }}</span>
-                                    </CardContent>
-                                </Card>
-                            </div>
                         </div>
                     </template>
                     <!-- My master done -->
@@ -1017,12 +1125,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <Badge variant="secondary" class="text-sm">{{ myPlayer!.master_name }}</Badge>
                             <Check class="ml-2 inline size-4 text-green-500" />
                         </div>
-                        <div v-if="!opponentMasterHasMultipleTitles" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Card
                                 v-for="master in opponentAvailableMasters"
                                 :key="master.name"
                                 class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                :class="selectedOpponentMasterName === master.name ? 'ring-2 ring-primary' : ''"
                                 @click="selectOpponentMasterName(master.name)"
                             >
                                 <CardContent class="flex items-start gap-3 p-3">
@@ -1031,25 +1138,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <span class="text-sm font-semibold">{{ master.name }}</span>
-                                        <div v-if="master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">{{ master.titles.length }} titles</div>
                                     </div>
                                 </CardContent>
                             </Card>
-                        </div>
-                        <div v-else>
-                            <button class="mb-3 text-xs text-primary hover:underline" @click="selectedOpponentMasterName = null">&larr; Back to masters</button>
-                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <Card
-                                    v-for="title in selectedOpponentMasterInfo!.titles"
-                                    :key="title.id"
-                                    class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                    @click="selectOpponentMasterTitle(title)"
-                                >
-                                    <CardContent class="p-3">
-                                        <span class="text-sm font-semibold">{{ title.display_name }}</span>
-                                    </CardContent>
-                                </Card>
-                            </div>
                         </div>
                     </template>
                 </CardContent>
@@ -1064,17 +1155,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </p>
                     <template v-else>
                         <p class="mb-2 text-xs text-muted-foreground">
-                            Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name }}</strong> or
+                            Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong> or
                             <Link :href="newCrewUrl" class="text-primary underline">create a new one</Link>.
                         </p>
                         <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
-                            <span class="text-[11px] text-muted-foreground">Title:</span>
+                            <span class="text-[11px] text-muted-foreground">Filter:</span>
+                            <button
+                                class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                                :class="!filterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                @click="filterTitleId = null"
+                            >
+                                All
+                            </button>
                             <button
                                 v-for="title in masterTitleOptions"
                                 :key="title.id"
                                 class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
-                                :class="myPlayer?.master_id === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                                @click="switchMasterTitle(title)"
+                                :class="filterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                @click="filterTitleId = title.id"
                             >
                                 {{ title.title || title.display_name }}
                             </button>
@@ -1200,26 +1298,109 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <Check class="inline size-4 text-green-500" /> Your crew selected
                         </div>
                         <p class="mb-4 text-xs text-muted-foreground">
-                            Optionally select a saved crew for the opponent, or skip to track points only.
+                            Optionally select a saved crew for <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong>, or skip to track points only.
                         </p>
-                        <div v-if="matchingCrews.length" class="mb-3 grid gap-2.5 sm:grid-cols-2">
-                            <div v-for="crew in matchingCrews" :key="crew.id">
+                        <div v-if="opponentTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
+                            <span class="text-[11px] text-muted-foreground">Filter:</span>
+                            <button
+                                class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                                :class="!opponentFilterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                @click="opponentFilterTitleId = null"
+                            >All</button>
+                            <button
+                                v-for="title in opponentTitleOptions"
+                                :key="title.id"
+                                class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                                :class="opponentFilterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                @click="opponentFilterTitleId = title.id"
+                            >{{ title.title || title.display_name }}</button>
+                        </div>
+                        <div v-if="opponentMatchingCrews.length" class="mb-3 grid gap-2.5 sm:grid-cols-2">
+                            <div v-for="crew in opponentMatchingCrews" :key="crew.id">
                                 <Card
-                                    class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                                    :class="crew.is_over_budget ? 'border-destructive/50' : ''"
-                                    @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: 2 })"
+                                    class="transition-all duration-200"
+                                    :class="[
+                                        expandedOpponentCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:-translate-y-0.5 hover:shadow-md',
+                                        crew.is_over_budget ? 'border-destructive/50' : '',
+                                    ]"
                                 >
-                                    <CardContent class="flex items-start gap-3 p-3">
+                                    <CardContent
+                                        class="flex cursor-pointer items-start gap-3 p-3"
+                                        @click="expandedOpponentCrewId = expandedOpponentCrewId === crew.id ? null : crew.id"
+                                    >
                                         <FactionLogo :faction="crew.faction" class-name="size-7 shrink-0 mt-0.5" />
                                         <div class="min-w-0 flex-1">
                                             <p class="truncate text-sm font-medium">{{ crew.name }}</p>
                                             <div class="mt-1 flex flex-wrap items-center gap-1">
-                                                <Badge variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
+                                                <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
                                                 <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
                                                 <Badge v-if="crew.is_over_budget" variant="destructive" class="text-[10px]">Over Budget</Badge>
                                             </div>
                                         </div>
+                                        <ChevronDown
+                                            class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                                            :class="expandedOpponentCrewId === crew.id ? 'rotate-180' : ''"
+                                        />
                                     </CardContent>
+
+                                    <div v-if="expandedOpponentCrewId === crew.id" class="border-t px-3 pb-3 pt-2">
+                                        <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            <span>
+                                                Spent:
+                                                <span class="font-medium text-foreground" :class="crew.is_over_budget ? 'text-destructive' : ''">
+                                                    {{ crew.total_spent }}/{{ game.encounter_size }}
+                                                </span>
+                                                <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                            </span>
+                                            <span>
+                                                Pool: <span class="font-medium text-foreground">{{ crew.soulstone_pool }}</span>
+                                                <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                            </span>
+                                            <span>
+                                                OOK:
+                                                <span class="font-medium text-foreground" :class="crew.ook_count >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
+                                                    {{ crew.ook_count }}/2
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <div class="space-y-0.5">
+                                            <div
+                                                v-for="(member, mIdx) in crew.members"
+                                                :key="mIdx"
+                                                :class="factionBackground(member.faction)"
+                                                class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
+                                            >
+                                                <div class="flex min-w-0 items-center gap-1.5">
+                                                    <span class="truncate font-medium">{{ member.display_name }}</span>
+                                                    <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                        {{ categoryLabel(member.category) }}
+                                                    </Badge>
+                                                </div>
+                                                <div v-if="member.effective_cost > 0" class="flex shrink-0 items-center font-bold">
+                                                    <template v-if="member.category === 'ook'">
+                                                        {{ member.effective_cost }}
+                                                        <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                        <span class="ml-0.5 text-[9px] font-normal text-red-300">({{ member.cost }}+1)</span>
+                                                    </template>
+                                                    <template v-else>
+                                                        {{ member.effective_cost }}
+                                                        <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <Button
+                                                class="w-full"
+                                                size="sm"
+                                                :disabled="submitting || crew.is_over_budget"
+                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: 2 })"
+                                            >
+                                                <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                                                {{ crew.is_over_budget ? 'Over Budget' : 'Select This Crew' }}
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </Card>
                             </div>
                         </div>
@@ -1384,23 +1565,30 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div class="space-y-3 border-t pt-3">
                                         <div class="text-xs font-semibold">End of Turn {{ game.current_turn }}</div>
 
-                                        <!-- Strategy points -->
+                                        <!-- Strategy points (1/turn + 1 bonus once/game) -->
                                         <div class="flex items-center justify-between">
-                                            <span class="text-xs text-muted-foreground">Strategy VP</span>
+                                            <div>
+                                                <span class="text-xs text-muted-foreground">Strategy VP</span>
+                                                <span v-if="!myStrategyBonusUsed && strategyPoints < 2" class="ml-1 text-[9px] text-amber-500">+1 bonus available</span>
+                                                <span v-if="myStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
+                                            </div>
                                             <div class="flex items-center gap-1.5">
                                                 <button class="rounded border p-0.5 hover:bg-muted" @click="strategyPoints = Math.max(0, strategyPoints - 1)"><Minus class="size-3.5" /></button>
                                                 <span class="w-6 text-center font-bold">{{ strategyPoints }}</span>
-                                                <button class="rounded border p-0.5 hover:bg-muted" @click="strategyPoints = Math.min(5, strategyPoints + 1)"><Plus class="size-3.5" /></button>
+                                                <button class="rounded border p-0.5 hover:bg-muted" :disabled="strategyPoints >= maxStrategyThisTurn" :class="strategyPoints >= maxStrategyThisTurn ? 'opacity-30' : ''" @click="strategyPoints = Math.min(maxStrategyThisTurn, strategyPoints + 1)"><Plus class="size-3.5" /></button>
                                             </div>
                                         </div>
 
-                                        <!-- Scheme points -->
+                                        <!-- Scheme points (max 2/turn, max 6 total) -->
                                         <div class="flex items-center justify-between">
-                                            <span class="text-xs text-muted-foreground">Scheme VP</span>
+                                            <div>
+                                                <span class="text-xs text-muted-foreground">Scheme VP</span>
+                                                <span class="ml-1 text-[9px] text-muted-foreground/50">{{ myTotalSchemeScored }}/6 total</span>
+                                            </div>
                                             <div class="flex items-center gap-1.5">
                                                 <button class="rounded border p-0.5 hover:bg-muted" @click="schemePoints = Math.max(0, schemePoints - 1)"><Minus class="size-3.5" /></button>
                                                 <span class="w-6 text-center font-bold">{{ schemePoints }}</span>
-                                                <button class="rounded border p-0.5 hover:bg-muted" @click="schemePoints = Math.min(5, schemePoints + 1)"><Plus class="size-3.5" /></button>
+                                                <button class="rounded border p-0.5 hover:bg-muted" :disabled="schemePoints >= maxSchemeThisTurn" :class="schemePoints >= maxSchemeThisTurn ? 'opacity-30' : ''" @click="schemePoints = Math.min(maxSchemeThisTurn, schemePoints + 1)"><Plus class="size-3.5" /></button>
                                             </div>
                                         </div>
 
@@ -1520,12 +1708,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">
                                     <Badge
                                         v-for="token in member.attached_tokens"
-                                        :key="token.key ?? token.id"
+                                        :key="token.id"
                                         variant="secondary"
-                                        class="gap-0.5 bg-white/20 px-1 py-0 text-[9px] text-white"
+                                        class="group cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
+                                        @click="openTokenInfo(token.id, member)"
                                     >
                                         {{ token.name }}
-                                        <span v-if="token.count > 1" class="font-bold">x{{ token.count }}</span>
+                                        <button class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
+                                            <Minus class="size-2.5" />
+                                        </button>
                                     </Badge>
                                 </div>
                             </div>
@@ -1646,12 +1837,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">
                                     <Badge
                                         v-for="token in member.attached_tokens"
-                                        :key="token.key ?? token.id"
+                                        :key="token.id"
                                         variant="secondary"
-                                        class="gap-0.5 bg-white/20 px-1 py-0 text-[9px] text-white"
+                                        class="cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
+                                        @click="openTokenInfo(token.id, member)"
                                     >
                                         {{ token.name }}
-                                        <span v-if="token.count > 1" class="font-bold">x{{ token.count }}</span>
+                                        <button v-if="isSolo" class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
+                                            <Minus class="size-2.5" />
+                                        </button>
                                     </Badge>
                                 </div>
                             </div>
@@ -1678,19 +1872,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </template>
                                 <template v-else>
                                     <div class="flex items-center justify-between">
-                                        <span class="text-xs text-muted-foreground">Strategy VP</span>
+                                        <div>
+                                            <span class="text-xs text-muted-foreground">Strategy VP</span>
+                                            <span v-if="!opponentStrategyBonusUsed && opponentStrategyPoints < 2" class="ml-1 text-[9px] text-amber-500">+1 bonus available</span>
+                                            <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
+                                        </div>
                                         <div class="flex items-center gap-1.5">
                                             <button class="rounded border p-0.5 hover:bg-muted" @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"><Minus class="size-3.5" /></button>
                                             <span class="w-6 text-center font-bold">{{ opponentStrategyPoints }}</span>
-                                            <button class="rounded border p-0.5 hover:bg-muted" @click="opponentStrategyPoints = Math.min(5, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
+                                            <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn" :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''" @click="opponentStrategyPoints = Math.min(opponentMaxStrategyThisTurn, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
                                         </div>
                                     </div>
                                     <div class="flex items-center justify-between">
-                                        <span class="text-xs text-muted-foreground">Scheme VP</span>
+                                        <div>
+                                            <span class="text-xs text-muted-foreground">Scheme VP</span>
+                                            <span class="ml-1 text-[9px] text-muted-foreground/50">{{ opponentTotalSchemeScored }}/6 total</span>
+                                        </div>
                                         <div class="flex items-center gap-1.5">
                                             <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
                                             <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
-                                            <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.min(5, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
+                                            <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
                                         </div>
                                     </div>
                                     <!-- Opponent next scheme -->
@@ -1758,55 +1959,142 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Card>
 
                 <!-- Turn-by-turn breakdown -->
-                <Card v-if="game.players[0]?.turns?.length" class="mb-6">
-                    <CardContent class="p-4">
-                        <h3 class="mb-3 text-sm font-semibold">Turn-by-Turn Scoring</h3>
-                        <div class="overflow-auto">
-                            <table class="w-full text-xs">
-                                <thead>
-                                    <tr class="border-b">
-                                        <th class="py-1.5 text-left font-medium text-muted-foreground">Turn</th>
-                                        <th v-for="player in game.players" :key="'th-' + player.id" class="py-1.5 text-center font-medium text-muted-foreground" colspan="2">
-                                            {{ playerName(player) }}
-                                        </th>
-                                    </tr>
-                                    <tr class="border-b text-[10px]">
-                                        <th></th>
-                                        <template v-for="player in game.players" :key="'sub-' + player.id">
-                                            <th class="py-1 text-center text-muted-foreground">Strat</th>
-                                            <th class="py-1 text-center text-muted-foreground">Scheme</th>
+                <div v-if="game.players[0]?.turns?.length" class="mb-6 space-y-3">
+                    <h3 class="text-sm font-semibold">Turn-by-Turn Breakdown</h3>
+
+                    <!-- Score summary table -->
+                    <Card>
+                        <CardContent class="p-4">
+                            <div class="overflow-auto">
+                                <table class="w-full text-xs">
+                                    <thead>
+                                        <tr class="border-b">
+                                            <th class="py-1.5 text-left font-medium text-muted-foreground">Turn</th>
+                                            <th v-for="player in game.players" :key="'th-' + player.id" class="py-1.5 text-center font-medium text-muted-foreground" colspan="2">
+                                                {{ playerName(player) }}
+                                            </th>
+                                        </tr>
+                                        <tr class="border-b text-[10px]">
+                                            <th></th>
+                                            <template v-for="player in game.players" :key="'sub-' + player.id">
+                                                <th class="py-1 text-center text-muted-foreground">Strat</th>
+                                                <th class="py-1 text-center text-muted-foreground">Scheme</th>
+                                            </template>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="turn in Math.max(...game.players.map((p: any) => p.turns?.length ?? 0))" :key="turn" class="border-b last:border-0">
+                                            <td class="py-1.5 font-medium">{{ turn }}</td>
+                                            <template v-for="player in game.players" :key="'turn-' + player.id + '-' + turn">
+                                                <td class="py-1.5 text-center">
+                                                    {{ player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? '-' }}
+                                                </td>
+                                                <td class="py-1.5 text-center">
+                                                    {{ player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? '-' }}
+                                                </td>
+                                            </template>
+                                        </tr>
+                                        <tr class="border-t font-bold">
+                                            <td class="py-1.5">Total</td>
+                                            <template v-for="player in game.players" :key="'total-' + player.id">
+                                                <td class="py-1.5 text-center" colspan="2">{{ player.total_points }}</td>
+                                            </template>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <!-- Expandable turn details with crew snapshots -->
+                    <div v-for="turn in Math.max(...game.players.map((p: any) => p.turns?.length ?? 0))" :key="'detail-' + turn">
+                        <Card class="overflow-hidden">
+                            <button
+                                class="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                                @click="expandedTurn === turn ? (expandedTurn = null) : (expandedTurn = turn)"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <span class="text-sm font-semibold">Turn {{ turn }}</span>
+                                    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <template v-for="player in game.players" :key="'tscore-' + player.id + '-' + turn">
+                                            <span class="flex items-center gap-1">
+                                                <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3" />
+                                                <span class="font-medium text-foreground">
+                                                    +{{ (player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? 0) + (player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? 0) }}
+                                                </span>
+                                            </span>
                                         </template>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="turn in Math.max(...game.players.map((p: any) => p.turns?.length ?? 0))" :key="turn" class="border-b last:border-0">
-                                        <td class="py-1.5 font-medium">{{ turn }}</td>
-                                        <template v-for="player in game.players" :key="'turn-' + player.id + '-' + turn">
-                                            <td class="py-1.5 text-center">
-                                                {{ player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? '-' }}
-                                            </td>
-                                            <td class="py-1.5 text-center">
-                                                {{ player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? '-' }}
-                                            </td>
-                                        </template>
-                                    </tr>
-                                    <tr class="border-t font-bold">
-                                        <td class="py-1.5">Total</td>
-                                        <template v-for="player in game.players" :key="'total-' + player.id">
-                                            <td class="py-1.5 text-center" colspan="2">{{ player.total_points }}</td>
-                                        </template>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                    </div>
+                                </div>
+                                <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform duration-200" :class="expandedTurn === turn ? 'rotate-180' : ''" />
+                            </button>
+
+                            <div v-if="expandedTurn === turn" class="border-t">
+                                <!-- Scoring details -->
+                                <div class="grid grid-cols-2 divide-x">
+                                    <div v-for="player in game.players" :key="'tdetail-' + player.id + '-' + turn" class="p-3">
+                                        <div class="mb-2 flex items-center gap-1.5">
+                                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
+                                            <span class="text-xs font-semibold">{{ playerName(player) }}</span>
+                                        </div>
+                                        <div class="space-y-1 text-xs">
+                                            <div class="flex justify-between">
+                                                <span class="text-muted-foreground">Strategy</span>
+                                                <span class="font-medium">{{ player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? 0 }} VP</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-muted-foreground">Scheme</span>
+                                                <span class="font-medium">{{ player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? 0 }} VP</span>
+                                            </div>
+                                            <div class="flex justify-between border-t pt-1">
+                                                <span class="text-muted-foreground">Running Total</span>
+                                                <span class="font-bold">
+                                                    {{ player.turns?.filter((t: any) => t.turn_number <= turn).reduce((sum: number, t: any) => sum + (t.strategy_points ?? 0) + (t.scheme_points ?? 0), 0) ?? 0 }} VP
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Crew snapshot -->
+                                        <div v-if="player.turns?.find((t: any) => t.turn_number === turn)?.crew_snapshot?.length" class="mt-3">
+                                            <div class="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Crew State</div>
+                                            <div class="space-y-0.5">
+                                                <div
+                                                    v-for="(member, mIdx) in player.turns.find((t: any) => t.turn_number === turn).crew_snapshot"
+                                                    :key="'snap-' + turn + '-' + player.id + '-' + mIdx"
+                                                    :class="factionBackground(player.faction ?? '')"
+                                                    class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
+                                                    :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
+                                                >
+                                                    <div class="flex min-w-0 items-center gap-1">
+                                                        <span class="truncate font-medium">{{ member.display_name }}</span>
+                                                        <Badge v-if="member.is_summoned" class="bg-cyan-400/20 px-1 py-0 text-[8px] text-cyan-200">S</Badge>
+                                                    </div>
+                                                    <div class="flex items-center gap-1">
+                                                        <template v-if="member.attached_tokens?.length">
+                                                            <div v-for="token in member.attached_tokens" :key="token.id" class="rounded bg-white/20 px-0.5 text-[8px]">{{ token.name }}</div>
+                                                        </template>
+                                                        <span class="flex items-center gap-0.5 font-bold">
+                                                            <Heart class="size-2.5" :class="member.is_killed ? 'text-red-400' : member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                            {{ member.current_health }}/{{ member.max_health }}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-else-if="player.faction" class="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                            <span>No crew tracked</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
 
                 <!-- Final crew states -->
                 <div class="mb-6 grid gap-4 sm:grid-cols-2">
                     <div v-for="player in game.players" :key="'crew-' + player.id">
-                        <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Crew</h3>
-                        <!-- Faction/master info when no crew members -->
+                        <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Final Crew</h3>
                         <div v-if="!player.crew_members?.length && player.faction" class="flex items-center gap-2 rounded-md border border-dashed p-3">
                             <FactionLogo :faction="player.faction" class-name="size-6" />
                             <div class="text-xs">
@@ -1823,13 +2111,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
                             >
                                 <div class="flex items-center justify-between">
-                                    <span
-                                        class="min-w-0 flex-1 truncate text-sm font-semibold"
-                                        :class="member.front_image ? 'cursor-pointer hover:underline' : ''"
-                                        @click="openMemberPreview(member)"
-                                    >
-                                        {{ member.display_name }}
-                                    </span>
+                                    <div class="flex min-w-0 items-center gap-1">
+                                        <span
+                                            class="truncate text-sm font-semibold"
+                                            :class="member.front_image ? 'cursor-pointer hover:underline' : ''"
+                                            @click="openMemberPreview(member)"
+                                        >
+                                            {{ member.display_name }}
+                                        </span>
+                                        <template v-if="member.attached_tokens?.length">
+                                            <Badge
+                                                v-for="token in member.attached_tokens"
+                                                :key="token.id"
+                                                variant="secondary"
+                                                class="bg-white/20 px-1 py-0 text-[9px] text-white"
+                                            >{{ token.name }}</Badge>
+                                        </template>
+                                    </div>
                                     <span class="flex items-center gap-0.5 text-xs font-bold">
                                         <Heart class="size-3" :class="member.is_killed ? 'text-red-400' : member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                         {{ member.current_health }}/{{ member.max_health }}
@@ -2011,6 +2309,31 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DrawerContent>
     </Drawer>
 
+    <!-- Token Info Drawer -->
+    <Drawer v-model:open="tokenInfoDrawerOpen">
+        <DrawerContent>
+            <div v-if="tokenInfoData" class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">{{ tokenInfoData.name }}</DrawerTitle>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Token</div>
+                </DrawerHeader>
+                <div class="px-4 pb-4">
+                    <p v-if="tokenInfoData.description" class="text-sm leading-relaxed text-muted-foreground">{{ tokenInfoData.description }}</p>
+                    <p v-else class="text-center text-sm text-muted-foreground">No description available.</p>
+                </div>
+                <DrawerFooter class="gap-2 pt-2">
+                    <Button v-if="tokenInfoMember" variant="destructive" size="sm" @click="removeTokenFromInfo">
+                        <Minus class="mr-1.5 size-3.5" />
+                        Remove from {{ tokenInfoMember.display_name }}
+                    </Button>
+                    <DrawerClose as-child>
+                        <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
+
     <!-- Opponent Scheme Dialog (Solo) -->
     <Dialog v-if="isSolo" v-model:open="opponentSchemeDialogOpen">
         <DialogContent class="max-w-sm">
@@ -2068,7 +2391,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DialogContent>
     </Dialog>
 
-    <!-- Token/Marker Dialog -->
+    <!-- Token Dialog -->
     <Dialog v-model:open="tokenDialogOpen">
         <DialogContent class="max-w-sm">
             <DialogHeader>
@@ -2077,49 +2400,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </DialogHeader>
             <!-- Current tokens -->
             <div v-if="tokenMember?.attached_tokens?.length" class="space-y-1">
-                <div class="text-xs font-medium text-muted-foreground">Current Tokens</div>
+                <div class="text-xs font-medium text-muted-foreground">Active Tokens</div>
                 <div class="flex flex-wrap gap-1">
                     <Badge
                         v-for="token in tokenMember.attached_tokens"
-                        :key="'current-' + (token.key ?? token.id)"
+                        :key="'current-' + token.id"
                         variant="secondary"
                         class="cursor-pointer gap-1 pr-1"
-                        @click="removeToken(token.key ?? `token-${token.id}`)"
+                        @click="removeToken(token.id)"
                     >
                         {{ token.name }}
-                        <span v-if="token.count > 1" class="font-bold">x{{ token.count }}</span>
                         <Minus class="size-3 text-red-400" />
                     </Badge>
                 </div>
             </div>
             <!-- Available tokens -->
             <div>
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Add Token</div>
+                <div class="mb-1 text-xs font-medium text-muted-foreground">Toggle Tokens</div>
                 <Input v-model="tokenSearch" placeholder="Filter tokens..." class="mb-2" />
-                <div class="max-h-40 space-y-0.5 overflow-y-auto">
+                <div class="max-h-48 space-y-0.5 overflow-y-auto">
                     <button
                         v-for="token in props.tokens.filter((t) => !tokenSearch || t.name.toLowerCase().includes(tokenSearch.toLowerCase()))"
                         :key="token.id"
-                        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
-                        @click="addToken(token.id, token.name)"
+                        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
+                        :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
+                        @click="toggleToken(token.id, token.name)"
                     >
-                        <Plus class="size-3 shrink-0 text-green-500" />
+                        <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
+                        <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
                         {{ token.name }}
-                    </button>
-                </div>
-            </div>
-            <!-- Available markers -->
-            <div v-if="props.markers.length">
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Add Marker</div>
-                <div class="max-h-40 space-y-0.5 overflow-y-auto">
-                    <button
-                        v-for="marker in props.markers.filter((m) => !tokenSearch || m.name.toLowerCase().includes(tokenSearch.toLowerCase()))"
-                        :key="'m-' + marker.id"
-                        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
-                        @click="addToken(marker.id, marker.name, 'marker')"
-                    >
-                        <Plus class="size-3 shrink-0 text-blue-500" />
-                        {{ marker.name }}
                     </button>
                 </div>
             </div>

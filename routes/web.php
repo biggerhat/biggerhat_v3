@@ -250,6 +250,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/crew/skip', [GameSetupController::class, 'skipCrew'])->name('crew.skip');
         Route::post('/scheme', [GameSetupController::class, 'submitScheme'])->name('scheme');
         Route::post('/swap-roles', [GameSetupController::class, 'swapRoles'])->name('swap_roles');
+        Route::post('/opponent-name', [GameSetupController::class, 'updateOpponentName'])->name('opponent_name');
     });
 
     // Gameplay

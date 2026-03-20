@@ -131,15 +131,25 @@ class GameController extends Controller
             abort(403);
         }
 
-        $game->load([
+        $eagerLoads = [
             'players.user:id,name',
-            'players.crewMembers',
-            'players.crewBuild',
-            'players.master.crewUpgrades',
-            'players.turns',
             'strategy',
-            'winner:id,name',
-        ]);
+        ];
+
+        // Only load crew/turn data when relevant
+        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            $eagerLoads[] = 'players.crewMembers';
+            $eagerLoads[] = 'players.crewBuild';
+            $eagerLoads[] = 'players.master.crewUpgrades';
+        }
+        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            $eagerLoads[] = 'players.turns';
+        }
+        if (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            $eagerLoads[] = 'winner:id,name';
+        }
+
+        $game->load($eagerLoads);
 
         $schemePoolOrder = $game->scheme_pool ?? [];
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
@@ -346,7 +356,7 @@ class GameController extends Controller
             'all_schemes' => $allSchemes,
             'all_deployments' => $allDeployments,
             'tokens' => fn () => $game->status === GameStatusEnum::InProgress
-                ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug'])
+                ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
                 : [],
             'markers' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Marker::orderBy('name')->get(['id', 'name', 'slug'])

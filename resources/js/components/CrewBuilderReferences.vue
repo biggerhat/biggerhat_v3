@@ -50,10 +50,14 @@ interface ReferenceData {
     characters: ReferenceCharacter[];
 }
 
-defineProps<{
-    references: ReferenceData | null;
-    loading: boolean;
-}>();
+withDefaults(
+    defineProps<{
+        references: ReferenceData | null;
+        loading: boolean;
+        compact?: boolean;
+    }>(),
+    { compact: false },
+);
 
 // ─── Drawers ───
 const characterDrawerOpen = ref(false);
@@ -90,14 +94,19 @@ const activeTab = ref('characters');
 </script>
 
 <template>
-    <div class="mt-3">
-        <Separator class="mb-3" />
-        <div class="mb-2 flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">References</span>
-            <Loader2 v-if="loading" class="size-3.5 animate-spin text-muted-foreground" />
+    <div :class="compact ? 'p-2' : 'mt-3'">
+        <template v-if="!compact">
+            <Separator class="mb-3" />
+            <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">References</span>
+                <Loader2 v-if="loading" class="size-3.5 animate-spin text-muted-foreground" />
+            </div>
+        </template>
+        <div v-else-if="loading" class="flex justify-center py-3">
+            <Loader2 class="size-4 animate-spin text-muted-foreground" />
         </div>
 
-        <div v-if="!references && !loading" class="py-4 text-center text-xs text-muted-foreground">No references found</div>
+        <div v-if="!references && !loading" class="py-3 text-center text-xs text-muted-foreground">No references found</div>
 
         <Tabs v-else v-model="activeTab" class="w-full">
             <TabsList class="mb-2 grid w-full grid-cols-4">

@@ -354,6 +354,7 @@ class GameSetupController extends Controller
             'game_player_id' => $player->id,
             'character_id' => $character->id,
             'display_name' => $character->display_name,
+            'faction' => $character->getRawOriginal('faction'),
             'current_health' => $character->health,
             'max_health' => $character->health,
             'cost' => $cost,

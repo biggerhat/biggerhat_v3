@@ -19,6 +19,13 @@ class Game extends Model
 {
     protected $guarded = ['id'];
 
+    protected $appends = ['season_label'];
+
+    public function getSeasonLabelAttribute(): string
+    {
+        return $this->season->label();
+    }
+
     public function casts(): array
     {
         return [

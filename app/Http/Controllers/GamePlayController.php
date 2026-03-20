@@ -36,6 +36,33 @@ class GamePlayController extends Controller
             'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
+        // Validate upgrade plentiful limits
+        if (isset($validated['attached_upgrades']) && ! empty($validated['attached_upgrades'])) {
+            $newUpgradeIds = collect($validated['attached_upgrades'])->pluck('id')->filter()->toArray();
+            if ($newUpgradeIds) {
+                $upgrades = \App\Models\Upgrade::whereIn('id', $newUpgradeIds)->get()->keyBy('id');
+                // Count how many times each upgrade is used across all OTHER crew members
+                $allMembers = GameCrewMember::where('game_id', $game->id)
+                    ->where('game_player_id', $gameCrewMember->game_player_id)
+                    ->where('id', '!=', $gameCrewMember->id)
+                    ->get();
+
+                foreach ($newUpgradeIds as $upgradeId) {
+                    $upgrade = $upgrades->get($upgradeId);
+                    if (! $upgrade) {
+                        continue;
+                    }
+                    $plentiful = $upgrade->plentiful ?? 1;
+                    $usedCount = $allMembers->filter(fn (GameCrewMember $m) => collect($m->attached_upgrades ?? [])->contains('id', $upgradeId))->count();
+                    if ($usedCount >= $plentiful) {
+                        return response()->json([
+                            'error' => "{$upgrade->name} is at its limit ({$plentiful})",
+                        ], 422);
+                    }
+                }
+            }
+        }
+
         $gameCrewMember->update($validated);
 
         if (! $game->is_solo) {
@@ -88,6 +115,20 @@ class GamePlayController extends Controller
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
 
+        // Enforce character count limit across the crew
+        $existingCount = GameCrewMember::where('game_id', $game->id)
+            ->where('game_player_id', $player->id)
+            ->where('character_id', $character->id)
+            ->where('is_killed', false)
+            ->count();
+
+        $maxCount = $character->count ?? 1;
+        if ($existingCount >= $maxCount) {
+            return response()->json([
+                'error' => "{$character->display_name} is at its limit ({$maxCount})",
+            ], 422);
+        }
+
         $maxSort = GameCrewMember::where('game_id', $game->id)
             ->where('game_player_id', $player->id)
             ->max('sort_order') ?? 0;
@@ -97,6 +138,7 @@ class GamePlayController extends Controller
             'game_player_id' => $player->id,
             'character_id' => $character->id,
             'display_name' => $character->display_name,
+            'faction' => $character->getRawOriginal('faction'),
             'current_health' => $character->health,
             'max_health' => $character->health,
             'cost' => $character->cost ?? 0,
@@ -178,6 +220,7 @@ class GamePlayController extends Controller
                 'id' => $m->id,
                 'character_id' => $m->character_id,
                 'display_name' => $m->display_name,
+                'faction' => $m->faction,
                 'current_health' => $m->current_health,
                 'max_health' => $m->max_health,
                 'is_killed' => $m->is_killed,

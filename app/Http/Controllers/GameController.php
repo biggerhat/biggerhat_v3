@@ -361,6 +361,92 @@ class GameController extends Controller
             'markers' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Marker::orderBy('name')->get(['id', 'name', 'slug'])
                 : [],
+            'character_upgrades' => fn () => $game->status === GameStatusEnum::InProgress
+                ? \App\Models\Upgrade::forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
+                : [],
+            'current_schemes' => function () use ($game) {
+                if ($game->status !== GameStatusEnum::InProgress) {
+                    return [];
+                }
+                $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+
+                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'slug' => $s->slug,
+                    'image_url' => $s->image_url,
+                    'prerequisite' => $s->prerequisite,
+                    'reveal' => $s->reveal,
+                    'scoring' => $s->scoring,
+                ])->toArray();
+            },
+            'opponent_scheme_intel' => function () use ($game) {
+                if ($game->status !== GameStatusEnum::InProgress) {
+                    return null;
+                }
+
+                $userId = Auth::id();
+                /** @var GamePlayer|null $opponent */
+                $opponent = $game->is_solo
+                    ? $game->players()->where('slot', 2)->first()
+                    : $game->players()->where('user_id', '!=', $userId)->first();
+
+                if (! $opponent) {
+                    return null;
+                }
+
+                // Get opponent's most recent completed turn
+                /** @var \App\Models\GameTurn|null $lastTurn */
+                $lastTurn = $opponent->turns()->orderByDesc('turn_number')->first();
+
+                if (! $lastTurn || ! $lastTurn->scheme_id) {
+                    // Turn 1 — opponent could have any pool scheme
+                    $poolSchemes = Scheme::whereIn('id', $game->scheme_pool ?? [])->get();
+
+                    return [
+                        'last_revealed' => null,
+                        'possible_schemes' => $poolSchemes->map(fn (Scheme $s) => [
+                            'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+                            'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+                            'reveal' => $s->reveal, 'scoring' => $s->scoring,
+                        ])->toArray(),
+                    ];
+                }
+
+                $lastScheme = Scheme::find($lastTurn->scheme_id);
+                $lastRevealed = $lastScheme ? [
+                    'id' => $lastScheme->id, 'name' => $lastScheme->name,
+                    'turn_number' => $lastTurn->turn_number,
+                    'scored' => $lastTurn->scheme_points > 0,
+                ] : null;
+
+                // Possible schemes: kept scheme + next chain from revealed scheme
+                $possible = [];
+                if ($lastScheme) {
+                    $possible[] = ['id' => $lastScheme->id, 'name' => $lastScheme->name, 'slug' => $lastScheme->slug,
+                        'image_url' => $lastScheme->image_url, 'prerequisite' => $lastScheme->prerequisite,
+                        'reveal' => $lastScheme->reveal, 'scoring' => $lastScheme->scoring];
+
+                    $nextIds = array_filter([
+                        $lastScheme->next_scheme_one_id,
+                        $lastScheme->next_scheme_two_id,
+                        $lastScheme->next_scheme_three_id,
+                    ]);
+                    if ($nextIds) {
+                        $nextSchemes = Scheme::whereIn('id', $nextIds)->get();
+                        foreach ($nextSchemes as $s) {
+                            $possible[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+                                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+                                'reveal' => $s->reveal, 'scoring' => $s->scoring];
+                        }
+                    }
+                }
+
+                return [
+                    'last_revealed' => $lastRevealed,
+                    'possible_schemes' => $possible,
+                ];
+            },
             'next_schemes' => fn () => $this->getNextSchemesForPlayer($game, 1),
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2) : [],
         ]);

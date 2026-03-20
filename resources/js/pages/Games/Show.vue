@@ -480,6 +480,15 @@ const loadReferences = async (characterIds: number[], target: 'my' | 'opponent')
     const loading = target === 'my' ? myRefsLoading : opponentRefsLoading;
     const refs = target === 'my' ? myReferences : opponentReferences;
     if (refs.value || loading.value || !characterIds.length) return;
+
+    // Try pre-computed references from crew build first
+    const player = target === 'my' ? myPlayer.value : opponent.value;
+    if (player?.crew_build?.references) {
+        refs.value = player.crew_build.references;
+        return;
+    }
+
+    // Fallback to dynamic API
     loading.value = true;
     try {
         const params = new URLSearchParams();

@@ -27,13 +27,13 @@ class GameController extends Controller
 
         $activeGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name'])
+            ->with(['players.user:id,name', 'strategy:id,name,image'])
             ->latest()
             ->get();
 
         $recentGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
+            ->with(['players.user:id,name', 'strategy:id,name,image', 'winner:id,name'])
             ->latest('completed_at')
             ->take(20)
             ->get();

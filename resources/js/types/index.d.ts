@@ -24,6 +24,7 @@ export interface NavItem {
     icon?: LucideIcon;
     isActive?: boolean;
     permission?: string;
+    badge?: string;
 }
 
 export interface FactionInfo {

@@ -168,6 +168,8 @@ class CrewBuilderController extends Controller
             'user_id' => Auth::id(),
         ]);
 
+        $build->refreshReferences();
+
         return response()->json([
             'id' => $build->id,
             'share_code' => $build->share_code,
@@ -194,6 +196,11 @@ class CrewBuilderController extends Controller
         ]);
 
         $crewBuild->update($validated);
+
+        // Refresh references if crew composition changed
+        if ($crewBuild->wasChanged(['crew_data', 'master_id'])) {
+            $crewBuild->refreshReferences();
+        }
 
         return response()->json([
             'id' => $crewBuild->id,

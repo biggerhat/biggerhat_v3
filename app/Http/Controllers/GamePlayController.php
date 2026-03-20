@@ -133,8 +133,19 @@ class GamePlayController extends Controller
             ->where('game_player_id', $player->id)
             ->max('sort_order') ?? 0;
 
-        $summonToken = \App\Models\Token::where('slug', 'summon')->first(['id', 'name']);
-        $summonTokens = $summonToken ? [['id' => $summonToken->id, 'name' => $summonToken->name]] : [];
+        // Peons don't get Summon/Slow tokens; all others do
+        $summonTokens = [];
+        $isPeon = $character->station?->value === 'peon';
+        if (! $isPeon) {
+            $summonToken = \App\Models\Token::where('slug', 'summon')->first(['id', 'name']);
+            $slowToken = \App\Models\Token::where('slug', 'slow')->first(['id', 'name']);
+            if ($summonToken) {
+                $summonTokens[] = ['id' => $summonToken->id, 'name' => $summonToken->name];
+            }
+            if ($slowToken) {
+                $summonTokens[] = ['id' => $slowToken->id, 'name' => $slowToken->name];
+            }
+        }
 
         $member = GameCrewMember::create([
             'game_id' => $game->id,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '@/components/ui/badge';
 import Collapsible from '@/components/ui/collapsible/Collapsible.vue';
 import CollapsibleContent from '@/components/ui/collapsible/CollapsibleContent.vue';
 import CollapsibleTrigger from '@/components/ui/collapsible/CollapsibleTrigger.vue';
@@ -39,6 +40,7 @@ const page = usePage<SharedData>();
                                 <Link :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
+                                    <Badge v-if="item.badge" class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400">{{ item.badge }}</Badge>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -61,6 +63,7 @@ const page = usePage<SharedData>();
                                 <Link :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
+                                    <Badge v-if="item.badge" class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400">{{ item.badge }}</Badge>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -76,6 +79,7 @@ const page = usePage<SharedData>();
                         <Link :href="item.href" @click="mobileCheck">
                             <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                             <span>{{ item.title }}</span>
+                            <Badge v-if="item.badge" class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400">{{ item.badge }}</Badge>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

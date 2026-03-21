@@ -5,6 +5,7 @@ namespace App\Events;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -13,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class GamePlayerJoined implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Concerns\LogsBroadcast;
 
     public function __construct(
         public Game $game,
@@ -21,7 +23,15 @@ class GamePlayerJoined implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('game.'.$this->game->uuid)];
+        return [
+            new PresenceChannel('game.'.$this->game->uuid),
+            new Channel('game-observe.'.$this->game->uuid),
+        ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'GamePlayerJoined';
     }
 
     public function broadcastWith(): array

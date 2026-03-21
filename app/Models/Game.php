@@ -37,6 +37,7 @@ class Game extends Model
             'completed_at' => 'datetime',
             'is_tie' => 'boolean',
             'is_solo' => 'boolean',
+            'is_observable' => 'boolean',
         ];
     }
 

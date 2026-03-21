@@ -274,6 +274,11 @@ class GameSetupController extends Controller
 
     private function getPlayer(Game $game, ?int $slot = null): GamePlayer
     {
+        // Validate slot parameter
+        if ($slot !== null && ! in_array($slot, [1, 2], true)) {
+            abort(422, 'Slot must be 1 or 2');
+        }
+
         // In solo mode with a slot specified, return that slot's player
         if ($game->is_solo && $slot) {
             // Verify the caller is the game creator

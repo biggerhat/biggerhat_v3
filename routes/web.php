@@ -231,6 +231,9 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
     });
 });
 
+// Public game observation (no auth required)
+Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
+
 Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');
     Route::get('/create', [GameController::class, 'create'])->name('create');
@@ -241,6 +244,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');
     Route::delete('/{game:uuid}', [GameController::class, 'destroy'])->name('destroy');
     Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');
+    Route::post('/{game:uuid}/toggle-observable', [GameController::class, 'toggleObservable'])->name('toggle_observable');
 
     // Setup steps
     Route::prefix('/{game:uuid}/setup')->name('setup.')->group(function () {

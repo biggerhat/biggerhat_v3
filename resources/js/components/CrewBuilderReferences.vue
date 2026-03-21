@@ -41,6 +41,7 @@ interface ReferenceCharacter {
     faction: string;
     type: string;
     front_image: string | null;
+    back_image: string | null;
 }
 
 interface ReferenceData {
@@ -207,13 +208,15 @@ const activeTab = ref('characters');
                     <div class="mt-1 text-center text-xs text-muted-foreground">{{ activeCharacter.type }}</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
-                    <div v-if="activeCharacter.front_image" class="flex min-h-0 flex-1 items-start justify-center">
-                        <img
-                            :src="'/storage/' + activeCharacter.front_image"
-                            :alt="activeCharacter.display_name"
-                            loading="lazy"
-                            decoding="async"
-                            class="max-h-[55dvh] w-auto rounded-lg"
+                    <div
+                        v-if="activeCharacter.front_image"
+                        class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain"
+                    >
+                        <UpgradeFlipCard
+                            :front-image="activeCharacter.front_image"
+                            :back-image="activeCharacter.back_image"
+                            :alt-text="activeCharacter.display_name"
+                            :show-link="false"
                         />
                     </div>
                     <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>

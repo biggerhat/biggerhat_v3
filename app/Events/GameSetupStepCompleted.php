@@ -4,8 +4,8 @@ namespace App\Events;
 
 use App\Models\Game;
 use App\Models\GamePlayer;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -13,8 +13,8 @@ use Illuminate\Queue\SerializesModels;
 
 class GameSetupStepCompleted implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
     use Concerns\LogsBroadcast;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
         public Game $game,

@@ -428,6 +428,7 @@ class CrewBuilderController extends Controller
                 ...$s->only('id', 'display_name', 'slug', 'faction'),
                 'type' => $type,
                 'front_image' => $s->miniatures->first()?->front_image,
+                'back_image' => $s->miniatures->first()?->back_image,
             ]);
         };
         foreach ($characters as $c) {

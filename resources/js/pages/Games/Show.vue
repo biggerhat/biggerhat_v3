@@ -1752,7 +1752,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <Tabs v-model="gameplayTab">
                         <TabsList class="grid w-full grid-cols-3">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
-                            <TabsTrigger value="my-crew">My Crew</TabsTrigger>
+                            <TabsTrigger value="my-crew">{{ isObserver ? playerName(myPlayer) : 'My Crew' }}</TabsTrigger>
                             <TabsTrigger value="opponent">{{ playerName(opponent) }}</TabsTrigger>
                         </TabsList>
                     </Tabs>

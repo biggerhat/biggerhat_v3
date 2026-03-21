@@ -23,6 +23,7 @@ class GamePlayer extends Model
             'crew_skipped' => 'boolean',
             'is_turn_complete' => 'boolean',
             'is_game_complete' => 'boolean',
+            'hidden_at' => 'datetime',
         ];
     }
 

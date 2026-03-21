@@ -27,13 +27,13 @@ class GameController extends Controller
 
         $activeGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name,image'])
+            ->with(['players.user:id,name', 'strategy:id,name'])
             ->latest()
             ->get();
 
         $recentGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
             ->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name,image', 'winner:id,name'])
+            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
             ->latest('completed_at')
             ->take(20)
             ->get();
@@ -151,6 +151,9 @@ class GameController extends Controller
 
         $game->load($eagerLoads);
 
+        // Append image_url on strategy for the show page
+        $game->strategy?->append('image_url');
+
         $schemePoolOrder = $game->scheme_pool ?? [];
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
@@ -239,7 +242,7 @@ class GameController extends Controller
             return $grouped; // @phpstan-ignore return.type
         };
         $myCrews = function () use ($game) {
-            if ($game->status !== GameStatusEnum::CrewSelect || ! Auth::check()) {
+            if (! in_array($game->status, [GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect]) || ! Auth::check()) {
                 return [];
             }
 
@@ -449,6 +452,7 @@ class GameController extends Controller
             },
             'next_schemes' => fn () => $this->getNextSchemesForPlayer($game, 1),
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2) : [],
+            'is_observer' => false,
         ]);
     }
 
@@ -581,6 +585,88 @@ class GameController extends Controller
 
         return redirect()->route('games.index')
             ->withMessage('Game removed from your list.');
+    }
+
+    public function observe(Game $game): Response|ResponseFactory
+    {
+        if (! $game->is_observable) {
+            abort(404);
+        }
+
+        $eagerLoads = [
+            'players.user:id,name',
+            'strategy',
+        ];
+
+        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            $eagerLoads[] = 'players.crewMembers';
+            $eagerLoads[] = 'players.crewBuild';
+            $eagerLoads[] = 'players.master.crewUpgrades';
+            $eagerLoads[] = 'players.turns';
+        }
+        if (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            $eagerLoads[] = 'winner:id,name';
+        }
+
+        $game->load($eagerLoads);
+        $game->strategy?->append('image_url');
+
+        $schemePoolOrder = $game->scheme_pool ?? [];
+        $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
+            ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
+            ->values()
+            ->map(fn (Scheme $s) => [
+                'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+                'reveal' => $s->reveal, 'scoring' => $s->scoring,
+            ]);
+
+        return inertia('Games/Show', [
+            'game' => $game,
+            'schemes' => $schemes,
+            'deployment' => $game->deployment ? (function () use ($game) {
+                /** @var DeploymentEnum $d */
+                $d = $game->deployment;
+
+                return ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()];
+            })() : null,
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'masters' => fn () => [],
+            'my_crews' => fn () => [],
+            'all_strategies' => fn () => [],
+            'all_schemes' => fn () => [],
+            'all_deployments' => fn () => [],
+            'tokens' => fn () => [],
+            'character_upgrades' => fn () => [],
+            'current_schemes' => function () use ($game) {
+                if (! in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed])) {
+                    return [];
+                }
+                $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+
+                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
+                    'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+                    'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+                    'reveal' => $s->reveal, 'scoring' => $s->scoring,
+                ])->toArray();
+            },
+            'opponent_scheme_intel' => fn () => null,
+            'next_schemes' => fn () => [],
+            'opponent_next_schemes' => fn () => [],
+            'markers' => fn () => [],
+            'is_observer' => true,
+        ]);
+    }
+
+    public function toggleObservable(Game $game)
+    {
+        if ($game->creator_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $game->update(['is_observable' => ! $game->is_observable]);
+
+        return response()->json(['success' => true, 'is_observable' => $game->is_observable]);
     }
 
     private function getNextSchemesForPlayer(Game $game, int $slot): array

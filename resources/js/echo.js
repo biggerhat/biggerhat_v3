@@ -7,6 +7,9 @@ const reverbKey = import.meta.env.VITE_REVERB_APP_KEY;
 const reverbHost = import.meta.env.VITE_REVERB_HOST;
 
 if (reverbKey && reverbHost) {
+    if (import.meta.env.DEV) {
+        console.log(`[Echo] Connecting to Reverb: ${reverbHost}:${import.meta.env.VITE_REVERB_PORT} (TLS: ${(import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https'})`);
+    }
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: reverbKey,
@@ -22,4 +25,13 @@ if (reverbKey && reverbHost) {
             },
         },
     });
+
+    // Log connection state changes
+    if (import.meta.env.DEV) {
+        window.Echo.connector.pusher.connection.bind('connected', () => console.log('[Echo] Connected'));
+        window.Echo.connector.pusher.connection.bind('disconnected', () => console.warn('[Echo] Disconnected'));
+        window.Echo.connector.pusher.connection.bind('error', (err) => console.error('[Echo] Error:', err));
+    }
+} else if (import.meta.env.DEV) {
+    console.warn('[Echo] Reverb not configured — VITE_REVERB_APP_KEY or VITE_REVERB_HOST missing');
 }

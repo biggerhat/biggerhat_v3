@@ -23,8 +23,6 @@ class Strategy extends Model
 
     protected $guarded = ['id'];
 
-    protected $appends = ['image_url'];
-
     public function casts(): array
     {
         return [

@@ -274,6 +274,11 @@ class GameSetupController extends Controller
 
     private function getPlayer(Game $game, ?int $slot = null): GamePlayer
     {
+        // $request->integer() returns 0 when key is absent — treat as null
+        if ($slot === 0) {
+            $slot = null;
+        }
+
         // Validate slot parameter
         if ($slot !== null && ! in_array($slot, [1, 2], true)) {
             abort(422, 'Slot must be 1 or 2');

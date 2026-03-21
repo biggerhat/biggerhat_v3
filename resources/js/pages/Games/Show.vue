@@ -262,7 +262,9 @@ const selectedMasterName = ref<string | null>(null);
 
 const confirmMasterSelection = () => {
     if (!selectedMasterName.value) return;
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: selectedMasterName.value });
+    const body: Record<string, unknown> = { master_name: selectedMasterName.value };
+    if (isSolo.value) body.slot = 1;
+    postSetup(route('games.setup.master', props.game.uuid), body);
 };
 
 // Master title switching during crew select
@@ -1544,7 +1546,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 class="flex-1"
                                                 size="sm"
                                                 :disabled="submitting || crew.is_over_budget"
-                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id })"
+                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, ...(isSolo ? { slot: 1 } : {}) })"
                                             >
                                                 <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                                 {{ crew.is_over_budget ? 'Over Budget' : 'Select This Crew' }}

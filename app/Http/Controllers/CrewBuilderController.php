@@ -388,8 +388,7 @@ class CrewBuilderController extends Controller
 
         $characters = Character::with([
             'markers', 'tokens', 'characterUpgrades',
-            'summons.miniatures', 'summonedBy.miniatures',
-            'replacesInto.miniatures', 'replacedBy.miniatures',
+            'summons.miniatures', 'replacesInto.miniatures',
         ])->whereIn('id', $ids)->get();
 
         // Also gather references from summoned/replaced characters
@@ -433,9 +432,7 @@ class CrewBuilderController extends Controller
         };
         foreach ($characters as $c) {
             $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons')); // @phpstan-ignore argument.type
-            $c->summonedBy->each(fn (Character $s) => $mapLinked($s, 'Summoned by')); // @phpstan-ignore argument.type
             $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into')); // @phpstan-ignore argument.type
-            $c->replacedBy->each(fn (Character $s) => $mapLinked($s, 'Replaced by')); // @phpstan-ignore argument.type
         }
         $linkedChars = $linkedChars->unique('id')->sortBy('display_name')->values();
 

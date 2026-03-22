@@ -143,6 +143,7 @@ const props = defineProps<{
     opponent_next_schemes: SchemeData[];
     tokens: { id: number; name: string; slug: string; description: string | null }[];
     character_upgrades: { id: number; name: string; slug: string; front_image: string | null; back_image: string | null; type: string | null; plentiful: number | null }[];
+    starting_crews?: Record<number, { display_name: string; faction: string; cost: number; hiring_category: string; front_image: string | null; back_image: string | null }[]>;
     is_observer: boolean;
 }>();
 
@@ -495,10 +496,11 @@ const myStepDone = (step: string) => {
 
 const abandonDialogOpen = ref(false);
 
-// For observers: check if a player's current scheme has been scored (revealed)
+// For observers: scheme is only revealed if scored in the current turn (resets each turn)
 const hasPlayerScoredScheme = (player: any) => {
     if (!player?.turns?.length) return false;
-    return player.turns.some((t: any) => t.scheme_points > 0);
+    const currentTurn = player.turns.find((t: any) => t.turn_number === props.game.current_turn);
+    return currentTurn?.scheme_points > 0;
 };
 
 // Observation mode
@@ -515,6 +517,14 @@ const copyObserveLink = async () => {
     observeLinkCopied.value = true;
     setTimeout(() => (observeLinkCopied.value = false), 2000);
 };
+// Share summary
+const summaryLinkCopied = ref(false);
+const copySummaryLink = async () => {
+    await navigator.clipboard.writeText(route('games.summary', props.game.uuid));
+    summaryLinkCopied.value = true;
+    setTimeout(() => (summaryLinkCopied.value = false), 2000);
+};
+
 const completeDialogOpen = ref(false);
 const expandedTurn = ref<number | null>(null);
 const executeAbandon = () => {
@@ -1021,7 +1031,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge variant="secondary" class="text-xs">{{ game.season_label }}</Badge>
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
-                <Badge v-if="game.is_observable" variant="outline" class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400">Live</Badge>
+                <Badge v-if="game.is_observable && game.status !== 'completed' && game.status !== 'abandoned'" variant="outline" class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400">Live</Badge>
                 <Button v-if="game.status === 'setup' && isCreator" variant="ghost" size="sm" class="ml-auto gap-1" @click="regenerateScenario">
                     <Dices class="size-3.5" />
                     Re-roll
@@ -1134,7 +1144,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <!-- Solo opponent: editable name -->
-                                    <template v-if="isSolo && !player.user && game.status !== 'completed' && game.status !== 'abandoned'">
+                                    <template v-if="isSolo && !isObserver && !player.user && game.status !== 'completed' && game.status !== 'abandoned'">
                                         <template v-if="editingOpponentName">
                                             <Input
                                                 v-model="opponentNameInput"
@@ -1171,7 +1181,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
 
                     <!-- Solo: swap roles button -->
-                    <div v-if="isSolo && game.status !== 'completed' && game.status !== 'abandoned'" class="mt-3 flex justify-center">
+                    <div v-if="isSolo && !isObserver && game.status !== 'completed' && game.status !== 'abandoned'" class="mt-3 flex justify-center">
                         <Button variant="ghost" size="sm" class="gap-1.5 text-xs text-muted-foreground" @click="swapRoles">
                             <RotateCcw class="size-3" />
                             Swap Attacker / Defender
@@ -2138,13 +2148,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div class="mb-1 flex items-center justify-between">
                             <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>
                             <div class="flex items-center gap-1">
-                                <template v-if="isSolo">
+                                <template v-if="isSolo && !isObserver">
                                     <button class="rounded p-0.5 hover:bg-muted" @click="updateOpponentSoulstonePool(-1)"><Minus class="size-3" /></button>
                                 </template>
-                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold" :class="!isSolo ? 'text-muted-foreground' : ''">
+                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold" :class="!isSolo || isObserver ? 'text-muted-foreground' : ''">
                                     {{ opponent?.soulstone_pool ?? 0 }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 </span>
-                                <template v-if="isSolo">
+                                <template v-if="isSolo && !isObserver">
                                     <button class="rounded p-0.5 hover:bg-muted" @click="updateOpponentSoulstonePool(1)"><Plus class="size-3" /></button>
                                 </template>
                             </div>
@@ -2160,9 +2170,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <span class="text-muted-foreground">Scheme:</span>
                                     <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>
                                 </template>
-                                <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
-                                    {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
-                                </button>
+                                <template v-if="!isObserver">
+                                    <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
+                                        {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
+                                    </button>
+                                </template>
+                                <span v-else-if="!opponent?.current_scheme_id" class="ml-1 text-muted-foreground">Not set</span>
                             </div>
                         </div>
 
@@ -2202,8 +2215,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="flex items-start justify-between gap-1">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1">
-                                            <!-- Solo: full activation toggle; Normal: read-only indicator -->
-                                            <template v-if="isSolo">
+                                            <!-- Solo: full activation toggle; Normal/Observer: read-only indicator -->
+                                            <template v-if="isSolo && !isObserver">
                                                 <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)">
                                                     <Check v-if="member.is_activated" class="size-3.5 text-green-300" />
                                                     <Circle v-else class="size-3.5 text-white/30" />
@@ -2229,8 +2242,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             />
                                         </div>
                                     </div>
-                                    <!-- Solo: full health controls; Normal: read-only -->
-                                    <div v-if="isSolo" class="flex shrink-0 items-center gap-0.5">
+                                    <!-- Solo: full health controls; Normal/Observer: read-only -->
+                                    <div v-if="isSolo && !isObserver" class="flex shrink-0 items-center gap-0.5">
                                         <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3" /></button>
                                         <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                             <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
@@ -2254,7 +2267,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         @click="openTokenInfo(token.id, member)"
                                     >
                                         {{ token.name }}
-                                        <button v-if="isSolo" class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
+                                        <button v-if="isSolo && !isObserver" class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
                                             <Minus class="size-2.5" />
                                         </button>
                                     </Badge>
@@ -2270,7 +2283,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     >
                                         <ArrowUpCircle class="size-2.5 shrink-0 text-amber-300" />
                                         <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                        <button v-if="isSolo" class="shrink-0 rounded-full text-red-300/60 hover:text-red-300" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
+                                        <button v-if="isSolo && !isObserver" class="shrink-0 rounded-full text-red-300/60 hover:text-red-300" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
                                             <Minus class="size-2.5" />
                                         </button>
                                     </div>
@@ -2282,11 +2295,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-through opacity-50"
                             >
                                 <span class="cursor-pointer hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
-                                <button v-if="isSolo" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3" /></button>
+                                <button v-if="isSolo && !isObserver" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3" /></button>
                             </div>
                         </div>
                         <!-- Solo: summon for opponent -->
-                        <Button v-if="isSolo && opponentCrewMembers.length" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(2)">
+                        <Button v-if="isSolo && !isObserver && opponentCrewMembers.length" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(2)">
                             <Plus class="size-3" /> Summon
                         </Button>
                         <!-- Opponent Crew References -->
@@ -2298,7 +2311,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </details>
 
                         <!-- Solo: Opponent turn scoring -->
-                        <template v-if="isSolo">
+                        <template v-if="isSolo && !isObserver">
                             <div class="mt-4 space-y-3 border-t pt-3">
                                 <div class="text-xs font-semibold">Opponent's Turn {{ game.current_turn }}</div>
                                 <template v-if="opponent?.is_turn_complete">
@@ -2390,6 +2403,43 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </div>
                     </CardContent>
                 </Card>
+
+                <!-- Share button -->
+                <div v-if="game.status === 'completed'" class="mb-4 flex justify-center">
+                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copySummaryLink">
+                        <Copy class="size-3" />
+                        {{ summaryLinkCopied ? 'Link Copied!' : 'Share Game Summary' }}
+                    </Button>
+                </div>
+
+                <!-- Starting Crews -->
+                <div v-if="starting_crews && Object.keys(starting_crews).length" class="mb-4 grid gap-4 sm:grid-cols-2">
+                    <div v-for="player in game.players" :key="'start-crew-' + player.id">
+                        <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Starting Crew</h3>
+                        <div v-if="!starting_crews[player.slot]?.length" class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                            No crew tracked
+                        </div>
+                        <div v-else class="space-y-0.5">
+                            <div
+                                v-for="(member, mIdx) in starting_crews[player.slot]"
+                                :key="'sc-' + player.slot + '-' + mIdx"
+                                :class="factionBackground(member.faction ?? player.faction ?? '')"
+                                class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
+                            >
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <span class="truncate font-medium">{{ member.display_name }}</span>
+                                    <Badge v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'" :class="categoryColor(member.hiring_category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                        {{ categoryLabel(member.hiring_category) }}
+                                    </Badge>
+                                </div>
+                                <div v-if="member.cost > 0" class="flex shrink-0 items-center font-bold">
+                                    {{ member.cost }}
+                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Compact scenario rolldown -->
                 <details class="mb-4 rounded-lg border">
@@ -2792,7 +2842,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </Drawer>
 
     <!-- Opponent Scheme Dialog (Solo) -->
-    <Dialog v-if="isSolo" v-model:open="opponentSchemeDialogOpen">
+    <Dialog v-if="isSolo && !isObserver" v-model:open="opponentSchemeDialogOpen">
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>Set Opponent's Scheme</DialogTitle>

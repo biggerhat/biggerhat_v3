@@ -231,8 +231,9 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
     });
 });
 
-// Public game observation (no auth required)
+// Public game routes (no auth required)
 Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
+Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
 
 Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');

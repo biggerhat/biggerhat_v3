@@ -70,8 +70,7 @@ class CrewBuild extends Model
 
         $characters = Character::with([
             'markers', 'tokens', 'characterUpgrades',
-            'summons.miniatures', 'summonedBy.miniatures',
-            'replacesInto.miniatures', 'replacedBy.miniatures',
+            'summons.miniatures', 'replacesInto.miniatures',
         ])->whereIn('id', $characterIds)->get();
 
         // Also gather references from summoned/replaced characters
@@ -116,9 +115,7 @@ class CrewBuild extends Model
         };
         foreach ($characters as $c) {
             $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons')); // @phpstan-ignore argument.type
-            $c->summonedBy->each(fn (Character $s) => $mapLinked($s, 'Summoned by')); // @phpstan-ignore argument.type
             $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into')); // @phpstan-ignore argument.type
-            $c->replacedBy->each(fn (Character $s) => $mapLinked($s, 'Replaced by')); // @phpstan-ignore argument.type
         }
 
         return [

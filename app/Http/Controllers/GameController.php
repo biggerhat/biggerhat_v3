@@ -11,6 +11,7 @@ use App\Events\GamePlayerJoined;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
+use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
@@ -38,9 +39,18 @@ class GameController extends Controller
             ->take(20)
             ->get();
 
+        $observableGames = Game::where('is_observable', true)
+            ->where('updated_at', '>=', now()->subDay())
+            ->where('status', '!=', GameStatusEnum::Abandoned->value)
+            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
+            ->latest('updated_at')
+            ->take(10)
+            ->get();
+
         return inertia('Games/Index', [
             'active_games' => $activeGames,
             'recent_games' => $recentGames,
+            'observable_games' => $observableGames,
         ]);
     }
 
@@ -452,6 +462,7 @@ class GameController extends Controller
             },
             'next_schemes' => fn () => $this->getNextSchemesForPlayer($game, 1),
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2) : [],
+            'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => false,
         ]);
     }
@@ -654,6 +665,69 @@ class GameController extends Controller
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
             'markers' => fn () => [],
+            'starting_crews' => fn () => $this->getStartingCrews($game),
+            'is_observer' => true,
+        ]);
+    }
+
+    public function summary(Game $game): Response|ResponseFactory
+    {
+        if (! in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            abort(404);
+        }
+
+        $game->load([
+            'players.user:id,name',
+            'players.crewMembers',
+            'players.crewBuild',
+            'players.master.crewUpgrades',
+            'players.turns',
+            'strategy',
+            'winner:id,name',
+        ]);
+
+        $game->strategy?->append('image_url');
+
+        $schemePoolOrder = $game->scheme_pool ?? [];
+        $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
+            ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
+            ->values()
+            ->map(fn (Scheme $s) => [
+                'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+                'reveal' => $s->reveal, 'scoring' => $s->scoring,
+            ]);
+
+        $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+        $currentSchemes = Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
+            'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
+            'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
+            'reveal' => $s->reveal, 'scoring' => $s->scoring,
+        ])->toArray();
+
+        return inertia('Games/Show', [
+            'game' => $game,
+            'schemes' => $schemes,
+            'deployment' => $game->deployment ? (function () use ($game) {
+                /** @var DeploymentEnum $d */
+                $d = $game->deployment;
+
+                return ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()];
+            })() : null,
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'masters' => fn () => [],
+            'my_crews' => fn () => [],
+            'all_strategies' => fn () => [],
+            'all_schemes' => fn () => [],
+            'all_deployments' => fn () => [],
+            'tokens' => fn () => [],
+            'character_upgrades' => fn () => [],
+            'current_schemes' => $currentSchemes,
+            'opponent_scheme_intel' => fn () => null,
+            'next_schemes' => fn () => [],
+            'opponent_next_schemes' => fn () => [],
+            'markers' => fn () => [],
+            'starting_crews' => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
     }
@@ -701,6 +775,33 @@ class GameController extends Controller
             'reveal' => $s->reveal,
             'scoring' => $s->scoring,
         ])->toArray();
+    }
+
+    private function getStartingCrews(Game $game): array
+    {
+        if (! in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            return [];
+        }
+
+        $startingCrews = [];
+        /** @var GamePlayer $player */
+        foreach ($game->players as $player) {
+            $startingCrews[$player->slot] = $player->crewMembers
+                ->where('is_summoned', false)
+                ->sortBy('sort_order')
+                ->map(fn (GameCrewMember $m) => [ // @phpstan-ignore argument.type
+                    'display_name' => $m->display_name,
+                    'faction' => $m->getRawOriginal('faction'),
+                    'cost' => $m->cost,
+                    'hiring_category' => $m->hiring_category,
+                    'front_image' => $m->front_image,
+                    'back_image' => $m->back_image,
+                ])
+                ->values()
+                ->toArray();
+        }
+
+        return $startingCrews;
     }
 
     public function abandon(Game $game)

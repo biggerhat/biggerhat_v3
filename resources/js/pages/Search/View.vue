@@ -103,6 +103,20 @@ const props = defineProps({
             return {};
         },
     },
+    tokens_list: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
+    markers_list: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
     action_types: {
         type: [Object, Array],
         required: false,
@@ -211,6 +225,8 @@ const filterParams = ref({
     ability_costs_stone: null as string | null,
     ability_description: null as string | null,
     trigger: null as string | null,
+    token: null as string | null,
+    marker: null as string | null,
     page_view: null as string | null,
     sort: null as string | null,
     sort_type: null as string | null,
@@ -264,6 +280,8 @@ const filterKeys = [
     'ability_costs_stone',
     'ability_description',
     'trigger',
+    'token',
+    'marker',
 ] as const;
 
 const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size'] as const;
@@ -347,7 +365,7 @@ const clearName = () => {
     filter();
 };
 
-const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities', 'advancedTriggers'] as const;
+const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities', 'advancedTriggers', 'advancedTokens', 'advancedMarkers'] as const;
 
 const sectionsOpen = ref({
     advanced: false,
@@ -357,6 +375,8 @@ const sectionsOpen = ref({
     advancedActions: false,
     advancedAbilities: false,
     advancedTriggers: false,
+    advancedTokens: false,
+    advancedMarkers: false,
     sorting: false,
 });
 
@@ -427,6 +447,8 @@ onMounted(() => {
     filterParams.value.ability_costs_stone = urlParams.get('ability_costs_stone');
     filterParams.value.ability_description = urlParams.get('ability_description');
     filterParams.value.trigger = urlParams.get('trigger');
+    filterParams.value.token = urlParams.get('token');
+    filterParams.value.marker = urlParams.get('marker');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
     filterParams.value.sort = urlParams.get('sort') ?? 'name';
     filterParams.value.sort_type = urlParams.get('sort_type') ?? 'ascending';
@@ -474,7 +496,9 @@ onMounted(() => {
         filterParams.value.ability_costs_stone ||
         filterParams.value.ability_description;
     const hasTriggers = filterParams.value.trigger;
-    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities || hasTriggers) {
+    const hasTokens = filterParams.value.token;
+    const hasMarkers = filterParams.value.marker;
+    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities || hasTriggers || hasTokens || hasMarkers) {
         sectionsOpen.value.advanced = true;
         if (hasStats) sectionsOpen.value.advancedStats = true;
         if (hasBaseSuits) sectionsOpen.value.advancedBaseSuits = true;
@@ -482,6 +506,8 @@ onMounted(() => {
         if (hasActions) sectionsOpen.value.advancedActions = true;
         if (hasAbilities) sectionsOpen.value.advancedAbilities = true;
         if (hasTriggers) sectionsOpen.value.advancedTriggers = true;
+        if (hasTokens) sectionsOpen.value.advancedTokens = true;
+        if (hasMarkers) sectionsOpen.value.advancedMarkers = true;
     }
     if (filterParams.value.sort !== 'name' || filterParams.value.sort_type !== 'ascending') {
         sectionsOpen.value.sorting = true;
@@ -974,6 +1000,48 @@ onMounted(() => {
                                 </CollapsibleContent>
                             </Collapsible>
 
+                            <!-- Tokens -->
+                            <Collapsible :open="sectionsOpen.advancedTokens" @update:open="toggleAdvancedSection('advancedTokens')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Tokens
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTokens }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Token</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.token"
+                                            placeholder="Any Token"
+                                            :options="props.tokens_list"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <!-- Markers -->
+                            <Collapsible :open="sectionsOpen.advancedMarkers" @update:open="toggleAdvancedSection('advancedMarkers')">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
+                                    Markers
+                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedMarkers }" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Marker</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.marker"
+                                            placeholder="Any Marker"
+                                            :options="props.markers_list"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+
                             <!-- Sorting -->
                             <div class="border-t pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sorting</div>
                             <div class="space-y-2">
@@ -1344,6 +1412,36 @@ onMounted(() => {
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Trigger</label>
                                             <ClearableSelect v-model="filterParams.trigger" placeholder="Any Trigger" :options="props.triggers" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                                <!-- Tokens -->
+                                <Collapsible :open="sectionsOpen.advancedTokens" @update:open="toggleAdvancedSection('advancedTokens')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        Tokens
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTokens }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Token</label>
+                                            <ClearableSelect v-model="filterParams.token" placeholder="Any Token" :options="props.tokens_list" />
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                                <!-- Markers -->
+                                <Collapsible :open="sectionsOpen.advancedMarkers" @update:open="toggleAdvancedSection('advancedMarkers')">
+                                    <CollapsibleTrigger
+                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        Markers
+                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedMarkers }" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Marker</label>
+                                            <ClearableSelect v-model="filterParams.marker" placeholder="Any Marker" :options="props.markers_list" />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>

@@ -881,6 +881,18 @@ const crewCharacterIds = computed(() => crew.value.map((m) => m.character.id));
 
 const debouncedCrewIds = refDebounced(crewCharacterIds, 500);
 
+const mergeCustomIntoReferences = (base: ReferenceData): ReferenceData => {
+    const custom = customReferences.value;
+    const result = { ...base };
+    for (const type of ['characters', 'upgrades', 'markers', 'tokens'] as const) {
+        const customItems = custom[type] ?? [];
+        if (!customItems.length) continue;
+        const existingIds = new Set((result[type] as any[]).map((item: any) => item.id));
+        result[type] = [...result[type], ...customItems.filter((item: any) => !existingIds.has(item.id))] as any;
+    }
+    return result;
+};
+
 watch(
     debouncedCrewIds,
     async (ids) => {
@@ -893,7 +905,8 @@ watch(
             const params = new URLSearchParams();
             ids.forEach((id) => params.append('ids[]', String(id)));
             const res = await fetch(route('tools.crew_builder.references') + '?' + params.toString());
-            references.value = await res.json();
+            const data = await res.json();
+            references.value = mergeCustomIntoReferences(data);
         } catch {
             references.value = null;
         } finally {

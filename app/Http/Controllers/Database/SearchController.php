@@ -20,6 +20,8 @@ use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
+use App\Models\Marker;
+use App\Models\Token;
 use App\Models\Trigger;
 use Illuminate\Http\Request;
 
@@ -204,6 +206,30 @@ class SearchController extends Controller
             $query->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $tq->where('name', $request->get('trigger'))));
         }
 
+        // Token filter — find characters whose actions, abilities, or triggers mention the token name
+        if ($request->filled('token')) {
+            $tokenName = Token::where('slug', $request->get('token'))->value('name');
+            if ($tokenName) {
+                $query->where(function ($q) use ($tokenName) {
+                    $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$tokenName}%"))
+                        ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$tokenName}%"))
+                        ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$tokenName}%")));
+                });
+            }
+        }
+
+        // Marker filter — find characters whose actions, abilities, or triggers mention the marker name
+        if ($request->filled('marker')) {
+            $markerName = Marker::where('slug', $request->get('marker'))->value('name');
+            if ($markerName) {
+                $query->where(function ($q) use ($markerName) {
+                    $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$markerName}%"))
+                        ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$markerName}%"))
+                        ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$markerName}%")));
+                });
+            }
+        }
+
         // Sorting
         $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Faction->value => 'faction',
@@ -247,6 +273,8 @@ class SearchController extends Controller
             'stat_modifiers' => fn () => ModifierTypeEnum::toSelectOptions(),
             'resistance_types' => fn () => ResistanceTypeEnum::toSelectOptions(),
             'triggers' => fn () => Trigger::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($t) => ['name' => $t->name, 'value' => $t->name]),
+            'tokens_list' => fn () => Token::orderBy('name', 'ASC')->get(['name', 'slug'])->map(fn ($t) => ['name' => $t->name, 'value' => $t->slug]),
+            'markers_list' => fn () => Marker::orderBy('name', 'ASC')->get(['name', 'slug'])->map(fn ($t) => ['name' => $t->name, 'value' => $t->slug]),
             'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
             'sort_options' => fn () => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => fn () => SortTypeEnum::toSelectOptions(),

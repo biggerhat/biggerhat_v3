@@ -194,14 +194,19 @@ class GameController extends Controller
                 'scoring' => $s->scoring,
             ]);
 
-        // Scenario editor data (only in setup phase for creator)
-        $allStrategies = fn () => $game->status === GameStatusEnum::Setup && $game->creator_id === Auth::id()
+        // Scenario editor data (available before gameplay starts, for creator)
+        $canEditScenario = fn () => $game->creator_id === Auth::id()
+            && in_array($game->status, [
+                GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
+                GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
+            ]);
+        $allStrategies = fn () => $canEditScenario()
             ? Strategy::forSeason($game->season)->orderBy('name')->get(['id', 'name', 'slug'])
             : [];
-        $allSchemes = fn () => $game->status === GameStatusEnum::Setup && $game->creator_id === Auth::id()
+        $allSchemes = fn () => $canEditScenario()
             ? Scheme::forSeason($game->season)->orderBy('name')->get(['id', 'name', 'slug'])
             : [];
-        $allDeployments = fn () => $game->status === GameStatusEnum::Setup && $game->creator_id === Auth::id()
+        $allDeployments = fn () => $canEditScenario()
             ? collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label()])
             : [];
 
@@ -532,11 +537,15 @@ class GameController extends Controller
 
     public function updateScenario(Request $request, Game $game)
     {
-        // Only creator can edit, only in setup phase
+        // Only creator can edit, only before gameplay starts
         if ($game->creator_id !== Auth::id()) {
             abort(403);
         }
-        if ($game->status !== GameStatusEnum::Setup) {
+        $editableStatuses = [
+            GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
+            GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
+        ];
+        if (! in_array($game->status, $editableStatuses)) {
             return response()->json(['error' => 'Game already started'], 422);
         }
 
@@ -561,7 +570,11 @@ class GameController extends Controller
         if ($game->creator_id !== Auth::id()) {
             abort(403);
         }
-        if ($game->status !== GameStatusEnum::Setup) {
+        $editableStatuses = [
+            GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
+            GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
+        ];
+        if (! in_array($game->status, $editableStatuses)) {
             return response()->json(['error' => 'Game already started'], 422);
         }
 
@@ -827,6 +840,10 @@ class GameController extends Controller
      */
     private function ensureCrewReferences(Game $game): void
     {
+        if (! in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            return;
+        }
+
         foreach ($game->players as $player) {
             /** @var GamePlayer $player */
             /** @var CrewBuild|null $crewBuild */

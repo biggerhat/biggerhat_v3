@@ -166,7 +166,10 @@ const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id ==
 
 // Scenario editing
 const isCreator = computed(() => currentUserId.value === props.game.creator_id);
-const canEditScenario = computed(() => props.game.status === 'setup' && isCreator.value);
+const canEditScenario = computed(() => {
+    const editableStatuses = ['setup', 'faction_select', 'master_select', 'crew_select', 'scheme_select'];
+    return editableStatuses.includes(props.game.status) && isCreator.value;
+});
 const editingDeployment = ref(false);
 const editingStrategy = ref(false);
 const editingSchemes = ref(false);
@@ -1132,76 +1135,73 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
                 <Badge v-if="game.is_observable && game.status !== 'completed' && game.status !== 'abandoned'" variant="outline" class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400">Public</Badge>
-                <Button v-if="game.status === 'setup' && isCreator" variant="ghost" size="sm" class="ml-auto gap-1" @click="regenerateScenario">
+                <Button v-if="canEditScenario" variant="ghost" size="sm" class="ml-auto gap-1" @click="regenerateScenario">
                     <Dices class="size-3.5" />
                     Re-roll
                 </Button>
             </div>
 
             <!-- Scenario (hidden during gameplay and completed) -->
-            <div v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6 space-y-6">
-                <!-- Deployment -->
-                <section v-if="deployment">
-                    <div class="mb-3 flex items-center gap-2">
-                        <h3 class="text-lg font-semibold">Deployment</h3>
-                        <button v-if="canEditScenario" class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingDeployment = !editingDeployment">
-                            <Pencil class="size-3.5" />
-                        </button>
-                    </div>
-                    <div v-if="editingDeployment" class="mb-3">
-                        <Select :model-value="editDeployment" @update:model-value="(v: string) => { editDeployment = v; editingDeployment = false; saveScenarioField('deployment', v); }">
-                            <SelectTrigger class="w-full sm:w-64"><SelectValue placeholder="Select Deployment" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <Card class="cursor-pointer overflow-hidden transition-shadow hover:shadow-md md:flex" @click="deploymentDrawerOpen = true">
-                        <img v-if="deployment.image_url" :src="deployment.image_url" :alt="deployment.label" class="w-full object-cover md:w-48" loading="lazy" decoding="async" />
-                        <CardContent class="flex-1 p-4">
-                            <div class="text-lg font-medium">{{ deployment.label }}</div>
-                            <p class="mt-1 text-sm text-muted-foreground">{{ deployment.description }}</p>
-                        </CardContent>
-                    </Card>
-                </section>
-
-                <!-- Strategy -->
-                <section v-if="game.strategy">
-                    <div class="mb-3 flex items-center gap-2">
-                        <h3 class="text-lg font-semibold">Strategy</h3>
-                        <button v-if="canEditScenario" class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingStrategy = !editingStrategy">
-                            <Pencil class="size-3.5" />
-                        </button>
-                    </div>
-                    <div v-if="editingStrategy" class="mb-3">
-                        <Select :model-value="editStrategy" @update:model-value="(v: string) => { editStrategy = v; editingStrategy = false; saveScenarioField('strategy_id', Number(v)); }">
-                            <SelectTrigger class="w-full sm:w-64"><SelectValue placeholder="Select Strategy" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="s in all_strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="cursor-pointer" @click="strategyDrawerOpen = true">
-                        <div v-if="game.strategy.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg md:max-w-xs">
-                            <img :src="game.strategy.image_url" :alt="game.strategy.name" class="w-full rounded-lg" loading="lazy" decoding="async" />
+            <div v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6 space-y-4">
+                <!-- Deployment & Strategy row -->
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <!-- Deployment -->
+                    <div v-if="deployment">
+                        <div class="mb-1.5 flex items-center gap-2">
+                            <h3 class="text-sm font-semibold">Deployment</h3>
+                            <button v-if="canEditScenario" class="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingDeployment = !editingDeployment">
+                                <Pencil class="size-3" />
+                            </button>
                         </div>
-                        <Card v-else class="transition-shadow hover:shadow-lg md:max-w-xs">
-                            <CardContent class="p-4">
-                                <div class="text-lg font-medium">{{ game.strategy.name }}</div>
+                        <div v-if="editingDeployment" class="mb-2">
+                            <Select :model-value="editDeployment" @update:model-value="(v: string) => { editDeployment = v; editingDeployment = false; saveScenarioField('deployment', v); }">
+                                <SelectTrigger class="w-full"><SelectValue placeholder="Select Deployment" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Card class="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md" @click="deploymentDrawerOpen = true">
+                            <CardContent class="p-3">
+                                <div class="text-sm font-medium">{{ deployment.label }}</div>
+                                <p class="mt-0.5 text-[11px] leading-snug text-muted-foreground">{{ deployment.description }}</p>
                             </CardContent>
                         </Card>
                     </div>
-                </section>
+
+                    <!-- Strategy -->
+                    <div v-if="game.strategy">
+                        <div class="mb-1.5 flex items-center gap-2">
+                            <h3 class="text-sm font-semibold">Strategy</h3>
+                            <button v-if="canEditScenario" class="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingStrategy = !editingStrategy">
+                                <Pencil class="size-3" />
+                            </button>
+                        </div>
+                        <div v-if="editingStrategy" class="mb-2">
+                            <Select :model-value="editStrategy" @update:model-value="(v: string) => { editStrategy = v; editingStrategy = false; saveScenarioField('strategy_id', Number(v)); }">
+                                <SelectTrigger class="w-full"><SelectValue placeholder="Select Strategy" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="s in all_strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Card class="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md" @click="strategyDrawerOpen = true">
+                            <CardContent class="p-3">
+                                <div class="text-sm font-medium">{{ game.strategy.name }}</div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
 
                 <!-- Schemes -->
-                <section v-if="schemes.length">
-                    <div class="mb-3 flex items-center gap-2">
-                        <h3 class="text-lg font-semibold">Schemes</h3>
-                        <button v-if="canEditScenario" class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingSchemes = !editingSchemes">
-                            <Pencil class="size-3.5" />
+                <div v-if="schemes.length">
+                    <div class="mb-1.5 flex items-center gap-2">
+                        <h3 class="text-sm font-semibold">Scheme Pool</h3>
+                        <button v-if="canEditScenario" class="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="editingSchemes = !editingSchemes">
+                            <Pencil class="size-3" />
                         </button>
                     </div>
-                    <div v-if="editingSchemes" class="mb-3 grid gap-3 sm:grid-cols-3">
+                    <div v-if="editingSchemes" class="mb-2 grid gap-2 sm:grid-cols-3">
                         <div v-for="(schemeId, index) in editSchemePool" :key="'edit-' + index">
                             <Select :model-value="String(schemeId)" @update:model-value="(v: string) => setScheme(index, v)">
                                 <SelectTrigger class="w-full"><SelectValue placeholder="Select Scheme" /></SelectTrigger>
@@ -1211,19 +1211,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </Select>
                         </div>
                     </div>
-                    <div class="grid gap-3 sm:grid-cols-3">
-                        <div v-for="scheme in schemes" :key="scheme.id" class="cursor-pointer" @click="openSchemeDrawer(scheme)">
-                            <div v-if="scheme.image_url" class="overflow-hidden rounded-lg shadow-md transition-shadow hover:shadow-lg">
-                                <img :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" loading="lazy" decoding="async" />
-                            </div>
-                            <Card v-else class="transition-shadow hover:shadow-lg">
-                                <CardContent class="p-4">
-                                    <div class="text-sm font-medium">{{ scheme.name }}</div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                    <div class="grid gap-2 sm:grid-cols-3">
+                        <Card
+                            v-for="scheme in schemes"
+                            :key="scheme.id"
+                            class="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+                            @click="openSchemeDrawer(scheme)"
+                        >
+                            <CardContent class="p-3">
+                                <div class="text-sm font-medium">{{ scheme.name }}</div>
+                            </CardContent>
+                        </Card>
                     </div>
-                </section>
+                </div>
             </div>
 
             <!-- Players (hidden during gameplay — shown in Game tab) -->

@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface GamePlayer {
     id: number;
@@ -39,6 +40,9 @@ defineProps<{
     recent_games: Game[];
     observable_games: Game[];
 }>();
+
+const page = usePage<SharedData>();
+const isLoggedIn = computed(() => !!page.props.auth.user);
 
 const deleteDialogOpen = ref(false);
 const gameToDelete = ref<Game | null>(null);
@@ -103,7 +107,7 @@ const formatDate = (dateStr: string) => {
 
         <div class="container mx-auto sm:px-4">
             <!-- Create Game CTA -->
-            <Link :href="route('games.create')" class="group mb-6 block">
+            <Link v-if="isLoggedIn" :href="route('games.create')" class="group mb-6 block">
                 <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div
@@ -120,7 +124,7 @@ const formatDate = (dateStr: string) => {
             </Link>
 
             <!-- Active Games -->
-            <div v-if="active_games.length" class="mb-8">
+            <div v-if="isLoggedIn && active_games.length" class="mb-8">
                 <h2 class="mb-3 font-semibold">Active Games</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div v-for="game in active_games" :key="game.id" class="group relative">
@@ -166,7 +170,7 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Recent Games -->
-            <div v-if="recent_games.length">
+            <div v-if="isLoggedIn && recent_games.length">
                 <h2 class="mb-3 font-semibold">Recent Games</h2>
                 <div class="space-y-2">
                     <div v-for="game in recent_games" :key="game.id" class="group relative">
@@ -210,9 +214,9 @@ const formatDate = (dateStr: string) => {
                 <div class="my-6 border-t" />
                 <h2 class="mb-1 font-semibold flex items-center gap-2">
                     <Eye class="size-4 text-amber-500" />
-                    Live Games
+                    Public Games
                 </h2>
-                <p class="mb-3 text-xs text-muted-foreground">Games currently being played with spectating enabled</p>
+                <p class="mb-3 text-xs text-muted-foreground">Games with spectating enabled from the last 24 hours</p>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <Link v-for="game in observable_games" :key="game.id" :href="route('games.observe', game.uuid)">
                         <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -226,7 +230,7 @@ const formatDate = (dateStr: string) => {
                                             <Trophy class="mr-1 size-2.5" /> Completed
                                         </Badge>
                                         <Badge v-else variant="outline" class="border-amber-500/50 text-[9px] text-amber-600 dark:text-amber-400">
-                                            <Eye class="mr-1 size-2.5" /> Live
+                                            <Eye class="mr-1 size-2.5" /> Public
                                         </Badge>
                                     </div>
                                 </div>
@@ -256,7 +260,7 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Empty state -->
-            <div v-if="!active_games.length && !recent_games.length" class="py-12 text-center">
+            <div v-if="isLoggedIn && !active_games.length && !recent_games.length" class="py-12 text-center">
                 <Swords class="mx-auto mb-4 size-12 text-muted-foreground/30" />
                 <p class="mb-2 text-lg font-semibold">No games yet</p>
                 <p class="mb-4 text-sm text-muted-foreground">Create your first game to get started</p>

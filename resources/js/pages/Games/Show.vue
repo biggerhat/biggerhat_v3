@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -535,44 +535,16 @@ const executeAbandon = () => {
 // ─── Crew References ───
 const myReferences = ref<any>(null);
 const opponentReferences = ref<any>(null);
-const myRefsLoading = ref(false);
-const opponentRefsLoading = ref(false);
 
-const loadReferences = async (characterIds: number[], target: 'my' | 'opponent') => {
-    const loading = target === 'my' ? myRefsLoading : opponentRefsLoading;
+const loadReferences = (target: 'my' | 'opponent') => {
     const refs = target === 'my' ? myReferences : opponentReferences;
-    if (refs.value || loading.value || !characterIds.length) return;
-
-    // Try pre-computed references from crew build first
+    if (refs.value) return;
     const player = target === 'my' ? myPlayer.value : opponent.value;
-    if (player?.crew_build?.references) {
-        refs.value = player.crew_build.references;
-        return;
-    }
-
-    // Fallback to dynamic API
-    loading.value = true;
-    try {
-        const params = new URLSearchParams();
-        characterIds.forEach((id) => params.append('ids[]', String(id)));
-        const res = await fetch(route('tools.crew_builder.references') + '?' + params.toString());
-        refs.value = await res.json();
-    } catch {
-        refs.value = null;
-    } finally {
-        loading.value = false;
-    }
+    refs.value = player?.crew_build?.references ?? null;
 };
 
-const toggleMyRefs = () => {
-    const ids = (myPlayer.value?.crew_members ?? []).map((m: any) => m.character_id).filter(Boolean);
-    loadReferences(ids, 'my');
-};
-
-const toggleOpponentRefs = () => {
-    const ids = (opponent.value?.crew_members ?? []).map((m: any) => m.character_id).filter(Boolean);
-    loadReferences(ids, 'opponent');
-};
+const toggleMyRefs = () => loadReferences('my');
+const toggleOpponentRefs = () => loadReferences('opponent');
 
 // Auto-load references when game is in progress
 onMounted(() => {
@@ -596,6 +568,9 @@ const openMemberPreview = (member: any) => {
     if (!member.front_image && !member.back_image) return;
     previewMember.value = member;
     crewMemberDrawerOpen.value = true;
+    // Only load sculpts for own crew members (or both in solo mode)
+    const isOwnMember = isSolo.value || myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
+    if (!isObserver.value && isOwnMember) loadMemberMiniatures(member);
 };
 
 const updateSoulstonePool = (delta: number) => {
@@ -758,8 +733,27 @@ const searchSummon = (q: string) => {
     }, 300);
 };
 
-const summonCharacter = async (characterId: number) => {
+// Sculpt picker (shared between summon and replace)
+const sculptPickerOpen = ref(false);
+const sculptPickerMiniatures = ref<any[]>([]);
+const sculptPickerAction = ref<'summon' | 'replace'>('summon');
+const sculptPickerCharacterId = ref<number>(0);
+
+const selectCharacterForSummon = (char: any) => {
+    const minis = char.miniatures ?? [];
+    if (minis.length > 1) {
+        sculptPickerCharacterId.value = char.id;
+        sculptPickerMiniatures.value = minis;
+        sculptPickerAction.value = 'summon';
+        sculptPickerOpen.value = true;
+    } else {
+        summonCharacter(char.id, minis[0]?.id ?? null);
+    }
+};
+
+const summonCharacter = async (characterId: number, miniatureId: number | null = null) => {
     const body: Record<string, unknown> = { character_id: characterId };
+    if (miniatureId) body.miniature_id = miniatureId;
     if (isSolo.value) body.slot = summonForSlot.value;
     await fetch(route('games.play.crew.summon', props.game.uuid), {
         method: 'POST',
@@ -767,8 +761,114 @@ const summonCharacter = async (characterId: number) => {
         body: JSON.stringify(body),
     });
     summonDialogOpen.value = false;
+    sculptPickerOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+// Replace crew member
+const replaceDialogOpen = ref(false);
+const replaceMember = ref<any>(null);
+const replaceSearch = ref('');
+const replaceResults = ref<any[]>([]);
+const replaceLoading = ref(false);
+let replaceDebounce: ReturnType<typeof setTimeout>;
+
+const openReplace = (member: any) => {
+    replaceMember.value = member;
+    replaceDialogOpen.value = true;
+};
+
+const searchReplace = (q: string) => {
+    replaceSearch.value = q;
+    clearTimeout(replaceDebounce);
+    if (q.length < 2) { replaceResults.value = []; return; }
+    replaceLoading.value = true;
+    replaceDebounce = setTimeout(async () => {
+        try {
+            const res = await fetch(route('api.characters.search') + '?q=' + encodeURIComponent(q));
+            replaceResults.value = await res.json();
+        } catch {
+            replaceResults.value = [];
+        }
+        replaceLoading.value = false;
+    }, 300);
+};
+
+const selectCharacterForReplace = (char: any) => {
+    const minis = char.miniatures ?? [];
+    if (minis.length > 1) {
+        sculptPickerCharacterId.value = char.id;
+        sculptPickerMiniatures.value = minis;
+        sculptPickerAction.value = 'replace';
+        sculptPickerOpen.value = true;
+    } else {
+        replaceCharacter(char.id, minis[0]?.id ?? null);
+    }
+};
+
+const replaceCharacter = async (characterId: number, miniatureId: number | null = null) => {
+    if (!replaceMember.value) return;
+    const body: Record<string, unknown> = { character_id: characterId };
+    if (miniatureId) body.miniature_id = miniatureId;
+    await fetch(route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: replaceMember.value.id }), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify(body),
+    });
+    replaceDialogOpen.value = false;
+    sculptPickerOpen.value = false;
+    replaceSearch.value = '';
+    replaceResults.value = [];
+    replaceMember.value = null;
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const confirmSculptSelection = (miniatureId: number) => {
+    if (sculptPickerAction.value === 'summon') {
+        summonCharacter(sculptPickerCharacterId.value, miniatureId);
+    } else {
+        replaceCharacter(sculptPickerCharacterId.value, miniatureId);
+    }
+};
+
+// Sculpt dropdown in member preview drawer
+const memberMiniatures = ref<any[]>([]);
+const miniatureCache = new Map<number, any[]>();
+
+const loadMemberMiniatures = async (member: any) => {
+    memberMiniatures.value = [];
+    if (!member?.character_id) return;
+    const cached = miniatureCache.get(member.character_id);
+    if (cached) {
+        memberMiniatures.value = cached;
+        return;
+    }
+    try {
+        const res = await fetch('/api/characters/' + member.character_id + '/miniatures');
+        const data = await res.json();
+        miniatureCache.set(member.character_id, data);
+        memberMiniatures.value = data;
+    } catch {
+        memberMiniatures.value = [];
+    }
+};
+
+const onSculptChange = async (miniatureId: string) => {
+    if (!previewMember.value) return;
+    const mini = memberMiniatures.value.find((m: any) => m.id === Number(miniatureId));
+    if (!mini) return;
+    // Update preview immediately
+    previewMember.value.front_image = mini.front_image;
+    previewMember.value.back_image = mini.back_image;
+    previewMember.value.display_name = mini.display_name;
+    // Persist to server
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ display_name: mini.display_name, front_image: mini.front_image, back_image: mini.back_image }),
+    });
     router.reload({ only: ['game'], preserveScroll: true });
 };
 
@@ -1031,7 +1131,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge variant="secondary" class="text-xs">{{ game.season_label }}</Badge>
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
-                <Badge v-if="game.is_observable && game.status !== 'completed' && game.status !== 'abandoned'" variant="outline" class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400">Live</Badge>
+                <Badge v-if="game.is_observable && game.status !== 'completed' && game.status !== 'abandoned'" variant="outline" class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400">Public</Badge>
                 <Button v-if="game.status === 'setup' && isCreator" variant="ghost" size="sm" class="ml-auto gap-1" @click="regenerateScenario">
                     <Dices class="size-3.5" />
                     Re-roll
@@ -1987,6 +2087,74 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                 </template>
 
+                                <!-- Solo: Opponent scheme + scoring (in Game column) -->
+                                <template v-if="isSolo && !isObserver">
+                                    <div class="space-y-3 border-t pt-3">
+                                        <!-- Opponent scheme -->
+                                        <div class="rounded-md border border-dashed p-2 text-center text-xs">
+                                            <template v-if="opponent?.current_scheme_id">
+                                                <span class="text-muted-foreground">Opponent Scheme:</span>
+                                                <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>
+                                            </template>
+                                            <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
+                                                {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
+                                            </button>
+                                        </div>
+
+                                        <div class="text-xs font-semibold">Opponent's Turn {{ game.current_turn }}</div>
+                                        <template v-if="opponent?.is_turn_complete">
+                                            <div class="py-2 text-center text-xs text-green-600"><Check class="mr-1 inline size-3" /> Opponent turn submitted</div>
+                                        </template>
+                                        <template v-else>
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <span class="text-xs text-muted-foreground">Strategy VP</span>
+                                                    <span v-if="!opponentStrategyBonusUsed && opponentStrategyPoints < 2" class="ml-1 text-[9px] text-amber-500">+1 bonus available</span>
+                                                    <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <button class="rounded border p-0.5 hover:bg-muted" @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"><Minus class="size-3.5" /></button>
+                                                    <span class="w-6 text-center font-bold">{{ opponentStrategyPoints }}</span>
+                                                    <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn" :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''" @click="opponentStrategyPoints = Math.min(opponentMaxStrategyThisTurn, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <span class="text-xs text-muted-foreground">Scheme VP</span>
+                                                    <span class="ml-1 text-[9px] text-muted-foreground/50">{{ opponentTotalSchemeScored }}/6 total</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
+                                                    <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
+                                                    <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
+                                                </div>
+                                            </div>
+                                            <!-- Opponent next scheme -->
+                                            <div v-if="!isLastTurn && opponent_next_schemes.length">
+                                                <div class="mb-1.5 text-xs text-muted-foreground">Opponent's next scheme:</div>
+                                                <div class="space-y-1">
+                                                    <button
+                                                        class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
+                                                        :class="!opponentNextSchemeId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                                        @click="opponentNextSchemeId = null"
+                                                    >Keep Current</button>
+                                                    <button
+                                                        v-for="scheme in opponent_next_schemes"
+                                                        :key="scheme.id"
+                                                        class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
+                                                        :class="opponentNextSchemeId === scheme.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                                        @click="opponentNextSchemeId = scheme.id"
+                                                    >{{ scheme.name }}</button>
+                                                </div>
+                                            </div>
+                                            <Button class="w-full" size="sm" :disabled="scoringTurn" @click="submitOpponentTurnScore">
+                                                <Loader2 v-if="scoringTurn" class="mr-2 size-4 animate-spin" />
+                                                Submit Opponent ({{ opponentStrategyPoints + opponentSchemePoints }} VP)
+                                            </Button>
+                                        </template>
+                                    </div>
+                                </template>
+
                                 <!-- Game complete status -->
                                 <div v-if="!isObserver && (myPlayer?.is_game_complete || opponent?.is_game_complete)" class="border-t pt-3 text-center text-xs">
                                     <div v-if="myPlayer?.is_game_complete && opponent?.is_game_complete" class="text-green-600 dark:text-green-400">
@@ -2055,12 +2223,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </button>
                                                 <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
                                                 <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                 <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                             </template>
-                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                            <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
                                         <!-- Health pips -->
                                         <div class="mt-0.5 flex gap-0.5 pl-6">
@@ -2139,7 +2308,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
-                                <CrewBuilderReferences :references="myReferences" :loading="myRefsLoading" compact />
+                                <CrewBuilderReferences :references="myReferences" :loading="false" compact />
                         </details>
                     </div>
 
@@ -2164,18 +2333,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </div>
 
                         <!-- Solo: Opponent scheme management -->
-                        <div v-if="isSolo" class="mb-2">
+                        <div v-if="isSolo && !isObserver" class="mb-2">
                             <div class="rounded-md border border-dashed p-2 text-center text-xs">
                                 <template v-if="opponent?.current_scheme_id">
                                     <span class="text-muted-foreground">Scheme:</span>
                                     <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>
                                 </template>
-                                <template v-if="!isObserver">
-                                    <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
-                                        {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
-                                    </button>
-                                </template>
-                                <span v-else-if="!opponent?.current_scheme_id" class="ml-1 text-muted-foreground">Not set</span>
+                                <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
+                                    {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
+                                </button>
                             </div>
                         </div>
 
@@ -2223,12 +2389,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </button>
                                                 <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
                                                 <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                 <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                             </template>
-                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                            <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
                                         <!-- Health pips -->
                                         <div class="mt-0.5 flex gap-0.5" :class="isSolo ? 'pl-6' : 'pl-5'">
@@ -2307,65 +2474,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
-                                <CrewBuilderReferences :references="opponentReferences" :loading="opponentRefsLoading" compact />
+                                <CrewBuilderReferences :references="opponentReferences" :loading="false" compact />
                         </details>
 
-                        <!-- Solo: Opponent turn scoring -->
-                        <template v-if="isSolo && !isObserver">
-                            <div class="mt-4 space-y-3 border-t pt-3">
-                                <div class="text-xs font-semibold">Opponent's Turn {{ game.current_turn }}</div>
-                                <template v-if="opponent?.is_turn_complete">
-                                    <div class="py-2 text-center text-xs text-green-600"><Check class="mr-1 inline size-3" /> Opponent turn submitted</div>
-                                </template>
-                                <template v-else>
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <span class="text-xs text-muted-foreground">Strategy VP</span>
-                                            <span v-if="!opponentStrategyBonusUsed && opponentStrategyPoints < 2" class="ml-1 text-[9px] text-amber-500">+1 bonus available</span>
-                                            <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <button class="rounded border p-0.5 hover:bg-muted" @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"><Minus class="size-3.5" /></button>
-                                            <span class="w-6 text-center font-bold">{{ opponentStrategyPoints }}</span>
-                                            <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn" :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''" @click="opponentStrategyPoints = Math.min(opponentMaxStrategyThisTurn, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <span class="text-xs text-muted-foreground">Scheme VP</span>
-                                            <span class="ml-1 text-[9px] text-muted-foreground/50">{{ opponentTotalSchemeScored }}/6 total</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
-                                            <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
-                                            <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
-                                        </div>
-                                    </div>
-                                    <!-- Opponent next scheme -->
-                                    <div v-if="!isLastTurn && opponent_next_schemes.length">
-                                        <div class="mb-1.5 text-xs text-muted-foreground">Opponent's next scheme:</div>
-                                        <div class="space-y-1">
-                                            <button
-                                                class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
-                                                :class="!opponentNextSchemeId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                                                @click="opponentNextSchemeId = null"
-                                            >Keep Current</button>
-                                            <button
-                                                v-for="scheme in opponent_next_schemes"
-                                                :key="scheme.id"
-                                                class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
-                                                :class="opponentNextSchemeId === scheme.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                                                @click="opponentNextSchemeId = scheme.id"
-                                            >{{ scheme.name }}</button>
-                                        </div>
-                                    </div>
-                                    <Button class="w-full" size="sm" :disabled="scoringTurn" @click="submitOpponentTurnScore">
-                                        <Loader2 v-if="scoringTurn" class="mr-2 size-4 animate-spin" />
-                                        Submit Opponent ({{ opponentStrategyPoints + opponentSchemePoints }} VP)
-                                    </Button>
-                                </template>
-                            </div>
-                        </template>
                     </div>
                 </div>
             </template>
@@ -2772,10 +2883,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <div v-if="previewMember" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewMember.display_name }}</DrawerTitle>
+                    <div v-if="!isObserver && memberMiniatures.length > 1 && (isSolo || myPlayer?.crew_members?.some((m: any) => m.id === previewMember.id))" class="mt-2 flex justify-center">
+                        <Select
+                            :model-value="String(memberMiniatures.find((m: any) => m.front_image === previewMember.front_image)?.id ?? memberMiniatures[0]?.id ?? '')"
+                            @update:model-value="onSculptChange"
+                        >
+                            <SelectTrigger class="w-auto gap-2 text-xs">
+                                <SelectValue placeholder="Select sculpt" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="mini in memberMiniatures" :key="mini.id" :value="String(mini.id)">
+                                    {{ mini.display_name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <CharacterCardView
                         v-if="previewMember.front_image"
+                        :key="previewMember.front_image"
                         :miniature="{ id: previewMember.id, display_name: previewMember.display_name, slug: '', front_image: previewMember.front_image, back_image: previewMember.back_image }"
                         :show-link="false"
                         :show-collection="false"
@@ -2890,7 +3017,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
                         :class="summonCrewCount(char.id) >= (char.count ?? 99) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'"
                         :disabled="summonCrewCount(char.id) >= (char.count ?? 99)"
-                        @click="summonCharacter(char.id)"
+                        @click="selectCharacterForSummon(char)"
                     >
                         <img v-if="char.front_image" :src="'/storage/' + char.front_image" class="size-8 rounded object-cover" />
                         <div class="min-w-0 flex-1">
@@ -2924,7 +3051,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
                                 :class="summonCrewCount(char.id) >= (char.count ?? 1) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'"
                                 :disabled="summonCrewCount(char.id) >= (char.count ?? 1)"
-                                @click="summonCharacter(char.id)"
+                                @click="selectCharacterForSummon(char)"
                             >
                                 <img v-if="char.front_image" :src="char.front_image" class="size-8 rounded object-cover" />
                                 <div class="min-w-0 flex-1">
@@ -2940,6 +3067,113 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </div>
             </details>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Replace Crew Member Dialog -->
+    <Dialog
+        v-model:open="replaceDialogOpen"
+        @update:open="
+            (open) => {
+                if (!open) {
+                    replaceSearch = '';
+                    replaceResults = [];
+                    replaceMember = null;
+                }
+            }
+        "
+    >
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Replace Crew Member</DialogTitle>
+                <DialogDescription v-if="replaceMember">
+                    Replacing <strong>{{ replaceMember.display_name }}</strong> ({{ replaceMember.current_health }}/{{ replaceMember.max_health }} HP)
+                </DialogDescription>
+            </DialogHeader>
+            <!-- Reference characters -->
+            <div v-if="referenceCharacters.length">
+                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Characters</div>
+                <div class="max-h-40 space-y-0.5 overflow-y-auto">
+                    <button
+                        v-for="char in referenceCharacters"
+                        :key="'ref-rep-' + char.id"
+                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                        @click="selectCharacterForReplace(char)"
+                    >
+                        <img v-if="char.front_image" :src="'/storage/' + char.front_image" class="size-8 rounded object-cover" />
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate font-medium">{{ char.display_name }}</div>
+                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            <!-- Search all characters -->
+            <details class="rounded-md border">
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Search All Characters</summary>
+                <div class="border-t px-1 pb-1 pt-1">
+                    <Input
+                        :model-value="replaceSearch"
+                        placeholder="Search..."
+                        class="mb-1"
+                        @update:model-value="searchReplace($event as string)"
+                    />
+                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
+                        <div v-if="replaceLoading" class="flex justify-center py-3">
+                            <Loader2 class="size-4 animate-spin text-muted-foreground" />
+                        </div>
+                        <template v-else-if="replaceResults.length">
+                            <button
+                                v-for="char in replaceResults"
+                                :key="char.id"
+                                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                                @click="selectCharacterForReplace(char)"
+                            >
+                                <img v-if="char.front_image" :src="char.front_image" class="size-8 rounded object-cover" />
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
+                                    <div v-if="char.station" class="text-xs text-muted-foreground capitalize">{{ char.station }}</div>
+                                </div>
+                            </button>
+                        </template>
+                        <div v-else-if="replaceSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No characters found</div>
+                    </div>
+                </div>
+            </details>
+            <DialogFooter>
+                <Button variant="outline" class="w-full" @click="replaceDialogOpen = false">Cancel</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Sculpt Picker Dialog -->
+    <Dialog v-model:open="sculptPickerOpen">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Choose Sculpt</DialogTitle>
+                <DialogDescription>Select which version to use.</DialogDescription>
+            </DialogHeader>
+            <div class="grid grid-cols-2 gap-2">
+                <button
+                    v-for="mini in sculptPickerMiniatures"
+                    :key="mini.id"
+                    class="overflow-hidden rounded-lg border-2 border-transparent transition-all hover:border-primary hover:shadow-md"
+                    @click="confirmSculptSelection(mini.id)"
+                >
+                    <img
+                        v-if="mini.front_image"
+                        :src="'/storage/' + mini.front_image"
+                        :alt="mini.display_name"
+                        class="aspect-[550/950] w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                    />
+                    <div class="bg-muted/50 px-2 py-1 text-center text-[10px] font-medium">{{ mini.display_name }}</div>
+                </button>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" class="w-full" @click="sculptPickerOpen = false">Cancel</Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 
@@ -3016,6 +3250,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </div>
             </details>
+            <DialogFooter>
+                <Button variant="outline" class="w-full" @click="upgradeDialogOpen = false">Close</Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 
@@ -3104,6 +3341,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </div>
             </details>
+            <DialogFooter>
+                <Button variant="outline" class="w-full" @click="tokenDialogOpen = false">Close</Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 

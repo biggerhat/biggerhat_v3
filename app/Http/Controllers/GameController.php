@@ -54,6 +54,23 @@ class GameController extends Controller
         ]);
     }
 
+    public function publicIndex(): Response|ResponseFactory
+    {
+        $observableGames = Game::where('is_observable', true)
+            ->where('updated_at', '>=', now()->subDay())
+            ->where('status', '!=', GameStatusEnum::Abandoned->value)
+            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
+            ->latest('updated_at')
+            ->take(10)
+            ->get();
+
+        return inertia('Games/Index', [
+            'active_games' => [],
+            'recent_games' => [],
+            'observable_games' => $observableGames,
+        ]);
+    }
+
     public function create(): Response|ResponseFactory
     {
         $seasons = collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
@@ -151,8 +168,6 @@ class GameController extends Controller
             $eagerLoads[] = 'players.crewMembers';
             $eagerLoads[] = 'players.crewBuild';
             $eagerLoads[] = 'players.master.crewUpgrades';
-        }
-        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             $eagerLoads[] = 'players.turns';
         }
         if (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
@@ -160,6 +175,7 @@ class GameController extends Controller
         }
 
         $game->load($eagerLoads);
+        $this->ensureCrewReferences($game);
 
         // Append image_url on strategy for the show page
         $game->strategy?->append('image_url');
@@ -401,16 +417,16 @@ class GameController extends Controller
                 $userId = Auth::id();
                 /** @var GamePlayer|null $opponent */
                 $opponent = $game->is_solo
-                    ? $game->players()->where('slot', 2)->first()
-                    : $game->players()->where('user_id', '!=', $userId)->first();
+                    ? $game->players->firstWhere('slot', 2)
+                    : $game->players->first(fn ($p) => $p->user_id !== $userId); // @phpstan-ignore property.notFound
 
                 if (! $opponent) {
                     return null;
                 }
 
-                // Get opponent's most recent completed turn
+                // Get opponent's most recent completed turn (turns are eager-loaded)
                 /** @var \App\Models\GameTurn|null $lastTurn */
-                $lastTurn = $opponent->turns()->orderByDesc('turn_number')->first();
+                $lastTurn = $opponent->turns->sortByDesc('turn_number')->first();
 
                 if (! $lastTurn || ! $lastTurn->scheme_id) {
                     // Turn 1 — opponent could have any pool scheme
@@ -620,6 +636,7 @@ class GameController extends Controller
         }
 
         $game->load($eagerLoads);
+        $this->ensureCrewReferences($game);
         $game->strategy?->append('image_url');
 
         $schemePoolOrder = $game->scheme_pool ?? [];
@@ -641,7 +658,7 @@ class GameController extends Controller
 
                 return ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()];
             })() : null,
-            'factions' => fn () => FactionEnum::buildDetails(),
+            'factions' => fn () => [],
             'masters' => fn () => [],
             'my_crews' => fn () => [],
             'all_strategies' => fn () => [],
@@ -685,6 +702,7 @@ class GameController extends Controller
             'strategy',
             'winner:id,name',
         ]);
+        $this->ensureCrewReferences($game);
 
         $game->strategy?->append('image_url');
 
@@ -714,7 +732,7 @@ class GameController extends Controller
 
                 return ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()];
             })() : null,
-            'factions' => fn () => FactionEnum::buildDetails(),
+            'factions' => fn () => [],
             'masters' => fn () => [],
             'my_crews' => fn () => [],
             'all_strategies' => fn () => [],
@@ -749,7 +767,7 @@ class GameController extends Controller
             return [];
         }
         /** @var GamePlayer|null $player */
-        $player = $game->players()->where('slot', $slot)->first();
+        $player = $game->players->firstWhere('slot', $slot);
         if (! $player || ! $player->current_scheme_id) {
             return [];
         }
@@ -802,6 +820,21 @@ class GameController extends Controller
         }
 
         return $startingCrews;
+    }
+
+    /**
+     * Ensure all crew builds in the game have valid pre-computed references.
+     */
+    private function ensureCrewReferences(Game $game): void
+    {
+        foreach ($game->players as $player) {
+            /** @var GamePlayer $player */
+            /** @var CrewBuild|null $crewBuild */
+            $crewBuild = $player->crewBuild;
+            if ($crewBuild) {
+                $crewBuild->ensureReferences();
+            }
+        }
     }
 
     public function abandon(Game $game)

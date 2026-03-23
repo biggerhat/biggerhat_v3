@@ -15,6 +15,11 @@ class CrewBuild extends Model
 {
     use HasFactory;
 
+    /**
+     * Bump this when the references schema changes to invalidate cached references.
+     */
+    public const REFERENCES_VERSION = 3;
+
     protected $guarded = ['id'];
 
     public function casts(): array
@@ -23,10 +28,12 @@ class CrewBuild extends Model
             'faction' => FactionEnum::class,
             'description' => 'array',
             'crew_data' => 'array',
+            'miniature_selections' => 'array',
             'encounter_size' => 'integer',
             'is_archived' => 'boolean',
             'is_public' => 'boolean',
             'references' => 'array',
+            'custom_references' => 'array',
         ];
     }
 
@@ -65,7 +72,7 @@ class CrewBuild extends Model
     public static function computeReferences(array $characterIds): array
     {
         if (empty($characterIds)) {
-            return ['markers' => [], 'tokens' => [], 'upgrades' => [], 'characters' => []];
+            return ['version' => self::REFERENCES_VERSION, 'markers' => [], 'tokens' => [], 'upgrades' => [], 'characters' => []];
         }
 
         $characters = Character::with([
@@ -73,10 +80,20 @@ class CrewBuild extends Model
             'summons.miniatures', 'replacesInto.miniatures',
         ])->whereIn('id', $characterIds)->get();
 
+        // Include totems from loaded characters (avoids extra query in refreshReferences)
+        $totemIds = $characters->pluck('has_totem_id')->filter()->diff($characterIds)->unique()->values();
+        if ($totemIds->isNotEmpty()) {
+            $totems = Character::with([
+                'markers', 'tokens', 'characterUpgrades',
+                'summons.miniatures', 'replacesInto.miniatures',
+            ])->whereIn('id', $totemIds)->get();
+            $characters = $characters->merge($totems);
+        }
+
         // Also gather references from summoned/replaced characters
         $linkedCharacterIds = $characters->flatMap(fn ($c) => $c->summons->pluck('id')
             ->merge($c->replacesInto->pluck('id'))
-        )->unique()->diff($characterIds)->values();
+        )->unique()->diff($characters->pluck('id'))->values();
 
         $linkedCharacters = $linkedCharacterIds->isNotEmpty()
             ? Character::with(['markers', 'tokens', 'characterUpgrades'])
@@ -111,6 +128,12 @@ class CrewBuild extends Model
                 'type' => $type,
                 'front_image' => $s->miniatures->first()?->front_image,
                 'back_image' => $s->miniatures->first()?->back_image,
+                'miniatures' => $s->miniatures->map(fn ($m) => [
+                    'id' => $m->id,
+                    'display_name' => $m->display_name,
+                    'front_image' => $m->front_image,
+                    'back_image' => $m->back_image,
+                ])->values()->toArray(),
             ]);
         };
         foreach ($characters as $c) {
@@ -119,6 +142,7 @@ class CrewBuild extends Model
         }
 
         return [
+            'version' => self::REFERENCES_VERSION,
             'markers' => $markers,
             'tokens' => $tokens,
             'upgrades' => $upgrades,
@@ -127,18 +151,60 @@ class CrewBuild extends Model
     }
 
     /**
-     * Recompute and save references based on current crew composition.
+     * Check if stored references are present and up-to-date.
+     */
+    public function hasValidReferences(): bool
+    {
+        return is_array($this->references)
+            && ($this->references['version'] ?? 0) === self::REFERENCES_VERSION;
+    }
+
+    /**
+     * Ensure references are computed and up-to-date. Rebuilds if missing or stale.
+     */
+    public function ensureReferences(): void
+    {
+        if (! $this->hasValidReferences()) {
+            $this->refreshReferences();
+        }
+    }
+
+    /**
+     * Recompute and save references based on current crew composition, merged with custom references.
      */
     public function refreshReferences(): void
     {
-        $allIds = array_merge([$this->master_id], $this->crew_data ?? []);
+        $allIds = array_filter(array_merge([$this->master_id], $this->crew_data ?? []));
+        $computed = self::computeReferences($allIds);
 
-        // Include totem if master has one
-        $master = Character::find($this->master_id);
-        if ($master?->has_totem_id) {
-            $allIds[] = $master->has_totem_id;
+        // Merge custom references (user-added items not derivable from crew composition)
+        /** @var array $custom */
+        $custom = $this->custom_references ?? [];
+        if (! empty($custom)) {
+            $computed = self::mergeCustomReferences($computed, $custom);
         }
 
-        $this->update(['references' => self::computeReferences(array_filter($allIds))]);
+        $this->update(['references' => $computed]);
+    }
+
+    /**
+     * Merge custom reference items into computed references, avoiding duplicates.
+     */
+    private static function mergeCustomReferences(array $computed, array $custom): array
+    {
+        foreach (['characters', 'upgrades', 'markers', 'tokens'] as $type) {
+            $customItems = $custom[$type] ?? [];
+            if (empty($customItems)) {
+                continue;
+            }
+            $existingIds = collect($computed[$type])->pluck('id')->toArray();
+            foreach ($customItems as $item) {
+                if (! in_array($item['id'], $existingIds)) {
+                    $computed[$type][] = $item;
+                }
+            }
+        }
+
+        return $computed;
     }
 }

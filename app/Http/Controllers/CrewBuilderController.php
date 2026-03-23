@@ -31,9 +31,11 @@ class CrewBuilderController extends Controller
             'master_id' => $b->master_id,
             'encounter_size' => $b->encounter_size,
             'crew_data' => $b->crew_data,
+            'miniature_selections' => $b->miniature_selections,
             'crew_upgrade_id' => $b->crew_upgrade_id,
             'is_archived' => $b->is_archived,
             'is_public' => $b->is_public,
+            'custom_references' => $b->custom_references,
             'updated_at' => $b->updated_at->toISOString(),
             'copied_from' => $b->copied_from_id ? (static function (CrewBuild $b) {
                 /** @var CrewBuild|null $source */
@@ -159,8 +161,10 @@ class CrewBuilderController extends Controller
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
             'crew_data' => 'present|array',
+            'miniature_selections' => 'nullable|array',
             'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'copied_from_id' => 'nullable|exists:crew_builds,id',
+            'custom_references' => 'nullable|array',
         ]);
 
         $build = CrewBuild::create([
@@ -190,15 +194,17 @@ class CrewBuilderController extends Controller
             'master_id' => 'sometimes|exists:characters,id',
             'encounter_size' => 'sometimes|integer|min:1',
             'crew_data' => 'sometimes|array',
+            'miniature_selections' => 'nullable|array',
             'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'is_archived' => 'sometimes|boolean',
             'is_public' => 'sometimes|boolean',
+            'custom_references' => 'nullable|array',
         ]);
 
         $crewBuild->update($validated);
 
-        // Refresh references if crew composition changed
-        if ($crewBuild->wasChanged(['crew_data', 'master_id'])) {
+        // Refresh references if crew composition or custom references changed
+        if ($crewBuild->wasChanged(['crew_data', 'master_id', 'custom_references'])) {
             $crewBuild->refreshReferences();
         }
 
@@ -386,62 +392,7 @@ class CrewBuilderController extends Controller
             'ids.*' => 'integer',
         ])['ids'];
 
-        $characters = Character::with([
-            'markers', 'tokens', 'characterUpgrades',
-            'summons.miniatures', 'replacesInto.miniatures',
-        ])->whereIn('id', $ids)->get();
-
-        // Also gather references from summoned/replaced characters
-        $linkedCharacterIds = $characters->flatMap(fn ($c) => $c->summons->pluck('id')
-            ->merge($c->replacesInto->pluck('id'))
-        )->unique()->diff($ids)->values();
-
-        $linkedCharacters = $linkedCharacterIds->isNotEmpty()
-            ? Character::with(['markers', 'tokens', 'characterUpgrades'])
-                ->whereIn('id', $linkedCharacterIds)->get()
-            : collect();
-
-        $allCharacters = $characters->merge($linkedCharacters);
-
-        $markers = $allCharacters->flatMap->markers->unique('id')->sortBy('name')->values()
-            ->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'slug' => $m->slug, 'description' => $m->description, 'base' => $m->base]);
-
-        $tokens = $allCharacters->flatMap->tokens->unique('id')->sortBy('name')->values()
-            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug, 'description' => $t->description]);
-
-        $upgrades = $allCharacters->flatMap->characterUpgrades->unique('id')->sortBy('name')->values()
-            ->map(fn ($u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'slug' => $u->slug,
-                'front_image' => $u->front_image,
-                'back_image' => $u->back_image,
-                'type' => $u->type?->label(),
-            ]);
-
-        // Collect all linked characters (summons + replaces, both directions)
-        // Collect all linked characters (summons + replaces, both directions)
-        $linkedChars = collect();
-        $mapLinked = function (Character $s, string $type) use ($linkedChars): void {
-            $linkedChars->push([
-                ...$s->only('id', 'display_name', 'slug', 'faction'),
-                'type' => $type,
-                'front_image' => $s->miniatures->first()?->front_image,
-                'back_image' => $s->miniatures->first()?->back_image,
-            ]);
-        };
-        foreach ($characters as $c) {
-            $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons')); // @phpstan-ignore argument.type
-            $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into')); // @phpstan-ignore argument.type
-        }
-        $linkedChars = $linkedChars->unique('id')->sortBy('display_name')->values();
-
-        return response()->json([
-            'markers' => $markers,
-            'tokens' => $tokens,
-            'upgrades' => $upgrades,
-            'characters' => $linkedChars,
-        ]);
+        return response()->json(CrewBuild::computeReferences($ids));
     }
 
     public function share(Request $request, string $shareCode)

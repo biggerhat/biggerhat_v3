@@ -131,11 +131,13 @@ interface SavedBuild {
     master_id: number;
     encounter_size: number;
     crew_data: number[];
+    miniature_selections: Record<string, number> | null;
     crew_upgrade_id: number | null;
     is_archived: boolean;
     is_public: boolean;
     updated_at: string;
     copied_from: { name: string; share_code: string; is_public: boolean } | null;
+    custom_references: Record<string, any[]> | null;
 }
 
 const props = defineProps<{
@@ -413,6 +415,7 @@ const resetBuildState = () => {
     selectedMasterName.value = null;
     selectedMasterTitle.value = null;
     activeCrewUpgradeId.value = null;
+    customReferences.value = { characters: [], upgrades: [], markers: [], tokens: [] };
     crew.value = [];
     clearBuildFromUrl();
 };
@@ -900,6 +903,62 @@ watch(
     { immediate: true },
 );
 
+const customReferences = ref<Record<string, any[]>>({ characters: [], upgrades: [], markers: [], tokens: [] });
+
+const addCustomReference = (type: 'characters' | 'upgrades' | 'markers' | 'tokens', item: any) => {
+    if (!references.value) {
+        references.value = { markers: [], tokens: [], upgrades: [], characters: [] };
+    }
+    const list = references.value[type] as any[];
+    if (list.some((existing: any) => existing.id === item.id)) return;
+
+    let formatted: any;
+    if (type === 'characters') {
+        const firstMini = item.miniatures?.[0];
+        formatted = {
+            id: item.id,
+            display_name: item.display_name ?? item.name,
+            slug: item.slug,
+            faction: item.faction,
+            type: 'Custom',
+            front_image: firstMini?.front_image ?? null,
+            back_image: firstMini?.back_image ?? null,
+        };
+    } else if (type === 'upgrades') {
+        formatted = {
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            front_image: item.front_image ?? null,
+            back_image: item.back_image ?? null,
+            type: item.type ?? null,
+        };
+    } else if (type === 'markers') {
+        formatted = {
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            description: item.description ?? null,
+            base: item.base ?? null,
+        };
+    } else {
+        formatted = {
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            description: item.description ?? null,
+        };
+    }
+
+    list.push(formatted);
+
+    // Track as custom and trigger autosave
+    if (!customReferences.value[type].some((c: any) => c.id === formatted.id)) {
+        customReferences.value[type].push(formatted);
+    }
+    triggerAutosave();
+};
+
 // ─── Virtual scroller ───
 const poolScrollRef = ref<HTMLElement | null>(null);
 const poolVirtualizer = useVirtualizer(
@@ -1063,6 +1122,16 @@ const categoryColorTheme = (cat: string): string =>
 const buildCrewData = (): number[] =>
     crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem').map((m) => m.character.id);
 
+const buildMiniatureSelections = (): Record<string, number> | null => {
+    const selections: Record<string, number> = {};
+    for (const m of crew.value) {
+        if (m.miniature?.id) {
+            selections[String(m.character.id)] = m.miniature.id;
+        }
+    }
+    return Object.keys(selections).length > 0 ? selections : null;
+};
+
 const buildPayload = () => ({
     name: crewName.value,
     description: crewDescription.value,
@@ -1070,7 +1139,9 @@ const buildPayload = () => ({
     master_id: selectedMasterTitle.value?.id,
     encounter_size: encounterSize.value,
     crew_data: buildCrewData(),
+    miniature_selections: buildMiniatureSelections(),
     crew_upgrade_id: activeCrewUpgradeId.value,
+    custom_references: Object.values(customReferences.value).some((arr) => arr.length > 0) ? customReferences.value : null,
 });
 
 const saveBuild = () => {
@@ -1227,7 +1298,20 @@ const loadBuild = (build: SavedBuild) => {
     crewDescription.value = build.description ?? null;
     showDescriptionEditor.value = !!build.description;
     encounterSize.value = build.encounter_size;
+    customReferences.value = build.custom_references ?? { characters: [], upgrades: [], markers: [], tokens: [] };
     rebuildCrew(build.faction, build.master_id, build.crew_data, build.crew_upgrade_id);
+
+    // Restore miniature selections from saved build
+    if (build.miniature_selections) {
+        for (const member of crew.value) {
+            const savedMiniId = build.miniature_selections[String(member.character.id)];
+            if (savedMiniId) {
+                const mini = member.character.miniatures?.find((m) => m.id === savedMiniId);
+                if (mini) member.miniature = mini;
+            }
+        }
+    }
+
     lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
     viewMode.value = 'editor';
     pushBuildToUrl();
@@ -2293,7 +2377,7 @@ onUnmounted(() => {
                                         </div>
 
                                         <!-- References -->
-                                        <CrewBuilderReferences :references="references" :loading="referencesLoading" />
+                                        <CrewBuilderReferences :references="references" :loading="referencesLoading" editable @add-reference="addCustomReference" />
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -2723,7 +2807,7 @@ onUnmounted(() => {
                                     </div>
 
                                     <!-- References -->
-                                    <CrewBuilderReferences :references="references" :loading="referencesLoading" />
+                                    <CrewBuilderReferences :references="references" :loading="referencesLoading" editable @add-reference="addCustomReference" />
                                 </CardContent>
                             </Card>
                         </div>

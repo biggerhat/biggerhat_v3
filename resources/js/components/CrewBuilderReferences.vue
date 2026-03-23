@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import FactionLogo from '@/components/FactionLogo.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
-import { ArrowUpCircle, Loader2, MapPin, Puzzle, Users } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { ArrowUpCircle, Loader2, MapPin, Plus, Puzzle, Users } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface ReferenceMarker {
     id: number;
@@ -51,14 +52,19 @@ interface ReferenceData {
     characters: ReferenceCharacter[];
 }
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         references: ReferenceData | null;
         loading: boolean;
         compact?: boolean;
+        editable?: boolean;
     }>(),
-    { compact: false },
+    { compact: false, editable: false },
 );
+
+const emit = defineEmits<{
+    'add-reference': [type: 'characters' | 'upgrades' | 'markers' | 'tokens', item: any];
+}>();
 
 // ─── Drawers ───
 const characterDrawerOpen = ref(false);
@@ -92,6 +98,82 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 };
 
 const activeTab = ref('characters');
+
+const factionBackground = (faction: string): string => {
+    if (!faction) return '';
+    switch (faction.toLowerCase()) {
+        case 'explorers_society': return 'bg-explorerssociety';
+        case 'ten_thunders': return 'bg-tenthunders';
+        default: return `bg-${faction}`;
+    }
+};
+
+// ─── Add Item Dialog ───
+const addDialogOpen = ref(false);
+const addDialogType = ref<'characters' | 'upgrades' | 'markers' | 'tokens'>('characters');
+const addSearch = ref('');
+const addResults = ref<any[]>([]);
+const addLoading = ref(false);
+let addDebounce: ReturnType<typeof setTimeout>;
+
+const addDialogTitle = computed(() => {
+    const labels: Record<string, string> = { characters: 'Character', upgrades: 'Upgrade', markers: 'Marker', tokens: 'Token' };
+    return 'Add ' + (labels[addDialogType.value] ?? 'Item');
+});
+
+const openAddDialog = (type: 'characters' | 'upgrades' | 'markers' | 'tokens') => {
+    addDialogType.value = type;
+    addSearch.value = '';
+    addResults.value = [];
+    addDialogOpen.value = true;
+};
+
+const existingIds = computed(() => {
+    const refs = props.references;
+    if (!refs) return new Set<number>();
+    const list = refs[addDialogType.value] ?? [];
+    return new Set(list.map((item: any) => item.id));
+});
+
+const searchAdd = (q: string) => {
+    addSearch.value = q;
+    clearTimeout(addDebounce);
+    if (q.length < 2) {
+        addResults.value = [];
+        return;
+    }
+    addLoading.value = true;
+    addDebounce = setTimeout(async () => {
+        try {
+            const type = addDialogType.value;
+            let url: string;
+            if (type === 'characters') {
+                url = '/api/characters/search?q=' + encodeURIComponent(q);
+            } else if (type === 'upgrades') {
+                url = '/api/upgrades?name=' + encodeURIComponent(q);
+            } else if (type === 'markers') {
+                url = '/api/markers?name=' + encodeURIComponent(q);
+            } else {
+                url = '/api/tokens?name=' + encodeURIComponent(q);
+            }
+            const res = await fetch(url);
+            const data = await res.json();
+            addResults.value = Array.isArray(data) ? data : data.data ?? [];
+        } catch {
+            addResults.value = [];
+        }
+        addLoading.value = false;
+    }, 300);
+};
+
+const selectAddItem = (item: any) => {
+    emit('add-reference', addDialogType.value, item);
+    addDialogOpen.value = false;
+    addSearch.value = '';
+    addResults.value = [];
+};
+
+const itemDisplayName = (item: any): string => item.display_name ?? item.name ?? '';
 </script>
 
 <template>
@@ -143,13 +225,16 @@ const activeTab = ref('characters');
                     <button
                         v-for="char in references.characters"
                         :key="char.id"
-                        class="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                        :class="factionBackground(char.faction)"
+                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-white transition-opacity hover:opacity-80"
                         @click="openCharacter(char)"
                     >
-                        <FactionLogo :faction="char.faction" class-name="size-4 shrink-0" />
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ char.display_name }}</span>
                     </button>
                 </div>
+                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('characters')">
+                    <Plus class="size-3" /> Add Character
+                </Button>
             </TabsContent>
 
             <TabsContent value="upgrades">
@@ -165,6 +250,9 @@ const activeTab = ref('characters');
                         <Badge v-if="upgrade.type" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">{{ upgrade.type }}</Badge>
                     </button>
                 </div>
+                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('upgrades')">
+                    <Plus class="size-3" /> Add Upgrade
+                </Button>
             </TabsContent>
 
             <TabsContent value="markers">
@@ -180,6 +268,9 @@ const activeTab = ref('characters');
                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Marker</Badge>
                     </button>
                 </div>
+                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('markers')">
+                    <Plus class="size-3" /> Add Marker
+                </Button>
             </TabsContent>
 
             <TabsContent value="tokens">
@@ -195,6 +286,9 @@ const activeTab = ref('characters');
                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
                     </button>
                 </div>
+                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('tokens')">
+                    <Plus class="size-3" /> Add Token
+                </Button>
             </TabsContent>
         </Tabs>
     </div>
@@ -283,4 +377,46 @@ const activeTab = ref('characters');
             </div>
         </DrawerContent>
     </Drawer>
+
+    <!-- Add Item Dialog -->
+    <Dialog v-model:open="addDialogOpen" @update:open="(open) => { if (!open) { addSearch = ''; addResults = []; } }">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>{{ addDialogTitle }}</DialogTitle>
+            </DialogHeader>
+            <Input :model-value="addSearch" placeholder="Search..." @update:model-value="searchAdd($event as string)" />
+            <div class="max-h-48 space-y-0.5 overflow-y-auto">
+                <div v-if="addLoading" class="flex justify-center py-3">
+                    <Loader2 class="size-4 animate-spin text-muted-foreground" />
+                </div>
+                <template v-else-if="addResults.length">
+                    <button
+                        v-for="item in addResults"
+                        :key="item.id"
+                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+                        :class="[
+                            addDialogType === 'characters' && item.faction ? factionBackground(item.faction) + ' text-white' : '',
+                            existingIds.has(item.id) ? 'opacity-40 cursor-not-allowed' : addDialogType === 'characters' && item.faction ? 'hover:opacity-80' : 'hover:bg-accent',
+                        ]"
+                        :disabled="existingIds.has(item.id)"
+                        @click="selectAddItem(item)"
+                    >
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-medium">{{ itemDisplayName(item) }}</div>
+                            <div v-if="addDialogType === 'characters'" class="flex items-center gap-1.5 text-[10px]" :class="item.faction ? 'text-white/70' : 'text-muted-foreground'">
+                                <span v-if="item.station" class="capitalize">{{ item.station }}</span>
+                                <span v-if="item.miniatures?.length > 1">&middot; {{ item.miniatures.length }} sculpts</span>
+                            </div>
+                        </div>
+                        <Badge v-if="existingIds.has(item.id)" variant="outline" class="shrink-0 border-white/30 px-1 py-0 text-[9px]">Added</Badge>
+                    </button>
+                </template>
+                <div v-else-if="addSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No results found</div>
+                <div v-else class="py-3 text-center text-xs text-muted-foreground">Type at least 2 characters to search</div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" class="w-full" @click="addDialogOpen = false">Cancel</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>

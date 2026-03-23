@@ -33,6 +33,9 @@ class GamePlayController extends Controller
             'attached_tokens' => ['sometimes', 'array'],
             'attached_markers' => ['sometimes', 'array'],
             'attached_upgrades' => ['sometimes', 'array'],
+            'display_name' => ['sometimes', 'string', 'max:255'],
+            'front_image' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'back_image' => ['sometimes', 'nullable', 'string', 'max:500'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
@@ -111,9 +114,15 @@ class GamePlayController extends Controller
 
         $validated = $request->validate([
             'character_id' => ['required', 'exists:characters,id'],
+            'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
         ]);
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
+
+        // Use selected miniature or fall back to first
+        $miniature = isset($validated['miniature_id'])
+            ? $character->miniatures->firstWhere('id', $validated['miniature_id']) ?? $character->miniatures->first()
+            : $character->miniatures->first();
 
         // Enforce character count limit across the crew
         $existingCount = GameCrewMember::where('game_id', $game->id)
@@ -137,13 +146,9 @@ class GamePlayController extends Controller
         $summonTokens = [];
         $isPeon = $character->station?->value === 'peon';
         if (! $isPeon) {
-            $summonToken = \App\Models\Token::where('slug', 'summon')->first(['id', 'name']);
-            $slowToken = \App\Models\Token::where('slug', 'slow')->first(['id', 'name']);
-            if ($summonToken) {
-                $summonTokens[] = ['id' => $summonToken->id, 'name' => $summonToken->name];
-            }
-            if ($slowToken) {
-                $summonTokens[] = ['id' => $slowToken->id, 'name' => $slowToken->name];
+            $tokens = \App\Models\Token::whereIn('slug', ['summon', 'slow'])->get(['id', 'name', 'slug']);
+            foreach ($tokens as $token) {
+                $summonTokens[] = ['id' => $token->id, 'name' => $token->name];
             }
         }
 
@@ -151,15 +156,15 @@ class GamePlayController extends Controller
             'game_id' => $game->id,
             'game_player_id' => $player->id,
             'character_id' => $character->id,
-            'display_name' => $character->display_name,
+            'display_name' => $miniature ? $miniature->display_name : $character->display_name,
             'faction' => $character->getRawOriginal('faction'),
             'current_health' => $character->health,
             'max_health' => $character->health,
             'cost' => $character->cost ?? 0,
             'station' => $character->station?->value,
             'hiring_category' => 'summoned',
-            'front_image' => $character->miniatures->first()?->front_image,
-            'back_image' => $character->miniatures->first()?->back_image,
+            'front_image' => $miniature?->front_image,
+            'back_image' => $miniature?->back_image,
             'is_summoned' => true,
             'attached_upgrades' => [],
             'attached_tokens' => $summonTokens,
@@ -172,6 +177,51 @@ class GamePlayController extends Controller
         }
 
         return response()->json(['success' => true, 'member_id' => $member->id]);
+    }
+
+    public function replaceCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
+    {
+        // Verify the crew member belongs to this game
+        if ($gameCrewMember->game_id !== $game->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'character_id' => ['required', 'exists:characters,id'],
+            'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
+        ]);
+
+        $character = Character::with('miniatures')->findOrFail($validated['character_id']);
+
+        // Use selected miniature or fall back to first
+        $miniature = isset($validated['miniature_id'])
+            ? $character->miniatures->firstWhere('id', $validated['miniature_id']) ?? $character->miniatures->first()
+            : $character->miniatures->first();
+
+        // Transfer health: use old member's current health, capped at new character's max
+        $newHealth = min($gameCrewMember->current_health, $character->health);
+
+        // Update the existing crew member in-place
+        $gameCrewMember->update([
+            'character_id' => $character->id,
+            'display_name' => $miniature ? $miniature->display_name : $character->display_name,
+            'faction' => $character->getRawOriginal('faction'),
+            'current_health' => $newHealth,
+            'max_health' => $character->health,
+            'cost' => $gameCrewMember->cost, // Preserve original hiring cost for budget tracking
+            'station' => $character->station?->value,
+            'front_image' => $miniature?->front_image,
+            'back_image' => $miniature?->back_image,
+            'attached_upgrades' => [],
+            'attached_tokens' => [],
+            'attached_markers' => [],
+        ]);
+
+        if (! $game->is_solo) {
+            broadcast(new GameCrewMemberUpdated($game, 'replaced'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function updateSoulstonePool(Request $request, Game $game): JsonResponse

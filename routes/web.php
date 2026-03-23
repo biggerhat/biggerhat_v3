@@ -232,6 +232,7 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
 });
 
 // Public game routes (no auth required)
+Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games.public');
 Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
 Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
 
@@ -264,6 +265,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/crew/{gameCrewMember}/kill', [GamePlayController::class, 'killCrewMember'])->name('crew.kill');
         Route::post('/crew/{gameCrewMember}/revive', [GamePlayController::class, 'reviveCrewMember'])->name('crew.revive');
         Route::post('/crew/summon', [GamePlayController::class, 'summonCrewMember'])->name('crew.summon');
+        Route::post('/crew/{gameCrewMember}/replace', [GamePlayController::class, 'replaceCrewMember'])->name('crew.replace');
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
         Route::post('/turns', [GamePlayController::class, 'submitTurnScore'])->name('turns.store');
         Route::post('/complete', [GamePlayController::class, 'markComplete'])->name('complete');

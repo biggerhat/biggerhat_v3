@@ -318,11 +318,12 @@ class GameSetupController extends Controller
             return;
         }
 
+        $miniatureSelections = $crewBuild->miniature_selections ?? [];
         $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
         $sortOrder = 0;
 
         // Add leader
-        $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++);
+        $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++, $miniatureSelections);
 
         // Add totem
         if ($master->has_totem_id) {
@@ -330,7 +331,7 @@ class GameSetupController extends Controller
             if ($totem) {
                 $totemCount = max(1, $totem->count ?? 1);
                 for ($i = 0; $i < $totemCount; $i++) {
-                    $this->createCrewMember($game, $player, $totem, 'totem', 0, $sortOrder++);
+                    $this->createCrewMember($game, $player, $totem, 'totem', 0, $sortOrder++, $miniatureSelections);
                 }
             }
         }
@@ -353,25 +354,31 @@ class GameSetupController extends Controller
             $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
             $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
 
-            $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++);
+            $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections);
         }
     }
 
-    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder): void
+    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = []): void
     {
+        // Use the miniature selected in the Crew Builder, or fall back to first
+        $selectedMiniId = $miniatureSelections[(string) $character->id] ?? null;
+        $miniature = $selectedMiniId
+            ? $character->miniatures->firstWhere('id', $selectedMiniId) ?? $character->miniatures->first()
+            : $character->miniatures->first();
+
         GameCrewMember::create([
             'game_id' => $game->id,
             'game_player_id' => $player->id,
             'character_id' => $character->id,
-            'display_name' => $character->display_name,
+            'display_name' => $miniature ? $miniature->display_name : $character->display_name,
             'faction' => $character->getRawOriginal('faction'),
             'current_health' => $character->health,
             'max_health' => $character->health,
             'cost' => $cost,
             'station' => $character->station?->value,
             'hiring_category' => $category,
-            'front_image' => $character->miniatures->first()?->front_image,
-            'back_image' => $character->miniatures->first()?->back_image,
+            'front_image' => $miniature?->front_image,
+            'back_image' => $miniature?->back_image,
             'attached_upgrades' => [],
             'attached_tokens' => [],
             'attached_markers' => [],

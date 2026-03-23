@@ -43,15 +43,35 @@ class CharacterAPIController extends Controller
             ->limit(15)
             ->get();
 
-        return $characters->map(fn (Character $c) => [
+        return $characters->map(fn (Character $c) => [ // @phpstan-ignore return.type, argument.type
             'id' => $c->id,
             'display_name' => $c->display_name,
+            'slug' => $c->slug,
+            'faction' => $c->getRawOriginal('faction'),
             'station' => $c->station?->value,
             'count' => $c->count ?? 1,
             'front_image' => $c->miniatures->first()?->front_image
                 ? '/storage/'.$c->miniatures->first()->front_image
                 : null,
+            'miniatures' => $c->miniatures->map(fn ($m) => [
+                'id' => $m->id,
+                'display_name' => $m->display_name,
+                'front_image' => $m->front_image,
+                'back_image' => $m->back_image,
+            ]),
         ]);
+    }
+
+    public function miniatures(int $characterId)
+    {
+        $character = Character::with('miniatures')->findOrFail($characterId);
+
+        return response()->json($character->miniatures->map(fn (Miniature $m) => [
+            'id' => $m->id,
+            'display_name' => $m->display_name,
+            'front_image' => $m->front_image,
+            'back_image' => $m->back_image,
+        ]));
     }
 
     public function images(Request $request)

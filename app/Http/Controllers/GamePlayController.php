@@ -379,9 +379,76 @@ class GamePlayController extends Controller
         return response()->json(['success' => true, 'game_complete' => $bothDone]);
     }
 
+    public function cancelComplete(Game $game): JsonResponse
+    {
+        $player = $this->getMyPlayer($game);
+
+        if ($game->status !== GameStatusEnum::InProgress) {
+            return response()->json(['error' => 'Game is not in progress'], 422);
+        }
+
+        // Can only cancel if the game hasn't been finalized yet (both haven't agreed)
+        $bothDone = $game->players()->where('is_game_complete', true)->count() === 2;
+        if ($bothDone) {
+            return response()->json(['error' => 'Game already finalized'], 422);
+        }
+
+        $player->update(['is_game_complete' => false]);
+
+        if (! $game->is_solo) {
+            broadcast(new GameCrewMemberUpdated($game, 'cancel_complete'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     private function finalizeGame(Game $game): void
     {
+        // Ensure every player has a turn record for the current turn (snapshot crew state)
         $players = $game->players()->get();
+        foreach ($players as $player) {
+            /** @var GamePlayer $player */
+            $existingTurn = GameTurn::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->where('turn_number', $game->current_turn)
+                ->first();
+
+            if (! $existingTurn) {
+                // Create a turn record with 0 points to capture the crew snapshot
+                $crewSnapshot = GameCrewMember::where('game_id', $game->id)
+                    ->where('game_player_id', $player->id)
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->map(fn (GameCrewMember $m) => [
+                        'id' => $m->id,
+                        'character_id' => $m->character_id,
+                        'display_name' => $m->display_name,
+                        'faction' => $m->faction,
+                        'current_health' => $m->current_health,
+                        'max_health' => $m->max_health,
+                        'is_killed' => $m->is_killed,
+                        'is_summoned' => $m->is_summoned,
+                        'is_activated' => $m->is_activated,
+                        'attached_tokens' => $m->attached_tokens ?? [],
+                        'attached_upgrades' => $m->attached_upgrades ?? [],
+                        'hiring_category' => $m->hiring_category,
+                        'cost' => $m->cost,
+                    ])
+                    ->toArray();
+
+                GameTurn::create([
+                    'game_id' => $game->id,
+                    'turn_number' => $game->current_turn,
+                    'game_player_id' => $player->id,
+                    'scheme_id' => $player->current_scheme_id,
+                    'strategy_points' => 0,
+                    'scheme_points' => 0,
+                    'points_scored' => 0,
+                    'crew_snapshot' => $crewSnapshot,
+                ]);
+            }
+        }
+
         /** @var GamePlayer $p1 */
         $p1 = $players->first();
         /** @var GamePlayer $p2 */

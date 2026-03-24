@@ -31,11 +31,15 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         })
             .listen('.GameStatusChanged', (e: any) => {
                 console.log('[GameChannel] Event: GameStatusChanged', e);
-                reload(['game', 'schemes', 'deployment']);
+                // Full reload — status changes can affect which props are available
+                // (e.g. masters appear at MasterSelect, next_schemes at InProgress)
+                reload(['game', 'schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'tokens', 'character_upgrades', 'starting_crews']);
             })
             .listen('.GameSetupStepCompleted', (e: any) => {
                 console.log('[GameChannel] Event: GameSetupStepCompleted', e);
-                reload(['game']);
+                // Setup steps can trigger status changes (both factions done → MasterSelect, etc.)
+                // Reload masters and crews since they depend on game status
+                reload(['game', 'masters', 'my_crews']);
             })
             .listen('.GameCrewMemberUpdated', (e: any) => {
                 console.log('[GameChannel] Event: GameCrewMemberUpdated', e);
@@ -43,7 +47,8 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
             })
             .listen('.GameTurnAdvanced', (e: any) => {
                 console.log('[GameChannel] Event: GameTurnAdvanced', e);
-                reload(['game']);
+                // Turn advancement changes current schemes, next scheme options, and opponent intel
+                reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel']);
             });
 
         // Log subscription errors for presence channels

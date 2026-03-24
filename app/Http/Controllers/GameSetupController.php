@@ -42,6 +42,9 @@ class GameSetupController extends Controller
         }
 
         if (! $game->is_solo) {
+            if ($bothDone) {
+                broadcast(new GameStatusChanged($game))->toOthers();
+            }
             broadcast(new GameSetupStepCompleted($game, $player, 'faction'))->toOthers();
         }
 
@@ -80,11 +83,16 @@ class GameSetupController extends Controller
         ]);
 
         $bothDone = $game->players()->whereNotNull('master_name')->count() === 2;
+        $statusChanged = false;
         if ($bothDone && $game->status === GameStatusEnum::MasterSelect) {
             $game->update(['status' => GameStatusEnum::CrewSelect]);
+            $statusChanged = true;
         }
 
         if (! $game->is_solo) {
+            if ($statusChanged) {
+                broadcast(new GameStatusChanged($game))->toOthers();
+            }
             broadcast(new GameSetupStepCompleted($game, $player, 'master'))->toOthers();
         }
 
@@ -142,6 +150,9 @@ class GameSetupController extends Controller
         }
 
         if (! $game->is_solo) {
+            if ($bothDone) {
+                broadcast(new GameStatusChanged($game))->toOthers();
+            }
             broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
         }
 

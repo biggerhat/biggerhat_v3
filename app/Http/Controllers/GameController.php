@@ -8,6 +8,7 @@ use App\Enums\GameRoleEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Events\GamePlayerJoined;
+use App\Events\GameStatusChanged;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
@@ -481,7 +482,12 @@ class GameController extends Controller
                     'possible_schemes' => $possible,
                 ];
             },
-            'next_schemes' => fn () => $this->getNextSchemesForPlayer($game, 1),
+            'next_schemes' => function () use ($game) {
+                $userId = Auth::id();
+                $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId); // @phpstan-ignore property.notFound
+
+                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot) : []; // @phpstan-ignore property.notFound
+            },
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2) : [],
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => false,
@@ -531,6 +537,7 @@ class GameController extends Controller
         ]);
 
         broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
+        broadcast(new GameStatusChanged($game))->toOthers();
 
         return redirect()->route('games.show', $game->uuid);
     }
@@ -873,6 +880,10 @@ class GameController extends Controller
             'status' => GameStatusEnum::Abandoned,
             'completed_at' => now(),
         ]);
+
+        if (! $game->is_solo) {
+            broadcast(new GameStatusChanged($game))->toOthers();
+        }
 
         return redirect()->route('games.index')
             ->withMessage('Game abandoned.');

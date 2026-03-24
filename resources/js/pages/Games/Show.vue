@@ -713,6 +713,14 @@ const markGameComplete = async () => {
     router.reload({ only: ['game'], preserveScroll: true });
 };
 
+const cancelGameComplete = async () => {
+    await fetch(route('games.play.cancel_complete', props.game.uuid), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken() },
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
 // Summon modal
 const summonDialogOpen = ref(false);
 const summonSearch = ref('');
@@ -2162,12 +2170,17 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                     <div v-else-if="myPlayer?.is_game_complete" class="text-muted-foreground">
                                         <Check class="mr-1 inline size-3 text-green-500" /> Waiting for opponent to confirm...
+                                        <Button variant="ghost" size="sm" class="mt-2 w-full text-xs text-destructive hover:text-destructive" @click="cancelGameComplete">
+                                            Cancel End Game
+                                        </Button>
                                     </div>
                                     <div v-else-if="opponent?.is_game_complete" class="text-amber-600 dark:text-amber-400">
                                         <span class="font-medium">{{ playerName(opponent) }}</span> wants to end the game.
-                                        <Button variant="outline" size="sm" class="mt-2 w-full text-xs" @click="completeDialogOpen = true">
-                                            Confirm &amp; Complete Game
-                                        </Button>
+                                        <div class="mt-2 flex gap-2">
+                                            <Button variant="outline" size="sm" class="flex-1 text-xs" @click="completeDialogOpen = true">
+                                                Confirm &amp; Complete
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>

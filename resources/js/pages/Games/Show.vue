@@ -2,6 +2,7 @@
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -295,12 +296,13 @@ const expandedCrewId = ref<number | null>(null);
 const expandedOpponentCrewId = ref<number | null>(null);
 const newCrewUrl = computed(() => {
     const faction = myPlayer.value?.faction ?? '';
+    const gameParam = '&from_game=' + encodeURIComponent(props.game.uuid);
     const masterId = myPlayer.value?.master_id;
     if (masterId) {
-        return route('tools.crew_builder.editor') + '?step=hiring&faction=' + encodeURIComponent(faction) + '&master=' + masterId;
+        return route('tools.crew_builder.editor') + '?step=hiring&faction=' + encodeURIComponent(faction) + '&master=' + masterId + gameParam;
     }
     const masterName = myPlayer.value?.master_name?.split(',')[0] ?? '';
-    return route('tools.crew_builder.editor') + '?step=title&faction=' + encodeURIComponent(faction) + '&master=' + encodeURIComponent(masterName);
+    return route('tools.crew_builder.editor') + '?step=title&faction=' + encodeURIComponent(faction) + '&master=' + encodeURIComponent(masterName) + gameParam;
 });
 const matchingCrews = computed(() => {
     if (!myPlayer.value?.master_name) return [];
@@ -520,6 +522,17 @@ const copyObserveLink = async () => {
     observeLinkCopied.value = true;
     setTimeout(() => (observeLinkCopied.value = false), 2000);
 };
+// QR Code
+const qrDialogOpen = ref(false);
+const qrDialogUrl = ref('');
+const qrDialogTitle = ref('');
+
+const openQR = (url: string, title: string) => {
+    qrDialogUrl.value = url;
+    qrDialogTitle.value = title;
+    qrDialogOpen.value = true;
+};
+
 // Share summary
 const summaryLinkCopied = ref(false);
 const copySummaryLink = async () => {
@@ -530,9 +543,13 @@ const copySummaryLink = async () => {
 
 const completeDialogOpen = ref(false);
 const expandedTurn = ref<number | null>(null);
-const executeAbandon = () => {
-    router.post(route('games.abandon', props.game.uuid));
+const executeAbandon = async () => {
     abandonDialogOpen.value = false;
+    await fetch(route('games.abandon', props.game.uuid), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    router.visit(route('games.index'));
 };
 
 // ─── Crew References ───
@@ -636,8 +653,81 @@ const toggleActivated = (member: any) => {
     });
 };
 
-const killMember = (member: any) => {
-    postPlay(route('games.play.crew.kill', { game: props.game.uuid, gameCrewMember: member.id }));
+// Kill with replacement detection
+const replaceOnDeathDialogOpen = ref(false);
+const replaceOnDeathReplacements = ref<{ id: number; display_name: string; count: number; front_image: string | null; selected: boolean }[]>([]);
+const replaceOnDeathSlot = ref<number>(1);
+const hasSelectedReplacements = computed(() => replaceOnDeathReplacements.value.some((r) => r.selected));
+
+const killMember = async (member: any) => {
+    // Optimistic UI — mark killed immediately
+    member.is_killed = true;
+    member.current_health = 0;
+
+    // Fire kill request — don't await the reload if there are replacements
+    const res = await fetch(route('games.play.crew.kill', { game: props.game.uuid, gameCrewMember: member.id }), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (data.replacements?.length) {
+        const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
+        replaceOnDeathSlot.value = isMyMember ? 1 : 2;
+        replaceOnDeathReplacements.value = data.replacements.map((r: any) => ({ ...r, selected: false }));
+        replaceOnDeathDialogOpen.value = true;
+        // Defer reload until dialog is handled
+    } else {
+        router.reload({ only: ['game'], preserveScroll: true });
+    }
+};
+
+const replaceOnDeathWarnings = ref<string[]>([]);
+
+const confirmReplaceOnDeath = async () => {
+    replaceOnDeathWarnings.value = [];
+    let anyAdded = false;
+    for (const replacement of replaceOnDeathReplacements.value) {
+        if (!replacement.selected) continue;
+        let hitLimit = false;
+        for (let i = 0; i < replacement.count; i++) {
+            const body: Record<string, unknown> = { character_id: replacement.id, is_replacement: true };
+            if (isSolo.value) body.slot = replaceOnDeathSlot.value;
+            const res = await fetch(route('games.play.crew.summon', props.game.uuid), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                if (err.at_limit) {
+                    hitLimit = true;
+                    break;
+                }
+            } else {
+                anyAdded = true;
+            }
+        }
+        if (hitLimit) {
+            replaceOnDeathWarnings.value.push(`${replacement.display_name} is at its limit.`);
+            // Deselect and mark so user can pick alternatives
+            replacement.selected = false;
+        }
+    }
+    if (anyAdded) {
+        router.reload({ only: ['game'], preserveScroll: true });
+    }
+    // Only auto-close if no warnings — let user pick alternatives if some failed
+    if (!replaceOnDeathWarnings.value.length) {
+        replaceOnDeathDialogOpen.value = false;
+        replaceOnDeathReplacements.value = [];
+    }
+};
+
+const dismissReplaceOnDeath = () => {
+    replaceOnDeathDialogOpen.value = false;
+    replaceOnDeathReplacements.value = [];
+    replaceOnDeathWarnings.value = [];
 };
 
 const reviveMember = (member: any) => {
@@ -706,11 +796,17 @@ const submitTurnScore = async () => {
 };
 
 const markGameComplete = async () => {
-    await fetch(route('games.play.complete', props.game.uuid), {
+    const res = await fetch(route('games.play.complete', props.game.uuid), {
         method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken() },
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    const data = await res.json().catch(() => ({}));
+    if (data.game_complete) {
+        // Full page reload to get all completed game data (starting crews, summary, etc.)
+        router.visit(route('games.show', props.game.uuid));
+    } else {
+        router.reload({ only: ['game'], preserveScroll: true });
+    }
 };
 
 const cancelGameComplete = async () => {
@@ -1900,6 +1996,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <DropdownMenuItem v-if="!isObserver && isCreator" class="cursor-pointer text-xs" @click="toggleObservable">
                                                 <Eye class="mr-2 size-3.5" /> {{ game.is_observable ? 'Disable' : 'Enable' }} Spectating
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem v-if="game.is_observable" class="cursor-pointer text-xs" @click="openQR(route('games.observe', game.uuid), 'Spectate Link')">
+                                                <QrCode class="mr-2 size-4" /> QR Code
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem v-if="game.is_observable" class="cursor-pointer text-xs" @click="copyObserveLink">
                                                 <Copy class="mr-2 size-3.5" /> {{ observeLinkCopied ? 'Link Copied!' : 'Copy Spectate Link' }}
                                             </DropdownMenuItem>
@@ -2529,10 +2628,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Card>
 
                 <!-- Share button -->
-                <div v-if="game.status === 'completed'" class="mb-4 flex justify-center">
+                <div v-if="game.status === 'completed'" class="mb-4 flex justify-center gap-2">
                     <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copySummaryLink">
                         <Copy class="size-3" />
-                        {{ summaryLinkCopied ? 'Link Copied!' : 'Share Game Summary' }}
+                        {{ summaryLinkCopied ? 'Copied!' : 'Share Summary' }}
+                    </Button>
+                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="openQR(route('games.summary', game.uuid), 'Game Summary')">
+                        <QrCode class="size-3" />
+                        QR Code
                     </Button>
                 </div>
 
@@ -3391,4 +3494,49 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- Replace on Death Dialog -->
+    <Dialog v-model:open="replaceOnDeathDialogOpen">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Replace on Death</DialogTitle>
+                <DialogDescription>
+                    {{ replaceOnDeathReplacements.length > 1 ? 'Select which models to add to the crew.' : 'This model replaces into the following when killed.' }}
+                </DialogDescription>
+            </DialogHeader>
+            <div class="space-y-1.5">
+                <button
+                    v-for="replacement in replaceOnDeathReplacements"
+                    :key="replacement.id"
+                    class="flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors"
+                    :class="replacement.selected ? 'border-primary bg-primary/5' : 'opacity-50'"
+                    @click="replacement.selected = !replacement.selected"
+                >
+                    <div class="flex size-5 shrink-0 items-center justify-center rounded border" :class="replacement.selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'">
+                        <Check v-if="replacement.selected" class="size-3" />
+                    </div>
+                    <img v-if="replacement.front_image" :src="replacement.front_image" class="size-10 shrink-0 rounded object-cover" />
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-medium">{{ replacement.display_name }}</div>
+                        <div v-if="replacement.count > 1" class="text-xs text-muted-foreground">&times;{{ replacement.count }}</div>
+                    </div>
+                </button>
+            </div>
+            <div v-if="replaceOnDeathWarnings.length" class="space-y-1">
+                <div v-for="(warn, i) in replaceOnDeathWarnings" :key="i" class="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+                    {{ warn }}
+                </div>
+                <p class="text-xs text-muted-foreground">Select a different option and try again, or close.</p>
+            </div>
+            <DialogFooter class="gap-2 sm:gap-0">
+                <Button variant="outline" @click="dismissReplaceOnDeath">{{ replaceOnDeathWarnings.length ? 'Close' : 'Skip All' }}</Button>
+                <Button :disabled="!hasSelectedReplacements" @click="confirmReplaceOnDeath">
+                    Add Selected
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- QR Code Dialog -->
+    <QRCodeDialog v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
 </template>

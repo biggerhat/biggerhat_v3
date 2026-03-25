@@ -157,7 +157,7 @@ class Character extends Model
     {
         return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
             ->wherePivot('type', 'summons')
-            ->withPivot('type')
+            ->withPivot('type', 'count')
             ->withTimestamps();
     }
 
@@ -166,16 +166,16 @@ class Character extends Model
     {
         return $this->belongsToMany(Character::class, 'character_links', 'linked_character_id', 'character_id')
             ->wherePivot('type', 'summons')
-            ->withPivot('type')
+            ->withPivot('type', 'count')
             ->withTimestamps();
     }
 
-    /** Characters this model replaces into. */
+    /** Characters this model replaces into (general). */
     public function replacesInto(): BelongsToMany
     {
         return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
             ->wherePivot('type', 'replaces_into')
-            ->withPivot('type')
+            ->withPivot('type', 'count')
             ->withTimestamps();
     }
 
@@ -184,7 +184,16 @@ class Character extends Model
     {
         return $this->belongsToMany(Character::class, 'character_links', 'linked_character_id', 'character_id')
             ->wherePivot('type', 'replaces_into')
-            ->withPivot('type')
+            ->withPivot('type', 'count')
+            ->withTimestamps();
+    }
+
+    /** Characters this model replaces into when killed/dying. */
+    public function replacesOnDeath(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
+            ->wherePivot('type', 'replaces_on_death')
+            ->withPivot('type', 'count')
             ->withTimestamps();
     }
 }

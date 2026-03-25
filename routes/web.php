@@ -237,11 +237,13 @@ Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games
 Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
 Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
 
+// Game join — outside auth so we can show a login prompt with return URL
+Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join');
+
 Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');
     Route::get('/create', [GameController::class, 'create'])->name('create');
     Route::post('/', [GameController::class, 'store'])->name('store');
-    Route::get('/{game:uuid}/join', [GameController::class, 'join'])->name('join');
     Route::get('/{game:uuid}', [GameController::class, 'show'])->name('show');
     Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');

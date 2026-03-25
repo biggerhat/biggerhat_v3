@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Head, router } from '@inertiajs/vue3';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { ArrowLeft, CalendarDays, Copy, Crown, Dices, Eye, Loader2, LogOut, MapPin, Plus, Shield, Skull, Star, Trophy, Users, X } from 'lucide-vue-next';
+import { ArrowLeft, CalendarDays, Copy, Crown, Dices, Eye, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Skull, Star, Trophy, Users, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface TournamentPlayer {
@@ -129,6 +130,7 @@ const copyPublicLink = async () => {
     linkCopied.value = true;
     setTimeout(() => (linkCopied.value = false), 2000);
 };
+const qrOpen = ref(false);
 
 watch(activeTab, (tab) => { if (typeof window !== 'undefined') window.location.hash = tab; });
 
@@ -626,6 +628,9 @@ const playerFaction = (id: number | null): string | null => {
                     <Button v-if="tournament.is_public" variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
+                    </Button>
+                    <Button v-if="tournament.is_public" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
+                        <QrCode class="size-3" />
                     </Button>
                     <Button
                         v-if="statusTransitions[tournament.status]"
@@ -1349,4 +1354,7 @@ const playerFaction = (id: number | null): string | null => {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- QR Code -->
+    <QRCodeDialog v-model:open="qrOpen" :url="route('tournaments.view', tournament.uuid)" title="Tournament Link" />
 </template>

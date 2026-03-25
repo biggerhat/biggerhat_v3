@@ -26,27 +26,32 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
 
     const addListeners = (ch: any) => {
         ch.listen('.GamePlayerJoined', (e: any) => {
-            console.log('[GameChannel] Event: GamePlayerJoined', e);
+            if (import.meta.env.DEV) console.log('[GameChannel] Event: GamePlayerJoined', e);
             reload(['game']);
         })
             .listen('.GameStatusChanged', (e: any) => {
-                console.log('[GameChannel] Event: GameStatusChanged', e);
+                if (import.meta.env.DEV) console.log('[GameChannel] Event: GameStatusChanged', e);
                 // Full reload — status changes can affect which props are available
                 // (e.g. masters appear at MasterSelect, next_schemes at InProgress)
                 reload(['game', 'schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'tokens', 'character_upgrades', 'starting_crews']);
             })
             .listen('.GameSetupStepCompleted', (e: any) => {
-                console.log('[GameChannel] Event: GameSetupStepCompleted', e);
+                if (import.meta.env.DEV) console.log('[GameChannel] Event: GameSetupStepCompleted', e);
                 // Setup steps can trigger status changes (both factions done → MasterSelect, etc.)
                 // Reload masters and crews since they depend on game status
                 reload(['game', 'masters', 'my_crews']);
             })
             .listen('.GameCrewMemberUpdated', (e: any) => {
-                console.log('[GameChannel] Event: GameCrewMemberUpdated', e);
-                reload(['game']);
+                if (import.meta.env.DEV) console.log('[GameChannel] Event: GameCrewMemberUpdated', e);
+                // turn_scored and mark_complete can change schemes and game state
+                if (e.action === 'turn_scored' || e.action === 'mark_complete' || e.action === 'cancel_complete') {
+                    reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel']);
+                } else {
+                    reload(['game']);
+                }
             })
             .listen('.GameTurnAdvanced', (e: any) => {
-                console.log('[GameChannel] Event: GameTurnAdvanced', e);
+                if (import.meta.env.DEV) console.log('[GameChannel] Event: GameTurnAdvanced', e);
                 // Turn advancement changes current schemes, next scheme options, and opponent intel
                 reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel']);
             });
@@ -54,24 +59,24 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         // Log subscription errors for presence channels
         if (ch.subscription) {
             ch.subscription.bind('pusher:subscription_error', (err: any) => {
-                console.error('[GameChannel] Subscription error:', err);
+                if (import.meta.env.DEV) console.error('[GameChannel] Subscription error:', err);
             });
             ch.subscription.bind('pusher:subscription_succeeded', () => {
-                console.log('[GameChannel] Subscription succeeded');
+                if (import.meta.env.DEV) console.log('[GameChannel] Subscription succeeded');
             });
         }
     };
 
     const joinChannel = () => {
-        if (!window.Echo) { console.warn('[GameChannel] Echo not available'); return; }
-        if (!gameUuid) { console.log('[GameChannel] No UUID, skipping'); return; }
+        if (!window.Echo) { if (import.meta.env.DEV) console.warn('[GameChannel] Echo not available'); return; }
+        if (!gameUuid) { if (import.meta.env.DEV) console.log('[GameChannel] No UUID, skipping'); return; }
 
         if (isObserver) {
-            console.log(`[GameChannel] Observer joining public channel: game-observe.${gameUuid}`);
+            if (import.meta.env.DEV) console.log(`[GameChannel] Observer joining public channel: game-observe.${gameUuid}`);
             channel = window.Echo.channel(`game-observe.${gameUuid}`);
             addListeners(channel);
         } else {
-            console.log(`[GameChannel] Participant joining presence channel: game.${gameUuid}`);
+            if (import.meta.env.DEV) console.log(`[GameChannel] Participant joining presence channel: game.${gameUuid}`);
             channel = window.Echo.join(`game.${gameUuid}`)
                 .here((members: PresenceMember[]) => {
                     onlineMembers.value = members;

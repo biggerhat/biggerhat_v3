@@ -9,7 +9,8 @@ import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncre
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { X } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     character: {
@@ -150,7 +151,33 @@ const formInfo = ref({
     is_hidden: false,
     summons: [],
     replaces_into: [],
+    replaces_on_death: [] as { slug: string; count: number }[],
 });
+
+// Replaces on Death helpers
+const rodSearch = ref('');
+const rodFilteredChars = computed(() => {
+    if (rodSearch.value.length < 2) return [];
+    const term = rodSearch.value.toLowerCase();
+    const existingSlugs = new Set(formInfo.value.replaces_on_death.map((r) => r.slug));
+    return props.all_characters.filter((c: any) => !existingSlugs.has(c.value) && c.name.toLowerCase().includes(term)).slice(0, 10);
+});
+
+const addRod = (charSlug: string) => {
+    if (!formInfo.value.replaces_on_death.some((r) => r.slug === charSlug)) {
+        formInfo.value.replaces_on_death.push({ slug: charSlug, count: 1 });
+    }
+    rodSearch.value = '';
+};
+
+const removeRod = (slug: string) => {
+    formInfo.value.replaces_on_death = formInfo.value.replaces_on_death.filter((r) => r.slug !== slug);
+};
+
+const rodCharName = (slug: string): string => {
+    const c = props.all_characters.find((ch: any) => ch.value === slug);
+    return (c as any)?.name ?? slug;
+};
 
 const submit = () => {
     router.post(props.character ? route('admin.characters.update', props.character.slug) : route('admin.characters.store'), formInfo.value);
@@ -211,8 +238,12 @@ onMounted(() => {
         formInfo.value.summons.push(c.slug);
     });
 
-    props.character?.replaces_into?.forEach((c) => {
+    props.character?.replaces_into?.forEach((c: any) => {
         formInfo.value.replaces_into.push(c.slug);
+    });
+
+    props.character?.replaces_on_death?.forEach((c: any) => {
+        formInfo.value.replaces_on_death.push({ slug: c.slug, count: c.pivot?.count ?? 1 });
     });
 });
 </script>
@@ -521,6 +552,33 @@ onMounted(() => {
                                     <InputError :message="usePage().props.errors.replaces_into" />
                                 </div>
                             </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label>Replaces on Death (with count)</Label>
+                            <div class="relative">
+                                <Input v-model="rodSearch" placeholder="Search character to add..." class="h-9 text-sm" />
+                                <div v-if="rodFilteredChars.length" class="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+                                    <button
+                                        v-for="c in rodFilteredChars"
+                                        :key="(c as any).value"
+                                        class="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                                        @click="addRod((c as any).value)"
+                                    >{{ (c as any).name }}</button>
+                                </div>
+                            </div>
+                            <div v-if="formInfo.replaces_on_death.length" class="space-y-1">
+                                <div v-for="rod in formInfo.replaces_on_death" :key="rod.slug" class="flex items-center gap-2 rounded-md border px-2 py-1">
+                                    <span class="min-w-0 flex-1 truncate text-sm">{{ rodCharName(rod.slug) }}</span>
+                                    <div class="flex items-center gap-1">
+                                        <Label class="text-xs text-muted-foreground">Count:</Label>
+                                        <Input v-model.number="rod.count" type="number" min="1" max="10" class="h-7 w-14 text-center text-sm" />
+                                    </div>
+                                    <button class="rounded p-0.5 text-muted-foreground hover:text-destructive" @click="removeRod(rod.slug)">
+                                        <X class="size-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                            <InputError :message="usePage().props.errors.replaces_on_death" />
                         </div>
                         <div class="mb-6 flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-4">

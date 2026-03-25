@@ -110,7 +110,7 @@ class GameController extends Controller
         $isSolo = filter_var($request->input('is_solo', false), FILTER_VALIDATE_BOOLEAN);
 
         $game = Game::create([
-            'name' => $validated['name'],
+            'name' => $validated['name'] ?? null,
             'encounter_size' => $validated['encounter_size'],
             'season' => $seasonEnum->value,
             'strategy_id' => $strategy?->id,
@@ -185,15 +185,7 @@ class GameController extends Controller
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'slug' => $s->slug,
-                'image_url' => $s->image_url,
-                'prerequisite' => $s->prerequisite,
-                'reveal' => $s->reveal,
-                'scoring' => $s->scoring,
-            ]);
+            ->map(fn (Scheme $s) => self::formatScheme($s));
 
         // Scenario editor data (available before gameplay starts, for creator)
         $canEditScenario = fn () => $game->creator_id === Auth::id()
@@ -440,11 +432,7 @@ class GameController extends Controller
 
                     return [
                         'last_revealed' => null,
-                        'possible_schemes' => $poolSchemes->map(fn (Scheme $s) => [
-                            'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-                            'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-                            'reveal' => $s->reveal, 'scoring' => $s->scoring,
-                        ])->toArray(),
+                        'possible_schemes' => $poolSchemes->map(fn (Scheme $s) => self::formatScheme($s))->toArray(),
                     ];
                 }
 
@@ -458,9 +446,7 @@ class GameController extends Controller
                 // Possible schemes: kept scheme + next chain from revealed scheme
                 $possible = [];
                 if ($lastScheme) {
-                    $possible[] = ['id' => $lastScheme->id, 'name' => $lastScheme->name, 'slug' => $lastScheme->slug,
-                        'image_url' => $lastScheme->image_url, 'prerequisite' => $lastScheme->prerequisite,
-                        'reveal' => $lastScheme->reveal, 'scoring' => $lastScheme->scoring];
+                    $possible[] = self::formatScheme($lastScheme);
 
                     $nextIds = array_filter([
                         $lastScheme->next_scheme_one_id,
@@ -470,9 +456,7 @@ class GameController extends Controller
                     if ($nextIds) {
                         $nextSchemes = Scheme::whereIn('id', $nextIds)->get();
                         foreach ($nextSchemes as $s) {
-                            $possible[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-                                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-                                'reveal' => $s->reveal, 'scoring' => $s->scoring];
+                            $possible[] = self::formatScheme($s);
                         }
                     }
                 }
@@ -663,11 +647,7 @@ class GameController extends Controller
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => [
-                'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-                'reveal' => $s->reveal, 'scoring' => $s->scoring,
-            ]);
+            ->map(fn (Scheme $s) => self::formatScheme($s));
 
         return inertia('Games/Show', [
             'game' => $game,
@@ -692,11 +672,7 @@ class GameController extends Controller
                 }
                 $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
 
-                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
-                    'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-                    'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-                    'reveal' => $s->reveal, 'scoring' => $s->scoring,
-                ])->toArray();
+                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
             },
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
@@ -730,18 +706,10 @@ class GameController extends Controller
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => [
-                'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-                'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-                'reveal' => $s->reveal, 'scoring' => $s->scoring,
-            ]);
+            ->map(fn (Scheme $s) => self::formatScheme($s));
 
         $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
-        $currentSchemes = Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
-            'id' => $s->id, 'name' => $s->name, 'slug' => $s->slug,
-            'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite,
-            'reveal' => $s->reveal, 'scoring' => $s->scoring,
-        ])->toArray();
+        $currentSchemes = Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
 
         return inertia('Games/Show', [
             'game' => $game,
@@ -804,15 +772,7 @@ class GameController extends Controller
             return [];
         }
 
-        return Scheme::whereIn('id', $nextIds)->get()->map(fn (Scheme $s) => [
-            'id' => $s->id,
-            'name' => $s->name,
-            'slug' => $s->slug,
-            'image_url' => $s->image_url,
-            'prerequisite' => $s->prerequisite,
-            'reveal' => $s->reveal,
-            'scoring' => $s->scoring,
-        ])->toArray();
+        return Scheme::whereIn('id', $nextIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
     }
 
     private function getStartingCrews(Game $game): array
@@ -885,7 +845,24 @@ class GameController extends Controller
             broadcast(new GameStatusChanged($game))->toOthers();
         }
 
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+
         return redirect()->route('games.index')
             ->withMessage('Game abandoned.');
+    }
+
+    private static function formatScheme(Scheme $s): array
+    {
+        return [
+            'id' => $s->id,
+            'name' => $s->name,
+            'slug' => $s->slug,
+            'image_url' => $s->image_url,
+            'prerequisite' => $s->prerequisite,
+            'reveal' => $s->reveal,
+            'scoring' => $s->scoring,
+        ];
     }
 }

@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\CharacterStationEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GameCrewMember extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'game_id', 'game_player_id', 'character_id', 'display_name', 'faction',
         'current_health', 'max_health', 'cost', 'station', 'hiring_category',

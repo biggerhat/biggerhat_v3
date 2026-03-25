@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\DeploymentEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,6 +18,8 @@ use Illuminate\Support\Str;
  */
 class Game extends Model
 {
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $appends = ['season_label'];

@@ -37,7 +37,7 @@ class CharacterAdminController extends Controller
     public function edit(Request $request, Character $character)
     {
         return inertia('Admin/Characters/CharacterForm', array_merge(
-            ['character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem', 'summons', 'replacesInto'])],
+            ['character' => $character->loadMissing(['miniatures', 'keywords', 'actions', 'abilities', 'characteristics', 'markers', 'tokens', 'crewUpgrades', 'totem', 'summons', 'replacesInto', 'replacesOnDeath'])],
             $this->getFormData(),
         ));
     }
@@ -124,7 +124,14 @@ class CharacterAdminController extends Controller
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
             'summons' => ['nullable', 'array'],
+            'summons.*.slug' => ['sometimes', 'string'],
+            'summons.*.count' => ['sometimes', 'integer', 'min:1'],
             'replaces_into' => ['nullable', 'array'],
+            'replaces_into.*.slug' => ['sometimes', 'string'],
+            'replaces_into.*.count' => ['sometimes', 'integer', 'min:1'],
+            'replaces_on_death' => ['nullable', 'array'],
+            'replaces_on_death.*.slug' => ['sometimes', 'string'],
+            'replaces_on_death.*.count' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         if ($validated['station']) {
@@ -175,11 +182,14 @@ class CharacterAdminController extends Controller
         $tokens = Token::whereIn('name', $validated['tokens'])->get();
         unset($validated['tokens']);
 
-        $summonIds = Character::whereIn('slug', $validated['summons'] ?? [])->pluck('id');
+        $summonSync = $this->buildLinkSync($validated['summons'] ?? [], 'summons');
         unset($validated['summons']);
 
-        $replacesIntoIds = Character::whereIn('slug', $validated['replaces_into'] ?? [])->pluck('id');
+        $replacesIntoSync = $this->buildLinkSync($validated['replaces_into'] ?? [], 'replaces_into');
         unset($validated['replaces_into']);
+
+        $replacesOnDeathSync = $this->buildLinkSync($validated['replaces_on_death'] ?? [], 'replaces_on_death');
+        unset($validated['replaces_on_death']);
 
         if (! ($character)) {
             $character = Character::create($validated);
@@ -198,9 +208,45 @@ class CharacterAdminController extends Controller
         $character->markers()->sync($markers->pluck('id'));
         $character->tokens()->sync($tokens->pluck('id'));
 
-        $character->summons()->sync($summonIds->mapWithKeys(fn ($id) => [$id => ['type' => 'summons']]));
-        $character->replacesInto()->sync($replacesIntoIds->mapWithKeys(fn ($id) => [$id => ['type' => 'replaces_into']]));
+        $character->summons()->sync($summonSync);
+        $character->replacesInto()->sync($replacesIntoSync);
+        $character->replacesOnDeath()->sync($replacesOnDeathSync);
 
         return $character;
+    }
+
+    /**
+     * Build a sync array for character_links from either simple slug strings or {slug, count} objects.
+     *
+     * @return array<int, array{type: string, count: int}>
+     */
+    private function buildLinkSync(array $items, string $type): array
+    {
+        $sync = [];
+        $slugs = [];
+        $countMap = [];
+
+        foreach ($items as $item) {
+            if (is_string($item)) {
+                $slugs[] = $item;
+            } elseif (is_array($item) && isset($item['slug'])) {
+                $slugs[] = $item['slug'];
+                $countMap[$item['slug']] = $item['count'] ?? 1;
+            }
+        }
+
+        if (empty($slugs)) {
+            return [];
+        }
+
+        $characters = Character::whereIn('slug', $slugs)->get();
+        foreach ($characters as $char) {
+            $sync[$char->id] = [
+                'type' => $type,
+                'count' => $countMap[$char->slug] ?? 1,
+            ];
+        }
+
+        return $sync;
     }
 }

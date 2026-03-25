@@ -88,7 +88,35 @@ class GamePlayController extends Controller
             broadcast(new GameCrewMemberUpdated($game, 'killed'))->toOthers();
         }
 
-        return response()->json(['success' => true]);
+        // Check for replaces_on_death (quick existence check before eager loading)
+        $replacements = [];
+        if ($gameCrewMember->character_id) {
+            $hasReplacements = \DB::table('character_links')
+                ->where('character_id', $gameCrewMember->character_id)
+                ->where('type', 'replaces_on_death')
+                ->exists();
+
+            if ($hasReplacements) {
+                /** @var Character $character */
+                $character = Character::with('replacesOnDeath.miniatures')->findOrFail($gameCrewMember->character_id);
+                /** @var Character $replacement */
+                foreach ($character->replacesOnDeath as $replacement) {
+                    $replacements[] = [
+                        'id' => $replacement->id,
+                        'display_name' => $replacement->display_name,
+                        'count' => $replacement->pivot->count ?? 1,
+                        'front_image' => $replacement->miniatures->first()?->front_image
+                            ? '/storage/'.$replacement->miniatures->first()->front_image
+                            : null,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'replacements' => $replacements,
+        ]);
     }
 
     public function reviveCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
@@ -115,6 +143,7 @@ class GamePlayController extends Controller
         $validated = $request->validate([
             'character_id' => ['required', 'exists:characters,id'],
             'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
+            'is_replacement' => ['sometimes', 'boolean'],
         ]);
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
@@ -124,7 +153,7 @@ class GamePlayController extends Controller
             ? $character->miniatures->firstWhere('id', $validated['miniature_id']) ?? $character->miniatures->first()
             : $character->miniatures->first();
 
-        // Enforce character count limit across the crew
+        // Enforce character count limit
         $existingCount = GameCrewMember::where('game_id', $game->id)
             ->where('game_player_id', $player->id)
             ->where('character_id', $character->id)
@@ -135,6 +164,7 @@ class GamePlayController extends Controller
         if ($existingCount >= $maxCount) {
             return response()->json([
                 'error' => "{$character->display_name} is at its limit ({$maxCount})",
+                'at_limit' => true,
             ], 422);
         }
 
@@ -152,17 +182,18 @@ class GamePlayController extends Controller
             }
         }
 
+        $isReplacement = ! empty($validated['is_replacement']);
         $member = GameCrewMember::create([
             'game_id' => $game->id,
             'game_player_id' => $player->id,
             'character_id' => $character->id,
             'display_name' => $miniature ? $miniature->display_name : $character->display_name,
             'faction' => $character->getRawOriginal('faction'),
-            'current_health' => $character->health,
+            'current_health' => $isReplacement ? 1 : $character->health,
             'max_health' => $character->health,
             'cost' => $character->cost ?? 0,
             'station' => $character->station?->value,
-            'hiring_category' => 'summoned',
+            'hiring_category' => $isReplacement ? 'replaced' : 'summoned',
             'front_image' => $miniature?->front_image,
             'back_image' => $miniature?->back_image,
             'is_summoned' => true,
@@ -275,29 +306,10 @@ class GamePlayController extends Controller
 
         $totalTurnPoints = $validated['strategy_points'] + $validated['scheme_points'];
 
-        // Snapshot crew state at end of turn
-        $crewSnapshot = GameCrewMember::where('game_id', $game->id)
-            ->where('game_player_id', $player->id)
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (GameCrewMember $m) => [
-                'id' => $m->id,
-                'character_id' => $m->character_id,
-                'display_name' => $m->display_name,
-                'faction' => $m->faction,
-                'current_health' => $m->current_health,
-                'max_health' => $m->max_health,
-                'is_killed' => $m->is_killed,
-                'is_summoned' => $m->is_summoned,
-                'is_activated' => $m->is_activated,
-                'attached_tokens' => $m->attached_tokens ?? [],
-                'attached_upgrades' => $m->attached_upgrades ?? [],
-                'hiring_category' => $m->hiring_category,
-                'cost' => $m->cost,
-            ])
-            ->toArray();
+        $crewSnapshot = $this->buildCrewSnapshot($game->id, $player->id);
 
-        // Record the turn
+        // Record the turn — always save current scheme, even if not scored this turn
+        $turnSchemeId = $player->current_scheme_id;
         GameTurn::updateOrCreate(
             [
                 'game_id' => $game->id,
@@ -305,7 +317,7 @@ class GamePlayController extends Controller
                 'game_player_id' => $player->id,
             ],
             [
-                'scheme_id' => $player->current_scheme_id,
+                'scheme_id' => $turnSchemeId,
                 'strategy_points' => $validated['strategy_points'],
                 'scheme_points' => $validated['scheme_points'],
                 'points_scored' => $totalTurnPoints,
@@ -317,7 +329,7 @@ class GamePlayController extends Controller
         $player->increment('total_points', $totalTurnPoints);
 
         // Update scheme for next turn if changed
-        if ($validated['next_scheme_id']) {
+        if (! empty($validated['next_scheme_id'])) {
             $player->update(['current_scheme_id' => $validated['next_scheme_id']]);
         }
 
@@ -423,7 +435,7 @@ class GamePlayController extends Controller
                         'id' => $m->id,
                         'character_id' => $m->character_id,
                         'display_name' => $m->display_name,
-                        'faction' => $m->faction,
+                        'faction' => $m->getRawOriginal('faction'),
                         'current_health' => $m->current_health,
                         'max_health' => $m->max_health,
                         'is_killed' => $m->is_killed,
@@ -475,6 +487,30 @@ class GamePlayController extends Controller
         if (! $game->is_solo) {
             broadcast(new GameStatusChanged($game));
         }
+    }
+
+    private function buildCrewSnapshot(int $gameId, int $playerId): array
+    {
+        return GameCrewMember::where('game_id', $gameId)
+            ->where('game_player_id', $playerId)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (GameCrewMember $m) => [
+                'id' => $m->id,
+                'character_id' => $m->character_id,
+                'display_name' => $m->display_name,
+                'faction' => $m->getRawOriginal('faction'),
+                'current_health' => $m->current_health,
+                'max_health' => $m->max_health,
+                'is_killed' => $m->is_killed,
+                'is_summoned' => $m->is_summoned,
+                'is_activated' => $m->is_activated,
+                'attached_tokens' => $m->attached_tokens ?? [],
+                'attached_upgrades' => $m->attached_upgrades ?? [],
+                'hiring_category' => $m->hiring_category,
+                'cost' => $m->cost,
+            ])
+            ->toArray();
     }
 
     private function getMyPlayer(Game $game): GamePlayer

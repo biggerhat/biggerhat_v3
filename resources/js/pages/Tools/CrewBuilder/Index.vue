@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { refDebounced, useMediaQuery } from '@vueuse/core';
 import {
@@ -225,6 +225,7 @@ watch(
 // ─── View mode: 'builds' (list) or 'editor' (crew builder) ───
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew') || urlParams.has('step');
+const fromGameUuid = urlParams.get('from_game');
 const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value && !startInEditor ? 'builds' : 'editor');
 
 // Refresh builds from server when entering builds list (cross-device/tab sync)
@@ -1692,6 +1693,14 @@ onUnmounted(() => {
             <!-- ═══════════════════════════════════════════ -->
             <!-- EDITOR (crew building)                     -->
             <!-- ═══════════════════════════════════════════ -->
+            <!-- Return to Game banner -->
+            <div v-if="fromGameUuid" class="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                <span class="text-xs text-muted-foreground">Building crew for Game Tracker</span>
+                <Link :href="route('games.show', fromGameUuid)" class="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    <ArrowLeft class="size-3" /> Return to Game
+                </Link>
+            </div>
+
             <div v-if="viewMode === 'editor'">
                 <!-- ═══════ Steps 1-3: Selection Flow ═══════ -->
                 <div v-if="editorStep !== 'hiring'">

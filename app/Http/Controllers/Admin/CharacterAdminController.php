@@ -132,6 +132,7 @@ class CharacterAdminController extends Controller
             'replaces_on_death' => ['nullable', 'array'],
             'replaces_on_death.*.slug' => ['sometimes', 'string'],
             'replaces_on_death.*.count' => ['sometimes', 'integer', 'min:1'],
+            'replaces_on_death.*.health' => ['nullable', 'integer', 'min:1'],
         ]);
 
         if ($validated['station']) {
@@ -225,6 +226,7 @@ class CharacterAdminController extends Controller
         $sync = [];
         $slugs = [];
         $countMap = [];
+        $healthMap = [];
 
         foreach ($items as $item) {
             if (is_string($item)) {
@@ -232,6 +234,9 @@ class CharacterAdminController extends Controller
             } elseif (is_array($item) && isset($item['slug'])) {
                 $slugs[] = $item['slug'];
                 $countMap[$item['slug']] = $item['count'] ?? 1;
+                if (isset($item['health']) && $item['health']) {
+                    $healthMap[$item['slug']] = (int) $item['health'];
+                }
             }
         }
 
@@ -244,6 +249,7 @@ class CharacterAdminController extends Controller
             $sync[$char->id] = [
                 'type' => $type,
                 'count' => $countMap[$char->slug] ?? 1,
+                'health' => $healthMap[$char->slug] ?? null,
             ];
         }
 

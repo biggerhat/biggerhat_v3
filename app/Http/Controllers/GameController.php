@@ -164,11 +164,13 @@ class GameController extends Controller
             'strategy',
         ];
 
-        // Only load crew/turn data when relevant
-        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+        // Load crew members for scheme select (both players need to see crews) and gameplay
+        if (in_array($game->status, [GameStatusEnum::SchemeSelect, GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             $eagerLoads[] = 'players.crewMembers';
             $eagerLoads[] = 'players.crewBuild';
             $eagerLoads[] = 'players.master.crewUpgrades';
+        }
+        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             $eagerLoads[] = 'players.turns';
         }
         if (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
@@ -480,6 +482,14 @@ class GameController extends Controller
 
     public function join(Game $game)
     {
+        // Require login — redirect back to this join URL after auth
+        if (! Auth::check()) {
+            return redirect()->guest(route('login'))
+                ->with('message', 'Please log in or create an account to join this game.')
+                ->with('messageType', 'warning')
+                ->with('intended', route('games.join', $game->uuid));
+        }
+
         $userId = Auth::id();
 
         // Solo games cannot be joined

@@ -1962,41 +1962,77 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ SCHEME SELECT ═══ -->
-            <Card v-if="game.status === 'scheme_select'" class="mb-6">
-                <CardContent class="p-4 sm:p-6">
-                    <h2 class="mb-1 font-semibold">Select Your Scheme</h2>
-                    <p v-if="myStepDone('scheme') && !isSolo" class="mb-4 text-xs text-muted-foreground">
-                        <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
-                    </p>
-                    <p v-else-if="!myStepDone('scheme')" class="mb-4 text-xs text-muted-foreground">
-                        Choose one scheme from the pool for Turn 1.
-                        <template v-if="isSolo"> You can set the opponent's scheme during gameplay.</template>
-                    </p>
+            <template v-if="game.status === 'scheme_select'">
+                <Card class="mb-6">
+                    <CardContent class="p-4 sm:p-6">
+                        <h2 class="mb-1 font-semibold">Select Your Scheme</h2>
+                        <p v-if="myStepDone('scheme') && !isSolo" class="mb-4 text-xs text-muted-foreground">
+                            <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
+                        </p>
+                        <p v-else-if="!myStepDone('scheme')" class="mb-4 text-xs text-muted-foreground">
+                            Choose one scheme from the pool for Turn 1.
+                            <template v-if="isSolo"> You can set the opponent's scheme during gameplay.</template>
+                        </p>
 
-                    <template v-if="!myStepDone('scheme')">
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <Card v-for="scheme in schemes" :key="scheme.id" class="overflow-hidden">
-                                <div class="cursor-pointer" @click="openSchemeDrawer(scheme)">
-                                    <img v-if="scheme.image_url" :src="scheme.image_url" :alt="scheme.name" class="w-full" loading="lazy" decoding="async" />
-                                    <CardContent v-else class="p-3">
-                                        <div class="mb-1 text-sm font-semibold">{{ scheme.name }}</div>
-                                        <p v-if="scheme.prerequisite" class="text-[11px] text-muted-foreground line-clamp-3">{{ scheme.prerequisite }}</p>
-                                    </CardContent>
-                                </div>
-                                <div class="border-t p-2">
-                                    <Button class="w-full" size="sm" :disabled="submitting" @click="postSetup(route('games.setup.scheme', game.uuid), { scheme_id: scheme.id })">
-                                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                        Select {{ scheme.name }}
+                        <template v-if="!myStepDone('scheme')">
+                            <div class="grid gap-2 sm:grid-cols-3">
+                                <div v-for="scheme in schemes" :key="scheme.id" class="flex items-center gap-2 rounded-lg border p-3">
+                                    <div class="min-w-0 flex-1">
+                                        <button class="text-sm font-medium text-primary hover:underline" @click="openSchemeDrawer(scheme)">{{ scheme.name }}</button>
+                                    </div>
+                                    <Button size="sm" class="shrink-0 text-xs" :disabled="submitting" @click="postSetup(route('games.setup.scheme', game.uuid), { scheme_id: scheme.id, ...(isSolo ? { slot: 1 } : {}) })">
+                                        <Loader2 v-if="submitting" class="mr-1.5 size-3 animate-spin" />
+                                        Select
                                     </Button>
                                 </div>
-                            </Card>
+                            </div>
+                        </template>
+                        <div v-else class="py-4 text-center text-sm text-muted-foreground">
+                            <Check class="inline size-5 text-green-500" /> Scheme selected
                         </div>
-                    </template>
-                    <div v-else class="py-4 text-center text-sm text-muted-foreground">
-                        <Check class="inline size-5 text-green-500" /> Scheme selected
+                    </CardContent>
+                </Card>
+
+                <!-- Crew lists visible during scheme select -->
+                <div class="mb-6 grid gap-4 sm:grid-cols-2">
+                    <div v-for="player in game.players" :key="'scheme-crew-' + player.id">
+                        <h3 class="mb-2 text-sm font-semibold">
+                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="mr-1 inline size-4" />
+                            {{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}
+                            <span v-if="player.master_name" class="ml-1 text-xs font-normal text-muted-foreground">— {{ player.master_name }}</span>
+                        </h3>
+                        <div v-if="player.crew_members?.length" class="space-y-0.5">
+                            <div
+                                v-for="member in player.crew_members"
+                                :key="member.id"
+                                :class="factionBackground(member.faction ?? player.faction ?? '')"
+                                class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
+                            >
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <span
+                                        class="truncate font-medium"
+                                        :class="member.front_image ? 'cursor-pointer hover:underline' : ''"
+                                        @click="openMemberPreview(member)"
+                                    >{{ member.display_name }}</span>
+                                    <Badge v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'" :class="categoryColor(member.hiring_category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                        {{ categoryLabel(member.hiring_category) }}
+                                    </Badge>
+                                </div>
+                                <div v-if="member.cost > 0" class="flex shrink-0 items-center font-bold">
+                                    {{ member.cost }}
+                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else-if="player.crew_skipped" class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                            Crew not tracked
+                        </div>
+                        <div v-else class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                            No crew selected
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </template>
 
             <!-- ═══ IN PROGRESS ═══ -->
             <template v-if="game.status === 'in_progress'">

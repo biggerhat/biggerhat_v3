@@ -105,6 +105,7 @@ class GamePlayController extends Controller
                         'id' => $replacement->id,
                         'display_name' => $replacement->display_name,
                         'count' => $replacement->pivot->count ?? 1,
+                        'health' => $replacement->pivot->health ?? null,
                         'front_image' => $replacement->miniatures->first()?->front_image
                             ? '/storage/'.$replacement->miniatures->first()->front_image
                             : null,
@@ -144,9 +145,14 @@ class GamePlayController extends Controller
             'character_id' => ['required', 'exists:characters,id'],
             'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
             'is_replacement' => ['sometimes', 'boolean'],
+            'replacement_health' => ['nullable', 'integer', 'min:1'],
+            'inherited_tokens' => ['nullable', 'array'],
+            'inherited_upgrades' => ['nullable', 'array'],
+            'is_activated' => ['sometimes', 'boolean'],
         ]);
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
+        $isReplacement = ! empty($validated['is_replacement']);
 
         // Use selected miniature or fall back to first
         $miniature = isset($validated['miniature_id'])
@@ -172,24 +178,34 @@ class GamePlayController extends Controller
             ->where('game_player_id', $player->id)
             ->max('sort_order') ?? 0;
 
-        // Peons don't get Summon/Slow tokens; all others do
-        $summonTokens = [];
-        $isPeon = $character->station?->value === 'peon';
-        if (! $isPeon) {
-            $tokens = \App\Models\Token::whereIn('slug', ['summon', 'slow'])->get(['id', 'name', 'slug']);
-            foreach ($tokens as $token) {
-                $summonTokens[] = ['id' => $token->id, 'name' => $token->name];
+        // Determine tokens and upgrades: replacements inherit from killed member, summons get summon/slow
+        $attachedTokens = [];
+        $attachedUpgrades = [];
+        if ($isReplacement) {
+            $attachedTokens = $validated['inherited_tokens'] ?? [];
+            $attachedUpgrades = $validated['inherited_upgrades'] ?? [];
+        } else {
+            $isPeon = $character->station?->value === 'peon';
+            if (! $isPeon) {
+                $tokens = \App\Models\Token::whereIn('slug', ['summon', 'slow'])->get(['id', 'name', 'slug']);
+                foreach ($tokens as $token) {
+                    $attachedTokens[] = ['id' => $token->id, 'name' => $token->name];
+                }
             }
         }
 
-        $isReplacement = ! empty($validated['is_replacement']);
+        // Determine health: replacements use pivot health or default to 1
+        $health = $isReplacement
+            ? ($validated['replacement_health'] ?? 1)
+            : $character->health;
+
         $member = GameCrewMember::create([
             'game_id' => $game->id,
             'game_player_id' => $player->id,
             'character_id' => $character->id,
             'display_name' => $miniature ? $miniature->display_name : $character->display_name,
             'faction' => $character->getRawOriginal('faction'),
-            'current_health' => $isReplacement ? 1 : $character->health,
+            'current_health' => $health,
             'max_health' => $character->health,
             'cost' => $character->cost ?? 0,
             'station' => $character->station?->value,
@@ -197,8 +213,9 @@ class GamePlayController extends Controller
             'front_image' => $miniature?->front_image,
             'back_image' => $miniature?->back_image,
             'is_summoned' => true,
-            'attached_upgrades' => [],
-            'attached_tokens' => $summonTokens,
+            'is_activated' => ! empty($validated['is_activated']),
+            'attached_upgrades' => $attachedUpgrades,
+            'attached_tokens' => $attachedTokens,
             'attached_markers' => [],
             'sort_order' => $maxSort + 1,
         ]);

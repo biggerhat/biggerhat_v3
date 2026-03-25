@@ -151,7 +151,7 @@ const formInfo = ref({
     is_hidden: false,
     summons: [],
     replaces_into: [],
-    replaces_on_death: [] as { slug: string; count: number }[],
+    replaces_on_death: [] as { slug: string; count: number; health: number | null }[],
 });
 
 // Replaces on Death helpers
@@ -165,7 +165,7 @@ const rodFilteredChars = computed(() => {
 
 const addRod = (charSlug: string) => {
     if (!formInfo.value.replaces_on_death.some((r) => r.slug === charSlug)) {
-        formInfo.value.replaces_on_death.push({ slug: charSlug, count: 1 });
+        formInfo.value.replaces_on_death.push({ slug: charSlug, count: 1, health: null });
     }
     rodSearch.value = '';
 };
@@ -243,7 +243,7 @@ onMounted(() => {
     });
 
     props.character?.replaces_on_death?.forEach((c: any) => {
-        formInfo.value.replaces_on_death.push({ slug: c.slug, count: c.pivot?.count ?? 1 });
+        formInfo.value.replaces_on_death.push({ slug: c.slug, count: c.pivot?.count ?? 1, health: c.pivot?.health ?? null });
     });
 });
 </script>
@@ -571,7 +571,26 @@ onMounted(() => {
                                     <span class="min-w-0 flex-1 truncate text-sm">{{ rodCharName(rod.slug) }}</span>
                                     <div class="flex items-center gap-1">
                                         <Label class="text-xs text-muted-foreground">Count:</Label>
-                                        <Input v-model.number="rod.count" type="number" min="1" max="10" class="h-7 w-14 text-center text-sm" />
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max="10"
+                                            class="h-7 w-14 text-center text-sm"
+                                            :model-value="rod.count || 1"
+                                            @update:model-value="(v: any) => rod.count = Math.max(1, Number(v) || 1)"
+                                        />
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <Label class="text-xs text-muted-foreground">HP:</Label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max="20"
+                                            placeholder="Auto"
+                                            class="h-7 w-14 text-center text-sm"
+                                            :model-value="rod.health ?? ''"
+                                            @update:model-value="(v: any) => rod.health = v === '' || v === null ? null : Number(v)"
+                                        />
                                     </div>
                                     <button class="rounded p-0.5 text-muted-foreground hover:text-destructive" @click="removeRod(rod.slug)">
                                         <X class="size-3.5" />

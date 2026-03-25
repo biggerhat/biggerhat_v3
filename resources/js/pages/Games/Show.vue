@@ -304,6 +304,16 @@ const newCrewUrl = computed(() => {
     const masterName = myPlayer.value?.master_name?.split(',')[0] ?? '';
     return route('tools.crew_builder.editor') + '?step=title&faction=' + encodeURIComponent(faction) + '&master=' + encodeURIComponent(masterName) + gameParam;
 });
+const newOpponentCrewUrl = computed(() => {
+    const faction = opponentPlayer.value?.faction ?? '';
+    const gameParam = '&from_game=' + encodeURIComponent(props.game.uuid);
+    const masterId = opponentPlayer.value?.master_id;
+    if (masterId) {
+        return route('tools.crew_builder.editor') + '?step=hiring&faction=' + encodeURIComponent(faction) + '&master=' + masterId + gameParam;
+    }
+    const masterName = opponentPlayer.value?.master_name?.split(',')[0] ?? '';
+    return route('tools.crew_builder.editor') + '?step=title&faction=' + encodeURIComponent(faction) + '&master=' + encodeURIComponent(masterName) + gameParam;
+});
 const matchingCrews = computed(() => {
     if (!myPlayer.value?.master_name) return [];
     const baseName = myPlayer.value.master_name.split(',')[0].trim();
@@ -655,11 +665,19 @@ const toggleActivated = (member: any) => {
 
 // Kill with replacement detection
 const replaceOnDeathDialogOpen = ref(false);
-const replaceOnDeathReplacements = ref<{ id: number; display_name: string; count: number; front_image: string | null; selected: boolean }[]>([]);
+const replaceOnDeathReplacements = ref<{ id: number; display_name: string; count: number; health: number | null; front_image: string | null; selected: boolean }[]>([]);
 const replaceOnDeathSlot = ref<number>(1);
+const replaceOnDeathInheritedTokens = ref<any[]>([]);
+const replaceOnDeathInheritedUpgrades = ref<any[]>([]);
+const replaceOnDeathWasActivated = ref(false);
 const hasSelectedReplacements = computed(() => replaceOnDeathReplacements.value.some((r) => r.selected));
 
 const killMember = async (member: any) => {
+    // Save state before killing for inheritance
+    const killedTokens = [...(member.attached_tokens ?? [])];
+    const killedUpgrades = [...(member.attached_upgrades ?? [])];
+    const wasActivated = !!member.is_activated;
+
     // Optimistic UI — mark killed immediately
     member.is_killed = true;
     member.current_health = 0;
@@ -674,6 +692,9 @@ const killMember = async (member: any) => {
     if (data.replacements?.length) {
         const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
         replaceOnDeathSlot.value = isMyMember ? 1 : 2;
+        replaceOnDeathInheritedTokens.value = killedTokens;
+        replaceOnDeathInheritedUpgrades.value = killedUpgrades;
+        replaceOnDeathWasActivated.value = wasActivated;
         replaceOnDeathReplacements.value = data.replacements.map((r: any) => ({ ...r, selected: false }));
         replaceOnDeathDialogOpen.value = true;
         // Defer reload until dialog is handled
@@ -687,11 +708,19 @@ const replaceOnDeathWarnings = ref<string[]>([]);
 const confirmReplaceOnDeath = async () => {
     replaceOnDeathWarnings.value = [];
     let anyAdded = false;
+    let inheritanceGiven = false;
     for (const replacement of replaceOnDeathReplacements.value) {
         if (!replacement.selected) continue;
         let hitLimit = false;
         for (let i = 0; i < replacement.count; i++) {
-            const body: Record<string, unknown> = { character_id: replacement.id, is_replacement: true };
+            const body: Record<string, unknown> = {
+                character_id: replacement.id,
+                is_replacement: true,
+                replacement_health: replacement.health ?? null,
+                inherited_tokens: !inheritanceGiven ? replaceOnDeathInheritedTokens.value : [],
+                inherited_upgrades: !inheritanceGiven ? replaceOnDeathInheritedUpgrades.value : [],
+                is_activated: replaceOnDeathWasActivated.value,
+            };
             if (isSolo.value) body.slot = replaceOnDeathSlot.value;
             const res = await fetch(route('games.play.crew.summon', props.game.uuid), {
                 method: 'POST',
@@ -706,6 +735,7 @@ const confirmReplaceOnDeath = async () => {
                 }
             } else {
                 anyAdded = true;
+                inheritanceGiven = true;
             }
         }
         if (hitLimit) {
@@ -727,6 +757,9 @@ const confirmReplaceOnDeath = async () => {
 const dismissReplaceOnDeath = () => {
     replaceOnDeathDialogOpen.value = false;
     replaceOnDeathReplacements.value = [];
+    replaceOnDeathInheritedTokens.value = [];
+    replaceOnDeathInheritedUpgrades.value = [];
+    replaceOnDeathWasActivated.value = false;
     replaceOnDeathWarnings.value = [];
 };
 
@@ -1443,6 +1476,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <Copy v-else class="size-4" />
                                 {{ linkCopied ? 'Copied' : 'Copy' }}
                             </Button>
+                            <Button variant="outline" size="sm" class="shrink-0" @click="openQR(joinUrl, 'Join Game')">
+                                <QrCode class="size-4" />
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -1794,6 +1830,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </div>
                         <p class="mb-4 text-xs text-muted-foreground">
                             Optionally select a saved crew for <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong>, or skip to track points only.
+                            <Link :href="newOpponentCrewUrl" class="text-primary underline">Create a new crew</Link>.
                         </p>
                         <div v-if="opponentTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-muted-foreground">Filter:</span>
@@ -2323,7 +2360,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 :key="member.id"
                                 :class="factionBackground(member.faction ?? myPlayer?.faction ?? '')"
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-                                :style="member.is_activated ? 'opacity: 0.5' : ''"
+                                :style="member.is_activated ? 'opacity: 0.7' : ''"
                             >
                                 <div class="flex items-start justify-between gap-1">
                                     <div class="min-w-0 flex-1">
@@ -2488,7 +2525,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 :key="member.id"
                                 :class="factionBackground(member.faction ?? opponent?.faction ?? '')"
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-                                :style="member.is_activated ? 'opacity: 0.5' : ''"
+                                :style="member.is_activated ? 'opacity: 0.7' : ''"
                             >
                                 <div class="flex items-start justify-between gap-1">
                                     <div class="min-w-0 flex-1">

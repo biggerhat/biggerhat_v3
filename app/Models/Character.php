@@ -193,7 +193,7 @@ class Character extends Model
     {
         return $this->belongsToMany(Character::class, 'character_links', 'character_id', 'linked_character_id')
             ->wherePivot('type', 'replaces_on_death')
-            ->withPivot('type', 'count')
+            ->withPivot('type', 'count', 'health')
             ->withTimestamps();
     }
 }

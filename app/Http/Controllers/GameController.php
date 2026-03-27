@@ -188,14 +188,9 @@ class GameController extends Controller
         $game->strategy?->append('image_url');
 
         $schemePoolOrder = $game->scheme_pool ?? [];
-        // Preload all pool schemes and their next-chain schemes in one query
-        $poolSchemes = Scheme::whereIn('id', $schemePoolOrder)->get();
-        $nextSchemeIds = $poolSchemes->flatMap(fn (Scheme $s) => array_filter([
-            $s->next_scheme_one_id, $s->next_scheme_two_id, $s->next_scheme_three_id,
-        ]))->unique()->diff($poolSchemes->pluck('id'));
-        $schemeCache = $nextSchemeIds->isNotEmpty()
-            ? $poolSchemes->merge(Scheme::whereIn('id', $nextSchemeIds)->get())->keyBy('id')
-            : $poolSchemes->keyBy('id');
+        // Load all schemes for the season — small table, avoids cache misses on deep chains
+        $schemeCache = Scheme::forSeason($game->season)->get()->keyBy('id');
+        $poolSchemes = $schemeCache->filter(fn (Scheme $s) => in_array($s->id, $schemePoolOrder));
 
         $schemes = $poolSchemes
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))

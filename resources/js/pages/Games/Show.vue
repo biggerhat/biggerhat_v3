@@ -448,8 +448,23 @@ const swapRoles = async () => {
 // Solo gameplay: opponent scoring
 const opponentStrategyPoints = ref(0);
 const opponentSchemePoints = ref(0);
-const opponentNextSchemeId = ref<number | null>(null);
 const submitOpponentTurnScore = async () => {
+    let selectedSchemeId: number | null = null;
+
+    if (opponentSchemePoints.value > 0) {
+        // Scored scheme VP — ask which scheme was scored
+        selectedSchemeId = await promptOpponentScheme('scored');
+        if (selectedSchemeId === null) return; // cancelled
+        // Set the scored scheme as current
+        await setOpponentScheme(selectedSchemeId);
+    } else {
+        // No scheme VP — ask if keeping or discarding current scheme
+        selectedSchemeId = await promptOpponentScheme('discard');
+        if (selectedSchemeId === null) return; // cancelled — means "keep current"
+        // Discarding: set the new scheme
+        await setOpponentScheme(selectedSchemeId);
+    }
+
     scoringTurn.value = true;
     await fetch(route('games.play.turns.store', props.game.uuid), {
         method: 'POST',
@@ -457,13 +472,11 @@ const submitOpponentTurnScore = async () => {
         body: JSON.stringify({
             strategy_points: opponentStrategyPoints.value,
             scheme_points: opponentSchemePoints.value,
-            next_scheme_id: opponentNextSchemeId.value,
             slot: 2,
         }),
     });
     opponentStrategyPoints.value = 0;
     opponentSchemePoints.value = 0;
-    opponentNextSchemeId.value = null;
     scoringTurn.value = false;
     router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'], preserveScroll: true });
 };
@@ -474,8 +487,24 @@ const updateOpponentSoulstonePool = (delta: number) => {
     postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal, slot: 2 });
 };
 
-// Solo: change opponent scheme during gameplay
-const opponentSchemeDialogOpen = ref(false);
+// Solo: opponent scheme selection dialog (shown on turn submit / game complete)
+const opponentSchemePromptOpen = ref(false);
+const opponentSchemePromptMode = ref<'scored' | 'discard' | 'end-of-game'>('scored');
+const opponentSchemePromptCallback = ref<((schemeId: number | null) => void) | null>(null);
+
+const promptOpponentScheme = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<number | null> => {
+    return new Promise((resolve) => {
+        opponentSchemePromptMode.value = mode;
+        opponentSchemePromptCallback.value = resolve;
+        opponentSchemePromptOpen.value = true;
+    });
+};
+
+const resolveOpponentSchemePrompt = (schemeId: number | null) => {
+    opponentSchemePromptOpen.value = false;
+    opponentSchemePromptCallback.value?.(schemeId);
+    opponentSchemePromptCallback.value = null;
+};
 
 const setOpponentScheme = async (schemeId: number) => {
     await fetch(route('games.setup.scheme', props.game.uuid), {
@@ -483,8 +512,6 @@ const setOpponentScheme = async (schemeId: number) => {
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
         body: JSON.stringify({ scheme_id: schemeId, slot: 2 }),
     });
-    opponentSchemeDialogOpen.value = false;
-    router.reload({ only: ['game', 'current_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'], preserveScroll: true });
 };
 
 // Summon count check
@@ -858,13 +885,21 @@ const submitTurnScore = async () => {
 };
 
 const markGameComplete = async () => {
+    // Solo: always ask for opponent's current scheme before completing
+    if (isSolo.value) {
+        const schemeId = await promptOpponentScheme('end-of-game');
+        if (schemeId !== null) {
+            await setOpponentScheme(schemeId);
+        }
+        // Even if null (skipped), proceed with completion
+    }
+
     const res = await fetch(route('games.play.complete', props.game.uuid), {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
     });
     const data = await res.json().catch(() => ({}));
     if (data.game_complete) {
-        // Full page reload to get all completed game data (starting crews, summary, etc.)
         router.visit(route('games.show', props.game.uuid));
     } else {
         router.reload({ only: ['game'], preserveScroll: true });
@@ -2306,20 +2341,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <template v-if="isSolo && !isObserver">
                                     <div class="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 dark:bg-amber-500/5">
                                         <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                                            <UserRound class="size-3.5" /> Opponent
+                                            <UserRound class="size-3.5" /> Opponent — Turn {{ game.current_turn }}
                                         </div>
-                                        <!-- Opponent scheme -->
-                                        <div class="rounded-md border border-dashed border-amber-500/30 p-2 text-center text-xs">
-                                            <template v-if="opponent?.current_scheme_id">
-                                                <span class="text-muted-foreground">Opponent Scheme:</span>
-                                                <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>
-                                            </template>
-                                            <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
-                                                {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
-                                            </button>
-                                        </div>
-
-                                        <div class="text-xs font-semibold">Opponent's Turn {{ game.current_turn }}</div>
                                         <template v-if="opponent?.is_turn_complete">
                                             <div class="py-2 text-center text-xs text-green-600"><Check class="mr-1 inline size-3" /> Opponent turn submitted</div>
                                         </template>
@@ -2345,24 +2368,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
                                                     <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
                                                     <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
-                                                </div>
-                                            </div>
-                                            <!-- Opponent next scheme -->
-                                            <div v-if="!isLastTurn && opponent_next_schemes.length">
-                                                <div class="mb-1.5 text-xs text-muted-foreground">Opponent's next scheme:</div>
-                                                <div class="space-y-1">
-                                                    <button
-                                                        class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
-                                                        :class="!opponentNextSchemeId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                                                        @click="opponentNextSchemeId = null"
-                                                    >Keep Current</button>
-                                                    <button
-                                                        v-for="scheme in opponent_next_schemes"
-                                                        :key="scheme.id"
-                                                        class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
-                                                        :class="opponentNextSchemeId === scheme.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                                                        @click="opponentNextSchemeId = scheme.id"
-                                                    >{{ scheme.name }}</button>
                                                 </div>
                                             </div>
                                             <Button class="w-full" size="sm" :disabled="scoringTurn" @click="submitOpponentTurnScore">
@@ -2555,18 +2560,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Activations: <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span>/<span>{{ opponentCrewMembers.length }}</span> remaining
                         </div>
 
-                        <!-- Solo: Opponent scheme management -->
-                        <div v-if="isSolo && !isObserver" class="mb-2">
-                            <div class="rounded-md border border-dashed p-2 text-center text-xs">
-                                <template v-if="opponent?.current_scheme_id">
-                                    <span class="text-muted-foreground">Scheme:</span>
-                                    <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>
-                                </template>
-                                <button class="ml-2 text-primary hover:underline" @click="opponentSchemeDialogOpen = true">
-                                    {{ opponent?.current_scheme_id ? 'Change' : 'Set Scheme' }}
-                                </button>
-                            </div>
-                        </div>
 
                         <!-- Opponent faction/master info (when no crew) -->
                         <div v-if="isSolo && opponent?.crew_skipped && !opponentCrewMembers.length" class="mb-3 flex items-center gap-2 rounded-md border border-dashed p-2">
@@ -3195,23 +3188,39 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DrawerContent>
     </Drawer>
 
-    <!-- Opponent Scheme Dialog (Solo) -->
-    <Dialog v-if="isSolo && !isObserver" v-model:open="opponentSchemeDialogOpen">
+    <!-- Opponent Scheme Prompt Dialog (Solo) -->
+    <Dialog v-if="isSolo && !isObserver" :open="opponentSchemePromptOpen" @update:open="(v) => { if (!v) resolveOpponentSchemePrompt(null); }">
         <DialogContent class="max-w-sm">
             <DialogHeader>
-                <DialogTitle>Set Opponent's Scheme</DialogTitle>
-                <DialogDescription>Select a scheme from the pool.</DialogDescription>
+                <DialogTitle>
+                    {{ opponentSchemePromptMode === 'scored' ? "Which scheme did the opponent score?" : opponentSchemePromptMode === 'end-of-game' ? "Opponent's current scheme?" : "Opponent's scheme status" }}
+                </DialogTitle>
+                <DialogDescription>
+                    <template v-if="opponentSchemePromptMode === 'scored'">Select the scheme the opponent scored VP on this turn.</template>
+                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Select the opponent's current scheme for final scoring.</template>
+                    <template v-else>Is the opponent keeping their current scheme or switching?</template>
+                </DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
+                <!-- Keep current option (scored + discard modes) -->
+                <button
+                    v-if="opponentSchemePromptMode === 'scored' || opponentSchemePromptMode === 'discard'"
+                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-medium hover:bg-primary/20"
+                    @click="resolveOpponentSchemePrompt(null)"
+                >
+                    Keep Current Scheme (Hidden)
+                </button>
+                <div v-if="opponentSchemePromptMode === 'scored' || opponentSchemePromptMode === 'discard'" class="py-1 text-center text-[10px] text-muted-foreground">
+                    {{ opponentSchemePromptMode === 'scored' ? '— or score —' : '— or discard —' }}
+                </div>
+                <!-- Scheme pool options -->
                 <button
                     v-for="scheme in schemes"
-                    :key="'opp-scheme-' + scheme.id"
+                    :key="'opp-prompt-' + scheme.id"
                     class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    :class="opponent?.current_scheme_id === scheme.id ? 'bg-primary/10 font-medium' : ''"
-                    @click="setOpponentScheme(scheme.id)"
+                    @click="resolveOpponentSchemePrompt(scheme.id)"
                 >
                     {{ scheme.name }}
-                    <Badge v-if="opponent?.current_scheme_id === scheme.id" variant="outline" class="text-[9px]">Current</Badge>
                 </button>
             </div>
         </DialogContent>
@@ -3649,5 +3658,5 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </Dialog>
 
     <!-- QR Code Dialog -->
-    <QRCodeDialog v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
+    <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
 </template>

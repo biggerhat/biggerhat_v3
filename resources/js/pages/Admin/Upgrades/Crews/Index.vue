@@ -15,7 +15,7 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 const columns: ColumnDef<Upgrades>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Crew Upgrade'),
+        header: () => h('div', {}, 'Crew Card'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
@@ -93,18 +93,18 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Crew Upgrades - Admin" />
+    <Head title="Crew Cards - Admin" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter Crew Upgrades"
+                placeholder="Filter Crew Cards"
                 :model-value="table.getColumn('name')?.getFilterValue() as string"
                 @update:model-value="table.getColumn('name')?.setFilterValue($event)"
             />
             <div>Total {{ props.upgrades.length }}</div>
-            <Button @click="router.get(route('admin.crews.create'))"> Create New Crew Upgrade </Button>
+            <Button @click="router.get(route('admin.crews.create'))"> Create New Crew Card </Button>
         </div>
         <div class="rounded-md border">
             <Table>

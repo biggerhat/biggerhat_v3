@@ -49,6 +49,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::shouldBeStrict();
 
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
     }
 }

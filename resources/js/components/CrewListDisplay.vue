@@ -95,7 +95,7 @@ watch(upgradeDrawerOpen, (val) => {
 </script>
 
 <template>
-    <!-- Crew Upgrades -->
+    <!-- Crew Cards -->
     <div v-if="crewUpgrades?.length" class="mb-2 space-y-1">
         <div
             v-for="(upgrade, idx) in crewUpgrades"
@@ -111,7 +111,7 @@ watch(upgradeDrawerOpen, (val) => {
             <div class="min-w-0 flex-1">
                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                 <div class="text-[10px] text-muted-foreground">
-                    {{ upgrade.is_active ? 'Active Crew Upgrade' : 'Crew Upgrade' }}
+                    {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card' }}
                 </div>
             </div>
         </div>
@@ -197,7 +197,7 @@ watch(upgradeDrawerOpen, (val) => {
             <div v-if="upgradePreview" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ upgradePreview.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
                 </DrawerHeader>
                 <div
                     class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain"

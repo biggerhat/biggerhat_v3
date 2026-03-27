@@ -205,12 +205,12 @@ const mainNavItems: NavItem[] = [
                 icon: Puzzle,
             },
             {
-                title: 'Crew Upgrades',
+                title: 'Crew Cards',
                 href: route('upgrades.crew.index'),
                 icon: ArrowUpCircle,
             },
             {
-                title: 'Character Upgrades',
+                title: 'Upgrades',
                 href: route('upgrades.character.index'),
                 icon: ArrowUpCircle,
             },
@@ -304,13 +304,13 @@ const allAdminNavItems: NavItem[] = [
         permission: 'view_characteristic',
     },
     {
-        title: 'Character Upgrades',
+        title: 'Upgrades',
         href: route('admin.upgrades.index'),
         icon: BookOpen,
         permission: 'view_upgrade',
     },
     {
-        title: 'Crew Upgrades',
+        title: 'Crew Cards',
         href: route('admin.crews.index'),
         icon: BookOpen,
         permission: 'view_crew',

@@ -350,9 +350,9 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             </div>
                         </div>
 
-                        <!-- Crew Upgrades -->
+                        <!-- Crew Cards -->
                         <div v-if="character.crew_upgrades?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Crew Upgrades</div>
+                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Crew Cards</div>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge
                                     v-for="upgrade in character.crew_upgrades"
@@ -422,10 +422,10 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     </CardContent>
                 </Card>
 
-                <!-- Character Upgrades -->
+                <!-- Upgrades -->
                 <Card v-if="character.character_upgrades?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Character Upgrades</CardTitle>
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upgrades</CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <button
@@ -811,7 +811,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ activeUpgrade.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">
-                        {{ activeUpgrade.domain === 'crew' ? 'Crew Upgrade' : 'Character Upgrade' }}
+                        {{ activeUpgrade.domain === 'crew' ? 'Crew Card' : 'Upgrade' }}
                     </div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">

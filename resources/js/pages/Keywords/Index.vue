@@ -336,7 +336,7 @@ function openMasterDrawer(master: any, event: Event) {
             <div v-if="selectedUpgrade" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ selectedUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">

@@ -46,7 +46,7 @@ const factionColor = computed(() => (props.upgrade.faction ? useFactionColor(pro
 
 const backRoute = computed(() => (props.upgrade.domain === 'crew' ? route('upgrades.crew.index') : route('upgrades.character.index')));
 
-const backLabel = computed(() => (props.upgrade.domain === 'crew' ? 'Back to Crew Upgrades' : 'Back to Character Upgrades'));
+const backLabel = computed(() => (props.upgrade.domain === 'crew' ? 'Back to Crew Cards' : 'Back to Upgrades'));
 
 const hasRelatedContent = computed(
     () =>

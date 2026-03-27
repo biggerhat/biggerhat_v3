@@ -1459,7 +1459,7 @@ const exportAsText = () => {
     const activeUpgrade = leader?.character.crew_upgrades?.find((u: any) => u.id === activeCrewUpgradeId.value);
     const lines: string[] = [];
     lines.push(`${selectedMasterTitle.value.display_name} (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
-    if (activeUpgrade) lines.push(`Crew Upgrade: ${activeUpgrade.name}`);
+    if (activeUpgrade) lines.push(`Crew Card: ${activeUpgrade.name}`);
     lines.push('');
     const categories = [
         { key: 'leader', label: 'Leader' },
@@ -1487,7 +1487,7 @@ const exportAsMarkdown = () => {
     const baseUrl = window.location.origin;
     const lines: string[] = [];
     lines.push(`**${selectedMasterTitle.value.display_name}** (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
-    if (activeUpgrade) lines.push(`*Crew Upgrade: ${activeUpgrade.name}*`);
+    if (activeUpgrade) lines.push(`*Crew Card: ${activeUpgrade.name}*`);
     lines.push('');
     const categories = [
         { key: 'leader', label: 'Leader' },
@@ -1552,7 +1552,7 @@ const parseAndImportCrew = () => {
         const line = lines[i];
         if (line.match(/^(Leader|Hires|Versatile|Out of Keyword):?\s*$/i)) { inTotemSection = false; continue; }
         if (line.match(/^Totem\(?s?\)?:?\s*$/i)) { inTotemSection = true; continue; }
-        if (line.match(/^Crew Upgrade:/i)) continue;
+        if (line.match(/^Crew Card:/i)) continue;
         // Skip the master itself (leader, added automatically)
         if (line.toLowerCase() === masterTitle.toLowerCase()) continue;
         // Skip totems (added automatically with master)
@@ -2454,7 +2454,7 @@ onUnmounted(() => {
 
                                         <Separator class="mb-3" />
 
-                                        <!-- Crew Upgrades -->
+                                        <!-- Crew Cards -->
                                         <div v-if="selectedMasterTitle?.crew_upgrades?.length" class="mb-3 space-y-1">
                                             <div
                                                 v-for="upgrade in selectedMasterTitle.crew_upgrades"
@@ -2472,7 +2472,7 @@ onUnmounted(() => {
                                                     v-if="!hasSingleCrewUpgrade"
                                                     class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
                                                     :title="
-                                                        activeCrewUpgradeId === upgrade.id ? 'Deselect crew upgrade' : 'Select as active crew upgrade'
+                                                        activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'
                                                     "
                                                     @click.stop="toggleCrewUpgradeActive(upgrade)"
                                                 >
@@ -2491,8 +2491,8 @@ onUnmounted(() => {
                                                     <div class="text-[10px] text-muted-foreground">
                                                         {{
                                                             activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
-                                                                ? 'Active Crew Upgrade'
-                                                                : 'Crew Upgrade'
+                                                                ? 'Active Crew Card'
+                                                                : 'Crew Card'
                                                         }}
                                                     </div>
                                                 </div>
@@ -2887,7 +2887,7 @@ onUnmounted(() => {
 
                                     <Separator class="mb-3" />
 
-                                    <!-- Crew Upgrades -->
+                                    <!-- Crew Cards -->
                                     <div v-if="selectedMasterTitle?.crew_upgrades?.length" class="mb-3 space-y-1">
                                         <div
                                             v-for="upgrade in selectedMasterTitle.crew_upgrades"
@@ -2905,7 +2905,7 @@ onUnmounted(() => {
                                                 v-if="!hasSingleCrewUpgrade"
                                                 class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
                                                 :title="
-                                                    activeCrewUpgradeId === upgrade.id ? 'Deselect crew upgrade' : 'Select as active crew upgrade'
+                                                    activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'
                                                 "
                                                 @click.stop="toggleCrewUpgradeActive(upgrade)"
                                             >
@@ -2922,8 +2922,8 @@ onUnmounted(() => {
                                                 <div class="text-[10px] text-muted-foreground">
                                                     {{
                                                         activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
-                                                            ? 'Active Crew Upgrade'
-                                                            : 'Crew Upgrade'
+                                                            ? 'Active Crew Card'
+                                                            : 'Crew Card'
                                                     }}
                                                 </div>
                                             </div>
@@ -3256,7 +3256,7 @@ onUnmounted(() => {
             <div v-if="upgradePreviewUpgrade" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ upgradePreviewUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">

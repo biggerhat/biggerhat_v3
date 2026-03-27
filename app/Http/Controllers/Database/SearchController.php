@@ -114,12 +114,6 @@ class SearchController extends Controller
             }
         }
 
-        foreach (['generates_stone', 'is_unhirable', 'is_beta'] as $field) {
-            if ($request->filled($field)) {
-                $query->where($field, filter_var($request->get($field), FILTER_VALIDATE_BOOLEAN));
-            }
-        }
-
         if ($request->filled('keyword')) {
             $query->whereHas('keywords', fn ($q) => $q->where('slug', $request->get('keyword')));
         }
@@ -136,8 +130,10 @@ class SearchController extends Controller
             $query->whereHas('abilities', fn ($q) => $this->applyAbilityFilters($q, $request));
         }
 
-        if ($request->filled('trigger')) {
-            $query->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $tq->where('name', $request->get('trigger'))));
+        // Trigger filters (grouped so all conditions match the same trigger)
+        $hasTriggerFilter = $this->anyFilled($request, ['trigger', 'trigger_suits', 'trigger_description']);
+        if ($hasTriggerFilter) {
+            $query->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $this->applyTriggerFilters($tq, $request)));
         }
 
         if ($tokenName) {
@@ -176,7 +172,7 @@ class SearchController extends Controller
         // --- Upgrade query (only if upgrade-relevant filters are active) ---
 
         $hasUpgradeFilter = $request->filled('name') || $hasActionFilter || $hasAbilityFilter
-            || $request->filled('trigger') || $tokenName || $markerName;
+            || $hasTriggerFilter || $tokenName || $markerName;
 
         $upgradeResults = collect();
         if ($hasUpgradeFilter) {
@@ -194,8 +190,8 @@ class SearchController extends Controller
                 $upgradeQuery->whereHas('abilities', fn ($q) => $this->applyAbilityFilters($q, $request));
             }
 
-            if ($request->filled('trigger')) {
-                $upgradeQuery->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $tq->where('name', $request->get('trigger'))));
+            if ($hasTriggerFilter) {
+                $upgradeQuery->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $this->applyTriggerFilters($tq, $request)));
             }
 
             if ($tokenName) {
@@ -423,6 +419,19 @@ class SearchController extends Controller
         }
         if ($request->filled('ability_description')) {
             $q->where('description', 'LIKE', '%'.$request->get('ability_description').'%');
+        }
+    }
+
+    private function applyTriggerFilters($q, Request $request): void
+    {
+        if ($request->filled('trigger')) {
+            $q->where('name', $request->get('trigger'));
+        }
+        if ($request->filled('trigger_suits')) {
+            $q->where('suits', 'LIKE', '%'.$request->get('trigger_suits').'%');
+        }
+        if ($request->filled('trigger_description')) {
+            $q->where('description', 'LIKE', '%'.$request->get('trigger_description').'%');
         }
     }
 }

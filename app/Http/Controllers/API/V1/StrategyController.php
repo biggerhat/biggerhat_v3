@@ -8,8 +8,20 @@ use App\Models\Strategy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * @tags Strategies
+ */
 class StrategyController extends Controller
 {
+    /**
+     * List all strategies
+     *
+     * Returns a paginated list of strategies, optionally filtered by season or name.
+     *
+     * @queryParam search string Filter strategies by name. Example: Plant Explosives
+     * @queryParam season string Filter by season. Example: 1
+     * @queryParam per_page int Number of results per page (max 100). Example: 15
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
         $strategies = Strategy::query()
@@ -21,6 +33,11 @@ class StrategyController extends Controller
         return StrategyResource::collection($strategies);
     }
 
+    /**
+     * Get a single strategy
+     *
+     * Returns a single strategy by its ID.
+     */
     public function show(Strategy $strategy): StrategyResource
     {
         return new StrategyResource($strategy);

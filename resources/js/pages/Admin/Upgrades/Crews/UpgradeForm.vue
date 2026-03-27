@@ -180,19 +180,19 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head title="Crew Upgrade Form" />
+    <Head title="Crew Card Form" />
     <div class="container mx-auto mt-6 h-full px-2">
         <Card>
             <CardHeader>
-                <CardTitle>Crew Upgrade</CardTitle>
-                <CardDescription>Create and Edit Crew Upgrade Information</CardDescription>
+                <CardTitle>Crew Card</CardTitle>
+                <CardDescription>Create and Edit Crew Card Information</CardDescription>
             </CardHeader>
             <CardContent>
                 <form>
                     <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
-                            <Input id="name" v-model="formInfo.name" autofocus placeholder="Crew Upgrade Name" />
+                            <Input id="name" v-model="formInfo.name" autofocus placeholder="Crew Card Name" />
                             <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
@@ -201,7 +201,7 @@ onMounted(() => {
                                     <Label for="faction">Faction</Label>
                                     <Select id="faction" v-model="formInfo.faction">
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Crew Upgrade Faction" />
+                                            <SelectValue placeholder="Crew Card Faction" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="faction in props.factions" :value="faction.value" :key="faction.value">

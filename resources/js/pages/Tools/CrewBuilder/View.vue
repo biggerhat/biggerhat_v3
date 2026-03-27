@@ -428,7 +428,7 @@ onMounted(rebuildCrew);
                             class="mb-4 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-400"
                         >
                             <Star class="size-3.5 shrink-0" />
-                            Preset Crew — fixed roster from crew upgrade
+                            Preset Crew — fixed roster from crew card
                         </div>
 
                         <!-- Stats -->

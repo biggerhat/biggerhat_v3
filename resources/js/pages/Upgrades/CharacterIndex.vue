@@ -85,7 +85,7 @@ const { delays } = useStaggeredEntry(filteredCount);
 </script>
 
 <template>
-    <Head title="Character Upgrades" />
+    <Head title="Upgrades" />
 
     <div class="relative">
         <div
@@ -93,7 +93,7 @@ const { delays } = useStaggeredEntry(filteredCount);
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <PageBanner title="Character Upgrades">
+        <PageBanner title="Upgrades">
             <template #subtitle>
                 <div class="px-2 text-sm text-muted-foreground">{{ totalCount }} Upgrades</div>
             </template>
@@ -157,7 +157,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                             <UpgradeCardView :upgrade="upgrade" />
                         </div>
                     </div>
-                    <EmptyState v-else title="No character upgrades found" description="Try adjusting your search or filters." />
+                    <EmptyState v-else title="No upgrades found" description="Try adjusting your search or filters." />
                 </TabsContent>
 
                 <TabsContent value="table">

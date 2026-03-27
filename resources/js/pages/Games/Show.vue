@@ -18,7 +18,7 @@ import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { Transition, computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
     id: number;
@@ -449,23 +449,15 @@ const swapRoles = async () => {
 const opponentStrategyPoints = ref(0);
 const opponentSchemePoints = ref(0);
 const submitOpponentTurnScore = async () => {
-    let selectedSchemeId: number | null = null;
+    const result = opponentSchemePoints.value > 0
+        ? await promptOpponentScheme('scored')
+        : await promptOpponentScheme('discard');
 
-    if (opponentSchemePoints.value > 0) {
-        // Scored scheme VP — ask which scheme was scored
-        selectedSchemeId = await promptOpponentScheme('scored');
-        if (selectedSchemeId === null) return; // cancelled
-        // Set the scored scheme as current
-        await setOpponentScheme(selectedSchemeId);
-    } else {
-        // No scheme VP — ask if keeping or discarding current scheme
-        selectedSchemeId = await promptOpponentScheme('discard');
-        if (selectedSchemeId === null) return; // cancelled — means "keep current"
-        // Discarding: set the new scheme
-        await setOpponentScheme(selectedSchemeId);
-    }
+    if (result === 'cancel') return; // dialog dismissed
 
-    scoringTurn.value = true;
+    scoringOpponentTurn.value = true;
+
+    // Submit the turn FIRST (records current_scheme_id as this turn's scheme)
     await fetch(route('games.play.turns.store', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
@@ -475,10 +467,28 @@ const submitOpponentTurnScore = async () => {
             slot: 2,
         }),
     });
+
+    // THEN update the scheme for next turn (after turn is recorded)
+    if (typeof result === 'number') {
+        await setOpponentScheme(result);
+    }
     opponentStrategyPoints.value = 0;
     opponentSchemePoints.value = 0;
-    scoringTurn.value = false;
-    router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'], preserveScroll: true });
+    scoringOpponentTurn.value = false;
+    // Save user's in-progress scoring before reload (Inertia prop updates can cause re-renders)
+    const savedStrategy = strategyPoints.value;
+    const savedScheme = schemePoints.value;
+    const savedNextScheme = nextSchemeId.value;
+    router.reload({
+        only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'],
+        preserveState: true,
+        preserveScroll: true,
+        onFinish: () => {
+            strategyPoints.value = savedStrategy;
+            schemePoints.value = savedScheme;
+            nextSchemeId.value = savedNextScheme;
+        },
+    });
 };
 
 const updateOpponentSoulstonePool = (delta: number) => {
@@ -488,11 +498,22 @@ const updateOpponentSoulstonePool = (delta: number) => {
 };
 
 // Solo: opponent scheme selection dialog (shown on turn submit / game complete)
+// Use next-scheme chain if opponent has a current scheme, otherwise full pool
+const opponentSchemeOptions = computed(() => {
+    if (!opponent.value?.current_scheme_id || !props.opponent_next_schemes.length) {
+        return props.schemes; // Turn 1: full pool
+    }
+    // After turn 1: only the next-chain schemes
+    // In discard mode, "Keep Current" button handles the current scheme
+    // In scored/end-of-game mode, opponent scored on current — show next options to switch to
+    return props.opponent_next_schemes;
+});
+
 const opponentSchemePromptOpen = ref(false);
 const opponentSchemePromptMode = ref<'scored' | 'discard' | 'end-of-game'>('scored');
 const opponentSchemePromptCallback = ref<((schemeId: number | null) => void) | null>(null);
 
-const promptOpponentScheme = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<number | null> => {
+const promptOpponentScheme = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<number | null | 'cancel'> => {
     return new Promise((resolve) => {
         opponentSchemePromptMode.value = mode;
         opponentSchemePromptCallback.value = resolve;
@@ -500,9 +521,10 @@ const promptOpponentScheme = (mode: 'scored' | 'discard' | 'end-of-game'): Promi
     });
 };
 
-const resolveOpponentSchemePrompt = (schemeId: number | null) => {
+// Resolve with scheme ID, null (keep current), or 'cancel' (dialog dismissed)
+const resolveOpponentSchemePrompt = (schemeId: number | null | 'cancel') => {
     opponentSchemePromptOpen.value = false;
-    opponentSchemePromptCallback.value?.(schemeId);
+    opponentSchemePromptCallback.value?.(schemeId as any);
     opponentSchemePromptCallback.value = null;
 };
 
@@ -554,6 +576,23 @@ const isOpponentSetupPhase = computed(() => {
     if (status === 'crew_select') return myStepDone('crew') && !opponentStepDone('crew');
     return false;
 });
+
+// Turn change banner
+const turnBanner = ref(false);
+const lastSeenTurn = ref(props.game.current_turn);
+let turnBannerTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+    () => props.game,
+    (game) => {
+        if (game.status === 'in_progress' && game.current_turn > lastSeenTurn.value) {
+            lastSeenTurn.value = game.current_turn;
+            turnBanner.value = true;
+            if (turnBannerTimer) clearTimeout(turnBannerTimer);
+            turnBannerTimer = setTimeout(() => (turnBanner.value = false), 4000);
+        }
+    },
+    { deep: true },
+);
 
 const abandonDialogOpen = ref(false);
 
@@ -828,6 +867,7 @@ const strategyPoints = ref(0);
 const schemePoints = ref(0);
 const nextSchemeId = ref<number | null>(null);
 const scoringTurn = ref(false);
+const scoringOpponentTurn = ref(false);
 
 const isLastTurn = computed(() => props.game.current_turn >= props.game.max_turns);
 
@@ -881,17 +921,17 @@ const submitTurnScore = async () => {
     schemePoints.value = 0;
     nextSchemeId.value = null;
     scoringTurn.value = false;
-    router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'], preserveScroll: true });
+    router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'], preserveState: true, preserveScroll: true });
 };
 
 const markGameComplete = async () => {
     // Solo: always ask for opponent's current scheme before completing
     if (isSolo.value) {
-        const schemeId = await promptOpponentScheme('end-of-game');
-        if (schemeId !== null) {
-            await setOpponentScheme(schemeId);
+        const result = await promptOpponentScheme('end-of-game');
+        if (result === 'cancel') return; // dialog dismissed
+        if (typeof result === 'number') {
+            await setOpponentScheme(result);
         }
-        // Even if null (skipped), proceed with completion
     }
 
     const res = await fetch(route('games.play.complete', props.game.uuid), {
@@ -2123,6 +2163,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <div :class="gameplayTab !== 'scenario' ? 'hidden lg:block' : ''">
                         <Card>
                             <CardContent class="space-y-4 p-4">
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-500 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-12 opacity-100"
+                                    leave-from-class="max-h-12 opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div v-if="turnBanner" class="mb-2 overflow-hidden rounded-md bg-primary/10 py-2 text-center text-sm font-semibold text-primary">
+                                        Turn {{ game.current_turn }} Started
+                                    </div>
+                                </Transition>
                                 <div class="flex items-center justify-between">
                                     <div class="w-8"></div>
                                     <div class="text-center text-2xl font-bold">Turn {{ game.current_turn }} <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span></div>
@@ -2370,8 +2422,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
                                                 </div>
                                             </div>
-                                            <Button class="w-full" size="sm" :disabled="scoringTurn" @click="submitOpponentTurnScore">
-                                                <Loader2 v-if="scoringTurn" class="mr-2 size-4 animate-spin" />
+                                            <Button class="w-full" size="sm" :disabled="scoringOpponentTurn" @click="submitOpponentTurnScore">
+                                                <Loader2 v-if="scoringOpponentTurn" class="mr-2 size-4 animate-spin" />
                                                 Submit Opponent ({{ opponentStrategyPoints + opponentSchemePoints }} VP)
                                             </Button>
                                         </template>
@@ -3189,33 +3241,31 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </Drawer>
 
     <!-- Opponent Scheme Prompt Dialog (Solo) -->
-    <Dialog v-if="isSolo && !isObserver" :open="opponentSchemePromptOpen" @update:open="(v) => { if (!v) resolveOpponentSchemePrompt(null); }">
+    <Dialog v-if="isSolo && !isObserver" :open="opponentSchemePromptOpen" @update:open="(v) => { if (!v) resolveOpponentSchemePrompt('cancel'); }">
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>
-                    {{ opponentSchemePromptMode === 'scored' ? "Which scheme did the opponent score?" : opponentSchemePromptMode === 'end-of-game' ? "Opponent's current scheme?" : "Opponent's scheme status" }}
+                    {{ opponentSchemePromptMode === 'scored' ? "Opponent's current scheme" : opponentSchemePromptMode === 'end-of-game' ? "Opponent's current scheme?" : "Opponent's scheme status" }}
                 </DialogTitle>
                 <DialogDescription>
-                    <template v-if="opponentSchemePromptMode === 'scored'">Select the scheme the opponent scored VP on this turn.</template>
+                    <template v-if="opponentSchemePromptMode === 'scored'">The opponent scored scheme VP. Select their current scheme.</template>
                     <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Select the opponent's current scheme for final scoring.</template>
                     <template v-else>Is the opponent keeping their current scheme or switching?</template>
                 </DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
-                <!-- Keep current option (scored + discard modes) -->
+                <!-- Keep current option (discard mode only — if they scored, they must pick which scheme) -->
                 <button
-                    v-if="opponentSchemePromptMode === 'scored' || opponentSchemePromptMode === 'discard'"
+                    v-if="opponentSchemePromptMode === 'discard'"
                     class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-medium hover:bg-primary/20"
                     @click="resolveOpponentSchemePrompt(null)"
                 >
                     Keep Current Scheme (Hidden)
                 </button>
-                <div v-if="opponentSchemePromptMode === 'scored' || opponentSchemePromptMode === 'discard'" class="py-1 text-center text-[10px] text-muted-foreground">
-                    {{ opponentSchemePromptMode === 'scored' ? '— or score —' : '— or discard —' }}
-                </div>
-                <!-- Scheme pool options -->
+                <div v-if="opponentSchemePromptMode === 'discard'" class="py-1 text-center text-[10px] text-muted-foreground">— or discard —</div>
+                <!-- Scheme options (pool on turn 1, next-chain after) -->
                 <button
-                    v-for="scheme in schemes"
+                    v-for="scheme in opponentSchemeOptions"
                     :key="'opp-prompt-' + scheme.id"
                     class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
                     @click="resolveOpponentSchemePrompt(scheme.id)"

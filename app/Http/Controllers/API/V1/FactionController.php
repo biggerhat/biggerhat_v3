@@ -6,9 +6,16 @@ use App\Enums\FactionEnum;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @tags Factions
+ */
 class FactionController extends Controller
 {
     /**
+     * List all factions
+     *
+     * Returns all factions with their value, label, color, and logo.
+     *
      * @response array{data: array<int, array{value: string, label: string, color: string, logo: string}>}
      */
     public function index(): JsonResponse
@@ -24,6 +31,10 @@ class FactionController extends Controller
     }
 
     /**
+     * Get a single faction
+     *
+     * Returns a faction with its value, label, color, logo, and character statistics.
+     *
      * @response array{data: array{value: string, label: string, color: string, logo: string, stats: array{characters: int, miniatures: int, keywords: int}}}
      */
     public function show(string $faction): JsonResponse

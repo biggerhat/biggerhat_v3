@@ -8,8 +8,21 @@ use App\Models\Character;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * @tags Characters
+ */
 class CharacterController extends Controller
 {
+    /**
+     * List all characters
+     *
+     * Returns a paginated list of visible characters with their miniatures, keywords, characteristics, and totem.
+     *
+     * @queryParam search string Filter characters by name, display name, or nicknames. Example: Rasputina
+     * @queryParam faction string Filter by faction enum value. Example: arcanists
+     * @queryParam station string Filter by station enum value. Example: master
+     * @queryParam per_page int Number of results per page (max 100). Example: 15
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
         $characters = Character::query()
@@ -28,6 +41,11 @@ class CharacterController extends Controller
         return CharacterResource::collection($characters);
     }
 
+    /**
+     * Get a single character
+     *
+     * Returns a character with all related data including miniatures, keywords, characteristics, totem, actions, triggers, abilities, markers, tokens, and character upgrades.
+     */
     public function show(Character $character): CharacterResource
     {
         abort_if($character->is_hidden, 404);

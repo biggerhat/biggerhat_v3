@@ -8,8 +8,25 @@ use App\Models\Transmission;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * @tags Transmissions
+ */
 class TransmissionController extends Controller
 {
+    /**
+     * List all transmissions
+     *
+     * Returns a paginated list of transmissions with their channel, characters, and keywords. Sorted by release date (newest first).
+     *
+     * @queryParam search string Filter transmissions by title. Example: Errata
+     * @queryParam channel string Filter by channel slug. Example: wyrd-chronicles
+     * @queryParam transmission_type string Filter by transmission type. Example: errata
+     * @queryParam content_type string Filter by content type. Example: pdf
+     * @queryParam faction string Filter by faction (matches within the factions JSON array). Example: arcanists
+     * @queryParam character string Filter by related character slug. Example: rasputina
+     * @queryParam keyword string Filter by related keyword slug. Example: december
+     * @queryParam per_page int Number of results per page (max 100). Example: 15
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
         $transmissions = Transmission::query()
@@ -27,6 +44,11 @@ class TransmissionController extends Controller
         return TransmissionResource::collection($transmissions);
     }
 
+    /**
+     * Get a single transmission
+     *
+     * Returns a single transmission with its associated channel, characters, and keywords.
+     */
     public function show(Transmission $transmission): TransmissionResource
     {
         $transmission->loadMissing(['channel', 'characters', 'keywords']);

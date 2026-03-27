@@ -8,8 +8,19 @@ use App\Models\Token;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * @tags Tokens
+ */
 class TokenController extends Controller
 {
+    /**
+     * List all tokens
+     *
+     * Returns a paginated list of tokens, optionally filtered by name.
+     *
+     * @queryParam search string Filter tokens by name. Example: Focus
+     * @queryParam per_page int Number of results per page (max 100). Example: 15
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
         $tokens = Token::query()
@@ -20,6 +31,11 @@ class TokenController extends Controller
         return TokenResource::collection($tokens);
     }
 
+    /**
+     * Get a single token
+     *
+     * Returns a single token by its ID.
+     */
     public function show(Token $token): TokenResource
     {
         return new TokenResource($token);

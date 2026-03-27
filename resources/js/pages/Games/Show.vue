@@ -3145,13 +3145,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DrawerContent>
     </Drawer>
 
-    <!-- Crew Upgrade Preview Drawer -->
+    <!-- Crew Card Preview Drawer -->
     <Drawer v-model:open="upgradeDrawerOpen">
         <DrawerContent>
             <div v-if="previewUpgrade" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <UpgradeFlipCard
@@ -3404,7 +3404,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DialogContent>
     </Dialog>
 
-    <!-- Character Upgrade Dialog -->
+    <!-- Upgrade Dialog -->
     <Dialog v-model:open="upgradeDialogOpen">
         <DialogContent class="max-w-sm">
             <DialogHeader>
@@ -3489,7 +3489,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <div v-if="previewAttachedUpgrade" class="mx-auto w-full max-w-md">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewAttachedUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Character Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Upgrade</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                     <UpgradeFlipCard

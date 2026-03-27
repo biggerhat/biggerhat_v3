@@ -5,9 +5,11 @@ use App\Http\Controllers\API\V1\ActionController;
 use App\Http\Controllers\API\V1\BlueprintController;
 use App\Http\Controllers\API\V1\ChannelController;
 use App\Http\Controllers\API\V1\CharacterController;
+use App\Http\Controllers\API\V1\CharacteristicController;
 use App\Http\Controllers\API\V1\FactionController;
 use App\Http\Controllers\API\V1\KeywordController;
 use App\Http\Controllers\API\V1\MarkerController;
+use App\Http\Controllers\API\V1\MiniatureController;
 use App\Http\Controllers\API\V1\PackageController;
 use App\Http\Controllers\API\V1\SchemeController;
 use App\Http\Controllers\API\V1\StrategyController;
@@ -32,6 +34,8 @@ Route::apiResource('channels', ChannelController::class)->only(['index', 'show']
 Route::apiResource('transmissions', TransmissionController::class)->only(['index', 'show']);
 Route::apiResource('packages', PackageController::class)->only(['index', 'show']);
 Route::apiResource('blueprints', BlueprintController::class)->only(['index', 'show']);
+Route::apiResource('characteristics', CharacteristicController::class)->only(['index', 'show']);
+Route::apiResource('miniatures', MiniatureController::class)->only(['index', 'show']);
 
 Route::get('factions', [FactionController::class, 'index'])->name('factions.index');
 Route::get('factions/{faction}', [FactionController::class, 'show'])->name('factions.show');

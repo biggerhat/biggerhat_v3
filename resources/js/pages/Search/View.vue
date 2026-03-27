@@ -182,8 +182,6 @@ const filterParams = ref({
     name: null as string | null,
     station: null as string | null,
     base: null as string | null,
-    defense_suit: null as string | null,
-    willpower_suit: null as string | null,
     cost_min: null as string | null,
     cost_max: null as string | null,
     health_min: null as string | null,
@@ -196,9 +194,6 @@ const filterParams = ref({
     willpower_max: null as string | null,
     size_min: null as string | null,
     size_max: null as string | null,
-    generates_stone: null as string | null,
-    is_unhirable: null as string | null,
-    is_beta: null as string | null,
     keyword: null as string | null,
     characteristic: null as string | null,
     action: null as string | null,
@@ -226,6 +221,8 @@ const filterParams = ref({
     ability_costs_stone: null as string | null,
     ability_description: null as string | null,
     trigger: null as string | null,
+    trigger_suits: null as string | null,
+    trigger_description: null as string | null,
     token: null as string | null,
     marker: null as string | null,
     page_view: null as string | null,
@@ -237,8 +234,6 @@ const filterKeys = [
     'name',
     'station',
     'base',
-    'defense_suit',
-    'willpower_suit',
     'cost_min',
     'cost_max',
     'health_min',
@@ -251,9 +246,6 @@ const filterKeys = [
     'willpower_max',
     'size_min',
     'size_max',
-    'generates_stone',
-    'is_unhirable',
-    'is_beta',
     'keyword',
     'characteristic',
     'action',
@@ -281,6 +273,8 @@ const filterKeys = [
     'ability_costs_stone',
     'ability_description',
     'trigger',
+    'trigger_suits',
+    'trigger_description',
     'token',
     'marker',
 ] as const;
@@ -366,13 +360,11 @@ const clearName = () => {
     filter();
 };
 
-const advancedSubSections = ['advancedStats', 'advancedBaseSuits', 'advancedFlags', 'advancedActions', 'advancedAbilities', 'advancedTriggers', 'advancedTokens', 'advancedMarkers'] as const;
+const advancedSubSections = ['advancedStats', 'advancedActions', 'advancedAbilities', 'advancedTriggers', 'advancedTokens', 'advancedMarkers'] as const;
 
 const sectionsOpen = ref({
     advanced: false,
     advancedStats: false,
-    advancedBaseSuits: false,
-    advancedFlags: false,
     advancedActions: false,
     advancedAbilities: false,
     advancedTriggers: false,
@@ -404,8 +396,6 @@ onMounted(() => {
     }
     filterParams.value.station = urlParams.get('station');
     filterParams.value.base = urlParams.get('base');
-    filterParams.value.defense_suit = urlParams.get('defense_suit');
-    filterParams.value.willpower_suit = urlParams.get('willpower_suit');
     filterParams.value.cost_min = urlParams.get('cost_min');
     filterParams.value.cost_max = urlParams.get('cost_max');
     filterParams.value.health_min = urlParams.get('health_min');
@@ -418,9 +408,6 @@ onMounted(() => {
     filterParams.value.willpower_max = urlParams.get('willpower_max');
     filterParams.value.size_min = urlParams.get('size_min');
     filterParams.value.size_max = urlParams.get('size_max');
-    filterParams.value.generates_stone = urlParams.get('generates_stone');
-    filterParams.value.is_unhirable = urlParams.get('is_unhirable');
-    filterParams.value.is_beta = urlParams.get('is_beta');
     filterParams.value.keyword = urlParams.get('keyword');
     filterParams.value.characteristic = urlParams.get('characteristic');
     filterParams.value.action = urlParams.get('action');
@@ -448,6 +435,8 @@ onMounted(() => {
     filterParams.value.ability_costs_stone = urlParams.get('ability_costs_stone');
     filterParams.value.ability_description = urlParams.get('ability_description');
     filterParams.value.trigger = urlParams.get('trigger');
+    filterParams.value.trigger_suits = urlParams.get('trigger_suits');
+    filterParams.value.trigger_description = urlParams.get('trigger_description');
     filterParams.value.token = urlParams.get('token');
     filterParams.value.marker = urlParams.get('marker');
     filterParams.value.page_view = urlParams.get('page_view') ?? 'images';
@@ -467,9 +456,8 @@ onMounted(() => {
         filterParams.value.willpower_min ||
         filterParams.value.willpower_max ||
         filterParams.value.size_min ||
-        filterParams.value.size_max;
-    const hasBaseSuits = filterParams.value.base || filterParams.value.defense_suit || filterParams.value.willpower_suit;
-    const hasFlags = filterParams.value.generates_stone || filterParams.value.is_unhirable || filterParams.value.is_beta;
+        filterParams.value.size_max ||
+        filterParams.value.base;
     const hasActions =
         filterParams.value.action ||
         filterParams.value.action_name ||
@@ -496,14 +484,12 @@ onMounted(() => {
         filterParams.value.ability_defensive_type ||
         filterParams.value.ability_costs_stone ||
         filterParams.value.ability_description;
-    const hasTriggers = filterParams.value.trigger;
+    const hasTriggers = filterParams.value.trigger || filterParams.value.trigger_suits || filterParams.value.trigger_description;
     const hasTokens = filterParams.value.token;
     const hasMarkers = filterParams.value.marker;
-    if (hasStats || hasBaseSuits || hasFlags || hasActions || hasAbilities || hasTriggers || hasTokens || hasMarkers) {
+    if (hasStats || hasActions || hasAbilities || hasTriggers || hasTokens || hasMarkers) {
         sectionsOpen.value.advanced = true;
         if (hasStats) sectionsOpen.value.advancedStats = true;
-        if (hasBaseSuits) sectionsOpen.value.advancedBaseSuits = true;
-        if (hasFlags) sectionsOpen.value.advancedFlags = true;
         if (hasActions) sectionsOpen.value.advancedActions = true;
         if (hasAbilities) sectionsOpen.value.advancedAbilities = true;
         if (hasTriggers) sectionsOpen.value.advancedTriggers = true;
@@ -668,18 +654,6 @@ onMounted(() => {
                                             </button>
                                         </div>
                                     </div>
-                                </CollapsibleContent>
-                            </Collapsible>
-
-                            <!-- Base & Suits -->
-                            <Collapsible :open="sectionsOpen.advancedBaseSuits" @update:open="toggleAdvancedSection('advancedBaseSuits')">
-                                <CollapsibleTrigger
-                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
-                                >
-                                    Base & Suits
-                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Base Size</label>
                                         <ClearableSelect
@@ -689,66 +663,10 @@ onMounted(() => {
                                             trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Defense Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.defense_suit"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Willpower Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.willpower_suit"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
                                 </CollapsibleContent>
                             </Collapsible>
 
                             <!-- Flags -->
-                            <Collapsible :open="sectionsOpen.advancedFlags" @update:open="toggleAdvancedSection('advancedFlags')">
-                                <CollapsibleTrigger
-                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
-                                >
-                                    Flags
-                                    <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 px-1 pt-2">
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Generates Soulstone</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.generates_stone"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Unhirable</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.is_unhirable"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Beta</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.is_beta"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
-                                </CollapsibleContent>
-                            </Collapsible>
-
                             <!-- Actions -->
                             <Collapsible :open="sectionsOpen.advancedActions" @update:open="toggleAdvancedSection('advancedActions')">
                                 <CollapsibleTrigger
@@ -897,15 +815,6 @@ onMounted(() => {
                                         />
                                     </div>
                                     <div class="space-y-2">
-                                        <label class="text-sm font-medium">Signature</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.action_is_signature"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
-                                    </div>
-                                    <div class="space-y-2">
                                         <label class="text-sm font-medium">Costs Soulstone</label>
                                         <ClearableSelect
                                             v-model="filterParams.action_costs_stone"
@@ -939,15 +848,6 @@ onMounted(() => {
                                             type="text"
                                             placeholder="or search ability name..."
                                             class="h-8 border-2 border-primary text-xs"
-                                        />
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-sm font-medium">Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.ability_suits"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -996,6 +896,24 @@ onMounted(() => {
                                             placeholder="Any Trigger"
                                             :options="props.triggers"
                                             trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Suit</label>
+                                        <ClearableSelect
+                                            v-model="filterParams.trigger_suits"
+                                            placeholder="Any Suit"
+                                            :options="props.suits"
+                                            trigger-class="border-2 border-primary rounded"
+                                        />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Description</label>
+                                        <Input
+                                            v-model="filterParams.trigger_description"
+                                            type="text"
+                                            placeholder="Search description..."
+                                            class="h-8 border-2 border-primary text-xs"
                                         />
                                     </div>
                                 </CollapsibleContent>
@@ -1152,56 +1070,9 @@ onMounted(() => {
                                                 </button>
                                             </div>
                                         </div>
-                                    </CollapsibleContent>
-                                </Collapsible>
-
-                                <!-- Base & Suits -->
-                                <Collapsible :open="sectionsOpen.advancedBaseSuits" @update:open="toggleAdvancedSection('advancedBaseSuits')">
-                                    <CollapsibleTrigger
-                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
-                                    >
-                                        Base & Suits
-                                        <ChevronDown
-                                            class="h-3.5 w-3.5 transition-transform"
-                                            :class="{ 'rotate-180': sectionsOpen.advancedBaseSuits }"
-                                        />
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Base Size</label>
                                             <ClearableSelect v-model="filterParams.base" placeholder="Any Base" :options="props.base_sizes" />
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Defense Suit</label>
-                                            <ClearableSelect v-model="filterParams.defense_suit" placeholder="Any Suit" :options="props.suits" />
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Willpower Suit</label>
-                                            <ClearableSelect v-model="filterParams.willpower_suit" placeholder="Any Suit" :options="props.suits" />
-                                        </div>
-                                    </CollapsibleContent>
-                                </Collapsible>
-
-                                <!-- Flags -->
-                                <Collapsible :open="sectionsOpen.advancedFlags" @update:open="toggleAdvancedSection('advancedFlags')">
-                                    <CollapsibleTrigger
-                                        class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
-                                    >
-                                        Flags
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedFlags }" />
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent class="space-y-3 px-1 pt-2">
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Generates Soulstone</label>
-                                            <ClearableSelect v-model="filterParams.generates_stone" placeholder="Any" :options="booleanOptions" />
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Unhirable</label>
-                                            <ClearableSelect v-model="filterParams.is_unhirable" placeholder="Any" :options="booleanOptions" />
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Beta</label>
-                                            <ClearableSelect v-model="filterParams.is_beta" placeholder="Any" :options="booleanOptions" />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -1342,10 +1213,6 @@ onMounted(() => {
                                             />
                                         </div>
                                         <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Signature</label>
-                                            <ClearableSelect v-model="filterParams.action_is_signature" placeholder="Any" :options="booleanOptions" />
-                                        </div>
-                                        <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Costs Soulstone</label>
                                             <ClearableSelect v-model="filterParams.action_costs_stone" placeholder="Any" :options="booleanOptions" />
                                         </div>
@@ -1373,10 +1240,6 @@ onMounted(() => {
                                                 placeholder="or search ability name..."
                                                 class="h-8 text-xs"
                                             />
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground">Suit</label>
-                                            <ClearableSelect v-model="filterParams.ability_suits" placeholder="Any Suit" :options="props.suits" />
                                         </div>
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Defensive Type</label>
@@ -1413,6 +1276,19 @@ onMounted(() => {
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Trigger</label>
                                             <ClearableSelect v-model="filterParams.trigger" placeholder="Any Trigger" :options="props.triggers" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Suit</label>
+                                            <ClearableSelect v-model="filterParams.trigger_suits" placeholder="Any Suit" :options="props.suits" />
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-xs font-medium text-muted-foreground">Description</label>
+                                            <Input
+                                                v-model="filterParams.trigger_description"
+                                                type="text"
+                                                placeholder="Search description..."
+                                                class="h-8 text-xs"
+                                            />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -1491,16 +1367,19 @@ onMounted(() => {
                         <div v-if="props.results.data?.some((r: any) => r.result_type === 'upgrade')" class="mb-6">
                             <h3 class="mb-3 text-sm font-semibold text-muted-foreground">Matching Upgrades</h3>
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                                <div v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')" :key="`upgrade-${item.id}`">
+                                <div v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')" :key="`upgrade-${item.id}`" class="text-center">
+                                    <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
                                     <UpgradeFlipCard
                                         :front-image="item.front_image.replace('/storage/', '')"
                                         :back-image="item.back_image?.replace('/storage/', '')"
                                         :alt-text="item.name"
                                         :upgrade-slug="item.slug"
-                                        :show-link="true"
+                                        :show-link="false"
                                     />
-                                    <div class="mt-1 text-center">
-                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
+                                    <div class="mt-1">
+                                        <Button @click="router.get(route('upgrades.view', { upgrade: item.slug }))" size="sm" variant="link">
+                                            View Upgrade Page
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -1512,17 +1391,19 @@ onMounted(() => {
                         <template v-if="props.results?.data?.length">
                             <template v-for="item in props.results.data" :key="`${item.result_type}-${item.id}`">
                                 <CharacterView v-if="item.result_type === 'character'" :character="item" :miniature="item.standard_miniatures[0]" />
-                                <div v-else class="mx-auto mb-6 max-w-xs">
+                                <div v-else class="mx-auto mb-6 max-w-xs text-center">
+                                    <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
                                     <UpgradeFlipCard
                                         :front-image="item.front_image.replace('/storage/', '')"
                                         :back-image="item.back_image?.replace('/storage/', '')"
                                         :alt-text="item.name"
                                         :upgrade-slug="item.slug"
-                                        :show-link="true"
+                                        :show-link="false"
                                     />
-                                    <div class="mt-1 text-center">
-                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
-                                        <div class="text-[10px] text-muted-foreground">{{ item.type ?? item.domain }}</div>
+                                    <div class="mt-1">
+                                        <Button @click="router.get(route('upgrades.view', { upgrade: item.slug }))" size="sm" variant="link">
+                                            View Upgrade Page
+                                        </Button>
                                     </div>
                                 </div>
                             </template>
@@ -1539,16 +1420,20 @@ onMounted(() => {
                                 :style="delays[idx]"
                             >
                                 <template v-if="item.result_type === 'upgrade'">
-                                    <UpgradeFlipCard
-                                        :front-image="item.front_image.replace('/storage/', '')"
-                                        :back-image="item.back_image?.replace('/storage/', '')"
-                                        :alt-text="item.name"
-                                        :upgrade-slug="item.slug"
-                                        :show-link="true"
-                                    />
-                                    <div class="mt-1 text-center">
-                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
-                                        <div class="text-[10px] text-muted-foreground">{{ item.type ?? item.domain }}</div>
+                                    <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
+                                        <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
+                                        <UpgradeFlipCard
+                                            :front-image="item.front_image.replace('/storage/', '')"
+                                            :back-image="item.back_image?.replace('/storage/', '')"
+                                            :alt-text="item.name"
+                                            :upgrade-slug="item.slug"
+                                            :show-link="false"
+                                        />
+                                        <div class="mt-1">
+                                            <Button @click="router.get(route('upgrades.view', { upgrade: item.slug }))" size="sm" variant="link">
+                                                View Upgrade Page
+                                            </Button>
+                                        </div>
                                     </div>
                                 </template>
                                 <CharacterCardView v-else :miniature="item.standard_miniatures[0]" :character-slug="item.slug" />

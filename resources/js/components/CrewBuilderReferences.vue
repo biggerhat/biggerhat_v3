@@ -238,7 +238,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
             </TabsContent>
 
             <TabsContent value="upgrades">
-                <div v-if="!references?.upgrades.length" class="py-4 text-center text-xs text-muted-foreground">No character upgrades</div>
+                <div v-if="!references?.upgrades.length" class="py-4 text-center text-xs text-muted-foreground">No upgrades</div>
                 <div v-else class="max-h-[30vh] space-y-0.5 overflow-y-auto">
                     <button
                         v-for="upgrade in references.upgrades"
@@ -330,7 +330,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
             <div v-if="activeUpgrade" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ activeUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Character Upgrade</div>
+                    <div class="mt-1 text-center text-xs text-muted-foreground">Upgrade</div>
                 </DrawerHeader>
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <div

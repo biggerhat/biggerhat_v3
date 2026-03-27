@@ -350,38 +350,44 @@ class GamePlayController extends Controller
             $player->update(['current_scheme_id' => $validated['next_scheme_id']]);
         }
 
-        $player->update(['is_turn_complete' => true]);
+        // Wrap turn completion + bothDone check in a transaction to prevent race conditions
+        $result = DB::transaction(function () use ($game, $player) {
+            $player->update(['is_turn_complete' => true]);
 
-        // Reset activation state for all crew members when turn completes
-        GameCrewMember::where('game_id', $game->id)
-            ->where('game_player_id', $player->id)
-            ->update(['is_activated' => false]);
+            // Reset activation state for all crew members when turn completes
+            GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->update(['is_activated' => false]);
 
-        // Check if both players are done
-        $bothDone = $game->players()->where('is_turn_complete', true)->count() === 2;
-        if ($bothDone) {
-            // If this was the last turn, auto-complete the game
-            if ($game->current_turn >= $game->max_turns) {
-                $game->players()->update(['is_game_complete' => true]);
-                $this->finalizeGame($game);
+            $bothDone = $game->players()->where('is_turn_complete', true)->count() === 2;
+            if ($bothDone) {
+                if ($game->current_turn >= $game->max_turns) {
+                    $game->players()->update(['is_game_complete' => true]);
+                    $this->finalizeGame($game);
 
-                return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
-            }
+                    return ['both_done' => true, 'game_complete' => true];
+                }
 
-            DB::transaction(function () use ($game) {
                 $game->increment('current_turn');
                 $game->players()->update(['is_turn_complete' => false]);
-            });
-            if (! $game->is_solo) {
-                broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
             }
+
+            return ['both_done' => $bothDone, 'game_complete' => false];
+        });
+
+        if ($result['game_complete']) {
+            return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
+        }
+
+        if ($result['both_done'] && ! $game->is_solo) {
+            broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
         }
 
         if (! $game->is_solo) {
             broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
         }
 
-        return response()->json(['success' => true, 'both_done' => $bothDone]);
+        return response()->json(['success' => true, 'both_done' => $result['both_done']]);
     }
 
     public function markComplete(Game $game): JsonResponse
@@ -396,14 +402,19 @@ class GamePlayController extends Controller
             return response()->json(['success' => true, 'game_complete' => true]);
         }
 
-        $player->update(['is_game_complete' => true]);
+        $bothDone = DB::transaction(function () use ($game, $player) {
+            $player->update(['is_game_complete' => true]);
+            $bothDone = $game->players()->where('is_game_complete', true)->count() === 2;
+            if ($bothDone) {
+                $this->finalizeGame($game);
+            }
 
-        $bothDone = $game->players()->where('is_game_complete', true)->count() === 2;
-        if ($bothDone) {
-            $this->finalizeGame($game);
+            return $bothDone;
+        });
+
+        if (! $game->is_solo) {
+            broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
         }
-
-        broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
 
         return response()->json(['success' => true, 'game_complete' => $bothDone]);
     }

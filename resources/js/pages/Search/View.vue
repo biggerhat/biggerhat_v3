@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { BookOpen, ChevronDown, LayoutGrid, List, Search, X } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
@@ -28,7 +29,7 @@ const booleanOptions = [
 ];
 
 const props = defineProps({
-    characters: {
+    results: {
         type: [Object, Array],
         required: false,
         default() {
@@ -321,7 +322,7 @@ const filter = () => {
     // Reset to page 1 on any filter change
     params.page = null;
     router.get(route('search.view'), cleanObject(params), {
-        only: ['characters', 'result_count'],
+        only: ['results', 'result_count'],
         replace: true,
         preserveState: true,
     });
@@ -514,8 +515,8 @@ onMounted(() => {
     }
 });
 
-const characterCount = computed(() => props.characters?.data?.length ?? 0);
-const { delays } = useStaggeredEntry(characterCount);
+const resultCount = computed(() => props.results?.data?.length ?? 0);
+const { delays } = useStaggeredEntry(resultCount);
 
 const isLoading = ref(false);
 onMounted(() => {
@@ -538,7 +539,7 @@ onMounted(() => {
         <PageBanner title="Advanced Search" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    {{ props.result_count }} {{ props.result_count === 1 ? 'character' : 'characters' }} found
+                    {{ props.result_count }} {{ props.result_count === 1 ? 'result' : 'results' }}
                 </div>
             </template>
         </PageBanner>
@@ -1487,33 +1488,74 @@ onMounted(() => {
                         </div>
                     </div>
                     <div v-else-if="filterParams.page_view === 'table'" class="overflow-auto">
-                        <CharacterTable :characters="props.characters.data" />
-                        <InertiaPagination :paginator="props.characters" />
-                    </div>
-                    <div v-else-if="filterParams.page_view === 'full'">
-                        <template v-if="props.characters?.data?.length">
-                            <div v-for="character in props.characters.data" v-bind:key="character.slug">
-                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
-                            </div>
-                        </template>
-                        <EmptyState v-else />
-                        <InertiaPagination :paginator="props.characters" />
-                    </div>
-                    <div v-else>
-                        <template v-if="props.characters?.data?.length">
-                            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                                <div
-                                    v-for="(character, index) in props.characters.data"
-                                    :key="`character-${character.id}`"
-                                    class="animate-fade-in-up opacity-0"
-                                    :style="delays[index]"
-                                >
-                                    <CharacterCardView :miniature="character.standard_miniatures[0]" :character-slug="character.slug" />
+                        <div v-if="props.results.data?.some((r: any) => r.result_type === 'upgrade')" class="mb-6">
+                            <h3 class="mb-3 text-sm font-semibold text-muted-foreground">Matching Upgrades</h3>
+                            <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                                <div v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')" :key="`upgrade-${item.id}`">
+                                    <UpgradeFlipCard
+                                        :front-image="item.front_image.replace('/storage/', '')"
+                                        :back-image="item.back_image?.replace('/storage/', '')"
+                                        :alt-text="item.name"
+                                        :upgrade-slug="item.slug"
+                                        :show-link="true"
+                                    />
+                                    <div class="mt-1 text-center">
+                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                        <CharacterTable :characters="props.results.data?.filter((r: any) => r.result_type === 'character') ?? []" />
+                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
+                    </div>
+                    <div v-else-if="filterParams.page_view === 'full'">
+                        <template v-if="props.results?.data?.length">
+                            <template v-for="item in props.results.data" :key="`${item.result_type}-${item.id}`">
+                                <CharacterView v-if="item.result_type === 'character'" :character="item" :miniature="item.standard_miniatures[0]" />
+                                <div v-else class="mx-auto mb-6 max-w-xs">
+                                    <UpgradeFlipCard
+                                        :front-image="item.front_image.replace('/storage/', '')"
+                                        :back-image="item.back_image?.replace('/storage/', '')"
+                                        :alt-text="item.name"
+                                        :upgrade-slug="item.slug"
+                                        :show-link="true"
+                                    />
+                                    <div class="mt-1 text-center">
+                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
+                                        <div class="text-[10px] text-muted-foreground">{{ item.type ?? item.domain }}</div>
+                                    </div>
+                                </div>
+                            </template>
                         </template>
                         <EmptyState v-else />
-                        <InertiaPagination :paginator="props.characters" />
+                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
+                    </div>
+                    <div v-else>
+                        <div v-if="props.results?.data?.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            <div
+                                v-for="(item, idx) in props.results.data"
+                                :key="`${item.result_type}-${item.id}`"
+                                class="animate-fade-in-up opacity-0"
+                                :style="delays[idx]"
+                            >
+                                <template v-if="item.result_type === 'upgrade'">
+                                    <UpgradeFlipCard
+                                        :front-image="item.front_image.replace('/storage/', '')"
+                                        :back-image="item.back_image?.replace('/storage/', '')"
+                                        :alt-text="item.name"
+                                        :upgrade-slug="item.slug"
+                                        :show-link="true"
+                                    />
+                                    <div class="mt-1 text-center">
+                                        <Link :href="route('upgrades.view', { upgrade: item.slug })" class="text-xs font-medium hover:text-primary hover:underline">{{ item.name }}</Link>
+                                        <div class="text-[10px] text-muted-foreground">{{ item.type ?? item.domain }}</div>
+                                    </div>
+                                </template>
+                                <CharacterCardView v-else :miniature="item.standard_miniatures[0]" :character-slug="item.slug" />
+                            </div>
+                        </div>
+                        <EmptyState v-else />
+                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
                     </div>
                 </div>
             </div>

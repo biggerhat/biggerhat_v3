@@ -32,7 +32,7 @@ const props = withDefaults(
         only?: string[];
     }>(),
     {
-        only: () => ['characters', 'result_count'],
+        only: undefined,
     },
 );
 
@@ -45,7 +45,11 @@ const goToPage = (page: number) => {
     } else {
         url.searchParams.set('page', String(page));
     }
-    router.get(url.pathname + url.search, {}, { only: props.only, preserveState: true, preserveScroll: true, replace: true });
+    const options: Record<string, unknown> = { preserveState: true, preserveScroll: true, replace: true };
+    if (props.only) {
+        options.only = props.only;
+    }
+    router.get(url.pathname + url.search, {}, options);
 };
 </script>
 

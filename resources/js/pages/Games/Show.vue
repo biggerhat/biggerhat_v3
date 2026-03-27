@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, Users } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -245,11 +245,20 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
             body: JSON.stringify(body),
         });
-        if (!res.ok) console.error('Setup failed:', res.status);
-        router.reload({ preserveScroll: true });
+        if (!res.ok) {
+            console.error('Setup failed:', res.status);
+            submitting.value = false;
+            return;
+        }
+        router.visit(window.location.href, {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                submitting.value = false;
+            },
+        });
     } catch (e) {
         console.error('Setup error:', e);
-    } finally {
         submitting.value = false;
     }
 };
@@ -509,6 +518,16 @@ const myStepDone = (step: string) => {
     }
 };
 
+// Solo: detect when we're picking for the opponent to style the card differently
+const isOpponentSetupPhase = computed(() => {
+    if (!isSolo.value) return false;
+    const status = props.game.status;
+    if (status === 'faction_select') return myStepDone('faction') && !opponentStepDone('faction');
+    if (status === 'master_select') return myStepDone('master') && !opponentStepDone('master');
+    if (status === 'crew_select') return myStepDone('crew') && !opponentStepDone('crew');
+    return false;
+});
+
 const abandonDialogOpen = ref(false);
 
 // For observers: scheme is only revealed if scored in the current turn (resets each turn)
@@ -637,30 +656,40 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
     }
 };
 
-const updateHealth = (member: any, delta: number) => {
+const updateHealth = async (member: any, delta: number) => {
     const newHealth = Math.max(0, Math.min(member.max_health, member.current_health + delta));
     if (newHealth === member.current_health) return;
+    const oldHealth = member.current_health;
     // Optimistic update
     member.current_health = newHealth;
     if (newHealth === 0) {
         killMember(member);
         return;
     }
-    fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
         body: JSON.stringify({ current_health: newHealth }),
     });
+    if (!res.ok) {
+        member.current_health = oldHealth;
+        router.reload({ only: ['game'], preserveScroll: true });
+    }
 };
 
-const toggleActivated = (member: any) => {
+const toggleActivated = async (member: any) => {
+    const oldValue = member.is_activated;
     // Optimistic update for instant UI feedback
     member.is_activated = !member.is_activated;
-    fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
         body: JSON.stringify({ is_activated: member.is_activated }),
     });
+    if (!res.ok) {
+        member.is_activated = oldValue;
+        router.reload({ only: ['game'], preserveScroll: true });
+    }
 };
 
 // Kill with replacement detection
@@ -1491,7 +1520,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </template>
 
             <!-- ═══ FACTION SELECT ═══ -->
-            <Card v-if="game.status === 'faction_select'" class="mb-6">
+            <Card v-if="game.status === 'faction_select'" class="mb-6" :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''">
                 <CardContent class="p-4 sm:p-6">
                     <!-- Solo: two-phase faction select -->
                     <template v-if="isSolo">
@@ -1522,7 +1551,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <FactionLogo :faction="myPlayer!.faction!" class-name="size-6" />
                                 <Check class="size-4 text-green-500" />
                             </div>
-                            <h2 class="mb-1 font-semibold">Select Opponent's Faction</h2>
+                            <h2 class="mb-1 font-semibold">Select Opponent's Faction <Badge variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Opponent</Badge></h2>
                             <p class="mb-4 text-xs text-muted-foreground">Choose the faction for your opponent.</p>
                             <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
                                 <button
@@ -1582,9 +1611,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ MASTER SELECT ═══ -->
-            <Card v-if="game.status === 'master_select'" class="mb-6">
+            <Card v-if="game.status === 'master_select'" class="mb-6" :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''">
                 <CardContent class="p-4 sm:p-6">
-                    <h2 class="mb-1 font-semibold">{{ isSolo && myStepDone('master') ? "Select Opponent's Master" : 'Select Your Master' }}</h2>
+                    <h2 class="mb-1 font-semibold">
+                        {{ isSolo && myStepDone('master') ? "Select Opponent's Master" : 'Select Your Master' }}
+                        <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Opponent</Badge>
+                    </h2>
                     <p v-if="myStepDone('master') && !isSolo" class="mb-4 text-xs text-muted-foreground">
                         <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
                     </p>
@@ -1678,9 +1710,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ CREW SELECT ═══ -->
-            <Card v-if="game.status === 'crew_select'" class="mb-6">
+            <Card v-if="game.status === 'crew_select'" class="mb-6" :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''">
                 <CardContent class="p-4 sm:p-6">
-                    <h2 class="mb-1 font-semibold">{{ isSolo && myStepDone('crew') ? "Opponent's Crew" : 'Select Your Crew' }}</h2>
+                    <h2 class="mb-1 font-semibold">
+                        {{ isSolo && myStepDone('crew') ? "Opponent's Crew" : 'Select Your Crew' }}
+                        <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Opponent</Badge>
+                    </h2>
                     <p v-if="myStepDone('crew') && !isSolo" class="mb-4 text-xs text-muted-foreground">
                         <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
                     </p>
@@ -2269,9 +2304,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                 <!-- Solo: Opponent scheme + scoring (in Game column) -->
                                 <template v-if="isSolo && !isObserver">
-                                    <div class="space-y-3 border-t pt-3">
+                                    <div class="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 dark:bg-amber-500/5">
+                                        <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                            <UserRound class="size-3.5" /> Opponent
+                                        </div>
                                         <!-- Opponent scheme -->
-                                        <div class="rounded-md border border-dashed p-2 text-center text-xs">
+                                        <div class="rounded-md border border-dashed border-amber-500/30 p-2 text-center text-xs">
                                             <template v-if="opponent?.current_scheme_id">
                                                 <span class="text-muted-foreground">Opponent Scheme:</span>
                                                 <span class="ml-1 font-medium">{{ findScheme(opponent?.current_scheme_id)?.name }}</span>

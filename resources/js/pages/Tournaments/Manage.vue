@@ -1356,5 +1356,5 @@ const playerFaction = (id: number | null): string | null => {
     </Dialog>
 
     <!-- QR Code -->
-    <QRCodeDialog v-model:open="qrOpen" :url="route('tournaments.view', tournament.uuid)" title="Tournament Link" />
+    <QRCodeDialog v-if="qrOpen" v-model:open="qrOpen" :url="route('tournaments.view', tournament.uuid)" title="Tournament Link" />
 </template>

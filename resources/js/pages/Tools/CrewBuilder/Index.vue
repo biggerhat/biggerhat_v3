@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
@@ -27,6 +29,7 @@ import {
     Check,
     CircleX,
     Copy,
+    Download,
     FileText,
     Globe,
     Loader2,
@@ -41,10 +44,11 @@ import {
     Star,
     Swords,
     Trash2,
+    Upload,
     UserMinus,
     UserPlus,
 } from 'lucide-vue-next';
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const TipTapEditor = defineAsyncComponent(() => import('@/components/blog/TipTapEditor.vue'));
 
@@ -1448,21 +1452,198 @@ const generateShareLink = async () => {
     setTimeout(() => (shareTooltip.value = false), 2000);
 };
 
+// ─── Export: Text ───
+const exportAsText = () => {
+    if (!selectedMasterTitle.value || crew.value.length === 0) return;
+    const leader = crew.value.find((m) => m.hiringCategory === 'leader');
+    const activeUpgrade = leader?.character.crew_upgrades?.find((u: any) => u.id === activeCrewUpgradeId.value);
+    const lines: string[] = [];
+    lines.push(`${selectedMasterTitle.value.display_name} (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
+    if (activeUpgrade) lines.push(`Crew Upgrade: ${activeUpgrade.name}`);
+    lines.push('');
+    const categories = [
+        { key: 'leader', label: 'Leader' },
+        { key: 'totem', label: 'Totem(s)' },
+        { key: 'in-keyword', label: 'Hires' },
+        { key: 'versatile', label: 'Versatile' },
+        { key: 'ook', label: 'Out of Keyword' },
+    ];
+    for (const cat of categories) {
+        const members = crew.value.filter((m) => m.hiringCategory === cat.key);
+        if (!members.length) continue;
+        lines.push(`${cat.label}:`);
+        for (const m of members) lines.push(`  ${m.character.display_name}`);
+    }
+    navigator.clipboard.writeText(lines.join('\n'));
+    shareTooltip.value = true;
+    setTimeout(() => (shareTooltip.value = false), 2000);
+};
+
+// ─── Export: Markdown (Discord-friendly) ───
+const exportAsMarkdown = () => {
+    if (!selectedMasterTitle.value || crew.value.length === 0) return;
+    const leader = crew.value.find((m) => m.hiringCategory === 'leader');
+    const activeUpgrade = leader?.character.crew_upgrades?.find((u: any) => u.id === activeCrewUpgradeId.value);
+    const baseUrl = window.location.origin;
+    const lines: string[] = [];
+    lines.push(`**${selectedMasterTitle.value.display_name}** (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
+    if (activeUpgrade) lines.push(`*Crew Upgrade: ${activeUpgrade.name}*`);
+    lines.push('');
+    const categories = [
+        { key: 'leader', label: 'Leader' },
+        { key: 'totem', label: 'Totem(s)' },
+        { key: 'in-keyword', label: 'Hires' },
+        { key: 'versatile', label: 'Versatile' },
+        { key: 'ook', label: 'Out of Keyword' },
+    ];
+    for (const cat of categories) {
+        const members = crew.value.filter((m) => m.hiringCategory === cat.key);
+        if (!members.length) continue;
+        lines.push(`**${cat.label}:**`);
+        for (const m of members) {
+            const mini = m.miniature ?? m.character.miniatures?.[0];
+            const url = mini?.slug ? `${baseUrl}/miniatures/${mini.slug}` : `${baseUrl}/characters/${m.character.slug}`;
+            lines.push(`- [${m.character.display_name}](${url})`);
+        }
+    }
+    navigator.clipboard.writeText(lines.join('\n'));
+    shareTooltip.value = true;
+    setTimeout(() => (shareTooltip.value = false), 2000);
+};
+
+// ─── Import from text ───
+const importDialogOpen = ref(false);
+const importText = ref('');
+const importError = ref('');
+
+const parseAndImportCrew = () => {
+    importError.value = '';
+    const text = importText.value.trim();
+    if (!text) { importError.value = 'Paste a crew list to import.'; return; }
+
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) { importError.value = 'Not enough lines to parse.'; return; }
+
+    // First line: "Master Name, Title (Faction)"
+    const headerMatch = lines[0].match(/^(.+?)\s*\((.+?)\)\s*$/);
+    if (!headerMatch) { importError.value = 'First line should be: Master Name, Title (Faction)'; return; }
+    const masterTitle = headerMatch[1].trim();
+    const factionName = headerMatch[2].trim();
+
+    // Find the faction (normalize by stripping apostrophes/special chars for comparison)
+    const normalizeName = (s: string) => s.toLowerCase().replace(/['']/g, '').replace(/\s+/g, ' ').trim();
+    const faction = Object.values(props.factions).find((f) => normalizeName(f.name) === normalizeName(factionName));
+    if (!faction) { importError.value = `Unknown faction: ${factionName}`; return; }
+    const factionSlug = faction.slug;
+
+    // Find the master by display_name match
+    const allChars = props.characters;
+    const masterChar = allChars.find((c) => c.display_name?.toLowerCase() === masterTitle.toLowerCase() && c.station === 'master');
+    if (!masterChar) { importError.value = `Master not found: ${masterTitle}`; return; }
+
+    // Get totem name(s) to skip (auto-added with master)
+    const totemId = masterChar.has_totem_id;
+    const totemName = totemId ? allChars.find((c) => c.id === totemId)?.display_name?.toLowerCase() : null;
+
+    // Parse crew members (skip header, labels, master, and totems)
+    const crewNames: string[] = [];
+    let inTotemSection = false;
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.match(/^(Leader|Hires|Versatile|Out of Keyword):?\s*$/i)) { inTotemSection = false; continue; }
+        if (line.match(/^Totem\(?s?\)?:?\s*$/i)) { inTotemSection = true; continue; }
+        if (line.match(/^Crew Upgrade:/i)) continue;
+        // Skip the master itself (leader, added automatically)
+        if (line.toLowerCase() === masterTitle.toLowerCase()) continue;
+        // Skip totems (added automatically with master)
+        if (inTotemSection) continue;
+        if (totemName && line.toLowerCase() === totemName) continue;
+        crewNames.push(line);
+    }
+
+    // Find characters by display_name
+    const crewChars: CharacterData[] = [];
+    const notFound: string[] = [];
+    for (const name of crewNames) {
+        const char = allChars.find((c) => c.display_name?.toLowerCase() === name.toLowerCase());
+        if (char) {
+            crewChars.push(char);
+        } else {
+            notFound.push(name);
+        }
+    }
+
+    // Build the crew — reset state and rebuild
+    resetBuildState();
+    selectedFaction.value = factionSlug;
+    nextTick(() => {
+        selectedMasterName.value = masterChar.name;
+        nextTick(() => {
+            selectedMasterTitle.value = masterChar;
+            nextTick(() => {
+                for (const char of crewChars) {
+                    const poolChar = hiringPool.value.find((c) => c.id === char.id);
+                    if (poolChar) {
+                        addToCrewById(poolChar);
+                    }
+                }
+                crewName.value = `Imported ${masterChar.display_name} Crew`;
+                viewMode.value = 'editor';
+                if (notFound.length) {
+                    importError.value = `Imported! Could not find: ${notFound.join(', ')}`;
+                } else {
+                    importDialogOpen.value = false;
+                    importText.value = '';
+                }
+            });
+        });
+    });
+};
+
 const printCrewPDF = () => {
     if (crew.value.length === 0) return;
 
     const cards: Array<{ card_type: string; id: number }> = [];
+    const addedMiniIds = new Set<number>();
+    const addedUpgradeIds = new Set<number>();
 
+    // Crew member cards + crew upgrades
     for (const member of crew.value) {
         const mini = member.miniature ?? member.character.miniatures?.[0];
-        if (mini) {
+        if (mini && !addedMiniIds.has(mini.id)) {
             cards.push({ card_type: 'miniature', id: mini.id });
+            addedMiniIds.add(mini.id);
         }
 
-        // Insert crew upgrades right after the master
         if (member.hiringCategory === 'leader') {
             for (const upgrade of member.character.crew_upgrades ?? []) {
+                if (!addedUpgradeIds.has(upgrade.id)) {
+                    cards.push({ card_type: 'upgrade', id: upgrade.id });
+                    addedUpgradeIds.add(upgrade.id);
+                }
+            }
+        }
+    }
+
+    // Reference character cards (summons, replaces into, etc.)
+    if (references.value?.characters?.length) {
+        for (const char of references.value.characters) {
+            const refMini = char.miniatures?.[0];
+            if (refMini && !addedMiniIds.has(refMini.id)) {
+                // Reference miniatures use raw paths (no /storage/ prefix), need the DB miniature ID
+                // Use the character's first miniature ID from the references data
+                cards.push({ card_type: 'miniature', id: refMini.id });
+                addedMiniIds.add(refMini.id);
+            }
+        }
+    }
+
+    // Reference upgrade cards (character upgrades from references)
+    if (references.value?.upgrades?.length) {
+        for (const upgrade of references.value.upgrades) {
+            if (!addedUpgradeIds.has(upgrade.id)) {
                 cards.push({ card_type: 'upgrade', id: upgrade.id });
+                addedUpgradeIds.add(upgrade.id);
             }
         }
     }
@@ -1513,7 +1694,9 @@ onUnmounted(() => {
 
         <PageBanner v-if="viewMode === 'builds' || editorStep !== 'hiring'" title="Crew Builder">
             <template #subtitle>
-                <div class="px-2 text-sm text-muted-foreground">Build your crew for Malifaux encounters.</div>
+                <div class="flex items-center gap-3 px-2">
+                    <span class="text-sm text-muted-foreground">Build your crew for Malifaux encounters.</span>
+                </div>
             </template>
         </PageBanner>
 
@@ -1524,10 +1707,16 @@ onUnmounted(() => {
             <div v-if="viewMode === 'builds'">
                 <div class="mb-4 flex items-center justify-between">
                     <h2 class="text-lg font-semibold">My Crews</h2>
-                    <Button size="sm" class="gap-1.5" @click="startNewBuild">
-                        <Plus class="size-4" />
-                        New Crew
-                    </Button>
+                    <div class="flex items-center gap-2">
+                        <Button variant="outline" size="sm" class="gap-1.5" @click="importDialogOpen = true">
+                            <Upload class="size-3.5" />
+                            Import
+                        </Button>
+                        <Button size="sm" class="gap-1.5" @click="startNewBuild">
+                            <Plus class="size-4" />
+                            New Crew
+                        </Button>
+                    </div>
                 </div>
 
                 <Tabs v-model="buildsTab" default-value="active">
@@ -1737,6 +1926,12 @@ onUnmounted(() => {
                                 <img :src="faction.logo" :alt="faction.name" class="size-16" />
                                 <span class="text-sm font-medium">{{ faction.name }}</span>
                             </button>
+                        </div>
+                        <div class="mt-6 flex justify-center">
+                            <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="importDialogOpen = true">
+                                <Upload class="size-3.5" />
+                                Import Crew from Text
+                            </Button>
                         </div>
                     </div>
 
@@ -1948,10 +2143,25 @@ onUnmounted(() => {
                                     <FileText class="size-3.5" />
                                     {{ showDescriptionEditor ? 'Hide' : '' }} Notes
                                 </Button>
-                                <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" :disabled="crew.length === 0" @click="printCrewPDF">
-                                    <Printer class="size-3.5" />
-                                    PDF
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger as-child>
+                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs">
+                                            <Download class="size-3.5" />
+                                            Export
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem :disabled="crew.length === 0" class="cursor-pointer text-xs" @click="exportAsText">
+                                            <Copy class="mr-2 size-3.5" /> Copy as Text
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem :disabled="crew.length === 0" class="cursor-pointer text-xs" @click="exportAsMarkdown">
+                                            <FileText class="mr-2 size-3.5" /> Copy as Markdown
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem :disabled="crew.length === 0" class="cursor-pointer text-xs" @click="printCrewPDF">
+                                            <Printer class="mr-2 size-3.5" /> Export PDF (with References)
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
 
                                 <div class="ml-auto flex items-center gap-2">
                                     <span v-if="saveError" class="text-xs text-destructive">{{ saveError }}</span>
@@ -3089,6 +3299,32 @@ onUnmounted(() => {
                 <Button variant="destructive" @click="confirmDeleteBuild" :disabled="deleting">
                     {{ deleting ? 'Deleting...' : 'Delete' }}
                 </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Import from Text Dialog -->
+    <Dialog v-model:open="importDialogOpen">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Import Crew from Text</DialogTitle>
+                <DialogDescription>Paste a crew list exported from BiggerHat or in the standard format.</DialogDescription>
+            </DialogHeader>
+            <Textarea v-model="importText" rows="12" placeholder="Lucas McCabe, Tomb Delver (Explorer's Society)
+Leader:
+  Lucas McCabe, Tomb Delver
+Totem(s):
+  Cryptologist
+Hires:
+  Rough Rider
+  Rough Rider
+  ..." class="font-mono text-xs" />
+            <div v-if="importError" class="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+                {{ importError }}
+            </div>
+            <DialogFooter class="gap-2 sm:gap-0">
+                <Button variant="outline" @click="importDialogOpen = false; importText = ''; importError = '';">Cancel</Button>
+                <Button @click="parseAndImportCrew">Import Crew</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

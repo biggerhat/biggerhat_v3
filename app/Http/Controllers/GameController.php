@@ -170,7 +170,11 @@ class GameController extends Controller
             $eagerLoads[] = 'players.crewBuild';
             $eagerLoads[] = 'players.master.crewUpgrades';
         }
-        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+        if ($game->status === GameStatusEnum::InProgress) {
+            // During gameplay, only load scoring data — exclude large crew_snapshot JSON
+            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,points_scored';
+        } elseif (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
+            // Summary view needs full turn data including snapshots
             $eagerLoads[] = 'players.turns';
         }
         if (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
@@ -184,7 +188,16 @@ class GameController extends Controller
         $game->strategy?->append('image_url');
 
         $schemePoolOrder = $game->scheme_pool ?? [];
-        $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
+        // Preload all pool schemes and their next-chain schemes in one query
+        $poolSchemes = Scheme::whereIn('id', $schemePoolOrder)->get();
+        $nextSchemeIds = $poolSchemes->flatMap(fn (Scheme $s) => array_filter([
+            $s->next_scheme_one_id, $s->next_scheme_two_id, $s->next_scheme_three_id,
+        ]))->unique()->diff($poolSchemes->pluck('id'));
+        $schemeCache = $nextSchemeIds->isNotEmpty()
+            ? $poolSchemes->merge(Scheme::whereIn('id', $nextSchemeIds)->get())->keyBy('id')
+            : $poolSchemes->keyBy('id');
+
+        $schemes = $poolSchemes
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
             ->map(fn (Scheme $s) => self::formatScheme($s));
@@ -278,7 +291,9 @@ class GameController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
-            $allCharIds = $builds->flatMap(fn (CrewBuild $b) => $b->crew_data ?? [])->unique();
+            // Include totem IDs alongside crew members to avoid N+1 queries
+            $totemIds = $builds->map(fn (CrewBuild $b) => $b->master?->has_totem_id)->filter()->unique(); // @phpstan-ignore nullsafe.neverNull
+            $allCharIds = $builds->flatMap(fn (CrewBuild $b) => $b->crew_data ?? [])->unique()->merge($totemIds)->unique();
             $characters = Character::with('keywords', 'characteristics')
                 ->whereIn('id', $allCharIds)->get()->keyBy('id');
 
@@ -387,9 +402,6 @@ class GameController extends Controller
             'tokens' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
                 : [],
-            'markers' => fn () => $game->status === GameStatusEnum::InProgress
-                ? \App\Models\Marker::orderBy('name')->get(['id', 'name', 'slug'])
-                : [],
             'character_upgrades' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Upgrade::forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
                 : [],
@@ -409,7 +421,7 @@ class GameController extends Controller
                     'scoring' => $s->scoring,
                 ])->toArray();
             },
-            'opponent_scheme_intel' => function () use ($game) {
+            'opponent_scheme_intel' => function () use ($game, $schemeCache) {
                 if ($game->status !== GameStatusEnum::InProgress) {
                     return null;
                 }
@@ -429,23 +441,20 @@ class GameController extends Controller
                 $lastTurn = $opponent->turns->sortByDesc('turn_number')->first();
 
                 if (! $lastTurn || ! $lastTurn->scheme_id) {
-                    // Turn 1 — opponent could have any pool scheme
-                    $poolSchemes = Scheme::whereIn('id', $game->scheme_pool ?? [])->get();
-
                     return [
                         'last_revealed' => null,
-                        'possible_schemes' => $poolSchemes->map(fn (Scheme $s) => self::formatScheme($s))->toArray(),
+                        'possible_schemes' => $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
+                            ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray(),
                     ];
                 }
 
-                $lastScheme = Scheme::find($lastTurn->scheme_id);
+                $lastScheme = $schemeCache->get($lastTurn->scheme_id);
                 $lastRevealed = $lastScheme ? [
                     'id' => $lastScheme->id, 'name' => $lastScheme->name,
                     'turn_number' => $lastTurn->turn_number,
                     'scored' => $lastTurn->scheme_points > 0,
                 ] : null;
 
-                // Possible schemes: kept scheme + next chain from revealed scheme
                 $possible = [];
                 if ($lastScheme) {
                     $possible[] = self::formatScheme($lastScheme);
@@ -455,10 +464,10 @@ class GameController extends Controller
                         $lastScheme->next_scheme_two_id,
                         $lastScheme->next_scheme_three_id,
                     ]);
-                    if ($nextIds) {
-                        $nextSchemes = Scheme::whereIn('id', $nextIds)->get();
-                        foreach ($nextSchemes as $s) {
-                            $possible[] = self::formatScheme($s);
+                    foreach ($nextIds as $id) {
+                        $next = $schemeCache->get($id);
+                        if ($next) {
+                            $possible[] = self::formatScheme($next);
                         }
                     }
                 }
@@ -468,13 +477,13 @@ class GameController extends Controller
                     'possible_schemes' => $possible,
                 ];
             },
-            'next_schemes' => function () use ($game) {
+            'next_schemes' => function () use ($game, $schemeCache) {
                 $userId = Auth::id();
                 $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId); // @phpstan-ignore property.notFound
 
-                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot) : []; // @phpstan-ignore property.notFound
+                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot, $schemeCache) : []; // @phpstan-ignore property.notFound
             },
-            'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2) : [],
+            'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2, $schemeCache) : [],
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => false,
         ]);
@@ -687,7 +696,6 @@ class GameController extends Controller
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
-            'markers' => fn () => [],
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
@@ -742,7 +750,6 @@ class GameController extends Controller
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
-            'markers' => fn () => [],
             'starting_crews' => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
@@ -759,7 +766,10 @@ class GameController extends Controller
         return response()->json(['success' => true, 'is_observable' => $game->is_observable]);
     }
 
-    private function getNextSchemesForPlayer(Game $game, int $slot): array
+    /**
+     * @param  \Illuminate\Support\Collection<int, Scheme>  $schemeCache  Preloaded schemes keyed by ID
+     */
+    private function getNextSchemesForPlayer(Game $game, int $slot, $schemeCache = null): array
     {
         if ($game->status !== GameStatusEnum::InProgress) {
             return [];
@@ -769,7 +779,7 @@ class GameController extends Controller
         if (! $player || ! $player->current_scheme_id) {
             return [];
         }
-        $currentScheme = Scheme::find($player->current_scheme_id);
+        $currentScheme = $schemeCache?->get($player->current_scheme_id) ?? Scheme::find($player->current_scheme_id);
         if (! $currentScheme) {
             return [];
         }
@@ -780,6 +790,10 @@ class GameController extends Controller
         ]);
         if (empty($nextIds)) {
             return [];
+        }
+
+        if ($schemeCache) {
+            return collect($nextIds)->map(fn ($id) => $schemeCache->get($id))->filter()->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
         }
 
         return Scheme::whereIn('id', $nextIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();

@@ -94,4 +94,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(BlogPost::class);
     }
+
+    /** @return HasMany<CustomCharacter, $this> */
+    public function customCharacters(): HasMany
+    {
+        return $this->hasMany(CustomCharacter::class);
+    }
 }

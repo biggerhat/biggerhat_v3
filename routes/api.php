@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\BlogEntitySearchController;
+use App\Http\Controllers\API\CardCreatorSearchController;
 use App\Http\Controllers\API\CharacterAPIController;
 use App\Http\Controllers\API\KeywordAPIController;
 use App\Http\Controllers\API\MarkerAPIController;
@@ -21,6 +22,11 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/schemes', [SchemeAPIController::class, 'view']);
     Route::get('/strategies', [StrategyAPIController::class, 'view']);
     Route::get('/keywords', [KeywordAPIController::class, 'view'])->name('keywords.view');
+
+    Route::get('/card-creator/actions', [CardCreatorSearchController::class, 'actions'])->name('card-creator.actions');
+    Route::get('/card-creator/abilities', [CardCreatorSearchController::class, 'abilities'])->name('card-creator.abilities');
+    Route::get('/card-creator/triggers', [CardCreatorSearchController::class, 'triggers'])->name('card-creator.triggers');
+    Route::get('/card-creator/keywords', [CardCreatorSearchController::class, 'keywords'])->name('card-creator.keywords');
 
     Route::get('/blog/entity-search', [BlogEntitySearchController::class, 'search'])->name('blog.entity-search');
     Route::get('/blog/entity/{type}/{slug}', [BlogEntitySearchController::class, 'show'])->name('blog.entity-show');

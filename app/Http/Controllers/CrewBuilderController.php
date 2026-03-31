@@ -6,6 +6,7 @@ use App\Enums\FactionEnum;
 use App\Http\Resources\CharacterCrewBuilderResource;
 use App\Models\Character;
 use App\Models\CrewBuild;
+use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +32,7 @@ class CrewBuilderController extends Controller
             'master_id' => $b->master_id,
             'encounter_size' => $b->encounter_size,
             'crew_data' => $b->crew_data,
+            'custom_crew_data' => $b->custom_crew_data,
             'miniature_selections' => $b->miniature_selections,
             'crew_upgrade_id' => $b->crew_upgrade_id,
             'is_archived' => $b->is_archived,
@@ -83,6 +85,31 @@ class CrewBuilderController extends Controller
             'characters' => fn () => CharacterCrewBuilderResource::collection($characters)->toArray($request),
             'savedBuilds' => fn () => Auth::check()
                 ? $this->serializeBuilds(CrewBuild::where('user_id', Auth::id())->orderBy('updated_at', 'desc')->get())
+                : [],
+            'customCharacters' => fn () => Auth::check()
+                ? CustomCharacter::where('user_id', Auth::id())
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (CustomCharacter $c) => [
+                        'id' => $c->id,
+                        'display_name' => $c->display_name,
+                        'name' => $c->name,
+                        'title' => $c->title,
+                        'slug' => $c->slug,
+                        'faction' => $c->getRawOriginal('faction'),
+                        'station' => $c->station->value,
+                        'cost' => $c->cost,
+                        'health' => $c->health,
+                        'speed' => $c->speed,
+                        'defense' => $c->defense,
+                        'willpower' => $c->willpower,
+                        'count' => $c->count ?? 1,
+                        'keywords' => $c->keywords ?? [],
+                        'characteristics' => $c->characteristics ?? [],
+                        'front_image' => $c->front_image,
+                        'back_image' => $c->back_image,
+                        'is_custom' => true,
+                    ])->toArray()
                 : [],
         ];
     }
@@ -161,6 +188,7 @@ class CrewBuilderController extends Controller
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
             'crew_data' => 'present|array',
+            'custom_crew_data' => 'nullable|array',
             'miniature_selections' => 'nullable|array',
             'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'copied_from_id' => 'nullable|exists:crew_builds,id',
@@ -194,6 +222,7 @@ class CrewBuilderController extends Controller
             'master_id' => 'sometimes|exists:characters,id',
             'encounter_size' => 'sometimes|integer|min:1',
             'crew_data' => 'sometimes|array',
+            'custom_crew_data' => 'nullable|array',
             'miniature_selections' => 'nullable|array',
             'crew_upgrade_id' => 'nullable|exists:upgrades,id',
             'is_archived' => 'sometimes|boolean',
@@ -374,6 +403,42 @@ class CrewBuilderController extends Controller
             ];
         }
 
+        // Add custom crew members
+        foreach ($crewBuild->custom_crew_data ?? [] as $customEntry) {
+            $customKeywords = collect($customEntry['keywords'] ?? [])
+                ->pluck('name')
+                ->map(fn ($n) => \Illuminate\Support\Str::slug($n))
+                ->toArray();
+
+            $sharesKeyword = ! empty(array_intersect($customKeywords, $leaderKeywordSlugs));
+            $isVersatile = in_array('versatile', array_map('strtolower', $customEntry['characteristics'] ?? []));
+
+            if ($sharesKeyword) {
+                $category = 'in-keyword';
+            } elseif ($isVersatile) {
+                $category = 'versatile';
+            } else {
+                $category = 'ook';
+            }
+
+            $baseCost = $customEntry['cost'] ?? 0;
+            $effectiveCost = $category === 'ook' ? ($baseCost + 1) : $baseCost;
+            $totalSpent += $effectiveCost;
+
+            if ($category === 'ook') {
+                $ookCount++;
+            }
+
+            $members[] = [
+                'display_name' => $customEntry['display_name'] ?? 'Custom',
+                'cost' => $baseCost,
+                'effective_cost' => $effectiveCost,
+                'category' => $category,
+                'faction' => $customEntry['faction'] ?? $crewBuild->getRawOriginal('faction'),
+                'is_custom' => true,
+            ];
+        }
+
         $remaining = $crewBuild->encounter_size - $totalSpent;
         $soulstonePool = $remaining > 6 ? 6 : max(0, $remaining);
 
@@ -419,6 +484,7 @@ class CrewBuilderController extends Controller
                 'master_id' => $build->master_id,
                 'encounter_size' => $build->encounter_size,
                 'crew_data' => $build->crew_data,
+                'custom_crew_data' => $build->custom_crew_data,
                 'crew_upgrade_id' => $build->crew_upgrade_id,
                 'is_public' => $build->is_public,
                 'user_id' => $build->user_id,

@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperTournament
+ */
 class Tournament extends Model
 {
     protected $guarded = ['id'];

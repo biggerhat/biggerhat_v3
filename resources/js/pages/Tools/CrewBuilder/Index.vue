@@ -124,6 +124,29 @@ interface CrewMember {
     isTotem: boolean;
     effectiveCost: number;
     hiringCategory: 'leader' | 'totem' | 'in-keyword' | 'versatile' | 'ook' | 'fixed-crew' | 'required';
+    isCustom?: boolean;
+    customCharacterId?: number;
+}
+
+interface CustomCharacterData {
+    id: number;
+    display_name: string;
+    name: string;
+    title: string | null;
+    slug: string;
+    faction: string;
+    station: string;
+    cost: number | null;
+    health: number;
+    speed: number;
+    defense: number;
+    willpower: number;
+    count: number;
+    keywords: { id: number | null; name: string }[];
+    characteristics: string[];
+    front_image: string | null;
+    back_image: string | null;
+    is_custom: true;
 }
 
 interface SavedBuild {
@@ -135,6 +158,7 @@ interface SavedBuild {
     master_id: number;
     encounter_size: number;
     crew_data: number[];
+    custom_crew_data: any[] | null;
     miniature_selections: Record<string, number> | null;
     crew_upgrade_id: number | null;
     is_archived: boolean;
@@ -149,6 +173,7 @@ const props = defineProps<{
     factions: Record<string, Faction>;
     keywords: Keyword[];
     savedBuilds: SavedBuild[];
+    customCharacters: CustomCharacterData[];
 }>();
 
 const page = usePage<SharedData>();
@@ -730,6 +755,53 @@ const addToCrewWithMiniature = (character: CharacterData, miniature: MiniatureDa
     triggerAutosave();
 };
 
+const addCustomToCrew = (custom: CustomCharacterData) => {
+    const keywordSlugs = (custom.keywords ?? []).map((k) => k.name.toLowerCase().replace(/\s+/g, '-'));
+    const leaderKws = leaderKeywordSlugs.value;
+    const shares = keywordSlugs.some((s: string) => leaderKws.has(s));
+    const versatile = (custom.characteristics ?? []).some((c) => c.toLowerCase() === 'versatile');
+    const category = shares ? 'in-keyword' : versatile ? 'versatile' : 'ook';
+    const baseCost = custom.cost ?? 0;
+    const effectiveCost = category === 'ook' ? baseCost + 1 : baseCost;
+
+    // Adapt CustomCharacterData to CharacterData shape for the CrewMember
+    const asCharData: CharacterData = {
+        id: -custom.id, // Negative ID to distinguish from official
+        name: custom.name,
+        title: custom.title,
+        display_name: custom.display_name,
+        slug: custom.slug,
+        faction: custom.faction,
+        second_faction: null,
+        station: custom.station,
+        cost: baseCost,
+        health: custom.health,
+        speed: custom.speed,
+        defense: custom.defense,
+        willpower: custom.willpower,
+        count: custom.count,
+        has_totem_id: null,
+        keywords: custom.keywords.map((k) => ({ id: k.id ?? 0, name: k.name, slug: k.name.toLowerCase().replace(/\s+/g, '-') })),
+        characteristics: custom.characteristics,
+        crew_upgrades: [],
+        totem_slug: null,
+        miniatures: [],
+        ...(custom.front_image ? { front_image: custom.front_image } : {}),
+        ...(custom.back_image ? { back_image: custom.back_image } : {}),
+    } as any;
+
+    crew.value.push({
+        character: asCharData,
+        miniature: null,
+        isTotem: false,
+        effectiveCost,
+        hiringCategory: category as any,
+        isCustom: true,
+        customCharacterId: custom.id,
+    });
+    triggerAutosave();
+};
+
 const removeFromCrew = (index: number) => {
     const cat = crew.value[index].hiringCategory;
     if (cat === 'leader' || cat === 'totem' || cat === 'fixed-crew' || cat === 'required') return;
@@ -1138,7 +1210,24 @@ const categoryColorTheme = (cat: string): string =>
 // ═══════════════════════════════════════
 
 const buildCrewData = (): number[] =>
-    crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem').map((m) => m.character.id);
+    crew.value.filter((m) => m.hiringCategory !== 'leader' && m.hiringCategory !== 'totem' && !m.isCustom).map((m) => m.character.id);
+
+const buildCustomCrewData = (): any[] | null => {
+    const customs = crew.value.filter((m) => m.isCustom);
+    if (customs.length === 0) return null;
+    return customs.map((m) => ({
+        custom_character_id: m.customCharacterId,
+        display_name: m.character.display_name,
+        cost: m.character.cost,
+        health: m.character.health,
+        faction: m.character.faction,
+        station: m.character.station,
+        keywords: m.character.keywords,
+        characteristics: m.character.characteristics,
+        front_image: (m.character as any).front_image ?? null,
+        back_image: (m.character as any).back_image ?? null,
+    }));
+};
 
 const buildMiniatureSelections = (): Record<string, number> | null => {
     const selections: Record<string, number> = {};
@@ -1157,6 +1246,7 @@ const buildPayload = () => ({
     master_id: selectedMasterTitle.value?.id,
     encounter_size: encounterSize.value,
     crew_data: buildCrewData(),
+    custom_crew_data: buildCustomCrewData(),
     miniature_selections: buildMiniatureSelections(),
     crew_upgrade_id: activeCrewUpgradeId.value,
     custom_references: Object.values(customReferences.value).some((arr) => arr.length > 0) ? customReferences.value : null,
@@ -1318,6 +1408,16 @@ const loadBuild = (build: SavedBuild) => {
     encounterSize.value = build.encounter_size;
     customReferences.value = build.custom_references ?? { characters: [], upgrades: [], markers: [], tokens: [] };
     rebuildCrew(build.faction, build.master_id, build.crew_data, build.crew_upgrade_id);
+
+    // Restore custom crew members from saved build
+    if (build.custom_crew_data?.length) {
+        for (const entry of build.custom_crew_data) {
+            const match = props.customCharacters.find((c) => c.id === entry.custom_character_id);
+            if (match) {
+                addCustomToCrew(match);
+            }
+        }
+    }
 
     // Restore miniature selections from saved build
     if (build.miniature_selections) {
@@ -2424,6 +2524,26 @@ onUnmounted(() => {
                                                 </div>
                                             </div>
                                         </div>
+                                    <!-- Custom Characters Section (Mobile) -->
+                                    <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
+                                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Your Custom Characters</div>
+                                        <div class="space-y-1">
+                                            <div
+                                                v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
+                                                :key="'cc-mob-' + cc.id"
+                                                class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
+                                            >
+                                                <div class="flex min-w-0 items-center gap-2">
+                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                    <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
+                                                    <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                </div>
+                                                <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                    <UserPlus class="size-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -2544,6 +2664,7 @@ onUnmounted(() => {
                                                             <span class="truncate">{{
                                                                 member.miniature?.display_name || member.character.display_name
                                                             }}</span>
+                                                            <Badge v-if="member.isCustom" class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
                                                         </div>
                                                         <div class="flex items-center gap-1.5 text-xs text-white/70">
                                                             <span
@@ -2774,6 +2895,26 @@ onUnmounted(() => {
                                             </div>
                                         </div>
                                     </div>
+                                <!-- Custom Characters Section (Desktop) -->
+                                <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
+                                    <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Your Custom Characters</div>
+                                    <div class="space-y-1">
+                                        <div
+                                            v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
+                                            :key="'cc-desk-' + cc.id"
+                                            class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
+                                        >
+                                            <div class="flex min-w-0 items-center gap-2">
+                                                <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
+                                                <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                            </div>
+                                            <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                <UserPlus class="size-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
                                 </CardContent>
                             </Card>
                         </div>
@@ -2975,6 +3116,7 @@ onUnmounted(() => {
                                                         <span class="truncate">{{
                                                             member.miniature?.display_name || member.character.display_name
                                                         }}</span>
+                                                        <Badge v-if="member.isCustom" class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
                                                     </div>
                                                     <div class="flex items-center gap-1.5 text-xs text-white/70">
                                                         <span

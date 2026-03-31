@@ -4,6 +4,7 @@ use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CrewBuilderController;
+use App\Http\Controllers\CustomCharacterController;
 use App\Http\Controllers\Database\AbilityController;
 use App\Http\Controllers\Database\ActionController;
 use App\Http\Controllers\Database\BlogController;
@@ -204,6 +205,19 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
+    Route::prefix('card-creator')->name('card_creator.')->group(function () {
+        Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
+
+        Route::middleware('auth')->group(function () {
+            Route::get('/', [CustomCharacterController::class, 'index'])->name('index');
+            Route::get('/create', [CustomCharacterController::class, 'create'])->name('create');
+            Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
+            Route::get('/{customCharacter}/edit', [CustomCharacterController::class, 'edit'])->name('edit');
+            Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
+            Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
+            Route::post('/{customCharacter}/export', [CustomCharacterController::class, 'exportImage'])->name('export');
+        });
+    });
     Route::prefix('crew-builder')->name('crew_builder.')->group(function () {
         Route::get('/', [CrewBuilderController::class, 'browse'])->name('index');
         Route::get('/editor', [CrewBuilderController::class, 'editor'])->name('editor');

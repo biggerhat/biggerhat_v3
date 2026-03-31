@@ -22,7 +22,7 @@ class TournamentStandingsService
         $players = $tournament->players->where('is_disqualified', false);
 
         /** @var \Illuminate\Support\Collection<int, TournamentGame> $allGames */
-        $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games); // @phpstan-ignore property.notFound
+        $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games);
 
         $standings = [];
         foreach ($players as $player) {

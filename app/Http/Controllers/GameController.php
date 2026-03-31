@@ -431,7 +431,7 @@ class GameController extends Controller
                 /** @var GamePlayer|null $opponent */
                 $opponent = $game->is_solo
                     ? $game->players->firstWhere('slot', 2)
-                    : $game->players->first(fn ($p) => $p->user_id !== $userId); // @phpstan-ignore property.notFound
+                    : $game->players->first(fn ($p) => $p->user_id !== $userId);
 
                 if (! $opponent) {
                     return null;
@@ -480,9 +480,9 @@ class GameController extends Controller
             },
             'next_schemes' => function () use ($game, $schemeCache) {
                 $userId = Auth::id();
-                $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId); // @phpstan-ignore property.notFound
+                $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId);
 
-                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot, $schemeCache) : []; // @phpstan-ignore property.notFound
+                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot, $schemeCache) : [];
             },
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2, $schemeCache) : [],
             'starting_crews' => fn () => $this->getStartingCrews($game),
@@ -824,7 +824,7 @@ class GameController extends Controller
             $startingCrews[$player->slot] = $player->crewMembers
                 ->where('is_summoned', false)
                 ->sortBy('sort_order')
-                ->map(fn (GameCrewMember $m) => [ // @phpstan-ignore argument.type
+                ->map(fn (GameCrewMember $m) => [
                     'display_name' => $m->display_name,
                     'faction' => $m->getRawOriginal('faction'),
                     'cost' => $m->cost,

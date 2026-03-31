@@ -6,6 +6,9 @@ use App\Enums\TournamentGameResultEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @mixin IdeHelperTournamentGame
+ */
 class TournamentGame extends Model
 {
     protected $guarded = ['id'];

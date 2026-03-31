@@ -318,6 +318,8 @@ namespace App\Models{
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
+ * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Blueprint> $blueprints
  * @property-read int|null $blueprints_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
@@ -340,8 +342,18 @@ namespace App\Models{
  * @property-read int|null $packages_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $promotionalMiniatures
  * @property-read int|null $promotional_miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Character> $replacedBy
+ * @property-read int|null $replaced_by_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Character> $replacesInto
+ * @property-read int|null $replaces_into_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Character> $replacesOnDeath
+ * @property-read int|null $replaces_on_death_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $standardMiniatures
  * @property-read int|null $standard_miniatures_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Character> $summonedBy
+ * @property-read int|null $summoned_by_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Character> $summons
+ * @property-read int|null $summons_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Token> $tokens
  * @property-read int|null $tokens_count
  * @property-read Character|null $totem
@@ -432,7 +444,11 @@ namespace App\Models{
  * @property int $master_id
  * @property int $encounter_size
  * @property array<array-key, mixed> $crew_data
+ * @property array<array-key, mixed>|null $custom_crew_data
+ * @property array<array-key, mixed>|null $miniature_selections
  * @property int|null $crew_upgrade_id
+ * @property array<array-key, mixed>|null $references
+ * @property array<array-key, mixed>|null $custom_references
  * @property bool $is_archived
  * @property bool $is_public
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -449,6 +465,8 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewData($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCrewUpgradeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCustomCrewData($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereCustomReferences($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereEncounterSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereFaction($value)
@@ -456,7 +474,9 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereIsArchived($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereMiniatureSelections($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereReferences($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereShareCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewBuild whereUserId($value)
@@ -470,6 +490,353 @@ namespace App\Models{
 /**
  * 
  *
+ * @property int $id
+ * @property int $user_id
+ * @property string $share_code
+ * @property bool $is_public
+ * @property string $name
+ * @property string|null $title
+ * @property string $display_name
+ * @property string $slug
+ * @property \App\Enums\FactionEnum $faction
+ * @property \App\Enums\FactionEnum|null $second_faction
+ * @property \App\Enums\CharacterStationEnum $station
+ * @property int|null $cost
+ * @property int $health
+ * @property int|null $size
+ * @property \App\Enums\BaseSizeEnum $base
+ * @property int $defense
+ * @property \App\Enums\SuitEnum|null $defense_suit
+ * @property int $willpower
+ * @property \App\Enums\SuitEnum|null $willpower_suit
+ * @property int $speed
+ * @property int $count
+ * @property int|null $summon_target_number
+ * @property bool $generates_stone
+ * @property bool $is_unhirable
+ * @property string|null $character_image
+ * @property string|null $front_image
+ * @property string|null $back_image
+ * @property array<array-key, mixed>|null $actions
+ * @property array<array-key, mixed>|null $abilities
+ * @property array<array-key, mixed>|null $keywords
+ * @property array<array-key, mixed>|null $characteristics
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read string $faction_color
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereAbilities($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereActions($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereBackImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereBase($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCharacterImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCharacteristics($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDefense($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDefenseSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDisplayName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereFrontImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereGeneratesStone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereHealth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsUnhirable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereKeywords($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSecondFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereShareCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSpeed($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereStation($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSummonTargetNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereWillpower($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereWillpowerSuit($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCustomCharacter {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property GameStatusEnum $status
+ * @property DeploymentEnum|null $deployment
+ * @property PoolSeasonEnum $season
+ * @property int $id
+ * @property string $uuid
+ * @property string|null $name
+ * @property int $encounter_size
+ * @property int|null $strategy_id
+ * @property array<array-key, mixed>|null $scheme_pool
+ * @property int $current_turn
+ * @property int $max_turns
+ * @property int $creator_id
+ * @property \Illuminate\Support\Carbon|null $started_at
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property int|null $winner_id
+ * @property int|null $winner_slot
+ * @property bool $is_tie
+ * @property bool $is_solo
+ * @property bool $is_observable
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User $creator
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameCrewMember> $crewMembers
+ * @property-read int|null $crew_members_count
+ * @property-read string $season_label
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameLog> $logs
+ * @property-read int|null $logs_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GamePlayer> $players
+ * @property-read int|null $players_count
+ * @property-read \App\Models\Strategy|null $strategy
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameTurn> $turns
+ * @property-read int|null $turns_count
+ * @property-read \App\Models\User|null $winner
+ * @method static \Database\Factories\GameFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereCompletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereCreatorId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereCurrentTurn($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereDeployment($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereEncounterSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsObservable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsSolo($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsTie($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereMaxTurns($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereSchemePool($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereSeason($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereStartedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereStrategyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereUuid($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereWinnerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereWinnerSlot($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGame {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $game_id
+ * @property int $game_player_id
+ * @property int|null $character_id
+ * @property int|null $custom_character_id
+ * @property string $display_name
+ * @property string|null $faction
+ * @property int|null $current_health
+ * @property int|null $max_health
+ * @property bool $is_killed
+ * @property bool $is_summoned
+ * @property bool $is_activated
+ * @property bool $is_custom
+ * @property int|null $cost
+ * @property \App\Enums\CharacterStationEnum|null $station
+ * @property string|null $hiring_category
+ * @property string|null $front_image
+ * @property string|null $back_image
+ * @property array<array-key, mixed>|null $attached_upgrades
+ * @property array<array-key, mixed>|null $attached_tokens
+ * @property array<array-key, mixed>|null $attached_markers
+ * @property string|null $notes
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Character|null $character
+ * @property-read \App\Models\CustomCharacter|null $customCharacter
+ * @property-read \App\Models\Game $game
+ * @property-read \App\Models\GamePlayer $gamePlayer
+ * @method static \Database\Factories\GameCrewMemberFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereAttachedMarkers($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereAttachedTokens($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereAttachedUpgrades($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereBackImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCurrentHealth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCustomCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereDisplayName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereFrontImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereGamePlayerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereHiringCategory($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereIsActivated($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereIsCustom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereIsKilled($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereIsSummoned($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereMaxHealth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereStation($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGameCrewMember {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $game_id
+ * @property int|null $game_player_id
+ * @property string $action
+ * @property array<array-key, mixed>|null $payload
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property-read \App\Models\Game $game
+ * @property-read \App\Models\GamePlayer|null $gamePlayer
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog whereAction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog whereGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog whereGamePlayerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameLog wherePayload($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGameLog {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property User $user
+ * @property int $id
+ * @property int $game_id
+ * @property int|null $user_id
+ * @property int $slot
+ * @property string|null $opponent_name
+ * @property \App\Enums\FactionEnum|null $faction
+ * @property string|null $master_name
+ * @property int|null $master_id
+ * @property int|null $crew_build_id
+ * @property bool $crew_skipped
+ * @property \App\Enums\GameRoleEnum|null $role
+ * @property int|null $current_scheme_id
+ * @property int $total_points
+ * @property int $soulstone_pool
+ * @property bool $is_turn_complete
+ * @property bool $is_game_complete
+ * @property \Illuminate\Support\Carbon|null $hidden_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\CrewBuild|null $crewBuild
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameCrewMember> $crewMembers
+ * @property-read int|null $crew_members_count
+ * @property-read \App\Models\Scheme|null $currentScheme
+ * @property-read \App\Models\Game $game
+ * @property-read \App\Models\Character|null $master
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameTurn> $turns
+ * @property-read int|null $turns_count
+ * @method static \Database\Factories\GamePlayerFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCrewBuildId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCrewSkipped($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCurrentSchemeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereHiddenAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereIsGameComplete($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereIsTurnComplete($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereMasterName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereOpponentName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereSlot($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereSoulstonePool($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereTotalPoints($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGamePlayer {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $game_id
+ * @property int $turn_number
+ * @property int $game_player_id
+ * @property int|null $scheme_id
+ * @property int $strategy_points
+ * @property int $scheme_points
+ * @property array<array-key, mixed>|null $crew_snapshot
+ * @property int $points_scored
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Game $game
+ * @property-read \App\Models\GamePlayer $gamePlayer
+ * @property-read \App\Models\Scheme|null $scheme
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereCrewSnapshot($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereGamePlayerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn wherePointsScored($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereSchemeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereSchemePoints($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereStrategyPoints($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereTurnNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGameTurn {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
  * @property-read int|null $owned_characters_count
  * @property int $id
  * @property string $name
@@ -477,6 +844,8 @@ namespace App\Models{
  * @property string|null $description
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
+ * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $masters
@@ -899,6 +1268,205 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property string $uuid
+ * @property string $name
+ * @property string|null $description
+ * @property int $creator_id
+ * @property int $encounter_size
+ * @property int $planned_rounds
+ * @property \App\Enums\PoolSeasonEnum $season
+ * @property \App\Enums\TournamentStatusEnum $status
+ * @property bool $is_public
+ * @property string|null $location
+ * @property \Illuminate\Support\Carbon $event_date
+ * @property int $round_time_limit
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayer> $activePlayers
+ * @property-read int|null $active_players_count
+ * @property-read \App\Models\User $creator
+ * @property-read string $season_label
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $organizers
+ * @property-read int|null $organizers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayer> $players
+ * @property-read int|null $players_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRound> $rounds
+ * @property-read int|null $rounds_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereCreatorId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereEncounterSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereEventDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereLocation($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament wherePlannedRounds($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereRoundTimeLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereSeason($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament whereUuid($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournament {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $tournament_round_id
+ * @property int $player_one_id
+ * @property int|null $player_two_id
+ * @property string|null $player_one_faction
+ * @property string|null $player_one_master
+ * @property string|null $player_one_title
+ * @property int|null $player_one_crew_build_id
+ * @property int|null $player_one_vp
+ * @property string|null $player_two_faction
+ * @property string|null $player_two_master
+ * @property string|null $player_two_title
+ * @property int|null $player_two_crew_build_id
+ * @property int|null $player_two_vp
+ * @property bool $is_bye
+ * @property bool $is_forfeit
+ * @property int|null $forfeit_player_id
+ * @property \App\Enums\TournamentGameResultEnum $result
+ * @property int|null $table_number
+ * @property int|null $game_id
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TournamentPlayer|null $forfeitPlayer
+ * @property-read \App\Models\TournamentPlayer $playerOne
+ * @property-read \App\Models\CrewBuild|null $playerOneCrewBuild
+ * @property-read \App\Models\TournamentPlayer|null $playerTwo
+ * @property-read \App\Models\CrewBuild|null $playerTwoCrewBuild
+ * @property-read \App\Models\TournamentRound $round
+ * @property-read \App\Models\Game|null $trackerGame
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereForfeitPlayerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereIsBye($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereIsForfeit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneCrewBuildId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneMaster($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerOneVp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoCrewBuildId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoMaster($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame wherePlayerTwoVp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereResult($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereTableNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereTournamentRoundId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentGame whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournamentGame {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $tournament_id
+ * @property int|null $user_id
+ * @property string $display_name
+ * @property \App\Enums\FactionEnum|null $faction
+ * @property bool $is_ringer
+ * @property bool $is_disqualified
+ * @property \Illuminate\Support\Carbon|null $disqualified_at
+ * @property int|null $dropped_after_round
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne
+ * @property-read int|null $games_as_player_one_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerTwo
+ * @property-read int|null $games_as_player_two_count
+ * @property-read \App\Models\Tournament $tournament
+ * @property-read \App\Models\User|null $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereDisplayName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereDisqualifiedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereDroppedAfterRound($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereIsDisqualified($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereIsRinger($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereTournamentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayer whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournamentPlayer {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $tournament_id
+ * @property int $round_number
+ * @property \App\Enums\DeploymentEnum|null $deployment
+ * @property int|null $strategy_id
+ * @property array<array-key, mixed>|null $scheme_pool
+ * @property \App\Enums\TournamentRoundStatusEnum $status
+ * @property \Illuminate\Support\Carbon|null $started_at
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $games
+ * @property-read int|null $games_count
+ * @property-read \App\Models\Strategy|null $strategy
+ * @property-read \App\Models\Tournament $tournament
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereCompletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereDeployment($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereRoundNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereSchemePool($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereStartedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereStrategyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereTournamentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRound whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournamentRound {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property int $channel_id
  * @property string $title
  * @property string $slug
@@ -1055,12 +1623,16 @@ namespace App\Models{
  * @property int $collection_is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
+ * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Channel> $channels
  * @property-read int|null $channels_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $collectionMiniatures
  * @property-read int|null $collection_miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $collectionPackages
  * @property-read int|null $collection_packages_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CustomCharacter> $customCharacters
+ * @property-read int|null $custom_characters_count
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Permission> $permissions

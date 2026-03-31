@@ -456,8 +456,15 @@ const submitOpponentTurnScore = async () => {
     if (result === 'cancel') return; // dialog dismissed
 
     scoringOpponentTurn.value = true;
+    const selectedSchemeId = typeof result === 'number' ? result : null;
+    const hasCurrentScheme = !!opponent.value?.current_scheme_id;
 
-    // Submit the turn FIRST (records current_scheme_id as this turn's scheme)
+    // Turn 1: opponent has no scheme yet — set it BEFORE submitting so the turn records it
+    if (!hasCurrentScheme && selectedSchemeId) {
+        await setOpponentScheme(selectedSchemeId);
+    }
+
+    // Submit the turn — backend records current_scheme_id as this turn's scheme
     await fetch(route('games.play.turns.store', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
@@ -468,9 +475,9 @@ const submitOpponentTurnScore = async () => {
         }),
     });
 
-    // THEN update the scheme for next turn (after turn is recorded)
-    if (typeof result === 'number') {
-        await setOpponentScheme(result);
+    // Turn 2+: update current_scheme_id for NEXT turn (after turn is recorded with current scheme)
+    if (hasCurrentScheme && selectedSchemeId) {
+        await setOpponentScheme(selectedSchemeId);
     }
     opponentStrategyPoints.value = 0;
     opponentSchemePoints.value = 0;
@@ -882,6 +889,45 @@ const allKnownSchemes = computed(() => {
     return map;
 });
 const findScheme = (id: number | null | undefined) => id ? allKnownSchemes.value.get(id) : undefined;
+
+// Post-game summary: resolve scheme per turn (backfill nulls) and detect held schemes
+// Memoized per player ID to avoid rebuilding on every template access
+const schemeInfoCache = new Map<number, Map<number, { schemeId: number | null; held: boolean }>>();
+const resolvePlayerSchemes = (player: any): Map<number, { schemeId: number | null; held: boolean }> => {
+    if (schemeInfoCache.has(player.id)) return schemeInfoCache.get(player.id)!;
+
+    const turns = (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number);
+    const result = new Map<number, { schemeId: number | null; held: boolean }>();
+
+    // Backward pass: backfill null scheme_ids from the earliest future non-null value
+    const resolved: { turnNumber: number; schemeId: number | null }[] = [];
+    let nextScheme: number | null = null;
+    for (let i = turns.length - 1; i >= 0; i--) {
+        const raw = turns[i].scheme_id ?? null;
+        if (raw) nextScheme = raw;
+        resolved.unshift({ turnNumber: turns[i].turn_number, schemeId: raw ?? nextScheme });
+    }
+
+    // Held = same scheme as previous turn AND scored 0 scheme points (retained, not scored/discarded)
+    for (let i = 0; i < resolved.length; i++) {
+        const prev = i > 0 ? resolved[i - 1].schemeId : null;
+        const curr = resolved[i].schemeId;
+        const held = i > 0 && !!curr && curr === prev && (turns[i].scheme_points ?? 0) === 0;
+        result.set(resolved[i].turnNumber, { schemeId: curr, held });
+    }
+
+    schemeInfoCache.set(player.id, result);
+    return result;
+};
+
+const getTurnSchemeInfo = (player: any, turnNumber: number): { schemeId: number | null; held: boolean } => {
+    return resolvePlayerSchemes(player).get(turnNumber) ?? { schemeId: null, held: false };
+};
+
+// Summary helper: find a player's turn data by turn number (avoids repeated .find() in template)
+const getPlayerTurn = (player: any, turnNumber: number) => {
+    return (player.turns ?? []).find((t: any) => t.turn_number === turnNumber);
+};
 const currentSchemeScored = computed(() => schemePoints.value > 0);
 
 // Strategy: 1/turn + 1 bonus once per game (max 2 any turn)
@@ -2873,7 +2919,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <span class="flex items-center gap-1">
                                                 <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3" />
                                                 <span class="font-bold">
-                                                    +{{ (player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? 0) + (player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? 0) }}
+                                                    +{{ (getPlayerTurn(player, turn)?.strategy_points ?? 0) + (getPlayerTurn(player, turn)?.scheme_points ?? 0) }}
                                                 </span>
                                                 <span class="text-muted-foreground">
                                                     ({{ player.turns?.filter((t: any) => t.turn_number <= turn).reduce((sum: number, t: any) => sum + (t.strategy_points ?? 0) + (t.scheme_points ?? 0), 0) }})
@@ -2897,32 +2943,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div class="space-y-0.5 text-xs">
                                             <div class="flex justify-between">
                                                 <span class="text-muted-foreground">Strategy</span>
-                                                <span class="font-medium">+{{ player.turns?.find((t: any) => t.turn_number === turn)?.strategy_points ?? 0 }}</span>
+                                                <span class="font-medium">+{{ getPlayerTurn(player, turn)?.strategy_points ?? 0 }}</span>
                                             </div>
                                             <div class="flex justify-between">
                                                 <span class="text-muted-foreground">Scheme</span>
-                                                <span class="font-medium">+{{ player.turns?.find((t: any) => t.turn_number === turn)?.scheme_points ?? 0 }}</span>
+                                                <span class="font-medium">+{{ getPlayerTurn(player, turn)?.scheme_points ?? 0 }}</span>
                                             </div>
                                         </div>
 
                                         <!-- Scheme used this turn -->
-                                        <div v-if="player.turns?.find((t: any) => t.turn_number === turn)?.scheme_id" class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]">
+                                        <div v-if="getTurnSchemeInfo(player, turn).schemeId" class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]">
                                             <span class="text-muted-foreground">Scheme:</span>
-                                            <button class="ml-1 font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(player.turns.find((t: any) => t.turn_number === turn).scheme_id)!)">
-                                                {{ findScheme(player.turns.find((t: any) => t.turn_number === turn).scheme_id)?.name }}
+                                            <button class="ml-1 font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(getTurnSchemeInfo(player, turn).schemeId)!)">
+                                                {{ findScheme(getTurnSchemeInfo(player, turn).schemeId)?.name }}
                                             </button>
                                             <Badge
-                                                v-if="player.turns.find((t: any) => t.turn_number === turn).scheme_points > 0"
+                                                v-if="getTurnSchemeInfo(player, turn).held"
+                                                variant="outline"
+                                                class="ml-1 border-blue-500/50 px-1 py-0 text-[8px] text-blue-600 dark:text-blue-400"
+                                            >Held</Badge>
+                                            <Badge
+                                                v-if="getPlayerTurn(player, turn)?.scheme_points > 0"
                                                 variant="outline"
                                                 class="ml-1 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
                                             >Scored</Badge>
                                         </div>
 
                                         <!-- Crew snapshot -->
-                                        <div v-if="player.turns?.find((t: any) => t.turn_number === turn)?.crew_snapshot?.length" class="mt-2">
+                                        <div v-if="getPlayerTurn(player, turn)?.crew_snapshot?.length" class="mt-2">
                                             <div class="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Crew</div>
                                             <div class="space-y-0.5">
-                                                <div :key="'snap-' + turn + '-' + player.id + '-' + mIdx" v-for="(member, mIdx) in player.turns.find((t: any) => t.turn_number === turn).crew_snapshot">
+                                                <div :key="'snap-' + turn + '-' + player.id + '-' + mIdx" v-for="(member, mIdx) in getPlayerTurn(player, turn).crew_snapshot">
                                                     <div
                                                         :class="factionBackground(member.faction ?? player.faction ?? '')"
                                                         class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
@@ -3254,15 +3305,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
-                <!-- Keep current option (discard mode only — if they scored, they must pick which scheme) -->
+                <!-- Keep current option (discard mode only, and only if opponent already has a scheme) -->
                 <button
-                    v-if="opponentSchemePromptMode === 'discard'"
+                    v-if="opponentSchemePromptMode === 'discard' && opponent?.current_scheme_id"
                     class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-medium hover:bg-primary/20"
                     @click="resolveOpponentSchemePrompt(null)"
                 >
                     Keep Current Scheme (Hidden)
                 </button>
-                <div v-if="opponentSchemePromptMode === 'discard'" class="py-1 text-center text-[10px] text-muted-foreground">— or discard —</div>
+                <div v-if="opponentSchemePromptMode === 'discard' && opponent?.current_scheme_id" class="py-1 text-center text-[10px] text-muted-foreground">— or discard —</div>
                 <!-- Scheme options (pool on turn 1, next-chain after) -->
                 <button
                     v-for="scheme in opponentSchemeOptions"

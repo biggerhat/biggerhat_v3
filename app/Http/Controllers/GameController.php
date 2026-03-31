@@ -14,6 +14,7 @@ use App\Models\CrewBuild;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use Illuminate\Http\Request;
@@ -401,20 +402,25 @@ class GameController extends Controller
                 ? \App\Models\Upgrade::forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
                 : [],
             'current_schemes' => function () use ($game) {
+                if ($game->status === GameStatusEnum::Completed) {
+                    // Include all schemes used across all turns (may not be in the pool)
+                    $turnSchemeIds = GameTurn::where('game_id', $game->id)
+                        ->whereNotNull('scheme_id')
+                        ->pluck('scheme_id')
+                        ->unique()
+                        ->values();
+                    $playerSchemeIds = $game->players->pluck('current_scheme_id')->filter();
+                    $allIds = $turnSchemeIds->merge($playerSchemeIds)->unique()->values();
+
+                    return Scheme::whereIn('id', $allIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
+                }
+
                 if ($game->status !== GameStatusEnum::InProgress) {
                     return [];
                 }
                 $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
 
-                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => [
-                    'id' => $s->id,
-                    'name' => $s->name,
-                    'slug' => $s->slug,
-                    'image_url' => $s->image_url,
-                    'prerequisite' => $s->prerequisite,
-                    'reveal' => $s->reveal,
-                    'scoring' => $s->scoring,
-                ])->toArray();
+                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
             },
             'opponent_scheme_intel' => function () use ($game, $schemeCache) {
                 if ($game->status !== GameStatusEnum::InProgress) {
@@ -685,6 +691,13 @@ class GameController extends Controller
                     return [];
                 }
                 $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+                if ($game->status === GameStatusEnum::Completed) {
+                    $turnSchemeIds = GameTurn::where('game_id', $game->id)
+                        ->whereNotNull('scheme_id')
+                        ->pluck('scheme_id')
+                        ->unique();
+                    $schemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
+                }
 
                 return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
             },
@@ -722,7 +735,12 @@ class GameController extends Controller
             ->map(fn (Scheme $s) => self::formatScheme($s));
 
         $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
-        $currentSchemes = Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
+        $turnSchemeIds = GameTurn::where('game_id', $game->id)
+            ->whereNotNull('scheme_id')
+            ->pluck('scheme_id')
+            ->unique();
+        $allSchemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
+        $currentSchemes = Scheme::whereIn('id', $allSchemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
 
         return inertia('Games/Show', [
             'game' => $game,

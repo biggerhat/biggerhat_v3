@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class GameSetupController extends Controller
@@ -366,6 +367,41 @@ class GameSetupController extends Controller
             $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
 
             $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections);
+        }
+
+        // Add custom crew members
+        foreach ($crewBuild->custom_crew_data ?? [] as $customEntry) {
+            $customKeywords = collect($customEntry['keywords'] ?? [])
+                ->pluck('name')
+                ->map(fn ($n) => Str::slug($n))
+                ->toArray();
+
+            $sharesKeyword = ! empty(array_intersect($customKeywords, $leaderKeywordSlugs));
+            $isVersatile = in_array('versatile', array_map('strtolower', $customEntry['characteristics'] ?? []));
+            $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+            $baseCost = $customEntry['cost'] ?? 0;
+            $effectiveCost = $category === 'ook' ? ($baseCost + 1) : $baseCost;
+
+            GameCrewMember::create([
+                'game_id' => $game->id,
+                'game_player_id' => $player->id,
+                'character_id' => null,
+                'custom_character_id' => $customEntry['custom_character_id'] ?? null,
+                'display_name' => $customEntry['display_name'] ?? 'Custom Character',
+                'faction' => $customEntry['faction'] ?? $player->getRawOriginal('faction'),
+                'current_health' => $customEntry['health'] ?? 1,
+                'max_health' => $customEntry['health'] ?? 1,
+                'cost' => $effectiveCost,
+                'station' => $customEntry['station'] ?? null,
+                'hiring_category' => $category,
+                'front_image' => $customEntry['front_image'] ?? null,
+                'back_image' => $customEntry['back_image'] ?? null,
+                'is_custom' => true,
+                'attached_upgrades' => [],
+                'attached_tokens' => [],
+                'attached_markers' => [],
+                'sort_order' => $sortOrder++,
+            ]);
         }
     }
 

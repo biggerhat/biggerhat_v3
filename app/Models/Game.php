@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
  * @property GameStatusEnum $status
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
+ *
+ * @mixin IdeHelperGame
  */
 class Game extends Model
 {
@@ -97,23 +99,22 @@ class Game extends Model
 
     public function playerOne(): ?GamePlayer
     {
-        return $this->players->firstWhere('slot', 1); // @phpstan-ignore return.type
+        return $this->players->firstWhere('slot', 1);
     }
 
     public function playerTwo(): ?GamePlayer
     {
-        return $this->players->firstWhere('slot', 2); // @phpstan-ignore return.type
+        return $this->players->firstWhere('slot', 2);
     }
 
     public function playerForUser(int $userId): ?GamePlayer
     {
-        return $this->players->firstWhere('user_id', $userId); // @phpstan-ignore return.type
+        return $this->players->firstWhere('user_id', $userId);
     }
 
     public function opponentForUser(int $userId): ?GamePlayer
     {
-        /** @phpstan-ignore return.type */
-        return $this->players->first(fn (GamePlayer $p) => $p->user_id !== $userId); // @phpstan-ignore argument.type
+        return $this->players->first(fn (GamePlayer $p) => $p->user_id !== $userId);
     }
 
     public function isFull(): bool

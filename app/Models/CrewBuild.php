@@ -34,6 +34,7 @@ class CrewBuild extends Model
             'is_public' => 'boolean',
             'references' => 'array',
             'custom_references' => 'array',
+            'custom_crew_data' => 'array',
         ];
     }
 
@@ -137,8 +138,8 @@ class CrewBuild extends Model
             ]);
         };
         foreach ($characters as $c) {
-            $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons')); // @phpstan-ignore argument.type
-            $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into')); // @phpstan-ignore argument.type
+            $c->summons->each(fn (Character $s) => $mapLinked($s, 'Summons'));
+            $c->replacesInto->each(fn (Character $s) => $mapLinked($s, 'Replaces into'));
         }
 
         return [

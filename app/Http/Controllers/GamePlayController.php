@@ -11,6 +11,7 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\GameTurn;
+use App\Models\Scheme;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -345,8 +346,22 @@ class GamePlayController extends Controller
         // Update total points
         $player->increment('total_points', $totalTurnPoints);
 
-        // Update scheme for next turn if changed
+        // Update scheme for next turn if changed — validate against pool + next-scheme chain
         if (! empty($validated['next_scheme_id'])) {
+            $validIds = $game->scheme_pool ?? [];
+            if ($player->current_scheme_id) {
+                $currentScheme = Scheme::find($player->current_scheme_id);
+                if ($currentScheme) {
+                    $validIds = array_merge($validIds, array_filter([
+                        $currentScheme->next_scheme_one_id,
+                        $currentScheme->next_scheme_two_id,
+                        $currentScheme->next_scheme_three_id,
+                    ]));
+                }
+            }
+            if (! in_array($validated['next_scheme_id'], $validIds)) {
+                return response()->json(['error' => 'Scheme not in pool or next-scheme chain'], 422);
+            }
             $player->update(['current_scheme_id' => $validated['next_scheme_id']]);
         }
 

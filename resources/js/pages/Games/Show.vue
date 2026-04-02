@@ -243,6 +243,75 @@ const copyJoinLink = async () => {
 
 // Setup submission
 const submitting = ref(false);
+
+// Scheme setup: pending selection with requirement fields
+const pendingSchemeId = ref<number | null>(null);
+const pendingSchemeModel = ref('');
+const pendingSchemeMarker = ref('');
+const pendingSchemeTerrainNote = ref('');
+const pendingScheme = computed(() => pendingSchemeId.value ? props.schemes.find((s) => s.id === pendingSchemeId.value) : null);
+const pendingSchemeReqs = computed(() => pendingScheme.value?.requirements ?? []);
+const pendingModelReq = computed(() => pendingSchemeReqs.value.find((r: any) => r.type === 'select_model') ?? null);
+const pendingHasMarkerReq = computed(() => pendingSchemeReqs.value.some((r: any) => r.type === 'select_marker'));
+const pendingHasTerrainReq = computed(() => pendingSchemeReqs.value.some((r: any) => r.type === 'terrain_note'));
+const pendingModelLabel = computed(() => {
+    const req = pendingModelReq.value;
+    if (!req) return '';
+    const parts: string[] = [];
+    if (req.unique) parts.push('Unique');
+    parts.push(req.allegiance === 'friendly' ? 'Friendly' : 'Enemy');
+    parts.push('Model');
+    if (req.cost_operator && req.cost_value != null) parts.push(`(Cost ${req.cost_operator} ${req.cost_value})`);
+    return parts.join(' ');
+});
+const pendingModelOptions = computed(() => {
+    const req = pendingModelReq.value;
+    if (!req) return [];
+    const pool = req.allegiance === 'friendly'
+        ? [...(myPlayer.value?.crew_members ?? [])]
+        : [...(opponent.value?.crew_members ?? [])];
+    return pool.filter((m: any) => {
+        if (req.unique && (m.station === 'minion' || m.station === 'peon')) return false;
+        if (req.cost_operator && req.cost_value != null && m.cost != null) {
+            const cost = m.cost as number;
+            const target = req.cost_value as number;
+            if (req.cost_operator === '>' && !(cost > target)) return false;
+            if (req.cost_operator === '<' && !(cost < target)) return false;
+            if (req.cost_operator === '>=' && !(cost >= target)) return false;
+            if (req.cost_operator === '<=' && !(cost <= target)) return false;
+        }
+        return true;
+    });
+});
+const selectPendingScheme = (schemeId: number) => {
+    pendingSchemeId.value = schemeId;
+    pendingSchemeModel.value = '';
+    pendingSchemeMarker.value = '';
+    pendingSchemeTerrainNote.value = '';
+};
+const confirmPendingScheme = async () => {
+    if (!pendingSchemeId.value) return;
+    // Save scheme notes first if there are requirements
+    const notes: Record<string, string | null> = {
+        note: null,
+        selected_model: pendingSchemeModel.value || null,
+        selected_marker: pendingSchemeMarker.value || null,
+        terrain_note: pendingSchemeTerrainNote.value || null,
+    };
+    const hasNotes = notes.selected_model || notes.selected_marker || notes.terrain_note;
+    if (hasNotes) {
+        await fetch(route('games.play.scheme-notes', props.game.uuid), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ scheme_notes: notes }),
+        });
+    }
+    await postSetup(route('games.setup.scheme', props.game.uuid), {
+        scheme_id: pendingSchemeId.value,
+        ...(isSolo.value ? { slot: 1 } : {}),
+    });
+    pendingSchemeId.value = null;
+};
 const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
@@ -728,13 +797,12 @@ const schemeModelOptions = computed(() => {
     const req = schemeModelReq.value;
     if (!req) return [];
 
-    // Pick from enemy or friendly crew
+    // Pick from enemy or friendly crew — include all models (even killed) since selection is made before the turn
     const pool = req.allegiance === 'friendly'
         ? [...(myPlayer.value?.crew_members ?? [])]
         : [...(opponent.value?.crew_members ?? [])];
 
     return pool.filter((m: any) => {
-        if (m.is_killed) return false;
         // Unique = not minion, not peon
         if (req.unique && (m.station === 'minion' || m.station === 'peon')) return false;
         // Cost filter
@@ -749,6 +817,9 @@ const schemeModelOptions = computed(() => {
         return true;
     });
 });
+
+// Scheme notes lock: editable before submitting your turn, locked after
+const schemeNotesLocked = computed(() => !!myPlayer.value?.is_turn_complete);
 
 // Sync scheme notes from props when they change (e.g. after reload)
 watch(() => myPlayer.value?.scheme_notes, (notes) => {
@@ -969,45 +1040,42 @@ const allKnownSchemes = computed(() => {
 const findScheme = (id: number | null | undefined) => id ? allKnownSchemes.value.get(id) : undefined;
 
 // Post-game summary: resolve scheme per turn (backfill nulls) and detect held schemes
-// Memoized per player ID to avoid rebuilding on every template access
+// Cache keyed by player ID + turn count to auto-invalidate when data changes
+let schemeInfoCacheKey = '';
 const schemeInfoCache = new Map<number, Map<number, { schemeId: number | null; held: boolean }>>();
 const resolvePlayerSchemes = (player: any): Map<number, { schemeId: number | null; held: boolean }> => {
+    const cacheKey = `${props.game.current_turn}-${props.game.players.map((p: any) => (p.turns?.length ?? 0)).join(',')}`;
+    if (cacheKey !== schemeInfoCacheKey) { schemeInfoCache.clear(); schemeInfoCacheKey = cacheKey; }
     if (schemeInfoCache.has(player.id)) return schemeInfoCache.get(player.id)!;
 
     const turns = (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number);
     const result = new Map<number, { schemeId: number | null; held: boolean }>();
 
-    // Two-pass resolve:
-    // 1. Forward pass: carry known scheme forward through subsequent nulls
-    // 2. Backward pass: backfill leading nulls from the first non-null scheme (they were "holding" it hidden)
-    const resolved: { turnNumber: number; schemeId: number | null }[] = [];
+    // Backward-only fill: each null turn looks forward to the next non-null scheme.
+    // This handles solo opponent hidden schemes — if they reveal on T3, T1 and T2
+    // are assumed to have held that same scheme hidden.
+    // We never forward-fill because a discard changes the scheme chain.
+    const resolved: { turnNumber: number; schemeId: number | null; backfilled: boolean }[] = [];
 
-    // Forward pass
-    let lastKnown: number | null = null;
-    for (const turn of turns) {
-        const raw = turn.scheme_id ?? null;
-        if (raw) lastKnown = raw;
-        resolved.push({ turnNumber: turn.turn_number, schemeId: raw ?? lastKnown });
-    }
-
-    // Backward pass: fill leading nulls from the earliest future non-null value
-    let firstKnown: number | null = null;
-    for (const entry of resolved) {
-        if (entry.schemeId) { firstKnown = entry.schemeId; break; }
-    }
-    if (firstKnown) {
-        for (const entry of resolved) {
-            if (entry.schemeId) break;
-            entry.schemeId = firstKnown;
+    for (let i = 0; i < turns.length; i++) {
+        const raw = turns[i].scheme_id ?? null;
+        if (raw) {
+            resolved.push({ turnNumber: turns[i].turn_number, schemeId: raw, backfilled: false });
+        } else {
+            // Look forward for the next non-null scheme
+            let futureScheme: number | null = null;
+            for (let j = i + 1; j < turns.length; j++) {
+                if (turns[j].scheme_id) { futureScheme = turns[j].scheme_id; break; }
+            }
+            resolved.push({ turnNumber: turns[i].turn_number, schemeId: futureScheme, backfilled: !!futureScheme });
         }
     }
 
-    // Held = scheme was backfilled (original turn had null) OR same scheme as previous turn with 0 scheme points
+    // Held = backfilled from future turn, OR same scheme as previous turn with 0 scheme points scored
     for (let i = 0; i < resolved.length; i++) {
-        const raw = turns[i].scheme_id ?? null;
         const curr = resolved[i].schemeId;
         const prev = i > 0 ? resolved[i - 1].schemeId : null;
-        const held = !!curr && (!raw || (i > 0 && curr === prev && (turns[i].scheme_points ?? 0) === 0));
+        const held = resolved[i].backfilled || (i > 0 && !!curr && curr === prev && (turns[i].scheme_points ?? 0) === 0);
         result.set(resolved[i].turnNumber, { schemeId: curr, held });
     }
 
@@ -2090,8 +2158,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <Check class="inline size-4 text-green-500" /> Your crew selected
                         </div>
                         <p class="mb-4 text-xs text-muted-foreground">
-                            Optionally select a saved crew for <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong>, or skip to track points only.
-                            <Link :href="newOpponentCrewUrl" class="text-primary underline">Create a new crew</Link>.
+                            Optionally select a saved crew for <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong>, <Link :href="newOpponentCrewUrl" class="text-primary underline">Create a new crew</Link>, or skip to track points only.
                         </p>
                         <div v-if="opponentTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-muted-foreground">Filter:</span>
@@ -2236,15 +2303,93 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </p>
 
                         <template v-if="!myStepDone('scheme')">
+                            <!-- Scheme list -->
                             <div class="grid gap-2 sm:grid-cols-3">
-                                <div v-for="scheme in schemes" :key="scheme.id" class="flex items-center gap-2 rounded-lg border p-3">
+                                <div
+                                    v-for="scheme in schemes"
+                                    :key="scheme.id"
+                                    class="flex items-center gap-2 rounded-lg border p-3 transition-colors"
+                                    :class="pendingSchemeId === scheme.id ? 'border-primary bg-primary/5' : ''"
+                                >
                                     <div class="min-w-0 flex-1">
                                         <button class="text-sm font-medium text-primary hover:underline" @click="openSchemeDrawer(scheme)">{{ scheme.name }}</button>
                                     </div>
-                                    <Button size="sm" class="shrink-0 text-xs" :disabled="submitting" @click="postSetup(route('games.setup.scheme', game.uuid), { scheme_id: scheme.id, ...(isSolo ? { slot: 1 } : {}) })">
-                                        <Loader2 v-if="submitting" class="mr-1.5 size-3 animate-spin" />
-                                        Select
+                                    <Button
+                                        size="sm"
+                                        class="shrink-0 text-xs"
+                                        :variant="pendingSchemeId === scheme.id ? 'default' : 'outline'"
+                                        :disabled="submitting"
+                                        @click="selectPendingScheme(scheme.id)"
+                                    >
+                                        {{ pendingSchemeId === scheme.id ? 'Selected' : 'Select' }}
                                     </Button>
+                                </div>
+                            </div>
+
+                            <!-- Requirement fields + confirm (shown when a scheme is selected) -->
+                            <div v-if="pendingScheme" class="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                                <div class="mb-2 text-sm font-medium">{{ pendingScheme.name }} — Setup</div>
+
+                                <!-- Prerequisite hint -->
+                                <div v-if="pendingScheme.prerequisite" class="mb-3 text-[11px] italic text-muted-foreground">
+                                    {{ pendingScheme.prerequisite }}
+                                </div>
+
+                                <div v-if="pendingSchemeReqs.length" class="mb-3 space-y-2">
+                                    <!-- Model selection -->
+                                    <div v-if="pendingModelReq">
+                                        <label class="text-[10px] uppercase text-muted-foreground">{{ pendingModelLabel }}</label>
+                                        <select
+                                            v-if="pendingModelOptions.length"
+                                            v-model="pendingSchemeModel"
+                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                        >
+                                            <option value="">Select...</option>
+                                            <option v-for="m in pendingModelOptions" :key="m.id" :value="m.display_name">
+                                                {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                            </option>
+                                        </select>
+                                        <input
+                                            v-else
+                                            v-model="pendingSchemeModel"
+                                            type="text"
+                                            placeholder="Type model name..."
+                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                        />
+                                    </div>
+
+                                    <!-- Marker selection -->
+                                    <div v-if="pendingHasMarkerReq">
+                                        <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
+                                        <select
+                                            v-model="pendingSchemeMarker"
+                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                        >
+                                            <option value="">Select...</option>
+                                            <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Terrain note -->
+                                    <div v-if="pendingHasTerrainReq">
+                                        <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
+                                        <input
+                                            v-model="pendingSchemeTerrainNote"
+                                            type="text"
+                                            placeholder="e.g. the building on the left..."
+                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div v-else class="mb-3 text-xs text-muted-foreground">No additional selections required for this scheme.</div>
+
+                                <div class="flex items-center gap-2">
+                                    <Button size="sm" :disabled="submitting" @click="confirmPendingScheme">
+                                        <Loader2 v-if="submitting" class="mr-1.5 size-3 animate-spin" />
+                                        Confirm Scheme
+                                    </Button>
+                                    <Button size="sm" variant="ghost" @click="pendingSchemeId = null">Cancel</Button>
                                 </div>
                             </div>
                         </template>
@@ -2428,39 +2573,48 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                             <!-- Scheme notes -->
                                             <div class="mt-2 space-y-1.5 border-t border-primary/20 pt-2">
-                                                <!-- Prerequisite hint -->
-                                                <div v-if="findScheme(myDisplaySchemeId)?.prerequisite" class="text-[10px] italic text-muted-foreground">
+                                                <!-- Prerequisite hint (only before locking) -->
+                                                <div v-if="!schemeNotesLocked && findScheme(myDisplaySchemeId)?.prerequisite" class="text-[10px] italic text-muted-foreground">
                                                     {{ findScheme(myDisplaySchemeId)?.prerequisite }}
                                                 </div>
 
                                                 <!-- Model selection -->
                                                 <div v-if="schemeModelReq">
                                                     <label class="text-[10px] uppercase text-muted-foreground">{{ modelReqLabel }}</label>
-                                                    <select
-                                                        v-if="schemeModelOptions.length"
-                                                        v-model="schemeSelectedModel"
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                                        @change="saveSchemeNotes"
-                                                    >
-                                                        <option value="">Select...</option>
-                                                        <option v-for="m in schemeModelOptions" :key="m.id" :value="m.display_name">
-                                                            {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
-                                                        </option>
-                                                    </select>
-                                                    <input
-                                                        v-else
-                                                        v-model="schemeSelectedModel"
-                                                        type="text"
-                                                        placeholder="No matching models in crew — type manually"
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                                        @input="saveSchemeNotes"
-                                                    />
+                                                    <template v-if="schemeNotesLocked">
+                                                        <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">{{ schemeSelectedModel || 'Not selected' }}</div>
+                                                    </template>
+                                                    <template v-else>
+                                                        <select
+                                                            v-if="schemeModelOptions.length"
+                                                            v-model="schemeSelectedModel"
+                                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                            @change="saveSchemeNotes"
+                                                        >
+                                                            <option value="">Select...</option>
+                                                            <option v-for="m in schemeModelOptions" :key="m.id" :value="m.display_name">
+                                                                {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                                            </option>
+                                                        </select>
+                                                        <input
+                                                            v-else
+                                                            v-model="schemeSelectedModel"
+                                                            type="text"
+                                                            placeholder="No matching models in crew — type manually"
+                                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                            @input="saveSchemeNotes"
+                                                        />
+                                                    </template>
                                                 </div>
 
                                                 <!-- Marker selection -->
                                                 <div v-if="schemeHasMarkerReq">
                                                     <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
+                                                    <template v-if="schemeNotesLocked">
+                                                        <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">{{ schemeSelectedMarker || 'Not selected' }}</div>
+                                                    </template>
                                                     <select
+                                                        v-else
                                                         v-model="schemeSelectedMarker"
                                                         class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
                                                         @change="saveSchemeNotes"
@@ -2473,7 +2627,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <!-- Terrain note -->
                                                 <div v-if="schemeHasTerrainReq">
                                                     <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
+                                                    <template v-if="schemeNotesLocked">
+                                                        <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">{{ schemeTerrainNote || 'Not set' }}</div>
+                                                    </template>
                                                     <input
+                                                        v-else
                                                         v-model="schemeTerrainNote"
                                                         type="text"
                                                         placeholder="e.g. the building on the left..."
@@ -2482,7 +2640,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     />
                                                 </div>
 
-                                                <!-- Free text note (always shown) -->
+                                                <!-- Free text note (always editable) -->
                                                 <div>
                                                     <label class="text-[10px] uppercase text-muted-foreground">Notes</label>
                                                     <textarea
@@ -2536,6 +2694,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         <span class="text-xs font-medium">{{ scheme.name }}</span>
                                                         <Badge v-if="opponent_scheme_intel.last_revealed?.id === scheme.id" variant="outline" class="px-1 py-0 text-[9px]">Kept</Badge>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Scheme history -->
+                                        <div v-if="opponent_scheme_intel.scheme_history?.length" class="border-t pt-2">
+                                            <div class="text-[10px] uppercase text-muted-foreground">Scheme History</div>
+                                            <div class="mt-1 space-y-0.5">
+                                                <div
+                                                    v-for="entry in opponent_scheme_intel.scheme_history"
+                                                    :key="'opp-hist-' + entry.turn_number"
+                                                    class="flex items-center justify-between rounded px-2 py-1 text-xs"
+                                                >
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="text-muted-foreground">T{{ entry.turn_number }}</span>
+                                                        <button class="font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(entry.scheme_id)!)">
+                                                            {{ entry.scheme_name }}
+                                                        </button>
+                                                    </div>
+                                                    <Badge
+                                                        v-if="entry.scored"
+                                                        variant="outline"
+                                                        class="border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
+                                                    >Scored</Badge>
+                                                    <Badge
+                                                        v-else
+                                                        variant="outline"
+                                                        class="px-1 py-0 text-[8px]"
+                                                    >Held</Badge>
                                                 </div>
                                             </div>
                                         </div>

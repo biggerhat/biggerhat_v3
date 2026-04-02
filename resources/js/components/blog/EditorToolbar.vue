@@ -13,12 +13,18 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Editor } from '@tiptap/vue-3';
 import {
+    AlignCenter,
+    AlignJustify,
+    AlignLeft,
+    AlignRight,
     AtSign,
     Bold,
     Code,
+    Code2,
     Heading1,
     Heading2,
     Heading3,
+    Highlighter,
     Image,
     Italic,
     Link,
@@ -27,9 +33,11 @@ import {
     Minus,
     Quote,
     Redo2,
+    RemoveFormatting,
     Smile,
     SquareCode,
     Strikethrough,
+    Table,
     Underline,
     Undo2,
 } from 'lucide-vue-next';
@@ -41,6 +49,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'openEntitySearch'): void;
     (e: 'openEntityEmbedSearch'): void;
+    (e: 'uploadImage'): void;
 }>();
 
 const gameIconGroups = [
@@ -89,10 +98,7 @@ const insertGameIcon = (iconType: string) => {
 };
 
 const addImage = () => {
-    const url = window.prompt('Image URL');
-    if (url) {
-        props.editor.chain().focus().setImage({ src: url }).run();
-    }
+    emit('uploadImage');
 };
 
 const addLink = () => {
@@ -183,6 +189,40 @@ const addLink = () => {
                 </TooltipTrigger>
                 <TooltipContent>Strikethrough</TooltipContent>
             </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive('highlight') }"
+                        @click="editor.chain().focus().toggleHighlight().run()"
+                    >
+                        <Highlighter class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Highlight</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive('code') }"
+                        @click="editor.chain().focus().toggleCode().run()"
+                    >
+                        <Code2 class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Inline Code</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button type="button" variant="ghost" size="sm" @click="editor.chain().focus().unsetAllMarks().run()">
+                        <RemoveFormatting class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear Formatting</TooltipContent>
+            </Tooltip>
 
             <Separator orientation="vertical" class="mx-1 h-6" />
 
@@ -225,6 +265,62 @@ const addLink = () => {
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent>Heading 3</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" class="mx-1 h-6" />
+
+            <!-- Text Alignment -->
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive({ textAlign: 'left' }) }"
+                        @click="editor.chain().focus().setTextAlign('left').run()"
+                    >
+                        <AlignLeft class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Align Left</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive({ textAlign: 'center' }) }"
+                        @click="editor.chain().focus().setTextAlign('center').run()"
+                    >
+                        <AlignCenter class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Align Center</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive({ textAlign: 'right' }) }"
+                        @click="editor.chain().focus().setTextAlign('right').run()"
+                    >
+                        <AlignRight class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Align Right</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive({ textAlign: 'justify' }) }"
+                        @click="editor.chain().focus().setTextAlign('justify').run()"
+                    >
+                        <AlignJustify class="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Justify</TooltipContent>
             </Tooltip>
 
             <Separator orientation="vertical" class="mx-1 h-6" />
@@ -290,6 +386,40 @@ const addLink = () => {
                 </TooltipTrigger>
                 <TooltipContent>Horizontal Rule</TooltipContent>
             </Tooltip>
+
+            <!-- Table -->
+            <DropdownMenu>
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <DropdownMenuTrigger as-child>
+                            <Button type="button" variant="ghost" size="sm" :class="{ 'bg-muted': editor.isActive('table') }">
+                                <Table class="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Table</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="start">
+                    <DropdownMenuItem v-if="!editor.isActive('table')" @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
+                        Insert Table
+                    </DropdownMenuItem>
+                    <template v-if="editor.isActive('table')">
+                        <DropdownMenuItem @click="editor.chain().focus().addColumnBefore().run()">Add Column Before</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().addColumnAfter().run()">Add Column After</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().addRowBefore().run()">Add Row Before</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().addRowAfter().run()">Add Row After</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem @click="editor.chain().focus().deleteColumn().run()">Delete Column</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().deleteRow().run()">Delete Row</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem @click="editor.chain().focus().toggleHeaderRow().run()">Toggle Header Row</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().mergeCells().run()">Merge Cells</DropdownMenuItem>
+                        <DropdownMenuItem @click="editor.chain().focus().splitCell().run()">Split Cell</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem class="text-destructive" @click="editor.chain().focus().deleteTable().run()">Delete Table</DropdownMenuItem>
+                    </template>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
             <Separator orientation="vertical" class="mx-1 h-6" />
 

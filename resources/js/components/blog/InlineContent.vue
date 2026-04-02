@@ -32,6 +32,7 @@ const textClass = (node: Record<string, unknown>) => {
     if (marks.includes('italic')) classes.push('italic');
     if (marks.includes('underline')) classes.push('underline');
     if (marks.includes('strike')) classes.push('line-through');
+    if (marks.includes('highlight')) classes.push('bg-yellow-200 dark:bg-yellow-800/60 rounded px-0.5');
     return classes.join(' ');
 };
 

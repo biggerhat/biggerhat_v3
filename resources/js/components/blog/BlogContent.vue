@@ -91,7 +91,7 @@ const alignStyle = (node: Record<string, unknown>) => {
             </table>
 
             <!-- Horizontal Rule -->
-            <hr v-else-if="node.type === 'horizontalRule'" />
+            <hr v-else-if="node.type === 'horizontalRule'" class="my-4" />
         </template>
     </div>
 </template>

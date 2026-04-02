@@ -27,6 +27,7 @@ class Scheme extends Model
     {
         return [
             'season' => PoolSeasonEnum::class,
+            'requirements' => 'array',
         ];
     }
 

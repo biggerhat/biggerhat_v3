@@ -33,6 +33,20 @@ const props = defineProps({
     },
 });
 
+interface Requirement {
+    type: 'select_model' | 'select_marker' | 'terrain_note';
+    allegiance?: 'enemy' | 'friendly' | null;
+    unique?: boolean;
+    cost_operator?: '>' | '<' | '>=' | '<=' | null;
+    cost_value?: number | null;
+}
+
+const requirementTypes = [
+    { value: 'select_model', label: 'Select Model' },
+    { value: 'select_marker', label: 'Select Marker Type' },
+    { value: 'terrain_note', label: 'Note Terrain Piece' },
+];
+
 const formInfo = ref({
     name: null,
     season: null,
@@ -41,11 +55,40 @@ const formInfo = ref({
     reveal: null,
     scoring: null,
     additional: null,
+    requirements: [] as Requirement[],
     image: null,
     next_scheme_one_id: null,
     next_scheme_two_id: null,
     next_scheme_three_id: null,
 });
+
+const addRequirement = (type: string) => {
+    const req: Requirement = { type: type as Requirement['type'] };
+    if (type === 'select_model') {
+        req.allegiance = 'enemy';
+        req.unique = false;
+        req.cost_operator = null;
+        req.cost_value = null;
+    }
+    formInfo.value.requirements.push(req);
+};
+
+const removeRequirement = (idx: number) => {
+    formInfo.value.requirements.splice(idx, 1);
+};
+
+const requirementLabel = (req: Requirement): string => {
+    if (req.type === 'select_marker') return 'Select Marker Type';
+    if (req.type === 'terrain_note') return 'Note Terrain Piece';
+    const parts: string[] = [];
+    if (req.unique) parts.push('Unique');
+    parts.push(req.allegiance === 'friendly' ? 'Friendly' : 'Enemy');
+    parts.push('Model');
+    if (req.cost_operator && req.cost_value != null) {
+        parts.push(`(Cost ${req.cost_operator} ${req.cost_value})`);
+    }
+    return parts.join(' ');
+};
 
 const submit = () => {
     router.post(props.scheme ? route('admin.schemes.update', props.scheme.slug) : route('admin.schemes.store'), formInfo.value);
@@ -59,6 +102,7 @@ onMounted(() => {
     formInfo.value.reveal = props.scheme?.reveal ?? null;
     formInfo.value.scoring = props.scheme?.scoring ?? null;
     formInfo.value.additional = props.scheme?.additional ?? null;
+    formInfo.value.requirements = props.scheme?.requirements ?? [];
     formInfo.value.next_scheme_one_id = props.scheme?.next_scheme_one_id ?? null;
     formInfo.value.next_scheme_two_id = props.scheme?.next_scheme_two_id ?? null;
     formInfo.value.next_scheme_three_id = props.scheme?.next_scheme_three_id ?? null;
@@ -119,6 +163,69 @@ onMounted(() => {
                             <Label for="additional">Additional VP</Label>
                             <Textarea id="additional" v-model="formInfo.additional" placeholder="Type the additional vp info here." />
                             <InputError :message="usePage().props.errors.additional" />
+                        </div>
+                        <div class="flex flex-col space-y-3">
+                            <Label>Game Tracker Requirements</Label>
+                            <p class="text-sm text-muted-foreground">Define what info the player needs to track when using this scheme.</p>
+
+                            <!-- Existing requirements -->
+                            <div v-for="(req, idx) in formInfo.requirements" :key="idx" class="rounded-md border p-3 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium">{{ requirementLabel(req) }}</span>
+                                    <button type="button" class="text-xs text-destructive hover:underline" @click="removeRequirement(idx)">Remove</button>
+                                </div>
+
+                                <!-- Model-specific options -->
+                                <div v-if="req.type === 'select_model'" class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label class="text-xs">Allegiance</Label>
+                                        <Select v-model="req.allegiance">
+                                            <SelectTrigger class="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="enemy">Enemy</SelectItem>
+                                                <SelectItem value="friendly">Friendly</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="flex items-end">
+                                        <label class="flex items-center gap-2 text-xs">
+                                            <input type="checkbox" v-model="req.unique" class="accent-primary" />
+                                            Must be Unique
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <Label class="text-xs">Cost Condition</Label>
+                                        <Select v-model="req.cost_operator">
+                                            <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                <SelectItem value=">">Greater than (&gt;)</SelectItem>
+                                                <SelectItem value="<">Less than (&lt;)</SelectItem>
+                                                <SelectItem value=">=">At least (&ge;)</SelectItem>
+                                                <SelectItem value="<=">At most (&le;)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div v-if="req.cost_operator && req.cost_operator !== 'none'">
+                                        <Label class="text-xs">Cost Value</Label>
+                                        <Input v-model.number="req.cost_value" type="number" min="0" max="20" class="h-8 text-xs" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Add requirement -->
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="rt in requirementTypes"
+                                    :key="rt.value"
+                                    type="button"
+                                    class="rounded-md border px-3 py-1.5 text-xs transition-colors hover:bg-muted"
+                                    @click="addRequirement(rt.value)"
+                                >
+                                    + {{ rt.label }}
+                                </button>
+                            </div>
+                            <InputError :message="usePage().props.errors.requirements" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <div class="flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">

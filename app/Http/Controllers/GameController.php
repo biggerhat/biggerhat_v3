@@ -173,7 +173,7 @@ class GameController extends Controller
         }
         if ($game->status === GameStatusEnum::InProgress) {
             // During gameplay, only load scoring data — exclude large crew_snapshot JSON
-            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,points_scored';
+            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,scheme_notes,points_scored';
         } elseif (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             // Summary view needs full turn data including snapshots
             $eagerLoads[] = 'players.turns';
@@ -236,8 +236,8 @@ class GameController extends Controller
             // Include alternate leaders from crew upgrades (e.g., Wrath via On Tour)
             $alternateLeaderIds = \App\Models\Upgrade::forCrews()
                 ->whereNotNull('hiring_rules')
-                ->get()
-                ->pluck('hiring_rules.alternate_leader_id')
+                ->pluck('hiring_rules')
+                ->map(fn ($rules) => $rules['alternate_leader_id'] ?? null)
                 ->filter()
                 ->unique();
 
@@ -395,6 +395,9 @@ class GameController extends Controller
             'all_strategies' => $allStrategies,
             'all_schemes' => $allSchemes,
             'all_deployments' => $allDeployments,
+            'all_markers' => fn () => in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::SchemeSelect])
+                ? \App\Models\Marker::orderBy('name')->get(['id', 'name', 'slug'])
+                : [],
             'tokens' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
                 : [],
@@ -485,6 +488,7 @@ class GameController extends Controller
                 return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot, $schemeCache) : [];
             },
             'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2, $schemeCache) : [],
+            'observer_scheme_intel' => fn () => null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => false,
         ]);
@@ -686,6 +690,7 @@ class GameController extends Controller
             'all_deployments' => fn () => [],
             'tokens' => fn () => [],
             'character_upgrades' => fn () => [],
+            'all_markers' => fn () => [],
             'current_schemes' => function () use ($game) {
                 if (! in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed])) {
                     return [];
@@ -704,6 +709,57 @@ class GameController extends Controller
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
+            'observer_scheme_intel' => function () use ($game) {
+                if ($game->status !== GameStatusEnum::InProgress) {
+                    return null;
+                }
+
+                $schemeCache = Scheme::all()->keyBy('id');
+                $result = [];
+
+                foreach ($game->players as $player) {
+                    $lastTurn = $player->turns->sortByDesc('turn_number')->first();
+
+                    // Build possible schemes: current + next chain from last turn's scheme
+                    $possible = [];
+                    if ($lastTurn && $lastTurn->scheme_id) {
+                        $lastScheme = $schemeCache->get($lastTurn->scheme_id);
+                        if ($lastScheme) {
+                            $possible[] = self::formatScheme($lastScheme);
+                            $nextIds = array_filter([
+                                $lastScheme->next_scheme_one_id,
+                                $lastScheme->next_scheme_two_id,
+                                $lastScheme->next_scheme_three_id,
+                            ]);
+                            foreach ($nextIds as $id) {
+                                $next = $schemeCache->get($id);
+                                if ($next) {
+                                    $possible[] = self::formatScheme($next);
+                                }
+                            }
+                        }
+                    }
+
+                    // If no turn history yet, full pool is possible
+                    if (empty($possible)) {
+                        $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
+                            ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
+                    }
+
+                    // Check if current scheme has been revealed (scored scheme points on any turn)
+                    $scoredTurn = $player->turns->sortByDesc('turn_number')
+                        ->first(fn ($t) => $t->scheme_points > 0);
+                    $revealedSchemeId = $scoredTurn?->scheme_id;
+
+                    $result[$player->slot] = [
+                        'possible_schemes' => $possible,
+                        'revealed_scheme_id' => $revealedSchemeId,
+                        'last_scored_turn' => $scoredTurn?->turn_number,
+                    ];
+                }
+
+                return $result;
+            },
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
@@ -763,6 +819,8 @@ class GameController extends Controller
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
+            'observer_scheme_intel' => fn () => null,
+            'all_markers' => fn () => [],
             'starting_crews' => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
@@ -900,6 +958,7 @@ class GameController extends Controller
             'prerequisite' => $s->prerequisite,
             'reveal' => $s->reveal,
             'scoring' => $s->scoring,
+            'requirements' => $s->requirements ?? [],
         ];
     }
 }

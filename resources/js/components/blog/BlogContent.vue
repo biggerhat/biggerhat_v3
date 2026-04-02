@@ -12,19 +12,24 @@ const getHeadingTag = (level: number) => {
     const tags: Record<number, string> = { 1: 'h1', 2: 'h2', 3: 'h3', 4: 'h4', 5: 'h5', 6: 'h6' };
     return tags[level] ?? 'h3';
 };
+
+const alignStyle = (node: Record<string, unknown>) => {
+    const align = (node.attrs as Record<string, string> | null)?.textAlign;
+    return align && align !== 'left' ? { textAlign: align } : undefined;
+};
 </script>
 
 <template>
     <div v-if="content && content.content" class="prose prose-lg dark:prose-invert max-w-none">
         <template v-for="(node, idx) in content.content as Record<string, unknown>[]" :key="idx">
             <!-- Paragraph -->
-            <p v-if="node.type === 'paragraph' && node.content">
+            <p v-if="node.type === 'paragraph' && node.content" :style="alignStyle(node)">
                 <InlineContent :nodes="node.content as Record<string, unknown>[]" />
             </p>
             <p v-else-if="node.type === 'paragraph' && !node.content" />
 
             <!-- Headings -->
-            <component v-else-if="node.type === 'heading'" :is="getHeadingTag((node.attrs as Record<string, number>).level)">
+            <component v-else-if="node.type === 'heading'" :is="getHeadingTag((node.attrs as Record<string, number>).level)" :style="alignStyle(node)">
                 <InlineContent :nodes="(node.content as Record<string, unknown>[]) ?? []" />
             </component>
 
@@ -67,6 +72,23 @@ const getHeadingTag = (level: number) => {
 
             <!-- Entity Embed -->
             <EntityEmbedRenderer v-else-if="isEntityEmbed(node)" :attrs="node.attrs as Record<string, unknown>" />
+
+            <!-- Table -->
+            <table v-else-if="node.type === 'table'">
+                <template v-for="(row, ridx) in (node.content as Record<string, unknown>[]) ?? []" :key="ridx">
+                    <tr>
+                        <template v-for="(cell, cidx) in (row.content as Record<string, unknown>[]) ?? []" :key="cidx">
+                            <component :is="cell.type === 'tableHeader' ? 'th' : 'td'" v-bind="(cell.attrs as Record<string, unknown>) ?? {}">
+                                <template v-for="(para, pidx) in (cell.content as Record<string, unknown>[]) ?? []" :key="pidx">
+                                    <p v-if="para.type === 'paragraph'" :style="alignStyle(para)">
+                                        <InlineContent :nodes="(para.content as Record<string, unknown>[]) ?? []" />
+                                    </p>
+                                </template>
+                            </component>
+                        </template>
+                    </tr>
+                </template>
+            </table>
 
             <!-- Horizontal Rule -->
             <hr v-else-if="node.type === 'horizontalRule'" />

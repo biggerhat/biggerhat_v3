@@ -4,9 +4,12 @@ import EntitySearchDialog from '@/components/blog/EntitySearchDialog.vue';
 import EntityEmbed from '@/extensions/EntityEmbed';
 import EntityReference from '@/extensions/EntityReference';
 import GameIconNode from '@/extensions/GameIconNode';
+import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
+import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
@@ -29,9 +32,15 @@ const editor = useEditor({
         EntityEmbed,
         EntityReference,
         GameIconNode,
+        Highlight,
         Image,
         Link.configure({ openOnClick: false }),
         Placeholder.configure({ placeholder: 'Start writing your blog post...' }),
+        Table.configure({ resizable: false }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        TextAlign.configure({ types: ['heading', 'paragraph'], alignments: ['left', 'center', 'right', 'justify'] }),
         Underline,
     ],
     content: props.modelValue ?? { type: 'doc', content: [] },
@@ -62,6 +71,37 @@ const handleEntityEmbedSelect = (entity: { entityType: string; entityId: string 
     entityEmbedSearchOpen.value = false;
 };
 
+const imageInputRef = ref<HTMLInputElement | null>(null);
+
+const handleImageUpload = () => {
+    imageInputRef.value?.click();
+};
+
+const onImageFileSelected = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file || !editor.value) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const res = await fetch(route('admin.blog.posts.upload-image'), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: formData,
+        });
+        const data = await res.json();
+        if (data.url) {
+            editor.value.chain().focus().setImage({ src: data.url }).run();
+        }
+    } catch (err) {
+        console.error('Image upload failed:', err);
+    }
+
+    // Reset input so the same file can be selected again
+    if (imageInputRef.value) imageInputRef.value.value = '';
+};
+
 onBeforeUnmount(() => {
     editor.value?.destroy();
 });
@@ -69,7 +109,8 @@ onBeforeUnmount(() => {
 
 <template>
     <div v-if="editor" class="rounded-md border">
-        <EditorToolbar :editor="editor" @open-entity-search="entitySearchOpen = true" @open-entity-embed-search="entityEmbedSearchOpen = true" />
+        <EditorToolbar :editor="editor" @open-entity-search="entitySearchOpen = true" @open-entity-embed-search="entityEmbedSearchOpen = true" @upload-image="handleImageUpload" />
+        <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
         <EditorContent
             :editor="editor"
             class="prose prose-sm dark:prose-invert max-w-none p-4 focus:outline-none [&_.tiptap]:min-h-[200px] [&_.tiptap]:outline-none"

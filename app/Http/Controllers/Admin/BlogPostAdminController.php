@@ -153,4 +153,17 @@ class BlogPostAdminController extends Controller
 
         return $post;
     }
+
+    public function uploadImage(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'max:5120'],
+        ]);
+
+        $path = $request->file('image')->store('blog/content', 'public');
+
+        return response()->json([
+            'url' => '/storage/'.$path,
+        ]);
+    }
 }

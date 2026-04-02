@@ -233,6 +233,7 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
             Route::post('/store', 'store')->name('store')->middleware('permission:create_posts');
             Route::post('/update/{blogPost}', 'update')->name('update')->middleware('permission:edit_posts');
             Route::post('/delete/{blogPost}', 'delete')->name('delete')->middleware('permission:delete_posts');
+            Route::post('/upload-image', 'uploadImage')->name('upload-image');
         });
     });
 });

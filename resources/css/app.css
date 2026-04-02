@@ -144,6 +144,21 @@ html {
     @apply text-primary underline;
 }
 
+/* TipTap table styling */
+.tiptap table {
+    @apply w-full border-collapse overflow-hidden rounded-lg;
+}
+.tiptap table td,
+.tiptap table th {
+    @apply border border-border px-3 py-2 text-left align-top;
+}
+.tiptap table th {
+    @apply bg-muted font-semibold;
+}
+.tiptap table .selectedCell {
+    @apply bg-primary/10;
+}
+
 /* Game icon font sizing — maps Tailwind h-* classes to font-size */
 .game-icon {
     line-height: 1;

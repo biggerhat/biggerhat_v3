@@ -324,6 +324,20 @@ class GamePlayController extends Controller
         // Solo: when a scheme is revealed (scored or discarded), set it as current before recording the turn.
         // This ensures the turn records the correct scheme_id and updates the next-scheme pool.
         if ($game->is_solo && ! empty($validated['solo_scheme_id'])) {
+            $validIds = $game->scheme_pool ?? [];
+            if ($player->current_scheme_id) {
+                $currentScheme = Scheme::find($player->current_scheme_id);
+                if ($currentScheme) {
+                    $validIds = array_merge($validIds, array_filter([
+                        $currentScheme->next_scheme_one_id,
+                        $currentScheme->next_scheme_two_id,
+                        $currentScheme->next_scheme_three_id,
+                    ]));
+                }
+            }
+            if (! in_array($validated['solo_scheme_id'], $validIds)) {
+                return response()->json(['error' => 'Scheme not in pool or next-scheme chain'], 422);
+            }
             $player->update(['current_scheme_id' => $validated['solo_scheme_id']]);
             $player->refresh();
         }

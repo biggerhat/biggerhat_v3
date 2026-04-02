@@ -50,7 +50,10 @@ interface SchemeData {
     prerequisite: string | null;
     reveal: string | null;
     scoring: string | null;
-    requirements: string[];
+    requirements: any[];
+    next_scheme_one_id: number | null;
+    next_scheme_two_id: number | null;
+    next_scheme_three_id: number | null;
 }
 
 interface DeploymentData {
@@ -170,7 +173,7 @@ const opponent = computed(() => {
 
 const isSolo = computed(() => props.game.is_solo);
 const isObserver = computed(() => props.is_observer);
-const { onlineMembers } = useGameChannel(isSolo.value ? '' : props.game.uuid, isObserver.value);
+const { onlineMembers } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
 // Scenario editing
@@ -527,29 +530,95 @@ const swapRoles = async () => {
 // Solo gameplay: opponent scoring
 const opponentStrategyPoints = ref(0);
 const opponentSchemePoints = ref(0);
-const opponentNextSchemeId = ref<number | null>(null);
 const opponentSchemeScored = computed(() => opponentSchemePoints.value > 0);
 const isLastTurnForOpponent = computed(() => props.game.current_turn >= props.game.max_turns);
 
+// Solo opponent scheme dialog state
+const oppDialogOpen = ref(false);
+const oppDialogStep = ref<'identify' | 'followup'>('identify');
+const oppDialogMode = ref<'scored' | 'discard' | 'end-of-game'>('scored');
+const oppIdentifiedSchemeId = ref<number | null>(null);
+const oppFollowUpSchemeId = ref<number | null>(null);
+const oppDialogResolve = ref<((result: 'cancel' | 'done') => void) | null>(null);
+
+// Follow-up options derived from the identified scheme
+const oppFollowUpSchemes = computed(() => {
+    if (!oppIdentifiedSchemeId.value) return [];
+    const scheme = findScheme(oppIdentifiedSchemeId.value);
+    if (!scheme) return [];
+    // The scheme's next-scheme chain — need to look these up from allKnownSchemes or props.schemes
+    const nextIds = [
+        (scheme as any).next_scheme_one_id,
+        (scheme as any).next_scheme_two_id,
+        (scheme as any).next_scheme_three_id,
+    ].filter(Boolean);
+    return nextIds.map((id: number) => findScheme(id)).filter(Boolean) as SchemeData[];
+});
+
+const openOppSchemeDialog = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<'cancel' | 'done'> => {
+    return new Promise((resolve) => {
+        oppDialogMode.value = mode;
+        oppDialogStep.value = 'identify';
+        oppIdentifiedSchemeId.value = null;
+        oppFollowUpSchemeId.value = null;
+        oppDialogResolve.value = resolve;
+        oppDialogOpen.value = true;
+    });
+};
+
+const oppSelectIdentified = (schemeId: number) => {
+    oppIdentifiedSchemeId.value = schemeId;
+    // If last turn or end-of-game, no follow-up needed
+    if (isLastTurnForOpponent.value || oppDialogMode.value === 'end-of-game') {
+        oppDialogOpen.value = false;
+        oppDialogResolve.value?.('done');
+        oppDialogResolve.value = null;
+        return;
+    }
+    // Move to follow-up step
+    oppDialogStep.value = 'followup';
+};
+
+const oppSelectFollowUp = (schemeId: number | null) => {
+    oppFollowUpSchemeId.value = schemeId;
+    oppDialogOpen.value = false;
+    oppDialogResolve.value?.('done');
+    oppDialogResolve.value = null;
+};
+
+const oppKeepHidden = () => {
+    oppIdentifiedSchemeId.value = null;
+    oppFollowUpSchemeId.value = null;
+    oppDialogOpen.value = false;
+    oppDialogResolve.value?.('done');
+    oppDialogResolve.value = null;
+};
+
+const oppCancelDialog = () => {
+    oppDialogOpen.value = false;
+    oppDialogResolve.value?.('cancel');
+    oppDialogResolve.value = null;
+};
+
 const submitOpponentTurnScore = async () => {
     const mode = opponentSchemeScored.value ? 'scored' : 'discard';
-
-    const result = await promptOpponentScheme(mode as any);
+    const result = await openOppSchemeDialog(mode);
     if (result === 'cancel') return;
 
     scoringOpponentTurn.value = true;
-    const selectedSchemeId = typeof result === 'number' ? result : null;
     const payload: Record<string, any> = {
         strategy_points: opponentStrategyPoints.value,
         scheme_points: opponentSchemePoints.value,
         slot: 2,
     };
 
-    // When a scheme is revealed (scored or discarded), set it as the opponent's current scheme.
-    // This records the scheme on the turn AND updates current_scheme_id so the next pool
-    // derives from this scheme's chain. When "keep hidden" (null), nothing changes.
-    if (selectedSchemeId) {
-        payload.solo_scheme_id = selectedSchemeId;
+    // Identified scheme = what they scored/discarded this turn
+    if (oppIdentifiedSchemeId.value) {
+        payload.solo_scheme_id = oppIdentifiedSchemeId.value;
+    }
+    // Follow-up = their next scheme (only if they scored/discarded)
+    if (oppFollowUpSchemeId.value) {
+        payload.next_scheme_id = oppFollowUpSchemeId.value;
     }
 
     await fetch(route('games.play.turns.store', props.game.uuid), {
@@ -583,44 +652,13 @@ const updateOpponentSoulstonePool = (delta: number) => {
     postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal, slot: 2 });
 };
 
-// Solo: opponent scheme selection dialog (shown on turn submit / game complete)
-// Use next-scheme chain if opponent has a current scheme, otherwise full pool
-const opponentSchemeOptions = computed(() => {
+// Solo: opponent possible scheme pool (for the identify step)
+const opponentSchemePool = computed(() => {
     if (!opponent.value?.current_scheme_id || !props.opponent_next_schemes.length) {
-        return props.schemes; // Turn 1: full pool
+        return props.schemes;
     }
-    // After turn 1: only the next-chain schemes
-    // In discard mode, "Keep Current" button handles the current scheme
-    // In scored/end-of-game mode, opponent scored on current — show next options to switch to
     return props.opponent_next_schemes;
 });
-
-const opponentSchemePromptOpen = ref(false);
-const opponentSchemePromptMode = ref<'scored' | 'discard' | 'end-of-game'>('scored');
-const opponentSchemePromptCallback = ref<((schemeId: number | null) => void) | null>(null);
-
-const promptOpponentScheme = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<number | null | 'cancel'> => {
-    return new Promise((resolve) => {
-        opponentSchemePromptMode.value = mode;
-        opponentSchemePromptCallback.value = resolve;
-        opponentSchemePromptOpen.value = true;
-    });
-};
-
-// Resolve with scheme ID, null (keep current), or 'cancel' (dialog dismissed)
-const resolveOpponentSchemePrompt = (schemeId: number | null | 'cancel') => {
-    opponentSchemePromptOpen.value = false;
-    opponentSchemePromptCallback.value?.(schemeId as any);
-    opponentSchemePromptCallback.value = null;
-};
-
-const setOpponentScheme = async (schemeId: number) => {
-    await fetch(route('games.setup.scheme', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ scheme_id: schemeId, slot: 2 }),
-    });
-};
 
 // Summon count check
 const summonCrewCount = (characterId: number) => {
@@ -1027,6 +1065,47 @@ const scoringOpponentTurn = ref(false);
 
 const isLastTurn = computed(() => props.game.current_turn >= props.game.max_turns);
 
+// Next scheme requirement fields (for the follow-up scheme the user is switching to)
+const nextSchemeModel = ref('');
+const nextSchemeMarker = ref('');
+const nextSchemeTerrain = ref('');
+const nextSchemeReqs = computed(() => {
+    if (!nextSchemeId.value) return [];
+    return findScheme(nextSchemeId.value)?.requirements ?? [];
+});
+const nextSchemeModelReq = computed(() => nextSchemeReqs.value.find((r: any) => r.type === 'select_model') ?? null);
+const nextSchemeModelLabel = computed(() => {
+    const req = nextSchemeModelReq.value;
+    if (!req) return '';
+    const parts: string[] = [];
+    if (req.unique) parts.push('Unique');
+    parts.push(req.allegiance === 'friendly' ? 'Friendly' : 'Enemy');
+    parts.push('Model');
+    if (req.cost_operator && req.cost_value != null) parts.push(`(Cost ${req.cost_operator} ${req.cost_value})`);
+    return parts.join(' ');
+});
+const nextSchemeModelOptions = computed(() => {
+    const req = nextSchemeModelReq.value;
+    if (!req) return [];
+    const pool = req.allegiance === 'friendly'
+        ? [...(myPlayer.value?.crew_members ?? [])]
+        : [...(opponent.value?.crew_members ?? [])];
+    return pool.filter((m: any) => {
+        if (req.unique && (m.station === 'minion' || m.station === 'peon')) return false;
+        if (req.cost_operator && req.cost_value != null && m.cost != null) {
+            const cost = m.cost as number;
+            const target = req.cost_value as number;
+            if (req.cost_operator === '>' && !(cost > target)) return false;
+            if (req.cost_operator === '<' && !(cost < target)) return false;
+            if (req.cost_operator === '>=' && !(cost >= target)) return false;
+            if (req.cost_operator === '<=' && !(cost <= target)) return false;
+        }
+        return true;
+    });
+});
+// Reset next scheme fields when selection changes
+watch(nextSchemeId, () => { nextSchemeModel.value = ''; nextSchemeMarker.value = ''; nextSchemeTerrain.value = ''; });
+
 
 // All known schemes (pool + next schemes for lookup)
 const allKnownSchemes = computed(() => {
@@ -1127,6 +1206,23 @@ const opponentMaxSchemeThisTurn = computed(() => Math.min(2, 6 - opponentTotalSc
 
 const submitTurnScore = async () => {
     scoringTurn.value = true;
+
+    // If switching schemes, save the new scheme's requirement selections
+    if (nextSchemeId.value && nextSchemeReqs.value.length) {
+        await fetch(route('games.play.scheme-notes', props.game.uuid), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({
+                scheme_notes: {
+                    note: null,
+                    selected_model: nextSchemeModel.value || null,
+                    selected_marker: nextSchemeMarker.value || null,
+                    terrain_note: nextSchemeTerrain.value || null,
+                },
+            }),
+        });
+    }
+
     await fetch(route('games.play.turns.store', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
@@ -1144,12 +1240,17 @@ const submitTurnScore = async () => {
 };
 
 const markGameComplete = async () => {
-    // Solo: always ask for opponent's current scheme before completing
+    // Solo: ask for opponent's final scheme before completing
     if (isSolo.value) {
-        const result = await promptOpponentScheme('end-of-game');
-        if (result === 'cancel') return; // dialog dismissed
-        if (typeof result === 'number') {
-            await setOpponentScheme(result);
+        const result = await openOppSchemeDialog('end-of-game');
+        if (result === 'cancel') return;
+        if (oppIdentifiedSchemeId.value) {
+            // Set the identified scheme as opponent's current for final scoring
+            await fetch(route('games.setup.scheme', props.game.uuid), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+                body: JSON.stringify({ scheme_id: oppIdentifiedSchemeId.value, slot: 2 }),
+            });
         }
     }
 
@@ -2776,18 +2877,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                         <!-- Next scheme (not on last turn) -->
                                         <div v-if="!isLastTurn">
-                                            <div class="mb-1.5 text-xs text-muted-foreground">
-                                                {{ currentSchemeScored ? 'Select next scheme:' : 'Keep current scheme or change:' }}
+                                            <div class="mb-1.5 text-xs font-medium">
+                                                {{ currentSchemeScored ? 'Scored — select next scheme:' : 'Hold scheme or discard:' }}
                                             </div>
                                             <div class="space-y-1">
+                                                <!-- Hold option (only when not scored) -->
                                                 <button
                                                     v-if="!currentSchemeScored"
                                                     class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
                                                     :class="!nextSchemeId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                                                     @click="nextSchemeId = null"
                                                 >
-                                                    Keep Current
+                                                    Hold Scheme (Hidden)
                                                 </button>
+                                                <!-- Divider when showing discard options -->
+                                                <div v-if="!currentSchemeScored && next_schemes.length" class="py-0.5 text-center text-[9px] text-muted-foreground">— or discard &amp; switch to —</div>
+                                                <!-- Follow-up schemes -->
                                                 <template v-if="next_schemes.length">
                                                     <div v-for="scheme in next_schemes" :key="scheme.id" class="flex items-center gap-1">
                                                         <button
@@ -2806,12 +2911,47 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     </div>
                                                 </template>
                                                 <div v-else-if="currentSchemeScored" class="text-[11px] text-muted-foreground">
-                                                    No next schemes available for your current scheme.
+                                                    No follow-up schemes available.
+                                                </div>
+                                            </div>
+
+                                            <!-- Requirement fields for the selected next scheme -->
+                                            <div v-if="nextSchemeId && findScheme(nextSchemeId)?.requirements?.length" class="mt-2 rounded border border-primary/20 bg-primary/5 p-2 space-y-1.5">
+                                                <div class="text-[10px] font-medium uppercase text-muted-foreground">{{ findScheme(nextSchemeId)?.name }} — Setup</div>
+                                                <div v-if="findScheme(nextSchemeId)?.prerequisite" class="text-[10px] italic text-muted-foreground">
+                                                    {{ findScheme(nextSchemeId)?.prerequisite }}
+                                                </div>
+                                                <!-- Model -->
+                                                <div v-if="nextSchemeModelReq">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">{{ nextSchemeModelLabel }}</label>
+                                                    <select
+                                                        v-if="nextSchemeModelOptions.length"
+                                                        v-model="nextSchemeModel"
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                    >
+                                                        <option value="">Select...</option>
+                                                        <option v-for="m in nextSchemeModelOptions" :key="m.id" :value="m.display_name">
+                                                            {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <!-- Marker -->
+                                                <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'select_marker')">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
+                                                    <select v-model="nextSchemeMarker" class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs">
+                                                        <option value="">Select...</option>
+                                                        <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
+                                                    </select>
+                                                </div>
+                                                <!-- Terrain -->
+                                                <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'terrain_note')">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
+                                                    <input v-model="nextSchemeTerrain" type="text" placeholder="e.g. the building on the left..." class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <Button class="w-full" size="sm" :disabled="scoringTurn || (!isLastTurn && currentSchemeScored && !nextSchemeId && next_schemes.length > 0)" @click="submitTurnScore">
+                                        <Button class="w-full" size="sm" :disabled="scoringTurn || (!isLastTurn && (currentSchemeScored || nextSchemeId) && !nextSchemeId && next_schemes.length > 0)" @click="submitTurnScore">
                                             <Loader2 v-if="scoringTurn" class="mr-2 size-4 animate-spin" />
                                             Submit Turn ({{ strategyPoints + schemePoints }} VP)
                                         </Button>
@@ -3695,44 +3835,77 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DrawerContent>
     </Drawer>
 
-    <!-- Opponent Scheme Prompt Dialog (Solo) -->
-    <Dialog v-if="isSolo && !isObserver" :open="opponentSchemePromptOpen" @update:open="(v) => { if (!v) resolveOpponentSchemePrompt('cancel'); }">
+    <!-- Opponent Scheme Dialog (Solo) — Multi-step -->
+    <Dialog v-if="isSolo && !isObserver" :open="oppDialogOpen" @update:open="(v) => { if (!v) oppCancelDialog(); }">
         <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>
-                    <template v-if="opponentSchemePromptMode === 'scored'">Opponent Scored Scheme VP</template>
-                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Opponent's Final Scheme</template>
-                    <template v-else>Opponent's Scheme</template>
-                </DialogTitle>
-                <DialogDescription>
-                    <template v-if="opponentSchemePromptMode === 'scored'">Which scheme did they score on?</template>
-                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Select the opponent's scheme for final scoring, or keep hidden.</template>
-                    <template v-else>Keep scheme hidden into the next turn, or select which scheme they're discarding.</template>
-                </DialogDescription>
-            </DialogHeader>
-            <div class="space-y-1">
-                <!-- Keep hidden option (discard + end-of-game modes) -->
-                <button
-                    v-if="opponentSchemePromptMode === 'discard' || opponentSchemePromptMode === 'end-of-game'"
-                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
-                    @click="resolveOpponentSchemePrompt(null)"
-                >
-                    Keep Scheme Hidden
-                </button>
-                <div
-                    v-if="(opponentSchemePromptMode === 'discard' || opponentSchemePromptMode === 'end-of-game') && opponentSchemeOptions.length"
-                    class="py-1 text-center text-[10px] text-muted-foreground"
-                >— or {{ opponentSchemePromptMode === 'discard' ? 'discard' : 'reveal' }} —</div>
-                <!-- Scheme options -->
-                <button
-                    v-for="scheme in opponentSchemeOptions"
-                    :key="'opp-prompt-' + scheme.id"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    @click="resolveOpponentSchemePrompt(scheme.id)"
-                >
-                    {{ scheme.name }}
-                </button>
-            </div>
+            <!-- Step 1: Identify which scheme was scored/discarded -->
+            <template v-if="oppDialogStep === 'identify'">
+                <DialogHeader>
+                    <DialogTitle>
+                        <template v-if="oppDialogMode === 'scored'">Opponent Scored Scheme VP</template>
+                        <template v-else-if="oppDialogMode === 'end-of-game'">Opponent's Final Scheme</template>
+                        <template v-else>Opponent's Scheme</template>
+                    </DialogTitle>
+                    <DialogDescription>
+                        <template v-if="oppDialogMode === 'scored'">Which scheme did they score on?</template>
+                        <template v-else-if="oppDialogMode === 'end-of-game'">Identify the opponent's scheme, or keep hidden.</template>
+                        <template v-else>Hold scheme hidden, or select which scheme they're discarding.</template>
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-1">
+                    <!-- Hold hidden (discard + end-of-game only) -->
+                    <button
+                        v-if="oppDialogMode === 'discard' || oppDialogMode === 'end-of-game'"
+                        class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
+                        @click="oppKeepHidden"
+                    >
+                        Hold Scheme (Hidden)
+                    </button>
+                    <div
+                        v-if="(oppDialogMode === 'discard' || oppDialogMode === 'end-of-game') && opponentSchemePool.length"
+                        class="py-1 text-center text-[10px] text-muted-foreground"
+                    >— or {{ oppDialogMode === 'scored' ? 'scored' : 'discard' }} —</div>
+                    <!-- Scheme options from current pool -->
+                    <button
+                        v-for="scheme in opponentSchemePool"
+                        :key="'opp-id-' + scheme.id"
+                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                        @click="oppSelectIdentified(scheme.id)"
+                    >
+                        {{ scheme.name }}
+                    </button>
+                </div>
+            </template>
+
+            <!-- Step 2: Pick follow-up scheme -->
+            <template v-else-if="oppDialogStep === 'followup'">
+                <DialogHeader>
+                    <DialogTitle>Opponent's Next Scheme</DialogTitle>
+                    <DialogDescription>
+                        {{ findScheme(oppIdentifiedSchemeId)?.name }} was {{ oppDialogMode === 'scored' ? 'scored' : 'discarded' }}.
+                        Select the opponent's follow-up scheme.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-1">
+                    <template v-if="oppFollowUpSchemes.length">
+                        <button
+                            v-for="scheme in oppFollowUpSchemes"
+                            :key="'opp-fu-' + scheme.id"
+                            class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                            @click="oppSelectFollowUp(scheme.id)"
+                        >
+                            {{ scheme.name }}
+                        </button>
+                    </template>
+                    <div v-else class="py-4 text-center text-xs text-muted-foreground">No follow-up schemes available.</div>
+                    <button
+                        class="mt-1 w-full rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground hover:bg-muted"
+                        @click="oppDialogStep = 'identify'"
+                    >
+                        Back
+                    </button>
+                </div>
+            </template>
         </DialogContent>
     </Dialog>
 

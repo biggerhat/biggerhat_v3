@@ -974,6 +974,9 @@ class GameController extends Controller
             'reveal' => $s->reveal,
             'scoring' => $s->scoring,
             'requirements' => $s->requirements ?? [],
+            'next_scheme_one_id' => $s->next_scheme_one_id,
+            'next_scheme_two_id' => $s->next_scheme_two_id,
+            'next_scheme_three_id' => $s->next_scheme_three_id,
         ];
     }
 }

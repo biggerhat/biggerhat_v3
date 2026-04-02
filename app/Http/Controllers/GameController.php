@@ -449,6 +449,7 @@ class GameController extends Controller
                         'last_revealed' => null,
                         'possible_schemes' => $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
                             ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray(),
+                        'scheme_history' => [],
                     ];
                 }
 
@@ -476,9 +477,24 @@ class GameController extends Controller
                     }
                 }
 
+                // Build scheme history: all turns where the scheme was revealed
+                $schemeHistory = $opponent->turns->sortBy('turn_number')
+                    ->filter(fn (GameTurn $t) => (bool) $t->scheme_id)
+                    ->map(function (GameTurn $t) use ($schemeCache) {
+                        $scheme = $schemeCache->get($t->scheme_id);
+
+                        return [
+                            'turn_number' => $t->turn_number,
+                            'scheme_id' => $t->scheme_id,
+                            'scheme_name' => $scheme->name ?? 'Unknown',
+                            'scored' => $t->scheme_points > 0,
+                        ];
+                    })->values()->toArray();
+
                 return [
                     'last_revealed' => $lastRevealed,
                     'possible_schemes' => $possible,
+                    'scheme_history' => $schemeHistory,
                 ];
             },
             'next_schemes' => function () use ($game, $schemeCache) {
@@ -746,15 +762,14 @@ class GameController extends Controller
                             ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
                     }
 
-                    // Check if current scheme has been revealed (scored scheme points on any turn)
-                    $scoredTurn = $player->turns->sortByDesc('turn_number')
-                        ->first(fn ($t) => $t->scheme_points > 0);
-                    $revealedSchemeId = $scoredTurn?->scheme_id;
+                    // Only reveal scheme if it was scored on the CURRENT turn — past reveals are historical
+                    $currentTurnRecord = $player->turns->firstWhere('turn_number', $game->current_turn);
+                    $revealedThisTurn = $currentTurnRecord && $currentTurnRecord->scheme_points > 0;
 
                     $result[$player->slot] = [
                         'possible_schemes' => $possible,
-                        'revealed_scheme_id' => $revealedSchemeId,
-                        'last_scored_turn' => $scoredTurn?->turn_number,
+                        'revealed_scheme_id' => $revealedThisTurn ? $currentTurnRecord->scheme_id : null,
+                        'last_scored_turn' => $revealedThisTurn ? $currentTurnRecord->turn_number : null,
                     ];
                 }
 

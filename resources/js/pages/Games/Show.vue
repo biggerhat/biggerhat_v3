@@ -150,6 +150,7 @@ const props = defineProps<{
     tokens: { id: number; name: string; slug: string; description: string | null }[];
     character_upgrades: { id: number; name: string; slug: string; front_image: string | null; back_image: string | null; type: string | null; plentiful: number | null }[];
     all_markers: { id: number; name: string; slug: string }[];
+    all_reachable_schemes: SchemeData[];
     observer_scheme_intel: Record<number, {
         possible_schemes: SchemeData[];
         revealed_scheme_id: number | null;
@@ -531,56 +532,24 @@ const swapRoles = async () => {
 const opponentStrategyPoints = ref(0);
 const opponentSchemePoints = ref(0);
 const opponentSchemeScored = computed(() => opponentSchemePoints.value > 0);
-const isLastTurnForOpponent = computed(() => props.game.current_turn >= props.game.max_turns);
 
 // Solo opponent scheme dialog state
 const oppDialogOpen = ref(false);
-const oppDialogStep = ref<'identify' | 'followup'>('identify');
 const oppDialogMode = ref<'scored' | 'discard' | 'end-of-game'>('scored');
 const oppIdentifiedSchemeId = ref<number | null>(null);
-const oppFollowUpSchemeId = ref<number | null>(null);
 const oppDialogResolve = ref<((result: 'cancel' | 'done') => void) | null>(null);
-
-// Follow-up options derived from the identified scheme
-const oppFollowUpSchemes = computed(() => {
-    if (!oppIdentifiedSchemeId.value) return [];
-    const scheme = findScheme(oppIdentifiedSchemeId.value);
-    if (!scheme) return [];
-    // The scheme's next-scheme chain — need to look these up from allKnownSchemes or props.schemes
-    const nextIds = [
-        (scheme as any).next_scheme_one_id,
-        (scheme as any).next_scheme_two_id,
-        (scheme as any).next_scheme_three_id,
-    ].filter(Boolean);
-    return nextIds.map((id: number) => findScheme(id)).filter(Boolean) as SchemeData[];
-});
 
 const openOppSchemeDialog = (mode: 'scored' | 'discard' | 'end-of-game'): Promise<'cancel' | 'done'> => {
     return new Promise((resolve) => {
         oppDialogMode.value = mode;
-        oppDialogStep.value = 'identify';
         oppIdentifiedSchemeId.value = null;
-        oppFollowUpSchemeId.value = null;
         oppDialogResolve.value = resolve;
         oppDialogOpen.value = true;
     });
 };
 
-const oppSelectIdentified = (schemeId: number) => {
+const oppSelectScheme = (schemeId: number) => {
     oppIdentifiedSchemeId.value = schemeId;
-    // If last turn or end-of-game, no follow-up needed
-    if (isLastTurnForOpponent.value || oppDialogMode.value === 'end-of-game') {
-        oppDialogOpen.value = false;
-        oppDialogResolve.value?.('done');
-        oppDialogResolve.value = null;
-        return;
-    }
-    // Move to follow-up step
-    oppDialogStep.value = 'followup';
-};
-
-const oppSelectFollowUp = (schemeId: number | null) => {
-    oppFollowUpSchemeId.value = schemeId;
     oppDialogOpen.value = false;
     oppDialogResolve.value?.('done');
     oppDialogResolve.value = null;
@@ -588,7 +557,6 @@ const oppSelectFollowUp = (schemeId: number | null) => {
 
 const oppKeepHidden = () => {
     oppIdentifiedSchemeId.value = null;
-    oppFollowUpSchemeId.value = null;
     oppDialogOpen.value = false;
     oppDialogResolve.value?.('done');
     oppDialogResolve.value = null;
@@ -612,13 +580,11 @@ const submitOpponentTurnScore = async () => {
         slot: 2,
     };
 
-    // Identified scheme = what they scored/discarded this turn
+    // Identified scheme = what they scored/discarded this turn.
+    // This sets current_scheme_id on the backend, so next turn's pool
+    // derives from this scheme's chain automatically.
     if (oppIdentifiedSchemeId.value) {
         payload.solo_scheme_id = oppIdentifiedSchemeId.value;
-    }
-    // Follow-up = their next scheme (only if they scored/discarded)
-    if (oppFollowUpSchemeId.value) {
-        payload.next_scheme_id = oppFollowUpSchemeId.value;
     }
 
     await fetch(route('games.play.turns.store', props.game.uuid), {
@@ -1110,6 +1076,7 @@ watch(nextSchemeId, () => { nextSchemeModel.value = ''; nextSchemeMarker.value =
 // All known schemes (pool + next schemes for lookup)
 const allKnownSchemes = computed(() => {
     const map = new Map<number, SchemeData>();
+    for (const s of props.all_reachable_schemes) map.set(s.id, s);
     for (const s of props.schemes) map.set(s.id, s);
     for (const s of props.current_schemes) map.set(s.id, s);
     for (const s of props.next_schemes) map.set(s.id, s);
@@ -3838,74 +3805,41 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Opponent Scheme Dialog (Solo) — Multi-step -->
     <Dialog v-if="isSolo && !isObserver" :open="oppDialogOpen" @update:open="(v) => { if (!v) oppCancelDialog(); }">
         <DialogContent class="max-w-sm">
-            <!-- Step 1: Identify which scheme was scored/discarded -->
-            <template v-if="oppDialogStep === 'identify'">
-                <DialogHeader>
-                    <DialogTitle>
-                        <template v-if="oppDialogMode === 'scored'">Opponent Scored Scheme VP</template>
-                        <template v-else-if="oppDialogMode === 'end-of-game'">Opponent's Final Scheme</template>
-                        <template v-else>Opponent's Scheme</template>
-                    </DialogTitle>
-                    <DialogDescription>
-                        <template v-if="oppDialogMode === 'scored'">Which scheme did they score on?</template>
-                        <template v-else-if="oppDialogMode === 'end-of-game'">Identify the opponent's scheme, or keep hidden.</template>
-                        <template v-else>Hold scheme hidden, or select which scheme they're discarding.</template>
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-1">
-                    <!-- Hold hidden (discard + end-of-game only) -->
-                    <button
-                        v-if="oppDialogMode === 'discard' || oppDialogMode === 'end-of-game'"
-                        class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
-                        @click="oppKeepHidden"
-                    >
-                        Hold Scheme (Hidden)
-                    </button>
-                    <div
-                        v-if="(oppDialogMode === 'discard' || oppDialogMode === 'end-of-game') && opponentSchemePool.length"
-                        class="py-1 text-center text-[10px] text-muted-foreground"
-                    >— or {{ oppDialogMode === 'scored' ? 'scored' : 'discard' }} —</div>
-                    <!-- Scheme options from current pool -->
-                    <button
-                        v-for="scheme in opponentSchemePool"
-                        :key="'opp-id-' + scheme.id"
-                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                        @click="oppSelectIdentified(scheme.id)"
-                    >
-                        {{ scheme.name }}
-                    </button>
-                </div>
-            </template>
-
-            <!-- Step 2: Pick follow-up scheme -->
-            <template v-else-if="oppDialogStep === 'followup'">
-                <DialogHeader>
-                    <DialogTitle>Opponent's Next Scheme</DialogTitle>
-                    <DialogDescription>
-                        {{ findScheme(oppIdentifiedSchemeId)?.name }} was {{ oppDialogMode === 'scored' ? 'scored' : 'discarded' }}.
-                        Select the opponent's follow-up scheme.
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-1">
-                    <template v-if="oppFollowUpSchemes.length">
-                        <button
-                            v-for="scheme in oppFollowUpSchemes"
-                            :key="'opp-fu-' + scheme.id"
-                            class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                            @click="oppSelectFollowUp(scheme.id)"
-                        >
-                            {{ scheme.name }}
-                        </button>
-                    </template>
-                    <div v-else class="py-4 text-center text-xs text-muted-foreground">No follow-up schemes available.</div>
-                    <button
-                        class="mt-1 w-full rounded-md px-3 py-1.5 text-center text-xs text-muted-foreground hover:bg-muted"
-                        @click="oppDialogStep = 'identify'"
-                    >
-                        Back
-                    </button>
-                </div>
-            </template>
+            <DialogHeader>
+                <DialogTitle>
+                    <template v-if="oppDialogMode === 'scored'">Opponent Scored Scheme VP</template>
+                    <template v-else-if="oppDialogMode === 'end-of-game'">Opponent's Final Scheme</template>
+                    <template v-else>Opponent's Scheme</template>
+                </DialogTitle>
+                <DialogDescription>
+                    <template v-if="oppDialogMode === 'scored'">Which scheme did they score on? Their next pool will derive from this scheme.</template>
+                    <template v-else-if="oppDialogMode === 'end-of-game'">Identify the opponent's scheme for final scoring, or keep hidden.</template>
+                    <template v-else>Hold scheme hidden, or select which scheme they're discarding. Their next pool will derive from the discarded scheme.</template>
+                </DialogDescription>
+            </DialogHeader>
+            <div class="space-y-1">
+                <!-- Hold hidden (discard + end-of-game only) -->
+                <button
+                    v-if="oppDialogMode === 'discard' || oppDialogMode === 'end-of-game'"
+                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
+                    @click="oppKeepHidden"
+                >
+                    Hold Scheme (Hidden)
+                </button>
+                <div
+                    v-if="(oppDialogMode === 'discard' || oppDialogMode === 'end-of-game') && opponentSchemePool.length"
+                    class="py-1 text-center text-[10px] text-muted-foreground"
+                >— or {{ oppDialogMode === 'discard' ? 'discard' : 'reveal' }} —</div>
+                <!-- Scheme options from current pool -->
+                <button
+                    v-for="scheme in opponentSchemePool"
+                    :key="'opp-id-' + scheme.id"
+                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                    @click="oppSelectScheme(scheme.id)"
+                >
+                    {{ scheme.name }}
+                </button>
+            </div>
         </DialogContent>
     </Dialog>
 

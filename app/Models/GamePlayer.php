@@ -29,6 +29,7 @@ class GamePlayer extends Model
             'is_turn_complete' => 'boolean',
             'is_game_complete' => 'boolean',
             'hidden_at' => 'datetime',
+            'scheme_notes' => 'array',
         ];
     }
 

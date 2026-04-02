@@ -113,7 +113,7 @@ onBeforeUnmount(() => {
         <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
         <EditorContent
             :editor="editor"
-            class="prose prose-sm dark:prose-invert max-w-none p-4 focus:outline-none [&_.tiptap]:min-h-[200px] [&_.tiptap]:outline-none"
+            class="prose prose-sm dark:prose-invert max-w-none p-4 focus:outline-none [&_.tiptap]:min-h-[200px] [&_.tiptap]:outline-none [&_.tiptap_p]:my-3"
         />
     </div>
     <EntitySearchDialog v-model:open="entitySearchOpen" @select="handleEntitySelect" />

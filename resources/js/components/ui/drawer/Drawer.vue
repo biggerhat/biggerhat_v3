@@ -4,7 +4,8 @@ import { useForwardPropsEmits } from 'reka-ui'
 import { DrawerRoot } from 'vaul-vue'
 
 const props = withDefaults(defineProps<DrawerRootProps>(), {
-  shouldScaleBackground: true,
+  shouldScaleBackground: false,
+  noBodyStyles: true,
 })
 
 const emits = defineEmits<DrawerRootEmits>()

@@ -16,6 +16,7 @@ class GameTurn extends Model
     {
         return [
             'crew_snapshot' => 'array',
+            'scheme_notes' => 'array',
         ];
     }
 

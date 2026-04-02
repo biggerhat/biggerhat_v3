@@ -68,11 +68,29 @@ class SchemeAdminController extends Controller
             'reveal' => ['nullable', 'string'],
             'scoring' => ['nullable', 'string'],
             'additional' => ['nullable', 'string'],
+            'requirements' => ['nullable', 'array'],
+            'requirements.*.type' => ['required', 'string', 'in:select_model,select_marker,terrain_note'],
+            'requirements.*.allegiance' => ['nullable', 'string', 'in:enemy,friendly'],
+            'requirements.*.unique' => ['nullable', 'boolean'],
+            'requirements.*.cost_operator' => ['nullable', 'string', 'in:>,<,>=,<=,none'],
+            'requirements.*.cost_value' => ['nullable', 'integer', 'min:0', 'max:20'],
             'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'next_scheme_one_id' => ['nullable', 'integer'],
             'next_scheme_two_id' => ['nullable', 'integer'],
             'next_scheme_three_id' => ['nullable', 'integer'],
         ]);
+
+        // Clean up requirements — normalize "none" to null
+        if (! empty($validated['requirements'])) {
+            $validated['requirements'] = array_map(function ($req) {
+                if (($req['cost_operator'] ?? null) === 'none') {
+                    $req['cost_operator'] = null;
+                    $req['cost_value'] = null;
+                }
+
+                return $req;
+            }, $validated['requirements']);
+        }
 
         // Handle Images
         $nameSlug = Str::slug($validated['name']);

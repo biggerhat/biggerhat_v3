@@ -31,9 +31,22 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         })
             .listen('.GameStatusChanged', (e: any) => {
                 if (import.meta.env.DEV) console.log('[GameChannel] Event: GameStatusChanged', e);
-                // Full reload — status changes can affect which props are available
-                // (e.g. masters appear at MasterSelect, next_schemes at InProgress)
-                reload(['game', 'schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'tokens', 'character_upgrades', 'starting_crews']);
+                const status = e.status;
+                // Targeted reload based on what the new status needs
+                const base = ['game'];
+                if (status === 'faction_select' || status === 'master_select') {
+                    reload([...base, 'masters', 'my_crews']);
+                } else if (status === 'crew_select') {
+                    reload([...base, 'masters', 'my_crews']);
+                } else if (status === 'scheme_select') {
+                    reload([...base, 'schemes', 'deployment', 'current_schemes']);
+                } else if (status === 'in_progress') {
+                    reload([...base, 'schemes', 'deployment', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'observer_scheme_intel', 'tokens', 'character_upgrades', 'all_markers']);
+                } else if (status === 'completed' || status === 'abandoned') {
+                    reload([...base, 'current_schemes', 'starting_crews']);
+                } else {
+                    reload(base);
+                }
             })
             .listen('.GameSetupStepCompleted', (e: any) => {
                 if (import.meta.env.DEV) console.log('[GameChannel] Event: GameSetupStepCompleted', e);
@@ -45,7 +58,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                 if (import.meta.env.DEV) console.log('[GameChannel] Event: GameCrewMemberUpdated', e);
                 // turn_scored and mark_complete can change schemes and game state
                 if (e.action === 'turn_scored' || e.action === 'mark_complete' || e.action === 'cancel_complete') {
-                    reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel']);
+                    reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'observer_scheme_intel']);
                 } else {
                     reload(['game']);
                 }
@@ -53,7 +66,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
             .listen('.GameTurnAdvanced', (e: any) => {
                 if (import.meta.env.DEV) console.log('[GameChannel] Event: GameTurnAdvanced', e);
                 // Turn advancement changes current schemes, next scheme options, and opponent intel
-                reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel']);
+                reload(['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'observer_scheme_intel']);
             });
 
         // Log subscription errors for presence channels

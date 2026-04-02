@@ -107,8 +107,8 @@ class GamePlayController extends Controller
                         'display_name' => $replacement->display_name,
                         'count' => $replacement->pivot->count ?? 1,
                         'health' => $replacement->pivot->health ?? null,
-                        'front_image' => $replacement->miniatures->first()?->front_image
-                            ? '/storage/'.$replacement->miniatures->first()->front_image
+                        'front_image' => ($firstMini = $replacement->miniatures->first())
+                            ? '/storage/'.$firstMini->front_image
                             : null,
                     ];
                 }
@@ -273,6 +273,24 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function updateSchemeNotes(Request $request, Game $game): JsonResponse
+    {
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        $validated = $request->validate([
+            'scheme_notes' => ['required', 'array'],
+            'scheme_notes.note' => ['nullable', 'string', 'max:500'],
+            'scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
+            'scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
+            'scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $player->update(['scheme_notes' => $validated['scheme_notes']]);
+
+        return response()->json(['success' => true]);
+    }
+
     public function updateSoulstonePool(Request $request, Game $game): JsonResponse
     {
         $slot = $request->integer('slot');
@@ -300,7 +318,15 @@ class GamePlayController extends Controller
             'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
             'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
             'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
+            'solo_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
         ]);
+
+        // Solo: when a scheme is revealed (scored or discarded), set it as current before recording the turn.
+        // This ensures the turn records the correct scheme_id and updates the next-scheme pool.
+        if ($game->is_solo && ! empty($validated['solo_scheme_id'])) {
+            $player->update(['current_scheme_id' => $validated['solo_scheme_id']]);
+            $player->refresh();
+        }
 
         // Validate scoring rules against previous turns
         $previousTurns = GameTurn::where('game_id', $game->id)
@@ -336,6 +362,7 @@ class GamePlayController extends Controller
             ],
             [
                 'scheme_id' => $turnSchemeId,
+                'scheme_notes' => $player->scheme_notes,
                 'strategy_points' => $validated['strategy_points'],
                 'scheme_points' => $validated['scheme_points'],
                 'points_scored' => $totalTurnPoints,

@@ -18,7 +18,7 @@ import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
-import { Transition, computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
     id: number;
@@ -29,6 +29,7 @@ interface GamePlayer {
     crew_build_id: number | null;
     crew_skipped: boolean;
     current_scheme_id: number | null;
+    scheme_notes: { note?: string; selected_model?: string; selected_marker?: string; terrain_note?: string } | null;
     role: string | null;
     total_points: number;
     soulstone_pool: number;
@@ -49,6 +50,7 @@ interface SchemeData {
     prerequisite: string | null;
     reveal: string | null;
     scoring: string | null;
+    requirements: string[];
 }
 
 interface DeploymentData {
@@ -144,6 +146,12 @@ const props = defineProps<{
     opponent_next_schemes: SchemeData[];
     tokens: { id: number; name: string; slug: string; description: string | null }[];
     character_upgrades: { id: number; name: string; slug: string; front_image: string | null; back_image: string | null; type: string | null; plentiful: number | null }[];
+    all_markers: { id: number; name: string; slug: string }[];
+    observer_scheme_intel: Record<number, {
+        possible_schemes: SchemeData[];
+        revealed_scheme_id: number | null;
+        last_scored_turn: number | null;
+    }> | null;
     starting_crews?: Record<number, { display_name: string; faction: string; cost: number; hiring_category: string; front_image: string | null; back_image: string | null }[]>;
     is_observer: boolean;
 }>();
@@ -250,7 +258,9 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
             submitting.value = false;
             return;
         }
-        router.visit(window.location.href, {
+        // Setup steps can change status which affects available props — reload all relevant data
+        router.reload({
+            only: ['game', 'schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'tokens', 'character_upgrades', 'all_markers'],
             preserveScroll: true,
             preserveState: true,
             onFinish: () => {
@@ -448,41 +458,41 @@ const swapRoles = async () => {
 // Solo gameplay: opponent scoring
 const opponentStrategyPoints = ref(0);
 const opponentSchemePoints = ref(0);
-const submitOpponentTurnScore = async () => {
-    const result = opponentSchemePoints.value > 0
-        ? await promptOpponentScheme('scored')
-        : await promptOpponentScheme('discard');
+const opponentNextSchemeId = ref<number | null>(null);
+const opponentSchemeScored = computed(() => opponentSchemePoints.value > 0);
+const isLastTurnForOpponent = computed(() => props.game.current_turn >= props.game.max_turns);
 
-    if (result === 'cancel') return; // dialog dismissed
+const submitOpponentTurnScore = async () => {
+    const mode = opponentSchemeScored.value ? 'scored' : 'discard';
+
+    const result = await promptOpponentScheme(mode as any);
+    if (result === 'cancel') return;
 
     scoringOpponentTurn.value = true;
     const selectedSchemeId = typeof result === 'number' ? result : null;
-    const hasCurrentScheme = !!opponent.value?.current_scheme_id;
+    const payload: Record<string, any> = {
+        strategy_points: opponentStrategyPoints.value,
+        scheme_points: opponentSchemePoints.value,
+        slot: 2,
+    };
 
-    // Turn 1: opponent has no scheme yet — set it BEFORE submitting so the turn records it
-    if (!hasCurrentScheme && selectedSchemeId) {
-        await setOpponentScheme(selectedSchemeId);
+    // When a scheme is revealed (scored or discarded), set it as the opponent's current scheme.
+    // This records the scheme on the turn AND updates current_scheme_id so the next pool
+    // derives from this scheme's chain. When "keep hidden" (null), nothing changes.
+    if (selectedSchemeId) {
+        payload.solo_scheme_id = selectedSchemeId;
     }
 
-    // Submit the turn — backend records current_scheme_id as this turn's scheme
     await fetch(route('games.play.turns.store', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({
-            strategy_points: opponentStrategyPoints.value,
-            scheme_points: opponentSchemePoints.value,
-            slot: 2,
-        }),
+        body: JSON.stringify(payload),
     });
 
-    // Turn 2+: update current_scheme_id for NEXT turn (after turn is recorded with current scheme)
-    if (hasCurrentScheme && selectedSchemeId) {
-        await setOpponentScheme(selectedSchemeId);
-    }
     opponentStrategyPoints.value = 0;
     opponentSchemePoints.value = 0;
+    opponentNextSchemeId.value = null;
     scoringOpponentTurn.value = false;
-    // Save user's in-progress scoring before reload (Inertia prop updates can cause re-renders)
     const savedStrategy = strategyPoints.value;
     const savedScheme = schemePoints.value;
     const savedNextScheme = nextSchemeId.value;
@@ -589,26 +599,18 @@ const turnBanner = ref(false);
 const lastSeenTurn = ref(props.game.current_turn);
 let turnBannerTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
-    () => props.game,
-    (game) => {
-        if (game.status === 'in_progress' && game.current_turn > lastSeenTurn.value) {
-            lastSeenTurn.value = game.current_turn;
+    () => props.game.current_turn,
+    (turn) => {
+        if (props.game.status === 'in_progress' && turn > lastSeenTurn.value) {
+            lastSeenTurn.value = turn;
             turnBanner.value = true;
             if (turnBannerTimer) clearTimeout(turnBannerTimer);
             turnBannerTimer = setTimeout(() => (turnBanner.value = false), 4000);
         }
     },
-    { deep: true },
 );
 
 const abandonDialogOpen = ref(false);
-
-// For observers: scheme is only revealed if scored in the current turn (resets each turn)
-const hasPlayerScoredScheme = (player: any) => {
-    if (!player?.turns?.length) return false;
-    const currentTurn = player.turns.find((t: any) => t.turn_number === props.game.current_turn);
-    return currentTurn?.scheme_points > 0;
-};
 
 // Observation mode
 const observeLinkCopied = ref(false);
@@ -679,6 +681,82 @@ onMounted(() => {
 // ─── Gameplay ───
 const gameplayTab = ref<'scenario' | 'my-crew' | 'opponent'>('my-crew');
 const schemeHidden = ref(false);
+
+// Scheme notes
+const schemeNote = ref(myPlayer.value?.scheme_notes?.note ?? '');
+const schemeSelectedModel = ref(myPlayer.value?.scheme_notes?.selected_model ?? '');
+const schemeSelectedMarker = ref(myPlayer.value?.scheme_notes?.selected_marker ?? '');
+const schemeTerrainNote = ref(myPlayer.value?.scheme_notes?.terrain_note ?? '');
+let schemeNotesDebounce: ReturnType<typeof setTimeout>;
+const saveSchemeNotes = () => {
+    clearTimeout(schemeNotesDebounce);
+    schemeNotesDebounce = setTimeout(() => {
+        fetch(route('games.play.scheme-notes', props.game.uuid), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({
+                scheme_notes: {
+                    note: schemeNote.value || null,
+                    selected_model: schemeSelectedModel.value || null,
+                    selected_marker: schemeSelectedMarker.value || null,
+                    terrain_note: schemeTerrainNote.value || null,
+                },
+            }),
+        });
+    }, 800);
+};
+
+const currentSchemeRequirements = computed(() => findScheme(myDisplaySchemeId.value)?.requirements ?? []);
+const schemeModelReq = computed(() => currentSchemeRequirements.value.find((r: any) => r.type === 'select_model') ?? null);
+const schemeHasMarkerReq = computed(() => currentSchemeRequirements.value.some((r: any) => r.type === 'select_marker'));
+const schemeHasTerrainReq = computed(() => currentSchemeRequirements.value.some((r: any) => r.type === 'terrain_note'));
+
+const modelReqLabel = computed(() => {
+    const req = schemeModelReq.value;
+    if (!req) return '';
+    const parts: string[] = [];
+    if (req.unique) parts.push('Unique');
+    parts.push(req.allegiance === 'friendly' ? 'Friendly' : 'Enemy');
+    parts.push('Model');
+    if (req.cost_operator && req.cost_value != null) {
+        parts.push(`(Cost ${req.cost_operator} ${req.cost_value})`);
+    }
+    return parts.join(' ');
+});
+
+const schemeModelOptions = computed(() => {
+    const req = schemeModelReq.value;
+    if (!req) return [];
+
+    // Pick from enemy or friendly crew
+    const pool = req.allegiance === 'friendly'
+        ? [...(myPlayer.value?.crew_members ?? [])]
+        : [...(opponent.value?.crew_members ?? [])];
+
+    return pool.filter((m: any) => {
+        if (m.is_killed) return false;
+        // Unique = not minion, not peon
+        if (req.unique && (m.station === 'minion' || m.station === 'peon')) return false;
+        // Cost filter
+        if (req.cost_operator && req.cost_value != null && m.cost != null) {
+            const cost = m.cost as number;
+            const target = req.cost_value as number;
+            if (req.cost_operator === '>' && !(cost > target)) return false;
+            if (req.cost_operator === '<' && !(cost < target)) return false;
+            if (req.cost_operator === '>=' && !(cost >= target)) return false;
+            if (req.cost_operator === '<=' && !(cost <= target)) return false;
+        }
+        return true;
+    });
+});
+
+// Sync scheme notes from props when they change (e.g. after reload)
+watch(() => myPlayer.value?.scheme_notes, (notes) => {
+    schemeNote.value = notes?.note ?? '';
+    schemeSelectedModel.value = notes?.selected_model ?? '';
+    schemeSelectedMarker.value = notes?.selected_marker ?? '';
+    schemeTerrainNote.value = notes?.terrain_note ?? '';
+});
 
 // Card preview drawers
 const crewMemberDrawerOpen = ref(false);
@@ -899,20 +977,37 @@ const resolvePlayerSchemes = (player: any): Map<number, { schemeId: number | nul
     const turns = (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number);
     const result = new Map<number, { schemeId: number | null; held: boolean }>();
 
-    // Backward pass: backfill null scheme_ids from the earliest future non-null value
+    // Two-pass resolve:
+    // 1. Forward pass: carry known scheme forward through subsequent nulls
+    // 2. Backward pass: backfill leading nulls from the first non-null scheme (they were "holding" it hidden)
     const resolved: { turnNumber: number; schemeId: number | null }[] = [];
-    let nextScheme: number | null = null;
-    for (let i = turns.length - 1; i >= 0; i--) {
-        const raw = turns[i].scheme_id ?? null;
-        if (raw) nextScheme = raw;
-        resolved.unshift({ turnNumber: turns[i].turn_number, schemeId: raw ?? nextScheme });
+
+    // Forward pass
+    let lastKnown: number | null = null;
+    for (const turn of turns) {
+        const raw = turn.scheme_id ?? null;
+        if (raw) lastKnown = raw;
+        resolved.push({ turnNumber: turn.turn_number, schemeId: raw ?? lastKnown });
     }
 
-    // Held = same scheme as previous turn AND scored 0 scheme points (retained, not scored/discarded)
+    // Backward pass: fill leading nulls from the earliest future non-null value
+    let firstKnown: number | null = null;
+    for (const entry of resolved) {
+        if (entry.schemeId) { firstKnown = entry.schemeId; break; }
+    }
+    if (firstKnown) {
+        for (const entry of resolved) {
+            if (entry.schemeId) break;
+            entry.schemeId = firstKnown;
+        }
+    }
+
+    // Held = scheme was backfilled (original turn had null) OR same scheme as previous turn with 0 scheme points
     for (let i = 0; i < resolved.length; i++) {
-        const prev = i > 0 ? resolved[i - 1].schemeId : null;
+        const raw = turns[i].scheme_id ?? null;
         const curr = resolved[i].schemeId;
-        const held = i > 0 && !!curr && curr === prev && (turns[i].scheme_points ?? 0) === 0;
+        const prev = i > 0 ? resolved[i - 1].schemeId : null;
+        const held = !!curr && (!raw || (i > 0 && curr === prev && (turns[i].scheme_points ?? 0) === 0));
         result.set(resolved[i].turnNumber, { schemeId: curr, held });
     }
 
@@ -929,6 +1024,16 @@ const getPlayerTurn = (player: any, turnNumber: number) => {
     return (player.turns ?? []).find((t: any) => t.turn_number === turnNumber);
 };
 const currentSchemeScored = computed(() => schemePoints.value > 0);
+
+// In solo mode, after submitting our turn, current_scheme_id is already updated to the next scheme
+// but the turn hasn't advanced yet. Show the scheme from this turn's record instead.
+const myDisplaySchemeId = computed(() => {
+    if (isSolo.value && myPlayer.value?.is_turn_complete) {
+        const turnRecord = getPlayerTurn(myPlayer.value, props.game.current_turn);
+        if (turnRecord?.scheme_id) return turnRecord.scheme_id;
+    }
+    return myPlayer.value?.current_scheme_id ?? null;
+});
 
 // Strategy: 1/turn + 1 bonus once per game (max 2 any turn)
 const myStrategyBonusUsed = computed(() => {
@@ -2203,24 +2308,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </Tabs>
                 </div>
 
+                <!-- Turn change banner (full width) -->
+                <Transition
+                    enter-active-class="transition-all duration-300 ease-out"
+                    leave-active-class="transition-all duration-500 ease-in"
+                    enter-from-class="max-h-0 opacity-0"
+                    enter-to-class="max-h-16 opacity-100"
+                    leave-from-class="max-h-16 opacity-100"
+                    leave-to-class="max-h-0 opacity-0"
+                >
+                    <div v-if="turnBanner" class="mb-4 overflow-hidden rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-500/20 py-3 text-center">
+                        <div class="text-lg font-bold text-amber-600 dark:text-amber-400">Turn {{ game.current_turn }} Started</div>
+                    </div>
+                </Transition>
+
                 <!-- Desktop: 3-column grid / Mobile: tab content -->
                 <div class="grid gap-4 lg:grid-cols-3">
                     <!-- Column 1: Scenario Info -->
                     <div :class="gameplayTab !== 'scenario' ? 'hidden lg:block' : ''">
                         <Card>
                             <CardContent class="space-y-4 p-4">
-                                <Transition
-                                    enter-active-class="transition-all duration-300 ease-out"
-                                    leave-active-class="transition-all duration-500 ease-in"
-                                    enter-from-class="max-h-0 opacity-0"
-                                    enter-to-class="max-h-12 opacity-100"
-                                    leave-from-class="max-h-12 opacity-100"
-                                    leave-to-class="max-h-0 opacity-0"
-                                >
-                                    <div v-if="turnBanner" class="mb-2 overflow-hidden rounded-md bg-primary/10 py-2 text-center text-sm font-semibold text-primary">
-                                        Turn {{ game.current_turn }} Started
-                                    </div>
-                                </Transition>
                                 <div class="flex items-center justify-between">
                                     <div class="w-8"></div>
                                     <div class="text-center text-2xl font-bold">Turn {{ game.current_turn }} <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span></div>
@@ -2275,30 +2382,119 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                 <!-- Schemes display -->
                                 <template v-if="isObserver">
-                                    <!-- Observer: show each player's scheme only if scored -->
-                                    <div v-for="player in game.players" :key="'obs-scheme-' + player.id" class="rounded-lg border p-2 text-center">
-                                        <div class="text-[10px] uppercase text-muted-foreground">{{ playerName(player) }}'s Scheme</div>
-                                        <template v-if="hasPlayerScoredScheme(player)">
-                                            <button class="text-sm font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(player.current_scheme_id)!)">
-                                                {{ findScheme(player.current_scheme_id)?.name }}
-                                            </button>
-                                        </template>
-                                        <div v-else class="text-sm font-medium text-muted-foreground">Hidden</div>
-                                    </div>
+                                    <!-- Observer: show possible scheme pool per player -->
+                                    <details v-for="player in game.players" :key="'obs-scheme-' + player.id" class="rounded-lg border">
+                                        <summary class="cursor-pointer px-3 py-2 text-center">
+                                            <span class="text-[10px] uppercase text-muted-foreground">{{ playerName(player) }}'s Possible Schemes</span>
+                                        </summary>
+                                        <div class="space-y-1 border-t px-3 py-2">
+                                            <template v-if="observer_scheme_intel?.[player.slot]">
+                                                <div
+                                                    v-for="scheme in observer_scheme_intel[player.slot].possible_schemes"
+                                                    :key="'obs-ps-' + player.id + '-' + scheme.id"
+                                                    class="flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors hover:bg-muted/50"
+                                                    :class="scheme.id === observer_scheme_intel[player.slot].revealed_scheme_id ? 'bg-green-500/10 border border-green-500/30' : ''"
+                                                >
+                                                    <button class="min-w-0 flex-1 text-left font-medium hover:text-primary" @click="openSchemeDrawer(scheme)">
+                                                        {{ scheme.name }}
+                                                    </button>
+                                                    <Badge
+                                                        v-if="scheme.id === observer_scheme_intel[player.slot].revealed_scheme_id"
+                                                        variant="outline"
+                                                        class="shrink-0 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
+                                                    >
+                                                        Scored T{{ observer_scheme_intel[player.slot].last_scored_turn }}
+                                                    </Badge>
+                                                </div>
+                                            </template>
+                                            <div v-else class="py-2 text-center text-xs text-muted-foreground">No scheme data yet</div>
+                                        </div>
+                                    </details>
                                 </template>
                                 <template v-else>
                                     <!-- Player: own scheme with hide toggle -->
-                                    <div v-if="myPlayer?.current_scheme_id" class="rounded-lg border border-primary/30 bg-primary/5 p-2 text-center">
+                                    <div v-if="myDisplaySchemeId" class="rounded-lg border border-primary/30 bg-primary/5 p-2">
                                         <div class="flex items-center justify-center gap-1.5">
                                             <span class="text-[10px] uppercase text-muted-foreground">Your Scheme</span>
                                             <button class="rounded p-0.5 text-muted-foreground hover:text-foreground" @click="schemeHidden = !schemeHidden">
                                                 <component :is="schemeHidden ? EyeOff : Eye" class="size-3" />
                                             </button>
                                         </div>
-                                        <div v-if="schemeHidden" class="text-sm font-medium text-muted-foreground">Hidden</div>
-                                        <button v-else class="text-sm font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(myPlayer?.current_scheme_id)!)">
-                                            {{ findScheme(myPlayer?.current_scheme_id)?.name }}
-                                        </button>
+                                        <div v-if="schemeHidden" class="text-center text-sm font-medium text-muted-foreground">Hidden</div>
+                                        <template v-else>
+                                            <button class="w-full text-center text-sm font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(myDisplaySchemeId)!)">
+                                                {{ findScheme(myDisplaySchemeId)?.name }}
+                                            </button>
+
+                                            <!-- Scheme notes -->
+                                            <div class="mt-2 space-y-1.5 border-t border-primary/20 pt-2">
+                                                <!-- Prerequisite hint -->
+                                                <div v-if="findScheme(myDisplaySchemeId)?.prerequisite" class="text-[10px] italic text-muted-foreground">
+                                                    {{ findScheme(myDisplaySchemeId)?.prerequisite }}
+                                                </div>
+
+                                                <!-- Model selection -->
+                                                <div v-if="schemeModelReq">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">{{ modelReqLabel }}</label>
+                                                    <select
+                                                        v-if="schemeModelOptions.length"
+                                                        v-model="schemeSelectedModel"
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        @change="saveSchemeNotes"
+                                                    >
+                                                        <option value="">Select...</option>
+                                                        <option v-for="m in schemeModelOptions" :key="m.id" :value="m.display_name">
+                                                            {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                                        </option>
+                                                    </select>
+                                                    <input
+                                                        v-else
+                                                        v-model="schemeSelectedModel"
+                                                        type="text"
+                                                        placeholder="No matching models in crew — type manually"
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        @input="saveSchemeNotes"
+                                                    />
+                                                </div>
+
+                                                <!-- Marker selection -->
+                                                <div v-if="schemeHasMarkerReq">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
+                                                    <select
+                                                        v-model="schemeSelectedMarker"
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        @change="saveSchemeNotes"
+                                                    >
+                                                        <option value="">None</option>
+                                                        <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
+                                                    </select>
+                                                </div>
+
+                                                <!-- Terrain note -->
+                                                <div v-if="schemeHasTerrainReq">
+                                                    <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
+                                                    <input
+                                                        v-model="schemeTerrainNote"
+                                                        type="text"
+                                                        placeholder="e.g. the building on the left..."
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        @input="saveSchemeNotes"
+                                                    />
+                                                </div>
+
+                                                <!-- Free text note (always shown) -->
+                                                <div>
+                                                    <label class="text-[10px] uppercase text-muted-foreground">Notes</label>
+                                                    <textarea
+                                                        v-model="schemeNote"
+                                                        placeholder="Any notes about your scheme..."
+                                                        rows="2"
+                                                        class="mt-0.5 w-full resize-none rounded border bg-background px-2 py-1 text-xs"
+                                                        @input="saveSchemeNotes"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </template>
 
@@ -2468,7 +2664,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
                                                 </div>
                                             </div>
-                                            <Button class="w-full" size="sm" :disabled="scoringOpponentTurn" @click="submitOpponentTurnScore">
+                                            <Button
+                                                class="w-full"
+                                                size="sm"
+                                                :disabled="scoringOpponentTurn"
+                                                @click="submitOpponentTurnScore"
+                                            >
                                                 <Loader2 v-if="scoringOpponentTurn" class="mr-2 size-4 animate-spin" />
                                                 Submit Opponent ({{ opponentStrategyPoints + opponentSchemePoints }} VP)
                                             </Button>
@@ -2967,6 +3168,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 variant="outline"
                                                 class="ml-1 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
                                             >Scored</Badge>
+
+                                            <!-- Scheme notes for this turn -->
+                                            <template v-if="getPlayerTurn(player, turn)?.scheme_notes">
+                                                <div v-if="getPlayerTurn(player, turn).scheme_notes.selected_model" class="mt-1 text-muted-foreground">
+                                                    <span class="font-medium">Target:</span> {{ getPlayerTurn(player, turn).scheme_notes.selected_model }}
+                                                </div>
+                                                <div v-if="getPlayerTurn(player, turn).scheme_notes.selected_marker" class="mt-0.5 text-muted-foreground">
+                                                    <span class="font-medium">Marker:</span> {{ getPlayerTurn(player, turn).scheme_notes.selected_marker }}
+                                                </div>
+                                                <div v-if="getPlayerTurn(player, turn).scheme_notes.terrain_note" class="mt-0.5 text-muted-foreground">
+                                                    <span class="font-medium">Terrain:</span> {{ getPlayerTurn(player, turn).scheme_notes.terrain_note }}
+                                                </div>
+                                                <div v-if="getPlayerTurn(player, turn).scheme_notes.note" class="mt-0.5 italic text-muted-foreground">
+                                                    {{ getPlayerTurn(player, turn).scheme_notes.note }}
+                                                </div>
+                                            </template>
                                         </div>
 
                                         <!-- Crew snapshot -->
@@ -3296,25 +3513,30 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>
-                    {{ opponentSchemePromptMode === 'scored' ? "Opponent's current scheme" : opponentSchemePromptMode === 'end-of-game' ? "Opponent's current scheme?" : "Opponent's scheme status" }}
+                    <template v-if="opponentSchemePromptMode === 'scored'">Opponent Scored Scheme VP</template>
+                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Opponent's Final Scheme</template>
+                    <template v-else>Opponent's Scheme</template>
                 </DialogTitle>
                 <DialogDescription>
-                    <template v-if="opponentSchemePromptMode === 'scored'">The opponent scored scheme VP. Select their current scheme.</template>
-                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Select the opponent's current scheme for final scoring.</template>
-                    <template v-else>Is the opponent keeping their current scheme or switching?</template>
+                    <template v-if="opponentSchemePromptMode === 'scored'">Which scheme did they score on?</template>
+                    <template v-else-if="opponentSchemePromptMode === 'end-of-game'">Select the opponent's scheme for final scoring, or keep hidden.</template>
+                    <template v-else>Keep scheme hidden into the next turn, or select which scheme they're discarding.</template>
                 </DialogDescription>
             </DialogHeader>
             <div class="space-y-1">
-                <!-- Keep current option (discard mode only, and only if opponent already has a scheme) -->
+                <!-- Keep hidden option (discard + end-of-game modes) -->
                 <button
-                    v-if="opponentSchemePromptMode === 'discard' && opponent?.current_scheme_id"
-                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-medium hover:bg-primary/20"
+                    v-if="opponentSchemePromptMode === 'discard' || opponentSchemePromptMode === 'end-of-game'"
+                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
                     @click="resolveOpponentSchemePrompt(null)"
                 >
-                    Keep Current Scheme (Hidden)
+                    Keep Scheme Hidden
                 </button>
-                <div v-if="opponentSchemePromptMode === 'discard' && opponent?.current_scheme_id" class="py-1 text-center text-[10px] text-muted-foreground">— or discard —</div>
-                <!-- Scheme options (pool on turn 1, next-chain after) -->
+                <div
+                    v-if="(opponentSchemePromptMode === 'discard' || opponentSchemePromptMode === 'end-of-game') && opponentSchemeOptions.length"
+                    class="py-1 text-center text-[10px] text-muted-foreground"
+                >— or {{ opponentSchemePromptMode === 'discard' ? 'discard' : 'reveal' }} —</div>
+                <!-- Scheme options -->
                 <button
                     v-for="scheme in opponentSchemeOptions"
                     :key="'opp-prompt-' + scheme.id"

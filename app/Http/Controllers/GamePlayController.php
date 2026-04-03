@@ -319,6 +319,11 @@ class GamePlayController extends Controller
             'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
             'scheme_action' => ['required', 'string', 'in:scored,held,discarded'],
             'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
+            'next_scheme_notes' => ['nullable', 'array'],
+            'next_scheme_notes.note' => ['nullable', 'string', 'max:500'],
+            'next_scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
+            'next_scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
+            'next_scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
             // Solo: identify opponent's scheme this turn (scored or discarded)
             'identified_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
         ]);
@@ -425,7 +430,7 @@ class GamePlayController extends Controller
                 'current_scheme_id' => $nextSchemeId,
                 'next_scheme_id' => null,
                 'scheme_pool' => ! empty($newPool) ? $newPool : ($player->scheme_pool ?? $game->scheme_pool ?? []),
-                'scheme_notes' => null, // Clear notes for new scheme
+                'scheme_notes' => $validated['next_scheme_notes'] ?? null, // Set notes for new scheme
             ]);
         } elseif ($schemeAction === 'held') {
             // Held: scheme_pool stays the same, no changes needed

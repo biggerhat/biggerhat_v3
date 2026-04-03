@@ -333,7 +333,7 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
         }
         // Setup steps can change status which affects available props — reload all relevant data
         router.reload({
-            only: ['game', 'schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'tokens', 'character_upgrades', 'all_markers'],
+            only: ['game', 'schemes', 'all_reachable_schemes', 'deployment', 'masters', 'my_crews', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'tokens', 'character_upgrades', 'all_markers'],
             preserveScroll: true,
             preserveState: true,
             onFinish: () => {
@@ -568,34 +568,32 @@ const oppCancelDialog = () => {
     oppDialogResolve.value = null;
 };
 
-const submitOpponentTurnScore = async () => {
-    const mode = opponentSchemeScored.value ? 'scored' : 'discard';
-    const result = await openOppSchemeDialog(mode);
-    if (result === 'cancel') return;
-
+const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: number | null) => {
     scoringOpponentTurn.value = true;
-    const payload: Record<string, any> = {
-        strategy_points: opponentStrategyPoints.value,
-        scheme_points: opponentSchemePoints.value,
-        slot: 2,
-    };
-
-    // Identified scheme = what they scored/discarded this turn.
-    // This sets current_scheme_id on the backend, so next turn's pool
-    // derives from this scheme's chain automatically.
-    if (oppIdentifiedSchemeId.value) {
-        payload.solo_scheme_id = oppIdentifiedSchemeId.value;
+    try {
+        const payload: Record<string, any> = {
+            strategy_points: opponentStrategyPoints.value,
+            scheme_points: opponentSchemePoints.value,
+            scheme_action: schemeAction,
+            slot: 2,
+        };
+        if (identifiedSchemeId) {
+            payload.identified_scheme_id = identifiedSchemeId;
+        }
+        const res = await fetch(route('games.play.turns.store', props.game.uuid), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            console.error('Opponent turn submit failed:', res.status, err);
+        }
+    } catch (e) {
+        console.error('Opponent turn submit error:', e);
     }
-
-    await fetch(route('games.play.turns.store', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify(payload),
-    });
-
     opponentStrategyPoints.value = 0;
     opponentSchemePoints.value = 0;
-    opponentNextSchemeId.value = null;
     scoringOpponentTurn.value = false;
     const savedStrategy = strategyPoints.value;
     const savedScheme = schemePoints.value;
@@ -612,18 +610,37 @@ const submitOpponentTurnScore = async () => {
     });
 };
 
+const submitOpponentTurnScore = async () => {
+    // Scored VP > 0: must identify which scheme via dialog
+    if (opponentSchemeScored.value) {
+        const result = await openOppSchemeDialog('scored');
+        if (result === 'cancel') return;
+        await doSubmitOpponentTurn('scored', oppIdentifiedSchemeId.value);
+        return;
+    }
+
+    // Scored 0 VP: open dialog for hold/discard choice
+    const result = await openOppSchemeDialog('discard');
+    if (result === 'cancel') return;
+
+    if (oppIdentifiedSchemeId.value) {
+        // User picked a scheme to discard
+        await doSubmitOpponentTurn('discarded', oppIdentifiedSchemeId.value);
+    } else {
+        // User chose "Hold Scheme (Hidden)"
+        await doSubmitOpponentTurn('held', null);
+    }
+};
+
 const updateOpponentSoulstonePool = (delta: number) => {
     const current = opponentPlayer.value?.soulstone_pool ?? 0;
     const newVal = Math.max(0, current + delta);
     postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal, slot: 2 });
 };
 
-// Solo: opponent possible scheme pool (for the identify step)
+// Solo: opponent possible scheme pool (read from stored scheme_pool via opponent_next_schemes)
 const opponentSchemePool = computed(() => {
-    if (!opponent.value?.current_scheme_id || !props.opponent_next_schemes.length) {
-        return props.schemes;
-    }
-    return props.opponent_next_schemes;
+    return props.opponent_next_schemes.length ? props.opponent_next_schemes : props.schemes;
 });
 
 // Summon count check
@@ -823,7 +840,8 @@ const schemeModelOptions = computed(() => {
 });
 
 // Scheme notes lock: editable before submitting your turn, locked after
-const schemeNotesLocked = computed(() => !!myPlayer.value?.is_turn_complete);
+// Scheme notes are always locked during gameplay — they're set during scheme selection (pregame or end-of-turn follow-up)
+const schemeNotesLocked = computed(() => props.game.status === 'in_progress');
 
 // Sync scheme notes from props when they change (e.g. after reload)
 watch(() => myPlayer.value?.scheme_notes, (notes) => {
@@ -1085,52 +1103,11 @@ const allKnownSchemes = computed(() => {
 });
 const findScheme = (id: number | null | undefined) => id ? allKnownSchemes.value.get(id) : undefined;
 
-// Post-game summary: resolve scheme per turn (backfill nulls) and detect held schemes
-// Cache keyed by player ID + turn count to auto-invalidate when data changes
-let schemeInfoCacheKey = '';
-const schemeInfoCache = new Map<number, Map<number, { schemeId: number | null; held: boolean }>>();
-const resolvePlayerSchemes = (player: any): Map<number, { schemeId: number | null; held: boolean }> => {
-    const cacheKey = `${props.game.current_turn}-${props.game.players.map((p: any) => (p.turns?.length ?? 0)).join(',')}`;
-    if (cacheKey !== schemeInfoCacheKey) { schemeInfoCache.clear(); schemeInfoCacheKey = cacheKey; }
-    if (schemeInfoCache.has(player.id)) return schemeInfoCache.get(player.id)!;
-
-    const turns = (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number);
-    const result = new Map<number, { schemeId: number | null; held: boolean }>();
-
-    // Backward-only fill: each null turn looks forward to the next non-null scheme.
-    // This handles solo opponent hidden schemes — if they reveal on T3, T1 and T2
-    // are assumed to have held that same scheme hidden.
-    // We never forward-fill because a discard changes the scheme chain.
-    const resolved: { turnNumber: number; schemeId: number | null; backfilled: boolean }[] = [];
-
-    for (let i = 0; i < turns.length; i++) {
-        const raw = turns[i].scheme_id ?? null;
-        if (raw) {
-            resolved.push({ turnNumber: turns[i].turn_number, schemeId: raw, backfilled: false });
-        } else {
-            // Look forward for the next non-null scheme
-            let futureScheme: number | null = null;
-            for (let j = i + 1; j < turns.length; j++) {
-                if (turns[j].scheme_id) { futureScheme = turns[j].scheme_id; break; }
-            }
-            resolved.push({ turnNumber: turns[i].turn_number, schemeId: futureScheme, backfilled: !!futureScheme });
-        }
-    }
-
-    // Held = backfilled from future turn, OR same scheme as previous turn with 0 scheme points scored
-    for (let i = 0; i < resolved.length; i++) {
-        const curr = resolved[i].schemeId;
-        const prev = i > 0 ? resolved[i - 1].schemeId : null;
-        const held = resolved[i].backfilled || (i > 0 && !!curr && curr === prev && (turns[i].scheme_points ?? 0) === 0);
-        result.set(resolved[i].turnNumber, { schemeId: curr, held });
-    }
-
-    schemeInfoCache.set(player.id, result);
-    return result;
-};
-
-const getTurnSchemeInfo = (player: any, turnNumber: number): { schemeId: number | null; held: boolean } => {
-    return resolvePlayerSchemes(player).get(turnNumber) ?? { schemeId: null, held: false };
+// Summary helper: get scheme info for a turn — reads directly from stored scheme_action
+const getTurnSchemeInfo = (player: any, turnNumber: number): { schemeId: number | null; action: string | null } => {
+    const turn = (player.turns ?? []).find((t: any) => t.turn_number === turnNumber);
+    if (!turn) return { schemeId: null, action: null };
+    return { schemeId: turn.scheme_id ?? null, action: turn.scheme_action ?? null };
 };
 
 // Summary helper: find a player's turn data by turn number (avoids repeated .find() in template)
@@ -1190,15 +1167,28 @@ const submitTurnScore = async () => {
         });
     }
 
-    await fetch(route('games.play.turns.store', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({
-            strategy_points: strategyPoints.value,
-            scheme_points: schemePoints.value,
-            next_scheme_id: nextSchemeId.value,
-        }),
-    });
+    // Determine scheme action
+    const schemeAction = schemePoints.value > 0 ? 'scored' : nextSchemeId.value ? 'discarded' : 'held';
+
+    try {
+        const res = await fetch(route('games.play.turns.store', props.game.uuid), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({
+                strategy_points: strategyPoints.value,
+                scheme_points: schemePoints.value,
+                scheme_action: schemeAction,
+                next_scheme_id: nextSchemeId.value,
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            console.error('Turn submit failed:', res.status, err);
+        }
+    } catch (e) {
+        console.error('Turn submit error:', e);
+    }
+
     strategyPoints.value = 0;
     schemePoints.value = 0;
     nextSchemeId.value = null;
@@ -2734,7 +2724,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div v-if="opponent_scheme_intel.last_revealed" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
                                             <div class="flex items-center justify-between">
                                                 <div class="text-[10px] uppercase text-muted-foreground">Last Revealed (Turn {{ opponent_scheme_intel.last_revealed.turn_number }})</div>
-                                                <Badge v-if="opponent_scheme_intel.last_revealed.scored" variant="outline" class="border-green-500/50 px-1 py-0 text-[9px] text-green-600 dark:text-green-400">Scored</Badge>
+                                                <Badge v-if="opponent_scheme_intel.last_revealed.scheme_action === 'scored'" variant="outline" class="border-green-500/50 px-1 py-0 text-[9px] text-green-600 dark:text-green-400">Scored</Badge>
                                                 <Badge v-else variant="outline" class="px-1 py-0 text-[9px]">Not Scored</Badge>
                                             </div>
                                             <div
@@ -2782,14 +2772,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         </button>
                                                     </div>
                                                     <Badge
-                                                        v-if="entry.scored"
+                                                        v-if="entry.scheme_action === 'scored'"
                                                         variant="outline"
                                                         class="border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
                                                     >Scored</Badge>
                                                     <Badge
                                                         v-else
                                                         variant="outline"
-                                                        class="px-1 py-0 text-[8px]"
+                                                        class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
                                                     >Held</Badge>
                                                 </div>
                                             </div>
@@ -2901,6 +2891,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                             {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
                                                         </option>
                                                     </select>
+                                                    <input
+                                                        v-else
+                                                        v-model="nextSchemeModel"
+                                                        type="text"
+                                                        placeholder="Type model name..."
+                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                    />
                                                 </div>
                                                 <!-- Marker -->
                                                 <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'select_marker')">
@@ -3447,21 +3444,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
 
                                         <!-- Scheme used this turn -->
-                                        <div v-if="getTurnSchemeInfo(player, turn).schemeId" class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]">
-                                            <span class="text-muted-foreground">Scheme:</span>
-                                            <button class="ml-1 font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(getTurnSchemeInfo(player, turn).schemeId)!)">
-                                                {{ findScheme(getTurnSchemeInfo(player, turn).schemeId)?.name }}
-                                            </button>
+                                        <div v-if="getTurnSchemeInfo(player, turn).schemeId || getTurnSchemeInfo(player, turn).action" class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]">
+                                            <template v-if="getTurnSchemeInfo(player, turn).schemeId">
+                                                <span class="text-muted-foreground">Scheme:</span>
+                                                <button class="ml-1 font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(getTurnSchemeInfo(player, turn).schemeId)!)">
+                                                    {{ findScheme(getTurnSchemeInfo(player, turn).schemeId)?.name }}
+                                                </button>
+                                            </template>
+                                            <span v-else class="text-muted-foreground">Scheme: Hidden</span>
                                             <Badge
-                                                v-if="getTurnSchemeInfo(player, turn).held"
+                                                v-if="getTurnSchemeInfo(player, turn).action === 'held'"
                                                 variant="outline"
                                                 class="ml-1 border-blue-500/50 px-1 py-0 text-[8px] text-blue-600 dark:text-blue-400"
                                             >Held</Badge>
                                             <Badge
-                                                v-if="getPlayerTurn(player, turn)?.scheme_points > 0"
+                                                v-if="getTurnSchemeInfo(player, turn).action === 'scored'"
                                                 variant="outline"
                                                 class="ml-1 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
                                             >Scored</Badge>
+                                            <Badge
+                                                v-if="getTurnSchemeInfo(player, turn).action === 'discarded'"
+                                                variant="outline"
+                                                class="ml-1 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
+                                            >Discarded</Badge>
 
                                             <!-- Scheme notes for this turn -->
                                             <template v-if="getPlayerTurn(player, turn)?.scheme_notes">

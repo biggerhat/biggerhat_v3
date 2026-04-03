@@ -27,6 +27,7 @@ beforeEach(function () {
         'user_id' => $this->user1->id,
         'slot' => 1,
         'current_scheme_id' => $this->schemes[0]->id,
+        'scheme_pool' => $this->schemes->pluck('id')->toArray(),
     ]);
 
     $this->player2 = GamePlayer::factory()->create([
@@ -34,6 +35,7 @@ beforeEach(function () {
         'user_id' => $this->user2->id,
         'slot' => 2,
         'current_scheme_id' => $this->schemes[1]->id,
+        'scheme_pool' => $this->schemes->pluck('id')->toArray(),
     ]);
 });
 
@@ -43,6 +45,7 @@ it('records turn scores correctly', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 1,
         'scheme_points' => 2,
+        'scheme_action' => 'scored',
     ])->assertOk();
 
     $turn = GameTurn::where('game_id', $this->game->id)
@@ -63,6 +66,7 @@ it('advances turn when both players submit scores', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 1,
         'scheme_points' => 0,
+        'scheme_action' => 'held',
     ])->assertOk();
 
     $this->game->refresh();
@@ -71,6 +75,7 @@ it('advances turn when both players submit scores', function () {
     $this->actingAs($this->user2)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 0,
         'scheme_points' => 1,
+        'scheme_action' => 'scored',
     ])->assertOk();
 
     $this->game->refresh();
@@ -88,18 +93,21 @@ it('blocks strategy bonus if already used this game', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 2,
         'scheme_points' => 0,
+        'scheme_action' => 'held',
     ])->assertOk();
 
     // Advance turn
     $this->actingAs($this->user2)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 0,
         'scheme_points' => 0,
+        'scheme_action' => 'held',
     ])->assertOk();
 
     // Second turn: try bonus again
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 2,
         'scheme_points' => 0,
+        'scheme_action' => 'held',
     ])->assertStatus(422);
 });
 
@@ -107,6 +115,7 @@ it('updates scheme for next turn', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 0,
         'scheme_points' => 0,
+        'scheme_action' => 'discarded',
         'next_scheme_id' => $this->schemes[2]->id,
     ])->assertOk();
 
@@ -118,6 +127,7 @@ it('records current scheme in turn even when not scored', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 1,
         'scheme_points' => 0,
+        'scheme_action' => 'discarded',
         'next_scheme_id' => $this->schemes[2]->id,
     ])->assertOk();
 

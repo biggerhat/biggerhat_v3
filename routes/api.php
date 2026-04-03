@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\BlogEntitySearchController;
+use App\Http\Controllers\API\BlogPostAPIController;
 use App\Http\Controllers\API\CardCreatorSearchController;
 use App\Http\Controllers\API\CharacterAPIController;
 use App\Http\Controllers\API\KeywordAPIController;
@@ -27,6 +28,8 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/card-creator/abilities', [CardCreatorSearchController::class, 'abilities'])->name('card-creator.abilities');
     Route::get('/card-creator/triggers', [CardCreatorSearchController::class, 'triggers'])->name('card-creator.triggers');
     Route::get('/card-creator/keywords', [CardCreatorSearchController::class, 'keywords'])->name('card-creator.keywords');
+
+    Route::get('/blog/posts', [BlogPostAPIController::class, 'index'])->name('blog.posts.index');
 
     Route::get('/blog/entity-search', [BlogEntitySearchController::class, 'search'])->name('blog.entity-search');
     Route::get('/blog/entity/{type}/{slug}', [BlogEntitySearchController::class, 'show'])->name('blog.entity-show');

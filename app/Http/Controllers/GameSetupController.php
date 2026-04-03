@@ -223,7 +223,18 @@ class GameSetupController extends Controller
             }
         }
 
-        $player->update(['current_scheme_id' => $validated['scheme_id']]);
+        // Set scheme and derive the initial pool (follow-ups of the chosen scheme)
+        $chosenScheme = Scheme::find($validated['scheme_id']);
+        $newPool = $chosenScheme ? array_values(array_filter([
+            $chosenScheme->next_scheme_one_id,
+            $chosenScheme->next_scheme_two_id,
+            $chosenScheme->next_scheme_three_id,
+        ])) : [];
+
+        $player->update([
+            'current_scheme_id' => $validated['scheme_id'],
+            'scheme_pool' => ! empty($newPool) ? $newPool : ($game->scheme_pool ?? []),
+        ]);
 
         // Only advance status during scheme_select phase
         if ($game->status === GameStatusEnum::SchemeSelect) {
@@ -232,6 +243,10 @@ class GameSetupController extends Controller
                 $game->update([
                     'status' => GameStatusEnum::InProgress,
                     'current_turn' => 1,
+                ]);
+                // Initialize opponent's scheme pool to the game pool
+                $game->players()->where('slot', 2)->update([
+                    'scheme_pool' => json_encode($game->scheme_pool ?? []),
                 ]);
             } else {
                 $bothDone = $game->players()->whereNotNull('current_scheme_id')->count() === 2;

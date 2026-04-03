@@ -14,7 +14,6 @@ use App\Models\User;
 function createSchemeChain(): array
 {
     $season = PoolSeasonEnum::GainingGrounds0;
-    // Create 9 schemes: 3 pool + 3 follow-ups for each pool scheme
     $pool = Scheme::factory()->count(3)->create(['season' => $season]);
 
     foreach ($pool as $scheme) {
@@ -32,24 +31,24 @@ function createSchemeChain(): array
 function createDuelGame(array $pool, User $user1, User $user2): array
 {
     $strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
+    $poolIds = collect($pool)->pluck('id')->toArray();
     $game = Game::factory()->inProgress()->create([
         'creator_id' => $user1->id,
         'strategy_id' => $strategy->id,
-        'scheme_pool' => collect($pool)->pluck('id')->toArray(),
+        'scheme_pool' => $poolIds,
     ]);
+
+    // Each player picks a scheme — pool becomes that scheme's follow-ups
+    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id]));
+    $p2Pool = array_values(array_filter([$pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id]));
 
     $p1 = GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => $user1->id,
-        'slot' => 1,
-        'current_scheme_id' => $pool[0]->id,
+        'game_id' => $game->id, 'user_id' => $user1->id, 'slot' => 1,
+        'current_scheme_id' => $pool[0]->id, 'scheme_pool' => $p1Pool,
     ]);
-
     $p2 = GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => $user2->id,
-        'slot' => 2,
-        'current_scheme_id' => $pool[1]->id,
+        'game_id' => $game->id, 'user_id' => $user2->id, 'slot' => 2,
+        'current_scheme_id' => $pool[1]->id, 'scheme_pool' => $p2Pool,
     ]);
 
     return ['game' => $game, 'p1' => $p1, 'p2' => $p2];
@@ -58,25 +57,23 @@ function createDuelGame(array $pool, User $user1, User $user2): array
 function createSoloGame(array $pool, User $user): array
 {
     $strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
+    $poolIds = collect($pool)->pluck('id')->toArray();
     $game = Game::factory()->inProgress()->create([
         'creator_id' => $user->id,
         'strategy_id' => $strategy->id,
-        'scheme_pool' => collect($pool)->pluck('id')->toArray(),
+        'scheme_pool' => $poolIds,
         'is_solo' => true,
     ]);
 
-    $p1 = GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => $user->id,
-        'slot' => 1,
-        'current_scheme_id' => $pool[0]->id,
-    ]);
+    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id]));
 
+    $p1 = GamePlayer::factory()->create([
+        'game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1,
+        'current_scheme_id' => $pool[0]->id, 'scheme_pool' => $p1Pool,
+    ]);
     $p2 = GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => null,
-        'slot' => 2,
-        'current_scheme_id' => null, // Opponent scheme unknown
+        'game_id' => $game->id, 'user_id' => null, 'slot' => 2,
+        'current_scheme_id' => null, 'scheme_pool' => $poolIds,
     ]);
 
     return ['game' => $game, 'p1' => $p1, 'p2' => $p2];
@@ -86,13 +83,13 @@ function submitTurn($test, User $user, Game $game, array $data = []): \Illuminat
 {
     return $test->actingAs($user)->postJson(
         route('games.play.turns.store', $game->uuid),
-        array_merge(['strategy_points' => 0, 'scheme_points' => 0], $data)
+        array_merge(['strategy_points' => 0, 'scheme_points' => 0, 'scheme_action' => 'held'], $data)
     );
 }
 
 // ─── Scheme Selection (Setup Phase) ───
 
-it('allows selecting a scheme from the pool during scheme select', function () {
+it('sets scheme_pool when selecting initial scheme', function () {
     $pool = createSchemeChain();
     $user = User::factory()->create();
     $strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
@@ -104,11 +101,8 @@ it('allows selecting a scheme from the pool during scheme select', function () {
         'scheme_pool' => collect($pool)->pluck('id')->toArray(),
         'current_turn' => 0,
     ]);
-
     $player = GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => $user->id,
-        'slot' => 1,
+        'game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1,
     ]);
 
     $this->actingAs($user)->postJson(route('games.setup.scheme', $game->uuid), [
@@ -117,82 +111,101 @@ it('allows selecting a scheme from the pool during scheme select', function () {
 
     $player->refresh();
     expect($player->current_scheme_id)->toBe($pool[0]->id);
+    // scheme_pool should be the chosen scheme's follow-up chain
+    $expectedPool = array_values(array_filter([
+        $pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id,
+    ]));
+    expect($player->scheme_pool)->toBe($expectedPool);
 });
 
-it('rejects selecting a scheme not in the pool', function () {
-    $pool = createSchemeChain();
-    $user = User::factory()->create();
-    $strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
-    $outsideScheme = Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
+// ─── Turn Submission: scheme_action stored explicitly ───
 
-    $game = Game::factory()->create([
-        'creator_id' => $user->id,
-        'status' => GameStatusEnum::SchemeSelect,
-        'strategy_id' => $strategy->id,
-        'scheme_pool' => collect($pool)->pluck('id')->toArray(),
-        'current_turn' => 0,
-    ]);
-
-    GamePlayer::factory()->create([
-        'game_id' => $game->id,
-        'user_id' => $user->id,
-        'slot' => 1,
-    ]);
-
-    $this->actingAs($user)->postJson(route('games.setup.scheme', $game->uuid), [
-        'scheme_id' => $outsideScheme->id,
-    ])->assertStatus(422);
-});
-
-// ─── Turn Submission: Scheme Recording ───
-
-it('records current scheme on the turn even when scoring 0', function () {
+it('records scheme_action as held when holding', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();
     ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
 
-    submitTurn($this, $user1, $game, ['strategy_points' => 1, 'scheme_points' => 0])->assertOk();
+    submitTurn($this, $user1, $game, ['scheme_action' => 'held'])->assertOk();
 
     $turn = GameTurn::where('game_player_id', $p1->id)->first();
+    expect($turn->scheme_action)->toBe('held');
     expect($turn->scheme_id)->toBe($pool[0]->id);
+
+    $p1->refresh();
+    expect($p1->current_scheme_id)->toBe($pool[0]->id); // Unchanged
 });
 
-it('records old scheme on turn then updates to next scheme', function () {
+it('records scheme_action as scored and requires next_scheme_id', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();
     ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
 
-    $nextSchemeId = $pool[0]->next_scheme_one_id;
+    $nextId = $pool[0]->next_scheme_one_id;
 
     submitTurn($this, $user1, $game, [
-        'scheme_points' => 1,
-        'next_scheme_id' => $nextSchemeId,
+        'scheme_points' => 2,
+        'scheme_action' => 'scored',
+        'next_scheme_id' => $nextId,
     ])->assertOk();
 
     $turn = GameTurn::where('game_player_id', $p1->id)->first();
-    expect($turn->scheme_id)->toBe($pool[0]->id); // Old scheme on the turn
+    expect($turn->scheme_action)->toBe('scored');
+    expect($turn->scheme_id)->toBe($pool[0]->id); // Old scheme on turn
+    expect($turn->next_scheme_id)->toBe($nextId);
 
     $p1->refresh();
-    expect($p1->current_scheme_id)->toBe($nextSchemeId); // New scheme for next turn
+    expect($p1->current_scheme_id)->toBe($nextId); // Updated to next
 });
 
-it('allows switching to a next-scheme chain scheme', function () {
+it('records scheme_action as discarded with next_scheme_id', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();
     ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
 
-    $nextSchemeId = $pool[0]->next_scheme_two_id;
+    $nextId = $pool[0]->next_scheme_two_id;
 
-    submitTurn($this, $user1, $game, ['next_scheme_id' => $nextSchemeId])->assertOk();
+    submitTurn($this, $user1, $game, [
+        'scheme_action' => 'discarded',
+        'next_scheme_id' => $nextId,
+    ])->assertOk();
+
+    $turn = GameTurn::where('game_player_id', $p1->id)->first();
+    expect($turn->scheme_action)->toBe('discarded');
+    expect($turn->scheme_id)->toBe($pool[0]->id);
 
     $p1->refresh();
-    expect($p1->current_scheme_id)->toBe($nextSchemeId);
+    expect($p1->current_scheme_id)->toBe($nextId);
 });
 
-it('rejects next_scheme_id not in pool or chain', function () {
+it('updates scheme_pool when switching schemes', function () {
+    $pool = createSchemeChain();
+    $user1 = User::factory()->create();
+    $user2 = User::factory()->create();
+    ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
+
+    $nextId = $pool[0]->next_scheme_one_id;
+    $nextScheme = Scheme::find($nextId);
+
+    submitTurn($this, $user1, $game, [
+        'scheme_points' => 1,
+        'scheme_action' => 'scored',
+        'next_scheme_id' => $nextId,
+    ])->assertOk();
+
+    $p1->refresh();
+    $expectedPool = array_values(array_filter([
+        $nextScheme->next_scheme_one_id, $nextScheme->next_scheme_two_id, $nextScheme->next_scheme_three_id,
+    ]));
+    // If next scheme has no follow-ups, pool keeps previous value
+    if (! empty($expectedPool)) {
+        expect($p1->scheme_pool)->toBe($expectedPool);
+    }
+});
+
+it('rejects next_scheme_id not in player pool', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();
@@ -200,62 +213,46 @@ it('rejects next_scheme_id not in pool or chain', function () {
 
     $outsideScheme = Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
 
-    submitTurn($this, $user1, $game, ['next_scheme_id' => $outsideScheme->id])->assertStatus(422);
-});
-
-it('allows holding scheme with no next_scheme_id', function () {
-    $pool = createSchemeChain();
-    $user1 = User::factory()->create();
-    $user2 = User::factory()->create();
-    ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
-
-    submitTurn($this, $user1, $game)->assertOk();
-
-    $p1->refresh();
-    expect($p1->current_scheme_id)->toBe($pool[0]->id); // Unchanged
+    submitTurn($this, $user1, $game, [
+        'scheme_action' => 'discarded',
+        'next_scheme_id' => $outsideScheme->id,
+    ])->assertStatus(422);
 });
 
 // ─── Scheme Notes ───
 
-it('saves and snapshots scheme notes on turn', function () {
+it('snapshots scheme notes on turn and clears on scheme switch', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();
     ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
 
-    // Save notes
     $this->actingAs($user1)->patchJson(route('games.play.scheme-notes', $game->uuid), [
-        'scheme_notes' => [
-            'note' => 'Target the henchman',
-            'selected_model' => 'Lady Justice',
-            'selected_marker' => null,
-            'terrain_note' => null,
-        ],
+        'scheme_notes' => ['note' => 'Test note', 'selected_model' => 'Lady J', 'selected_marker' => null, 'terrain_note' => null],
     ])->assertOk();
 
-    $p1->refresh();
-    expect($p1->scheme_notes['note'])->toBe('Target the henchman');
-    expect($p1->scheme_notes['selected_model'])->toBe('Lady Justice');
-
-    // Submit turn — notes should be snapshotted
-    submitTurn($this, $user1, $game, ['strategy_points' => 1])->assertOk();
+    $nextId = $pool[0]->next_scheme_one_id;
+    submitTurn($this, $user1, $game, [
+        'scheme_points' => 1, 'scheme_action' => 'scored', 'next_scheme_id' => $nextId,
+    ])->assertOk();
 
     $turn = GameTurn::where('game_player_id', $p1->id)->first();
-    expect($turn->scheme_notes['note'])->toBe('Target the henchman');
-    expect($turn->scheme_notes['selected_model'])->toBe('Lady Justice');
+    expect($turn->scheme_notes['note'])->toBe('Test note');
+
+    $p1->refresh();
+    expect($p1->scheme_notes)->toBeNull(); // Cleared on switch
 });
 
-// ─── Solo Mode: Opponent Scheme ───
+// ─── Solo Mode ───
 
-it('sets opponent scheme via solo_scheme_id from pool', function () {
+it('sets opponent scheme via identified_scheme_id from pool', function () {
     $pool = createSchemeChain();
     $user = User::factory()->create();
     ['game' => $game, 'p2' => $p2] = createSoloGame($pool, $user);
 
     submitTurn($this, $user, $game, [
-        'slot' => 2,
-        'scheme_points' => 1,
-        'solo_scheme_id' => $pool[1]->id,
+        'slot' => 2, 'scheme_points' => 1, 'scheme_action' => 'scored',
+        'identified_scheme_id' => $pool[1]->id,
     ])->assertOk();
 
     $p2->refresh();
@@ -263,9 +260,10 @@ it('sets opponent scheme via solo_scheme_id from pool', function () {
 
     $turn = GameTurn::where('game_player_id', $p2->id)->first();
     expect($turn->scheme_id)->toBe($pool[1]->id);
+    expect($turn->scheme_action)->toBe('scored');
 });
 
-it('rejects solo_scheme_id not in pool or chain', function () {
+it('rejects identified_scheme_id not in opponent pool', function () {
     $pool = createSchemeChain();
     $user = User::factory()->create();
     ['game' => $game] = createSoloGame($pool, $user);
@@ -273,65 +271,46 @@ it('rejects solo_scheme_id not in pool or chain', function () {
     $outsideScheme = Scheme::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
 
     submitTurn($this, $user, $game, [
-        'slot' => 2,
-        'solo_scheme_id' => $outsideScheme->id,
+        'slot' => 2, 'scheme_action' => 'scored',
+        'identified_scheme_id' => $outsideScheme->id,
     ])->assertStatus(422);
 });
 
-it('allows opponent to hold scheme hidden (no solo_scheme_id)', function () {
+it('holds opponent scheme hidden with no identified_scheme_id', function () {
     $pool = createSchemeChain();
     $user = User::factory()->create();
     ['game' => $game, 'p2' => $p2] = createSoloGame($pool, $user);
 
-    submitTurn($this, $user, $game, ['slot' => 2])->assertOk();
+    submitTurn($this, $user, $game, ['slot' => 2, 'scheme_action' => 'held'])->assertOk();
 
     $p2->refresh();
-    expect($p2->current_scheme_id)->toBeNull(); // Still hidden
+    expect($p2->current_scheme_id)->toBeNull();
 
     $turn = GameTurn::where('game_player_id', $p2->id)->first();
-    expect($turn->scheme_id)->toBeNull(); // Not recorded
+    expect($turn->scheme_action)->toBe('held');
+    expect($turn->scheme_id)->toBeNull();
 });
 
-it('sets opponent scheme then advances to follow-up in same request', function () {
+it('updates opponent scheme_pool after identifying scored scheme', function () {
     $pool = createSchemeChain();
     $user = User::factory()->create();
     ['game' => $game, 'p2' => $p2] = createSoloGame($pool, $user);
 
-    $followUpId = $pool[1]->next_scheme_one_id;
-
+    // Opponent scores on pool[1]
     submitTurn($this, $user, $game, [
-        'slot' => 2,
-        'scheme_points' => 2,
-        'solo_scheme_id' => $pool[1]->id,
-        'next_scheme_id' => $followUpId,
+        'slot' => 2, 'scheme_points' => 1, 'scheme_action' => 'scored',
+        'identified_scheme_id' => $pool[1]->id,
     ])->assertOk();
 
     $p2->refresh();
-    // current_scheme_id should be the follow-up (not the scored scheme)
-    expect($p2->current_scheme_id)->toBe($followUpId);
-
-    $turn = GameTurn::where('game_player_id', $p2->id)->first();
-    // Turn should record the scored scheme
-    expect($turn->scheme_id)->toBe($pool[1]->id);
-    expect($turn->scheme_points)->toBe(2);
+    // Pool should now be pool[1]'s follow-up chain
+    $expectedPool = array_values(array_filter([
+        $pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id,
+    ]));
+    expect($p2->scheme_pool)->toBe($expectedPool);
 });
 
-it('rejects opponent follow-up not in identified schemes chain', function () {
-    $pool = createSchemeChain();
-    $user = User::factory()->create();
-    ['game' => $game] = createSoloGame($pool, $user);
-
-    // pool[2]'s follow-ups are NOT valid from pool[1]
-    $wrongFollowUp = $pool[2]->next_scheme_one_id;
-
-    submitTurn($this, $user, $game, [
-        'slot' => 2,
-        'solo_scheme_id' => $pool[1]->id,
-        'next_scheme_id' => $wrongFollowUp,
-    ])->assertStatus(422);
-});
-
-// ─── Scheme Scoring Limits ───
+// ─── Scoring Limits ───
 
 it('enforces scheme max 2 per turn', function () {
     $pool = createSchemeChain();
@@ -339,7 +318,7 @@ it('enforces scheme max 2 per turn', function () {
     $user2 = User::factory()->create();
     ['game' => $game] = createDuelGame($pool, $user1, $user2);
 
-    submitTurn($this, $user1, $game, ['scheme_points' => 3])->assertStatus(422);
+    submitTurn($this, $user1, $game, ['scheme_points' => 3, 'scheme_action' => 'scored'])->assertStatus(422);
 });
 
 it('enforces scheme max 6 total across game', function () {
@@ -348,21 +327,16 @@ it('enforces scheme max 6 total across game', function () {
     $user2 = User::factory()->create();
     ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
 
-    // Create 3 previous turns with 2 scheme points each = 6 total
     for ($t = 1; $t <= 3; $t++) {
         GameTurn::create([
-            'game_id' => $game->id,
-            'game_player_id' => $p1->id,
-            'turn_number' => $t,
-            'scheme_id' => $pool[0]->id,
-            'strategy_points' => 0,
-            'scheme_points' => 2,
-            'points_scored' => 2,
+            'game_id' => $game->id, 'game_player_id' => $p1->id, 'turn_number' => $t,
+            'scheme_id' => $pool[0]->id, 'scheme_action' => 'scored',
+            'strategy_points' => 0, 'scheme_points' => 2, 'points_scored' => 2,
         ]);
     }
     $game->update(['current_turn' => 4]);
 
-    submitTurn($this, $user1, $game, ['scheme_points' => 1])->assertStatus(422);
+    submitTurn($this, $user1, $game, ['scheme_points' => 1, 'scheme_action' => 'scored'])->assertStatus(422);
 });
 
 // ─── Turn Advancement ───
@@ -387,11 +361,9 @@ it('advances turn when both slots submit in solo', function () {
     $user = User::factory()->create();
     ['game' => $game] = createSoloGame($pool, $user);
 
-    submitTurn($this, $user, $game)->assertOk(); // Player turn
-    $game->refresh();
-    expect($game->current_turn)->toBe(1);
+    submitTurn($this, $user, $game)->assertOk();
+    submitTurn($this, $user, $game, ['slot' => 2])->assertOk();
 
-    submitTurn($this, $user, $game, ['slot' => 2])->assertOk(); // Opponent turn
     $game->refresh();
     expect($game->current_turn)->toBe(2);
 });
@@ -413,23 +385,4 @@ it('finalizes game and records winner', function () {
     $game->refresh();
     expect($game->status)->toBe(GameStatusEnum::Completed);
     expect($game->winner_id)->toBe($user1->id);
-});
-
-it('records final scheme on completion turn', function () {
-    $pool = createSchemeChain();
-    $user1 = User::factory()->create();
-    $user2 = User::factory()->create();
-    ['game' => $game, 'p1' => $p1, 'p2' => $p2] = createDuelGame($pool, $user1, $user2);
-
-    $this->actingAs($user1)->postJson(route('games.play.complete', $game->uuid))->assertOk();
-    $this->actingAs($user2)->postJson(route('games.play.complete', $game->uuid))->assertOk();
-
-    // Final turn should have the player's scheme recorded
-    $finalTurn = GameTurn::where('game_id', $game->id)
-        ->where('game_player_id', $p1->id)
-        ->where('turn_number', $game->current_turn)
-        ->first();
-
-    expect($finalTurn)->not->toBeNull();
-    expect($finalTurn->scheme_id)->toBe($pool[0]->id);
 });

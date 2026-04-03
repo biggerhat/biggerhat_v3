@@ -30,6 +30,7 @@ class GamePlayer extends Model
             'is_game_complete' => 'boolean',
             'hidden_at' => 'datetime',
             'scheme_notes' => 'array',
+            'scheme_pool' => 'array',
         ];
     }
 

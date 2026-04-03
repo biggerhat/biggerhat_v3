@@ -24,6 +24,7 @@ class CharacterController extends Controller
         );
         $character->load(['blueprints' => fn ($q) => $q->withImage()]);
         $character->load(['transmissions' => fn ($q) => $q->with('channel:id,name,slug,image')->latest('release_date')->limit(3)]);
+        $character->load(['blogPosts' => fn ($q) => $q->published()->with('category:id,name')->latest('published_at')->limit(3)]);
 
         return inertia('Characters/View', [
             'character' => $character,

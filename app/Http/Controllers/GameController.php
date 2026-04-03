@@ -173,7 +173,7 @@ class GameController extends Controller
         }
         if ($game->status === GameStatusEnum::InProgress) {
             // During gameplay, only load scoring data — exclude large crew_snapshot JSON
-            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,scheme_notes,points_scored';
+            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,scheme_action,scheme_notes,next_scheme_id,points_scored';
         } elseif (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             // Summary view needs full turn data including snapshots
             $eagerLoads[] = 'players.turns';
@@ -463,90 +463,27 @@ class GameController extends Controller
                     return null;
                 }
 
-                // Find opponent turns sorted by turn number
-                $sortedTurns = $opponent->turns->sortBy('turn_number')->values();
+                // Possible schemes = opponent's stored pool (no derivation needed)
+                $poolIds = $opponent->scheme_pool ?? $game->scheme_pool ?? [];
+                $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
+                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
 
-                // A scheme is "revealed" only when scored (scheme_points > 0).
-                // A scheme is "discarded" when it has a scheme_id but the NEXT turn has a different scheme_id.
-                // Held schemes (0 VP, same scheme next turn) stay hidden.
+                // Scheme history: turns where scheme_action was scored or discarded (explicit)
+                $schemeHistory = $opponent->turns->sortBy('turn_number')
+                    ->filter(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded']))
+                    ->map(function (GameTurn $t) use ($schemeCache) {
+                        $scheme = $schemeCache->get($t->scheme_id);
 
-                // Find the most recent turn that reveals info: scored OR discarded
-                $lastRevealedTurn = null;
-                $lastRevealedScheme = null;
-                for ($i = $sortedTurns->count() - 1; $i >= 0; $i--) {
-                    $turn = $sortedTurns[$i];
-                    if (! $turn->scheme_id) {
-                        continue;
-                    }
-
-                    $scored = $turn->scheme_points > 0;
-                    // Discarded = has scheme_id but the next turn has a DIFFERENT scheme_id
-                    $nextTurn = $sortedTurns[$i + 1] ?? null;
-                    $discarded = $nextTurn && $nextTurn->scheme_id && $nextTurn->scheme_id !== $turn->scheme_id;
-
-                    if ($scored || $discarded) {
-                        $lastRevealedTurn = $turn;
-                        $lastRevealedScheme = $schemeCache->get($turn->scheme_id);
-                        break;
-                    }
-                }
-
-                if (! $lastRevealedScheme) {
-                    return [
-                        'last_revealed' => null,
-                        'possible_schemes' => $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
-                            ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray(),
-                        'scheme_history' => [],
-                    ];
-                }
-
-                $lastRevealed = [
-                    'id' => $lastRevealedScheme->id,
-                    'name' => $lastRevealedScheme->name,
-                    'turn_number' => $lastRevealedTurn->turn_number,
-                    'scored' => $lastRevealedTurn->scheme_points > 0,
-                ];
-
-                // Possible pool = the revealed scheme's follow-up chain
-                // (the opponent must have picked one of these after scoring/discarding)
-                $possible = [];
-                $nextIds = array_filter([
-                    $lastRevealedScheme->next_scheme_one_id,
-                    $lastRevealedScheme->next_scheme_two_id,
-                    $lastRevealedScheme->next_scheme_three_id,
-                ]);
-                foreach ($nextIds as $id) {
-                    $next = $schemeCache->get($id);
-                    if ($next) {
-                        $possible[] = self::formatScheme($next);
-                    }
-                }
-                // If no follow-ups, fall back to pool
-                if (empty($possible)) {
-                    $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
-                        ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
-                }
-
-                // Build scheme history: only turns where the scheme was scored or discarded (not held)
-                $schemeHistory = [];
-                for ($i = 0; $i < $sortedTurns->count(); $i++) {
-                    $turn = $sortedTurns[$i];
-                    if (! $turn->scheme_id) {
-                        continue;
-                    }
-                    $scored = $turn->scheme_points > 0;
-                    $nextTurn = $sortedTurns[$i + 1] ?? null;
-                    $discarded = $nextTurn && $nextTurn->scheme_id && $nextTurn->scheme_id !== $turn->scheme_id;
-                    if ($scored || $discarded) {
-                        $scheme = $schemeCache->get($turn->scheme_id);
-                        $schemeHistory[] = [
-                            'turn_number' => $turn->turn_number,
-                            'scheme_id' => $turn->scheme_id,
+                        return [
+                            'turn_number' => $t->turn_number,
+                            'scheme_id' => $t->scheme_id,
                             'scheme_name' => $scheme->name ?? 'Unknown',
-                            'scored' => $scored,
+                            'scheme_action' => $t->scheme_action,
                         ];
-                    }
-                }
+                    })->values()->toArray();
+
+                // Last revealed = most recent scored/discarded turn
+                $lastRevealed = ! empty($schemeHistory) ? end($schemeHistory) : null;
 
                 return [
                     'last_revealed' => $lastRevealed,
@@ -554,13 +491,28 @@ class GameController extends Controller
                     'scheme_history' => $schemeHistory,
                 ];
             },
+            // next_schemes and opponent_next_schemes now read directly from stored scheme_pool
             'next_schemes' => function () use ($game, $schemeCache) {
                 $userId = Auth::id();
                 $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId);
+                if (! $myPlayer || $game->status !== GameStatusEnum::InProgress) {
+                    return [];
+                }
+                $poolIds = $myPlayer->scheme_pool ?? [];
 
-                return $myPlayer ? $this->getNextSchemesForPlayer($game, $myPlayer->slot, $schemeCache) : [];
+                return $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
+                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
             },
-            'opponent_next_schemes' => fn () => $game->is_solo ? $this->getNextSchemesForPlayer($game, 2, $schemeCache) : [],
+            'opponent_next_schemes' => function () use ($game, $schemeCache) {
+                if (! $game->is_solo || $game->status !== GameStatusEnum::InProgress) {
+                    return [];
+                }
+                $opponent = $game->players->firstWhere('slot', 2);
+                $poolIds = $opponent->scheme_pool ?? [];
+
+                return $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
+                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
+            },
             'observer_scheme_intel' => fn () => null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => false,
@@ -792,37 +744,30 @@ class GameController extends Controller
                 $result = [];
 
                 foreach ($game->players as $player) {
-                    $lastTurn = $player->turns->sortByDesc('turn_number')->first();
+                    // For observers: show what schemes the player COULD currently be holding.
+                    // That's the follow-ups of their last scored/discarded scheme (what they picked from).
+                    // If no scheme has been scored/discarded yet, use the game pool.
+                    $lastRevealedTurn = $player->turns
+                        ->sortByDesc('turn_number')
+                        ->first(fn ($t) => in_array($t->scheme_action, ['scored', 'discarded']));
 
-                    // Build possible schemes: current + next chain from last turn's scheme
-                    $possible = [];
-                    if ($lastTurn && $lastTurn->scheme_id) {
-                        $lastScheme = $schemeCache->get($lastTurn->scheme_id);
-                        if ($lastScheme) {
-                            $possible[] = self::formatScheme($lastScheme);
-                            $nextIds = array_filter([
-                                $lastScheme->next_scheme_one_id,
-                                $lastScheme->next_scheme_two_id,
-                                $lastScheme->next_scheme_three_id,
-                            ]);
-                            foreach ($nextIds as $id) {
-                                $next = $schemeCache->get($id);
-                                if ($next) {
-                                    $possible[] = self::formatScheme($next);
-                                }
-                            }
-                        }
+                    if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
+                        $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
+                        $possibleIds = $revealedScheme ? array_values(array_filter([
+                            $revealedScheme->next_scheme_one_id,
+                            $revealedScheme->next_scheme_two_id,
+                            $revealedScheme->next_scheme_three_id,
+                        ])) : [];
+                    } else {
+                        $possibleIds = $game->scheme_pool ?? [];
                     }
 
-                    // If no turn history yet, full pool is possible
-                    if (empty($possible)) {
-                        $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $game->scheme_pool ?? []))
-                            ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
-                    }
+                    $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $possibleIds))
+                        ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
 
-                    // Only reveal scheme if it was scored on the CURRENT turn — past reveals are historical
+                    // Only reveal if scheme_action is 'scored' on the current turn
                     $currentTurnRecord = $player->turns->firstWhere('turn_number', $game->current_turn);
-                    $revealedThisTurn = $currentTurnRecord && $currentTurnRecord->scheme_points > 0;
+                    $revealedThisTurn = $currentTurnRecord && $currentTurnRecord->scheme_action === 'scored';
 
                     $result[$player->slot] = [
                         'possible_schemes' => $possible,
@@ -909,39 +854,6 @@ class GameController extends Controller
         $game->update(['is_observable' => ! $game->is_observable]);
 
         return response()->json(['success' => true, 'is_observable' => $game->is_observable]);
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, Scheme>  $schemeCache  Preloaded schemes keyed by ID
-     */
-    private function getNextSchemesForPlayer(Game $game, int $slot, $schemeCache = null): array
-    {
-        if ($game->status !== GameStatusEnum::InProgress) {
-            return [];
-        }
-        /** @var GamePlayer|null $player */
-        $player = $game->players->firstWhere('slot', $slot);
-        if (! $player || ! $player->current_scheme_id) {
-            return [];
-        }
-        $currentScheme = $schemeCache?->get($player->current_scheme_id) ?? Scheme::find($player->current_scheme_id);
-        if (! $currentScheme) {
-            return [];
-        }
-        $nextIds = array_filter([
-            $currentScheme->next_scheme_one_id,
-            $currentScheme->next_scheme_two_id,
-            $currentScheme->next_scheme_three_id,
-        ]);
-        if (empty($nextIds)) {
-            return [];
-        }
-
-        if ($schemeCache) {
-            return collect($nextIds)->map(fn ($id) => $schemeCache->get($id))->filter()->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
-        }
-
-        return Scheme::whereIn('id', $nextIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
     }
 
     private function getStartingCrews(Game $game): array

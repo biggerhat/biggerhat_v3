@@ -69,7 +69,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update($validated);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
         }
 
@@ -85,7 +85,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update(['is_killed' => true, 'current_health' => 0]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'killed'))->toOthers();
         }
 
@@ -130,7 +130,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update(['is_killed' => false, 'current_health' => $gameCrewMember->max_health]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'revived'))->toOthers();
         }
 
@@ -221,7 +221,7 @@ class GamePlayController extends Controller
             'sort_order' => $maxSort + 1,
         ]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'summoned'))->toOthers();
         }
 
@@ -266,7 +266,7 @@ class GamePlayController extends Controller
             'attached_markers' => [],
         ]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'replaced'))->toOthers();
         }
 
@@ -298,7 +298,7 @@ class GamePlayController extends Controller
         $validated = $request->validate(['soulstone_pool' => ['required', 'integer', 'min:0']]);
         $player->update(['soulstone_pool' => $validated['soulstone_pool']]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'soulstone_pool'))->toOthers();
         }
 
@@ -317,37 +317,17 @@ class GamePlayController extends Controller
         $validated = $request->validate([
             'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
             'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
+            'scheme_action' => ['required', 'string', 'in:scored,held,discarded'],
             'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
-            'solo_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
+            // Solo: identify opponent's scheme this turn (scored or discarded)
+            'identified_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
         ]);
 
-        // Solo: when a scheme is revealed (scored or discarded), set it as current before recording the turn.
-        // This ensures the turn records the correct scheme_id and updates the next-scheme pool.
-        if ($game->is_solo && ! empty($validated['solo_scheme_id'])) {
-            $validIds = $game->scheme_pool ?? [];
-            if ($player->current_scheme_id) {
-                $currentScheme = Scheme::find($player->current_scheme_id);
-                if ($currentScheme) {
-                    $validIds = array_merge($validIds, array_filter([
-                        $currentScheme->next_scheme_one_id,
-                        $currentScheme->next_scheme_two_id,
-                        $currentScheme->next_scheme_three_id,
-                    ]));
-                }
-            }
-            if (! in_array($validated['solo_scheme_id'], $validIds)) {
-                return response()->json(['error' => 'Scheme not in pool or next-scheme chain'], 422);
-            }
-            $player->update(['current_scheme_id' => $validated['solo_scheme_id']]);
-            $player->refresh();
-        }
-
-        // Validate scoring rules against previous turns
+        // ── Validate scoring rules ──
         $previousTurns = GameTurn::where('game_id', $game->id)
             ->where('game_player_id', $player->id)
             ->get();
 
-        // Strategy: max 1/turn + 1 bonus once per game (max 2 any single turn)
         if ($validated['strategy_points'] > 1) {
             $bonusUsed = $previousTurns->contains(fn (GameTurn $t) => $t->strategy_points > 1);
             if ($bonusUsed) {
@@ -355,19 +335,62 @@ class GamePlayController extends Controller
             }
         }
 
-        // Scheme: max 2/turn, max 6 total across the game
         $totalSchemeScored = $previousTurns->sum('scheme_points');
-        $schemeRemaining = 6 - $totalSchemeScored;
-        if ($validated['scheme_points'] > $schemeRemaining) {
+        if ($validated['scheme_points'] > (6 - $totalSchemeScored)) {
             return response()->json(['error' => 'Scheme scoring would exceed 6 VP game maximum'], 422);
         }
 
-        $totalTurnPoints = $validated['strategy_points'] + $validated['scheme_points'];
+        // ── Solo: identify opponent's scheme for this turn ──
+        if ($game->is_solo && ! empty($validated['identified_scheme_id'])) {
+            $playerPool = $player->scheme_pool ?? $game->scheme_pool ?? [];
+            if (! in_array($validated['identified_scheme_id'], $playerPool)) {
+                return response()->json(['error' => 'Scheme not in player pool'], 422);
+            }
+            $identifiedScheme = Scheme::find($validated['identified_scheme_id']);
+            $newPool = $identifiedScheme ? array_values(array_filter([
+                $identifiedScheme->next_scheme_one_id,
+                $identifiedScheme->next_scheme_two_id,
+                $identifiedScheme->next_scheme_three_id,
+            ])) : [];
+            $player->update([
+                'current_scheme_id' => $validated['identified_scheme_id'],
+                'scheme_pool' => ! empty($newPool) ? $newPool : ($player->scheme_pool ?? $game->scheme_pool ?? []),
+            ]);
+            $player->refresh();
+        }
 
+        // ── Validate next_scheme_id against player's pool ──
+        $nextSchemeId = $validated['next_scheme_id'] ?? null;
+        if ($nextSchemeId) {
+            $playerPool = $player->scheme_pool ?? $game->scheme_pool ?? [];
+            if (! in_array($nextSchemeId, $playerPool)) {
+                return response()->json(['error' => 'Next scheme not in player pool'], 422);
+            }
+        }
+
+        // ── Determine scheme action ──
+        $schemeAction = $validated['scheme_action'];
+        // Enforce: scored requires scheme_points > 0, held/discarded requires 0
+        if ($schemeAction === 'scored' && $validated['scheme_points'] <= 0) {
+            $schemeAction = 'held'; // Can't score with 0 points
+        }
+        if ($schemeAction !== 'scored' && $validated['scheme_points'] > 0) {
+            $schemeAction = 'scored'; // If scoring points, it's scored
+        }
+        // Enforce: scored/discarded must have a next_scheme_id (unless last turn)
+        if (in_array($schemeAction, ['scored', 'discarded']) && ! $nextSchemeId && $game->current_turn < $game->max_turns) {
+            // Allow it but don't update — they'll need to pick next turn
+        }
+
+        $totalTurnPoints = $validated['strategy_points'] + $validated['scheme_points'];
         $crewSnapshot = $this->buildCrewSnapshot($game->id, $player->id);
 
-        // Record the turn — always save current scheme, even if not scored this turn
-        $turnSchemeId = $player->current_scheme_id;
+        // ── Record the turn ──
+        // For solo opponent held turns, scheme stays hidden — don't record the scheme_id
+        $turnSchemeId = ($game->is_solo && $slot === 2 && $schemeAction === 'held')
+            ? null
+            : $player->current_scheme_id;
+
         GameTurn::updateOrCreate(
             [
                 'game_id' => $game->id,
@@ -376,7 +399,9 @@ class GamePlayController extends Controller
             ],
             [
                 'scheme_id' => $turnSchemeId,
+                'scheme_action' => $schemeAction,
                 'scheme_notes' => $player->scheme_notes,
+                'next_scheme_id' => $nextSchemeId,
                 'strategy_points' => $validated['strategy_points'],
                 'scheme_points' => $validated['scheme_points'],
                 'points_scored' => $totalTurnPoints,
@@ -384,33 +409,33 @@ class GamePlayController extends Controller
             ]
         );
 
-        // Update total points
         $player->increment('total_points', $totalTurnPoints);
 
-        // Update scheme for next turn if changed — validate against pool + next-scheme chain
-        if (! empty($validated['next_scheme_id'])) {
-            $validIds = $game->scheme_pool ?? [];
-            if ($player->current_scheme_id) {
-                $currentScheme = Scheme::find($player->current_scheme_id);
-                if ($currentScheme) {
-                    $validIds = array_merge($validIds, array_filter([
-                        $currentScheme->next_scheme_one_id,
-                        $currentScheme->next_scheme_two_id,
-                        $currentScheme->next_scheme_three_id,
-                    ]));
-                }
-            }
-            if (! in_array($validated['next_scheme_id'], $validIds)) {
-                return response()->json(['error' => 'Scheme not in pool or next-scheme chain'], 422);
-            }
-            $player->update(['current_scheme_id' => $validated['next_scheme_id']]);
-        }
+        // ── Update player scheme state for next turn ──
+        if ($nextSchemeId) {
+            // Player is switching: new scheme becomes current, derive new pool from it
+            $nextScheme = Scheme::find($nextSchemeId);
+            $newPool = $nextScheme ? array_values(array_filter([
+                $nextScheme->next_scheme_one_id,
+                $nextScheme->next_scheme_two_id,
+                $nextScheme->next_scheme_three_id,
+            ])) : [];
 
-        // Wrap turn completion + bothDone check in a transaction to prevent race conditions
+            $player->update([
+                'current_scheme_id' => $nextSchemeId,
+                'next_scheme_id' => null,
+                'scheme_pool' => ! empty($newPool) ? $newPool : ($player->scheme_pool ?? $game->scheme_pool ?? []),
+                'scheme_notes' => null, // Clear notes for new scheme
+            ]);
+        } elseif ($schemeAction === 'held') {
+            // Held: scheme_pool stays the same, no changes needed
+        }
+        // For scored/discarded without next_scheme_id (last turn), no pool update needed
+
+        // ── Turn completion + advancement ──
         $result = DB::transaction(function () use ($game, $player) {
             $player->update(['is_turn_complete' => true]);
 
-            // Reset activation state for all crew members when turn completes
             GameCrewMember::where('game_id', $game->id)
                 ->where('game_player_id', $player->id)
                 ->update(['is_activated' => false]);
@@ -435,13 +460,11 @@ class GamePlayController extends Controller
             return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
         }
 
-        if ($result['both_done'] && ! $game->is_solo) {
+        if ($result['both_done']) {
             broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
         }
 
-        if (! $game->is_solo) {
-            broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
-        }
+        broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
 
         return response()->json(['success' => true, 'both_done' => $result['both_done']]);
     }
@@ -468,7 +491,7 @@ class GamePlayController extends Controller
             return $bothDone;
         });
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
         }
 
@@ -491,7 +514,7 @@ class GamePlayController extends Controller
 
         $player->update(['is_game_complete' => false]);
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'cancel_complete'))->toOthers();
         }
 
@@ -568,7 +591,7 @@ class GamePlayController extends Controller
             ]);
         }
 
-        if (! $game->is_solo) {
+        if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameStatusChanged($game));
         }
     }

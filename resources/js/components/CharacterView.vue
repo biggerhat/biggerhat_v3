@@ -29,6 +29,7 @@ import {
     FileImage,
     Library,
     Package,
+    Newspaper,
     Radio,
     Star,
     Swords,
@@ -123,7 +124,8 @@ const hasSecondaryContent = computed(
         props.character.packages?.length ||
         props.character.lores?.length ||
         props.character.blueprints?.length ||
-        props.character.transmissions?.length,
+        props.character.transmissions?.length ||
+        props.character.blog_posts?.length,
 );
 
 const formatDate = (dateStr: string) => {
@@ -680,6 +682,38 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             class="flex items-center justify-center border-t px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent"
                         >
                             View all transmissions
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                <!-- Articles -->
+                <Card v-if="character.blog_posts?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Articles</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <Link
+                            v-for="post in character.blog_posts"
+                            :key="post.id"
+                            :href="route('blog.view', { blogPost: post.slug })"
+                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                            <Newspaper class="size-4 shrink-0 text-muted-foreground" />
+                            <div class="min-w-0 flex-1">
+                                <div class="font-medium">{{ post.title }}</div>
+                                <div class="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <span v-if="post.category">{{ post.category.name }}</span>
+                                    <span v-if="post.category && post.published_at">&middot;</span>
+                                    <span v-if="post.published_at">{{ formatDate(post.published_at) }}</span>
+                                </div>
+                            </div>
+                            <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" />
+                        </Link>
+                        <Link
+                            :href="route('blog.index')"
+                            class="flex items-center justify-center border-t px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent"
+                        >
+                            View all articles
                         </Link>
                     </CardContent>
                 </Card>

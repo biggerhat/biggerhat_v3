@@ -96,6 +96,7 @@ class CustomCharacterController extends Controller
     public function share(string $shareCode): Response
     {
         $character = CustomCharacter::where('share_code', $shareCode)
+            ->with('user:id,name')
             ->firstOrFail();
 
         return inertia('Tools/CardCreator/View', [

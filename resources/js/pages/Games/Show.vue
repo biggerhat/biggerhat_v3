@@ -888,15 +888,27 @@ const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m: 
 const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
 const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
 
+const actionError = ref<string | null>(null);
+let errorTimer: ReturnType<typeof setTimeout>;
+const showError = (msg: string) => {
+    actionError.value = msg;
+    clearTimeout(errorTimer);
+    errorTimer = setTimeout(() => (actionError.value = null), 5000);
+};
+
 const postPlay = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
     try {
         const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } };
         if (body) opts.body = JSON.stringify(body);
         const res = await fetch(url, opts);
-        if (!res.ok) console.error('Play action failed:', res.status);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(err.error ?? 'Action failed. Please try again.');
+            return;
+        }
         router.reload({ only: ['game'], preserveScroll: true });
-    } catch (e) {
-        console.error('Play action error:', e);
+    } catch {
+        showError('Network error. Please check your connection.');
     }
 };
 
@@ -2502,6 +2514,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <TabsTrigger value="opponent">{{ playerName(opponent) }}</TabsTrigger>
                         </TabsList>
                     </Tabs>
+                </div>
+
+                <!-- Action error banner -->
+                <div v-if="actionError" class="mb-4 flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                    <span>{{ actionError }}</span>
+                    <button class="ml-2 text-xs hover:underline" @click="actionError = null">Dismiss</button>
                 </div>
 
                 <!-- Turn change banner (full width) -->

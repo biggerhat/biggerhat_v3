@@ -61,34 +61,41 @@ const alignStyle = (node: Record<string, unknown>) => {
             </blockquote>
 
             <!-- Code Block -->
-            <pre
-                v-else-if="node.type === 'codeBlock'"
-            ><code><template v-for="(child, cidx) in ((node.content as Record<string, unknown>[]) ?? [])" :key="cidx">{{ child.text }}</template></code></pre>
+            <div v-else-if="node.type === 'codeBlock'" class="not-prose my-4 overflow-x-auto rounded-lg bg-muted">
+                <pre class="p-4 text-sm leading-relaxed"><code class="font-mono"><template v-for="(child, cidx) in ((node.content as Record<string, unknown>[]) ?? [])" :key="cidx">{{ child.text }}</template></code></pre>
+            </div>
 
             <!-- Image -->
-            <figure v-else-if="node.type === 'image'">
-                <img :src="(node.attrs as Record<string, string>).src" :alt="(node.attrs as Record<string, string>).alt ?? ''" class="rounded-lg" loading="lazy" decoding="async" />
+            <figure v-else-if="node.type === 'image'" class="my-6">
+                <img :src="(node.attrs as Record<string, string>).src" :alt="(node.attrs as Record<string, string>).alt ?? ''" class="w-full rounded-lg" loading="lazy" decoding="async" />
             </figure>
 
             <!-- Entity Embed -->
             <EntityEmbedRenderer v-else-if="isEntityEmbed(node)" :attrs="node.attrs as Record<string, unknown>" />
 
             <!-- Table -->
-            <table v-else-if="node.type === 'table'">
-                <template v-for="(row, ridx) in (node.content as Record<string, unknown>[]) ?? []" :key="ridx">
-                    <tr>
-                        <template v-for="(cell, cidx) in (row.content as Record<string, unknown>[]) ?? []" :key="cidx">
-                            <component :is="cell.type === 'tableHeader' ? 'th' : 'td'" v-bind="(cell.attrs as Record<string, unknown>) ?? {}">
-                                <template v-for="(para, pidx) in (cell.content as Record<string, unknown>[]) ?? []" :key="pidx">
-                                    <p v-if="para.type === 'paragraph'" :style="alignStyle(para)">
-                                        <InlineContent :nodes="(para.content as Record<string, unknown>[]) ?? []" />
-                                    </p>
-                                </template>
-                            </component>
-                        </template>
-                    </tr>
-                </template>
-            </table>
+            <div v-else-if="node.type === 'table'" class="not-prose my-6 overflow-x-auto">
+                <table class="w-full border-collapse text-xs sm:text-sm">
+                    <template v-for="(row, ridx) in (node.content as Record<string, unknown>[]) ?? []" :key="ridx">
+                        <tr class="border-b border-border last:border-b-0">
+                            <template v-for="(cell, cidx) in (row.content as Record<string, unknown>[]) ?? []" :key="cidx">
+                                <component
+                                    :is="cell.type === 'tableHeader' ? 'th' : 'td'"
+                                    class="px-2.5 py-2 text-left align-top sm:px-4 sm:py-3"
+                                    :class="cell.type === 'tableHeader' ? 'bg-muted/50 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs' : ''"
+                                >
+                                    <template v-for="(child, pidx) in (cell.content as Record<string, unknown>[]) ?? []" :key="pidx">
+                                        <p v-if="child.type === 'paragraph'" :style="alignStyle(child)">
+                                            <InlineContent :nodes="(child.content as Record<string, unknown>[]) ?? []" />
+                                        </p>
+                                        <EntityEmbedRenderer v-else-if="isEntityEmbed(child)" :attrs="child.attrs as Record<string, unknown>" />
+                                    </template>
+                                </component>
+                            </template>
+                        </tr>
+                    </template>
+                </table>
+            </div>
 
             <!-- Horizontal Rule -->
             <hr v-else-if="node.type === 'horizontalRule'" class="my-4" />

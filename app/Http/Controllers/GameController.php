@@ -741,7 +741,7 @@ class GameController extends Controller
                     return null;
                 }
 
-                $schemeCache = Scheme::all()->keyBy('id');
+                $schemeCache = Scheme::forSeason($game->season)->get()->keyBy('id');
                 $result = [];
 
                 foreach ($game->players as $player) {

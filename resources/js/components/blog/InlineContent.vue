@@ -52,7 +52,7 @@ const isLink = (node: Record<string, unknown>) => getMarks(node).includes('link'
             <a v-if="isLink(child)" :href="getLinkHref(child)" target="_blank" rel="noopener" :class="textClass(child)">
                 <GameText :text="child.text as string" />
             </a>
-            <code v-else-if="isCode(child)" :class="textClass(child)">{{ child.text }}</code>
+            <code v-else-if="isCode(child)" :class="['rounded bg-muted px-1.5 py-0.5 font-mono text-[0.875em]', textClass(child)]">{{ child.text }}</code>
             <span v-else-if="textClass(child)" :class="textClass(child)"><GameText :text="child.text as string" /></span>
             <GameText v-else :text="child.text as string" />
         </template>

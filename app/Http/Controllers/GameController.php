@@ -523,10 +523,11 @@ class GameController extends Controller
     {
         // Require login — redirect back to this join URL after auth
         if (! Auth::check()) {
-            return redirect()->guest(route('login'))
+            session()->put('url.intended', route('games.join', $game->uuid));
+
+            return redirect()->route('login')
                 ->with('message', 'Please log in or create an account to join this game.')
-                ->with('messageType', 'warning')
-                ->with('intended', route('games.join', $game->uuid));
+                ->with('messageType', 'warning');
         }
 
         $userId = Auth::id();

@@ -1151,24 +1151,16 @@ const opponentMaxSchemeThisTurn = computed(() => Math.min(2, 6 - opponentTotalSc
 const submitTurnScore = async () => {
     scoringTurn.value = true;
 
-    // If switching schemes, save the new scheme's requirement selections
-    if (nextSchemeId.value && nextSchemeReqs.value.length) {
-        await fetch(route('games.play.scheme-notes', props.game.uuid), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({
-                scheme_notes: {
-                    note: null,
-                    selected_model: nextSchemeModel.value || null,
-                    selected_marker: nextSchemeMarker.value || null,
-                    terrain_note: nextSchemeTerrain.value || null,
-                },
-            }),
-        });
-    }
-
     // Determine scheme action
     const schemeAction = schemePoints.value > 0 ? 'scored' : nextSchemeId.value ? 'discarded' : 'held';
+
+    // Build next scheme notes (saved AFTER the turn is recorded, not before)
+    const nextNotes = nextSchemeId.value && nextSchemeReqs.value.length ? {
+        note: null,
+        selected_model: nextSchemeModel.value || null,
+        selected_marker: nextSchemeMarker.value || null,
+        terrain_note: nextSchemeTerrain.value || null,
+    } : null;
 
     try {
         const res = await fetch(route('games.play.turns.store', props.game.uuid), {
@@ -1179,6 +1171,7 @@ const submitTurnScore = async () => {
                 scheme_points: schemePoints.value,
                 scheme_action: schemeAction,
                 next_scheme_id: nextSchemeId.value,
+                next_scheme_notes: nextNotes,
             }),
         });
         if (!res.ok) {
@@ -3362,6 +3355,71 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </div>
 
+                <!-- Scoring Breakdown -->
+                <Card class="mb-4">
+                    <CardContent class="p-4">
+                        <h3 class="mb-3 text-sm font-semibold">Scoring Breakdown</h3>
+                        <div class="grid grid-cols-2 divide-x">
+                            <div v-for="player in game.players" :key="'score-bk-' + player.id" class="space-y-2 px-3 first:pl-0 last:pr-0">
+                                <div class="flex items-center gap-1.5 text-xs font-medium">
+                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3.5" />
+                                    {{ playerName(player) }}
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="rounded bg-muted/50 p-2 text-center">
+                                        <div class="text-lg font-bold">{{ player.turns?.reduce((s: number, t: any) => s + (t.strategy_points ?? 0), 0) ?? 0 }}</div>
+                                        <div class="text-[10px] text-muted-foreground">Strategy VP</div>
+                                    </div>
+                                    <div class="rounded bg-muted/50 p-2 text-center">
+                                        <div class="text-lg font-bold">{{ player.turns?.reduce((s: number, t: any) => s + (t.scheme_points ?? 0), 0) ?? 0 }}</div>
+                                        <div class="text-[10px] text-muted-foreground">Scheme VP</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <!-- Scheme Timeline -->
+                <Card class="mb-4">
+                    <CardContent class="p-4">
+                        <h3 class="mb-3 text-sm font-semibold">Scheme Timeline</h3>
+                        <div class="grid grid-cols-2 divide-x">
+                            <div v-for="player in game.players" :key="'scheme-tl-' + player.id" class="space-y-1.5 px-3 first:pl-0 last:pr-0">
+                                <div class="flex items-center gap-1.5 text-xs font-medium">
+                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3.5" />
+                                    {{ playerName(player) }}
+                                </div>
+                                <div v-for="turn in (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number)" :key="'stl-' + player.id + '-' + turn.turn_number" class="flex items-center gap-1.5 text-[11px]">
+                                    <span class="w-5 shrink-0 text-muted-foreground">T{{ turn.turn_number }}</span>
+                                    <template v-if="turn.scheme_id && findScheme(turn.scheme_id)">
+                                        <button class="truncate font-medium hover:text-primary" @click="openSchemeDrawer(findScheme(turn.scheme_id)!)">
+                                            {{ findScheme(turn.scheme_id)?.name }}
+                                        </button>
+                                    </template>
+                                    <span v-else class="italic text-muted-foreground">Hidden</span>
+                                    <Badge
+                                        v-if="turn.scheme_action === 'scored'"
+                                        variant="outline"
+                                        class="shrink-0 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
+                                    >+{{ turn.scheme_points }}</Badge>
+                                    <Badge
+                                        v-else-if="turn.scheme_action === 'discarded'"
+                                        variant="outline"
+                                        class="shrink-0 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
+                                    >Discarded</Badge>
+                                    <Badge
+                                        v-else-if="turn.scheme_action === 'held'"
+                                        variant="outline"
+                                        class="shrink-0 px-1 py-0 text-[8px]"
+                                    >Held</Badge>
+                                </div>
+                                <div v-if="!(player.turns ?? []).length" class="text-xs text-muted-foreground">No turns recorded</div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <!-- Compact scenario rolldown -->
                 <details class="mb-4 rounded-lg border">
                     <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
@@ -3371,6 +3429,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div v-if="deployment">
                             <span class="text-muted-foreground">Deployment:</span>
                             <button class="ml-1 font-medium hover:text-primary" @click="deploymentDrawerOpen = true">{{ deployment.label }}</button>
+                        </div>
+                        <div v-if="deployment?.image_url" class="my-2 flex justify-center">
+                            <img :src="deployment.image_url" :alt="deployment.label" class="max-h-48 rounded-lg" loading="lazy" />
                         </div>
                         <div v-if="game.strategy">
                             <span class="text-muted-foreground">Strategy:</span>

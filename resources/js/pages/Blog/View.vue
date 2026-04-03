@@ -18,7 +18,7 @@ interface BlogPost {
     published_at: string | null;
     author: { name: string };
     category: { name: string; slug: string } | null;
-    characters: Array<{ display_name: string; slug: string; faction: string }>;
+    characters: Array<{ display_name: string; slug: string; faction: string; miniatures?: Array<{ id: number; slug: string }> }>;
     keywords: Array<{ name: string; slug: string }>;
     upgrades: Array<{ name: string; slug: string }>;
 }
@@ -35,6 +35,12 @@ const formatDate = (dateStr: string | null) => {
 
 const hasRelatedContent = () => {
     return props.post.characters.length > 0 || props.post.keywords.length > 0 || props.post.upgrades.length > 0;
+};
+
+const factionCssVar = (faction: string): string => {
+    if (!faction) return 'primary';
+    const map: Record<string, string> = { explorers_society: 'explorerssociety', ten_thunders: 'tenthunders' };
+    return map[faction] ?? faction;
 };
 </script>
 
@@ -81,8 +87,7 @@ const hasRelatedContent = () => {
                     :alt="post.title"
                     loading="lazy"
                     decoding="async"
-                    class="w-full object-cover"
-                    style="max-height: 420px"
+                    class="w-full max-h-64 object-cover sm:max-h-80 lg:max-h-[420px]"
                 />
             </div>
 
@@ -120,9 +125,15 @@ const hasRelatedContent = () => {
                             <Link
                                 v-for="character in post.characters"
                                 :key="`c-${character.slug}`"
-                                :href="route('characters.view', { character: character.slug, miniature: 1, slug: 'view' })"
+                                :href="character.miniatures?.length
+                                    ? route('characters.view', { character: character.slug, miniature: character.miniatures[0].id, slug: character.miniatures[0].slug })
+                                    : `/characters/${character.slug}`"
                             >
-                                <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
+                                <Badge
+                                    class="cursor-pointer border-0 text-white transition-opacity hover:opacity-80"
+                                    :style="character.faction ? { backgroundColor: `hsl(var(--${factionCssVar(character.faction)}))` } : {}"
+                                    :variant="character.faction ? 'default' : 'outline'"
+                                >
                                     {{ character.display_name }}
                                 </Badge>
                             </Link>

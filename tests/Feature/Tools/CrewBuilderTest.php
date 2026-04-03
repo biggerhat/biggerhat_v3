@@ -148,7 +148,7 @@ it('deletes a crew build', function () {
     $response = $this->actingAs($user)->deleteJson(route('tools.crew_builder.destroy', $build));
 
     $response->assertOk()->assertJson(['success' => true]);
-    $this->assertDatabaseMissing('crew_builds', ['id' => $build->id]);
+    $this->assertSoftDeleted('crew_builds', ['id' => $build->id]);
 });
 
 it('prevents deleting another users build', function () {

@@ -10,6 +10,7 @@ use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
@@ -18,6 +19,8 @@ use Illuminate\Support\Str;
 #[ObservedBy(CustomCharacterObserver::class)]
 class CustomCharacter extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = ['id'];
 
     public function casts(): array

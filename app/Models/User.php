@@ -100,4 +100,22 @@ class User extends Authenticatable
     {
         return $this->hasMany(CustomCharacter::class);
     }
+
+    /** @return HasMany<CrewBuild, $this> */
+    public function crewBuilds(): HasMany
+    {
+        return $this->hasMany(CrewBuild::class);
+    }
+
+    /** @return HasMany<Game, $this> */
+    public function games(): HasMany
+    {
+        return $this->hasMany(Game::class, 'creator_id');
+    }
+
+    /** @return HasMany<Tournament, $this> */
+    public function tournaments(): HasMany
+    {
+        return $this->hasMany(Tournament::class, 'creator_id');
+    }
 }

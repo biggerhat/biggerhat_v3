@@ -74,7 +74,7 @@ class BlogController extends Controller
             abort(404);
         }
 
-        $blogPost->loadMissing(['author', 'category', 'characters', 'keywords', 'upgrades']);
+        $blogPost->loadMissing(['author', 'category', 'characters.miniatures', 'keywords', 'upgrades']);
 
         return inertia('Blog/View', [
             'post' => $blogPost,

@@ -14,14 +14,7 @@ class GameCrewMember extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'game_id', 'game_player_id', 'character_id', 'custom_character_id',
-        'display_name', 'faction',
-        'current_health', 'max_health', 'cost', 'station', 'hiring_category',
-        'front_image', 'back_image', 'is_killed', 'is_summoned', 'is_activated',
-        'is_custom', 'attached_upgrades', 'attached_tokens', 'attached_markers',
-        'sort_order', 'notes',
-    ];
+    protected $guarded = ['id'];
 
     public function casts(): array
     {

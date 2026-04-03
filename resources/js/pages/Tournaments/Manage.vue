@@ -138,6 +138,29 @@ const reloadPage = () => {
     router.visit(route('tournaments.manage', props.tournament.uuid) + '#' + activeTab.value, { preserveScroll: true });
 };
 const submitting = ref(false);
+const actionError = ref<string | null>(null);
+let errorTimer: ReturnType<typeof setTimeout>;
+const showError = (msg: string) => {
+    actionError.value = msg;
+    clearTimeout(errorTimer);
+    errorTimer = setTimeout(() => (actionError.value = null), 5000);
+};
+const doAction = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
+    try {
+        const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(err.error ?? err.message ?? 'Action failed.');
+            return false;
+        }
+        return true;
+    } catch {
+        showError('Network error. Please try again.');
+        return false;
+    }
+};
 
 // ─── Players ───
 const newPlayerName = ref('');
@@ -167,20 +190,15 @@ const addPlayer = async () => {
 };
 
 const removePlayer = async (playerId: number) => {
-    await fetch(route('tournaments.players.remove', { tournament: props.tournament.uuid, player: playerId }), {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': csrfToken() },
-    });
-    reloadPage();
+    if (await doAction(route('tournaments.players.remove', { tournament: props.tournament.uuid, player: playerId }), 'DELETE')) {
+        reloadPage();
+    }
 };
 
 const toggleRinger = async (player: TournamentPlayer) => {
-    await fetch(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ is_ringer: !player.is_ringer }),
-    });
-    reloadPage();
+    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { is_ringer: !player.is_ringer })) {
+        reloadPage();
+    }
 };
 
 const toggleDrop = async (player: TournamentPlayer) => {
@@ -605,6 +623,14 @@ const playerFaction = (id: number | null): string | null => {
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
+
+        <!-- Action error banner -->
+        <div v-if="actionError" class="container mx-auto mb-2 px-4">
+            <div class="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                <span>{{ actionError }}</span>
+                <button class="ml-2 text-xs hover:underline" @click="actionError = null">Dismiss</button>
+            </div>
+        </div>
 
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>

@@ -150,10 +150,13 @@ html {
 }
 .tiptap table td,
 .tiptap table th {
-    @apply border border-border px-3 py-2 text-left align-top;
+    @apply border border-border px-4 py-3 text-left align-top;
 }
 .tiptap table th {
-    @apply bg-muted font-semibold;
+    @apply bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+}
+.tiptap table tr {
+    @apply border-b border-border last:border-b-0;
 }
 .tiptap table .selectedCell {
     @apply bg-primary/10;

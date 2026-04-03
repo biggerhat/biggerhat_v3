@@ -90,7 +90,7 @@ onMounted(async () => {
         <template v-else-if="entityData">
             <!-- Character -->
             <div v-if="entityType === 'character' && (entityData.miniature as any)" class="flex justify-center">
-                <div class="w-72">
+                <div class="w-full max-w-72">
                     <CharacterCardView :miniature="entityData.miniature as any" :character-slug="entitySlug" :show-link="false" />
                     <div class="mt-2 text-center">
                         <Button v-if="entityData.link" size="sm" @click="navigateToEntity">View Details</Button>
@@ -106,7 +106,7 @@ onMounted(async () => {
 
             <!-- Upgrade -->
             <div v-else-if="entityType === 'upgrade' && (entityData.front_image || entityData.back_image)" class="flex justify-center">
-                <div class="w-72">
+                <div class="w-full max-w-72">
                     <UpgradeFlipCard
                         :front-image="entityData.front_image as string"
                         :back-image="entityData.back_image as string"
@@ -120,7 +120,7 @@ onMounted(async () => {
 
             <!-- Scheme / Strategy with image -->
             <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
-                <div class="w-72">
+                <div class="w-full max-w-72">
                     <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" loading="lazy" decoding="async" />
                     <div class="mt-2 text-center">
                         <Button v-if="entityData.link" size="sm" @click="navigateToEntity">View Details</Button>

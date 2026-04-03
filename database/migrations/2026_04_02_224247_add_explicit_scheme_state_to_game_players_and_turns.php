@@ -23,8 +23,8 @@ return new class extends Migration
             $table->foreignId('next_scheme_id')->nullable()->after('scheme_action')->constrained('schemes')->nullOnDelete();
         });
 
-        // Backfill existing data
-        $this->backfill();
+        // Backfill was run when this migration first deployed.
+        // Skipped on fresh databases (tests, new installs).
     }
 
     private function backfill(): void

@@ -44,6 +44,7 @@ class Game extends Model
             'is_tie' => 'boolean',
             'is_solo' => 'boolean',
             'is_observable' => 'boolean',
+            'settings' => 'array',
         ];
     }
 

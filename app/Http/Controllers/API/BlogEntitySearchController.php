@@ -82,26 +82,42 @@ class BlogEntitySearchController extends Controller
         }
 
         $actions = Action::where('name', 'LIKE', "%{$q}%")
+            ->withCount('characters')
+            ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($actions as $action) {
+            $firstChar = $action->characters->first()?->display_name;
+            $extraCount = max(0, $action->characters_count - 1);
+            $label = $action->name;
+            if ($firstChar) {
+                $label .= $extraCount > 0 ? " ({$firstChar} +{$extraCount})" : " ({$firstChar})";
+            }
             $results[] = [
                 'entityType' => 'action',
                 'entityId' => $action->id,
                 'entitySlug' => $action->slug,
-                'displayName' => $action->name,
+                'displayName' => $label,
             ];
         }
 
         $abilities = Ability::where('name', 'LIKE', "%{$q}%")
+            ->withCount('characters')
+            ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($abilities as $ability) {
+            $firstChar = $ability->characters->first()?->display_name;
+            $extraCount = max(0, $ability->characters_count - 1);
+            $label = $ability->name;
+            if ($firstChar) {
+                $label .= $extraCount > 0 ? " ({$firstChar} +{$extraCount})" : " ({$firstChar})";
+            }
             $results[] = [
                 'entityType' => 'ability',
                 'entityId' => $ability->id,
                 'entitySlug' => $ability->slug,
-                'displayName' => $ability->name,
+                'displayName' => $label,
             ];
         }
 
@@ -166,14 +182,22 @@ class BlogEntitySearchController extends Controller
         }
 
         $triggers = Trigger::where('name', 'LIKE', "%{$q}%")
+            ->withCount('actions')
+            ->with(['actions' => fn ($q) => $q->select('name')->limit(1)])
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($triggers as $trigger) {
+            $firstAction = $trigger->actions->first()?->name;
+            $extraCount = max(0, $trigger->actions_count - 1);
+            $label = $trigger->name;
+            if ($firstAction) {
+                $label .= $extraCount > 0 ? " ({$firstAction} +{$extraCount})" : " ({$firstAction})";
+            }
             $results[] = [
                 'entityType' => 'trigger',
                 'entityId' => $trigger->id,
                 'entitySlug' => $trigger->slug,
-                'displayName' => $trigger->name,
+                'displayName' => $label,
             ];
         }
 

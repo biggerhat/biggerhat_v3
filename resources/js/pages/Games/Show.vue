@@ -9,15 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, EllipsisVertical, Eye, EyeOff, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -121,6 +121,7 @@ interface GameData {
     is_tie: boolean;
     is_solo: boolean;
     is_observable: boolean;
+    settings: { auto_soulstone_on_kill?: boolean } | null;
     winner_slot: number | null;
     strategy: { id: number; name: string; slug: string } | null;
     players: GamePlayer[];
@@ -704,13 +705,53 @@ const abandonDialogOpen = ref(false);
 
 // Observation mode
 const observeLinkCopied = ref(false);
-const toggleObservable = async () => {
+const spectateOn = ref(props.game.is_observable);
+const spectateQR = ref('');
+watch(() => props.game.is_observable, (v) => { spectateOn.value = v; });
+
+const generateSpectateQR = async () => {
+    if (!spectateQR.value) {
+        const QRCode = (await import('qrcode')).default;
+        spectateQR.value = await QRCode.toDataURL(route('games.observe', props.game.uuid), {
+            width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' },
+        });
+    }
+};
+
+const syncSpectateToggle = async (value: boolean) => {
+    spectateOn.value = value;
     await fetch(route('games.toggle_observable', props.game.uuid), {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken() },
     });
+    if (value) generateSpectateQR();
     router.reload({ only: ['game'], preserveScroll: true });
 };
+
+// Soulstone award banner
+const soulstoneAwardSlot = ref<number | null>(null);
+const soulstoneAwardName = ref('');
+let soulstoneAwardTimer: ReturnType<typeof setTimeout>;
+const showSoulstoneAward = (slot: number, memberName: string) => {
+    soulstoneAwardSlot.value = slot;
+    soulstoneAwardName.value = memberName;
+    clearTimeout(soulstoneAwardTimer);
+    soulstoneAwardTimer = setTimeout(() => { soulstoneAwardSlot.value = null; }, 4000);
+};
+
+// Game settings
+const autoSoulstoneOnKill = ref(props.game.settings?.auto_soulstone_on_kill !== false); // Default true
+watch(() => props.game.settings, (s) => { autoSoulstoneOnKill.value = s?.auto_soulstone_on_kill !== false; });
+const saveGameSetting = async (key: string, value: any) => {
+    await fetch(route('games.settings.update', props.game.uuid), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        body: JSON.stringify({ settings: { [key]: value } }),
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+// QR generation on settings open is registered after gameSettingsOpen ref (below)
 const copyObserveLink = async () => {
     await navigator.clipboard.writeText(route('games.observe', props.game.uuid));
     observeLinkCopied.value = true;
@@ -736,6 +777,8 @@ const copySummaryLink = async () => {
 };
 
 const completeDialogOpen = ref(false);
+const gameSettingsOpen = ref(false);
+watch(gameSettingsOpen, (open) => { if (open && spectateOn.value) generateSpectateQR(); });
 const expandedTurn = ref<number | null>(null);
 const executeAbandon = async () => {
     abandonDialogOpen.value = false;
@@ -952,6 +995,7 @@ const toggleActivated = async (member: any) => {
 const replaceOnDeathDialogOpen = ref(false);
 const replaceOnDeathReplacements = ref<{ id: number; display_name: string; count: number; health: number | null; front_image: string | null; selected: boolean }[]>([]);
 const replaceOnDeathSlot = ref<number>(1);
+const replaceOnDeathKilledMember = ref<any>(null); // Track who died for soulstone logic
 const replaceOnDeathInheritedTokens = ref<any[]>([]);
 const replaceOnDeathInheritedUpgrades = ref<any[]>([]);
 const replaceOnDeathWasActivated = ref(false);
@@ -980,10 +1024,25 @@ const killMember = async (member: any) => {
         replaceOnDeathInheritedTokens.value = killedTokens;
         replaceOnDeathInheritedUpgrades.value = killedUpgrades;
         replaceOnDeathWasActivated.value = wasActivated;
+        replaceOnDeathKilledMember.value = member;
         replaceOnDeathReplacements.value = data.replacements.map((r: any) => ({ ...r, selected: false }));
         replaceOnDeathDialogOpen.value = true;
-        // Defer reload until dialog is handled
     } else {
+        // Auto soulstone: non-peon, non-summoned, no Summon token → add 1 to crew's pool
+        if (autoSoulstoneOnKill.value && member.station !== 'peon' && !member.is_summoned) {
+            const hasSummonToken = (member.attached_tokens ?? []).some((t: any) => t.name?.toLowerCase() === 'summon');
+            if (!hasSummonToken) {
+                const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
+                const slot = isMyMember ? 1 : 2;
+                const player = isMyMember ? myPlayer.value : opponent.value;
+                const current = player?.soulstone_pool ?? 0;
+                const payload: Record<string, any> = { soulstone_pool: current + 1 };
+                if (!isMyMember) payload.slot = 2;
+                showSoulstoneAward(slot, member.display_name);
+                postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', payload);
+                return; // postPlay handles the reload
+            }
+        }
         router.reload({ only: ['game'], preserveScroll: true });
     }
 };
@@ -1035,12 +1094,30 @@ const confirmReplaceOnDeath = async () => {
     // Only auto-close if no warnings — let user pick alternatives if some failed
     if (!replaceOnDeathWarnings.value.length) {
         replaceOnDeathDialogOpen.value = false;
+        replaceOnDeathKilledMember.value = null;
         replaceOnDeathReplacements.value = [];
     }
 };
 
 const dismissReplaceOnDeath = () => {
+    // User skipped replacement — model truly died, award soulstone if applicable
+    const member = replaceOnDeathKilledMember.value;
+    if (member && autoSoulstoneOnKill.value && member.station !== 'peon' && !member.is_summoned) {
+        const hasSummonToken = (member.attached_tokens ?? []).some((t: any) => t.name?.toLowerCase() === 'summon');
+        if (!hasSummonToken) {
+            const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
+            const slot = isMyMember ? 1 : 2;
+            const player = isMyMember ? myPlayer.value : opponent.value;
+            const current = player?.soulstone_pool ?? 0;
+            const payload: Record<string, any> = { soulstone_pool: current + 1 };
+            if (!isMyMember) payload.slot = 2;
+            showSoulstoneAward(slot, member.display_name);
+            postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', payload);
+        }
+    }
+
     replaceOnDeathDialogOpen.value = false;
+    replaceOnDeathKilledMember.value = null;
     replaceOnDeathReplacements.value = [];
     replaceOnDeathInheritedTokens.value = [];
     replaceOnDeathInheritedUpgrades.value = [];
@@ -2545,31 +2622,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="flex items-center justify-between">
                                     <div class="w-8"></div>
                                     <div class="text-center text-2xl font-bold">Turn {{ game.current_turn }} <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span></div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger as-child>
-                                            <button class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
-                                                <EllipsisVertical class="size-4" />
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" class="w-44">
-                                            <DropdownMenuItem v-if="!isObserver && !myPlayer?.is_game_complete" class="cursor-pointer text-xs" @click="completeDialogOpen = true">
-                                                <Check class="mr-2 size-3.5" /> Mark Game Complete
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem v-if="!isObserver && isCreator" class="cursor-pointer text-xs" @click="toggleObservable">
-                                                <Eye class="mr-2 size-3.5" /> {{ game.is_observable ? 'Disable' : 'Enable' }} Spectating
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem v-if="game.is_observable" class="cursor-pointer text-xs" @click="openQR(route('games.observe', game.uuid), 'Spectate Link')">
-                                                <QrCode class="mr-2 size-4" /> QR Code
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem v-if="game.is_observable" class="cursor-pointer text-xs" @click="copyObserveLink">
-                                                <Copy class="mr-2 size-3.5" /> {{ observeLinkCopied ? 'Link Copied!' : 'Copy Spectate Link' }}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator v-if="!isObserver" />
-                                            <DropdownMenuItem v-if="!isObserver" class="cursor-pointer text-xs text-destructive focus:text-destructive" @click="abandonDialogOpen = true">
-                                                <Skull class="mr-2 size-3.5" /> Abandon Game
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <button class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" @click="gameSettingsOpen = true">
+                                        <Settings class="size-4" />
+                                    </button>
                                 </div>
 
                                 <!-- Scores -->
@@ -3015,6 +3070,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <button v-if="!isObserver" class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(1)"><Plus class="size-3" /></button>
                             </div>
                         </div>
+                        <Transition
+                            enter-active-class="transition-all duration-300 ease-out"
+                            leave-active-class="transition-all duration-500 ease-in"
+                            enter-from-class="max-h-0 opacity-0"
+                            enter-to-class="max-h-10 opacity-100"
+                            leave-from-class="max-h-10 opacity-100"
+                            leave-to-class="max-h-0 opacity-0"
+                        >
+                            <div v-if="soulstoneAwardSlot === 1" class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-[11px] text-amber-700 dark:text-amber-400">
+                                +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
+                            </div>
+                        </Transition>
                         <div class="mb-2 text-[10px] text-muted-foreground">
                             Activations: <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span>/<span>{{ myCrewMembers.length }}</span> remaining
                         </div>
@@ -3060,16 +3127,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </template>
                                             <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
-                                        <!-- Health pips -->
-                                        <div class="mt-0.5 flex gap-0.5 pl-6">
-                                            <div
-                                                v-for="pip in member.max_health"
-                                                :key="'hp-' + pip"
-                                                class="size-2 rounded-sm"
-                                                :class="pip <= member.current_health
-                                                    ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
-                                                    : 'bg-black/30 ring-1 ring-inset ring-white/10'"
-                                            />
+                                        <!-- Stats + Health pips row -->
+                                        <div class="mt-0.5 flex items-center gap-2 pl-6">
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            </div>
+                                            <div class="flex gap-0.5">
+                                                <div
+                                                    v-for="pip in member.max_health"
+                                                    :key="'hp-' + pip"
+                                                    class="size-2 rounded-sm"
+                                                    :class="pip <= member.current_health
+                                                        ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     <template v-if="!isObserver">
@@ -3157,6 +3231,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </template>
                             </div>
                         </div>
+                        <Transition
+                            enter-active-class="transition-all duration-300 ease-out"
+                            leave-active-class="transition-all duration-500 ease-in"
+                            enter-from-class="max-h-0 opacity-0"
+                            enter-to-class="max-h-10 opacity-100"
+                            leave-from-class="max-h-10 opacity-100"
+                            leave-to-class="max-h-0 opacity-0"
+                        >
+                            <div v-if="soulstoneAwardSlot === 2" class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-[11px] text-amber-700 dark:text-amber-400">
+                                +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
+                            </div>
+                        </Transition>
                         <div v-if="opponentCrewMembers.length" class="mb-2 text-[10px] text-muted-foreground">
                             Activations: <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span>/<span>{{ opponentCrewMembers.length }}</span> remaining
                         </div>
@@ -3214,16 +3300,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </template>
                                             <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
-                                        <!-- Health pips -->
-                                        <div class="mt-0.5 flex gap-0.5" :class="isSolo ? 'pl-6' : 'pl-5'">
-                                            <div
-                                                v-for="pip in member.max_health"
-                                                :key="'ohp-' + pip"
-                                                class="size-2 rounded-sm"
-                                                :class="pip <= member.current_health
-                                                    ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
-                                                    : 'bg-black/30 ring-1 ring-inset ring-white/10'"
-                                            />
+                                        <!-- Stats + Health pips row -->
+                                        <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-6' : 'pl-5'">
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            </div>
+                                            <div class="flex gap-0.5">
+                                                <div
+                                                    v-for="pip in member.max_health"
+                                                    :key="'ohp-' + pip"
+                                                    class="size-2 rounded-sm"
+                                                    :class="pip <= member.current_health
+                                                        ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     <!-- Solo: full health controls; Normal/Observer: read-only -->
@@ -4285,6 +4378,98 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </Dialog>
 
     <!-- Complete Game Confirmation Dialog -->
+    <!-- Game Settings Dialog -->
+    <Dialog v-model:open="gameSettingsOpen">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Game Settings</DialogTitle>
+                <DialogDescription>Manage game options and sharing.</DialogDescription>
+            </DialogHeader>
+            <div class="space-y-3">
+                <!-- Spectating toggle (creator only) -->
+                <div v-if="!isObserver && isCreator" class="rounded-lg border p-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium">Spectate Mode</div>
+                            <div class="text-xs text-muted-foreground">Allow others to watch live</div>
+                        </div>
+                        <Switch v-model="spectateOn" @update:model-value="syncSpectateToggle" />
+                    </div>
+
+                    <!-- QR + copy link (visible when on) -->
+                    <Transition
+                        enter-active-class="transition-all duration-300 ease-out overflow-hidden"
+                        leave-active-class="transition-all duration-200 ease-in overflow-hidden"
+                        enter-from-class="max-h-0 opacity-0"
+                        enter-to-class="max-h-96 opacity-100"
+                        leave-from-class="max-h-96 opacity-100"
+                        leave-to-class="max-h-0 opacity-0"
+                    >
+                        <div v-if="spectateOn" class="mt-3 flex flex-col items-center gap-3 border-t pt-3">
+                            <img v-if="spectateQR" :src="spectateQR" alt="Spectate QR Code" class="rounded-lg" />
+                            <p class="break-all text-center text-[10px] text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
+                            <Button variant="outline" size="sm" class="w-full gap-1.5 text-xs" @click="copyObserveLink()">
+                                <Copy class="size-3" />
+                                {{ observeLinkCopied ? 'Copied!' : 'Copy Spectate Link' }}
+                            </Button>
+                        </div>
+                    </Transition>
+                </div>
+
+                <!-- Non-creator observable view -->
+                <div v-else-if="spectateOn" class="rounded-lg border p-3">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="text-sm font-medium">Spectate Link</div>
+                        <img v-if="spectateQR" :src="spectateQR" alt="Spectate QR Code" class="rounded-lg" />
+                        <p class="break-all text-center text-[10px] text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
+                        <Button variant="outline" size="sm" class="w-full gap-1.5 text-xs" @click="copyObserveLink()">
+                            <Copy class="size-3" />
+                            {{ observeLinkCopied ? 'Copied!' : 'Copy Spectate Link' }}
+                        </Button>
+                    </div>
+                </div>
+
+                <!-- Automation settings -->
+                <div v-if="!isObserver" class="rounded-lg border p-3">
+                    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Automation</div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium">Auto Soulstone on Kill</div>
+                            <div class="text-xs text-muted-foreground">Add 1ss to pool when a non-peon, non-summoned model dies</div>
+                        </div>
+                        <Switch v-model="autoSoulstoneOnKill" @update:model-value="(v: boolean) => saveGameSetting('auto_soulstone_on_kill', v)" />
+                    </div>
+                </div>
+
+                <!-- Complete game -->
+                <button
+                    v-if="!isObserver && !myPlayer?.is_game_complete"
+                    class="flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-muted/50"
+                    @click="gameSettingsOpen = false; completeDialogOpen = true"
+                >
+                    <Check class="size-4 shrink-0 text-muted-foreground" />
+                    <div class="flex-1">
+                        <div class="font-medium">Mark Game Complete</div>
+                        <div class="text-xs text-muted-foreground">Finalize scores and end the game</div>
+                    </div>
+                </button>
+
+                <!-- Abandon game -->
+                <button
+                    v-if="!isObserver"
+                    class="flex w-full items-center gap-3 rounded-lg border border-destructive/20 p-3 text-left text-sm transition-colors hover:bg-destructive/5"
+                    @click="gameSettingsOpen = false; abandonDialogOpen = true"
+                >
+                    <Skull class="size-4 shrink-0 text-destructive" />
+                    <div class="flex-1">
+                        <div class="font-medium text-destructive">Abandon Game</div>
+                        <div class="text-xs text-muted-foreground">End the game without scoring</div>
+                    </div>
+                </button>
+            </div>
+        </DialogContent>
+    </Dialog>
+
     <Dialog v-model:open="completeDialogOpen">
         <DialogContent class="max-w-sm">
             <DialogHeader>

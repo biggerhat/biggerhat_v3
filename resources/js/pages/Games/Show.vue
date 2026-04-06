@@ -3992,7 +3992,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <p v-else class="text-center text-sm text-muted-foreground">No description available.</p>
                 </div>
                 <DrawerFooter class="gap-2 pt-2">
-                    <Button v-if="tokenInfoMember" variant="destructive" size="sm" @click="removeTokenFromInfo">
+                    <Button v-if="tokenInfoMember && !isObserver" variant="destructive" size="sm" @click="removeTokenFromInfo">
                         <Minus class="mr-1.5 size-3.5" />
                         Remove from {{ tokenInfoMember.display_name }}
                     </Button>

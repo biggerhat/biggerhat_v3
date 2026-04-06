@@ -28,6 +28,7 @@ use App\Http\Controllers\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\WishlistController;
@@ -253,6 +254,10 @@ Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->na
 
 // Game join — outside auth so we can show a login prompt with return URL
 Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join');
+
+// Stats (public view, auth shortcut)
+Route::get('/my-stats', [StatsController::class, 'myStats'])->name('stats.my')->middleware('auth');
+Route::get('/stats/{user:slug}', [StatsController::class, 'show'])->name('stats.show');
 
 Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');

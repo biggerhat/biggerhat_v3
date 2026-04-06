@@ -964,25 +964,30 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
     }
 };
 
-const updateHealth = async (member: any, delta: number) => {
+const healthTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const updateHealth = (member: any, delta: number) => {
     const newHealth = Math.max(0, Math.min(member.max_health, member.current_health + delta));
     if (newHealth === member.current_health) return;
-    const oldHealth = member.current_health;
-    // Optimistic update
+    // Optimistic update — instant UI feedback
     member.current_health = newHealth;
     if (newHealth === 0) {
+        healthTimers.delete(member.id);
         killMember(member);
         return;
     }
-    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ current_health: newHealth }),
-    });
-    if (!res.ok) {
-        member.current_health = oldHealth;
-        router.reload({ only: ['game'], preserveScroll: true });
-    }
+    // Debounce the server call per member — wait for rapid clicks to settle
+    clearTimeout(healthTimers.get(member.id));
+    healthTimers.set(member.id, setTimeout(async () => {
+        healthTimers.delete(member.id);
+        const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ current_health: member.current_health }),
+        });
+        if (!res.ok) {
+            router.reload({ only: ['game'], preserveScroll: true });
+        }
+    }, 500));
 };
 
 const toggleActivated = async (member: any) => {

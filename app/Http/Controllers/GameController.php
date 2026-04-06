@@ -715,7 +715,9 @@ class GameController extends Controller
             'all_strategies' => fn () => [],
             'all_schemes' => fn () => [],
             'all_deployments' => fn () => [],
-            'tokens' => fn () => [],
+            'tokens' => fn () => in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed])
+                ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
+                : [],
             'character_upgrades' => fn () => [],
             'all_markers' => fn () => [],
             'current_schemes' => function () use ($game) {
@@ -833,7 +835,7 @@ class GameController extends Controller
             'all_strategies' => fn () => [],
             'all_schemes' => fn () => [],
             'all_deployments' => fn () => [],
-            'tokens' => fn () => [],
+            'tokens' => fn () => \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description']),
             'character_upgrades' => fn () => [],
             'current_schemes' => $currentSchemes,
             'opponent_scheme_intel' => fn () => null,
@@ -855,6 +857,21 @@ class GameController extends Controller
         $game->update(['is_observable' => ! $game->is_observable]);
 
         return response()->json(['success' => true, 'is_observable' => $game->is_observable]);
+    }
+
+    public function updateSettings(Request $request, Game $game)
+    {
+        if ($game->creator_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'settings' => ['required', 'array'],
+        ]);
+
+        $game->update(['settings' => array_merge($game->settings ?? [], $validated['settings'])]);
+
+        return response()->json(['success' => true, 'settings' => $game->settings]);
     }
 
     private function getStartingCrews(Game $game): array

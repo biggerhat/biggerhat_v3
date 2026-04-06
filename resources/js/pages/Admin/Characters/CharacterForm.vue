@@ -118,6 +118,13 @@ const props = defineProps({
             return {};
         },
     },
+    crew_upgrade_modes: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
@@ -147,6 +154,7 @@ const formInfo = ref({
     count: 1,
     generates_stone: true,
     is_unhirable: false,
+    crew_upgrade_mode: 'select_one',
     is_beta: false,
     is_hidden: false,
     summons: [],
@@ -203,6 +211,7 @@ onMounted(() => {
     formInfo.value.summon_target_number = props.character?.summon_target_number ?? null;
     formInfo.value.generates_stone = props.character?.generates_stone ?? true;
     formInfo.value.is_unhirable = props.character?.is_unhirable ?? false;
+    formInfo.value.crew_upgrade_mode = props.character?.crew_upgrade_mode ?? 'select_one';
     formInfo.value.is_beta = props.character?.is_beta ?? false;
     formInfo.value.is_hidden = props.character?.is_hidden ?? false;
 
@@ -626,6 +635,20 @@ onMounted(() => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="crew_upgrade_mode">Crew Upgrade Mode</Label>
+                            <Select id="crew_upgrade_mode" v-model="formInfo.crew_upgrade_mode">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Mode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="mode in props.crew_upgrade_modes" :value="mode.value" :key="mode.value">
+                                        {{ mode.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="usePage().props.errors.crew_upgrade_mode" />
                         </div>
                     </div>
                 </form>

@@ -50,6 +50,7 @@ class Character extends Model
             'generates_stone' => 'boolean',
             'is_beta' => 'boolean',
             'is_unhirable' => 'boolean',
+            'crew_upgrade_mode' => \App\Enums\CrewUpgradeModeEnum::class,
             'is_hidden' => 'boolean',
         ];
     }

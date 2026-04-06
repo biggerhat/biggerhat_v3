@@ -294,6 +294,35 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function swapCrewUpgrade(Request $request, Game $game): JsonResponse
+    {
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        $validated = $request->validate([
+            'active_crew_upgrade_id' => ['required', 'integer', 'exists:upgrades,id'],
+        ]);
+
+        // Verify the upgrade belongs to the player's master's crew upgrades
+        $master = $player->master;
+        if (! $master || $master->crew_upgrade_mode !== \App\Enums\CrewUpgradeModeEnum::Swappable) {
+            return response()->json(['error' => 'Crew upgrades are not swappable for this master'], 422);
+        }
+
+        $validIds = $master->crewUpgrades->pluck('id')->toArray();
+        if (! in_array($validated['active_crew_upgrade_id'], $validIds)) {
+            return response()->json(['error' => 'Upgrade not available for this master'], 422);
+        }
+
+        $player->update(['active_crew_upgrade_id' => $validated['active_crew_upgrade_id']]);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function updateSoulstonePool(Request $request, Game $game): JsonResponse
     {
         $slot = $request->integer('slot');

@@ -37,8 +37,9 @@ interface GamePlayer {
     is_turn_complete: boolean;
     is_game_complete: boolean;
     crew_members: any[];
-    master: { id: number; crew_upgrades: any[] } | null;
+    master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
     crew_build: { id: number; crew_upgrade_id: number | null } | null;
+    active_crew_upgrade_id: number | null;
     user: { id: number; name: string } | null;
 }
 
@@ -923,8 +924,16 @@ const openUpgradePreview = (upgrade: any) => {
 
 const myCrewUpgrades = computed(() => myPlayer.value?.master?.crew_upgrades ?? []);
 const opponentCrewUpgrades = computed(() => opponent.value?.master?.crew_upgrades ?? []);
-const myActiveUpgradeId = computed(() => myPlayer.value?.crew_build?.crew_upgrade_id ?? null);
-const opponentActiveUpgradeId = computed(() => opponent.value?.crew_build?.crew_upgrade_id ?? null);
+const myActiveUpgradeId = computed(() => myPlayer.value?.active_crew_upgrade_id ?? myPlayer.value?.crew_build?.crew_upgrade_id ?? null);
+const opponentActiveUpgradeId = computed(() => opponent.value?.active_crew_upgrade_id ?? opponent.value?.crew_build?.crew_upgrade_id ?? null);
+const myUpgradeMode = computed(() => myPlayer.value?.master?.crew_upgrade_mode ?? 'select_one');
+const opponentUpgradeMode = computed(() => opponent.value?.master?.crew_upgrade_mode ?? 'select_one');
+
+const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
+    const payload: Record<string, any> = { active_crew_upgrade_id: upgradeId };
+    if (slot) payload.slot = slot;
+    postPlay(route('games.play.crew-upgrade', props.game.uuid), 'PATCH', payload);
+};
 
 const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
 const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
@@ -3098,7 +3107,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 @click="openUpgradePreview(upgrade)"
                             >
                                 <Star class="size-3 shrink-0" :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
-                                <span class="font-semibold">{{ upgrade.name }}</span>
+                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                <button
+                                    v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    @click.stop="swapCrewUpgrade(upgrade.id)"
+                                >
+                                    Activate
+                                </button>
+                                <Badge v-if="myActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3129,10 +3146,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2 pl-6">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
-                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
-                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
-                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
                                             </div>
                                             <div class="flex gap-0.5">
                                                 <div
@@ -3270,7 +3287,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 @click="openUpgradePreview(upgrade)"
                             >
                                 <Star class="size-3 shrink-0" :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
-                                <span class="font-semibold">{{ upgrade.name }}</span>
+                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                <button
+                                    v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    @click.stop="swapCrewUpgrade(upgrade.id, 2)"
+                                >
+                                    Activate
+                                </button>
+                                <Badge v-if="opponentActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3302,10 +3327,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-6' : 'pl-5'">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
-                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
-                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
-                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
                                             </div>
                                             <div class="flex gap-0.5">
                                                 <div

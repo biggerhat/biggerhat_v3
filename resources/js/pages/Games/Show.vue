@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -37,8 +37,9 @@ interface GamePlayer {
     is_turn_complete: boolean;
     is_game_complete: boolean;
     crew_members: any[];
-    master: { id: number; crew_upgrades: any[] } | null;
+    master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
     crew_build: { id: number; crew_upgrade_id: number | null } | null;
+    active_crew_upgrade_id: number | null;
     user: { id: number; name: string } | null;
 }
 
@@ -923,8 +924,16 @@ const openUpgradePreview = (upgrade: any) => {
 
 const myCrewUpgrades = computed(() => myPlayer.value?.master?.crew_upgrades ?? []);
 const opponentCrewUpgrades = computed(() => opponent.value?.master?.crew_upgrades ?? []);
-const myActiveUpgradeId = computed(() => myPlayer.value?.crew_build?.crew_upgrade_id ?? null);
-const opponentActiveUpgradeId = computed(() => opponent.value?.crew_build?.crew_upgrade_id ?? null);
+const myActiveUpgradeId = computed(() => myPlayer.value?.active_crew_upgrade_id ?? myPlayer.value?.crew_build?.crew_upgrade_id ?? null);
+const opponentActiveUpgradeId = computed(() => opponent.value?.active_crew_upgrade_id ?? opponent.value?.crew_build?.crew_upgrade_id ?? null);
+const myUpgradeMode = computed(() => myPlayer.value?.master?.crew_upgrade_mode ?? 'select_one');
+const opponentUpgradeMode = computed(() => opponent.value?.master?.crew_upgrade_mode ?? 'select_one');
+
+const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
+    const payload: Record<string, any> = { active_crew_upgrade_id: upgradeId };
+    if (slot) payload.slot = slot;
+    postPlay(route('games.play.crew-upgrade', props.game.uuid), 'PATCH', payload);
+};
 
 const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
 const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
@@ -955,25 +964,30 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
     }
 };
 
-const updateHealth = async (member: any, delta: number) => {
+const healthTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const updateHealth = (member: any, delta: number) => {
     const newHealth = Math.max(0, Math.min(member.max_health, member.current_health + delta));
     if (newHealth === member.current_health) return;
-    const oldHealth = member.current_health;
-    // Optimistic update
+    // Optimistic update — instant UI feedback
     member.current_health = newHealth;
     if (newHealth === 0) {
+        healthTimers.delete(member.id);
         killMember(member);
         return;
     }
-    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ current_health: newHealth }),
-    });
-    if (!res.ok) {
-        member.current_health = oldHealth;
-        router.reload({ only: ['game'], preserveScroll: true });
-    }
+    // Debounce the server call per member — wait for rapid clicks to settle
+    clearTimeout(healthTimers.get(member.id));
+    healthTimers.set(member.id, setTimeout(async () => {
+        healthTimers.delete(member.id);
+        const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ current_health: member.current_health }),
+        });
+        if (!res.ok) {
+            router.reload({ only: ['game'], preserveScroll: true });
+        }
+    }, 500));
 };
 
 const toggleActivated = async (member: any) => {
@@ -3098,7 +3112,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 @click="openUpgradePreview(upgrade)"
                             >
                                 <Star class="size-3 shrink-0" :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
-                                <span class="font-semibold">{{ upgrade.name }}</span>
+                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                <button
+                                    v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    @click.stop="swapCrewUpgrade(upgrade.id)"
+                                >
+                                    Activate
+                                </button>
+                                <Badge v-if="myActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3129,10 +3151,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2 pl-6">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
-                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
-                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
-                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
                                             </div>
                                             <div class="flex gap-0.5">
                                                 <div
@@ -3188,8 +3210,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     >
                                         <ArrowUpCircle class="size-2.5 shrink-0 text-amber-300" />
                                         <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                        <button v-if="!isObserver" class="shrink-0 rounded-full text-red-300/60 hover:text-red-300" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
-                                            <Minus class="size-2.5" />
+                                        <button v-if="!isObserver" class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
+                                            <X class="size-2.5" />
                                         </button>
                                     </div>
                                 </div>
@@ -3270,7 +3292,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 @click="openUpgradePreview(upgrade)"
                             >
                                 <Star class="size-3 shrink-0" :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
-                                <span class="font-semibold">{{ upgrade.name }}</span>
+                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                <button
+                                    v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    @click.stop="swapCrewUpgrade(upgrade.id, 2)"
+                                >
+                                    Activate
+                                </button>
+                                <Badge v-if="opponentActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3302,10 +3332,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-6' : 'pl-5'">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[10px] font-medium text-white/70">
-                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3" />{{ member.defense }}</span>
-                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3" />{{ member.willpower }}</span>
-                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3" />{{ member.speed }}</span>
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                                <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
+                                                <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
+                                                <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
                                             </div>
                                             <div class="flex gap-0.5">
                                                 <div
@@ -3967,7 +3997,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <p v-else class="text-center text-sm text-muted-foreground">No description available.</p>
                 </div>
                 <DrawerFooter class="gap-2 pt-2">
-                    <Button v-if="tokenInfoMember" variant="destructive" size="sm" @click="removeTokenFromInfo">
+                    <Button v-if="tokenInfoMember && !isObserver" variant="destructive" size="sm" @click="removeTokenFromInfo">
                         <Minus class="mr-1.5 size-3.5" />
                         Remove from {{ tokenInfoMember.display_name }}
                     </Button>

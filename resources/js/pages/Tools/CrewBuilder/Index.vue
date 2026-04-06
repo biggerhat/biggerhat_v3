@@ -715,6 +715,16 @@ const canHire = (character: CharacterData): { allowed: boolean; reason?: string 
     if (character.station === 'master') return { allowed: false, reason: 'Cannot hire masters' };
     if (isTotemOfAnotherMaster(character)) return { allowed: false, reason: 'Totem' };
     if (hiredCountOf(character.id) >= character.count) return { allowed: false, reason: `Max ${character.count}` };
+    // Title restriction: two versions of the same character (same name, different title) cannot coexist.
+    // Models with no title are treated as a different title than models with a title.
+    const conflicting = crew.value.find((m) =>
+        m.character.name === character.name
+        && m.character.id !== character.id
+        && (character.title || m.character.title) // At least one must have a title for the rule to apply
+    );
+    if (conflicting) {
+        return { allowed: false, reason: `Title conflict (${conflicting.character.title || conflicting.character.name} hired)` };
+    }
     const sharesKeyword = characterSharesKeyword(character);
     if (!sharesKeyword && !characterInFaction(character)) return { allowed: false, reason: 'Not in faction' };
     if (isLoyal(character) && !sharesKeyword) return { allowed: false, reason: 'Loyal' };
@@ -1229,14 +1239,21 @@ const buildCustomCrewData = (): any[] | null => {
     }));
 };
 
-const buildMiniatureSelections = (): Record<string, number> | null => {
-    const selections: Record<string, number> = {};
+const buildMiniatureSelections = (): Record<string, number | number[]> | null => {
+    const selections: Record<string, number[]> = {};
     for (const m of crew.value) {
         if (m.miniature?.id) {
-            selections[String(m.character.id)] = m.miniature.id;
+            const key = String(m.character.id);
+            if (!selections[key]) selections[key] = [];
+            selections[key].push(m.miniature.id);
         }
     }
-    return Object.keys(selections).length > 0 ? selections : null;
+    // Flatten single-entry arrays to bare numbers for backward compat
+    const result: Record<string, number | number[]> = {};
+    for (const [k, v] of Object.entries(selections)) {
+        result[k] = v.length === 1 ? v[0] : v;
+    }
+    return Object.keys(result).length > 0 ? result : null;
 };
 
 const buildPayload = () => ({
@@ -1421,10 +1438,22 @@ const loadBuild = (build: SavedBuild) => {
 
     // Restore miniature selections from saved build
     if (build.miniature_selections) {
+        const indexCounters: Record<string, number> = {};
         for (const member of crew.value) {
-            const savedMiniId = build.miniature_selections[String(member.character.id)];
-            if (savedMiniId) {
-                const mini = member.character.miniatures?.find((m) => m.id === savedMiniId);
+            const key = String(member.character.id);
+            const selection = build.miniature_selections[key];
+            let miniId: number | null = null;
+
+            if (Array.isArray(selection)) {
+                const idx = indexCounters[key] ?? 0;
+                miniId = selection[idx] ?? null;
+                indexCounters[key] = idx + 1;
+            } else if (selection) {
+                miniId = selection;
+            }
+
+            if (miniId) {
+                const mini = member.character.miniatures?.find((m: any) => m.id === miniId);
                 if (mini) member.miniature = mini;
             }
         }

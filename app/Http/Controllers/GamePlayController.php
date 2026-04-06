@@ -19,8 +19,16 @@ use Illuminate\Support\Facades\DB;
 
 class GamePlayController extends Controller
 {
+    private function assertInProgress(Game $game): void
+    {
+        if ($game->status !== GameStatusEnum::InProgress) {
+            abort(422, 'Game not in progress');
+        }
+    }
+
     public function updateCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
+        $this->assertInProgress($game);
         $player = $this->getMyPlayer($game);
         if (! $game->is_solo) {
             $this->assertOwnsCrewMember($player, $gameCrewMember);
@@ -78,6 +86,7 @@ class GamePlayController extends Controller
 
     public function killCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
+        $this->assertInProgress($game);
         $this->getMyPlayer($game);
         if ($gameCrewMember->game_id !== $game->id) {
             abort(403);
@@ -123,6 +132,7 @@ class GamePlayController extends Controller
 
     public function reviveCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
+        $this->assertInProgress($game);
         $this->getMyPlayer($game);
         if ($gameCrewMember->game_id !== $game->id) {
             abort(403);
@@ -139,6 +149,7 @@ class GamePlayController extends Controller
 
     public function summonCrewMember(Request $request, Game $game): JsonResponse
     {
+        $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
 
@@ -233,7 +244,7 @@ class GamePlayController extends Controller
 
     public function replaceCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
-        // Verify the crew member belongs to this game
+        $this->assertInProgress($game);
         if ($gameCrewMember->game_id !== $game->id) {
             abort(403);
         }
@@ -260,6 +271,9 @@ class GamePlayController extends Controller
             'faction' => $character->getRawOriginal('faction'),
             'current_health' => $newHealth,
             'max_health' => $character->health,
+            'defense' => $character->defense,
+            'willpower' => $character->willpower,
+            'speed' => $character->speed,
             'cost' => $gameCrewMember->cost, // Preserve original hiring cost for budget tracking
             'station' => $character->station?->value,
             'front_image' => $miniature?->front_image,
@@ -278,6 +292,7 @@ class GamePlayController extends Controller
 
     public function updateSchemeNotes(Request $request, Game $game): JsonResponse
     {
+        $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
 
@@ -294,8 +309,39 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function swapCrewUpgrade(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        $validated = $request->validate([
+            'active_crew_upgrade_id' => ['required', 'integer', 'exists:upgrades,id'],
+        ]);
+
+        // Verify the upgrade belongs to the player's master's crew upgrades
+        $master = $player->master;
+        if (! $master || $master->crew_upgrade_mode !== \App\Enums\CrewUpgradeModeEnum::Swappable) {
+            return response()->json(['error' => 'Crew upgrades are not swappable for this master'], 422);
+        }
+
+        $validIds = $master->crewUpgrades->pluck('id')->toArray();
+        if (! in_array($validated['active_crew_upgrade_id'], $validIds)) {
+            return response()->json(['error' => 'Upgrade not available for this master'], 422);
+        }
+
+        $player->update(['active_crew_upgrade_id' => $validated['active_crew_upgrade_id']]);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function updateSoulstonePool(Request $request, Game $game): JsonResponse
     {
+        $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
         $validated = $request->validate(['soulstone_pool' => ['required', 'integer', 'min:0']]);
@@ -553,6 +599,9 @@ class GamePlayController extends Controller
                         'faction' => $m->getRawOriginal('faction'),
                         'current_health' => $m->current_health,
                         'max_health' => $m->max_health,
+                        'defense' => $m->defense,
+                        'willpower' => $m->willpower,
+                        'speed' => $m->speed,
                         'is_killed' => $m->is_killed,
                         'is_summoned' => $m->is_summoned,
                         'is_activated' => $m->is_activated,
@@ -617,6 +666,9 @@ class GamePlayController extends Controller
                 'faction' => $m->getRawOriginal('faction'),
                 'current_health' => $m->current_health,
                 'max_health' => $m->max_health,
+                'defense' => $m->defense,
+                'willpower' => $m->willpower,
+                'speed' => $m->speed,
                 'is_killed' => $m->is_killed,
                 'is_summoned' => $m->is_summoned,
                 'is_activated' => $m->is_activated,

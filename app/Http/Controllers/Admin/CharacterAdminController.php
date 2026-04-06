@@ -87,6 +87,7 @@ class CharacterAdminController extends Controller
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
             'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
+            'crew_upgrade_modes' => fn () => \App\Enums\CrewUpgradeModeEnum::toSelectOptions(),
             'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
         ];
     }
@@ -121,6 +122,7 @@ class CharacterAdminController extends Controller
             'summon_target_number' => ['nullable', 'integer'],
             'generates_stone' => ['required', 'boolean'],
             'is_unhirable' => ['required', 'boolean'],
+            'crew_upgrade_mode' => ['nullable', 'string', Rule::enum(\App\Enums\CrewUpgradeModeEnum::class)],
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
             'summons' => ['nullable', 'array'],

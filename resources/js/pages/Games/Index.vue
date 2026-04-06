@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
+import { BarChart3, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface GamePlayer {
@@ -106,6 +106,16 @@ const formatDate = (dateStr: string) => {
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
+            <!-- My Stats link -->
+            <div v-if="isLoggedIn" class="mb-4 flex justify-end">
+                <Link :href="route('stats.my')">
+                    <Button variant="outline" size="sm" class="gap-1.5 text-xs">
+                        <BarChart3 class="size-3.5" />
+                        My Stats
+                    </Button>
+                </Link>
+            </div>
+
             <!-- Create Game CTA -->
             <Link v-if="isLoggedIn" :href="route('games.create')" class="group mb-6 block">
                 <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">

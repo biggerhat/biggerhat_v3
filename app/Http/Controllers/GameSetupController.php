@@ -123,10 +123,19 @@ class GameSetupController extends Controller
         DB::transaction(function () use ($player, $game, $crewBuild) {
             // Update crew selection and lock in the master title from the crew build
             $crewMaster = $crewBuild->master;
+            // For swappable masters, default to first crew upgrade; for select_one, use the build's selection
+            $activeUpgradeId = $crewBuild->crew_upgrade_id;
+            if ($crewMaster && $crewMaster->crew_upgrade_mode === \App\Enums\CrewUpgradeModeEnum::Swappable) {
+                /** @var \App\Models\Upgrade|null $firstUpgrade */
+                $firstUpgrade = $crewMaster->crewUpgrades()->first();
+                $activeUpgradeId = $activeUpgradeId ?? $firstUpgrade?->id;
+            }
+
             $player->update([
                 'crew_build_id' => $crewBuild->id,
                 'master_name' => $crewMaster ? $crewMaster->display_name : $player->master_name,
                 'master_id' => $crewMaster ? $crewMaster->id : $player->master_id,
+                'active_crew_upgrade_id' => $activeUpgradeId,
             ]);
 
             // Copy crew into game_crew_members
@@ -346,11 +355,12 @@ class GameSetupController extends Controller
         }
 
         $miniatureSelections = $crewBuild->miniature_selections ?? [];
+        $miniatureIndexes = []; // Tracks per-character consumption index for multi-copy models
         $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
         $sortOrder = 0;
 
         // Add leader
-        $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++, $miniatureSelections);
+        $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++, $miniatureSelections, $miniatureIndexes);
 
         // Add totem
         if ($master->has_totem_id) {
@@ -358,7 +368,7 @@ class GameSetupController extends Controller
             if ($totem) {
                 $totemCount = max(1, $totem->count ?? 1);
                 for ($i = 0; $i < $totemCount; $i++) {
-                    $this->createCrewMember($game, $player, $totem, 'totem', 0, $sortOrder++, $miniatureSelections);
+                    $this->createCrewMember($game, $player, $totem, 'totem', 0, $sortOrder++, $miniatureSelections, $miniatureIndexes);
                 }
             }
         }
@@ -381,7 +391,7 @@ class GameSetupController extends Controller
             $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
             $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
 
-            $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections);
+            $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes);
         }
 
         // Add custom crew members
@@ -423,10 +433,23 @@ class GameSetupController extends Controller
         }
     }
 
-    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = []): void
+    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = []): void
     {
-        // Use the miniature selected in the Crew Builder, or fall back to first
-        $selectedMiniId = $miniatureSelections[(string) $character->id] ?? null;
+        // Use the miniature selected in the Crew Builder, or fall back to first.
+        // miniature_selections can be { "charId": miniatureId } (single) or { "charId": [id1, id2, ...] } (multi).
+        // For multi, consume in order using the index counter.
+        $charKey = (string) $character->id;
+        $selection = $miniatureSelections[$charKey] ?? null;
+        $selectedMiniId = null;
+
+        if (is_array($selection)) {
+            $idx = $miniatureIndexes[$charKey] ?? 0;
+            $selectedMiniId = $selection[$idx] ?? null;
+            $miniatureIndexes[$charKey] = $idx + 1;
+        } elseif ($selection) {
+            $selectedMiniId = $selection;
+        }
+
         $miniature = $selectedMiniId
             ? $character->miniatures->firstWhere('id', $selectedMiniId) ?? $character->miniatures->first()
             : $character->miniatures->first();

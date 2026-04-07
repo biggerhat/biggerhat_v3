@@ -3139,9 +3139,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <Check v-if="member.is_activated" class="size-3.5 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                     <Circle v-else class="size-3.5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                 </button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
@@ -3170,13 +3170,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                     <template v-if="!isObserver">
                                         <div class="flex shrink-0 items-center gap-0.5">
-                                            <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3" /></button>
+                                            <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3.5" /></button>
                                             <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                                 <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                                 {{ member.current_health }}/{{ member.max_health }}
                                             </span>
-                                            <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3" /></button>
-                                            <button class="ml-0.5 rounded bg-black/30 p-0.5 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3" /></button>
+                                            <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3.5" /></button>
+                                            <button class="ml-0.5 rounded bg-black/30 p-1 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3.5" /></button>
                                         </div>
                                     </template>
                                     <span v-else class="flex shrink-0 min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
@@ -3320,9 +3320,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <Check v-if="member.is_activated" class="size-3.5 text-green-300" />
                                                     <Circle v-else class="size-3.5 text-white/30" />
                                                 </button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-0.5 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
+                                                <button class="shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
@@ -3351,13 +3351,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                     <!-- Solo: full health controls; Normal/Observer: read-only -->
                                     <div v-if="isSolo && !isObserver" class="flex shrink-0 items-center gap-0.5">
-                                        <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3" /></button>
+                                        <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3.5" /></button>
                                         <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                             <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
-                                        <button class="rounded bg-black/20 p-0.5 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3" /></button>
-                                        <button class="ml-0.5 rounded bg-black/30 p-0.5 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3" /></button>
+                                        <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3.5" /></button>
+                                        <button class="ml-0.5 rounded bg-black/30 p-1 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3.5" /></button>
                                     </div>
                                     <span v-else class="flex shrink-0 min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                         <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
@@ -3921,7 +3921,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- Crew Member Card Preview Drawer -->
     <Drawer v-model:open="crewMemberDrawerOpen">
         <DrawerContent>
-            <div v-if="previewMember" class="mx-auto w-full max-w-md">
+            <div v-if="previewMember" class="mx-auto w-full max-w-md sm:max-w-3xl">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ previewMember.display_name }}</DrawerTitle>
                     <div v-if="!isObserver && memberMiniatures.length > 1 && (isSolo || myPlayer?.crew_members?.some((m: any) => m.id === previewMember.id))" class="mt-2 flex justify-center">
@@ -3940,16 +3940,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </Select>
                     </div>
                 </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
-                    <CharacterCardView
-                        v-if="previewMember.front_image"
-                        :key="previewMember.front_image"
-                        :miniature="{ id: previewMember.id, display_name: previewMember.display_name, slug: '', front_image: previewMember.front_image, back_image: previewMember.back_image }"
-                        :show-link="false"
-                        :show-collection="false"
-                    />
-                    <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                <div v-if="previewMember.front_image" class="px-4 pb-2">
+                    <!-- Desktop: side-by-side combo view -->
+                    <div class="hidden items-start justify-center gap-2 sm:flex">
+                        <img :src="'/storage/' + previewMember.front_image" :alt="previewMember.display_name + ' front'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
+                        <img v-if="previewMember.back_image" :src="'/storage/' + previewMember.back_image" :alt="previewMember.display_name + ' back'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
+                    </div>
+                    <!-- Mobile: flip card -->
+                    <div class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <CharacterCardView
+                            :key="previewMember.front_image"
+                            :miniature="{ id: previewMember.id, display_name: previewMember.display_name, slug: '', front_image: previewMember.front_image, back_image: previewMember.back_image }"
+                            :show-link="false"
+                            :show-collection="false"
+                        />
+                    </div>
                 </div>
+                <div v-else class="px-4 pb-2 py-8 text-center text-sm text-muted-foreground">No card image available</div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>

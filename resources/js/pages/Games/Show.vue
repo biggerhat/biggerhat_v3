@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Maximize2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -898,6 +898,9 @@ watch(() => myPlayer.value?.scheme_notes, (notes) => {
 // Card preview drawers
 const crewMemberDrawerOpen = ref(false);
 const previewMember = ref<any>(null);
+const cardFullscreenOpen = ref(false);
+const cardFullscreenSrc = ref('');
+const openCardFullscreen = (src: string) => { cardFullscreenSrc.value = src; cardFullscreenOpen.value = true; };
 const upgradeDrawerOpen = ref(false);
 const previewUpgrade = ref<any>(null);
 
@@ -3943,8 +3946,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div v-if="previewMember.front_image" class="px-4 pb-2">
                     <!-- Desktop: side-by-side combo view -->
                     <div class="hidden items-start justify-center gap-2 sm:flex">
-                        <img :src="'/storage/' + previewMember.front_image" :alt="previewMember.display_name + ' front'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
-                        <img v-if="previewMember.back_image" :src="'/storage/' + previewMember.back_image" :alt="previewMember.display_name + ' back'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
+                        <div class="relative">
+                            <img :src="'/storage/' + previewMember.front_image" :alt="previewMember.display_name + ' front'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
+                            <button class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white" title="View fullscreen" @click="openCardFullscreen('/storage/' + previewMember.front_image)">
+                                <Maximize2 class="size-3.5" />
+                            </button>
+                        </div>
+                        <div v-if="previewMember.back_image" class="relative">
+                            <img :src="'/storage/' + previewMember.back_image" :alt="previewMember.display_name + ' back'" class="max-h-[65dvh] w-auto rounded-lg object-contain" />
+                            <button class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white" title="View fullscreen" @click="openCardFullscreen('/storage/' + previewMember.back_image)">
+                                <Maximize2 class="size-3.5" />
+                            </button>
+                        </div>
                     </div>
                     <!-- Mobile: flip card -->
                     <div class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
@@ -4582,4 +4595,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
     <!-- QR Code Dialog -->
     <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
+
+    <!-- Card Fullscreen Dialog -->
+    <Dialog v-model:open="cardFullscreenOpen">
+        <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
+            <DialogTitle class="sr-only">Card Preview</DialogTitle>
+            <div class="flex items-center justify-center">
+                <img :src="cardFullscreenSrc" alt="Card" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>

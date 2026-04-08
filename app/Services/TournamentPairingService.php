@@ -29,7 +29,7 @@ class TournamentPairingService
         $needsRinger = $playersToRank->count() % 2 !== 0;
 
         // For round 1: shuffle randomly. For round 2+: sort by standings.
-        if ((int) (int) $round->round_number === 1) {
+        if ((int) $round->round_number === 1) {
             $playersToRank = $playersToRank->shuffle();
         } else {
             $standingsMap = collect($this->standings->compute($tournament))

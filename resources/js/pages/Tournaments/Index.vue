@@ -16,9 +16,9 @@ interface TournamentSummary {
     status: string;
     location: string | null;
     encounter_size: number;
+    encounter_type: string;
     planned_rounds: number;
     season_label: string;
-    is_public: boolean;
     players_count: number;
     creator: { id: number; name: string };
 }
@@ -95,7 +95,7 @@ const formatDate = (dateStr: string) => {
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss</span>
+                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span>
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />
@@ -122,7 +122,7 @@ const formatDate = (dateStr: string) => {
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss</span>
+                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span>
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />

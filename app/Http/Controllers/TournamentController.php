@@ -4,16 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameRoleEnum;
+use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
+use App\Events\TournamentUpdated;
+use App\Models\Game;
+use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
+use App\Models\TournamentRsvp;
 use App\Services\TournamentPairingService;
 use App\Services\TournamentStandingsService;
 use Illuminate\Http\JsonResponse;
@@ -42,7 +48,7 @@ class TournamentController extends Controller
                 ->get()
             : collect();
 
-        $publicTournaments = Tournament::where('is_public', true)
+        $publicTournaments = Tournament::when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
             ->with('creator:id,name')
             ->withCount('players')
             ->latest('event_date')
@@ -57,14 +63,12 @@ class TournamentController extends Controller
 
     public function view(Tournament $tournament): Response|ResponseFactory
     {
-        if (! $tournament->is_public) {
-            abort(404);
-        }
-
         $tournament->load([
             'players.user:id,name',
+            'rsvps.user:id,name',
             'rounds.games.playerOne',
             'rounds.games.playerTwo',
+            'rounds.games.trackerGame:id,uuid',
             'rounds.strategy',
             'organizers:id,name',
         ]);
@@ -147,8 +151,14 @@ class TournamentController extends Controller
             'label' => $s->label(),
         ]);
 
+        $encounterTypes = collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => [
+            'value' => $e->value,
+            'label' => $e->label(),
+        ]);
+
         return inertia('Tournaments/Create', [
             'seasons' => $seasons,
+            'encounter_types' => $encounterTypes,
         ]);
     }
 
@@ -158,12 +168,12 @@ class TournamentController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'encounter_size' => ['required', 'integer', 'min:20', 'max:100'],
+            'encounter_type' => ['sometimes', 'string'],
             'planned_rounds' => ['required', 'integer', 'min:1', 'max:7'],
             'season' => ['required', 'string'],
             'event_date' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            'is_public' => ['sometimes', 'boolean'],
         ]);
 
         $tournament = Tournament::create([
@@ -185,6 +195,7 @@ class TournamentController extends Controller
 
         $tournament->load([
             'players.user:id,name',
+            'rsvps.user:id,name',
             'rounds.games.playerOne',
             'rounds.games.playerTwo',
             'rounds.strategy:id,name',
@@ -228,6 +239,7 @@ class TournamentController extends Controller
             'standings' => $standings,
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
+            'encounter_types' => collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
             'masters' => $masters,
             'all_strategies' => function () use ($tournament) {
                 /** @var \App\Enums\PoolSeasonEnum $season */
@@ -259,16 +271,22 @@ class TournamentController extends Controller
             abort(403);
         }
 
+        /** @var TournamentStatusEnum $status */
+        $status = $tournament->status;
+        if (! $status->isEditable()) {
+            return response()->json(['error' => 'Tournament settings are locked after starting'], 422);
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'encounter_size' => ['sometimes', 'integer', 'min:20', 'max:100'],
+            'encounter_type' => ['sometimes', 'string'],
             'planned_rounds' => ['sometimes', 'integer', 'min:1', 'max:7'],
             'season' => ['sometimes', 'string'],
             'event_date' => ['sometimes', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            'is_public' => ['sometimes', 'boolean'],
         ]);
 
         $tournament->update($validated);
@@ -303,21 +321,21 @@ class TournamentController extends Controller
 
         $newStatus = TournamentStatusEnum::from($validated['status']);
 
-        // Validate transitions
-        $validTransitions = [
-            TournamentStatusEnum::Draft->value => [TournamentStatusEnum::Registration],
-            TournamentStatusEnum::Registration->value => [TournamentStatusEnum::Active],
-            TournamentStatusEnum::Active->value => [TournamentStatusEnum::Completed],
-        ];
-
         /** @var TournamentStatusEnum $currentStatus */
         $currentStatus = $tournament->status;
-        $allowed = $validTransitions[$currentStatus->value] ?? [];
+        $allowed = $currentStatus->validTransitions();
         if (! in_array($newStatus, $allowed)) {
             return response()->json(['error' => 'Invalid status transition'], 422);
         }
 
-        // Validate before starting: all players must have factions
+        // ── Transition: Draft → Registration ──
+        // RSVP closes, TO can now add players
+        if ($newStatus === TournamentStatusEnum::Registration) {
+            // No prerequisites — just close RSVP
+        }
+
+        // ── Transition: Registration → Active (Started) ──
+        // Locks: scenarios, tournament info, registration
         if ($newStatus === TournamentStatusEnum::Active) {
             $missingFaction = $tournament->players()->whereNull('faction')->count();
             if ($missingFaction > 0) {
@@ -328,7 +346,23 @@ class TournamentController extends Controller
             }
         }
 
+        // ── Transition: Active → Completed ──
+        // All rounds must be completed
+        if ($newStatus === TournamentStatusEnum::Completed) {
+            $incompleteRounds = $tournament->rounds()
+                ->where('status', '!=', TournamentRoundStatusEnum::Completed)
+                ->count();
+            if ($incompleteRounds > 0) {
+                return response()->json(['error' => "{$incompleteRounds} round(s) still in progress. Finish all rounds first."], 422);
+            }
+            if ($tournament->rounds()->count() === 0) {
+                return response()->json(['error' => 'No rounds have been played'], 422);
+            }
+        }
+
         $tournament->update(['status' => $newStatus]);
+
+        $this->broadcastUpdate($tournament, 'status_changed');
 
         return response()->json(['success' => true]);
     }
@@ -369,12 +403,60 @@ class TournamentController extends Controller
         return response()->json(['success' => true]);
     }
 
+    // ─── RSVP ───
+
+    public function rsvp(Request $request, Tournament $tournament): JsonResponse
+    {
+        /** @var TournamentStatusEnum $status */
+        $status = $tournament->status;
+        if (! $status->allowsRsvp()) {
+            return response()->json(['error' => 'RSVP is not open for this tournament'], 422);
+        }
+
+        $userId = Auth::id();
+        if (! $userId) {
+            abort(401);
+        }
+
+        if ($tournament->rsvps()->where('user_id', $userId)->exists()) {
+            return response()->json(['error' => 'Already RSVPed'], 422);
+        }
+
+        TournamentRsvp::create([
+            'tournament_id' => $tournament->id,
+            'user_id' => $userId,
+        ]);
+
+        $this->broadcastUpdate($tournament, 'rsvp_added');
+
+        return response()->json(['success' => true]);
+    }
+
+    public function cancelRsvp(Tournament $tournament): JsonResponse
+    {
+        /** @var TournamentStatusEnum $status */
+        $status = $tournament->status;
+        if (! $status->allowsRsvp()) {
+            return response()->json(['error' => 'Cannot cancel RSVP at this time'], 422);
+        }
+
+        $tournament->rsvps()->where('user_id', Auth::id())->delete();
+
+        return response()->json(['success' => true]);
+    }
+
     // ─── Players ───
 
     public function addPlayer(Request $request, Tournament $tournament): JsonResponse
     {
         if (! $tournament->isOrganizer(Auth::id())) {
             abort(403);
+        }
+
+        /** @var TournamentStatusEnum $status */
+        $status = $tournament->status;
+        if (! $status->allowsRegistration() && ! $status->isEditable()) {
+            return response()->json(['error' => 'Cannot add players in this tournament state'], 422);
         }
 
         $validated = $request->validate([
@@ -478,6 +560,27 @@ class TournamentController extends Controller
         return response()->json(['success' => true, 'round' => $round]);
     }
 
+    public function generateAllRounds(Tournament $tournament): JsonResponse
+    {
+        if (! $tournament->isOrganizer(Auth::id())) {
+            abort(403);
+        }
+
+        $existingMax = $tournament->rounds()->max('round_number') ?? 0;
+        $created = 0;
+
+        for ($i = $existingMax + 1; $i <= $tournament->planned_rounds; $i++) {
+            TournamentRound::create([
+                'tournament_id' => $tournament->id,
+                'round_number' => $i,
+                'status' => TournamentRoundStatusEnum::Setup,
+            ]);
+            $created++;
+        }
+
+        return response()->json(['success' => true, 'created' => $created]);
+    }
+
     public function updateRound(Request $request, Tournament $tournament, TournamentRound $round): JsonResponse
     {
         if (! $tournament->isOrganizer(Auth::id())) {
@@ -496,19 +599,47 @@ class TournamentController extends Controller
             'status' => ['sometimes', 'string'],
         ]);
 
-        if (isset($validated['status'])) {
-            $newStatus = TournamentRoundStatusEnum::from($validated['status']);
-            $validated['status'] = $newStatus;
-
-            if ($newStatus === TournamentRoundStatusEnum::InProgress && ! $round->started_at) {
-                $validated['started_at'] = now();
-            }
-            if ($newStatus === TournamentRoundStatusEnum::Completed && ! $round->completed_at) {
-                $validated['completed_at'] = now();
+        // Scenario config only allowed before tournament is started or when round is in setup
+        $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
+        if (! empty($scenarioFields)) {
+            if ($tournament->status === TournamentStatusEnum::Active && $round->status !== TournamentRoundStatusEnum::Setup) {
+                return response()->json(['error' => 'Cannot modify scenario after round has started'], 422);
             }
         }
 
-        $round->update($validated);
+        if (isset($validated['status'])) {
+            $newStatus = TournamentRoundStatusEnum::from($validated['status']);
+
+            // Enforce round status transitions
+            if ($newStatus === TournamentRoundStatusEnum::InProgress) {
+                if ($round->status !== TournamentRoundStatusEnum::Setup) {
+                    return response()->json(['error' => 'Round must be in setup to start'], 422);
+                }
+                if ($round->games()->count() === 0) {
+                    return response()->json(['error' => 'Generate pairings before starting the round'], 422);
+                }
+                $validated['started_at'] = $round->started_at ?? now();
+            }
+
+            if ($newStatus === TournamentRoundStatusEnum::Completed) {
+                if ($round->status !== TournamentRoundStatusEnum::InProgress) {
+                    return response()->json(['error' => 'Round must be in progress to finish'], 422);
+                }
+                $unreported = $round->games()->where('result', TournamentGameResultEnum::Pending)->count();
+                if ($unreported > 0) {
+                    return response()->json(['error' => "{$unreported} game(s) not yet reported. Report all games before finishing the round."], 422);
+                }
+                $validated['completed_at'] = $round->completed_at ?? now();
+            }
+
+            $validated['status'] = $newStatus;
+        }
+
+        // Only update fields that were actually sent in the request
+        $fieldsToUpdate = array_intersect_key($validated, $request->all());
+        $round->update($fieldsToUpdate);
+
+        $this->broadcastUpdate($tournament, 'round_updated');
 
         return response()->json(['success' => true]);
     }
@@ -554,7 +685,26 @@ class TournamentController extends Controller
             return response()->json(['error' => 'Round must be in setup to generate pairings'], 422);
         }
 
+        if ($tournament->status !== TournamentStatusEnum::Active) {
+            return response()->json(['error' => 'Tournament must be active to generate pairings'], 422);
+        }
+
+        // Previous round must be completed (except for round 1)
+        if ($round->round_number > 1) {
+            /** @var TournamentRound|null $prevRound */
+            $prevRound = $tournament->rounds()->where('round_number', $round->round_number - 1)->first();
+            if (! $prevRound || $prevRound->status !== TournamentRoundStatusEnum::Completed) {
+                return response()->json(['error' => 'Previous round must be completed before pairing'], 422);
+            }
+        }
+
         // Clear existing games for this round (re-generating)
+        // Also clean up linked Game Tracker games to prevent orphans
+        $linkedGameIds = $round->games()->whereNotNull('game_id')->pluck('game_id');
+        if ($linkedGameIds->isNotEmpty()) {
+            GamePlayer::whereIn('game_id', $linkedGameIds)->delete();
+            Game::whereIn('id', $linkedGameIds)->forceDelete();
+        }
         $round->games()->delete();
 
         $tournament->load('players');
@@ -577,7 +727,92 @@ class TournamentController extends Controller
             ]);
         }
 
+        // Auto-create Game Tracker games for non-bye pairings
+        $this->createTrackerGames($tournament, $round);
+
+        $this->broadcastUpdate($tournament, 'pairings_generated');
+
         return response()->json(['success' => true, 'pairings_count' => count($pairings)]);
+    }
+
+    /**
+     * Create Game Tracker games for each non-bye pairing in a round.
+     */
+    private function broadcastUpdate(Tournament $tournament, string $action = 'updated'): void
+    {
+        broadcast(new TournamentUpdated($tournament, $action))->toOthers();
+    }
+
+    private function createTrackerGames(Tournament $tournament, TournamentRound $round): void
+    {
+        $games = $round->games()->where('is_bye', false)->get();
+
+        foreach ($games as $tournamentGame) {
+            /** @var TournamentGame $tournamentGame */
+            // Skip if a tracker game already exists
+            if ($tournamentGame->game_id) {
+                continue;
+            }
+
+            $playerOne = $tournamentGame->playerOne;
+            $playerTwo = $tournamentGame->playerTwo;
+            if (! $playerOne || ! $playerTwo) {
+                continue;
+            }
+
+            $hasUserOne = (bool) $playerOne->user_id;
+            $hasUserTwo = (bool) $playerTwo->user_id;
+
+            // Need at least one BiggerHat user to create a game
+            if (! $hasUserOne && ! $hasUserTwo) {
+                continue;
+            }
+
+            $isSolo = ! $hasUserOne || ! $hasUserTwo;
+            $creatorUserId = $hasUserOne ? $playerOne->user_id : $playerTwo->user_id;
+
+            // Use the round's scenario
+            $trackerGame = Game::create([
+                'name' => "{$tournament->name} R{$round->round_number} T{$tournamentGame->table_number}",
+                'encounter_size' => $tournament->encounter_size,
+                'season' => $tournament->season->value,
+                'strategy_id' => $round->strategy_id,
+                'deployment' => $round->deployment?->value,
+                'scheme_pool' => $round->scheme_pool ?? [],
+                'status' => GameStatusEnum::SchemeSelect,
+                'started_at' => now(),
+                'creator_id' => $creatorUserId,
+                'is_solo' => $isSolo,
+                'is_observable' => true,
+            ]);
+
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+
+            // Player 1 (higher-ranked or first in pairing)
+            GamePlayer::create([
+                'game_id' => $trackerGame->id,
+                'user_id' => $playerOne->user_id,
+                'slot' => 1,
+                'role' => $roles[0],
+                'faction' => $playerOne->getRawOriginal('faction'),
+                'opponent_name' => $isSolo && ! $hasUserOne ? $playerOne->display_name : null,
+                'scheme_pool' => $trackerGame->scheme_pool,
+            ]);
+
+            // Player 2
+            GamePlayer::create([
+                'game_id' => $trackerGame->id,
+                'user_id' => $playerTwo->user_id,
+                'slot' => 2,
+                'role' => $roles[1],
+                'faction' => $playerTwo->getRawOriginal('faction'),
+                'opponent_name' => $isSolo && ! $hasUserTwo ? $playerTwo->display_name : null,
+                'scheme_pool' => $trackerGame->scheme_pool,
+            ]);
+
+            // Link the tournament game to the tracker game
+            $tournamentGame->update(['game_id' => $trackerGame->id]);
+        }
     }
 
     // ─── Games / Scores ───
@@ -622,6 +857,10 @@ class TournamentController extends Controller
             abort(403);
         }
 
+        if ($game->round->status === TournamentRoundStatusEnum::Completed) {
+            return response()->json(['error' => 'Scores are locked after the round is completed'], 422);
+        }
+
         $validated = $request->validate([
             'player_one_faction' => ['nullable', 'string'],
             'player_one_master' => ['nullable', 'string', 'max:255'],
@@ -643,6 +882,8 @@ class TournamentController extends Controller
             ...$validated,
             'result' => TournamentGameResultEnum::Completed,
         ]);
+
+        $this->broadcastUpdate($tournament, 'score_updated');
 
         return response()->json(['success' => true]);
     }
@@ -700,6 +941,8 @@ class TournamentController extends Controller
                 'player_two_vp' => null,
             ]);
         }
+
+        $this->broadcastUpdate($tournament, 'forfeit_updated');
 
         return response()->json(['success' => true]);
     }

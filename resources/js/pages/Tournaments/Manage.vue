@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Head, router } from '@inertiajs/vue3';
@@ -96,12 +95,12 @@ interface TournamentData {
     description: string | null;
     status: string;
     encounter_size: number;
+    encounter_type: string;
     planned_rounds: number;
     season_label: string;
     event_date: string;
     location: string | null;
     round_time_limit: number;
-    is_public: boolean;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
     organizers: { id: number; name: string }[];
@@ -112,6 +111,7 @@ const props = defineProps<{
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
+    encounter_types: { value: string; label: string }[];
     masters: MasterOption[];
     all_strategies: { id: number; name: string; slug: string; image_url: string | null }[];
     all_schemes: { id: number; name: string; slug: string; image_url: string | null; prerequisite: string | null; reveal: string | null; scoring: string | null }[];
@@ -121,8 +121,19 @@ const props = defineProps<{
 const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 // Restore tab from URL hash
+const validTabs = ['standings', 'players', 'rounds', 'settings', 'rsvps'];
 const initialTab = typeof window !== 'undefined' && window.location.hash ? window.location.hash.slice(1) : 'standings';
-const activeTab = ref(['standings', 'players', 'rounds', 'settings'].includes(initialTab) ? initialTab : 'standings');
+const activeTab = ref(validTabs.includes(initialTab) ? initialTab : 'standings');
+
+const encounterTypeLabel = computed(() => {
+    const map: Record<string, string> = {
+        traditional: 'Traditional', enforcer_brawl: 'Enforcer Brawl', crossroads: 'Crossroads',
+        team_event: 'Team Event', double_rush: 'Double Rush', total_war: 'Total War',
+    };
+    return map[props.tournament.encounter_type] ?? props.tournament.encounter_type;
+});
+
+const isLocked = computed(() => props.tournament.status === 'active' || props.tournament.status === 'completed');
 
 const linkCopied = ref(false);
 const copyPublicLink = async () => {
@@ -135,7 +146,7 @@ const qrOpen = ref(false);
 watch(activeTab, (tab) => { if (typeof window !== 'undefined') window.location.hash = tab; });
 
 const reloadPage = () => {
-    router.visit(route('tournaments.manage', props.tournament.uuid) + '#' + activeTab.value, { preserveScroll: true });
+    router.reload({ preserveScroll: true, preserveState: true });
 };
 const submitting = ref(false);
 const actionError = ref<string | null>(null);
@@ -161,6 +172,32 @@ const doAction = async (url: string, method: string = 'POST', body?: Record<stri
         return false;
     }
 };
+
+// ─── RSVP → Player conversion ───
+const rsvpPlayerFaction = ref<string | null>(null);
+const rsvpPlayerDialogOpen = ref(false);
+const rsvpPlayerTarget = ref<any>(null);
+
+const openRsvpPlayerDialog = (rsvp: any) => {
+    rsvpPlayerTarget.value = rsvp;
+    rsvpPlayerFaction.value = null;
+    rsvpPlayerDialogOpen.value = true;
+};
+
+const confirmAddRsvpAsPlayer = async () => {
+    const rsvp = rsvpPlayerTarget.value;
+    if (!rsvp || !rsvpPlayerFaction.value) return;
+    if (await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
+        display_name: rsvp.user?.name ?? 'Unknown',
+        user_id: rsvp.user_id,
+        faction: rsvpPlayerFaction.value,
+    })) {
+        rsvpPlayerDialogOpen.value = false;
+        rsvpPlayerTarget.value = null;
+        reloadPage();
+    }
+};
+
 
 // ─── Players ───
 const newPlayerName = ref('');
@@ -202,33 +239,82 @@ const toggleRinger = async (player: TournamentPlayer) => {
 };
 
 const toggleDrop = async (player: TournamentPlayer) => {
-    const currentRound = props.tournament.rounds.length || 0;
-    await fetch(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify({ dropped_after_round: player.dropped_after_round !== null ? null : currentRound }),
-    });
-    reloadPage();
+    // Use the highest completed round number, not total rounds created
+    const completedRounds = props.tournament.rounds.filter((r: any) => r.status === 'completed');
+    const lastCompletedRound = completedRounds.length > 0
+        ? Math.max(...completedRounds.map((r: any) => r.round_number))
+        : 0;
+    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
+        dropped_after_round: player.dropped_after_round !== null ? null : lastCompletedRound,
+    })) {
+        reloadPage();
+    }
 };
 
 const toggleDQ = async (player: TournamentPlayer) => {
-    await fetch(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ is_disqualified: !player.is_disqualified }),
-    });
-    reloadPage();
+    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { is_disqualified: !player.is_disqualified })) {
+        reloadPage();
+    }
 };
 
 // ─── Rounds ───
 const createRound = async () => {
-    submitting.value = true;
-    await fetch(route('tournaments.rounds.create', props.tournament.uuid), {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken() },
-    });
-    submitting.value = false;
-    reloadPage();
+    if (await doAction(route('tournaments.rounds.create', props.tournament.uuid))) {
+        reloadPage();
+    }
+};
+
+const generateAllRounds = async () => {
+    if (await doAction(route('tournaments.rounds.generate_all', props.tournament.uuid))) {
+        reloadPage();
+    }
+};
+
+// Forfeit dialog
+const forfeitDialogOpen = ref(false);
+const forfeitGame = ref<TournamentGame | null>(null);
+const openForfeitDialog = (game: TournamentGame) => {
+    forfeitGame.value = game;
+    forfeitDialogOpen.value = true;
+};
+const submitForfeit = async (loserPlayerId: number) => {
+    if (!forfeitGame.value) return;
+    if (await doAction(route('tournaments.games.forfeit', { tournament: props.tournament.uuid, game: forfeitGame.value.id }), 'POST', { forfeit_player_id: loserPlayerId })) {
+        forfeitDialogOpen.value = false;
+        forfeitGame.value = null;
+        reloadPage();
+    }
+};
+const removeForfeit = async (game: TournamentGame) => {
+    if (await doAction(route('tournaments.games.forfeit', { tournament: props.tournament.uuid, game: game.id }), 'POST', {})) {
+        reloadPage();
+    }
+};
+
+// Previous opponents lookup
+const playerOpponents = computed(() => {
+    const map: Record<number, string[]> = {};
+    for (const round of props.tournament.rounds) {
+        for (const game of round.games) {
+            if (game.is_bye || !game.player_two) continue;
+            if (!map[game.player_one_id]) map[game.player_one_id] = [];
+            if (!map[game.player_two_id!]) map[game.player_two_id!] = [];
+            map[game.player_one_id].push(`R${round.round_number}: ${game.player_two.display_name}`);
+            map[game.player_two_id!].push(`R${round.round_number}: ${game.player_one.display_name}`);
+        }
+    }
+    return map;
+});
+
+// AutoPair availability check
+const canAutoPair = (round: TournamentRound): boolean => {
+    if (props.tournament.status !== 'active') return false;
+    if (round.status !== 'setup') return false;
+    if (round.round_number > 1) {
+        const prevRound = props.tournament.rounds.find((r: any) => r.round_number === round.round_number - 1);
+        if (!prevRound || prevRound.status !== 'completed') return false;
+    }
+    return true;
 };
 
 const generatePairings = async (roundId: number) => {
@@ -390,29 +476,25 @@ const saveRoundScenario = async (roundId: number) => {
 const statusTransitions: Record<string, { next: string; label: string }> = {
     draft: { next: 'registration', label: 'Open Registration' },
     registration: { next: 'active', label: 'Start Tournament' },
-    active: { next: 'completed', label: 'Complete Tournament' },
 };
 
 const confirmStatusDialog = ref(false);
 const confirmFinalizeDialog = ref(false);
 
-const startNextRound = async () => {
+const startRound = async (roundId: number) => {
     submitting.value = true;
-    // Create the next round
-    const res = await fetch(route('tournaments.rounds.create', props.tournament.uuid), {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-    });
-    if (res.ok) {
-        const data = await res.json();
-        // Auto-generate pairings for the new round
-        await fetch(route('tournaments.rounds.pair', { tournament: props.tournament.uuid, round: data.round.id }), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        });
+    if (await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', { status: 'in_progress' })) {
+        reloadPage();
     }
     submitting.value = false;
-    reloadPage();
+};
+
+const endRound = async (roundId: number) => {
+    submitting.value = true;
+    if (await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', { status: 'completed' })) {
+        reloadPage();
+    }
+    submitting.value = false;
 };
 
 const finalizeTournament = async () => {
@@ -455,9 +537,9 @@ const editDescription = ref('');
 const editEventDate = ref('');
 const editLocation = ref('');
 const editEncounterSize = ref(50);
+const editEncounterType = ref('traditional');
 const editPlannedRounds = ref(3);
 const editRoundTimeLimit = ref(135);
-const editIsPublic = ref(false);
 
 const openSettingsEdit = () => {
     editName.value = props.tournament.name;
@@ -465,9 +547,9 @@ const openSettingsEdit = () => {
     editEventDate.value = toDateInput(props.tournament.event_date);
     editLocation.value = props.tournament.location ?? '';
     editEncounterSize.value = props.tournament.encounter_size;
+    editEncounterType.value = props.tournament.encounter_type ?? 'traditional';
     editPlannedRounds.value = props.tournament.planned_rounds;
     editRoundTimeLimit.value = props.tournament.round_time_limit;
-    editIsPublic.value = props.tournament.is_public;
     editingSettings.value = true;
 };
 
@@ -483,9 +565,9 @@ const saveSettings = async () => {
                 event_date: editEventDate.value,
                 location: editLocation.value || null,
                 encounter_size: editEncounterSize.value,
+                encounter_type: editEncounterType.value,
                 planned_rounds: editPlannedRounds.value,
                 round_time_limit: editRoundTimeLimit.value,
-                is_public: editIsPublic.value,
             }),
         });
         if (res.ok) {
@@ -569,21 +651,42 @@ const viewSchemeById = (id: number) => viewScheme(String(id));
 const activePlayers = computed(() => props.tournament.players.filter((p) => !p.is_disqualified && p.dropped_after_round === null));
 
 const latestRound = computed(() => props.tournament.rounds.length > 0 ? props.tournament.rounds[props.tournament.rounds.length - 1] : null);
-const allGamesScored = computed(() => {
-    if (!latestRound.value) return false;
-    const games = latestRound.value.games;
-    if (!games.length) return false;
-    return games.every((g: any) => g.result === 'completed' || g.result === 'agreed' || g.result === 'forfeited');
-});
+
+const roundAllScored = (round: TournamentRound): boolean => {
+    if (!round.games.length) return false;
+    return round.games.every((g: any) => g.result === 'completed' || g.result === 'agreed' || g.result === 'forfeited');
+};
+
+const canStartRound = (round: TournamentRound): boolean => {
+    return round.status === 'setup' && round.games.length > 0 && props.tournament.status === 'active';
+};
+
+const canEndRound = (round: TournamentRound): boolean => {
+    return round.status === 'in_progress' && roundAllScored(round);
+};
+
 const isLastRound = computed(() => props.tournament.rounds.length >= props.tournament.planned_rounds);
-const canStartNextRound = computed(() => allGamesScored.value && !isLastRound.value && props.tournament.status === 'active');
-const canFinalize = computed(() => allGamesScored.value && isLastRound.value && props.tournament.status === 'active');
+
+// Can create the next round when tournament is active, latest round is completed, and more rounds remain
+const canCreateNextRound = computed(() => {
+    if (props.tournament.status !== 'active') return false;
+    if (isLastRound.value) return false;
+    if (!latestRound.value) return true; // No rounds yet
+    return latestRound.value.status === 'completed';
+});
+
+const canFinalize = computed(() => {
+    if (props.tournament.status !== 'active') return false;
+    if (!isLastRound.value) return false;
+    if (!latestRound.value) return false;
+    return latestRound.value.status === 'completed';
+});
 const formatDate = (d: string) => {
     const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
 const toDateInput = (d: string) => d ? d.split('T')[0] : '';
-const isEditable = computed(() => props.tournament.status !== 'completed');
+const isEditable = computed(() => !isLocked.value);
 
 const factionBackground = (faction: string | null): string => {
     if (!faction) return '';
@@ -638,7 +741,7 @@ const playerFaction = (id: number | null): string | null => {
                     <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{ statusLabel(tournament.status) }}</Badge>
                     <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(tournament.event_date) }}</span>
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
-                    <span>{{ tournament.encounter_size }}ss</span>
+                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
                     <span>{{ tournament.planned_rounds }} rounds</span>
                     <span>{{ tournament.season_label }}</span>
                 </div>
@@ -651,11 +754,11 @@ const playerFaction = (id: number | null): string | null => {
                     <ArrowLeft class="size-4" /> Back
                 </Button>
                 <div class="flex items-center gap-2">
-                    <Button v-if="tournament.is_public" variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
+                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
                     </Button>
-                    <Button v-if="tournament.is_public" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
+                    <Button variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />
                     </Button>
                     <Button
@@ -669,11 +772,15 @@ const playerFaction = (id: number | null): string | null => {
             </div>
 
             <Tabs v-model="activeTab" default-value="standings">
-                <TabsList class="mb-4 grid w-full grid-cols-2 sm:grid-cols-4">
+                <TabsList class="mb-4 flex w-full flex-wrap">
                     <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
                     <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
                         Players
                         <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.players.length }}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger v-if="tournament.status === 'draft' || (tournament as any).rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
+                        RSVPs
+                        <Badge v-if="(tournament as any).rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ (tournament as any).rsvps.length }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
                         Rounds
@@ -735,6 +842,39 @@ const playerFaction = (id: number | null): string | null => {
                     </Card>
                 </TabsContent>
 
+                <!-- ═══ RSVPs ═══ -->
+                <TabsContent value="rsvps">
+                    <div v-if="!(tournament as any).rsvps?.length" class="py-8 text-center text-sm text-muted-foreground">
+                        No RSVPs yet. Share the tournament link so players can express interest.
+                    </div>
+                    <template v-else>
+                        <div class="mb-4">
+                            <h3 class="text-sm font-semibold">{{ (tournament as any).rsvps.length }} RSVPs</h3>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div
+                                v-for="rsvp in (tournament as any).rsvps"
+                                :key="rsvp.id"
+                                class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
+                            >
+                                <span class="text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                <div class="flex items-center gap-1">
+                                    <Button
+                                        v-if="tournament.status === 'registration' && !tournament.players.some((p: any) => p.user?.id === rsvp.user_id)"
+                                        variant="outline"
+                                        size="sm"
+                                        class="h-6 gap-1 px-2 text-[10px]"
+                                        @click="openRsvpPlayerDialog(rsvp)"
+                                    >
+                                        <Plus class="size-2.5" /> Register
+                                    </Button>
+                                    <Badge v-else-if="tournament.players.some((p: any) => p.user?.id === rsvp.user_id)" variant="outline" class="px-1 py-0 text-[9px]">Registered</Badge>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </TabsContent>
+
                 <!-- ═══ PLAYERS ═══ -->
                 <TabsContent value="players">
                     <!-- Add Player Form -->
@@ -780,15 +920,20 @@ const playerFaction = (id: number | null): string | null => {
                                 player.faction ? 'text-white' : 'border',
                                 player.is_disqualified ? 'opacity-40 line-through' : player.dropped_after_round !== null ? 'opacity-60' : '',
                             ]"
-                            class="flex items-center justify-between gap-2 rounded-lg px-2 py-2 sm:px-3"
+                            class="flex items-start justify-between gap-2 rounded-lg px-2 py-2 sm:px-3"
                         >
-                            <div class="flex min-w-0 items-center gap-1.5">
-                                <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                <span class="truncate text-xs font-medium sm:text-sm">{{ player.display_name }}</span>
-                                <Badge v-if="player.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
-                                <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
-                                <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
-                                <Badge v-if="player.dropped_after_round !== null" class="shrink-0 bg-black/30 px-1 py-0 text-[9px] text-white/80">Dropped R{{ player.dropped_after_round }}</Badge>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5">
+                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                    <span class="truncate text-xs font-medium sm:text-sm">{{ player.display_name }}</span>
+                                    <Badge v-if="player.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
+                                    <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
+                                    <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
+                                    <Badge v-if="player.dropped_after_round !== null" class="shrink-0 bg-black/30 px-1 py-0 text-[9px] text-white/80">Dropped R{{ player.dropped_after_round }}</Badge>
+                                </div>
+                                <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[9px] opacity-70">
+                                    vs: {{ playerOpponents[player.id].join(' · ') }}
+                                </div>
                             </div>
                             <div class="flex shrink-0 items-center gap-0.5">
                                 <button v-if="tournament.status === 'active'" class="rounded p-1 hover:bg-white/20" :title="player.dropped_after_round !== null ? 'Undrop' : 'Drop'" @click="toggleDrop(player)">
@@ -810,20 +955,29 @@ const playerFaction = (id: number | null): string | null => {
 
                 <!-- ═══ ROUNDS ═══ -->
                 <TabsContent value="rounds">
-                    <div v-if="tournament.status === 'active'" class="mb-4 flex flex-wrap gap-2">
-                        <!-- Start Next Round (only when all games scored and more rounds to go) -->
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        <!-- Create Next Round (when latest round completed or no rounds yet) -->
                         <Button
-                            v-if="canStartNextRound"
+                            v-if="canCreateNextRound"
                             size="sm"
                             class="gap-1"
                             :disabled="submitting"
-                            @click="startNextRound"
+                            @click="createRound"
                         >
                             <Loader2 v-if="submitting" class="size-3.5 animate-spin" />
                             <Plus v-else class="size-3.5" />
-                            Start Round {{ tournament.rounds.length + 1 }}
+                            Create Round {{ tournament.rounds.length + 1 }}
                         </Button>
-                        <!-- Finalize Tournament (last round, all scored) -->
+                        <!-- Pre-tournament: allow creating rounds for scenario config -->
+                        <template v-else-if="tournament.status !== 'active' && tournament.status !== 'completed' && tournament.rounds.length < tournament.planned_rounds">
+                            <Button size="sm" class="gap-1" :disabled="submitting" @click="createRound">
+                                <Plus class="size-3.5" /> Create Round {{ tournament.rounds.length + 1 }}
+                            </Button>
+                            <Button v-if="tournament.planned_rounds - tournament.rounds.length > 1" variant="outline" size="sm" class="gap-1" :disabled="submitting" @click="generateAllRounds">
+                                <Plus class="size-3.5" /> Generate All Rounds
+                            </Button>
+                        </template>
+                        <!-- Finalize Tournament (last round completed) -->
                         <Button
                             v-if="canFinalize"
                             class="gap-1"
@@ -832,17 +986,6 @@ const playerFaction = (id: number | null): string | null => {
                         >
                             <Trophy class="size-3.5" />
                             Finalize Standings &amp; Complete
-                        </Button>
-                        <!-- Status indicator when games still pending -->
-                        <div v-if="latestRound && !allGamesScored && latestRound.games.length > 0" class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Loader2 class="size-3 animate-spin" />
-                            {{ latestRound.games.filter((g: any) => g.result === 'pending').length }} game(s) pending scores
-                        </div>
-                    </div>
-                    <!-- Pre-tournament: still allow creating rounds for scenario config -->
-                    <div v-else-if="tournament.status !== 'completed' && tournament.rounds.length < tournament.planned_rounds" class="mb-4">
-                        <Button size="sm" class="gap-1" :disabled="submitting" @click="createRound">
-                            <Plus class="size-3.5" /> Create Round {{ tournament.rounds.length + 1 }}
                         </Button>
                     </div>
 
@@ -857,10 +1000,10 @@ const playerFaction = (id: number | null): string | null => {
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h3>
                                         <Badge
-                                            :class="['border-0 text-[10px]', round.status === 'completed' ? 'bg-muted text-muted-foreground' : round.status === 'in_progress' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200']"
+                                            :class="['border-0 text-[10px]', round.status === 'completed' ? 'bg-muted text-muted-foreground' : round.status === 'in_progress' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : round.games.length ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200']"
                                             variant="outline"
                                         >
-                                            {{ round.status === 'in_progress' ? 'In Progress' : round.status === 'completed' ? 'Completed' : 'Setup' }}
+                                            {{ round.status === 'in_progress' ? 'In Progress' : round.status === 'completed' ? 'Completed' : round.games.length ? 'Paired' : 'Setup' }}
                                         </Badge>
                                         <span v-if="round.strategy" class="hidden text-xs text-muted-foreground sm:inline">{{ round.strategy.name }}</span>
                                     </div>
@@ -878,11 +1021,34 @@ const playerFaction = (id: number | null): string | null => {
                                         variant="outline"
                                         size="sm"
                                         class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
-                                        :disabled="submitting"
+                                        :disabled="submitting || !canAutoPair(round)"
+                                        :title="!canAutoPair(round) ? (tournament.status !== 'active' ? 'Tournament must be active' : 'Previous round must be completed') : ''"
                                         @click="generatePairings(round.id)"
                                     >
                                         <Loader2 v-if="submitting" class="size-3 animate-spin" />
                                         {{ round.games.length ? 'Re-Pair' : 'Auto Pair' }}
+                                    </Button>
+                                    <Button
+                                        v-if="canStartRound(round)"
+                                        size="sm"
+                                        class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                        :disabled="submitting"
+                                        @click="startRound(round.id)"
+                                    >
+                                        <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                        Start Round
+                                    </Button>
+                                    <Button
+                                        v-if="round.status === 'in_progress'"
+                                        size="sm"
+                                        class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                        :class="canEndRound(round) ? '' : 'opacity-50'"
+                                        :disabled="submitting || !canEndRound(round)"
+                                        :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
+                                        @click="endRound(round.id)"
+                                    >
+                                        <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                        End Round
                                     </Button>
                                     </div>
                                 </div>
@@ -970,8 +1136,14 @@ const playerFaction = (id: number | null): string | null => {
                                                     <span class="text-[10px] text-muted-foreground">-</span>
                                                     <span class="text-xs font-bold sm:text-sm">{{ game.player_two_vp ?? '-' }}</span>
                                                 </template>
-                                                <Button v-if="!game.is_bye" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="openScoreEdit(game)">
+                                                <Button v-if="!game.is_bye && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="openScoreEdit(game)">
                                                     {{ game.result === 'pending' ? 'Score' : 'Edit' }}
+                                                </Button>
+                                                <Button v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs" @click="openForfeitDialog(game)">
+                                                    Forfeit
+                                                </Button>
+                                                <Button v-if="game.is_forfeit && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="removeForfeit(game)">
+                                                    Undo
                                                 </Button>
                                                 <button v-if="round.status === 'setup'" class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" @click="removeGame(game.id)">
                                                     <X class="size-3" />
@@ -979,6 +1151,12 @@ const playerFaction = (id: number | null): string | null => {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Pending scores indicator -->
+                                <div v-if="round.status === 'in_progress' && round.games.length > 0 && !roundAllScored(round)" class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Loader2 class="size-3 animate-spin" />
+                                    {{ round.games.filter((g: any) => g.result === 'pending').length }} game(s) pending scores
                                 </div>
 
                                 <!-- Manual Pairing -->
@@ -1050,6 +1228,15 @@ const playerFaction = (id: number | null): string | null => {
                                         </NumberField>
                                     </div>
                                     <div class="space-y-1">
+                                        <Label class="text-xs">Encounter Type</Label>
+                                        <Select v-model="editEncounterType">
+                                            <SelectTrigger class="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="space-y-1">
                                         <Label class="text-xs">Planned Rounds</Label>
                                         <NumberField v-model="editPlannedRounds" :min="1" :max="7">
                                             <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
@@ -1061,10 +1248,6 @@ const playerFaction = (id: number | null): string | null => {
                                             <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
                                         </NumberField>
                                     </div>
-                                </div>
-                                <div class="flex items-center justify-between rounded-lg border p-3">
-                                    <Label class="cursor-pointer text-xs" @click="editIsPublic = !editIsPublic">Public Tournament</Label>
-                                    <Switch v-model="editIsPublic" />
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1105,7 +1288,7 @@ const playerFaction = (id: number | null): string | null => {
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Encounter Size</span>
-                                    <span>{{ tournament.encounter_size }}ss</span>
+                                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Planned Rounds</span>
@@ -1118,11 +1301,6 @@ const playerFaction = (id: number | null): string | null => {
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Season</span>
                                     <span>{{ tournament.season_label }}</span>
-                                </div>
-                                <div class="flex items-center justify-between">
-                                    <span class="text-muted-foreground">Public</span>
-                                    <Badge v-if="tournament.is_public" variant="outline" class="border-green-500/50 text-[10px] text-green-600">Yes</Badge>
-                                    <Badge v-else variant="outline" class="text-[10px]">No</Badge>
                                 </div>
                             </div>
 
@@ -1377,6 +1555,58 @@ const playerFaction = (id: number | null): string | null => {
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="confirmStatusDialog = false">Cancel</Button>
                 <Button @click="advanceStatus">Confirm</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Forfeit Dialog -->
+    <Dialog v-model:open="forfeitDialogOpen">
+        <DialogContent class="max-w-xs">
+            <DialogHeader>
+                <DialogTitle>Record Forfeit</DialogTitle>
+                <DialogDescription>Which player conceded?</DialogDescription>
+            </DialogHeader>
+            <div v-if="forfeitGame" class="space-y-2">
+                <button
+                    class="flex w-full items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-destructive/5"
+                    @click="submitForfeit(forfeitGame!.player_one_id)"
+                >
+                    <FactionLogo v-if="forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id)" :faction="(forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id))!" class-name="size-4 shrink-0" />
+                    <span class="font-medium">{{ playerName(forfeitGame.player_one_id) }}</span>
+                    <span class="ml-auto text-xs text-muted-foreground">conceded</span>
+                </button>
+                <button
+                    v-if="forfeitGame.player_two"
+                    class="flex w-full items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-destructive/5"
+                    @click="submitForfeit(forfeitGame!.player_two_id!)"
+                >
+                    <FactionLogo v-if="forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id)" :faction="(forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id))!" class-name="size-4 shrink-0" />
+                    <span class="font-medium">{{ playerName(forfeitGame.player_two_id) }}</span>
+                    <span class="ml-auto text-xs text-muted-foreground">conceded</span>
+                </button>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="forfeitDialogOpen = false">Cancel</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- RSVP → Player Faction Dialog -->
+    <Dialog v-model:open="rsvpPlayerDialogOpen">
+        <DialogContent class="max-w-xs">
+            <DialogHeader>
+                <DialogTitle>Register {{ rsvpPlayerTarget?.user?.name ?? 'Player' }}</DialogTitle>
+                <DialogDescription>Select a faction to register this player.</DialogDescription>
+            </DialogHeader>
+            <Select v-model="rsvpPlayerFaction">
+                <SelectTrigger class="h-9 text-sm"><SelectValue placeholder="Select Faction" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem v-for="(f, slug) in factions" :key="slug" :value="slug">{{ f.name }}</SelectItem>
+                </SelectContent>
+            </Select>
+            <DialogFooter>
+                <Button variant="outline" @click="rsvpPlayerDialogOpen = false">Cancel</Button>
+                <Button :disabled="!rsvpPlayerFaction || submitting" @click="confirmAddRsvpAsPlayer">Register</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

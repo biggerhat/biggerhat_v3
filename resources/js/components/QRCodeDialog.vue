@@ -27,6 +27,7 @@ watch(
             });
         }
     },
+    { immediate: true },
 );
 
 const linkCopied = ref(false);

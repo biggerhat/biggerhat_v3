@@ -126,14 +126,12 @@ class CharacterAdminController extends Controller
             'is_beta' => ['required', 'boolean'],
             'is_hidden' => ['required', 'boolean'],
             'summons' => ['nullable', 'array'],
-            'summons.*.slug' => ['sometimes', 'string'],
-            'summons.*.count' => ['sometimes', 'integer', 'min:1'],
+            'summons.*' => ['string'],
             'replaces_into' => ['nullable', 'array'],
-            'replaces_into.*.slug' => ['sometimes', 'string'],
-            'replaces_into.*.count' => ['sometimes', 'integer', 'min:1'],
+            'replaces_into.*' => ['string'],
             'replaces_on_death' => ['nullable', 'array'],
-            'replaces_on_death.*.slug' => ['sometimes', 'string'],
-            'replaces_on_death.*.count' => ['sometimes', 'integer', 'min:1'],
+            'replaces_on_death.*.slug' => ['required', 'string'],
+            'replaces_on_death.*.count' => ['required', 'integer', 'min:1'],
             'replaces_on_death.*.health' => ['nullable', 'integer', 'min:1'],
         ]);
 

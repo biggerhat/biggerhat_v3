@@ -2,10 +2,11 @@
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
-import { Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
+import { Maximize2, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
 export interface CrewUpgradeDisplay {
@@ -23,6 +24,7 @@ export interface CrewMemberDisplay {
     effective_cost?: number;
     category: string;
     front_image?: string | null;
+    back_image?: string | null;
 }
 
 defineProps<{
@@ -68,11 +70,18 @@ const categoryColor = (cat: string): string =>
 // Member card preview drawer
 const memberPreview = ref<CrewMemberDisplay | null>(null);
 const memberDrawerOpen = ref(false);
+const memberFullscreenOpen = ref(false);
+const memberFullscreenSide = ref<'front' | 'back'>('front');
 
 const openMemberPreview = (member: CrewMemberDisplay) => {
     if (!member.front_image) return;
     memberPreview.value = member;
     memberDrawerOpen.value = true;
+};
+
+const openMemberFullscreen = (side: 'front' | 'back') => {
+    memberFullscreenSide.value = side;
+    memberFullscreenOpen.value = true;
 };
 
 watch(memberDrawerOpen, (val) => {
@@ -169,18 +178,55 @@ watch(upgradeDrawerOpen, (val) => {
     <!-- Member Card Preview Drawer -->
     <Drawer v-model:open="memberDrawerOpen">
         <DrawerContent>
-            <div v-if="memberPreview" class="mx-auto w-full max-w-sm">
+            <div v-if="memberPreview" class="mx-auto w-full" :class="memberPreview.back_image ? 'max-w-2xl' : 'max-w-sm'">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ memberPreview.display_name }}</DrawerTitle>
                 </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2">
-                    <img
-                        :src="'/storage/' + memberPreview.front_image"
-                        :alt="memberPreview.display_name"
-                        loading="lazy"
-                        decoding="async"
-                        class="max-h-[55dvh] w-auto rounded-lg"
+                <!-- Mobile: flip card -->
+                <div
+                    class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 sm:hidden [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain"
+                >
+                    <UpgradeFlipCard
+                        :front-image="memberPreview.front_image!"
+                        :back-image="memberPreview.back_image"
+                        :alt-text="memberPreview.display_name"
+                        :show-link="false"
                     />
+                </div>
+                <!-- Desktop: side by side -->
+                <div class="hidden items-start justify-center gap-4 px-4 pb-2 sm:flex">
+                    <div class="relative">
+                        <img
+                            :src="'/storage/' + memberPreview.front_image"
+                            :alt="memberPreview.display_name + ' (front)'"
+                            loading="lazy"
+                            decoding="async"
+                            class="max-h-[55dvh] w-auto rounded-lg"
+                        />
+                        <button
+                            @click.stop="openMemberFullscreen('front')"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            title="View fullscreen"
+                        >
+                            <Maximize2 class="size-3.5" />
+                        </button>
+                    </div>
+                    <div v-if="memberPreview.back_image" class="relative">
+                        <img
+                            :src="'/storage/' + memberPreview.back_image"
+                            :alt="memberPreview.display_name + ' (back)'"
+                            loading="lazy"
+                            decoding="async"
+                            class="max-h-[55dvh] w-auto rounded-lg"
+                        />
+                        <button
+                            @click.stop="openMemberFullscreen('back')"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            title="View fullscreen"
+                        >
+                            <Maximize2 class="size-3.5" />
+                        </button>
+                    </div>
                 </div>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
@@ -190,6 +236,22 @@ watch(upgradeDrawerOpen, (val) => {
             </div>
         </DrawerContent>
     </Drawer>
+
+    <!-- Member Fullscreen Dialog -->
+    <Dialog v-model:open="memberFullscreenOpen">
+        <DialogContent class="max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
+            <DialogTitle class="sr-only">{{ memberPreview?.display_name }} ({{ memberFullscreenSide }})</DialogTitle>
+            <div v-if="memberPreview" class="flex items-center justify-center">
+                <img
+                    :src="'/storage/' + (memberFullscreenSide === 'back' ? memberPreview.back_image : memberPreview.front_image)"
+                    :alt="memberPreview.display_name"
+                    loading="lazy"
+                    decoding="async"
+                    class="max-h-[90dvh] w-auto rounded-lg object-contain"
+                />
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <!-- Upgrade Preview Drawer -->
     <Drawer v-model:open="upgradeDrawerOpen">

@@ -3107,23 +3107,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="upgrade in myCrewUpgrades"
                                 :key="upgrade.id"
-                                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors"
+                                class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm transition-colors"
                                 :class="[
                                     myActiveUpgradeId === upgrade.id ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30 opacity-60',
                                     upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
-                                <Star class="size-3 shrink-0" :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
+                                <Star class="size-3.5 shrink-0" :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
                                 <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                 <button
                                     v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
-                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
                                     @click.stop="swapCrewUpgrade(upgrade.id)"
                                 >
                                     Activate
                                 </button>
-                                <Badge v-if="myActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
+                                <Badge v-if="myActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3150,7 +3150,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                 <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                             </template>
-                                            <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline sm:text-base" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
                                         <!-- Mobile action buttons -->
                                         <div v-if="!isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
@@ -3166,7 +3166,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2 pl-8 sm:pl-6">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                                                 <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
                                                 <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
                                                 <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
@@ -3175,24 +3175,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <div
                                                     v-for="pip in member.max_health"
                                                     :key="'hp-' + pip"
-                                                    class="size-2 rounded-sm"
+                                                    class="size-2.5 rounded-sm"
                                                     :class="pip <= member.current_health
                                                         ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
                                                         : 'bg-black/30 ring-1 ring-inset ring-white/10'"
                                                 />
                                             </div>
                                             <template v-if="!isObserver">
-                                                <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-0.5">
+                                                <div class="ml-auto flex shrink-0 items-center gap-0.5">
                                                     <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, -1)"><Minus class="size-4 sm:size-3.5" /></button>
-                                                    <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                                        <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                    <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
+                                                        <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                                         {{ member.current_health }}/{{ member.max_health }}
                                                     </span>
                                                     <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, 1)"><Plus class="size-4 sm:size-3.5" /></button>
                                                 </div>
                                             </template>
-                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-xs font-bold">
-                                                <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-sm font-bold">
+                                                <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                                 {{ member.current_health }}/{{ member.max_health }}
                                             </span>
                                         </div>
@@ -3204,12 +3204,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         v-for="token in member.attached_tokens"
                                         :key="token.id"
                                         variant="secondary"
-                                        class="group cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
+                                        class="group cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
                                         @click="openTokenInfo(token.id, member)"
                                     >
                                         {{ token.name }}
-                                        <button v-if="!isObserver" class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
-                                            <Minus class="size-2.5" />
+                                        <button v-if="!isObserver" class="ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
+                                            <X class="size-2.5" />
                                         </button>
                                     </Badge>
                                 </div>
@@ -3218,14 +3218,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'au-' + upgrade.id"
-                                        class="flex items-center gap-1.5 rounded bg-black/20 px-1.5 py-0.5 text-[10px]"
+                                        class="flex items-center gap-1.5 rounded bg-black/20 px-2 py-1 text-sm"
                                         :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
                                         @click="openAttachedUpgradePreview(upgrade)"
                                     >
-                                        <ArrowUpCircle class="size-2.5 shrink-0 text-amber-300" />
+                                        <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
                                         <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                                         <button v-if="!isObserver" class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
-                                            <X class="size-2.5" />
+                                            <X class="size-3" />
                                         </button>
                                     </div>
                                 </div>
@@ -3233,10 +3233,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in myKilledMembers"
                                 :key="'killed-' + member.id"
-                                class="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-through opacity-50"
+                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through opacity-60"
                             >
                                 <span class="cursor-pointer hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
-                                <button v-if="!isObserver" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3" /></button>
+                                <button v-if="!isObserver" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3.5" /></button>
                             </div>
                         </div>
                         <Button v-if="!isObserver" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(1)">
@@ -3298,23 +3298,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="upgrade in opponentCrewUpgrades"
                                 :key="upgrade.id"
-                                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors"
+                                class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm transition-colors"
                                 :class="[
                                     opponentActiveUpgradeId === upgrade.id ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30 opacity-60',
                                     upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
-                                <Star class="size-3 shrink-0" :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
+                                <Star class="size-3.5 shrink-0" :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
                                 <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                 <button
                                     v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
-                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
                                     @click.stop="swapCrewUpgrade(upgrade.id, 2)"
                                 >
                                     Activate
                                 </button>
-                                <Badge v-if="opponentActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400">Active</Badge>
+                                <Badge v-if="opponentActiveUpgradeId === upgrade.id" variant="outline" class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400">Active</Badge>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -3342,7 +3342,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                                 <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                             </template>
-                                            <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
+                                            <span class="cursor-pointer truncate text-sm font-semibold hover:underline sm:text-base" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
                                         <!-- Mobile action buttons -->
                                         <div v-if="isSolo && !isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
@@ -3358,7 +3358,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Stats + Health pips row -->
                                         <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-8 sm:pl-6' : 'pl-5'">
-                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
+                                            <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                                                 <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
                                                 <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
                                                 <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-3.5" />{{ member.speed }}</span>
@@ -3367,23 +3367,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <div
                                                     v-for="pip in member.max_health"
                                                     :key="'ohp-' + pip"
-                                                    class="size-2 rounded-sm"
+                                                    class="size-2.5 rounded-sm"
                                                     :class="pip <= member.current_health
                                                         ? (member.current_health <= Math.ceil(member.max_health / 2) ? 'bg-red-400/90' : 'bg-white/60')
                                                         : 'bg-black/30 ring-1 ring-inset ring-white/10'"
                                                 />
                                             </div>
-                                            <!-- Solo: full health controls; Normal/Observer: read-only -->
-                                            <div v-if="isSolo && !isObserver" class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-0.5">
-                                                <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, -1)"><Minus class="size-4 sm:size-3.5" /></button>
-                                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                                    <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                                                    {{ member.current_health }}/{{ member.max_health }}
-                                                </span>
-                                                <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, 1)"><Plus class="size-4 sm:size-3.5" /></button>
-                                            </div>
-                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-xs font-bold">
-                                                <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                            <template v-if="isSolo && !isObserver">
+                                                <div class="ml-auto flex shrink-0 items-center gap-0.5">
+                                                    <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, -1)"><Minus class="size-4 sm:size-3.5" /></button>
+                                                    <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
+                                                        <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                        {{ member.current_health }}/{{ member.max_health }}
+                                                    </span>
+                                                    <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, 1)"><Plus class="size-4 sm:size-3.5" /></button>
+                                                </div>
+                                            </template>
+                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-sm font-bold">
+                                                <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                                 {{ member.current_health }}/{{ member.max_health }}
                                             </span>
                                         </div>
@@ -3395,12 +3396,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         v-for="token in member.attached_tokens"
                                         :key="token.id"
                                         variant="secondary"
-                                        class="cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
+                                        class="cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
                                         @click="openTokenInfo(token.id, member)"
                                     >
                                         {{ token.name }}
-                                        <button v-if="isSolo && !isObserver" class="ml-0.5 rounded-full text-cyan-300/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
-                                            <Minus class="size-2.5" />
+                                        <button v-if="isSolo && !isObserver" class="ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white" @click.stop="quickRemoveToken(member, token.id)">
+                                            <X class="size-2.5" />
                                         </button>
                                     </Badge>
                                 </div>
@@ -3409,14 +3410,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'oau-' + upgrade.id"
-                                        class="flex items-center gap-1.5 rounded bg-black/20 px-1.5 py-0.5 text-[10px]"
+                                        class="flex items-center gap-1.5 rounded bg-black/20 px-2 py-1 text-sm"
                                         :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
                                         @click="openAttachedUpgradePreview(upgrade)"
                                     >
-                                        <ArrowUpCircle class="size-2.5 shrink-0 text-amber-300" />
+                                        <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
                                         <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                        <button v-if="isSolo && !isObserver" class="shrink-0 rounded-full text-red-300/60 hover:text-red-300" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
-                                            <Minus class="size-2.5" />
+                                        <button v-if="isSolo && !isObserver" class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white" @click.stop="quickRemoveUpgrade(member, upgrade.id)">
+                                            <X class="size-3" />
                                         </button>
                                     </div>
                                 </div>
@@ -3424,10 +3425,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in opponentKilledMembers"
                                 :key="'killed-' + member.id"
-                                class="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-through opacity-50"
+                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through opacity-60"
                             >
                                 <span class="cursor-pointer hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</span>
-                                <button v-if="isSolo && !isObserver" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3" /></button>
+                                <button v-if="isSolo && !isObserver" class="rounded p-0.5 text-green-600 hover:bg-green-500/20" @click="reviveMember(member)"><RotateCcw class="size-3.5" /></button>
                             </div>
                         </div>
                         <!-- Solo: summon for opponent -->
@@ -3775,14 +3776,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div
                                     v-for="upgrade in player.master.crew_upgrades"
                                     :key="'fu-' + upgrade.id"
-                                    class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+                                    class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm"
                                     :class="[
                                         player.crew_build?.crew_upgrade_id === upgrade.id ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30 opacity-60',
                                         upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
                                     ]"
                                     @click="openUpgradePreview(upgrade)"
                                 >
-                                    <Star class="size-3 shrink-0" :class="player.crew_build?.crew_upgrade_id === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
+                                    <Star class="size-3.5 shrink-0" :class="player.crew_build?.crew_upgrade_id === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
                                     <span class="font-semibold">{{ upgrade.name }}</span>
                                 </div>
                             </div>

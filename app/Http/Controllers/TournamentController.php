@@ -136,6 +136,9 @@ class TournamentController extends Controller
             ];
         }
 
+        // Unset loaded rounds/rsvps to avoid double-serializing with the custom roundsData
+        $tournament->unsetRelation('rounds');
+
         return inertia('Tournaments/View', [
             'tournament' => $tournament,
             'rounds' => $roundsData,

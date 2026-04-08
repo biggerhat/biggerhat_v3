@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BlogContent from '@/components/blog/BlogContent.vue';
+import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewListDisplay, { type CrewMemberDisplay, type CrewUpgradeDisplay } from '@/components/CrewListDisplay.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -95,6 +96,7 @@ interface BuildData {
     encounter_size: number;
     crew_data: number[];
     crew_upgrade_id: number | null;
+    miniature_selections: Record<string, number | number[]> | null;
     is_public: boolean;
     user_id: number | null;
     user_name: string | null;
@@ -168,6 +170,7 @@ const crewMembersForDisplay = computed((): CrewMemberDisplay[] =>
         effective_cost: m.effectiveCost,
         category: m.hiringCategory,
         front_image: m.miniature?.front_image ?? m.character.miniatures?.[0]?.front_image ?? null,
+        back_image: m.miniature?.back_image ?? m.character.miniatures?.[0]?.back_image ?? null,
     })),
 );
 
@@ -190,6 +193,26 @@ const soulstonePool = computed(() => {
     return r > 6 ? 6 : Math.max(0, r);
 });
 const ookCount = computed(() => crew.value.filter((m) => m.hiringCategory === 'ook').length);
+
+// ─── References ───
+const references = ref<any>(null);
+const referencesLoading = ref(false);
+
+const fetchReferences = async () => {
+    if (crew.value.length === 0) return;
+    referencesLoading.value = true;
+    try {
+        const ids = [...new Set(crew.value.map((m) => m.character.id))];
+        const params = new URLSearchParams();
+        ids.forEach((id) => params.append('ids[]', String(id)));
+        const res = await fetch(route('tools.crew_builder.references') + '?' + params.toString());
+        if (res.ok) references.value = await res.json();
+    } catch {
+        // silently fail
+    } finally {
+        referencesLoading.value = false;
+    }
+};
 
 // ─── Crew Stats ───
 const crewStats = computed(() => {
@@ -216,9 +239,21 @@ const crewStats = computed(() => {
 });
 
 // ─── Miniature assignment ───
-const getNextMiniature = (character: CharacterData): MiniatureData | null => {
+const miniatureSelections = computed(() => props.build.miniature_selections ?? {});
+
+const getSelectedMiniature = (character: CharacterData): MiniatureData | null => {
     const miniatures = character.miniatures ?? [];
     if (miniatures.length === 0) return null;
+
+    const sel = miniatureSelections.value[String(character.id)];
+    if (sel != null) {
+        const selIds = Array.isArray(sel) ? sel : [sel];
+        const usedCount = crew.value.filter((m) => m.character.id === character.id && m.miniature).length;
+        const targetId = selIds[usedCount] ?? selIds[selIds.length - 1];
+        const found = miniatures.find((m) => m.id === targetId);
+        if (found) return found;
+    }
+
     const usedMiniatureIds = new Set(crew.value.filter((m) => m.character.id === character.id && m.miniature).map((m) => m.miniature!.id));
     return miniatures.find((m) => !usedMiniatureIds.has(m.id)) ?? miniatures[0];
 };
@@ -288,7 +323,7 @@ const rebuildCrew = () => {
     for (let i = 0; i < (master.value.count || 1); i++) {
         crew.value.push({
             character: master.value,
-            miniature: getNextMiniature(master.value),
+            miniature: getSelectedMiniature(master.value),
             isTotem: false,
             effectiveCost: 0,
             hiringCategory: 'leader',
@@ -299,7 +334,7 @@ const rebuildCrew = () => {
         const totem = characterById.value.get(master.value.has_totem_id);
         if (totem) {
             for (let i = 0; i < (totem.count || 1); i++) {
-                crew.value.push({ character: totem, miniature: getNextMiniature(totem), isTotem: true, effectiveCost: 0, hiringCategory: 'totem' });
+                crew.value.push({ character: totem, miniature: getSelectedMiniature(totem), isTotem: true, effectiveCost: 0, hiringCategory: 'totem' });
             }
         }
     }
@@ -315,7 +350,7 @@ const rebuildCrew = () => {
             for (let i = 0; i < (char.count || 1); i++) {
                 crew.value.push({
                     character: char,
-                    miniature: getNextMiniature(char),
+                    miniature: getSelectedMiniature(char),
                     isTotem: false,
                     effectiveCost: char.cost ?? 0,
                     hiringCategory: 'fixed-crew',
@@ -337,7 +372,7 @@ const rebuildCrew = () => {
                 if (requiredIds.has(character.id)) {
                     crew.value.push({
                         character,
-                        miniature: getNextMiniature(character),
+                        miniature: getSelectedMiniature(character),
                         isTotem: false,
                         effectiveCost: character.cost,
                         hiringCategory: 'required',
@@ -346,7 +381,7 @@ const rebuildCrew = () => {
                     const cat = getHiringCategory(character);
                     crew.value.push({
                         character,
-                        miniature: getNextMiniature(character),
+                        miniature: getSelectedMiniature(character),
                         isTotem: false,
                         effectiveCost: cat === 'ook' ? character.cost + 1 : character.cost,
                         hiringCategory: cat,
@@ -357,7 +392,10 @@ const rebuildCrew = () => {
     }
 };
 
-onMounted(rebuildCrew);
+onMounted(() => {
+    rebuildCrew();
+    fetchReferences();
+});
 </script>
 
 <template>
@@ -503,6 +541,11 @@ onMounted(rebuildCrew);
                         <CrewListDisplay
                             :members="crewMembersForDisplay"
                             :crew-upgrades="crewUpgradesForDisplay"
+                        />
+
+                        <CrewBuilderReferences
+                            :references="references"
+                            :loading="referencesLoading"
                         />
 
                         <Separator class="my-4" />

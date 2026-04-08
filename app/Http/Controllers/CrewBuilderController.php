@@ -485,6 +485,7 @@ class CrewBuilderController extends Controller
                 'encounter_size' => $build->encounter_size,
                 'crew_data' => $build->crew_data,
                 'custom_crew_data' => $build->custom_crew_data,
+                'miniature_selections' => $build->miniature_selections,
                 'crew_upgrade_id' => $build->crew_upgrade_id,
                 'is_public' => $build->is_public,
                 'user_id' => $build->user_id,

@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router } from '@inertiajs/vue3';
 import { ArrowLeft, Trophy } from 'lucide-vue-next';
@@ -14,6 +13,7 @@ import { ref } from 'vue';
 
 defineProps<{
     seasons: { value: string; label: string }[];
+    encounter_types: { value: string; label: string }[];
 }>();
 
 const name = ref('');
@@ -21,10 +21,10 @@ const description = ref('');
 const eventDate = ref('');
 const location = ref('');
 const encounterSize = ref(50);
+const encounterType = ref('traditional');
 const plannedRounds = ref(3);
 const season = ref('core');
 const roundTimeLimit = ref(135);
-const isPublic = ref(false);
 
 const submit = () => {
     router.post(route('tournaments.store'), {
@@ -33,10 +33,10 @@ const submit = () => {
         event_date: eventDate.value,
         location: location.value || null,
         encounter_size: encounterSize.value,
+        encounter_type: encounterType.value,
         planned_rounds: plannedRounds.value,
         season: season.value,
         round_time_limit: roundTimeLimit.value,
-        is_public: isPublic.value,
     });
 };
 </script>
@@ -117,6 +117,16 @@ const submit = () => {
                             </div>
                         </div>
 
+                        <div class="space-y-2">
+                            <Label>Encounter Type</Label>
+                            <Select v-model="encounterType">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
                                 <Label>Season</Label>
@@ -138,14 +148,6 @@ const submit = () => {
                                 </NumberField>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="flex items-center justify-between rounded-lg border p-3">
-                        <div>
-                            <Label class="cursor-pointer" @click="isPublic = !isPublic">Public Tournament</Label>
-                            <p class="text-xs text-muted-foreground">Allow anyone to view standings</p>
-                        </div>
-                        <Switch v-model="isPublic" />
                     </div>
 
                     <Button class="w-full" :disabled="!name || !eventDate" @click="submit">

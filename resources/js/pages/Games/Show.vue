@@ -3138,13 +3138,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1">
                                             <template v-if="!isObserver">
-                                                <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)" :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'">
-                                                    <Check v-if="member.is_activated" class="size-3.5 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                                    <Circle v-else class="size-3.5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                                <button class="shrink-0 rounded p-1.5 hover:bg-white/20 sm:p-0.5" @click="toggleActivated(member)" :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'">
+                                                    <Check v-if="member.is_activated" class="size-4 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
+                                                    <Circle v-else class="size-4 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                                                 </button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50 sm:inline-flex" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50 sm:inline-flex" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
@@ -3152,8 +3152,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </template>
                                             <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
+                                        <!-- Mobile action buttons -->
+                                        <div v-if="!isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50" @click.stop="openUpgradeDialog(member)">
+                                                <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                            </button>
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50" @click.stop="openTokenDialog(member)">
+                                                <Puzzle class="size-3.5" /><span class="text-[10px] font-medium">Tokens</span>
+                                            </button>
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50" @click.stop="openReplace(member)">
+                                                <Replace class="size-3.5" /><span class="text-[10px] font-medium">Replace</span>
+                                            </button>
+                                        </div>
                                         <!-- Stats + Health pips row -->
-                                        <div class="mt-0.5 flex items-center gap-2 pl-6">
+                                        <div class="mt-0.5 flex items-center gap-2 pl-8 sm:pl-6">
                                             <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
                                                 <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
                                                 <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
@@ -3169,23 +3181,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         : 'bg-black/30 ring-1 ring-inset ring-white/10'"
                                                 />
                                             </div>
-                                        </div>
-                                    </div>
-                                    <template v-if="!isObserver">
-                                        <div class="flex shrink-0 items-center gap-0.5">
-                                            <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3.5" /></button>
-                                            <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
+                                            <template v-if="!isObserver">
+                                                <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-0.5">
+                                                    <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, -1)"><Minus class="size-4 sm:size-3.5" /></button>
+                                                    <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
+                                                        <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                        {{ member.current_health }}/{{ member.max_health }}
+                                                    </span>
+                                                    <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, 1)"><Plus class="size-4 sm:size-3.5" /></button>
+                                                </div>
+                                            </template>
+                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-xs font-bold">
                                                 <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                                                 {{ member.current_health }}/{{ member.max_health }}
                                             </span>
-                                            <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3.5" /></button>
-                                            <button class="ml-0.5 rounded bg-black/30 p-1 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3.5" /></button>
                                         </div>
-                                    </template>
-                                    <span v-else class="flex shrink-0 min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                        <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                                        {{ member.current_health }}/{{ member.max_health }}
-                                    </span>
+                                    </div>
                                 </div>
                                 <!-- Token badges -->
                                 <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">
@@ -3319,13 +3330,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div class="flex items-center gap-1">
                                             <!-- Solo: full activation toggle; Normal/Observer: read-only indicator -->
                                             <template v-if="isSolo && !isObserver">
-                                                <button class="shrink-0 rounded p-0.5 hover:bg-white/20" @click="toggleActivated(member)">
-                                                    <Check v-if="member.is_activated" class="size-3.5 text-green-300" />
-                                                    <Circle v-else class="size-3.5 text-white/30" />
+                                                <button class="shrink-0 rounded p-1.5 hover:bg-white/20 sm:p-0.5" @click="toggleActivated(member)">
+                                                    <Check v-if="member.is_activated" class="size-4 text-green-300 sm:size-3.5" />
+                                                    <Circle v-else class="size-4 text-white/30 sm:size-3.5" />
                                                 </button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
-                                                <button class="shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50 sm:inline-flex" title="Upgrades" @click.stop="openUpgradeDialog(member)"><ArrowUpCircle class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex" title="Tokens" @click.stop="openTokenDialog(member)"><Puzzle class="size-3.5" /></button>
+                                                <button class="hidden shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50 sm:inline-flex" title="Replace" @click.stop="openReplace(member)"><Replace class="size-3.5" /></button>
                                             </template>
                                             <template v-else>
                                                 <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
@@ -3333,8 +3344,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             </template>
                                             <span class="cursor-pointer truncate text-xs font-semibold hover:underline sm:text-sm" @click="openMemberPreview(member)">{{ member.display_name }}</span>
                                         </div>
+                                        <!-- Mobile action buttons -->
+                                        <div v-if="isSolo && !isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50" @click.stop="openUpgradeDialog(member)">
+                                                <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                            </button>
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50" @click.stop="openTokenDialog(member)">
+                                                <Puzzle class="size-3.5" /><span class="text-[10px] font-medium">Tokens</span>
+                                            </button>
+                                            <button class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50" @click.stop="openReplace(member)">
+                                                <Replace class="size-3.5" /><span class="text-[10px] font-medium">Replace</span>
+                                            </button>
+                                        </div>
                                         <!-- Stats + Health pips row -->
-                                        <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-6' : 'pl-5'">
+                                        <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-8 sm:pl-6' : 'pl-5'">
                                             <div v-if="member.defense || member.willpower || member.speed" class="flex gap-1.5 text-[11px] font-medium text-white/80">
                                                 <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-3.5" />{{ member.defense }}</span>
                                                 <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-3.5" />{{ member.willpower }}</span>
@@ -3350,22 +3373,21 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         : 'bg-black/30 ring-1 ring-inset ring-white/10'"
                                                 />
                                             </div>
+                                            <!-- Solo: full health controls; Normal/Observer: read-only -->
+                                            <div v-if="isSolo && !isObserver" class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-0.5">
+                                                <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, -1)"><Minus class="size-4 sm:size-3.5" /></button>
+                                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
+                                                    <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                    {{ member.current_health }}/{{ member.max_health }}
+                                                </span>
+                                                <button class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateHealth(member, 1)"><Plus class="size-4 sm:size-3.5" /></button>
+                                            </div>
+                                            <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-xs font-bold">
+                                                <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                                                {{ member.current_health }}/{{ member.max_health }}
+                                            </span>
                                         </div>
                                     </div>
-                                    <!-- Solo: full health controls; Normal/Observer: read-only -->
-                                    <div v-if="isSolo && !isObserver" class="flex shrink-0 items-center gap-0.5">
-                                        <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, -1)"><Minus class="size-3.5" /></button>
-                                        <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                            <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                                            {{ member.current_health }}/{{ member.max_health }}
-                                        </span>
-                                        <button class="rounded bg-black/20 p-1 hover:bg-black/40" @click="updateHealth(member, 1)"><Plus class="size-3.5" /></button>
-                                        <button class="ml-0.5 rounded bg-black/30 p-1 text-red-300 hover:bg-black/50" @click="killMember(member)"><Skull class="size-3.5" /></button>
-                                    </div>
-                                    <span v-else class="flex shrink-0 min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                        <Heart class="size-3" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                                        {{ member.current_health }}/{{ member.max_health }}
-                                    </span>
                                 </div>
                                 <!-- Token badges -->
                                 <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">

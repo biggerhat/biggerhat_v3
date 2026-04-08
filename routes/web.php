@@ -314,12 +314,15 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->group(fu
     Route::delete('/{tournament}/organizers/{userId}', [TournamentController::class, 'removeOrganizer'])->name('organizers.remove');
 
     // Players
+    Route::post('/{tournament}/rsvp', [TournamentController::class, 'rsvp'])->name('rsvp');
+    Route::delete('/{tournament}/rsvp', [TournamentController::class, 'cancelRsvp'])->name('rsvp.cancel');
     Route::post('/{tournament}/players', [TournamentController::class, 'addPlayer'])->name('players.add');
     Route::put('/{tournament}/players/{player}', [TournamentController::class, 'updatePlayer'])->name('players.update');
     Route::delete('/{tournament}/players/{player}', [TournamentController::class, 'removePlayer'])->name('players.remove');
 
     // Rounds
     Route::post('/{tournament}/rounds', [TournamentController::class, 'createRound'])->name('rounds.create');
+    Route::post('/{tournament}/rounds/generate-all', [TournamentController::class, 'generateAllRounds'])->name('rounds.generate_all');
     Route::put('/{tournament}/rounds/{round}', [TournamentController::class, 'updateRound'])->name('rounds.update');
     Route::post('/{tournament}/rounds/{round}/pair', [TournamentController::class, 'generatePairings'])->name('rounds.pair');
     Route::post('/{tournament}/rounds/{round}/randomize', [TournamentController::class, 'randomizeRoundScenario'])->name('rounds.randomize');

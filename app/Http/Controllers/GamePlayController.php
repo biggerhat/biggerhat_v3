@@ -278,8 +278,8 @@ class GamePlayController extends Controller
             'station' => $character->station?->value,
             'front_image' => $miniature?->front_image,
             'back_image' => $miniature?->back_image,
-            'attached_upgrades' => [],
-            'attached_tokens' => [],
+            'attached_upgrades' => $gameCrewMember->attached_upgrades ?? [],
+            'attached_tokens' => $gameCrewMember->attached_tokens ?? [],
             'attached_markers' => [],
         ]);
 

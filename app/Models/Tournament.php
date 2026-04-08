@@ -27,6 +27,7 @@ class Tournament extends Model
         return [
             'status' => TournamentStatusEnum::class,
             'season' => PoolSeasonEnum::class,
+            'encounter_type' => \App\Enums\EncounterTypeEnum::class,
             'is_public' => 'boolean',
             'event_date' => 'date',
         ];
@@ -64,6 +65,11 @@ class Tournament extends Model
     public function organizers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'tournament_organizers');
+    }
+
+    public function rsvps(): HasMany
+    {
+        return $this->hasMany(TournamentRsvp::class);
     }
 
     public function players(): HasMany

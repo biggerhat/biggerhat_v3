@@ -1872,7 +1872,7 @@ onUnmounted(() => {
                             <Card v-for="build in activeBuilds" :key="build.id" class="group transition-colors hover:bg-accent/30">
                                 <CardContent class="p-4">
                                     <div class="flex items-start gap-3">
-                                        <img v-if="factions[build.faction]" :src="factions[build.faction].logo" class="mt-0.5 size-8 shrink-0" />
+                                        <img v-if="factions[build.faction]" :src="factions[build.faction].logo" :alt="factions[build.faction].name + ' logo'" class="mt-0.5 size-8 shrink-0" />
                                         <div class="min-w-0 flex-1">
                                             <div class="truncate font-semibold">{{ build.name }}</div>
                                             <div class="text-xs text-muted-foreground">

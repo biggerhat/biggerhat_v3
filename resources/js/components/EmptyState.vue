@@ -17,5 +17,6 @@ withDefaults(defineProps<Props>(), {
         <SearchX class="mb-3 size-10 opacity-50" />
         <p class="text-sm font-medium">{{ title }}</p>
         <p class="mt-1 text-xs">{{ description }}</p>
+        <slot />
     </div>
 </template>

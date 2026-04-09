@@ -42,10 +42,11 @@ function toggleDialog() {
         </div>
         <div class="ml-auto">
             <div class="mx-auto">
-                <Search @click="toggleDialog" class="inline-block cursor-pointer" /><Dice6
-                    class="ml-2 inline-block cursor-pointer"
+                <button aria-label="Search" @click="toggleDialog"><Search class="inline-block" /></button><button
+                    aria-label="Random character"
+                    class="ml-2"
                     @click="router.get(route('characters.random'))"
-                />
+                ><Dice6 class="inline-block" /></button>
             </div>
         </div>
     </header>

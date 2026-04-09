@@ -54,18 +54,22 @@ class SearchController extends Controller
         $hasAbilityFilter = $this->anyFilled($request, $abilityFilterKeys);
 
         // Resolve token/marker names once — reused by both character and upgrade queries
-        $tokenName = null;
-        $tokenSlug = null;
+        $tokenEntries = [];
         if ($request->filled('token')) {
-            $tokenSlug = $request->get('token');
-            $tokenName = Token::where('slug', $tokenSlug)->value('name');
+            $slugs = array_filter(explode(',', $request->get('token')));
+            $tokens = Token::whereIn('slug', $slugs)->get(['slug', 'name']);
+            foreach ($tokens as $t) {
+                $tokenEntries[] = ['slug' => $t->slug, 'name' => $t->name];
+            }
         }
 
-        $markerName = null;
-        $markerSlug = null;
+        $markerEntries = [];
         if ($request->filled('marker')) {
-            $markerSlug = $request->get('marker');
-            $markerName = Marker::where('slug', $markerSlug)->value('name');
+            $slugs = array_filter(explode(',', $request->get('marker')));
+            $markers = Marker::whereIn('slug', $slugs)->get(['slug', 'name']);
+            foreach ($markers as $m) {
+                $markerEntries[] = ['slug' => $m->slug, 'name' => $m->name];
+            }
         }
 
         // --- Character filters ---
@@ -105,7 +109,7 @@ class SearchController extends Controller
             $query->where('willpower_suit', $request->get('willpower_suit'));
         }
 
-        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size'] as $field) {
+        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'] as $field) {
             if ($request->filled("{$field}_min")) {
                 $query->where($field, '>=', (int) $request->get("{$field}_min"));
             }
@@ -115,33 +119,123 @@ class SearchController extends Controller
         }
 
         if ($request->filled('keyword')) {
-            $query->whereHas('keywords', fn ($q) => $q->where('slug', $request->get('keyword')));
+            $keywords = array_filter(explode(',', $request->get('keyword')));
+            if ($request->get('keyword_logic') === 'or') {
+                $query->whereHas('keywords', fn ($q) => $q->whereIn('slug', $keywords));
+            } else {
+                foreach ($keywords as $kw) {
+                    $query->whereHas('keywords', fn ($q) => $q->where('slug', $kw));
+                }
+            }
+        }
+
+        if ($request->filled('keyword_exclude')) {
+            $excluded = array_filter(explode(',', $request->get('keyword_exclude')));
+            $query->whereDoesntHave('keywords', fn ($q) => $q->whereIn('slug', $excluded));
         }
 
         if ($request->filled('characteristic')) {
-            $query->whereHas('characteristics', fn ($q) => $q->where('slug', $request->get('characteristic')));
+            $characteristics = array_filter(explode(',', $request->get('characteristic')));
+            if ($request->get('characteristic_logic') === 'or') {
+                $query->whereHas('characteristics', fn ($q) => $q->whereIn('slug', $characteristics));
+            } else {
+                foreach ($characteristics as $ch) {
+                    $query->whereHas('characteristics', fn ($q) => $q->where('slug', $ch));
+                }
+            }
+        }
+
+        if ($request->filled('characteristic_exclude')) {
+            $excluded = array_filter(explode(',', $request->get('characteristic_exclude')));
+            $query->whereDoesntHave('characteristics', fn ($q) => $q->whereIn('slug', $excluded));
+        }
+
+        if ($request->filled('faction_exclude')) {
+            $excluded = array_filter(explode(',', $request->get('faction_exclude')));
+            $query->whereNotIn('faction', $excluded)
+                ->where(fn ($q) => $q->whereNull('second_faction')->orWhereNotIn('second_faction', $excluded));
+        }
+
+        if ($request->filled('second_faction')) {
+            $secondFactions = array_filter(explode(',', $request->get('second_faction')));
+            if ($secondFactions) {
+                $query->whereIn('second_faction', $secondFactions);
+            }
+        }
+
+        // Boolean "is:" filters
+        if ($request->filled('is')) {
+            foreach (array_filter(explode(',', $request->get('is'))) as $isFilter) {
+                match ($isFilter) {
+                    'dual' => $query->whereNotNull('second_faction'),
+                    'totem' => $query->whereExists(function ($sq) {
+                        $sq->select(\DB::raw(1))->from('characters as c2')->whereColumn('c2.has_totem_id', 'characters.id');
+                    }),
+                    'versatile' => $query->whereHas('characteristics', fn ($q) => $q->where('slug', 'versatile')),
+                    'beta' => $query->where('is_beta', true),
+                    'unhirable' => $query->where('is_unhirable', true),
+                    default => null,
+                };
+            }
+        }
+
+        // Boolean "has:" filters
+        if ($request->filled('has')) {
+            foreach (array_filter(explode(',', $request->get('has'))) as $hasFilter) {
+                match ($hasFilter) {
+                    'totem' => $query->whereNotNull('has_totem_id'),
+                    'trigger' => $query->whereHas('actions', fn ($q) => $q->whereHas('triggers')),
+                    'ability' => $query->whereHas('abilities'),
+                    'action' => $query->whereHas('actions'),
+                    'keyword' => $query->whereHas('keywords'),
+                    'summon' => $query->whereHas('summons'),
+                    default => null,
+                };
+            }
+        }
+
+        // Stat comparison: defense>willpower, health>=cost, etc.
+        if ($request->filled('stat_compare')) {
+            $validStats = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'];
+            foreach (array_filter(explode(',', $request->get('stat_compare'))) as $comparison) {
+                if (preg_match('/^(\w+)(>=|<=|>|<|=)(\w+)$/', $comparison, $m)) {
+                    if (in_array($m[1], $validStats) && in_array($m[3], $validStats)) {
+                        $query->whereColumn($m[1], $m[2], $m[3]);
+                    }
+                }
+            }
         }
 
         if ($hasActionFilter) {
-            $query->whereHas('actions', fn ($q) => $this->applyActionFilters($q, $request));
+            $this->applyActionFilterGroup($query, $request);
         }
 
         if ($hasAbilityFilter) {
-            $query->whereHas('abilities', fn ($q) => $this->applyAbilityFilters($q, $request));
+            $this->applyAbilityFilterGroup($query, $request);
         }
 
         // Trigger filters (grouped so all conditions match the same trigger)
         $hasTriggerFilter = $this->anyFilled($request, ['trigger', 'trigger_suits', 'trigger_description']);
         if ($hasTriggerFilter) {
-            $query->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $this->applyTriggerFilters($tq, $request)));
+            $this->applyTriggerFilterGroup($query, $request);
         }
 
-        if ($tokenName) {
-            $this->applyTokenFilter($query, $tokenSlug, $tokenName);
+        if ($tokenEntries) {
+            $this->applyTokenFilterGroup($query, $tokenEntries, $request->get('token_logic', 'or'));
         }
 
-        if ($markerName) {
-            $this->applyMarkerFilter($query, $markerSlug, $markerName);
+        if ($markerEntries) {
+            $this->applyMarkerFilterGroup($query, $markerEntries, $request->get('marker_logic', 'or'));
+        }
+
+        // Cross-field description/rules text search
+        if ($request->filled('description')) {
+            $desc = $request->get('description');
+            $query->where(function ($q) use ($desc) {
+                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%")));
+            });
         }
 
         // --- Sorting ---
@@ -171,8 +265,8 @@ class SearchController extends Controller
 
         // --- Upgrade query (only if upgrade-relevant filters are active) ---
 
-        $hasUpgradeFilter = $request->filled('name') || $hasActionFilter || $hasAbilityFilter
-            || $hasTriggerFilter || $tokenName || $markerName;
+        $hasUpgradeFilter = $request->filled('name') || $request->filled('description') || $hasActionFilter || $hasAbilityFilter
+            || $hasTriggerFilter || $tokenEntries || $markerEntries;
 
         $upgradeResults = collect();
         if ($hasUpgradeFilter) {
@@ -182,24 +276,33 @@ class SearchController extends Controller
                 $upgradeQuery->where('name', 'LIKE', '%'.$request->get('name').'%');
             }
 
+            if ($request->filled('description')) {
+                $desc = $request->get('description');
+                $upgradeQuery->where(function ($q) use ($desc) {
+                    $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                        ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                        ->orWhereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%"));
+                });
+            }
+
             if ($hasActionFilter) {
-                $upgradeQuery->whereHas('actions', fn ($q) => $this->applyActionFilters($q, $request));
+                $this->applyActionFilterGroup($upgradeQuery, $request);
             }
 
             if ($hasAbilityFilter) {
-                $upgradeQuery->whereHas('abilities', fn ($q) => $this->applyAbilityFilters($q, $request));
+                $this->applyAbilityFilterGroup($upgradeQuery, $request);
             }
 
             if ($hasTriggerFilter) {
-                $upgradeQuery->whereHas('actions', fn ($q) => $q->whereHas('triggers', fn ($tq) => $this->applyTriggerFilters($tq, $request)));
+                $this->applyTriggerFilterGroup($upgradeQuery, $request);
             }
 
-            if ($tokenName) {
-                $this->applyTokenFilter($upgradeQuery, $tokenSlug, $tokenName);
+            if ($tokenEntries) {
+                $this->applyTokenFilterGroup($upgradeQuery, $tokenEntries, $request->get('token_logic', 'or'));
             }
 
-            if ($markerName) {
-                $this->applyMarkerFilter($upgradeQuery, $markerSlug, $markerName);
+            if ($markerEntries) {
+                $this->applyMarkerFilterGroup($upgradeQuery, $markerEntries, $request->get('marker_logic', 'or'));
             }
 
             $upgradeResults = $upgradeQuery->get();
@@ -246,6 +349,8 @@ class SearchController extends Controller
             }
             unset($item);
 
+            $characterCount = $allCharacters->count();
+            $upgradeCount = $upgradeResults->count();
             $totalResults = count($allResults);
             $page = max(1, (int) $request->get('page', 1));
             $results = new LengthAwarePaginator(
@@ -267,12 +372,14 @@ class SearchController extends Controller
                 return $data;
             }));
 
-            $totalResults = $results->total();
+            $characterCount = $totalResults = $results->total();
+            $upgradeCount = 0;
         }
 
         return inertia('Search/View', [
             'results' => $results,
             'result_count' => $totalResults,
+            'result_breakdown' => ['characters' => $characterCount, 'upgrades' => $upgradeCount],
             'factions' => fn () => FactionEnum::toSelectOptions(),
             'stations' => fn () => CharacterStationEnum::toSelectOptions(),
             'suits' => fn () => SuitEnum::toSelectOptions(),
@@ -292,7 +399,207 @@ class SearchController extends Controller
             'sort_options' => fn () => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => fn () => SortTypeEnum::toSelectOptions(),
             'view_options' => fn () => PageViewOptionsEnum::toSelectOptions(),
+            'saved_searches' => fn () => $request->user()
+                ? $request->user()->savedSearches()->select('id', 'name', 'query_params')->orderBy('name')->get()
+                : [],
         ]);
+    }
+
+    public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $query = Character::with(['keywords', 'characteristics'])->whereHas('standardMiniatures');
+        $this->applyCharacterFilters($query, $request);
+        $characters = $query->orderBy('display_name')->limit(1000)->get();
+
+        return response()->streamDownload(function () use ($characters) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Name', 'Faction', 'Second Faction', 'Station', 'Cost', 'Health', 'Defense', 'Willpower', 'Speed', 'Size', 'Count', 'Keywords', 'Characteristics']);
+            foreach ($characters as $c) {
+                fputcsv($handle, [
+                    $c->display_name ?? $c->name,
+                    $c->faction->label(),
+                    $c->second_faction?->label(),
+                    $c->station?->label(),
+                    $c->cost,
+                    $c->health,
+                    $c->defense,
+                    $c->willpower,
+                    $c->speed,
+                    $c->size,
+                    $c->count,
+                    $c->keywords->pluck('name')->join(', '),
+                    $c->characteristics->pluck('name')->join(', '),
+                ]);
+            }
+            fclose($handle);
+        }, 'malifaux-search-results.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    public function saveSearch(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'query_params' => ['required', 'array'],
+        ]);
+
+        $request->user()->savedSearches()->create([
+            'name' => $request->name,
+            'query_params' => $request->query_params,
+        ]);
+
+        return back();
+    }
+
+    public function deleteSavedSearch(Request $request, \App\Models\SavedSearch $savedSearch): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($savedSearch->user_id === $request->user()->id, 403);
+        $savedSearch->delete();
+
+        return back();
+    }
+
+    private function applyCharacterFilters($query, Request $request): void
+    {
+        $actionFilterKeys = [
+            'action', 'action_name', 'action_type', 'action_is_signature', 'action_costs_stone',
+            'action_range_min', 'action_range_max', 'action_range_type',
+            'action_stat_min', 'action_stat_max', 'action_stat_suits', 'action_stat_modifier',
+            'action_resisted_by', 'action_tn_min', 'action_tn_max', 'action_target_suits',
+            'action_damage', 'action_description',
+        ];
+        $abilityFilterKeys = ['ability', 'ability_name', 'ability_suits', 'ability_defensive_type', 'ability_costs_stone', 'ability_description'];
+
+        if ($request->filled('name')) {
+            $search = $request->get('name');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('display_name', 'LIKE', "%{$search}%")
+                    ->orWhere('nicknames', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('faction')) {
+            $factions = array_filter(explode(',', $request->get('faction')));
+            if ($factions) {
+                $query->where(function ($q) use ($factions) {
+                    $q->whereIn('faction', $factions)->orWhereIn('second_faction', $factions);
+                });
+            }
+        }
+
+        if ($request->filled('station')) {
+            $query->where('station', $request->get('station'));
+        }
+
+        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'] as $field) {
+            if ($request->filled("{$field}_min")) {
+                $query->where($field, '>=', (int) $request->get("{$field}_min"));
+            }
+            if ($request->filled("{$field}_max")) {
+                $query->where($field, '<=', (int) $request->get("{$field}_max"));
+            }
+        }
+
+        if ($request->filled('keyword')) {
+            $keywords = array_filter(explode(',', $request->get('keyword')));
+            if ($request->get('keyword_logic') === 'or') {
+                $query->whereHas('keywords', fn ($q) => $q->whereIn('slug', $keywords));
+            } else {
+                foreach ($keywords as $kw) {
+                    $query->whereHas('keywords', fn ($q) => $q->where('slug', $kw));
+                }
+            }
+        }
+
+        if ($request->filled('keyword_exclude')) {
+            $excluded = array_filter(explode(',', $request->get('keyword_exclude')));
+            $query->whereDoesntHave('keywords', fn ($q) => $q->whereIn('slug', $excluded));
+        }
+
+        if ($request->filled('characteristic')) {
+            $characteristics = array_filter(explode(',', $request->get('characteristic')));
+            if ($request->get('characteristic_logic') === 'or') {
+                $query->whereHas('characteristics', fn ($q) => $q->whereIn('slug', $characteristics));
+            } else {
+                foreach ($characteristics as $ch) {
+                    $query->whereHas('characteristics', fn ($q) => $q->where('slug', $ch));
+                }
+            }
+        }
+
+        if ($request->filled('characteristic_exclude')) {
+            $excluded = array_filter(explode(',', $request->get('characteristic_exclude')));
+            $query->whereDoesntHave('characteristics', fn ($q) => $q->whereIn('slug', $excluded));
+        }
+
+        if ($request->filled('second_faction')) {
+            $secondFactions = array_filter(explode(',', $request->get('second_faction')));
+            if ($secondFactions) {
+                $query->whereIn('second_faction', $secondFactions);
+            }
+        }
+
+        if ($request->filled('is')) {
+            foreach (array_filter(explode(',', $request->get('is'))) as $isFilter) {
+                match ($isFilter) {
+                    'dual' => $query->whereNotNull('second_faction'),
+                    'totem' => $query->whereExists(function ($sq) {
+                        $sq->select(\DB::raw(1))->from('characters as c2')->whereColumn('c2.has_totem_id', 'characters.id');
+                    }),
+                    'versatile' => $query->whereHas('characteristics', fn ($q) => $q->where('slug', 'versatile')),
+                    'beta' => $query->where('is_beta', true),
+                    'unhirable' => $query->where('is_unhirable', true),
+                    default => null,
+                };
+            }
+        }
+
+        if ($request->filled('has')) {
+            foreach (array_filter(explode(',', $request->get('has'))) as $hasFilter) {
+                match ($hasFilter) {
+                    'totem' => $query->whereNotNull('has_totem_id'),
+                    'trigger' => $query->whereHas('actions', fn ($q) => $q->whereHas('triggers')),
+                    'ability' => $query->whereHas('abilities'),
+                    'action' => $query->whereHas('actions'),
+                    'keyword' => $query->whereHas('keywords'),
+                    'summon' => $query->whereHas('summons'),
+                    default => null,
+                };
+            }
+        }
+
+        if ($request->filled('stat_compare')) {
+            $validStats = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'];
+            foreach (array_filter(explode(',', $request->get('stat_compare'))) as $comparison) {
+                if (preg_match('/^(\w+)(>=|<=|>|<|=)(\w+)$/', $comparison, $m)) {
+                    if (in_array($m[1], $validStats) && in_array($m[3], $validStats)) {
+                        $query->whereColumn($m[1], $m[2], $m[3]);
+                    }
+                }
+            }
+        }
+
+        if ($this->anyFilled($request, $actionFilterKeys)) {
+            $this->applyActionFilterGroup($query, $request);
+        }
+
+        if ($this->anyFilled($request, $abilityFilterKeys)) {
+            $this->applyAbilityFilterGroup($query, $request);
+        }
+
+        $hasTriggerFilter = $this->anyFilled($request, ['trigger', 'trigger_suits', 'trigger_description']);
+        if ($hasTriggerFilter) {
+            $this->applyTriggerFilterGroup($query, $request);
+        }
+
+        if ($request->filled('description')) {
+            $desc = $request->get('description');
+            $query->where(function ($q) use ($desc) {
+                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%")));
+            });
+        }
     }
 
     private function anyFilled(Request $request, array $keys): bool
@@ -321,31 +628,136 @@ class SearchController extends Controller
         };
     }
 
-    private function applyTokenFilter($query, string $tokenSlug, string $tokenName): void
+    private function applySingleTokenFilter($query, string $slug, string $name): void
     {
-        $query->where(function ($q) use ($tokenSlug, $tokenName) {
-            $q->whereHas('tokens', fn ($tq) => $tq->where('slug', $tokenSlug))
-                ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$tokenName}%"))
-                ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$tokenName}%"))
-                ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$tokenName}%")));
+        $query->where(function ($q) use ($slug, $name) {
+            $q->whereHas('tokens', fn ($tq) => $tq->where('slug', $slug))
+                ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$name}%"))
+                ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$name}%"))
+                ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$name}%")));
         });
     }
 
-    private function applyMarkerFilter($query, string $markerSlug, string $markerName): void
+    private function applyTokenFilterGroup($query, array $entries, string $logic): void
     {
-        $query->where(function ($q) use ($markerSlug, $markerName) {
-            $q->whereHas('markers', fn ($mq) => $mq->where('slug', $markerSlug))
-                ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$markerName}%"))
-                ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$markerName}%"))
-                ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$markerName}%")));
-        });
-    }
-
-    private function applyActionFilters($q, Request $request): void
-    {
-        if ($request->filled('action')) {
-            $q->where('name', $request->get('action'));
+        if ($logic === 'and') {
+            foreach ($entries as $entry) {
+                $this->applySingleTokenFilter($query, $entry['slug'], $entry['name']);
+            }
+        } else {
+            $query->where(function ($q) use ($entries) {
+                foreach ($entries as $i => $entry) {
+                    $method = $i === 0 ? 'where' : 'orWhere';
+                    $q->{$method}(function ($sq) use ($entry) {
+                        $this->applySingleTokenFilter($sq, $entry['slug'], $entry['name']);
+                    });
+                }
+            });
         }
+    }
+
+    private function applySingleMarkerFilter($query, string $slug, string $name): void
+    {
+        $query->where(function ($q) use ($slug, $name) {
+            $q->whereHas('markers', fn ($mq) => $mq->where('slug', $slug))
+                ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$name}%"))
+                ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$name}%"))
+                ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$name}%")));
+        });
+    }
+
+    private function applyMarkerFilterGroup($query, array $entries, string $logic): void
+    {
+        if ($logic === 'and') {
+            foreach ($entries as $entry) {
+                $this->applySingleMarkerFilter($query, $entry['slug'], $entry['name']);
+            }
+        } else {
+            $query->where(function ($q) use ($entries) {
+                foreach ($entries as $i => $entry) {
+                    $method = $i === 0 ? 'where' : 'orWhere';
+                    $q->{$method}(function ($sq) use ($entry) {
+                        $this->applySingleMarkerFilter($sq, $entry['slug'], $entry['name']);
+                    });
+                }
+            });
+        }
+    }
+
+    private function applyActionFilterGroup($query, Request $request): void
+    {
+        $actions = $request->filled('action') ? array_filter(explode(',', $request->get('action'))) : [];
+        $logic = $request->get('action_logic', 'or');
+
+        if (count($actions) > 1 && $logic === 'and') {
+            foreach ($actions as $actionName) {
+                $query->whereHas('actions', function ($q) use ($actionName, $request) {
+                    $q->where('name', $actionName);
+                    $this->applyActionSubFilters($q, $request);
+                });
+            }
+        } else {
+            $query->whereHas('actions', function ($q) use ($actions, $request) {
+                if (count($actions) === 1) {
+                    $q->where('name', $actions[0]);
+                } elseif (count($actions) > 1) {
+                    $q->whereIn('name', $actions);
+                }
+                $this->applyActionSubFilters($q, $request);
+            });
+        }
+    }
+
+    private function applyAbilityFilterGroup($query, Request $request): void
+    {
+        $abilities = $request->filled('ability') ? array_filter(explode(',', $request->get('ability'))) : [];
+        $logic = $request->get('ability_logic', 'or');
+
+        if (count($abilities) > 1 && $logic === 'and') {
+            foreach ($abilities as $abilityName) {
+                $query->whereHas('abilities', function ($q) use ($abilityName, $request) {
+                    $q->where('name', $abilityName);
+                    $this->applyAbilitySubFilters($q, $request);
+                });
+            }
+        } else {
+            $query->whereHas('abilities', function ($q) use ($abilities, $request) {
+                if (count($abilities) === 1) {
+                    $q->where('name', $abilities[0]);
+                } elseif (count($abilities) > 1) {
+                    $q->whereIn('name', $abilities);
+                }
+                $this->applyAbilitySubFilters($q, $request);
+            });
+        }
+    }
+
+    private function applyTriggerFilterGroup($query, Request $request): void
+    {
+        $triggers = $request->filled('trigger') ? array_filter(explode(',', $request->get('trigger'))) : [];
+        $logic = $request->get('trigger_logic', 'or');
+
+        if (count($triggers) > 1 && $logic === 'and') {
+            foreach ($triggers as $triggerName) {
+                $query->whereHas('actions', fn ($aq) => $aq->whereHas('triggers', function ($q) use ($triggerName, $request) {
+                    $q->where('name', $triggerName);
+                    $this->applyTriggerSubFilters($q, $request);
+                }));
+            }
+        } else {
+            $query->whereHas('actions', fn ($aq) => $aq->whereHas('triggers', function ($q) use ($triggers, $request) {
+                if (count($triggers) === 1) {
+                    $q->where('name', $triggers[0]);
+                } elseif (count($triggers) > 1) {
+                    $q->whereIn('name', $triggers);
+                }
+                $this->applyTriggerSubFilters($q, $request);
+            }));
+        }
+    }
+
+    private function applyActionSubFilters($q, Request $request): void
+    {
         if ($request->filled('action_name')) {
             $q->where('name', 'LIKE', '%'.$request->get('action_name').'%');
         }
@@ -400,11 +812,8 @@ class SearchController extends Controller
         }
     }
 
-    private function applyAbilityFilters($q, Request $request): void
+    private function applyAbilitySubFilters($q, Request $request): void
     {
-        if ($request->filled('ability')) {
-            $q->where('name', $request->get('ability'));
-        }
         if ($request->filled('ability_name')) {
             $q->where('name', 'LIKE', '%'.$request->get('ability_name').'%');
         }
@@ -422,11 +831,8 @@ class SearchController extends Controller
         }
     }
 
-    private function applyTriggerFilters($q, Request $request): void
+    private function applyTriggerSubFilters($q, Request $request): void
     {
-        if ($request->filled('trigger')) {
-            $q->where('name', $request->get('trigger'));
-        }
         if ($request->filled('trigger_suits')) {
             $q->where('suits', 'LIKE', '%'.$request->get('trigger_suits').'%');
         }

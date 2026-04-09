@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Loader2, Maximize2, Minus, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Ruler, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Layers, Loader2, Maximize2, Minus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Ruler, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -821,6 +821,7 @@ onMounted(() => {
 
 // ─── Gameplay ───
 const gameplayTab = ref<'scenario' | 'my-crew' | 'opponent'>('my-crew');
+const scenarioCollapsed = ref(false);
 const schemeHidden = ref(false);
 
 // Scheme notes
@@ -949,6 +950,39 @@ const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m: an
 const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
 const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
 const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
+
+// Inline card preview — track expanded members per crew via Set
+const expandedMyCards = ref(new Set<number>());
+const expandedOpponentCards = ref(new Set<number>());
+
+const toggleInlineCard = (memberId: number, crew: 'my' | 'opponent') => {
+    const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
+    const next = new Set(set.value);
+    if (next.has(memberId)) {
+        next.delete(memberId);
+    } else {
+        next.add(memberId);
+    }
+    set.value = next;
+};
+
+const toggleAllCards = (crew: 'my' | 'opponent') => {
+    const members = crew === 'my' ? myCrewMembers : opponentCrewMembers;
+    const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
+    const allWithImages = members.value.filter((m: any) => m.front_image).map((m: any) => m.id);
+    const allExpanded = allWithImages.length > 0 && allWithImages.every((id: number) => set.value.has(id));
+    set.value = allExpanded ? new Set() : new Set(allWithImages);
+};
+
+const allMyCardsExpanded = computed(() => {
+    const ids = myCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
+    return ids.length > 0 && ids.every((id: number) => expandedMyCards.value.has(id));
+});
+
+const allOpponentCardsExpanded = computed(() => {
+    const ids = opponentCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
+    return ids.length > 0 && ids.every((id: number) => expandedOpponentCards.value.has(id));
+});
 
 const actionError = ref<string | null>(null);
 let errorTimer: ReturnType<typeof setTimeout>;
@@ -2604,7 +2638,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <!-- ═══ IN PROGRESS ═══ -->
             <template v-if="game.status === 'in_progress'">
                 <!-- Mobile: Tab switcher -->
-                <div class="mb-4 lg:hidden">
+                <div class="mb-4 xl:hidden">
                     <Tabs v-model="gameplayTab">
                         <TabsList class="grid w-full grid-cols-3">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
@@ -2635,13 +2669,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Transition>
 
                 <!-- Desktop: 3-column grid / Mobile: tab content -->
-                <div class="grid gap-4 lg:grid-cols-3">
+                <div class="grid gap-4" :class="scenarioCollapsed ? 'xl:grid-cols-[auto_1fr_1fr]' : 'xl:grid-cols-3'">
                     <!-- Column 1: Scenario Info -->
-                    <div :class="gameplayTab !== 'scenario' ? 'hidden lg:block' : ''">
-                        <Card>
+                    <div :class="gameplayTab !== 'scenario' ? 'hidden xl:block' : ''">
+                        <!-- Collapsed: thin vertical strip with expand button -->
+                        <div v-if="scenarioCollapsed" class="hidden h-full xl:flex xl:flex-col xl:items-center xl:gap-2 xl:py-2">
+                            <button class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" title="Expand game panel" aria-label="Expand game panel" @click="scenarioCollapsed = false">
+                                <PanelLeftOpen class="size-4" />
+                            </button>
+                            <div class="flex flex-1 items-center">
+                                <span class="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr]">Turn {{ game.current_turn }}/{{ game.max_turns }}</span>
+                            </div>
+                        </div>
+                        <!-- Full scenario panel (mobile always, desktop when not collapsed) -->
+                        <Card :class="scenarioCollapsed ? 'xl:hidden' : ''">
                             <CardContent class="space-y-4 p-4">
                                 <div class="flex items-center justify-between">
-                                    <div class="w-8"></div>
+                                    <button class="hidden rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:inline-flex" title="Collapse game panel" aria-label="Collapse game panel" @click="scenarioCollapsed = true">
+                                        <PanelLeftClose class="size-4" />
+                                    </button>
                                     <div class="text-center text-2xl font-bold">Turn {{ game.current_turn }} <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span></div>
                                     <button aria-label="Game settings" class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" @click="gameSettingsOpen = true">
                                         <Settings class="size-4" />
@@ -3080,9 +3126,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
 
                     <!-- Column 2: My Crew (editable) -->
-                    <div :class="gameplayTab !== 'my-crew' ? 'hidden lg:block' : ''">
+                    <div :class="gameplayTab !== 'my-crew' ? 'hidden xl:block' : ''">
                         <div class="mb-1 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h3>
+                            <div class="flex items-center gap-1">
+                                <h3 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h3>
+                                <button class="rounded p-0.5 hover:bg-muted" :title="allMyCardsExpanded ? 'Collapse all cards' : 'Expand all cards'" aria-label="Toggle all cards" @click="toggleAllCards('my')">
+                                    <Layers class="size-3.5" :class="allMyCardsExpanded ? 'text-amber-500' : 'text-muted-foreground'" />
+                                </button>
+                            </div>
                             <div class="flex items-center gap-1">
                                 <button v-if="!isObserver" class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(-1)"><Minus class="size-3" /></button>
                                 <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
@@ -3155,6 +3206,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                         </template>
                                         <button class="cursor-pointer truncate text-base font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</button>
+                                        <button v-if="member.front_image" class="ml-auto shrink-0 rounded p-1 hover:bg-white/20" aria-label="Toggle card preview" title="Toggle card preview" @click.stop="toggleInlineCard(member.id, 'my')">
+                                            <Eye class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" :class="expandedMyCards.has(member.id) ? 'text-amber-300' : 'text-white'" />
+                                        </button>
                                     </div>
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
                                     <div class="mt-0.5 flex pl-8 sm:hidden">
@@ -3250,6 +3304,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </div>
                                 </div>
+                                <!-- Inline card preview -->
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-200 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-[600px] opacity-100"
+                                    leave-from-class="max-h-[600px] opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div v-if="expandedMyCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden">
+                                        <CharacterCardView
+                                            :miniature="{ id: member.id, display_name: member.display_name, slug: '', front_image: member.front_image, back_image: member.back_image }"
+                                            :show-link="false"
+                                            :show-collection="false"
+                                        />
+                                    </div>
+                                </Transition>
                             </div>
                             <div
                                 v-for="member in myKilledMembers"
@@ -3273,9 +3344,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
 
                     <!-- Column 3: Opponent Crew -->
-                    <div :class="gameplayTab !== 'opponent' ? 'hidden lg:block' : ''">
+                    <div :class="gameplayTab !== 'opponent' ? 'hidden xl:block' : ''">
                         <div class="mb-1 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>
+                            <div class="flex items-center gap-1">
+                                <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>
+                                <button class="rounded p-0.5 hover:bg-muted" :title="allOpponentCardsExpanded ? 'Collapse all cards' : 'Expand all cards'" aria-label="Toggle all cards" @click="toggleAllCards('opponent')">
+                                    <Layers class="size-3.5" :class="allOpponentCardsExpanded ? 'text-amber-500' : 'text-muted-foreground'" />
+                                </button>
+                            </div>
                             <div class="flex items-center gap-1">
                                 <template v-if="isSolo && !isObserver">
                                     <button class="rounded p-0.5 hover:bg-muted" @click="updateOpponentSoulstonePool(-1)"><Minus class="size-3" /></button>
@@ -3363,6 +3439,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                                         </template>
                                         <button class="cursor-pointer truncate text-base font-semibold hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</button>
+                                        <button v-if="member.front_image" class="ml-auto shrink-0 rounded p-1 hover:bg-white/20" aria-label="Toggle card preview" title="Toggle card preview" @click.stop="toggleInlineCard(member.id, 'opponent')">
+                                            <Eye class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" :class="expandedOpponentCards.has(member.id) ? 'text-amber-300' : 'text-white'" />
+                                        </button>
                                     </div>
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
                                     <div class="mt-0.5 flex sm:hidden" :class="isSolo ? 'pl-8' : 'pl-5'">
@@ -3458,6 +3537,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </div>
                                 </div>
+                                <!-- Inline card preview -->
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-200 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-[600px] opacity-100"
+                                    leave-from-class="max-h-[600px] opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div v-if="expandedOpponentCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden">
+                                        <CharacterCardView
+                                            :miniature="{ id: member.id, display_name: member.display_name, slug: '', front_image: member.front_image, back_image: member.back_image }"
+                                            :show-link="false"
+                                            :show-collection="false"
+                                        />
+                                    </div>
+                                </Transition>
                             </div>
                             <div
                                 v-for="member in opponentKilledMembers"

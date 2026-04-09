@@ -957,13 +957,15 @@ const expandedOpponentCards = ref(new Set<number>());
 
 const toggleInlineCard = (memberId: number, crew: 'my' | 'opponent') => {
     const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
-    const next = new Set(set.value);
-    if (next.has(memberId)) {
+    if (set.value.has(memberId)) {
+        // Close this one
+        const next = new Set(set.value);
         next.delete(memberId);
+        set.value = next;
     } else {
-        next.add(memberId);
+        // Single-select: close others, open this one
+        set.value = new Set([memberId]);
     }
-    set.value = next;
 };
 
 const toggleAllCards = (crew: 'my' | 'opponent') => {

@@ -19,10 +19,9 @@ const characters = computed(() => (props.keyword?.characters ?? []).filter((c: a
 const charCount = computed(() => characters.value.length);
 const { delays } = useStaggeredEntry(charCount);
 
-const stationOrder = ['henchman', 'unique', 'minion', 'peon'];
+const stationOrder = ['unique', 'minion', 'peon'];
 
 const stationLabels: Record<string, string> = {
-    henchman: 'Henchmen',
     unique: 'Unique',
     minion: 'Minions',
     peon: 'Peons',

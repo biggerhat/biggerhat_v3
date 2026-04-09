@@ -243,10 +243,7 @@ class CustomCharacterController extends Controller
     {
         return [
             'factions' => FactionEnum::toSelectOptions(),
-            'stations' => collect(CharacterStationEnum::toSelectOptions())
-                ->filter(fn ($opt) => $opt['value'] !== 'henchman')
-                ->values()
-                ->toArray(),
+            'stations' => CharacterStationEnum::toSelectOptions(),
             'bases' => BaseSizeEnum::toSelectOptions(),
             'suits' => SuitEnum::toSelectOptions(),
             'action_types' => ActionTypeEnum::toSelectOptions(),

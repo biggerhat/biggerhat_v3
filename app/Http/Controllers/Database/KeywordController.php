@@ -114,7 +114,6 @@ class KeywordController extends Controller
         $statistics = [
             'total_characters' => $characters->count(),
             'total_masters' => $masters->count(),
-            'total_henchmen' => $characters->where('station', CharacterStationEnum::Henchman)->count(),
             'total_unique' => $totalUnique,
             'total_minions' => $characters->where('station', CharacterStationEnum::Minion)->count(),
             'total_peons' => $characters->where('station', CharacterStationEnum::Peon)->count(),

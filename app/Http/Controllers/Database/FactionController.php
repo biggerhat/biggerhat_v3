@@ -118,7 +118,6 @@ class FactionController extends Controller
                     'statistics' => [
                         'total_characters' => $keywordCharacters->count(),
                         'total_masters' => $masters->count(),
-                        'total_henchmen' => $keywordCharacters->where('station', CharacterStationEnum::Henchman)->count(),
                         'total_unique' => $keywordCharacters->whereNull('station')->count(),
                         'total_minions' => $keywordCharacters->where('station', CharacterStationEnum::Minion)->count(),
                         'total_peons' => $keywordCharacters->where('station', CharacterStationEnum::Peon)->count(),
@@ -160,7 +159,6 @@ class FactionController extends Controller
                 'miniatures' => (int) $characters->sum('count'),
                 'keywords' => $keywords->count(),
                 'total_masters' => $masters->count(),
-                'total_henchmen' => $characters->where('station', CharacterStationEnum::Henchman)->count(),
                 'total_unique' => $characters->whereNull('station')->count(),
                 'total_minions' => $characters->where('station', CharacterStationEnum::Minion)->count(),
                 'total_peons' => $characters->where('station', CharacterStationEnum::Peon)->count(),

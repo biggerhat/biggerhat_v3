@@ -8,6 +8,7 @@ import { computed, onMounted, ref } from 'vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
+import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
@@ -208,7 +209,6 @@ const stationCounts = computed(() => {
     if (!hasStats.value) return [];
     return [
         { label: 'Masters', value: props.statistics.total_masters },
-        { label: 'Henchmen', value: props.statistics.total_henchmen },
         { label: 'Unique', value: props.statistics.total_unique },
         { label: 'Minions', value: props.statistics.total_minions },
         { label: 'Peons', value: props.statistics.total_peons },
@@ -407,6 +407,11 @@ onMounted(() => {
             <template v-if="props.characters?.length">
                 <div v-for="character in props.characters" v-bind:key="character.slug">
                     <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+                    <div v-if="character.crew_upgrades?.length" class="mb-4 ml-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                        <div v-for="upgrade in character.crew_upgrades" :key="'cu-' + upgrade.id">
+                            <UpgradeCardView :upgrade="upgrade" />
+                        </div>
+                    </div>
                 </div>
             </template>
             <EmptyState v-else />
@@ -414,18 +419,24 @@ onMounted(() => {
         <div v-else class="container mx-auto items-center sm:px-4">
             <template v-if="props.characters?.length">
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <div
+                    <template
                         v-for="(character, index) in props.characters"
                         :key="`character-${character.id}`"
-                        class="animate-fade-in-up opacity-0"
-                        :style="delays[index]"
                     >
-                        <CharacterCardView
-                            :miniature="character.standard_miniatures[0]"
-                            :character-slug="character.slug"
-                            :all-miniature-ids="character.standard_miniatures.map((m: any) => m.id)"
-                        />
-                    </div>
+                        <div
+                            class="animate-fade-in-up opacity-0"
+                            :style="delays[index]"
+                        >
+                            <CharacterCardView
+                                :miniature="character.standard_miniatures[0]"
+                                :character-slug="character.slug"
+                                :all-miniature-ids="character.standard_miniatures.map((m: any) => m.id)"
+                            />
+                        </div>
+                        <div v-for="upgrade in character.crew_upgrades ?? []" :key="'cu-' + upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[index]">
+                            <UpgradeCardView :upgrade="upgrade" />
+                        </div>
+                    </template>
                 </div>
             </template>
             <EmptyState v-else />

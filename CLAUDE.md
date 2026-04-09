@@ -70,7 +70,7 @@ Routes are split across files in `routes/`:
 
 The app uses PHP backed enums extensively (`app/Enums/`). Key enums:
 - `FactionEnum` — 8 factions (Arcanists, Bayou, Guild, etc.) with color/logo methods
-- `CharacterStationEnum` — Master, Henchman, Enforcer, Minion, etc.
+- `CharacterStationEnum` — Master, Minion, Peon (Henchman is a Characteristic, not a Station)
 - `UpgradeDomainTypeEnum` — Character vs Crew upgrade distinction
 - `UpgradeTypeEnum`, `UpgradeLimitationEnum`, `SuitEnum`, `BaseSizeEnum`
 

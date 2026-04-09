@@ -15,6 +15,7 @@ const copySearchUrl = () => {
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
@@ -200,7 +201,6 @@ const props = defineProps({
 });
 
 const selectedFactions = ref<string[]>([]);
-const selectedSecondFactions = ref<string[]>([]);
 const excludedFactions = ref<string[]>([]);
 const selectedKeywords = ref<string[]>([]);
 const excludedKeywords = ref<string[]>([]);
@@ -357,7 +357,6 @@ const activeFilterCount = computed(() => {
     const paramCount = filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
     return paramCount
         + (selectedFactions.value.length > 0 ? 1 : 0)
-        + (selectedSecondFactions.value.length > 0 ? 1 : 0)
         + (excludedFactions.value.length > 0 ? 1 : 0)
         + (selectedKeywords.value.length > 0 ? 1 : 0)
         + (excludedKeywords.value.length > 0 ? 1 : 0)
@@ -414,15 +413,6 @@ const filter = () => {
     // Markers with logic
     params.marker = selectedMarkers.value.length > 0 ? selectedMarkers.value.join(',') : null;
     params.marker_logic = selectedMarkers.value.length > 1 ? markerLogic.value : null;
-    // Second factions
-    if (selectedSecondFactions.value.length > 0) {
-        params.second_faction = selectedSecondFactions.value
-            .map((name) => factionNameToValue(name))
-            .filter(Boolean)
-            .join(',');
-    } else {
-        params.second_faction = null;
-    }
     // Is/Has filters
     if (filterParams.value.is) params.is = filterParams.value.is;
     if (filterParams.value.has) params.has = filterParams.value.has;
@@ -453,7 +443,6 @@ const resetFilters = () => {
         filterParams.value[key] = null;
     }
     selectedFactions.value = [];
-    selectedSecondFactions.value = [];
     excludedFactions.value = [];
     selectedKeywords.value = [];
     excludedKeywords.value = [];
@@ -558,14 +547,6 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
     filterParams.value.size_max = urlParams.get('size_max');
     filterParams.value.count_min = urlParams.get('count_min');
     filterParams.value.count_max = urlParams.get('count_max');
-    // Second factions
-    const secondFactionParam = urlParams.get('second_faction');
-    if (secondFactionParam) {
-        selectedSecondFactions.value = secondFactionParam
-            .split(',')
-            .map((v) => factionValueToName(v))
-            .filter(Boolean) as string[];
-    }
     // Is/Has filters
     filterParams.value.is = urlParams.get('is');
     filterParams.value.has = urlParams.get('has');
@@ -730,11 +711,6 @@ const buildCurrentParams = (): Record<string, string> => {
         params.faction = null;
     }
     params.faction_exclude = excludedFactions.value.length > 0 ? excludedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',') : null;
-    if (selectedSecondFactions.value.length > 0) {
-        params.second_faction = selectedSecondFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',');
-    } else {
-        params.second_faction = null;
-    }
     params.keyword = selectedKeywords.value.length > 0 ? selectedKeywords.value.join(',') : null;
     params.keyword_logic = selectedKeywords.value.length > 1 ? keywordLogic.value : null;
     params.keyword_exclude = excludedKeywords.value.length > 0 ? excludedKeywords.value.join(',') : null;
@@ -785,7 +761,7 @@ const applySyntax = () => {
 
 // Watch all filter-related refs to update syntax bar
 watch(
-    [filterParams, selectedFactions, selectedSecondFactions, excludedFactions, selectedKeywords, excludedKeywords, keywordLogic, selectedCharacteristics, excludedCharacteristics, characteristicLogic, selectedActions, actionLogic, selectedAbilities, abilityLogic, selectedTriggers, triggerLogic, selectedTokens, tokenLogic, selectedMarkers, markerLogic, statCompareLeft, statCompareOp, statCompareRight],
+    [filterParams, selectedFactions, excludedFactions, selectedKeywords, excludedKeywords, keywordLogic, selectedCharacteristics, excludedCharacteristics, characteristicLogic, selectedActions, actionLogic, selectedAbilities, abilityLogic, selectedTriggers, triggerLogic, selectedTokens, tokenLogic, selectedMarkers, markerLogic, statCompareLeft, statCompareOp, statCompareRight],
     () => {
         if (isSyncing.value) return;
         isSyncing.value = true;
@@ -799,7 +775,6 @@ watch(
 const searchExplanation = computed(() => {
     const parts: string[] = [];
     if (selectedFactions.value.length) parts.push(selectedFactions.value.join(', '));
-    if (selectedSecondFactions.value.length) parts.push(`2nd faction: ${selectedSecondFactions.value.join(', ')}`);
     if (filterParams.value.station) parts.push(lookupName(props.stations, filterParams.value.station) + 's');
     if (filterParams.value.name) parts.push(`name: "${filterParams.value.name}"`);
     if (selectedKeywords.value.length) parts.push(`keyword: ${selectedKeywords.value.join(keywordLogic.value === 'or' ? ' or ' : ' + ')}`);
@@ -840,9 +815,6 @@ const activeFilters = computed(() => {
     }
     for (const f of selectedFactions.value) {
         chips.push({ label: `Faction: ${f}`, remove: () => { selectedFactions.value = selectedFactions.value.filter((v) => v !== f); filter(); } });
-    }
-    for (const f of selectedSecondFactions.value) {
-        chips.push({ label: `2nd Faction: ${f}`, remove: () => { selectedSecondFactions.value = selectedSecondFactions.value.filter((v) => v !== f); filter(); } });
     }
     if (filterParams.value.station) {
         const label = lookupName(props.stations, filterParams.value.station);
@@ -995,13 +967,12 @@ const tokensFilterCount = computed(() => selectedTokens.value.length);
 const markersFilterCount = computed(() => selectedMarkers.value.length);
 
 // --- Feature 3: Keyboard shortcut ---
-const nameInputRef = ref<InstanceType<typeof Input> | null>(null);
 const handleSlashKey = (e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
     if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) return;
     if (e.key === '/') {
         e.preventDefault();
-        const el = nameInputRef.value?.$el;
+        const el = syntaxBarInputRef.value?.$el;
         if (el?.focus) {
             el.focus();
         } else {
@@ -1010,80 +981,49 @@ const handleSlashKey = (e: KeyboardEvent) => {
     }
 };
 
-// --- Feature 7: Name autocomplete ---
+// --- Feature 7: Name autocomplete (integrated into unified search bar) ---
 const nameSuggestions = ref<any[]>([]);
-const showSuggestions = ref(false);
-const suggestionIndex = ref(-1);
+const showNameSuggestions = ref(false);
+const nameSuggestionIndex = ref(-1);
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const fetchSuggestions = () => {
+const isBareText = (text: string): boolean => !text.includes(':') && !/[><=]/.test(text);
+
+const fetchNameSuggestions = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    const query = filterParams.value.name?.trim();
-    if (!query || query.length < 2) {
+    const text = syntaxInput.value.trim();
+    if (!isBareText(text) || text.length < 2) {
         nameSuggestions.value = [];
-        showSuggestions.value = false;
+        showNameSuggestions.value = false;
         return;
     }
     debounceTimer = setTimeout(async () => {
         try {
-            const res = await fetch(`/api/characters/search?q=${encodeURIComponent(query)}`);
+            const res = await fetch(`/api/characters/search?q=${encodeURIComponent(text)}`);
             if (res.ok) {
                 const data = await res.json();
                 nameSuggestions.value = (data.data ?? data).slice(0, 8);
-                showSuggestions.value = nameSuggestions.value.length > 0;
-                suggestionIndex.value = -1;
+                showNameSuggestions.value = nameSuggestions.value.length > 0;
+                nameSuggestionIndex.value = -1;
             }
         } catch {
             nameSuggestions.value = [];
-            showSuggestions.value = false;
+            showNameSuggestions.value = false;
         }
     }, 250);
 };
 
-const selectSuggestion = (item: any) => {
-    filterParams.value.name = item.name;
-    showSuggestions.value = false;
+const selectNameSuggestion = (item: any) => {
+    syntaxInput.value = item.name;
+    showNameSuggestions.value = false;
     nameSuggestions.value = [];
-    filter();
-};
-
-const handleNameInput = () => {
-    fetchSuggestions();
-};
-
-const handleNameKeydownExtended = (e: KeyboardEvent) => {
-    if (showSuggestions.value && nameSuggestions.value.length > 0) {
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            suggestionIndex.value = Math.min(suggestionIndex.value + 1, nameSuggestions.value.length - 1);
-            return;
-        }
-        if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            suggestionIndex.value = Math.max(suggestionIndex.value - 1, -1);
-            return;
-        }
-        if (e.key === 'Enter' && suggestionIndex.value >= 0) {
-            e.preventDefault();
-            selectSuggestion(nameSuggestions.value[suggestionIndex.value]);
-            return;
-        }
-        if (e.key === 'Escape') {
-            showSuggestions.value = false;
-            return;
-        }
-    }
-    if (e.key === 'Enter') {
-        showSuggestions.value = false;
-        filter();
-    }
+    applySyntax();
 };
 
 // --- Feature 8: Search presets ---
 const searchPresets = [
     { label: 'All Masters', params: { station: 'master' } },
     { label: 'Cheap Minions (Cost <= 5)', params: { station: 'minion', cost_max: '5' } },
-    { label: 'Expensive Henchmen', params: { station: 'henchman', cost_min: '9' } },
     { label: 'Fast Models (Speed >= 6)', params: { speed_min: '6' } },
     { label: 'Tanky (Health >= 10)', params: { health_min: '10' } },
     { label: 'High Defense (Defense >= 6)', params: { defense_min: '6' } },
@@ -1145,7 +1085,7 @@ const syntaxPlaceholders = [
     'kw:Beast speed>=6',
     'o:"heal friendly" f:guild',
     'st:minion cost<=4 f:bayou',
-    '(f:arcanists OR f:neverborn) st:henchman',
+    '(f:arcanists OR f:neverborn) st:minion cost<=5',
     'ab:Armor health>=8',
     'is:versatile f:guild cost<=6',
 ];
@@ -1284,32 +1224,37 @@ const applySyntaxSuggestion = (suggestion: string) => {
     syntaxSuggestionIndex.value = -1;
 };
 
-const handleSyntaxKeydown = (e: KeyboardEvent) => {
+const handleSearchKeydown = (e: KeyboardEvent) => {
+    // Name autocomplete navigation (bare text mode)
+    if (showNameSuggestions.value && nameSuggestions.value.length > 0) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); nameSuggestionIndex.value = Math.min(nameSuggestionIndex.value + 1, nameSuggestions.value.length - 1); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); nameSuggestionIndex.value = Math.max(nameSuggestionIndex.value - 1, -1); return; }
+        if (e.key === 'Enter' && nameSuggestionIndex.value >= 0) { e.preventDefault(); selectNameSuggestion(nameSuggestions.value[nameSuggestionIndex.value]); return; }
+        if (e.key === 'Escape') { showNameSuggestions.value = false; return; }
+    }
+    // Syntax autocomplete navigation
     if (showSyntaxSuggestions.value && syntaxSuggestions.value.length > 0) {
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            syntaxSuggestionIndex.value = Math.min(syntaxSuggestionIndex.value + 1, syntaxSuggestions.value.length - 1);
-            return;
-        }
-        if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            syntaxSuggestionIndex.value = Math.max(syntaxSuggestionIndex.value - 1, -1);
-            return;
-        }
-        if ((e.key === 'Enter' || e.key === 'Tab') && syntaxSuggestionIndex.value >= 0) {
-            e.preventDefault();
-            applySyntaxSuggestion(syntaxSuggestions.value[syntaxSuggestionIndex.value]);
-            return;
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            showSyntaxSuggestions.value = false;
-            return;
-        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); syntaxSuggestionIndex.value = Math.min(syntaxSuggestionIndex.value + 1, syntaxSuggestions.value.length - 1); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); syntaxSuggestionIndex.value = Math.max(syntaxSuggestionIndex.value - 1, -1); return; }
+        if ((e.key === 'Enter' || e.key === 'Tab') && syntaxSuggestionIndex.value >= 0) { e.preventDefault(); applySyntaxSuggestion(syntaxSuggestions.value[syntaxSuggestionIndex.value]); return; }
+        if (e.key === 'Escape') { e.preventDefault(); showSyntaxSuggestions.value = false; return; }
     }
     if (e.key === 'Enter') {
         e.preventDefault();
+        showNameSuggestions.value = false;
         applySyntax();
+    }
+};
+
+const handleSearchInput = () => {
+    const text = syntaxInput.value.trim();
+    if (isBareText(text)) {
+        showSyntaxSuggestions.value = false;
+        fetchNameSuggestions();
+    } else {
+        showNameSuggestions.value = false;
+        nameSuggestions.value = [];
+        updateSyntaxSuggestions();
     }
 };
 
@@ -1369,58 +1314,42 @@ onUnmounted(() => {
             </template>
         </PageBanner>
 
-        <!-- Search bar -->
-        <div class="container mx-auto mb-2 sm:px-4">
-            <div class="relative">
-                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                    ref="nameInputRef"
-                    v-model="filterParams.name"
-                    type="text"
-                    placeholder="Search by name or nickname... (press / to focus)"
-                    class="border-2 border-primary pl-10 pr-10"
-                    @keydown="handleNameKeydownExtended"
-                    @input="handleNameInput"
-                    @blur="setTimeout(() => (showSuggestions = false), 200)"
-                />
-                <button
-                    v-if="filterParams.name"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    @click="clearName"
-                >
-                    <X class="h-4 w-4" />
-                </button>
-                <!-- Name autocomplete dropdown -->
-                <div v-if="showSuggestions && nameSuggestions.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
-                    <button
-                        v-for="(item, idx) in nameSuggestions"
-                        :key="item.id ?? idx"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
-                        :class="{ 'bg-accent': idx === suggestionIndex }"
-                        @mousedown.prevent="selectSuggestion(item)"
-                    >
-                        <span class="truncate">{{ item.name }}</span>
-                        <Badge v-if="item.faction" variant="outline" class="ml-auto shrink-0 text-[10px]">{{ item.faction }}</Badge>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Syntax bar -->
+        <!-- Unified search bar -->
         <div class="container mx-auto mb-2 sm:px-4">
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
+                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         ref="syntaxBarInputRef"
                         v-model="syntaxInput"
                         type="text"
                         :placeholder="syntaxPlaceholders[placeholderIndex]"
-                        class="h-8 border font-mono text-xs"
-                        @keydown="handleSyntaxKeydown"
-                        @input="updateSyntaxSuggestions"
-                        @focus="() => { updateSyntaxSuggestions(); if (!syntaxInput.trim()) showHistory = true; }"
-                        @blur="setTimeout(() => { showSyntaxSuggestions = false; showHistory = false; }, 200)"
+                        class="border-2 border-primary pl-10 pr-10"
+                        @keydown="handleSearchKeydown"
+                        @input="handleSearchInput"
+                        @focus="() => { handleSearchInput(); if (!syntaxInput.trim()) showHistory = true; }"
+                        @blur="setTimeout(() => { showSyntaxSuggestions = false; showNameSuggestions = false; showHistory = false; }, 200)"
                     />
+                    <button
+                        v-if="syntaxInput"
+                        class="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        @click="syntaxInput = ''; showNameSuggestions = false; resetFilters(); filter();"
+                    >
+                        <X class="h-4 w-4" />
+                    </button>
+                    <!-- Name autocomplete dropdown (bare text) -->
+                    <div v-if="showNameSuggestions && nameSuggestions.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
+                        <button
+                            v-for="(item, idx) in nameSuggestions"
+                            :key="item.id ?? idx"
+                            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                            :class="{ 'bg-accent': idx === nameSuggestionIndex }"
+                            @mousedown.prevent="selectNameSuggestion(item)"
+                        >
+                            <span class="truncate">{{ item.name }}</span>
+                            <Badge v-if="item.faction" variant="outline" class="ml-auto shrink-0 text-[10px]">{{ item.faction }}</Badge>
+                        </button>
+                    </div>
                     <!-- Syntax autocomplete dropdown -->
                     <div v-if="showSyntaxSuggestions && syntaxSuggestions.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
                         <button
@@ -1434,7 +1363,7 @@ onUnmounted(() => {
                         </button>
                     </div>
                     <!-- Search history dropdown -->
-                    <div v-if="showHistory && !showSyntaxSuggestions && !syntaxInput.trim() && searchHistory.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
+                    <div v-if="showHistory && !showSyntaxSuggestions && !showNameSuggestions && !syntaxInput.trim() && searchHistory.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
                         <div class="flex items-center justify-between border-b px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Recent searches
                             <button class="text-muted-foreground hover:text-foreground" @mousedown.prevent="clearHistory">Clear history</button>
@@ -1449,7 +1378,7 @@ onUnmounted(() => {
                         </button>
                     </div>
                 </div>
-                <Button variant="ghost" size="sm" class="h-8 w-8 shrink-0 p-0" title="Syntax help" @click="showSyntaxHelp = true">
+                <Button variant="ghost" size="sm" class="h-10 w-10 shrink-0 p-0" title="Syntax help" @click="showSyntaxHelp = true">
                     <HelpCircle class="h-4 w-4" />
                 </Button>
             </div>
@@ -1602,10 +1531,6 @@ onUnmounted(() => {
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Factions</label>
                                 <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium">Second Faction</label>
-                                <SearchableMultiselect v-model="selectedSecondFactions" placeholder="Select Second Factions" :options="props.factions" option-value="name" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Station</label>
@@ -2114,10 +2039,6 @@ onUnmounted(() => {
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Factions</label>
                                 <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-medium text-muted-foreground">Second Faction</label>
-                                <SearchableMultiselect v-model="selectedSecondFactions" placeholder="Select Second Factions" :options="props.factions" option-value="name" />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Station</label>
@@ -2630,13 +2551,11 @@ onUnmounted(() => {
                     </div>
                     <div v-else>
                         <div v-if="props.results?.data?.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                            <div
+                            <template
                                 v-for="(item, idx) in props.results.data"
                                 :key="`${item.result_type}-${item.id}`"
-                                class="animate-fade-in-up opacity-0"
-                                :style="delays[idx]"
                             >
-                                <template v-if="item.result_type === 'upgrade'">
+                                <div v-if="item.result_type === 'upgrade'" class="animate-fade-in-up opacity-0" :style="delays[idx]">
                                     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
                                         <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
                                         <UpgradeFlipCard
@@ -2652,27 +2571,32 @@ onUnmounted(() => {
                                             </Button>
                                         </div>
                                     </div>
-                                </template>
-                                <div v-else>
-                                    <CharacterCardView :miniature="item.standard_miniatures[0]" :character-slug="item.slug" />
-                                    <div class="mt-1 flex flex-wrap gap-1">
-                                        <button
-                                            v-if="item.faction"
-                                            class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
-                                            @click="applyFactionFilter(item.faction)"
-                                        >
-                                            {{ lookupName(props.factions, item.faction) }}
-                                        </button>
-                                        <button
-                                            v-if="item.station"
-                                            class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
-                                            @click="applyStationFilter(item.station)"
-                                        >
-                                            {{ lookupName(props.stations, item.station) }}
-                                        </button>
-                                    </div>
                                 </div>
-                            </div>
+                                <template v-else>
+                                    <div class="animate-fade-in-up opacity-0" :style="delays[idx]">
+                                        <CharacterCardView :miniature="item.standard_miniatures[0]" :character-slug="item.slug" />
+                                        <div class="mt-1 flex flex-wrap gap-1">
+                                            <button
+                                                v-if="item.faction"
+                                                class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                                @click="applyFactionFilter(item.faction)"
+                                            >
+                                                {{ lookupName(props.factions, item.faction) }}
+                                            </button>
+                                            <button
+                                                v-if="item.station"
+                                                class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                                @click="applyStationFilter(item.station)"
+                                            >
+                                                {{ lookupName(props.stations, item.station) }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div v-for="upgrade in item.crew_upgrades ?? []" :key="'cu-' + upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[idx]">
+                                        <UpgradeCardView :upgrade="upgrade" />
+                                    </div>
+                                </template>
+                            </template>
                         </div>
                         <EmptyState v-else>
                             <div class="mt-3 space-y-2 text-center">

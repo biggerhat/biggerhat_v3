@@ -235,7 +235,6 @@ const stationCounts = computed(() => {
     if (!s) return [];
     return [
         { label: 'Masters', value: s.total_masters },
-        { label: 'Henchmen', value: s.total_henchmen },
         { label: 'Unique', value: s.total_unique },
         { label: 'Minions', value: s.total_minions },
         { label: 'Peons', value: s.total_peons },

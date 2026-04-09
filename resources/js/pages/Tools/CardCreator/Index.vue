@@ -62,7 +62,7 @@ const copyShareLink = (character: CustomCharacter) => {
 
 const stationLabel = (station: string | null) => {
     if (!station || station === 'none') return null;
-    const map: Record<string, string> = { master: 'Master', henchman: 'Henchman', enforcer: 'Enforcer', minion: 'Minion', peon: 'Peon' };
+    const map: Record<string, string> = { master: 'Master', enforcer: 'Enforcer', minion: 'Minion', peon: 'Peon' };
     return map[station] ?? station;
 };
 </script>

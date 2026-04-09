@@ -14,7 +14,6 @@ enum CharacterStationEnum: string implements HasDefaultEnumMethods
     const NON_STATION_SORT_ORDER = 2;
 
     case Master = 'master';
-    case Henchman = 'henchman';
     case Minion = 'minion';
     case Peon = 'peon';
 
@@ -22,7 +21,6 @@ enum CharacterStationEnum: string implements HasDefaultEnumMethods
     {
         return match ($this) {
             self::Master => 0,
-            self::Henchman => 1,
             self::Minion => 3,
             self::Peon => 4,
             default => self::NON_STATION_SORT_ORDER,

@@ -47,7 +47,6 @@ class KeywordResource extends JsonResource
         $stations = [];
         $stationOrder = [
             CharacterStationEnum::Master,
-            CharacterStationEnum::Henchman,
             CharacterStationEnum::Minion,
             CharacterStationEnum::Peon,
         ];

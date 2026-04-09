@@ -274,8 +274,8 @@ it('generates a unique share code on creation', function () {
 
 it('excludes hidden characters from the hiring pool', function () {
     Character::factory()->create(['station' => CharacterStationEnum::Master, 'is_hidden' => false]);
-    Character::factory()->create(['station' => CharacterStationEnum::Henchman, 'is_hidden' => true, 'cost' => 7, 'is_unhirable' => false]);
-    Character::factory()->create(['station' => CharacterStationEnum::Henchman, 'is_hidden' => false, 'cost' => 5, 'is_unhirable' => false]);
+    Character::factory()->create(['station' => CharacterStationEnum::Minion, 'is_hidden' => true, 'cost' => 7, 'is_unhirable' => false]);
+    Character::factory()->create(['station' => CharacterStationEnum::Minion, 'is_hidden' => false, 'cost' => 5, 'is_unhirable' => false]);
 
     $response = $this->get(route('tools.crew_builder.editor'));
 

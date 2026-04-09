@@ -34,7 +34,7 @@ class SearchController extends Controller
         $pageView = $request->get('page_view', 'images');
         $eagerLoads = match ($pageView) {
             'full' => ['standardMiniatures', 'miniatures', 'keywords', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures'],
-            default => ['standardMiniatures'],
+            default => ['standardMiniatures', 'crewUpgrades'],
         };
 
         $query = Character::with($eagerLoads)
@@ -86,10 +86,7 @@ class SearchController extends Controller
         if ($request->filled('faction')) {
             $factions = array_filter(explode(',', $request->get('faction')));
             if ($factions) {
-                $query->where(function ($q) use ($factions) {
-                    $q->whereIn('faction', $factions)
-                        ->orWhereIn('second_faction', $factions);
-                });
+                $query->whereIn('faction', $factions);
             }
         }
 
@@ -152,22 +149,13 @@ class SearchController extends Controller
 
         if ($request->filled('faction_exclude')) {
             $excluded = array_filter(explode(',', $request->get('faction_exclude')));
-            $query->whereNotIn('faction', $excluded)
-                ->where(fn ($q) => $q->whereNull('second_faction')->orWhereNotIn('second_faction', $excluded));
-        }
-
-        if ($request->filled('second_faction')) {
-            $secondFactions = array_filter(explode(',', $request->get('second_faction')));
-            if ($secondFactions) {
-                $query->whereIn('second_faction', $secondFactions);
-            }
+            $query->whereNotIn('faction', $excluded);
         }
 
         // Boolean "is:" filters
         if ($request->filled('is')) {
             foreach (array_filter(explode(',', $request->get('is'))) as $isFilter) {
                 match ($isFilter) {
-                    'dual' => $query->whereNotNull('second_faction'),
                     'totem' => $query->whereExists(function ($sq) {
                         $sq->select(\DB::raw(1))->from('characters as c2')->whereColumn('c2.has_totem_id', 'characters.id');
                     }),
@@ -242,6 +230,7 @@ class SearchController extends Controller
 
         $sort = match ($request->get('sort')) {
             CharacterSortOptionsEnum::Faction->value => 'faction',
+            CharacterSortOptionsEnum::Station->value => 'station_sort_order',
             CharacterSortOptionsEnum::Cost->value => 'cost',
             CharacterSortOptionsEnum::Health->value => 'health',
             CharacterSortOptionsEnum::Speed->value => 'speed',
@@ -413,12 +402,11 @@ class SearchController extends Controller
 
         return response()->streamDownload(function () use ($characters) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Name', 'Faction', 'Second Faction', 'Station', 'Cost', 'Health', 'Defense', 'Willpower', 'Speed', 'Size', 'Count', 'Keywords', 'Characteristics']);
+            fputcsv($handle, ['Name', 'Faction', 'Station', 'Cost', 'Health', 'Defense', 'Willpower', 'Speed', 'Size', 'Count', 'Keywords', 'Characteristics']);
             foreach ($characters as $c) {
                 fputcsv($handle, [
                     $c->display_name ?? $c->name,
                     $c->faction->label(),
-                    $c->second_faction?->label(),
                     $c->station?->label(),
                     $c->cost,
                     $c->health,
@@ -481,9 +469,7 @@ class SearchController extends Controller
         if ($request->filled('faction')) {
             $factions = array_filter(explode(',', $request->get('faction')));
             if ($factions) {
-                $query->where(function ($q) use ($factions) {
-                    $q->whereIn('faction', $factions)->orWhereIn('second_faction', $factions);
-                });
+                $query->whereIn('faction', $factions);
             }
         }
 
@@ -532,17 +518,9 @@ class SearchController extends Controller
             $query->whereDoesntHave('characteristics', fn ($q) => $q->whereIn('slug', $excluded));
         }
 
-        if ($request->filled('second_faction')) {
-            $secondFactions = array_filter(explode(',', $request->get('second_faction')));
-            if ($secondFactions) {
-                $query->whereIn('second_faction', $secondFactions);
-            }
-        }
-
         if ($request->filled('is')) {
             foreach (array_filter(explode(',', $request->get('is'))) as $isFilter) {
                 match ($isFilter) {
-                    'dual' => $query->whereNotNull('second_faction'),
                     'totem' => $query->whereExists(function ($sq) {
                         $sq->select(\DB::raw(1))->from('characters as c2')->whereColumn('c2.has_totem_id', 'characters.id');
                     }),
@@ -617,6 +595,7 @@ class SearchController extends Controller
     {
         return match ($sort) {
             'faction' => strtolower($c->getRawOriginal('faction') ?? ''),
+            'station_sort_order' => str_pad((string) ($c->station_sort_order ?? 99), 3, '0', STR_PAD_LEFT).strtolower($c->name),
             'cost' => str_pad((string) $c->cost, 5, '0', STR_PAD_LEFT).strtolower($c->name),
             'health' => str_pad((string) $c->health, 5, '0', STR_PAD_LEFT).strtolower($c->name),
             'speed' => str_pad((string) $c->speed, 5, '0', STR_PAD_LEFT).strtolower($c->name),

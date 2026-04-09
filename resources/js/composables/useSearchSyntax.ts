@@ -26,8 +26,6 @@ export const fieldMap: Record<string, string> = {
     base: 'base',
     is: 'is',
     has: 'has',
-    sf: 'second_faction',
-    second_faction: 'second_faction',
     order: 'sort',
     sort: 'sort',
     dir: 'sort_type',
@@ -49,7 +47,7 @@ const numericFieldMap: Record<string, string> = {
 
 const statNames = new Set(Object.keys(numericFieldMap));
 
-const multiValueFields = new Set(['faction', 'keyword', 'characteristic', 'action', 'ability', 'trigger', 'token', 'marker', 'is', 'has', 'second_faction']);
+const multiValueFields = new Set(['faction', 'keyword', 'characteristic', 'action', 'ability', 'trigger', 'token', 'marker', 'is', 'has']);
 
 const excludableFields = new Set(['faction', 'keyword', 'characteristic']);
 
@@ -361,12 +359,6 @@ export function toSyntax(params: Record<string, string | null | undefined>): str
     const factionsExclude = splitValues(get('faction_exclude'));
     if (factionsExclude.length > 0) {
         parts.push(serializeExcludes('f', factionsExclude));
-    }
-
-    // 3b. Second factions
-    const secondFactions = splitValues(get('second_faction'));
-    if (secondFactions.length > 0) {
-        parts.push(serializeMultiValue('sf', secondFactions, null));
     }
 
     // 4. Station

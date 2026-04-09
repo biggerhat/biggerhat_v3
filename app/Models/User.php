@@ -118,4 +118,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Tournament::class, 'creator_id');
     }
+
+    public function savedSearches(): HasMany
+    {
+        return $this->hasMany(SavedSearch::class);
+    }
 }

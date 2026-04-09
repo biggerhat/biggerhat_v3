@@ -101,6 +101,9 @@ Route::get('/', function () {
 Route::get('/command', CommandController::class)->name('command');
 
 Route::get('/advanced', [SearchController::class, 'view'])->name('search.view');
+Route::post('/advanced/save', [SearchController::class, 'saveSearch'])->name('search.save')->middleware('auth');
+Route::delete('/advanced/saved/{savedSearch}', [SearchController::class, 'deleteSavedSearch'])->name('search.delete')->middleware('auth');
+Route::get('/advanced/export', [SearchController::class, 'export'])->name('search.export');
 
 Route::prefix('characters')->name('characters.')->group(function () {
     Route::get('/{character}/{miniature:id}/{slug}', [CharacterController::class, 'view'])->name('view');

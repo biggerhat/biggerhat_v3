@@ -222,6 +222,7 @@ class GamePlayController extends Controller
             'defense' => $character->defense,
             'willpower' => $character->willpower,
             'speed' => $character->speed,
+            'size' => $character->size,
             'cost' => $character->cost ?? 0,
             'station' => $character->station?->value,
             'hiring_category' => $isReplacement ? 'replaced' : 'summoned',
@@ -274,6 +275,7 @@ class GamePlayController extends Controller
             'defense' => $character->defense,
             'willpower' => $character->willpower,
             'speed' => $character->speed,
+            'size' => $character->size,
             'cost' => $gameCrewMember->cost, // Preserve original hiring cost for budget tracking
             'station' => $character->station?->value,
             'front_image' => $miniature?->front_image,
@@ -602,6 +604,7 @@ class GamePlayController extends Controller
                         'defense' => $m->defense,
                         'willpower' => $m->willpower,
                         'speed' => $m->speed,
+                        'size' => $m->size,
                         'is_killed' => $m->is_killed,
                         'is_summoned' => $m->is_summoned,
                         'is_activated' => $m->is_activated,

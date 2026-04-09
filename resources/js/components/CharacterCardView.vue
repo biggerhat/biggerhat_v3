@@ -110,7 +110,7 @@ const currentLabel = computed(() => {
     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
         <p class="mb-1 text-xs text-muted-foreground">{{ miniature.display_name }}</p>
         <div class="relative mx-auto w-fit">
-            <div @click="flip" class="cursor-pointer" style="perspective: 1000px">
+            <div @click="flip" @keydown.enter="flip" role="button" tabindex="0" class="cursor-pointer" style="perspective: 1000px">
                 <div
                     class="card-flip-inner relative w-full"
                     :class="{ 'card-flipped': flipped }"

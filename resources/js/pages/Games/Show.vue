@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowUpCircle, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Layers, Loader2, Maximize2, Minus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Ruler, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
+import { ArrowLeft, ArrowUpCircle, Banana, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Layers, Loader2, Maximize2, Minus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface GamePlayer {
@@ -3231,7 +3231,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.defense }}</span>
                                             <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.willpower }}</span>
                                             <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.speed }}</span>
-                                            <span v-if="member.size" title="Size"><Ruler class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span>
+                                            <span v-if="member.size" title="Size"><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span>
                                         </div>
                                         <!-- Desktop: health pips inline -->
                                         <div class="hidden gap-0.5 sm:flex">
@@ -3464,7 +3464,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.defense }}</span>
                                             <span v-if="member.willpower" title="Willpower"><ShieldAlert class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.willpower }}</span>
                                             <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.speed }}</span>
-                                            <span v-if="member.size" title="Size"><Ruler class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span>
+                                            <span v-if="member.size" title="Size"><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span>
                                         </div>
                                         <!-- Desktop: health pips inline -->
                                         <div class="hidden gap-0.5 sm:flex">

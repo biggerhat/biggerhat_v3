@@ -1080,7 +1080,7 @@ const deleteSavedSearch = (savedSearch: any) => {
 
 // --- Feature 1: Rotating syntax bar placeholder ---
 const syntaxPlaceholders = [
-    'f:neverborn st:master kw:Terrifying cost>=5',
+    'f:neverborn st:master kw:amalgam cost>=5',
     'health>=10 defense>=6',
     'kw:Beast speed>=6',
     'o:"heal friendly" f:guild',
@@ -1397,7 +1397,7 @@ onUnmounted(() => {
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                             <code>f:arcanists</code><span>Faction</span>
                             <code>st:master</code><span>Station</span>
-                            <code>kw:Terrifying</code><span>Keyword</span>
+                            <code>kw:amalgam</code><span>Keyword</span>
                             <code>char:Living</code><span>Characteristic</span>
                             <code>act:Obey</code><span>Action</span>
                             <code>ab:Armor</code><span>Ability</span>

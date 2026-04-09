@@ -15,7 +15,8 @@ class BlogPostAdminController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
-        $query = BlogPost::with(['author', 'category'])
+        $query = BlogPost::select('id', 'title', 'slug', 'status', 'user_id', 'blog_category_id', 'published_at', 'created_at')
+            ->with(['author:id,name', 'category:id,name'])
             ->orderBy('created_at', 'DESC');
 
         if (! $request->user()->can(PermissionEnum::ManageAllPosts->value)) {

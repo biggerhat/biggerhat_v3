@@ -3315,7 +3315,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     leave-from-class="max-h-[600px] opacity-100"
                                     leave-to-class="max-h-0 opacity-0"
                                 >
-                                    <div v-if="expandedMyCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden">
+                                    <div v-if="expandedMyCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]">
                                         <CharacterCardView
                                             :miniature="{ id: member.id, display_name: member.display_name, slug: '', front_image: member.front_image, back_image: member.back_image }"
                                             :show-link="false"
@@ -3548,7 +3548,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     leave-from-class="max-h-[600px] opacity-100"
                                     leave-to-class="max-h-0 opacity-0"
                                 >
-                                    <div v-if="expandedOpponentCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden">
+                                    <div v-if="expandedOpponentCards.has(member.id) && member.front_image" class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]">
                                         <CharacterCardView
                                             :miniature="{ id: member.id, display_name: member.display_name, slug: '', front_image: member.front_image, back_image: member.back_image }"
                                             :show-link="false"

@@ -283,7 +283,7 @@ const factionColor = (faction: string) => {
                             <CardContent class="p-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo :faction="char.faction" class-name="size-5 shrink-0" />
-                                    <Link :href="route('characters.view', { character: char.slug, miniature: char.id, slug: char.slug })" class="min-w-0 truncate text-sm font-bold hover:text-primary hover:underline">
+                                    <Link :href="route('characters.view', { character: char.slug, miniature: char.miniature_id, slug: char.miniature_slug ?? char.slug })" class="min-w-0 truncate text-sm font-bold hover:text-primary hover:underline">
                                         {{ char.display_name }}
                                     </Link>
                                 </div>
@@ -307,6 +307,51 @@ const factionColor = (faction: string) => {
                                             </template>
                                             <span v-else class="text-muted-foreground/30">-</span>
                                         </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <!-- Combat Profile -->
+                        <Card v-if="char.actions?.length" class="mb-3">
+                            <CardContent class="p-3">
+                                <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Combat Profile</div>
+                                <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                                    <div class="flex justify-between">
+                                        <span class="text-muted-foreground">Actions</span>
+                                        <span class="font-bold">{{ char.actions.length }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-muted-foreground">Signature</span>
+                                        <span class="font-bold">{{ char.actions.filter((a: any) => a.is_signature).length }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-muted-foreground">Triggers</span>
+                                        <span class="font-bold">{{ char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.length ?? 0), 0) }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-muted-foreground">Abilities</span>
+                                        <span class="font-bold">{{ char.abilities?.length ?? 0 }}</span>
+                                    </div>
+                                    <div v-if="char.actions.some((a: any) => a.range)" class="flex justify-between">
+                                        <span class="text-muted-foreground">Max Range</span>
+                                        <span class="font-bold">{{ Math.max(...char.actions.filter((a: any) => a.range).map((a: any) => parseInt(a.range) || 0)) }}"</span>
+                                    </div>
+                                    <div v-if="char.actions.some((a: any) => a.damage)" class="flex justify-between">
+                                        <span class="text-muted-foreground">Max Damage</span>
+                                        <span class="font-bold">{{ char.actions.filter((a: any) => a.damage).map((a: any) => a.damage).sort().pop() }}</span>
+                                    </div>
+                                </div>
+                                <!-- Trigger suit breakdown -->
+                                <div v-if="char.actions.some((a: any) => a.triggers?.length)" class="mt-2 border-t pt-2">
+                                    <div class="mb-1 text-[10px] text-muted-foreground">Trigger Suits</div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template v-for="suit in ['ram', 'crow', 'tome', 'mask']" :key="suit">
+                                            <span v-if="char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0), 0) > 0" class="flex items-center gap-0.5 text-xs">
+                                                <GameIcon :type="suit" class-name="inline-block h-3.5" />
+                                                <span class="font-bold">{{ char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0), 0) }}</span>
+                                            </span>
+                                        </template>
                                     </div>
                                 </div>
                             </CardContent>

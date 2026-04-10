@@ -107,6 +107,8 @@ class CharacterAPIController extends Controller
                 'size' => $c->size,
                 'base' => $c->base?->value, // @phpstan-ignore nullsafe.neverNull
                 'count' => $c->count,
+                'miniature_id' => $c->miniatures->first()?->id,
+                'miniature_slug' => $c->miniatures->first()?->slug,
                 'front_image' => $c->miniatures->first()?->front_image,
                 'back_image' => $c->miniatures->first()?->back_image,
                 'combination_image' => $c->miniatures->first()?->combination_image,

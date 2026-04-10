@@ -87,4 +87,9 @@ class Upgrade extends Model
     {
         return $this->characters()->where('station', CharacterStationEnum::Master->value);
     }
+
+    public function podLinks(): MorphToMany
+    {
+        return $this->morphToMany(PodLink::class, 'taggable', 'pod_link_taggables');
+    }
 }

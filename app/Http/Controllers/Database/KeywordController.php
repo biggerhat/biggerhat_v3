@@ -9,9 +9,11 @@ use App\Enums\PageViewOptionsEnum;
 use App\Enums\SortTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\KeywordResource;
+use App\Models\BlogPost;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
+use App\Models\Transmission;
 use Illuminate\Http\Request;
 
 class KeywordController extends Controller
@@ -143,6 +145,43 @@ class KeywordController extends Controller
             'sort_options' => CharacterSortOptionsEnum::toSelectOptions(),
             'sort_types' => SortTypeEnum::toSelectOptions(),
             'view_options' => PageViewOptionsEnum::toSelectOptions(),
+            'resources' => fn () => $this->getKeywordResources($keyword),
         ]);
+    }
+
+    private function getKeywordResources(Keyword $keyword): array
+    {
+        try {
+            $articles = BlogPost::published()
+                ->whereHas('keywords', fn ($q) => $q->where('keywords.id', $keyword->id))
+                ->with('category:id,name')
+                ->latest('published_at')
+                ->limit(5)
+                ->get(['id', 'title', 'slug', 'published_at', 'blog_category_id']);
+        } catch (\Throwable) {
+            $articles = collect();
+        }
+
+        try {
+            $transmissions = Transmission::whereHas('keywords', fn ($q) => $q->where('keywords.id', $keyword->id))
+                ->with('channel:id,name,slug,image')
+                ->latest('release_date')
+                ->limit(5)
+                ->get(['id', 'title', 'slug', 'url', 'factions', 'release_date', 'channel_id']);
+        } catch (\Throwable) {
+            $transmissions = collect();
+        }
+
+        try {
+            $podLinks = $keyword->podLinks()->latest()->limit(10)->get(['pod_links.id', 'name', 'slug', 'source', 'url']);
+        } catch (\Throwable) {
+            $podLinks = collect();
+        }
+
+        return [
+            'articles' => $articles,
+            'transmissions' => $transmissions,
+            'pod_links' => $podLinks,
+        ];
     }
 }

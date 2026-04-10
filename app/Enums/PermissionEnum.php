@@ -161,6 +161,13 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Channel)]
     case ManageOwnTransmissions = 'manage_own_transmissions';
 
+    #[PermissionGroup(PermissionGroupEnum::PodLink)]
+    case ViewPodLink = 'view_pod_link';
+    #[PermissionGroup(PermissionGroupEnum::PodLink)]
+    case EditPodLink = 'edit_pod_link';
+    #[PermissionGroup(PermissionGroupEnum::PodLink)]
+    case DeletePodLink = 'delete_pod_link';
+
     /**
      * @return list<array{name: string, value: string}>
      */

@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\LoreMediaAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
 use App\Http\Controllers\Admin\PackageAdminController;
+use App\Http\Controllers\Admin\PodLinkAdminController;
 use App\Http\Controllers\Admin\RoleAdminController;
 use App\Http\Controllers\Admin\SchemeAdminController;
 use App\Http\Controllers\Admin\StrategyAdminController;
@@ -235,5 +236,15 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
             Route::post('/delete/{blogPost}', 'delete')->name('delete')->middleware('permission:delete_posts');
             Route::post('/upload-image', 'uploadImage')->name('upload-image');
         });
+    });
+
+    // POD Links
+    Route::controller(PodLinkAdminController::class)->prefix('pod-links')->name('pod_links.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_pod_link');
+        Route::get('/edit/{podLink}', 'edit')->name('edit')->middleware('permission:view_pod_link');
+        Route::get('/create', 'create')->name('create')->middleware('permission:edit_pod_link');
+        Route::post('/store', 'store')->name('store')->middleware('permission:edit_pod_link');
+        Route::post('/update/{podLink}', 'update')->name('update')->middleware('permission:edit_pod_link');
+        Route::post('/delete/{podLink}', 'delete')->name('delete')->middleware('permission:delete_pod_link');
     });
 });

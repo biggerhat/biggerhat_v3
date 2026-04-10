@@ -38,4 +38,9 @@ class Keyword extends Model
     {
         return $this->morphToMany(BlogPost::class, 'taggable', 'blog_post_taggables');
     }
+
+    public function podLinks(): MorphToMany
+    {
+        return $this->morphToMany(PodLink::class, 'taggable', 'pod_link_taggables');
+    }
 }

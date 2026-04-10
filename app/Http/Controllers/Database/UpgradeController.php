@@ -80,7 +80,7 @@ class UpgradeController extends Controller
 
     public function view(Request $request, Upgrade $upgrade)
     {
-        $upgrade->load(['masters.standardMiniatures', 'keywords', 'characters.standardMiniatures', 'actions', 'abilities', 'triggers', 'markers', 'tokens']);
+        $upgrade->load(['masters.standardMiniatures', 'keywords', 'characters.standardMiniatures', 'actions', 'abilities', 'triggers', 'markers', 'tokens', 'podLinks']);
 
         return inertia('Upgrades/View', [
             'upgrade' => [

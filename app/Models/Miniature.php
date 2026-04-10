@@ -37,4 +37,9 @@ class Miniature extends Model
     {
         return $this->morphedByMany(Package::class, 'miniatureable');
     }
+
+    public function podLinks(): MorphToMany
+    {
+        return $this->morphToMany(PodLink::class, 'taggable', 'pod_link_taggables');
+    }
 }

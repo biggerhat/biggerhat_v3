@@ -39,3 +39,9 @@ Route::apiResource('miniatures', MiniatureController::class)->only(['index', 'sh
 
 Route::get('factions', [FactionController::class, 'index'])->name('factions.index');
 Route::get('factions/{faction}', [FactionController::class, 'show'])->name('factions.show');
+
+Route::get('crews', [\App\Http\Controllers\API\V1\CrewBuildController::class, 'index'])->name('crews.index');
+Route::get('crews/{shareCode}', [\App\Http\Controllers\API\V1\CrewBuildController::class, 'show'])->name('crews.show');
+
+Route::get('games', [\App\Http\Controllers\API\V1\GameController::class, 'index'])->name('games.index');
+Route::get('games/{game:uuid}', [\App\Http\Controllers\API\V1\GameController::class, 'show'])->name('games.show');

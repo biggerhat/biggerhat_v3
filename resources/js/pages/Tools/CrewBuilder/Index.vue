@@ -174,6 +174,7 @@ const props = defineProps<{
     keywords: Keyword[];
     savedBuilds: SavedBuild[];
     customCharacters: CustomCharacterData[];
+    ownedCharacterIds: number[];
 }>();
 
 const page = usePage<SharedData>();
@@ -853,6 +854,8 @@ const poolFilter = ref<PoolFilter>('in-keyword');
 
 type PoolSort = 'station' | 'name' | 'cost';
 const poolSort = ref<PoolSort>('station');
+const ownedOnly = ref(false);
+const ownedSet = computed(() => new Set(props.ownedCharacterIds));
 
 const isUnique = (character: CharacterData): boolean => character.characteristics.includes('unique');
 const isHenchman = (character: CharacterData): boolean => character.characteristics.includes('henchman');
@@ -897,6 +900,10 @@ const filteredHiringPool = computed(() => {
 
     if (poolFilter.value !== 'all') {
         filtered = filtered.filter((c) => getHiringCategory(c) === poolFilter.value);
+    }
+
+    if (ownedOnly.value && ownedSet.value.size > 0) {
+        filtered = filtered.filter((c) => ownedSet.value.has(c.id));
     }
 
     const filter = debouncedFilterText.value.toLowerCase();
@@ -946,12 +953,17 @@ const augmentedPool = computed((): PoolEntry[] =>
     }),
 );
 
-const poolFilterCounts = computed(() => ({
-    'in-keyword': hiringPool.value.filter((c) => getHiringCategory(c) === 'in-keyword').length,
-    versatile: hiringPool.value.filter((c) => getHiringCategory(c) === 'versatile').length,
-    ook: hiringPool.value.filter((c) => getHiringCategory(c) === 'ook').length,
-    all: hiringPool.value.length,
-}));
+const poolFilterCounts = computed(() => {
+    const pool = ownedOnly.value && ownedSet.value.size > 0
+        ? hiringPool.value.filter((c) => ownedSet.value.has(c.id))
+        : hiringPool.value;
+    return {
+        'in-keyword': pool.filter((c) => getHiringCategory(c) === 'in-keyword').length,
+        versatile: pool.filter((c) => getHiringCategory(c) === 'versatile').length,
+        ook: pool.filter((c) => getHiringCategory(c) === 'ook').length,
+        all: pool.length,
+    };
+});
 
 // ─── References ───
 interface ReferenceData {
@@ -1729,6 +1741,12 @@ const parseAndImportCrew = () => {
     });
 };
 
+const openQuickRef = () => {
+    if (currentShareCode.value) {
+        window.open(route('tools.crew_builder.quick_ref', currentShareCode.value), '_blank');
+    }
+};
+
 const printCrewPDF = () => {
     if (crew.value.length === 0) return;
 
@@ -2289,6 +2307,9 @@ onUnmounted(() => {
                                         <DropdownMenuItem :disabled="crew.length === 0" class="cursor-pointer text-xs" @click="printCrewPDF">
                                             <Printer class="mr-2 size-3.5" /> Export PDF (with References)
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem :disabled="!currentShareCode" class="cursor-pointer text-xs" @click="currentShareCode && openQuickRef()">
+                                            <Printer class="mr-2 size-3.5" /> Quick Reference Sheet
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
@@ -2420,6 +2441,15 @@ onUnmounted(() => {
                                             >
                                                 {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
                                                 <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                            </Button>
+                                            <Button
+                                                v-if="ownedSet.size > 0"
+                                                :variant="ownedOnly ? 'default' : 'outline'"
+                                                size="sm"
+                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                @click="ownedOnly = !ownedOnly"
+                                            >
+                                                Owned
                                             </Button>
                                             <span class="ml-auto text-xs text-muted-foreground">{{ augmentedPool.length }} shown</span>
                                         </div>
@@ -2791,6 +2821,15 @@ onUnmounted(() => {
                                         >
                                             {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
                                             <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                        </Button>
+                                        <Button
+                                            v-if="ownedSet.size > 0"
+                                            :variant="ownedOnly ? 'default' : 'outline'"
+                                            size="sm"
+                                            class="h-6 gap-1 px-2 text-[11px]"
+                                            @click="ownedOnly = !ownedOnly"
+                                        >
+                                            Owned
                                         </Button>
                                         <span class="ml-auto text-xs text-muted-foreground">{{ augmentedPool.length }} shown</span>
                                     </div>

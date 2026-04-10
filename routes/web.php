@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
+use App\Http\Controllers\CompareController;
 use App\Http\Controllers\CrewBuilderController;
 use App\Http\Controllers\CustomCharacterController;
 use App\Http\Controllers\Database\AbilityController;
@@ -209,6 +210,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
+    Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
 
@@ -227,6 +229,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/editor', [CrewBuilderController::class, 'editor'])->name('editor');
         Route::get('/references', [CrewBuilderController::class, 'references'])->name('references');
         Route::get('/share/{shareCode}', [CrewBuilderController::class, 'share'])->name('share');
+        Route::get('/quick-ref/{shareCode}', [CrewBuilderController::class, 'quickRef'])->name('quick_ref');
         Route::get('/{crewBuild}/details', [CrewBuilderController::class, 'details'])->name('details')->middleware('auth');
         Route::post('/', [CrewBuilderController::class, 'store'])->name('store')->middleware('auth');
         Route::put('/{crewBuild}', [CrewBuilderController::class, 'update'])->name('update')->middleware('auth');

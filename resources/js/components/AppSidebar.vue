@@ -11,10 +11,12 @@ import {
     ArrowUpCircle,
     BookOpen,
     Calendar,
+    Bot,
     CircleDollarSign,
     Dice6,
     FileImage,
     ExternalLink,
+    FileText,
     Heart,
     KeyRound,
     Library,
@@ -23,6 +25,7 @@ import {
     Puzzle,
     Radio,
     Radius,
+    Scale,
     Shield,
     ShieldCheck,
     Swords,
@@ -89,11 +92,6 @@ const mainNavItems: NavItem[] = [
                 href: route('games.index'),
                 icon: Swords,
                 badge: 'Beta',
-            },
-            {
-                title: 'Scenario Generator',
-                href: route('tools.scenario_generator'),
-                icon: Dice6,
             },
             {
                 title: 'Articles',
@@ -171,6 +169,28 @@ const mainNavItems: NavItem[] = [
         ],
     },
     {
+        title: 'Tools',
+        collapsible: true,
+        collapsed: true,
+        items: [
+            {
+                title: 'Compare',
+                href: route('tools.compare'),
+                icon: Scale,
+            },
+            {
+                title: 'Scenario Generator',
+                href: route('tools.scenario_generator'),
+                icon: Dice6,
+            },
+            {
+                title: 'Hat Gamin Bot',
+                href: route('tools.hat_gamin'),
+                icon: Bot,
+            },
+        ],
+    },
+    {
         title: 'References',
         collapsible: true,
         collapsed: false,
@@ -237,28 +257,6 @@ const mainNavItems: NavItem[] = [
             },
         ],
     },
-    // {
-    //     title: 'Tools',
-    //     collapsible: true,
-    //     collapsed: false,
-    //     items: [
-    //         // {
-    //         //     title: 'Hat Gamin Discord Bot',
-    //         //     href: route('tools.hat_gamin'),
-    //         //     icon: Bot,
-    //         // },
-    //         {
-    //             title: 'PDF Generator',
-    //             href: route('tools.pdf.index'),
-    //             icon: FileText,
-    //         },
-    //         {
-    //             title: 'Scenario Generator',
-    //             href: route('tools.scenario_generator'),
-    //             icon: Dice6,
-    //         },
-    //     ],
-    // },
 ];
 
 const allAdminNavItems: NavItem[] = [

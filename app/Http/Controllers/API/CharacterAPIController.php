@@ -74,6 +74,79 @@ class CharacterAPIController extends Controller
         ]));
     }
 
+    public function compare(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $slugs = array_filter(explode(',', $request->get('slugs', '')));
+        $slugs = array_slice($slugs, 0, 4);
+
+        if (empty($slugs)) {
+            return response()->json([]);
+        }
+
+        $characters = Character::whereIn('slug', $slugs)
+            ->with(['miniatures', 'keywords', 'characteristics', 'actions.triggers', 'abilities', 'crewUpgrades'])
+            ->get();
+
+        $result = [];
+        foreach ($characters as $c) {
+            $result[] = [
+                'id' => $c->id,
+                'display_name' => $c->display_name,
+                'name' => $c->name,
+                'title' => $c->title,
+                'slug' => $c->slug,
+                'faction' => $c->getRawOriginal('faction'),
+                'station' => $c->station?->value,
+                'cost' => $c->cost,
+                'health' => $c->health,
+                'defense' => $c->defense,
+                'defense_suit' => $c->getRawOriginal('defense_suit'),
+                'willpower' => $c->willpower,
+                'willpower_suit' => $c->getRawOriginal('willpower_suit'),
+                'speed' => $c->speed,
+                'size' => $c->size,
+                'base' => $c->base?->value, // @phpstan-ignore nullsafe.neverNull
+                'count' => $c->count,
+                'front_image' => $c->miniatures->first()?->front_image,
+                'back_image' => $c->miniatures->first()?->back_image,
+                'combination_image' => $c->miniatures->first()?->combination_image,
+                'keywords' => $c->keywords->map(fn ($k) => ['name' => $k->name, 'slug' => $k->slug])->values()->all(),
+                'characteristics' => $c->characteristics->pluck('name')->values()->all(),
+                'actions' => $c->actions->map(fn ($a) => [
+                    'name' => $a->name,
+                    'type' => $a->getRawOriginal('type'),
+                    'stat' => $a->stat,
+                    'stat_suits' => $a->stat_suits,
+                    'stat_modifier' => $a->getRawOriginal('stat_modifier'),
+                    'range' => $a->range,
+                    'range_type' => $a->getRawOriginal('range_type'),
+                    'resisted_by' => $a->resisted_by,
+                    'target_number' => $a->target_number,
+                    'target_suits' => $a->target_suits,
+                    'damage' => $a->damage,
+                    'description' => $a->description,
+                    'is_signature' => $a->is_signature,
+                    'stone_cost' => $a->stone_cost,
+                    'triggers' => $a->triggers->map(fn ($t) => [
+                        'name' => $t->name,
+                        'suits' => $t->suits,
+                        'stone_cost' => $t->stone_cost,
+                        'description' => $t->description,
+                    ])->values()->all(),
+                ])->values()->all(),
+                'abilities' => $c->abilities->map(fn ($a) => [
+                    'name' => $a->name,
+                    'suits' => $a->suits,
+                    'description' => $a->description,
+                    'defensive_ability_type' => $a->getRawOriginal('defensive_ability_type'),
+                    'costs_stone' => $a->costs_stone,
+                ])->values()->all(),
+            ];
+        }
+
+        return response()->json($result);
+    }
+
     public function images(Request $request)
     {
         $storageUrl = config('filesystems.disks.public.url').'/';

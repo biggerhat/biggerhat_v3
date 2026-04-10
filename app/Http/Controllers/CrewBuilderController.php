@@ -111,6 +111,13 @@ class CrewBuilderController extends Controller
                         'is_custom' => true,
                     ])->toArray()
                 : [],
+            'ownedCharacterIds' => fn () => Auth::check()
+                ? Auth::user()->collectionMiniatures()
+                    ->pluck('character_id')
+                    ->unique()
+                    ->values()
+                    ->all()
+                : [],
         ];
     }
 
@@ -493,5 +500,112 @@ class CrewBuilderController extends Controller
                 'updated_at' => $build->updated_at->toISOString(),
             ],
         ]);
+    }
+
+    public function quickRef(string $shareCode)
+    {
+        $build = CrewBuild::where('share_code', $shareCode)->firstOrFail();
+
+        if (! $build->is_public && Auth::id() !== $build->user_id) {
+            abort(404);
+        }
+
+        $master = Character::with(['keywords', 'characteristics', 'actions.triggers', 'abilities', 'crewUpgrades', 'miniatures'])
+            ->find($build->master_id);
+
+        if (! $master) {
+            abort(404);
+        }
+
+        $crewCharacterIds = $build->crew_data ?? [];
+        $crewCharacters = Character::with(['keywords', 'characteristics', 'actions.triggers', 'abilities'])
+            ->whereIn('id', $crewCharacterIds)
+            ->get()
+            ->keyBy('id');
+
+        $leaderKeywords = $master->keywords->pluck('name')->toArray();
+
+        $members = [];
+
+        // Leader
+        $members[] = $this->formatMemberForRef($master, 'leader');
+
+        // Totem
+        if ($master->has_totem_id) {
+            $totem = $crewCharacters->get($master->has_totem_id)
+                ?? Character::with(['keywords', 'characteristics', 'actions.triggers', 'abilities'])->find($master->has_totem_id);
+            if ($totem) {
+                $members[] = $this->formatMemberForRef($totem, 'totem');
+            }
+        }
+
+        // Crew
+        foreach ($crewCharacterIds as $charId) {
+            $character = $crewCharacters->get($charId);
+            if ($character && $character->id !== $master->has_totem_id) {
+                $sharesKeyword = $character->keywords->pluck('slug')->intersect($master->keywords->pluck('slug'))->isNotEmpty();
+                $isVersatile = $character->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+                $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+                $members[] = $this->formatMemberForRef($character, $category);
+            }
+        }
+
+        $totalCost = collect($members)->sum('cost');
+        $remaining = $build->encounter_size - $totalCost;
+        $pool = min(6, max(0, $remaining));
+
+        return inertia('Tools/CrewBuilder/QuickRef', [
+            'crew' => [
+                'name' => $build->name,
+                'faction' => $build->getRawOriginal('faction'),
+                'encounter_size' => $build->encounter_size,
+                'soulstone_pool' => $pool,
+                'master' => $master->display_name,
+            ],
+            'members' => $members,
+        ]);
+    }
+
+    private function formatMemberForRef(Character $c, string $category): array
+    {
+        return [
+            'display_name' => $c->display_name,
+            'cost' => $category === 'leader' || $category === 'totem' ? 0 : ($category === 'ook' ? ($c->cost + 1) : $c->cost),
+            'health' => $c->health,
+            'defense' => $c->defense,
+            'defense_suit' => $c->getRawOriginal('defense_suit'),
+            'willpower' => $c->willpower,
+            'willpower_suit' => $c->getRawOriginal('willpower_suit'),
+            'speed' => $c->speed,
+            'size' => $c->size,
+            'station' => $c->station?->value,
+            'category' => $category,
+            'keywords' => $c->keywords->pluck('name')->toArray(),
+            'characteristics' => $c->characteristics->pluck('name')->toArray(),
+            'abilities' => $c->abilities->map(fn ($a) => [
+                'name' => $a->name,
+                'suits' => $a->suits,
+                'description' => $a->description,
+                'defensive_ability_type' => $a->getRawOriginal('defensive_ability_type'),
+                'costs_stone' => (bool) $a->costs_stone,
+            ])->toArray(),
+            'actions' => $c->actions->map(fn ($a) => [
+                'name' => $a->name,
+                'type' => $a->getRawOriginal('type'),
+                'stat' => $a->stat,
+                'stat_suits' => $a->stat_suits,
+                'range' => $a->range,
+                'damage' => $a->damage,
+                'description' => $a->description,
+                'is_signature' => (bool) $a->is_signature,
+                'stone_cost' => $a->stone_cost,
+                'triggers' => $a->triggers->map(fn ($t) => [
+                    'name' => $t->name,
+                    'suits' => $t->suits,
+                    'stone_cost' => $t->stone_cost,
+                    'description' => $t->description,
+                ])->toArray(),
+            ])->toArray(),
+        ];
     }
 }

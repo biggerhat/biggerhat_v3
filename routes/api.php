@@ -14,6 +14,7 @@ use App\Http\Controllers\API\UpgradeAPIController;
 Route::prefix('api')->name('api.')->group(function () {
     Route::get('/characters', [CharacterAPIController::class, 'view'])->name('characters.view');
     Route::get('/characters/search', [CharacterAPIController::class, 'search'])->name('characters.search');
+    Route::get('/characters/compare', [CharacterAPIController::class, 'compare'])->name('characters.compare');
     Route::get('/characters/{character}/miniatures', [CharacterAPIController::class, 'miniatures'])->name('characters.miniatures');
     Route::get('/characters/images', [CharacterAPIController::class, 'images']);
     Route::get('/markers', [MarkerAPIController::class, 'view']);

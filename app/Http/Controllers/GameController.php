@@ -227,13 +227,13 @@ class GameController extends Controller
                 GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
             ]);
         $allStrategies = fn () => $canEditScenario()
-            ? Strategy::forSeason($game->season)->orderBy('name')->get(['id', 'name', 'slug'])
+            ? Strategy::forSeason($game->season)->orderBy('name')->get()->map(fn (Strategy $s) => ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url])
             : [];
         $allSchemes = fn () => $canEditScenario()
-            ? Scheme::forSeason($game->season)->orderBy('name')->get(['id', 'name', 'slug'])
+            ? Scheme::forSeason($game->season)->orderBy('name')->get()->map(fn (Scheme $s) => ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url])
             : [];
         $allDeployments = fn () => $canEditScenario()
-            ? collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label()])
+            ? collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'image_url' => $d->imageUrl()])
             : [];
 
         // Data for setup steps (lazy-loaded based on current status)

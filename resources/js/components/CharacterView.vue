@@ -31,6 +31,7 @@ import {
     Package,
     Newspaper,
     Radio,
+    Scale,
     Star,
     Swords,
 } from 'lucide-vue-next';
@@ -492,6 +493,12 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                 {{ keyword.name }}
                             </Button>
                         </Link>
+                        <Link :href="route('tools.compare') + '?characters=' + character.slug">
+                            <Button variant="outline" size="sm" class="w-full gap-1.5">
+                                <Scale class="size-4" />
+                                Compare
+                            </Button>
+                        </Link>
                         <a :href="`/api/v1/characters/${character.slug}`" target="_blank">
                             <Button variant="outline" size="sm" class="w-full gap-1.5">
                                 <ExternalLink class="size-4" />
@@ -557,6 +564,12 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         <Button variant="outline" size="sm" class="w-full gap-1.5">
                             <Swords class="size-4" />
                             {{ keyword.name }}
+                        </Button>
+                    </Link>
+                    <Link :href="route('tools.compare') + '?characters=' + character.slug">
+                        <Button variant="outline" size="sm" class="w-full gap-1.5">
+                            <Scale class="size-4" />
+                            Compare
                         </Button>
                     </Link>
                     <a :href="`/api/v1/characters/${character.slug}`" target="_blank">

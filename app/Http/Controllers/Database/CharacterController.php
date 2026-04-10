@@ -14,7 +14,7 @@ class CharacterController extends Controller
     public function view(Request $request, Character $character, Miniature $miniature): Response|ResponseFactory
     {
         $character->loadMissing(
-            'miniatures', 'keywords', 'characteristics',
+            'miniatures.podLinks', 'keywords', 'characteristics',
             'crewUpgrades', 'characterUpgrades', 'packages',
             'tokens', 'markers',
             'lores.media',

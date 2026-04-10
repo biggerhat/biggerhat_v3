@@ -125,7 +125,8 @@ const hasSecondaryContent = computed(
         props.character.lores?.length ||
         props.character.blueprints?.length ||
         props.character.transmissions?.length ||
-        props.character.blog_posts?.length,
+        props.character.blog_posts?.length ||
+        props.miniature.pod_links?.length,
 );
 
 const formatDate = (dateStr: string) => {
@@ -715,6 +716,30 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         >
                             View all articles
                         </Link>
+                    </CardContent>
+                </Card>
+
+                <!-- Print On Demand -->
+                <Card v-if="miniature.pod_links?.length">
+                    <CardHeader class="pb-3">
+                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Print On Demand</CardTitle>
+                    </CardHeader>
+                    <CardContent class="px-0 pb-2">
+                        <a
+                            v-for="pod in miniature.pod_links"
+                            :key="pod.id"
+                            :href="pod.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex items-center gap-2.5 border-t px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+                        >
+                            <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
+                            <div class="min-w-0 flex-1">
+                                <div class="font-medium">{{ pod.name }}</div>
+                                <Badge variant="outline" class="mt-0.5 text-[10px]">{{ pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault' }}</Badge>
+                            </div>
+                            <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" />
+                        </a>
                     </CardContent>
                 </Card>
             </div>

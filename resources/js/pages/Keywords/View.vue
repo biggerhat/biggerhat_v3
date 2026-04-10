@@ -15,6 +15,7 @@ import FilterPanel from '@/components/FilterPanel.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import ResourcesPanel from '@/components/ResourcesPanel.vue';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -102,6 +103,11 @@ const props = defineProps({
         default() {
             return {};
         },
+    },
+    resources: {
+        type: Object,
+        required: false,
+        default: () => null,
     },
 });
 
@@ -383,6 +389,14 @@ onMounted(() => {
                 </div>
             </div>
         </div>
+        <!-- Resources -->
+        <ResourcesPanel
+            v-if="resources"
+            :articles="resources.articles"
+            :transmissions="resources.transmissions"
+            :pod-links="resources.pod_links"
+        />
+
         <div
             v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
             class="container mx-auto mt-4 items-center overflow-auto sm:px-4"

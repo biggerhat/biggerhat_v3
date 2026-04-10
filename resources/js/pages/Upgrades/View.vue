@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronRight } from 'lucide-vue-next';
+import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface UpgradeData {
@@ -55,7 +55,8 @@ const hasRelatedContent = computed(
         props.upgrade.abilities.length > 0 ||
         props.upgrade.triggers.length > 0 ||
         props.upgrade.markers.length > 0 ||
-        props.upgrade.tokens.length > 0,
+        props.upgrade.tokens.length > 0 ||
+        props.upgrade.pod_links?.length > 0,
 );
 </script>
 
@@ -268,6 +269,25 @@ const hasRelatedContent = computed(
                                 <Badge v-for="token in upgrade.tokens" :key="token.name" variant="secondary">
                                     {{ token.name }}
                                 </Badge>
+                            </div>
+                        </div>
+
+                        <!-- Print On Demand -->
+                        <div v-if="upgrade.pod_links?.length">
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Print On Demand</h4>
+                            <div class="space-y-1.5">
+                                <a
+                                    v-for="pod in upgrade.pod_links"
+                                    :key="pod.id"
+                                    :href="pod.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-accent"
+                                >
+                                    <ExternalLink class="size-3.5 shrink-0 text-muted-foreground" />
+                                    <span class="min-w-0 flex-1 font-medium">{{ pod.name }}</span>
+                                    <Badge variant="outline" class="shrink-0 text-[10px]">{{ pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault' }}</Badge>
+                                </a>
                             </div>
                         </div>
                     </div>

@@ -14,6 +14,7 @@ import {
     CircleDollarSign,
     Dice6,
     FileImage,
+    ExternalLink,
     Heart,
     KeyRound,
     Library,
@@ -386,6 +387,12 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.transmissions.index'),
         icon: Radio,
         permission: 'view_channel',
+    },
+    {
+        title: 'POD Links',
+        href: route('admin.pod_links.index'),
+        icon: ExternalLink,
+        permission: 'view_pod_link',
     },
     {
         title: 'Users',

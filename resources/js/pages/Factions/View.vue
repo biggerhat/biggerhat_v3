@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import KeywordBreakdown from '@/components/KeywordBreakdown.vue';
+import ResourcesPanel from '@/components/ResourcesPanel.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,6 +101,11 @@ const props = defineProps({
         default() {
             return {};
         },
+    },
+    resources: {
+        type: Object,
+        required: false,
+        default: () => null,
     },
 });
 
@@ -307,6 +313,14 @@ onMounted(() => {
                 </div>
             </div>
         </div>
+
+        <!-- Resources -->
+        <ResourcesPanel
+            v-if="resources"
+            :articles="resources.articles"
+            :transmissions="resources.transmissions"
+            :pod-links="resources.pod_links"
+        />
 
         <!-- Tabs + mobile filter trigger -->
         <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">

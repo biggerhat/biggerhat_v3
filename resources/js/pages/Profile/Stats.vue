@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { BarChart3, Copy, Crown, Shield, Swords, TrendingUp, Trophy } from 'lucide-vue-next';
+import { BarChart3, Copy, Crown, Hammer, Medal, Package, Paintbrush, Share2, Shield, Swords, TrendingUp, Trophy } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface FactionStat {
@@ -77,8 +77,21 @@ defineProps<{
         matchups: Matchup[];
         recent_games: RecentGame[];
     };
+    profile: {
+        collection: { total: number; built: number; painted: number };
+        tournaments_played: number;
+        best_tournament_finish: number | null;
+        public_crews: number;
+        favorite_faction: string | null;
+        badges: { icon: string; label: string; description: string }[];
+    };
     is_own_profile: boolean;
 }>();
+
+const badgeIcon = (icon: string) => {
+    const map: Record<string, any> = { swords: Swords, trophy: Trophy, package: Package, paintbrush: Paintbrush, hammer: Hammer, crown: Crown, medal: Medal, share: Share2 };
+    return map[icon] ?? Trophy;
+};
 
 const linkCopied = ref(false);
 const copyLink = async () => {
@@ -118,11 +131,11 @@ const winRateColor = (rate: number) => {
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <PageBanner :title="`${user.name}'s Stats`">
+        <PageBanner :title="`${user.name}'s Profile`">
             <template #subtitle>
                 <div class="flex items-center gap-2 px-2 text-sm text-muted-foreground">
                     <BarChart3 class="size-4" />
-                    Game Tracker Statistics
+                    Player Profile &amp; Statistics
                 </div>
             </template>
         </PageBanner>
@@ -132,9 +145,66 @@ const winRateColor = (rate: number) => {
             <div class="mb-6 flex justify-end">
                 <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyLink">
                     <Copy class="size-3" />
-                    {{ linkCopied ? 'Copied!' : 'Share Stats' }}
+                    {{ linkCopied ? 'Copied!' : 'Share Profile' }}
                 </Button>
             </div>
+
+            <!-- Profile Overview -->
+            <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Card v-if="profile.favorite_faction">
+                    <CardContent class="p-4 text-center">
+                        <FactionLogo :faction="profile.favorite_faction" class-name="mx-auto mb-1 size-8" />
+                        <div class="text-[10px] uppercase text-muted-foreground">Favorite Faction</div>
+                        <div class="text-sm font-bold capitalize">{{ profile.favorite_faction.replace('_', ' ') }}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent class="p-4 text-center">
+                        <Package class="mx-auto mb-1 size-6 text-muted-foreground" />
+                        <div class="text-[10px] uppercase text-muted-foreground">Collection</div>
+                        <div class="text-sm font-bold">{{ profile.collection.total }} models</div>
+                        <div v-if="profile.collection.total > 0" class="mt-1 flex justify-center gap-2 text-[10px] text-muted-foreground">
+                            <span>{{ profile.collection.built }} built</span>
+                            <span>{{ profile.collection.painted }} painted</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent class="p-4 text-center">
+                        <Crown class="mx-auto mb-1 size-6 text-muted-foreground" />
+                        <div class="text-[10px] uppercase text-muted-foreground">Tournaments</div>
+                        <div class="text-sm font-bold">{{ profile.tournaments_played }}</div>
+                        <div v-if="profile.best_tournament_finish" class="mt-1 text-[10px] text-muted-foreground">
+                            Best: {{ profile.best_tournament_finish === 1 ? '1st' : profile.best_tournament_finish === 2 ? '2nd' : profile.best_tournament_finish === 3 ? '3rd' : profile.best_tournament_finish + 'th' }}
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent class="p-4 text-center">
+                        <Share2 class="mx-auto mb-1 size-6 text-muted-foreground" />
+                        <div class="text-[10px] uppercase text-muted-foreground">Shared Crews</div>
+                        <div class="text-sm font-bold">{{ profile.public_crews }}</div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <!-- Achievement Badges -->
+            <Card v-if="profile.badges.length" class="mb-6">
+                <CardContent class="p-4">
+                    <div class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Achievements</div>
+                    <div class="flex flex-wrap gap-2">
+                        <div
+                            v-for="badge in profile.badges"
+                            :key="badge.label"
+                            class="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs shadow-sm"
+                            :title="badge.description"
+                        >
+                            <component :is="badgeIcon(badge.icon)" class="size-3.5 text-primary" />
+                            <span class="font-medium">{{ badge.label }}</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             <!-- No games -->
             <div v-if="stats.total_games === 0" class="py-16 text-center">

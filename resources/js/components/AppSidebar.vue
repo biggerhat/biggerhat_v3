@@ -171,7 +171,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Tools',
         collapsible: true,
-        collapsed: true,
+        collapsed: false,
         items: [
             {
                 title: 'Compare',

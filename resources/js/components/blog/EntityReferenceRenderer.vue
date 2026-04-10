@@ -35,6 +35,7 @@ const typeColor = computed(() => {
         ability: 'bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:hover:bg-teal-800',
         scheme: 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800',
         strategy: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:hover:bg-indigo-800',
+        deployment: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:hover:bg-emerald-800',
         token: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-900 dark:text-cyan-200 dark:hover:bg-cyan-800',
         marker: 'bg-pink-100 text-pink-800 hover:bg-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:hover:bg-pink-800',
         package: 'bg-lime-100 text-lime-800 hover:bg-lime-200 dark:bg-lime-900 dark:text-lime-200 dark:hover:bg-lime-800',
@@ -124,8 +125,8 @@ const navigateToEntity = () => {
                             </div>
                         </div>
 
-                        <!-- Scheme / Strategy with image -->
-                        <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
+                        <!-- Scheme / Strategy / Deployment with image -->
+                        <div v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image" class="flex justify-center">
                             <div class="w-full max-w-72">
                                 <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" />
                             </div>

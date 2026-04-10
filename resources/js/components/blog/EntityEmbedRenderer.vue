@@ -35,6 +35,7 @@ const typeColor = computed(() => {
         ability: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
         scheme: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
         strategy: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+        deployment: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
         token: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
         marker: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
         package: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
@@ -54,6 +55,7 @@ const typeLabel = computed(() => {
         ability: 'Ability',
         scheme: 'Scheme',
         strategy: 'Strategy',
+        deployment: 'Deployment',
         token: 'Token',
         marker: 'Marker',
         package: 'Package',
@@ -118,8 +120,8 @@ onMounted(async () => {
                 </div>
             </div>
 
-            <!-- Scheme / Strategy with image -->
-            <div v-else-if="(entityType === 'scheme' || entityType === 'strategy') && entityData.image" class="flex justify-center">
+            <!-- Scheme / Strategy / Deployment with image -->
+            <div v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image" class="flex justify-center">
                 <div class="w-full max-w-72">
                     <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" loading="lazy" decoding="async" />
                     <div class="mt-2 text-center">

@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { type SharedData } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { router, usePage } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 interface SelectOption {
     name: string;
@@ -79,6 +80,7 @@ const submit = () => {
     const url = props.post ? route('admin.blog.posts.update', props.post.slug) : route('admin.blog.posts.store');
     router.post(url, formData, {
         forceFormData: true,
+        onSuccess: () => clearAutosave(),
     });
 };
 
@@ -88,6 +90,80 @@ const availableStatuses = () => {
     }
     return props.statuses.filter((s: SelectOption) => s.value !== 'published');
 };
+
+// --- Autosave ---
+const AUTOSAVE_KEY = 'biggerhat_blog_autosave';
+const autosaveStatus = ref<'saved' | 'saving' | 'restored' | null>(null);
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+let statusTimer: ReturnType<typeof setTimeout> | null = null;
+
+const getAutosaveId = () => props.post?.id ?? 'new';
+
+const saveToLocal = () => {
+    try {
+        const data = {
+            id: getAutosaveId(),
+            title: formInfo.value.title,
+            content: formInfo.value.content,
+            excerpt: formInfo.value.excerpt,
+            status: formInfo.value.status,
+            blog_category_id: formInfo.value.blog_category_id,
+            entities: formInfo.value.entities,
+            savedAt: Date.now(),
+        };
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+        autosaveStatus.value = 'saved';
+        clearTimeout(statusTimer!);
+        statusTimer = setTimeout(() => (autosaveStatus.value = null), 3000);
+    } catch { /* quota exceeded or private browsing */ }
+};
+
+const restoreFromLocal = (): boolean => {
+    try {
+        const stored = localStorage.getItem(AUTOSAVE_KEY);
+        if (!stored) return false;
+        const data = JSON.parse(stored);
+        // Only restore if it's for the same post and less than 24h old
+        if (data.id !== getAutosaveId()) return false;
+        if (Date.now() - data.savedAt > 86400000) {
+            localStorage.removeItem(AUTOSAVE_KEY);
+            return false;
+        }
+        // Only restore if there's actual content (not empty draft)
+        if (!data.content && !data.title) return false;
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const applyLocalRestore = () => {
+    try {
+        const data = JSON.parse(localStorage.getItem(AUTOSAVE_KEY)!);
+        formInfo.value.title = data.title;
+        formInfo.value.content = data.content;
+        formInfo.value.excerpt = data.excerpt;
+        formInfo.value.status = data.status;
+        formInfo.value.blog_category_id = data.blog_category_id;
+        formInfo.value.entities = data.entities ?? [];
+        autosaveStatus.value = 'restored';
+        clearTimeout(statusTimer!);
+        statusTimer = setTimeout(() => (autosaveStatus.value = null), 3000);
+    } catch { /* ignore */ }
+};
+
+const clearAutosave = () => {
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch { /* ignore */ }
+};
+
+const showRestorePrompt = ref(false);
+
+const scheduleAutosave = () => {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(saveToLocal, 5000);
+};
+
+watch(formInfo, scheduleAutosave, { deep: true });
 
 onMounted(() => {
     formInfo.value.title = props.post?.title ?? null;
@@ -100,15 +176,40 @@ onMounted(() => {
     if (props.post?.entities) {
         formInfo.value.entities = props.post.entities;
     }
+
+    // Check for unsaved local draft
+    if (restoreFromLocal()) {
+        showRestorePrompt.value = true;
+    }
+});
+
+onBeforeUnmount(() => {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    if (statusTimer) clearTimeout(statusTimer);
 });
 </script>
 
 <template>
     <div class="container mx-auto mb-6 mt-6">
+        <!-- Restore from autosave prompt -->
+        <div v-if="showRestorePrompt" class="mb-4 flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+            <span class="text-amber-700 dark:text-amber-400">An unsaved draft was found. Would you like to restore it?</span>
+            <div class="flex gap-2">
+                <Button size="sm" variant="outline" @click="showRestorePrompt = false; clearAutosave();">Discard</Button>
+                <Button size="sm" @click="applyLocalRestore(); showRestorePrompt = false;">Restore</Button>
+            </div>
+        </div>
+
         <Card>
             <CardHeader>
-                <CardTitle>Article</CardTitle>
-                <CardDescription>Create and Edit Articles</CardDescription>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Article</CardTitle>
+                        <CardDescription>Create and Edit Articles</CardDescription>
+                    </div>
+                    <Badge v-if="autosaveStatus === 'saved'" variant="outline" class="border-green-500/50 text-[10px] text-green-600 dark:text-green-400">Draft saved</Badge>
+                    <Badge v-else-if="autosaveStatus === 'restored'" variant="outline" class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Draft restored</Badge>
+                </div>
             </CardHeader>
             <CardContent>
                 <form @submit.prevent>

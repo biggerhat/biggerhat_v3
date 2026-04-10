@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
@@ -181,6 +182,18 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
+        $deployments = collect(\App\Enums\DeploymentEnum::cases())
+            ->filter(fn (\App\Enums\DeploymentEnum $d) => str_contains(strtolower($d->label()), strtolower($q)))
+            ->take(5);
+        foreach ($deployments as $deployment) {
+            $results[] = [
+                'entityType' => 'deployment',
+                'entityId' => $deployment->value,
+                'entitySlug' => $deployment->value,
+                'displayName' => $deployment->label(),
+            ];
+        }
+
         $triggers = Trigger::where('name', 'LIKE', "%{$q}%")
             ->withCount('actions')
             ->with(['actions' => fn ($q) => $q->select('name')->limit(1)])
@@ -229,6 +242,7 @@ class BlogEntitySearchController extends Controller
             'ability' => $this->showAbility($slug),
             'scheme' => $this->showScheme($slug),
             'strategy' => $this->showStrategy($slug),
+            'deployment' => $this->showDeployment($slug),
             'token' => $this->showToken($slug),
             'marker' => $this->showMarker($slug),
             'package' => $this->showPackage($slug),
@@ -437,6 +451,23 @@ class BlogEntitySearchController extends Controller
             'suit' => $strategy->suit?->label(),
             'image' => $strategy->image_url,
             'link' => route('strategies.view', $strategy->slug),
+        ]);
+    }
+
+    private function showDeployment(string $slug): JsonResponse
+    {
+        $deployment = DeploymentEnum::tryFrom($slug);
+
+        if (! $deployment) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        return response()->json([
+            'name' => $deployment->label(),
+            'type' => 'deployment',
+            'slug' => $deployment->value,
+            'description' => $deployment->description(),
+            'image' => $deployment->imageUrl(),
         ]);
     }
 

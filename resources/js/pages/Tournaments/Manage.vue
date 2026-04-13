@@ -5,6 +5,8 @@ import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import StandingsTable from '@/components/Tournament/StandingsTable.vue';
+import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxList, ComboboxSeparator, ComboboxTrigger } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,14 +19,15 @@ import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerT
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
-import { ArrowLeft, CalendarDays, Copy, Crown, Dices, Eye, Link2, Link2Off, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Skull, Star, Trophy, Users, X } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { ArrowLeft, CalendarDays, Check, ChevronsUpDown, Copy, Dices, Eye, Link2, Link2Off, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Star, Trophy, Users, X } from 'lucide-vue-next';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface TournamentPlayer {
     id: number;
     display_name: string;
     faction: string | null;
-    user: { id: number; name: string } | null;
+    user: { id: number; name: string; meta?: { id: number; name: string } | null } | null;
+    meta?: { id: number; name: string } | null;
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
@@ -75,6 +78,7 @@ interface StandingEntry {
     total_tp: number;
     total_diff: number;
     total_vp: number;
+    total_sos: number;
     rounds_played: number;
 }
 
@@ -111,6 +115,10 @@ interface TournamentData {
     event_date: string;
     location: string | null;
     round_time_limit: number;
+    bye_tp?: number;
+    bye_diff?: number;
+    bye_vp?: number;
+    tiebreaker_mode?: 'diff_vp' | 'sos';
     creator_id: number;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
@@ -138,7 +146,7 @@ const { statusColor, statusLabel } = useTournamentStatus();
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
 const visibleTabs = computed(() => {
     const t = ['standings', 'players', 'rounds', 'settings'];
-    if ((props.tournament as any).rsvps?.length || props.tournament.status === 'draft') {
+    if (props.tournament.rsvps?.length || props.tournament.status === 'draft') {
         t.push('rsvps');
     }
     return t;
@@ -200,8 +208,80 @@ const confirmAddRsvpAsPlayer = async () => {
 
 
 // ─── Players ───
+interface MetaOption {
+    id: number;
+    name: string;
+    slug: string;
+}
+
 const newPlayerName = ref('');
 const newPlayerFaction = ref<string | null>(null);
+const newPlayerMeta = ref<MetaOption | null>(null);
+
+// All known metas, fetched once at mount. We refetch after creating one so the
+// new meta shows up in the list (and is selected) immediately.
+const allMetas = ref<MetaOption[]>([]);
+const refreshMetas = async () => {
+    try {
+        const res = await fetch(route('metas.index'), { headers: { Accept: 'application/json' } });
+        if (res.ok) {
+            allMetas.value = (await res.json()).metas ?? [];
+        }
+    } catch {
+        // Optional UX — if it fails the dropdown is just empty.
+    }
+};
+onMounted(refreshMetas);
+
+// Metas already used by players in THIS tournament — surface these at the top
+// of the picker so it's a one-click choice for typical "everyone is from a
+// handful of local metas" tournaments.
+const tournamentMetas = computed<MetaOption[]>(() => {
+    const seen = new Map<number, MetaOption>();
+    for (const p of props.tournament.players) {
+        const m = p.meta || p.user?.meta;
+        if (m && !seen.has(m.id)) seen.set(m.id, m);
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// Everything else — sorted alphabetically, excluding the ones surfaced above.
+const otherMetas = computed<MetaOption[]>(() => {
+    const used = new Set(tournamentMetas.value.map((m) => m.id));
+    return allMetas.value.filter((m) => !used.has(m.id));
+});
+
+// "Create new Meta" dialog.
+const newMetaDialogOpen = ref(false);
+const newMetaName = ref('');
+const newMetaSubmitting = ref(false);
+
+const openNewMetaDialog = () => {
+    newMetaName.value = '';
+    newMetaDialogOpen.value = true;
+};
+
+const submitNewMeta = async () => {
+    const name = newMetaName.value.trim();
+    if (!name) return;
+    newMetaSubmitting.value = true;
+    try {
+        const res = await fetch(route('metas.store'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '', Accept: 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            await refreshMetas();
+            // Auto-select the freshly created/found meta.
+            newPlayerMeta.value = data.meta;
+            newMetaDialogOpen.value = false;
+        }
+    } finally {
+        newMetaSubmitting.value = false;
+    }
+};
 
 const addPlayer = async () => {
     if (!newPlayerName.value.trim() || !newPlayerFaction.value) return;
@@ -209,11 +289,13 @@ const addPlayer = async () => {
     const ok = await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
         display_name: newPlayerName.value.trim(),
         faction: newPlayerFaction.value,
+        meta_id: newPlayerMeta.value?.id ?? null,
     });
     submitting.value = false;
     if (ok) {
         newPlayerName.value = '';
         newPlayerFaction.value = null;
+        newPlayerMeta.value = null;
         reloadPage();
     }
 };
@@ -349,15 +431,16 @@ const unlinkUserFromPlayer = async (player: TournamentPlayer) => {
     }
 };
 
-const toggleDQ = async (player: TournamentPlayer) => {
-    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { is_disqualified: !player.is_disqualified })) {
+// ─── Rounds ───
+const createRound = async () => {
+    if (await doAction(route('tournaments.rounds.create', props.tournament.uuid))) {
         reloadPage();
     }
 };
 
-// ─── Rounds ───
-const createRound = async () => {
-    if (await doAction(route('tournaments.rounds.create', props.tournament.uuid))) {
+const deleteRound = async (roundId: number, roundNumber: number) => {
+    if (!window.confirm(`Delete Round ${roundNumber}? This will remove the round and any pairings/games it contains.`)) return;
+    if (await doAction(route('tournaments.rounds.delete', { tournament: props.tournament.uuid, round: roundId }), 'DELETE')) {
         reloadPage();
     }
 };
@@ -485,6 +568,9 @@ const editP2Master = ref<string | null>(null);
 const editP2Title = ref<string | null>(null);
 const editP2StrategyVp = ref(0);
 const editP2SchemeVp = ref(0);
+// Optional: drop a player after submitting their score for this round.
+const editDropP1 = ref(false);
+const editDropP2 = ref(false);
 
 const editP1Vp = computed(() => editP1StrategyVp.value + editP1SchemeVp.value);
 const editP2Vp = computed(() => editP2StrategyVp.value + editP2SchemeVp.value);
@@ -502,7 +588,18 @@ const openScoreEdit = (game: TournamentGame) => {
     editP2Title.value = game.player_two_title;
     editP2StrategyVp.value = game.player_two_strategy_vp ?? 0;
     editP2SchemeVp.value = game.player_two_scheme_vp ?? 0;
+    editDropP1.value = false;
+    editDropP2.value = false;
 };
+
+// Round number this game belongs to — used when the TO checks "drop after this round".
+const editingRoundNumber = computed(() => {
+    if (!editingGame.value) return null;
+    for (const r of props.tournament.rounds) {
+        if (r.games.some((g: any) => g.id === editingGame.value!.id)) return r.round_number;
+    }
+    return null;
+});
 
 const saveScore = async () => {
     if (!editingGame.value) return;
@@ -518,43 +615,95 @@ const saveScore = async () => {
         player_two_strategy_vp: editP2StrategyVp.value,
         player_two_scheme_vp: editP2SchemeVp.value,
     });
-    submitting.value = false;
-    if (ok) {
-        editingGame.value = null;
-        reloadPage();
+    if (!ok) {
+        submitting.value = false;
+        return;
     }
+
+    // Apply post-score drops if requested. Done sequentially so we surface
+    // any error before clearing the dialog.
+    const dropAfter = editingRoundNumber.value;
+    if (dropAfter !== null) {
+        if (editDropP1.value && editingGame.value.player_one_id) {
+            await doAction(
+                route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_one_id }),
+                'PUT',
+                { dropped_after_round: dropAfter },
+            );
+        }
+        if (editDropP2.value && editingGame.value.player_two_id) {
+            await doAction(
+                route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_two_id }),
+                'PUT',
+                { dropped_after_round: dropAfter },
+            );
+        }
+    }
+
+    submitting.value = false;
+    editingGame.value = null;
+    reloadPage();
 };
 
-// ─── Round Scenario (inline editing) ───
+// ─── Round Scenario (inline editing — auto-saves on change) ───
 const expandedScenarioRoundId = ref<number | null>(null);
 const editDeployment = ref<string | null>(null);
 const editStrategy = ref<string | null>(null);
 const editSchemePool = ref<(string | null)[]>([null, null, null]);
+// Live indicator: 'idle' | 'saving' | 'saved'. Used by the editor's status pill.
+const scenarioSaveState = ref<'idle' | 'saving' | 'saved'>('idle');
+let scenarioSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let savedFlashTimer: ReturnType<typeof setTimeout> | null = null;
+// Suppress the save-watcher during programmatic hydration (toggling the
+// editor open shouldn't trigger an immediate save of the loaded values).
+let suppressScenarioSave = false;
 
 const toggleScenarioEdit = (round: TournamentRound) => {
     if (expandedScenarioRoundId.value === round.id) {
         expandedScenarioRoundId.value = null;
         return;
     }
+    suppressScenarioSave = true;
     expandedScenarioRoundId.value = round.id;
     editDeployment.value = round.deployment;
     editStrategy.value = round.strategy ? String(round.strategy.id) : null;
     editSchemePool.value = round.scheme_pool ? round.scheme_pool.map(String) : [null, null, null];
+    scenarioSaveState.value = 'idle';
+    // Re-enable the watcher on the next tick so hydration assignments don't fire it.
+    setTimeout(() => { suppressScenarioSave = false; }, 0);
 };
 
 const saveRoundScenario = async (roundId: number) => {
-    submitting.value = true;
+    scenarioSaveState.value = 'saving';
     const ok = await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', {
         deployment: editDeployment.value,
         strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
         scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
     });
-    submitting.value = false;
     if (ok) {
-        expandedScenarioRoundId.value = null;
+        scenarioSaveState.value = 'saved';
+        if (savedFlashTimer) clearTimeout(savedFlashTimer);
+        savedFlashTimer = setTimeout(() => { scenarioSaveState.value = 'idle'; }, 1500);
         reloadPage();
+    } else {
+        scenarioSaveState.value = 'idle';
     }
 };
+
+// Auto-save: any change to the editor's fields triggers a debounced PUT.
+// Uses 400ms so multi-step interactions (e.g. picking 3 schemes) coalesce.
+watch(
+    [editDeployment, editStrategy, editSchemePool],
+    () => {
+        if (suppressScenarioSave || expandedScenarioRoundId.value === null) return;
+        if (scenarioSaveTimer) clearTimeout(scenarioSaveTimer);
+        scenarioSaveTimer = setTimeout(() => {
+            const id = expandedScenarioRoundId.value;
+            if (id !== null) saveRoundScenario(id);
+        }, 400);
+    },
+    { deep: true },
+);
 
 // ─── Status ───
 const statusTransitions: Record<string, { next: string; label: string }> = {
@@ -615,6 +764,17 @@ const editEncounterSize = ref(50);
 const editEncounterType = ref('traditional');
 const editPlannedRounds = ref(3);
 const editRoundTimeLimit = ref(135);
+const editByeTp = ref(3);
+const editByeDiff = ref(4);
+const editByeVp = ref(6);
+// Live tiebreaker toggle on the standings tab — distinct from the Settings
+// edit form so TOs can flip it any time, even after the tournament starts.
+const liveTiebreaker = computed(() => props.tournament.tiebreaker_mode ?? 'diff_vp');
+const updateTiebreaker = async (mode: string) => {
+    if (await doAction(route('tournaments.update', props.tournament.uuid), 'PUT', { tiebreaker_mode: mode })) {
+        reloadPage();
+    }
+};
 
 const openSettingsEdit = () => {
     editName.value = props.tournament.name;
@@ -625,6 +785,9 @@ const openSettingsEdit = () => {
     editEncounterType.value = props.tournament.encounter_type ?? 'traditional';
     editPlannedRounds.value = props.tournament.planned_rounds;
     editRoundTimeLimit.value = props.tournament.round_time_limit;
+    editByeTp.value = props.tournament.bye_tp ?? 3;
+    editByeDiff.value = props.tournament.bye_diff ?? 4;
+    editByeVp.value = props.tournament.bye_vp ?? 6;
     editingSettings.value = true;
 };
 
@@ -639,6 +802,9 @@ const saveSettings = async () => {
         encounter_type: editEncounterType.value,
         planned_rounds: editPlannedRounds.value,
         round_time_limit: editRoundTimeLimit.value,
+        bye_tp: editByeTp.value,
+        bye_diff: editByeDiff.value,
+        bye_vp: editByeVp.value,
     });
     submitting.value = false;
     if (ok) {
@@ -809,9 +975,9 @@ const titlesForMaster = (masterName: string | null) => {
                         Players
                         <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.players.length }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger v-if="tournament.status === 'draft' || (tournament as any).rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
                         RSVPs
-                        <Badge v-if="(tournament as any).rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ (tournament as any).rsvps.length }}</Badge>
+                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
                         Rounds
@@ -822,69 +988,32 @@ const titlesForMaster = (masterName: string | null) => {
 
                 <!-- ═══ STANDINGS ═══ -->
                 <TabsContent value="standings">
-                    <Card>
-                        <CardContent class="p-0">
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead>
-                                        <tr class="border-b text-left text-xs text-muted-foreground">
-                                            <th class="px-2 py-2 font-medium sm:px-3">#</th>
-                                            <th class="px-2 py-2 font-medium sm:px-3">Player</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">TP</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">DIFF</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">VP</th>
-                                            <th class="hidden px-3 py-2 text-center font-medium sm:table-cell">Played</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-if="!standings.length">
-                                            <td colspan="6" class="px-3 py-8 text-center text-muted-foreground">No results yet</td>
-                                        </tr>
-                                        <tr
-                                            v-for="entry in standings"
-                                            :key="entry.player_id"
-                                            :class="[
-                                                factionBackground(entry.faction),
-                                                entry.faction ? 'text-white' : 'border-b last:border-0',
-                                                entry.is_ringer ? 'opacity-50' : '',
-                                            ]"
-                                        >
-                                            <td class="px-2 py-2 font-bold sm:px-3">{{ entry.rank ?? '-' }}</td>
-                                            <td class="px-2 py-2 sm:px-3">
-                                                <div class="flex items-center gap-1.5">
-                                                    <FactionLogo v-if="entry.faction" :faction="entry.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                                    <Crown v-if="entry.rank === 1 && !entry.is_ringer" class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                                    <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
-                                                    <Badge v-if="entry.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
-                                                    <Badge v-if="entry.is_dropped" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/60 sm:inline-flex">Dropped</Badge>
-                                                </div>
-                                            </td>
-                                            <td class="px-1 py-2 text-center font-bold sm:px-3">{{ entry.total_tp }}</td>
-                                            <td class="px-1 py-2 text-center font-medium sm:px-3">
-                                                {{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}
-                                            </td>
-                                            <td class="px-1 py-2 text-center sm:px-3">{{ entry.total_vp }}</td>
-                                            <td class="hidden px-3 py-2 text-center opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <!-- TO-only quick toggle for tiebreaker mode (changes can be made any time, even mid-tournament). -->
+                    <div class="mb-2 flex items-center justify-end gap-2 text-xs">
+                        <Label class="text-muted-foreground">Tiebreaker:</Label>
+                        <Select :model-value="liveTiebreaker" @update:model-value="updateTiebreaker">
+                            <SelectTrigger class="h-7 w-44 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="diff_vp">TP → DIFF → VP</SelectItem>
+                                <SelectItem value="sos">TP → SoS → DIFF → VP</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <StandingsTable :standings="standings" />
                 </TabsContent>
 
                 <!-- ═══ RSVPs ═══ -->
                 <TabsContent value="rsvps">
-                    <div v-if="!(tournament as any).rsvps?.length" class="py-8 text-center text-sm text-muted-foreground">
+                    <div v-if="!tournament.rsvps?.length" class="py-8 text-center text-sm text-muted-foreground">
                         No RSVPs yet. Share the tournament link so players can express interest.
                     </div>
                     <template v-else>
                         <div class="mb-4">
-                            <h3 class="text-sm font-semibold">{{ (tournament as any).rsvps.length }} RSVPs</h3>
+                            <h3 class="text-sm font-semibold">{{ tournament.rsvps.length }} RSVPs</h3>
                         </div>
                         <div class="space-y-1.5">
                             <div
-                                v-for="rsvp in (tournament as any).rsvps"
+                                v-for="rsvp in tournament.rsvps"
                                 :key="rsvp.id"
                                 class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
                             >
@@ -911,10 +1040,50 @@ const titlesForMaster = (masterName: string | null) => {
                     <!-- Add Player Form -->
                     <Card class="mb-4">
                         <CardContent class="p-3 sm:p-4">
-                            <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]  sm:items-end">
+                            <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
                                 <div class="space-y-1">
                                     <Label class="text-xs">Player Name</Label>
                                     <Input v-model="newPlayerName" placeholder="Enter player name..." class="h-9 text-sm" @keydown.enter="addPlayer" />
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
+                                    <div class="flex gap-1">
+                                        <Combobox v-model="newPlayerMeta" by="id" class="flex-1">
+                                            <ComboboxAnchor as-child>
+                                                <ComboboxTrigger as-child>
+                                                    <Button variant="outline" class="h-9 w-full justify-between text-xs font-normal">
+                                                        <span class="truncate">{{ newPlayerMeta?.name ?? 'Select meta...' }}</span>
+                                                        <ChevronsUpDown class="ml-2 size-3.5 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </ComboboxTrigger>
+                                            </ComboboxAnchor>
+                                            <ComboboxList class="max-h-72 overflow-y-auto">
+                                                <ComboboxInput class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0" placeholder="Search metas..." />
+                                                <ComboboxEmpty>No matching meta — use + to add one.</ComboboxEmpty>
+                                                <ComboboxGroup v-if="tournamentMetas.length">
+                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">In this tournament</div>
+                                                    <ComboboxItem v-for="m in tournamentMetas" :key="'t-'+m.id" :value="m">
+                                                        {{ m.name }}
+                                                        <Check v-if="newPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
+                                                    </ComboboxItem>
+                                                </ComboboxGroup>
+                                                <ComboboxSeparator v-if="tournamentMetas.length && otherMetas.length" />
+                                                <ComboboxGroup v-if="otherMetas.length">
+                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">All metas</div>
+                                                    <ComboboxItem v-for="m in otherMetas" :key="'o-'+m.id" :value="m">
+                                                        {{ m.name }}
+                                                        <Check v-if="newPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
+                                                    </ComboboxItem>
+                                                </ComboboxGroup>
+                                            </ComboboxList>
+                                        </Combobox>
+                                        <Button variant="outline" size="sm" class="h-9 shrink-0 px-2" title="Add a new meta" @click="openNewMetaDialog">
+                                            <Plus class="size-3.5" />
+                                        </Button>
+                                        <Button v-if="newPlayerMeta" variant="ghost" size="sm" class="h-9 shrink-0 px-2 text-muted-foreground" title="Clear" @click="newPlayerMeta = null">
+                                            <X class="size-3.5" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div class="space-y-1">
                                     <Label class="text-xs">Faction</Label>
@@ -960,7 +1129,8 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge v-if="player.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
                                     <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
                                     <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
-                                    <Badge v-if="player.dropped_after_round !== null" class="shrink-0 bg-black/30 px-1 py-0 text-[9px] text-white/80">Dropped R{{ player.dropped_after_round }}</Badge>
+                                    <Badge v-if="player.dropped_after_round !== null" class="shrink-0 bg-amber-700/80 px-1 py-0 text-[9px] font-semibold uppercase tracking-wide text-white">Dropped after R{{ player.dropped_after_round }}</Badge>
+                                    <Badge v-if="player.meta || player.user?.meta" variant="outline" class="hidden shrink-0 border-white/30 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">{{ player.meta?.name || player.user?.meta?.name }}</Badge>
                                 </div>
                                 <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[9px] opacity-70">
                                     vs: {{ playerOpponents[player.id].join(' · ') }}
@@ -989,10 +1159,14 @@ const titlesForMaster = (masterName: string | null) => {
                                 <button class="rounded p-1 hover:bg-white/20" title="Toggle Ringer" @click="toggleRinger(player)">
                                     <Star class="size-3.5" :class="player.is_ringer ? 'fill-amber-300 text-amber-300' : 'text-white/50'" />
                                 </button>
-                                <button class="rounded p-1 hover:bg-white/20" title="Disqualify" @click="toggleDQ(player)">
-                                    <Skull class="size-3.5" :class="player.is_disqualified ? 'text-red-300' : 'text-white/50'" />
-                                </button>
-                                <button class="rounded p-1 hover:bg-white/20" title="Remove" @click="removePlayer(player.id)">
+                                <!--
+                                    Remove permanently deletes the player. Once the tournament has
+                                    started they may have games on record, so we hide the button
+                                    entirely and direct the TO to use Drop instead. This avoids the
+                                    cascade-delete-of-game-history footgun that previously made it
+                                    look like opponents' scores had changed.
+                                -->
+                                <button v-if="tournament.status === 'draft' || tournament.status === 'registration'" class="rounded p-1 hover:bg-white/20" title="Remove" @click="removePlayer(player.id)">
                                     <X class="size-3.5 text-white/50" />
                                 </button>
                             </div>
@@ -1027,6 +1201,14 @@ const titlesForMaster = (masterName: string | null) => {
                                             {{ round.status === 'in_progress' ? 'In Progress' : round.status === 'completed' ? 'Completed' : round.games.length ? 'Paired' : 'Setup' }}
                                         </Badge>
                                         <span v-if="round.strategy" class="hidden text-xs text-muted-foreground sm:inline">{{ round.strategy.name }}</span>
+                                        <button
+                                            v-if="round.status !== 'in_progress'"
+                                            class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                            title="Delete this round"
+                                            @click="deleteRound(round.id, round.round_number)"
+                                        >
+                                            <X class="size-3.5" />
+                                        </button>
                                     </div>
                                     <div class="flex items-center gap-1">
                                     <Button
@@ -1117,10 +1299,14 @@ const titlesForMaster = (masterName: string | null) => {
                                             </button>
                                         </div>
                                     </div>
-                                    <Button size="sm" class="w-full text-xs" :disabled="submitting" @click="saveRoundScenario(round.id)">
-                                        <Loader2 v-if="submitting" class="mr-1.5 size-3 animate-spin" />
-                                        Save Scenario
-                                    </Button>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted-foreground">
+                                            <span v-if="scenarioSaveState === 'saving'" class="inline-flex items-center gap-1"><Loader2 class="size-3 animate-spin" /> Saving…</span>
+                                            <span v-else-if="scenarioSaveState === 'saved'" class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check class="size-3" /> Saved</span>
+                                            <span v-else>Auto-saves as you change fields.</span>
+                                        </span>
+                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" @click="expandedScenarioRoundId = null">Done</Button>
+                                    </div>
                                 </div>
                                 <!-- Scenario summary (when not editing) -->
                                 <div v-else-if="round.strategy || round.deployment" class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -1288,6 +1474,32 @@ const titlesForMaster = (masterName: string | null) => {
                                         </NumberField>
                                     </div>
                                 </div>
+
+                                <div class="space-y-2 rounded-md border border-dashed p-3">
+                                    <Label class="text-xs uppercase tracking-wide text-muted-foreground">Bye Scoring</Label>
+                                    <div class="grid gap-2 sm:grid-cols-3">
+                                        <div class="space-y-1">
+                                            <Label class="text-[10px]">TP</Label>
+                                            <NumberField v-model="editByeTp" :min="0" :max="5">
+                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                            </NumberField>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <Label class="text-[10px]">Differential</Label>
+                                            <NumberField v-model="editByeDiff" :min="0" :max="20">
+                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                            </NumberField>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <Label class="text-[10px]">VP</Label>
+                                            <NumberField v-model="editByeVp" :min="0" :max="20">
+                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                            </NumberField>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tiebreaker mode lives on the Standings tab toggle — single source of truth. -->
                             </div>
                             <div class="flex gap-2">
                                 <Button variant="outline" class="flex-1" @click="editingSettings = false">Cancel</Button>
@@ -1417,15 +1629,19 @@ const titlesForMaster = (masterName: string | null) => {
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Strategy VP</Label>
-                            <Input v-model.number="editP1StrategyVp" type="number" min="0" max="15" class="h-8 text-center text-sm font-bold" />
+                            <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                            <Input v-model.number="editP1StrategyVp" type="number" min="0" max="5" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Scheme VP</Label>
-                            <Input v-model.number="editP1SchemeVp" type="number" min="0" max="15" class="h-8 text-center text-sm font-bold" />
+                            <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
+                            <Input v-model.number="editP1SchemeVp" type="number" min="0" max="6" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP</div>
+                    <label class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        <input v-model="editDropP1" type="checkbox" class="size-3.5" />
+                        Drop {{ playerName(editingGame.player_one_id) }} after this round
+                    </label>
                 </div>
 
                 <!-- Player 2 -->
@@ -1453,15 +1669,19 @@ const titlesForMaster = (masterName: string | null) => {
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Strategy VP</Label>
-                            <Input v-model.number="editP2StrategyVp" type="number" min="0" max="15" class="h-8 text-center text-sm font-bold" />
+                            <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                            <Input v-model.number="editP2StrategyVp" type="number" min="0" max="5" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Scheme VP</Label>
-                            <Input v-model.number="editP2SchemeVp" type="number" min="0" max="15" class="h-8 text-center text-sm font-bold" />
+                            <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
+                            <Input v-model.number="editP2SchemeVp" type="number" min="0" max="6" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP</div>
+                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        <input v-model="editDropP2" type="checkbox" class="size-3.5" />
+                        Drop {{ playerName(editingGame.player_two_id) }} after this round
+                    </label>
                 </div>
 
                 <!-- Score summary -->
@@ -1584,6 +1804,24 @@ const titlesForMaster = (masterName: string | null) => {
             <DialogFooter>
                 <Button variant="outline" @click="rsvpPlayerDialogOpen = false">Cancel</Button>
                 <Button :disabled="!rsvpPlayerFaction || submitting" @click="confirmAddRsvpAsPlayer">Register</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Create Meta Dialog -->
+    <Dialog v-model:open="newMetaDialogOpen">
+        <DialogContent class="max-w-xs">
+            <DialogHeader>
+                <DialogTitle>Add a Meta</DialogTitle>
+                <DialogDescription>Metas group players by community / region (e.g. "Boston", "PNW Online").</DialogDescription>
+            </DialogHeader>
+            <Input v-model="newMetaName" placeholder="Meta name..." class="text-sm" @keydown.enter="submitNewMeta" />
+            <DialogFooter>
+                <Button variant="outline" @click="newMetaDialogOpen = false">Cancel</Button>
+                <Button :disabled="!newMetaName.trim() || newMetaSubmitting" @click="submitNewMeta">
+                    <Loader2 v-if="newMetaSubmitting" class="mr-1.5 size-3 animate-spin" />
+                    Add Meta
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

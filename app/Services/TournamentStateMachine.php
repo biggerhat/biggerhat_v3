@@ -56,6 +56,32 @@ class TournamentStateMachine
     }
 
     /**
+     * Validate that the round's scenario fields (deployment / strategy /
+     * scheme pool) may currently be edited. Returns null if allowed.
+     *
+     * - Setup: always editable
+     * - InProgress: editable until the first non-bye game has been reported
+     * - Completed: locked
+     */
+    public function canEditScenario(Tournament $tournament, TournamentRound $round): ?string
+    {
+        if ($round->status === TournamentRoundStatusEnum::Completed) {
+            return 'Cannot modify scenario after round is completed';
+        }
+        if ($round->status === TournamentRoundStatusEnum::InProgress) {
+            $hasReportedGames = $round->games()
+                ->where('result', '!=', TournamentGameResultEnum::Pending)
+                ->where('is_bye', false)
+                ->exists();
+            if ($hasReportedGames) {
+                return 'Cannot modify scenario after games have been reported';
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Validate that pairings can be (re)generated for this round.
      */
     public function canPairRound(Tournament $tournament, TournamentRound $round): ?string
@@ -121,6 +147,47 @@ class TournamentStateMachine
 
         if ($round->games()->count() === 0) {
             return 'Generate pairings before starting the round';
+        }
+
+        // Scenario must be fully configured before the round starts — otherwise
+        // the per-pairing Game tracker games are missing strategy/deployment/schemes.
+        $missing = [];
+        if (! $round->strategy_id) {
+            $missing[] = 'strategy';
+        }
+        if (! $round->deployment) {
+            $missing[] = 'deployment';
+        }
+        if (empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3) {
+            $missing[] = 'scheme pool';
+        }
+        if (! empty($missing)) {
+            return 'Set the round scenario before starting (missing: '.implode(', ', $missing).')';
+        }
+
+        // Every active player (non-DQ, not dropped before this round) must be in a pairing.
+        $round->loadMissing(['games', 'tournament.players']);
+        $pairedIds = [];
+        foreach ($round->games as $g) {
+            if ($g->player_one_id) {
+                $pairedIds[$g->player_one_id] = true;
+            }
+            if ($g->player_two_id) {
+                $pairedIds[$g->player_two_id] = true;
+            }
+        }
+        $unpaired = $round->tournament->players
+            ->filter(fn ($p) => ! $p->is_disqualified
+                && ($p->dropped_after_round === null || $p->dropped_after_round >= $round->round_number)
+                && ! isset($pairedIds[$p->id]))
+            ->pluck('display_name')
+            ->all();
+
+        if (! empty($unpaired)) {
+            $names = implode(', ', array_slice($unpaired, 0, 3));
+            $more = count($unpaired) > 3 ? ' (+'.(count($unpaired) - 3).' more)' : '';
+
+            return 'All active players must be paired (or assigned a bye) before starting — unpaired: '.$names.$more;
         }
 
         return null;

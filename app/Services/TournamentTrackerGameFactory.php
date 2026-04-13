@@ -23,6 +23,9 @@ class TournamentTrackerGameFactory
 {
     /**
      * Create Game tracker games for any not-yet-linked, non-bye games in this round.
+     * Also re-syncs scenario data on any pre-existing tracker games — covers the
+     * case where a TO re-pairs (manual games kept, auto regenerated) after
+     * editing the round's scenario.
      */
     public function createForRound(Tournament $tournament, TournamentRound $round): void
     {
@@ -36,6 +39,10 @@ class TournamentTrackerGameFactory
             /** @var TournamentGame $tournamentGame */
             $this->createForGame($tournament, $round, $tournamentGame);
         }
+
+        // Always reconcile scenario on every linked tracker game (pre-existing
+        // manual pairings + the freshly-created ones above).
+        $this->syncScenarioForRound($round);
     }
 
     /**
@@ -107,11 +114,59 @@ class TournamentTrackerGameFactory
     }
 
     /**
-     * Tear down any tracker games linked to this round (for re-pairing or deletion).
+     * Push the round's current scenario (deployment / strategy / scheme pool)
+     * down to every linked tracker game on that round. Use this when a TO
+     * edits or randomizes the scenario AFTER pairings (and thus tracker
+     * games) have already been created — otherwise the tracker games would
+     * stay stuck on whatever scenario the round had at pair time (often
+     * nothing, in which case the players see no scenario in their game).
+     *
+     * Also keeps each GamePlayer's scheme_pool snapshot in sync.
      */
-    public function destroyForRound(TournamentRound $round): void
+    public function syncScenarioForRound(TournamentRound $round): void
     {
         $linkedGameIds = $round->games()->whereNotNull('game_id')->pluck('game_id');
+        if ($linkedGameIds->isEmpty()) {
+            return;
+        }
+
+        $schemePool = $round->scheme_pool ?? [];
+
+        // Iterate so Eloquent casts apply (scheme_pool is a JSON array cast).
+        Game::whereIn('id', $linkedGameIds)->get()->each(function ($g) use ($round, $schemePool) {
+            $g->update([
+                'strategy_id' => $round->strategy_id,
+                'deployment' => $round->deployment?->value,
+                'scheme_pool' => $schemePool,
+            ]);
+        });
+
+        // GamePlayer.scheme_pool is a per-player snapshot — keep it in sync too.
+        GamePlayer::whereIn('game_id', $linkedGameIds)->get()->each(function ($p) use ($schemePool) {
+            $p->update(['scheme_pool' => $schemePool]);
+        });
+    }
+
+    /**
+     * Tear down tracker games linked to this round.
+     *
+     * Hard-delete is intentional: the linked Game tracker game is a derived,
+     * round-scoped artifact — re-pairing or deleting the round should
+     * permanently remove its tracker counterparts (no soft-delete recovery
+     * surface, no orphaned tracker games waiting to confuse spectators).
+     *
+     * @param  bool  $autoOnly  if true, only destroy tracker games linked to
+     *                          auto-paired tournament games (preserving the
+     *                          tracker games of manually-paired survivors);
+     *                          if false, destroy all linked tracker games.
+     */
+    public function destroyForRound(TournamentRound $round, bool $autoOnly = false): void
+    {
+        $query = $round->games()->whereNotNull('game_id');
+        if ($autoOnly) {
+            $query->where('is_manual', false);
+        }
+        $linkedGameIds = $query->pluck('game_id');
         if ($linkedGameIds->isEmpty()) {
             return;
         }

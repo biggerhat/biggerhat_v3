@@ -37,6 +37,20 @@ class TournamentPlayer extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function meta(): BelongsTo
+    {
+        return $this->belongsTo(Meta::class);
+    }
+
+    /**
+     * Effective meta for this player — explicit per-tournament override
+     * if set, otherwise falls back to the linked user's profile meta.
+     */
+    public function effectiveMetaId(): ?int
+    {
+        return $this->meta_id ?? $this->user?->meta_id;
+    }
+
     public function gamesAsPlayerOne(): HasMany
     {
         return $this->hasMany(TournamentGame::class, 'player_one_id');

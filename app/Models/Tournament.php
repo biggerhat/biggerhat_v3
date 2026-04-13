@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
+use App\Enums\TournamentTiebreakerEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +33,7 @@ class Tournament extends Model
             'status' => TournamentStatusEnum::class,
             'season' => PoolSeasonEnum::class,
             'encounter_type' => \App\Enums\EncounterTypeEnum::class,
+            'tiebreaker_mode' => TournamentTiebreakerEnum::class,
             'event_date' => 'date',
         ];
     }

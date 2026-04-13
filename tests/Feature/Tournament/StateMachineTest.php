@@ -74,6 +74,76 @@ describe('tournament-level transitions', function () {
 });
 
 describe('round-level transitions', function () {
+    it('blocks Setup → InProgress when scenario is not set', function () {
+        $t = Tournament::factory()->active()->create();
+        $r = TournamentRound::factory()->for($t)->create();
+        $p1 = TournamentPlayer::factory()->for($t)->create();
+        $p2 = TournamentPlayer::factory()->for($t)->create();
+        TournamentGame::factory()->for($r, 'round')->create([
+            'player_one_id' => $p1->id, 'player_two_id' => $p2->id,
+        ]);
+
+        expect($this->sm->canTransitionRoundTo($r->fresh(), TournamentRoundStatusEnum::InProgress))
+            ->toContain('Set the round scenario');
+    });
+
+    it('blocks Setup → InProgress when an active player is unpaired', function () {
+        $t = Tournament::factory()->active()->create();
+        $r = TournamentRound::factory()->for($t)->create([
+            'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+            'deployment' => 'standard',
+            'scheme_pool' => [1, 2, 3],
+        ]);
+        $p1 = TournamentPlayer::factory()->for($t)->create();
+        $p2 = TournamentPlayer::factory()->for($t)->create();
+        $p3 = TournamentPlayer::factory()->for($t)->create(['display_name' => 'Lonely Larry']);
+        TournamentGame::factory()->for($r, 'round')->create([
+            'player_one_id' => $p1->id, 'player_two_id' => $p2->id,
+        ]);
+
+        expect($this->sm->canTransitionRoundTo($r->fresh(), TournamentRoundStatusEnum::InProgress))
+            ->toContain('Lonely Larry');
+    });
+
+    it('counts a bye game as accounting for that player', function () {
+        $t = Tournament::factory()->active()->create();
+        $r = TournamentRound::factory()->for($t)->create([
+            'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+            'deployment' => 'standard',
+            'scheme_pool' => [1, 2, 3],
+        ]);
+        $p1 = TournamentPlayer::factory()->for($t)->create();
+        $p2 = TournamentPlayer::factory()->for($t)->create();
+        $p3 = TournamentPlayer::factory()->for($t)->create();
+        TournamentGame::factory()->for($r, 'round')->create([
+            'player_one_id' => $p1->id, 'player_two_id' => $p2->id,
+        ]);
+        // p3 has a bye — should not count as unpaired
+        TournamentGame::factory()->for($r, 'round')->bye()->create([
+            'player_one_id' => $p3->id, 'player_two_id' => null,
+        ]);
+
+        expect($this->sm->canTransitionRoundTo($r->fresh(), TournamentRoundStatusEnum::InProgress))->toBeNull();
+    });
+
+    it('ignores dropped players when checking for unpaired', function () {
+        $t = Tournament::factory()->active()->create();
+        $r = TournamentRound::factory()->for($t)->create([
+            'round_number' => 2,
+            'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+            'deployment' => 'standard',
+            'scheme_pool' => [1, 2, 3],
+        ]);
+        $p1 = TournamentPlayer::factory()->for($t)->create();
+        $p2 = TournamentPlayer::factory()->for($t)->create();
+        TournamentPlayer::factory()->for($t)->create(['dropped_after_round' => 1]);
+        TournamentGame::factory()->for($r, 'round')->create([
+            'player_one_id' => $p1->id, 'player_two_id' => $p2->id,
+        ]);
+
+        expect($this->sm->canTransitionRoundTo($r->fresh(), TournamentRoundStatusEnum::InProgress))->toBeNull();
+    });
+
     it('blocks Setup → InProgress when no games are paired', function () {
         $t = Tournament::factory()->active()->create();
         $r = TournamentRound::factory()->for($t)->create();
@@ -82,15 +152,20 @@ describe('round-level transitions', function () {
             ->toBe('Generate pairings before starting the round');
     });
 
-    it('allows Setup → InProgress when games exist', function () {
+    it('allows Setup → InProgress when games exist and scenario is set', function () {
         $t = Tournament::factory()->active()->create();
-        $r = TournamentRound::factory()->for($t)->create();
+        $r = TournamentRound::factory()->for($t)->create([
+            'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+            'deployment' => 'standard',
+            'scheme_pool' => [1, 2, 3],
+        ]);
+        $p = TournamentPlayer::factory()->for($t)->create();
         TournamentGame::factory()->for($r, 'round')->bye()->create([
-            'player_one_id' => TournamentPlayer::factory()->for($t),
+            'player_one_id' => $p->id,
             'player_two_id' => null,
         ]);
 
-        expect($this->sm->canTransitionRoundTo($r, TournamentRoundStatusEnum::InProgress))->toBeNull();
+        expect($this->sm->canTransitionRoundTo($r->fresh(), TournamentRoundStatusEnum::InProgress))->toBeNull();
     });
 
     it('blocks InProgress → Completed when games are unreported', function () {

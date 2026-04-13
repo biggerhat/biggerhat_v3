@@ -2,13 +2,30 @@
 
 namespace App\Services;
 
-use App\Enums\TournamentGameResultEnum;
+use App\Enums\TournamentRoundStatusEnum;
+use App\Enums\TournamentTiebreakerEnum;
 use App\Models\Tournament;
-use App\Models\TournamentGame;
-use App\Models\TournamentPlayer;
+use App\Services\Standings\PlayerStatsCalculator;
+use App\Services\Standings\StandingsRanker;
+use App\Services\Standings\StrengthOfScheduleCalculator;
 
+/**
+ * Orchestrates the standings pipeline:
+ *   1. Per-player stats (TP/DIFF/VP/rounds + opponent IDs) — PlayerStatsCalculator
+ *   2. Strength of Schedule annotation                     — StrengthOfScheduleCalculator
+ *   3. Tiebreaker-aware sort + joint placing               — StandingsRanker
+ *
+ * Each step is independently testable. This class owns the data fetching
+ * and the orchestration only.
+ */
 class TournamentStandingsService
 {
+    public function __construct(
+        private readonly PlayerStatsCalculator $stats = new PlayerStatsCalculator,
+        private readonly StrengthOfScheduleCalculator $sos = new StrengthOfScheduleCalculator,
+        private readonly StandingsRanker $ranker = new StandingsRanker,
+    ) {}
+
     /**
      * Compute standings for all eligible players in a tournament.
      *
@@ -18,15 +35,32 @@ class TournamentStandingsService
     {
         $tournament->loadMissing(['players', 'rounds.games']);
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, TournamentPlayer> $players */
         $players = $tournament->players->where('is_disqualified', false);
-
-        /** @var \Illuminate\Support\Collection<int, TournamentGame> $allGames */
         $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games);
 
+        // Bye scoring is configurable per tournament (defaults to 3/4/6).
+        $byeScoring = [
+            'tp' => (int) ($tournament->bye_tp ?? 3),
+            'diff' => (int) ($tournament->bye_diff ?? 4),
+            'vp' => (int) ($tournament->bye_vp ?? 6),
+        ];
+
+        // Completed rounds drive the missed-round penalty. Build an id→number
+        // lookup once so per-player stats can translate game.tournament_round_id
+        // back to a round number in O(1).
+        $completedRounds = $tournament->rounds
+            ->filter(fn ($r) => $r->status === TournamentRoundStatusEnum::Completed)
+            ->all();
+        $completedRoundNumbers = [];
+        foreach ($completedRounds as $cr) {
+            $completedRoundNumbers[$cr->id] = $cr->round_number;
+        }
+
+        // Pass 1: per-player base stats + opponent map.
         $standings = [];
+        $opponentsByPlayer = [];
         foreach ($players as $player) {
-            $stats = $this->computePlayerStats($player->id, $allGames);
+            $stats = $this->stats->compute($player, $allGames, $byeScoring, $completedRounds, $completedRoundNumbers);
             $standings[] = [
                 'player_id' => $player->id,
                 'display_name' => $player->display_name,
@@ -40,102 +74,15 @@ class TournamentStandingsService
                 'rounds_played' => $stats['rounds'],
                 'has_bye' => $stats['has_bye'],
             ];
+            $opponentsByPlayer[$player->id] = $stats['opponents'];
         }
 
-        // Separate ringers and rankable players
-        $rankable = array_values(array_filter($standings, fn ($s) => ! $s['is_ringer']));
-        $ringers = array_values(array_filter($standings, fn ($s) => $s['is_ringer']));
+        // Pass 2: SoS annotation.
+        $standings = $this->sos->annotate($standings, $opponentsByPlayer);
 
-        // Sort: TP desc, DIFF desc, VP desc
-        usort($rankable, function ($a, $b) {
-            return ($b['total_tp'] <=> $a['total_tp'])
-                ?: ($b['total_diff'] <=> $a['total_diff'])
-                ?: ($b['total_vp'] <=> $a['total_vp']);
-        });
+        // Pass 3: sort + joint placing per the tournament's tiebreaker mode.
+        $tiebreaker = $tournament->tiebreaker_mode ?? TournamentTiebreakerEnum::DiffVp;
 
-        // Assign ranks with joint placing
-        $rank = 1;
-        foreach ($rankable as $i => &$entry) {
-            if ($i > 0) {
-                $prev = $rankable[$i - 1];
-                if ($entry['total_tp'] !== $prev['total_tp']
-                    || $entry['total_diff'] !== $prev['total_diff']
-                    || $entry['total_vp'] !== $prev['total_vp']) {
-                    $rank = $i + 1;
-                }
-            }
-            $entry['rank'] = $rank;
-        }
-        unset($entry);
-
-        // Ringers get no rank
-        foreach ($ringers as &$ringer) {
-            $ringer['rank'] = null;
-        }
-        unset($ringer);
-
-        return array_merge($rankable, $ringers);
-    }
-
-    /**
-     * Compute TP, DIFF, VP for a single player across all their games.
-     *
-     * @param  \Illuminate\Support\Collection<int, TournamentGame>  $allGames
-     * @return array{tp: int, diff: int, vp: int, rounds: int, has_bye: bool}
-     */
-    private function computePlayerStats(int $playerId, $allGames): array
-    {
-        $tp = 0;
-        $diff = 0;
-        $vp = 0;
-        $rounds = 0;
-        $hasBye = false;
-
-        foreach ($allGames as $game) {
-            if ($game->player_one_id !== $playerId && $game->player_two_id !== $playerId) {
-                continue;
-            }
-            if ($game->result === TournamentGameResultEnum::Pending) {
-                continue;
-            }
-
-            $rounds++;
-
-            if ($game->is_bye) {
-                $tp += 3;
-                $diff += 4;
-                $vp += 6;
-                $hasBye = true;
-
-                continue;
-            }
-
-            if ($game->is_forfeit && $game->forfeit_player_id) {
-                if ($game->forfeit_player_id === $playerId) {
-                    $diff -= 11;
-                } else {
-                    $tp += 3;
-                    $diff += 11;
-                    $vp += 11;
-                }
-
-                continue;
-            }
-
-            $isPlayerOne = $game->player_one_id === $playerId;
-            $myVp = $isPlayerOne ? ($game->player_one_vp ?? 0) : ($game->player_two_vp ?? 0);
-            $oppVp = $isPlayerOne ? ($game->player_two_vp ?? 0) : ($game->player_one_vp ?? 0);
-
-            $vp += $myVp;
-            $diff += ($myVp - $oppVp);
-
-            if ($myVp > $oppVp) {
-                $tp += 3;
-            } elseif ($myVp === $oppVp) {
-                $tp += 1;
-            }
-        }
-
-        return ['tp' => $tp, 'diff' => $diff, 'vp' => $vp, 'rounds' => $rounds, 'has_bye' => $hasBye];
+        return $this->ranker->rank($standings, $tiebreaker);
     }
 }

@@ -22,6 +22,7 @@ class TournamentGameFactory extends Factory
             'player_one_id' => TournamentPlayer::factory(),
             'player_two_id' => TournamentPlayer::factory(),
             'is_bye' => false,
+            'is_manual' => false,
             'is_forfeit' => false,
             'result' => TournamentGameResultEnum::Pending->value,
         ];

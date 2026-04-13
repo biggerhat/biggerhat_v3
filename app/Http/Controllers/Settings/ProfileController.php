@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -13,6 +14,8 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
+    use ResolvesMeta;
+
     /**
      * Show the user's profile settings page.
      */
@@ -21,6 +24,7 @@ class ProfileController extends Controller
         return Inertia::render('settings/Profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'meta' => $request->user()?->meta?->only(['id', 'name', 'slug']),
         ]);
     }
 
@@ -29,7 +33,10 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $validated = $request->validated();
+        $this->resolveMetaFromName($validated);
+
+        $request->user()->fill($validated);
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;

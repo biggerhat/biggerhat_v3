@@ -3,14 +3,12 @@
 namespace App\Http\Controllers\Tournament;
 
 use App\Enums\DeploymentEnum;
-use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
-use App\Models\TournamentGame;
 use App\Models\TournamentRound;
 use App\Services\TournamentPairingService;
 use App\Services\TournamentStateMachine;
@@ -81,6 +79,33 @@ class TournamentRoundController extends Controller
         return response()->json(['success' => true, 'created' => $created]);
     }
 
+    public function destroy(Tournament $tournament, TournamentRound $round): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        // Never delete a round that is currently in progress — that's
+        // destructive to live game state. Setup and Completed rounds can be
+        // removed (Setup is empty by definition; Completed is at the TO's
+        // discretion and useful for fixing bad data).
+        if ($round->status === TournamentRoundStatusEnum::InProgress) {
+            return response()->json(['error' => 'Cannot delete a round that is in progress.'], 422);
+        }
+
+        // Also clean up any linked Game Tracker games to avoid orphans.
+        $this->trackerGames->destroyForRound($round);
+        $round->delete();
+
+        // If we deleted the last round, drop planned_rounds back to match.
+        $maxRound = (int) ($tournament->rounds()->max('round_number') ?? 0);
+        if ($maxRound < $tournament->planned_rounds) {
+            $tournament->update(['planned_rounds' => max(1, $maxRound)]);
+        }
+
+        $this->broadcastUpdate($tournament, 'round_deleted');
+
+        return response()->json(['success' => true]);
+    }
+
     public function update(Request $request, Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);
@@ -93,23 +118,19 @@ class TournamentRoundController extends Controller
             'status' => ['sometimes', 'string'],
         ]);
 
-        // Scenario edits only allowed during Setup, or during InProgress before
-        // any game is reported. Once a game has been scored, the scenario is locked.
+        // Scenario edits gated by the state machine. Only checked when the
+        // user actually included scenario fields in the request.
         $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
-        if (! empty($scenarioFields) && $tournament->status === TournamentStatusEnum::Active) {
-            if ($round->status === TournamentRoundStatusEnum::Completed) {
-                return response()->json(['error' => 'Cannot modify scenario after round is completed'], 422);
-            }
-            if ($round->status === TournamentRoundStatusEnum::InProgress) {
-                $hasReportedGames = $round->games()
-                    ->where('result', '!=', TournamentGameResultEnum::Pending)
-                    ->where('is_bye', false)
-                    ->exists();
-                if ($hasReportedGames) {
-                    return response()->json(['error' => 'Cannot modify scenario after games have been reported'], 422);
-                }
+        if (! empty($scenarioFields)) {
+            if ($error = $this->stateMachine->canEditScenario($tournament, $round)) {
+                return response()->json(['error' => $error], 422);
             }
         }
+
+        // Build the persisted set explicitly: only fields the user submitted,
+        // plus server-set side-effects (started_at / completed_at) when status
+        // transitions across InProgress / Completed.
+        $userFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
 
         if (isset($validated['status'])) {
             $newStatus = TournamentRoundStatusEnum::from($validated['status']);
@@ -118,28 +139,34 @@ class TournamentRoundController extends Controller
                 return response()->json(['error' => $error], 422);
             }
 
-            // Stamp transition timestamps when entering each state
+            $userFields['status'] = $newStatus;
+
             if ($newStatus === TournamentRoundStatusEnum::InProgress) {
-                $validated['started_at'] = $round->started_at ?? now();
+                $userFields['started_at'] = $round->started_at ?? now();
             }
             if ($newStatus === TournamentRoundStatusEnum::Completed) {
-                $validated['completed_at'] = $round->completed_at ?? now();
+                $userFields['completed_at'] = $round->completed_at ?? now();
             }
-
-            $validated['status'] = $newStatus;
         }
 
-        // Persist only fields the request actually included, plus the side
-        // effects we just added above.
-        $requestedKeys = array_flip(array_keys($request->all()));
-        if (isset($validated['started_at'])) {
-            $requestedKeys['started_at'] = true;
+        $round->update($userFields);
+
+        // When the round transitions into InProgress, mark every bye game as
+        // Completed. Byes are scoreless so there's nothing to enter — but we
+        // intentionally hold them at Pending until the TO clicks Start so
+        // the bye player's points don't show up on the standings prematurely.
+        if (isset($newStatus) && $newStatus === TournamentRoundStatusEnum::InProgress) {
+            $round->games()
+                ->where('is_bye', true)
+                ->where('result', \App\Enums\TournamentGameResultEnum::Pending)
+                ->update(['result' => \App\Enums\TournamentGameResultEnum::Completed]);
         }
-        if (isset($validated['completed_at'])) {
-            $requestedKeys['completed_at'] = true;
+
+        // If the scenario changed, push it down to any tracker games already
+        // linked to this round so participants see the updated scenario.
+        if (! empty($scenarioFields)) {
+            $this->trackerGames->syncScenarioForRound($round->fresh());
         }
-        $fieldsToUpdate = array_intersect_key($validated, $requestedKeys);
-        $round->update($fieldsToUpdate);
 
         $this->broadcastUpdate($tournament, 'round_updated');
 
@@ -164,6 +191,9 @@ class TournamentRoundController extends Controller
                 : $schemes->pluck('id')->toArray(),
         ]);
 
+        // Propagate the new scenario to any tracker games already created for this round.
+        $this->trackerGames->syncScenarioForRound($round->fresh());
+
         $this->broadcastUpdate($tournament, 'round_updated');
 
         return response()->json(['success' => true]);
@@ -177,34 +207,16 @@ class TournamentRoundController extends Controller
             return response()->json(['error' => $error], 422);
         }
 
-        $pairingsCount = DB::transaction(function () use ($tournament, $round) {
-            // Re-pairing wipes prior games AND any linked tracker games to avoid orphans.
-            $this->trackerGames->destroyForRound($round);
-            $round->games()->delete();
+        // Wipe auto-paired games + tracker games, regenerate, recreate trackers,
+        // then sync scenario down (handled inside createForRound).
+        $pairingsCount = DB::transaction(function () use ($tournament, $round): int {
+            $this->trackerGames->destroyForRound($round, autoOnly: true);
+            $round->games()->where('is_manual', false)->delete();
 
-            $tournament->load('players');
-            $pairings = $this->pairing->generatePairings($tournament, $round);
-
-            $players = $tournament->players->keyBy('id');
-            $tableNumber = 1;
-            foreach ($pairings as $pairing) {
-                TournamentGame::create([
-                    'tournament_round_id' => $round->id,
-                    'player_one_id' => $pairing['player_one_id'],
-                    'player_two_id' => $pairing['player_two_id'],
-                    'is_bye' => $pairing['is_bye'],
-                    'result' => $pairing['is_bye'] ? TournamentGameResultEnum::Completed : TournamentGameResultEnum::Pending,
-                    'table_number' => $pairing['is_bye'] ? null : $tableNumber++,
-                    'player_one_faction' => $players->get($pairing['player_one_id'])?->getRawOriginal('faction'),
-                    'player_two_faction' => $pairing['player_two_id']
-                        ? $players->get($pairing['player_two_id'])?->getRawOriginal('faction')
-                        : null,
-                ]);
-            }
-
+            $count = $this->pairing->regeneratePairings($tournament, $round);
             $this->trackerGames->createForRound($tournament, $round);
 
-            return count($pairings);
+            return $count;
         });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');

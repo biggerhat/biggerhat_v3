@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, Crown, MapPin, Trophy, UserPlus } from 'lucide-vue-next';
+import { BarChart3, CalendarDays, MapPin, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -64,6 +65,7 @@ interface StandingEntry {
     total_tp: number;
     total_diff: number;
     total_vp: number;
+    total_sos: number;
     rounds_played: number;
 }
 
@@ -147,15 +149,6 @@ const cancelRsvp = async () => {
 const formatDate = (d: string) => {
     const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const factionBackground = (faction: string | null): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society': return 'bg-explorerssociety';
-        case 'ten_thunders': return 'bg-tenthunders';
-        default: return `bg-${faction}`;
-    }
 };
 
 const playerName = (id: number | null): string => {
@@ -385,57 +378,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                 <!-- Standings Tab -->
                 <TabsContent value="standings">
-                    <Card>
-                        <CardContent class="p-0">
-                            <div class="px-4 py-3">
-                                <h2 class="flex items-center gap-2 font-semibold"><Trophy class="size-4" /> {{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead>
-                                        <tr class="border-t text-left text-xs text-muted-foreground">
-                                            <th class="px-2 py-2 font-medium sm:px-4">#</th>
-                                            <th class="px-2 py-2 font-medium sm:px-4">Player</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">TP</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">DIFF</th>
-                                            <th class="px-1 py-2 text-center font-medium sm:px-3">VP</th>
-                                            <th class="hidden px-3 py-2 text-center font-medium sm:table-cell">Played</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-if="!standings.length">
-                                            <td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No results yet</td>
-                                        </tr>
-                                        <tr
-                                            v-for="entry in standings"
-                                            :key="entry.player_id"
-                                            :class="[
-                                                factionBackground(entry.faction),
-                                                entry.faction ? 'text-white' : 'border-b last:border-0',
-                                                entry.is_ringer ? 'opacity-50' : '',
-                                                entry.player_id === myPlayerId ? 'ring-2 ring-inset ring-primary/60' : '',
-                                            ]"
-                                        >
-                                            <td class="px-2 py-2 font-bold sm:px-4">{{ entry.rank ?? '-' }}</td>
-                                            <td class="px-2 py-2 sm:px-4">
-                                                <div class="flex items-center gap-1.5">
-                                                    <FactionLogo v-if="entry.faction" :faction="entry.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                                    <Crown v-if="entry.rank === 1 && !entry.is_ringer" class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                                    <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
-                                                    <Badge v-if="entry.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
-                                                    <Badge v-if="entry.is_dropped" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/60 sm:inline-flex">Dropped</Badge>
-                                                </div>
-                                            </td>
-                                            <td class="px-1 py-2 text-center font-bold sm:px-3">{{ entry.total_tp }}</td>
-                                            <td class="px-1 py-2 text-center font-medium sm:px-3">{{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}</td>
-                                            <td class="px-1 py-2 text-center sm:px-3">{{ entry.total_vp }}</td>
-                                            <td class="hidden px-3 py-2 text-center opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div class="mb-3 flex items-center gap-2 px-1">
+                        <Trophy class="size-4" />
+                        <h2 class="font-semibold">{{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
+                    </div>
+                    <StandingsTable :standings="standings" :highlight-player-id="myPlayerId" />
                 </TabsContent>
 
                 <!-- RSVPs Tab -->

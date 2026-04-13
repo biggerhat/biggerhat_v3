@@ -25,6 +25,10 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            'meta_id' => ['nullable', 'integer', 'exists:metas,id'],
+            // Convenience: lets the profile form create a new meta inline.
+            // Free-form input — we find-or-create in the controller.
+            'meta_name' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

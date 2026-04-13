@@ -46,7 +46,11 @@ class TournamentGameController extends Controller
             'player_one_id' => $validated['player_one_id'],
             'player_two_id' => $validated['player_two_id'] ?? null,
             'is_bye' => $isBye,
-            'result' => $isBye ? TournamentGameResultEnum::Completed : TournamentGameResultEnum::Pending,
+            // Mark as manual so a subsequent Auto-Pair preserves it.
+            'is_manual' => true,
+            // Byes stay Pending until the round is Started — keeps bye
+            // points off the standings until the TO actually starts.
+            'result' => TournamentGameResultEnum::Pending,
             'table_number' => $tableNumber,
             'player_one_faction' => $playerOne?->getRawOriginal('faction'),
             'player_two_faction' => $playerTwo?->getRawOriginal('faction'),
@@ -80,14 +84,14 @@ class TournamentGameController extends Controller
             'player_one_master' => ['nullable', 'string', 'max:255'],
             'player_one_title' => ['nullable', 'string', 'max:255'],
             'player_one_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_one_strategy_vp' => ['required', 'integer', 'min:0', 'max:15'],
-            'player_one_scheme_vp' => ['required', 'integer', 'min:0', 'max:15'],
+            'player_one_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
+            'player_one_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
             'player_two_faction' => ['nullable', 'string', Rule::in($validFactions)],
             'player_two_master' => ['nullable', 'string', 'max:255'],
             'player_two_title' => ['nullable', 'string', 'max:255'],
             'player_two_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_two_strategy_vp' => ['required', 'integer', 'min:0', 'max:15'],
-            'player_two_scheme_vp' => ['required', 'integer', 'min:0', 'max:15'],
+            'player_two_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
+            'player_two_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
         ]);
 
         $validated['player_one_vp'] = $validated['player_one_strategy_vp'] + $validated['player_one_scheme_vp'];

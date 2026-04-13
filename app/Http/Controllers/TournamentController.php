@@ -7,6 +7,7 @@ use App\Enums\FactionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
+use App\Enums\TournamentTiebreakerEnum;
 use App\Http\Controllers\Tournament\BroadcastsTournamentUpdates;
 use App\Models\Scheme;
 use App\Models\Strategy;
@@ -17,6 +18,7 @@ use App\Services\TournamentStateMachine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -58,11 +60,15 @@ class TournamentController extends Controller
     public function view(Tournament $tournament): Response|ResponseFactory
     {
         $tournament->load([
-            'players.user:id,name',
+            'players.user:id,name,meta_id',
+            'players.user.meta:id,name',
+            'players.meta:id,name',
             'rsvps.user:id,name',
             'rounds.games.playerOne',
             'rounds.games.playerTwo',
-            'rounds.games.trackerGame:id,uuid',
+            // Don't column-restrict trackerGame — Game has appended attributes
+            // (season_label) that need other columns to compute.
+            'rounds.games.trackerGame',
             'rounds.strategy',
             'organizers:id,name',
         ]);
@@ -171,6 +177,11 @@ class TournamentController extends Controller
             'event_date' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
+            // Bye-game scoring (defaults to Gaining Grounds 3 / +4 / 6).
+            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
+            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
         ]);
 
         $tournament = Tournament::create([
@@ -198,7 +209,9 @@ class TournamentController extends Controller
         $this->authorize('manage', $tournament);
 
         $tournament->load([
-            'players.user:id,name',
+            'players.user:id,name,meta_id',
+            'players.user.meta:id,name',
+            'players.meta:id,name',
             'rsvps.user:id,name',
             'rounds.games.playerOne',
             'rounds.games.playerTwo',
@@ -275,8 +288,16 @@ class TournamentController extends Controller
 
         /** @var TournamentStatusEnum $status */
         $status = $tournament->status;
-        if (! $status->isEditable()) {
+        // After the tournament starts, most settings are locked. The
+        // tiebreaker mode is the exception — TOs can flip it any time
+        // since standings recompute live (no stored ranking).
+        $isLocked = ! $status->isEditable();
+        if ($isLocked && ! $request->has('tiebreaker_mode')) {
             return response()->json(['error' => 'Tournament settings are locked after starting'], 422);
+        }
+        if ($isLocked) {
+            // Only allow the tiebreaker_mode key through.
+            $request->replace(['tiebreaker_mode' => $request->input('tiebreaker_mode')]);
         }
 
         $validated = $request->validate([
@@ -289,6 +310,10 @@ class TournamentController extends Controller
             'event_date' => ['sometimes', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
+            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
+            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
         ]);
 
         $tournament->update($validated);

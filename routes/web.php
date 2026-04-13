@@ -27,6 +27,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\GamePlayController;
 use App\Http\Controllers\GameSetupController;
 use App\Http\Controllers\HatGaminController;
+use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\StatsController;
@@ -319,6 +320,12 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     });
 });
 
+// Metas (player communities) — used by tournaments + profile picker
+Route::middleware('auth')->group(function () {
+    Route::get('/metas', [MetaController::class, 'index'])->name('metas.index');
+    Route::post('/metas', [MetaController::class, 'store'])->name('metas.store');
+});
+
 // Tournaments
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
@@ -350,6 +357,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/rounds', [TournamentRoundController::class, 'store'])->name('rounds.create');
     Route::post('/{tournament}/rounds/generate-all', [TournamentRoundController::class, 'generateAll'])->name('rounds.generate_all');
     Route::put('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'update'])->name('rounds.update');
+    Route::delete('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'destroy'])->name('rounds.delete');
     Route::post('/{tournament}/rounds/{round}/pair', [TournamentRoundController::class, 'pair'])->name('rounds.pair');
     Route::post('/{tournament}/rounds/{round}/randomize', [TournamentRoundController::class, 'randomize'])->name('rounds.randomize');
 

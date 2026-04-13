@@ -25,6 +25,12 @@ const encounterType = ref('traditional');
 const plannedRounds = ref(3);
 const season = ref('core');
 const roundTimeLimit = ref(135);
+// Bye scoring — defaults match Gaining Grounds (3 TP / +4 DIFF / 6 VP).
+const byeTp = ref(3);
+const byeDiff = ref(4);
+const byeVp = ref(6);
+// Standings tiebreaker mode (after TP).
+const tiebreakerMode = ref<'diff_vp' | 'sos'>('diff_vp');
 
 const submit = () => {
     router.post(route('tournaments.store'), {
@@ -37,6 +43,10 @@ const submit = () => {
         planned_rounds: plannedRounds.value,
         season: season.value,
         round_time_limit: roundTimeLimit.value,
+        bye_tp: byeTp.value,
+        bye_diff: byeDiff.value,
+        bye_vp: byeVp.value,
+        tiebreaker_mode: tiebreakerMode.value,
     });
 };
 </script>
@@ -146,6 +156,42 @@ const submit = () => {
                                         <NumberFieldIncrement />
                                     </NumberFieldContent>
                                 </NumberField>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label>Tiebreaker</Label>
+                            <Select v-model="tiebreakerMode">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="diff_vp">TP → Differential → VP (default)</SelectItem>
+                                    <SelectItem value="sos">TP → Strength of Schedule → DIFF → VP</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p class="text-[11px] text-muted-foreground">SoS = sum of your opponents' tournament points. Either way, SoS is shown on standings.</p>
+                        </div>
+
+                        <div class="space-y-2 rounded-md border border-dashed p-3">
+                            <Label class="text-xs uppercase tracking-wide text-muted-foreground">Bye Scoring <span class="ml-1 text-[10px] normal-case opacity-60">(awarded to whoever sits out a round)</span></Label>
+                            <div class="grid gap-2 sm:grid-cols-3">
+                                <div class="space-y-1">
+                                    <Label class="text-[10px]">TP</Label>
+                                    <NumberField v-model="byeTp" :min="0" :max="5">
+                                        <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                    </NumberField>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-[10px]">Differential</Label>
+                                    <NumberField v-model="byeDiff" :min="0" :max="20">
+                                        <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                    </NumberField>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-[10px]">VP</Label>
+                                    <NumberField v-model="byeVp" :min="0" :max="20">
+                                        <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                    </NumberField>
+                                </div>
                             </div>
                         </div>
                     </div>

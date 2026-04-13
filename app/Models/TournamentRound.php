@@ -41,6 +41,10 @@ class TournamentRound extends Model
 
     public function games(): HasMany
     {
-        return $this->hasMany(TournamentGame::class);
+        // Order: real games first (by table number), then byes at the bottom.
+        return $this->hasMany(TournamentGame::class)
+            ->orderBy('is_bye')
+            ->orderByRaw('table_number IS NULL')
+            ->orderBy('table_number');
     }
 }

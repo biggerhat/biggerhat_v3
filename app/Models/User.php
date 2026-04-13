@@ -123,4 +123,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(SavedSearch::class);
     }
+
+    public function meta(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Meta::class);
+    }
 }

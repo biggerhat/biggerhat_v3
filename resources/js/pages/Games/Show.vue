@@ -818,24 +818,26 @@ onMounted(() => {
 });
 
 // ─── Leave-confirmation guard for in-progress games ───
+//
+// We use exactly two mechanisms — no more — to keep behavior predictable:
+//
+// 1. Inertia's `before` hook handles every SPA navigation (Link clicks,
+//    programmatic router.visit, AND browser back/forward between Inertia
+//    pages). When triggered, we cancel and show our custom dialog.
+//
+// 2. `beforeunload` handles non-SPA exits the browser owns: closing the
+//    tab, hard refreshes, navigating to an external URL. The browser
+//    shows its native confirm — we can't customize that, but it's the
+//    only reliable way to catch true page exits.
+//
+// We deliberately do NOT push a fake history entry or attach a popstate
+// listener — both conflict with Inertia 2.x's own history management,
+// which is what caused the inconsistent dialog/native-confirm flicker.
 const confirmLeaveOpen = ref(false);
 const pendingNavigation = ref<null | (() => void)>(null);
 let inertiaBeforeRemover: (() => void) | null = null;
 
 const isGameInProgress = computed(() => props.game.status === 'in_progress');
-
-const handlePopState = () => {
-    if (!isGameInProgress.value) return;
-    // Re-push state so they stay on this page until they confirm
-    window.history.pushState(null, '', window.location.href);
-    // The user wanted to go back — show the confirm dialog
-    pendingNavigation.value = () => {
-        // Remove guards and actually go back
-        teardownLeaveGuard();
-        window.history.back();
-    };
-    confirmLeaveOpen.value = true;
-};
 
 const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     if (!isGameInProgress.value) return;
@@ -844,15 +846,12 @@ const handleBeforeUnload = (e: BeforeUnloadEvent) => {
 };
 
 const setupLeaveGuard = () => {
-    // Push a duplicate history entry so back button triggers popstate without navigating away
-    window.history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', handlePopState);
+    if (inertiaBeforeRemover) return; // already set up
     window.addEventListener('beforeunload', handleBeforeUnload);
-    // Intercept Inertia link clicks / programmatic navigation
     inertiaBeforeRemover = router.on('before', (event) => {
         if (!isGameInProgress.value) return;
         const targetUrl = event.detail.visit.url.toString();
-        // Allow same-page reloads / partial reloads (e.g., real-time updates)
+        // Allow same-page reloads / partial Inertia reloads (real-time updates).
         if (targetUrl === window.location.href || targetUrl === window.location.pathname) return;
         event.preventDefault();
         pendingNavigation.value = () => {
@@ -864,7 +863,6 @@ const setupLeaveGuard = () => {
 };
 
 const teardownLeaveGuard = () => {
-    window.removeEventListener('popstate', handlePopState);
     window.removeEventListener('beforeunload', handleBeforeUnload);
     if (inertiaBeforeRemover) {
         inertiaBeforeRemover();

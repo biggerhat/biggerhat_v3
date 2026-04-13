@@ -127,7 +127,7 @@ class CharacterAPIController extends Controller
                     'target_suits' => $a->target_suits,
                     'damage' => $a->damage,
                     'description' => $a->description,
-                    'is_signature' => $a->is_signature,
+                    'is_signature' => (bool) ($a->pivot->is_signature_action ?? false),
                     'stone_cost' => $a->stone_cost,
                     'triggers' => $a->triggers->map(fn ($t) => [
                         'name' => $t->name,

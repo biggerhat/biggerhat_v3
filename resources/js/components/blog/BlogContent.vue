@@ -13,6 +13,18 @@ const getHeadingTag = (level: number) => {
     return tags[level] ?? 'h3';
 };
 
+const getHeadingClass = (level: number) => {
+    const classes: Record<number, string> = {
+        1: 'mt-6 mb-3 text-2xl font-bold',
+        2: 'mt-5 mb-2 text-xl font-bold',
+        3: 'mt-4 mb-2 text-lg font-semibold',
+        4: 'mt-3 mb-2 text-base font-semibold',
+        5: 'mt-3 mb-1 text-sm font-semibold',
+        6: 'mt-2 mb-1 text-xs font-semibold uppercase tracking-wide',
+    };
+    return classes[level] ?? classes[3];
+};
+
 const alignStyle = (node: Record<string, unknown>) => {
     const align = (node.attrs as Record<string, string> | null)?.textAlign;
     return align && align !== 'left' ? { textAlign: align } : undefined;
@@ -29,7 +41,12 @@ const alignStyle = (node: Record<string, unknown>) => {
             <p v-else-if="node.type === 'paragraph' && !node.content" />
 
             <!-- Headings -->
-            <component v-else-if="node.type === 'heading'" :is="getHeadingTag((node.attrs as Record<string, number>).level)" :style="alignStyle(node)">
+            <component
+                v-else-if="node.type === 'heading'"
+                :is="getHeadingTag((node.attrs as Record<string, number>).level)"
+                :class="getHeadingClass((node.attrs as Record<string, number>).level)"
+                :style="alignStyle(node)"
+            >
                 <InlineContent :nodes="(node.content as Record<string, unknown>[]) ?? []" />
             </component>
 

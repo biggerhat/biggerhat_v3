@@ -113,7 +113,13 @@ const isLoggedIn = computed(() => !!page.props.auth.user);
 const currentUserId = computed(() => page.props.auth.user?.id);
 const isRegistered = computed(() => props.tournament.players.some((p) => p.user?.id === currentUserId.value));
 const hasRsvped = computed(() => (props.tournament as any).rsvps?.some((r: any) => r.user_id === currentUserId.value) ?? false);
-const canRsvp = computed(() => isLoggedIn.value && props.tournament.status === 'draft' && !hasRsvped.value && !isRegistered.value);
+const canRsvp = computed(
+    () =>
+        isLoggedIn.value &&
+        (props.tournament.status === 'draft' || props.tournament.status === 'registration') &&
+        !hasRsvped.value &&
+        !isRegistered.value,
+);
 const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
 
 const rsvping = ref(false);
@@ -245,7 +251,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <span v-if="tournament.event_date" class="flex items-center gap-1"><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span>
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
                     <span>{{ tournament.players.length }} players</span>
-                    <span v-if="tournament.status === 'draft' && (tournament as any).rsvps?.length">{{ (tournament as any).rsvps.length }} RSVPs</span>
+                    <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && (tournament as any).rsvps?.length">{{ (tournament as any).rsvps.length }} RSVPs</span>
                 </div>
             </template>
         </PageBanner>
@@ -253,21 +259,26 @@ const openCard = (title: string, image?: string | null, description?: string | n
         <div class="container mx-auto pb-8 sm:px-4">
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
 
-            <!-- RSVP Banner (Draft phase) -->
+            <!-- RSVP Banner (Draft and Registration phases) -->
             <Card v-if="canRsvp" class="mb-6 border-blue-500/30 bg-blue-500/5">
                 <CardContent class="flex flex-col items-center gap-3 p-4 sm:flex-row sm:justify-between">
                     <div>
-                        <div class="flex items-center gap-2 font-semibold"><UserPlus class="size-4 text-blue-600 dark:text-blue-400" /> RSVP Open</div>
-                        <p class="mt-1 text-xs text-muted-foreground">Express your interest in playing. The organizer will finalize the player list during registration.</p>
+                        <div class="flex items-center gap-2 font-semibold">
+                            <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
+                            {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
+                        </div>
+                        <p class="mt-1 text-xs text-muted-foreground">Express your interest in playing. The organizer will finalize the player list and assign your faction.</p>
                     </div>
                     <Button size="sm" :disabled="rsvping" @click="submitRsvp">
-                        <UserPlus class="mr-1.5 size-3.5" /> RSVP
+                        <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
                     </Button>
                 </CardContent>
             </Card>
-            <Card v-else-if="hasRsvped && tournament.status === 'draft'" class="mb-6 border-blue-500/30 bg-blue-500/5">
+            <Card v-else-if="hasRsvped && (tournament.status === 'draft' || tournament.status === 'registration')" class="mb-6 border-blue-500/30 bg-blue-500/5">
                 <CardContent class="flex items-center justify-between p-4">
-                    <span class="text-sm text-blue-700 dark:text-blue-400">You've RSVPed for this tournament.</span>
+                    <span class="text-sm text-blue-700 dark:text-blue-400">
+                        {{ tournament.status === 'registration' ? "You've signed up. Waiting for the organizer to confirm you in the player list." : "You've RSVPed for this tournament." }}
+                    </span>
                     <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" @click="cancelRsvp">Cancel RSVP</Button>
                 </CardContent>
             </Card>
@@ -321,51 +332,53 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">Scenario not yet announced</div>
 
                     <!-- Pairings / Results -->
-                    <div v-if="round.games.length" class="space-y-2">
-                        <Card
+                    <div v-if="round.games.length" class="space-y-1.5">
+                        <div
                             v-for="game in round.games"
                             :key="game.id"
+                            class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs sm:text-sm"
                             :class="isMyGame(game) ? 'border-primary/40 bg-primary/5' : ''"
                         >
-                            <CardContent class="p-3">
-                                <div v-if="game.is_bye" class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <FactionLogo v-if="playerFaction(game.player_one_id)" :faction="playerFaction(game.player_one_id)!" class-name="size-4" />
-                                        <span class="text-sm font-medium">{{ playerName(game.player_one_id) }}</span>
-                                    </div>
-                                    <Badge variant="outline" class="text-[9px]">BYE</Badge>
+                            <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground">T{{ game.table_number }}</span>
+
+                            <!-- Player 1 -->
+                            <div class="flex min-w-0 flex-1 items-center gap-1.5">
+                                <FactionLogo v-if="game.player_one_faction || playerFaction(game.player_one_id)" :faction="(game.player_one_faction || playerFaction(game.player_one_id))!" class-name="size-4 shrink-0" />
+                                <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{ playerName(game.player_one_id) }}</span>
+                                <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground">· {{ game.player_one_title || game.player_one_master }}</span>
+                            </div>
+
+                            <template v-if="game.is_bye">
+                                <Badge variant="outline" class="shrink-0 text-[9px]">BYE</Badge>
+                            </template>
+                            <template v-else>
+                                <!-- Score -->
+                                <div class="flex shrink-0 items-center gap-1 font-mono text-xs">
+                                    <span :class="(game.player_one_vp ?? 0) > (game.player_two_vp ?? 0) ? 'font-bold text-green-600 dark:text-green-400' : ''">{{ game.player_one_vp ?? '–' }}</span>
+                                    <span class="text-muted-foreground">-</span>
+                                    <span :class="(game.player_two_vp ?? 0) > (game.player_one_vp ?? 0) ? 'font-bold text-green-600 dark:text-green-400' : ''">{{ game.player_two_vp ?? '–' }}</span>
                                 </div>
-                                <div v-else>
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex min-w-0 items-center gap-1.5">
-                                            <FactionLogo v-if="game.player_one_faction || playerFaction(game.player_one_id)" :faction="(game.player_one_faction || playerFaction(game.player_one_id))!" class-name="size-4 shrink-0" />
-                                            <div class="min-w-0">
-                                                <div class="truncate text-xs font-medium sm:text-sm" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{ playerName(game.player_one_id) }}</div>
-                                                <div v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground">{{ game.player_one_title || game.player_one_master }}</div>
-                                            </div>
-                                        </div>
-                                        <span class="shrink-0 text-sm font-bold" :class="(game.player_one_vp ?? 0) > (game.player_two_vp ?? 0) ? 'text-green-600 dark:text-green-400' : ''">{{ game.player_one_vp ?? '-' }}</span>
-                                    </div>
-                                    <div class="my-1 border-t" />
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex min-w-0 items-center gap-1.5">
-                                            <FactionLogo v-if="game.player_two_faction || playerFaction(game.player_two_id)" :faction="(game.player_two_faction || playerFaction(game.player_two_id))!" class-name="size-4 shrink-0" />
-                                            <div class="min-w-0">
-                                                <div class="truncate text-xs font-medium sm:text-sm" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{ playerName(game.player_two_id) }}</div>
-                                                <div v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground">{{ game.player_two_title || game.player_two_master }}</div>
-                                            </div>
-                                        </div>
-                                        <span class="shrink-0 text-sm font-bold" :class="(game.player_two_vp ?? 0) > (game.player_one_vp ?? 0) ? 'text-green-600 dark:text-green-400' : ''">{{ game.player_two_vp ?? '-' }}</span>
-                                    </div>
-                                    <div class="mt-1 flex items-center gap-2">
-                                        <Badge v-if="game.is_forfeit" variant="destructive" class="px-1 py-0 text-[9px]">Forfeit</Badge>
-                                        <a v-if="game.tracker_game?.uuid && isMyGame(game)" :href="route('games.show', game.tracker_game.uuid)" class="text-[10px] font-medium text-primary hover:underline">
-                                            Open Game Tracker
-                                        </a>
-                                    </div>
+
+                                <!-- Player 2 -->
+                                <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+                                    <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground">{{ game.player_two_title || game.player_two_master }} ·</span>
+                                    <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{ playerName(game.player_two_id) }}</span>
+                                    <FactionLogo v-if="game.player_two_faction || playerFaction(game.player_two_id)" :faction="(game.player_two_faction || playerFaction(game.player_two_id))!" class-name="size-4 shrink-0" />
                                 </div>
-                            </CardContent>
-                        </Card>
+
+                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
+
+                                <a
+                                    v-if="game.tracker_game?.uuid"
+                                    :href="route('games.observe', game.tracker_game.uuid)"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                                >
+                                    View
+                                </a>
+                            </template>
+                        </div>
                     </div>
                     <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>
                 </TabsContent>

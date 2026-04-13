@@ -7,9 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { Head, Link } from '@inertiajs/vue3';
-import { Copy, Loader2, Plus, Search, Swords, Trash2, X } from 'lucide-vue-next';
+import { Copy, Loader2, Search, Swords, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface CompareCharacter {

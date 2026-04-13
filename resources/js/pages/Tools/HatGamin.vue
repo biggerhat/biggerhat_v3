@@ -3,7 +3,6 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Head } from '@inertiajs/vue3';
 import { BookOpen, Bot, ExternalLink, MessageSquare, Search, Swords, Zap } from 'lucide-vue-next';
 
@@ -160,7 +159,7 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <div
-                            v-for="(cmd, idx) in category.commands"
+                            v-for="cmd in category.commands"
                             :key="cmd.name"
                             class="border-t px-4 py-3 sm:px-6"
                         >

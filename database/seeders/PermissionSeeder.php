@@ -23,5 +23,13 @@ class PermissionSeeder extends Seeder
         // Assign all permissions to super_admin
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
         $superAdmin->syncPermissions(Permission::all());
+
+        // Tournament organizer: can create new tournaments. Per-tournament management
+        // is gated by the tournament_organizers pivot (creator + invited organizers).
+        // The manage_tournaments permission is reserved for super_admin (manage any).
+        $tournamentOrganizer = Role::firstOrCreate(['name' => 'tournament_organizer']);
+        $tournamentOrganizer->syncPermissions([
+            PermissionEnum::CreateTournaments->value,
+        ]);
     }
 }

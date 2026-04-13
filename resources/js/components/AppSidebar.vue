@@ -16,7 +16,6 @@ import {
     Dice6,
     FileImage,
     ExternalLink,
-    FileText,
     Heart,
     KeyRound,
     Library,

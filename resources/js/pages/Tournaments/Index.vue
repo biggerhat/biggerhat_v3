@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
+import { useTournamentStatus } from '@/composables/useTournamentStatus';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,22 +31,9 @@ defineProps<{
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
+const canCreateTournaments = computed(() => (page.props.auth.permissions ?? []).includes('create_tournaments'));
 
-const statusColor = (status: string): string =>
-    ({
-        draft: 'bg-muted text-muted-foreground',
-        registration: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-        active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-        completed: 'bg-muted text-muted-foreground',
-    })[status] ?? '';
-
-const statusLabel = (status: string): string =>
-    ({
-        draft: 'Draft',
-        registration: 'Registration Open',
-        active: 'In Progress',
-        completed: 'Completed',
-    })[status] ?? status;
+const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
 
 const formatDate = (dateStr: string) => {
     const d = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
@@ -72,7 +60,7 @@ const formatDate = (dateStr: string) => {
 
         <div class="container mx-auto sm:px-4">
             <!-- Create Tournament CTA -->
-            <Link v-if="isLoggedIn" :href="route('tournaments.create')" class="group mb-6 block">
+            <Link v-if="canCreateTournaments" :href="route('tournaments.create')" class="group mb-6 block">
                 <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
@@ -145,9 +133,12 @@ const formatDate = (dateStr: string) => {
                 <Trophy class="mx-auto mb-4 size-12 text-muted-foreground/30" />
                 <p class="mb-2 text-lg font-semibold">No tournaments yet</p>
                 <p class="mb-4 text-sm text-muted-foreground">Create your first tournament to get started</p>
-                <Link v-if="isLoggedIn" :href="route('tournaments.create')">
+                <Link v-if="canCreateTournaments" :href="route('tournaments.create')">
                     <Button><Plus class="mr-2 size-4" /> Create Tournament</Button>
                 </Link>
+                <p v-else-if="isLoggedIn" class="text-xs italic text-muted-foreground">
+                    Tournament creation is restricted. Ask an admin for the Tournament Organizer role.
+                </p>
             </div>
         </div>
     </div>

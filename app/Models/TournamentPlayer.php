@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FactionEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TournamentPlayer extends Model
 {
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     public function casts(): array

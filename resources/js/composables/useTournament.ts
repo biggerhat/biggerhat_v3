@@ -1,0 +1,113 @@
+import { csrfToken } from '@/lib/utils';
+import { router } from '@inertiajs/vue3';
+import { computed, ref, type ComputedRef } from 'vue';
+
+interface Player {
+    id: number;
+    display_name: string;
+    faction: string | null;
+    is_disqualified?: boolean;
+    dropped_after_round?: number | null;
+}
+
+interface Tournament {
+    uuid: string;
+    players: Player[];
+    [key: string]: unknown;
+}
+
+/**
+ * Per-page state and helpers shared by the Tournament Manage page and any
+ * tab components broken out of it.
+ *
+ * Keeps a single error timer + showError() so subcomponents can report
+ * failures consistently. Memoizes the player ID → player lookup.
+ */
+export function useTournament<T extends Tournament>(tournament: ComputedRef<T> | { value: T }) {
+    const submitting = ref(false);
+    const actionError = ref<string | null>(null);
+    let errorTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const showError = (msg: string) => {
+        actionError.value = msg;
+        clearTimeout(errorTimer);
+        errorTimer = setTimeout(() => (actionError.value = null), 5000);
+    };
+
+    /**
+     * Fetch wrapper — auto-attaches CSRF + JSON headers, surfaces server-side
+     * `error` payloads via showError(). Returns true on 2xx, false otherwise.
+     */
+    const doAction = async (url: string, method: string = 'POST', body?: Record<string, unknown>): Promise<boolean> => {
+        try {
+            const opts: RequestInit = {
+                method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showError(err.error ?? err.message ?? 'Action failed.');
+                return false;
+            }
+            return true;
+        } catch {
+            showError('Network error. Please try again.');
+            return false;
+        }
+    };
+
+    /**
+     * Refresh the page's `tournament` and `standings` Inertia props without
+     * destroying scroll/local component state. Pages that need broader
+     * refreshes should call router.reload directly.
+     */
+    const reloadProps = (only: string[] = ['tournament', 'standings']) => {
+        router.reload({ only, preserveScroll: true, preserveState: true });
+    };
+
+    /** Memoized player ID → player map for O(1) lookups in heavy renders. */
+    const playerMap = computed(() => {
+        const map = new Map<number, Player>();
+        for (const p of tournament.value.players) {
+            map.set(p.id, p);
+        }
+        return map;
+    });
+
+    const playerName = (id: number | null | undefined): string => {
+        if (!id) return 'BYE';
+        return playerMap.value.get(id)?.display_name ?? 'Unknown';
+    };
+
+    const playerFaction = (id: number | null | undefined): string | null => {
+        if (!id) return null;
+        return playerMap.value.get(id)?.faction ?? null;
+    };
+
+    /** Tailwind class for the faction background tile. */
+    const factionBackground = (faction: string | null): string => {
+        if (!faction) return '';
+        switch (faction.toLowerCase()) {
+            case 'explorers_society':
+                return 'bg-explorerssociety';
+            case 'ten_thunders':
+                return 'bg-tenthunders';
+            default:
+                return `bg-${faction}`;
+        }
+    };
+
+    return {
+        submitting,
+        actionError,
+        showError,
+        doAction,
+        reloadProps,
+        playerMap,
+        playerName,
+        playerFaction,
+        factionBackground,
+    };
+}

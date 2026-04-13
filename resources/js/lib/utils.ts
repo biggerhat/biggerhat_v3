@@ -10,3 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 export function valueUpdater<T extends Updater<any>>(updaterOrValue: T, ref: Ref) {
     ref.value = typeof updaterOrValue === 'function' ? updaterOrValue(ref.value) : updaterOrValue;
 }
+
+/** Read the CSRF token from the Blade-rendered <meta> tag. */
+export function csrfToken(): string {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+}

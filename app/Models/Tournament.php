@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -16,6 +19,7 @@ use Illuminate\Support\Str;
  */
 class Tournament extends Model
 {
+    use HasFactory;
     use SoftDeletes;
 
     protected $guarded = ['id'];
@@ -28,7 +32,6 @@ class Tournament extends Model
             'status' => TournamentStatusEnum::class,
             'season' => PoolSeasonEnum::class,
             'encounter_type' => \App\Enums\EncounterTypeEnum::class,
-            'is_public' => 'boolean',
             'event_date' => 'date',
         ];
     }
@@ -82,6 +85,21 @@ class Tournament extends Model
         return $this->hasMany(TournamentRound::class)->orderBy('round_number');
     }
 
+    /**
+     * All games across all rounds. Defined so that nested route-model bindings
+     * (`/tournaments/{tournament}/games/{game}`) can be scoped, ensuring the
+     * resolved game actually belongs to this tournament.
+     */
+    public function games(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            TournamentGame::class,
+            TournamentRound::class,
+            'tournament_id',
+            'tournament_round_id',
+        );
+    }
+
     public function activePlayers(): HasMany
     {
         return $this->players()
@@ -98,5 +116,25 @@ class Tournament extends Model
     {
         return $this->creator_id === $userId
             || $this->organizers()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Can this user manage this tournament?
+     * True for the creator, invited organizers, or users with the global
+     * manage_tournaments permission (super_admin).
+     */
+    public function canManage(?int $userId): bool
+    {
+        if ($userId === null) {
+            return false;
+        }
+
+        if ($this->isOrganizer($userId)) {
+            return true;
+        }
+
+        $user = User::find($userId);
+
+        return $user !== null && $user->can(PermissionEnum::ManageTournaments->value);
     }
 }

@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Head } from '@inertiajs/vue3';
 import { ArrowLeft, Printer } from 'lucide-vue-next';
 
-const props = defineProps<{
+defineProps<{
     crew: {
         name: string;
         faction: string;

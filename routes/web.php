@@ -30,6 +30,12 @@ use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\Tournament\TournamentGameController;
+use App\Http\Controllers\Tournament\TournamentOrganizerController;
+use App\Http\Controllers\Tournament\TournamentPlayerController;
+use App\Http\Controllers\Tournament\TournamentRoundController;
+use App\Http\Controllers\Tournament\TournamentRsvpController;
+use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\WishlistController;
@@ -46,7 +52,7 @@ Broadcast::routes(['middleware' => ['web', 'auth']]);
 
 Route::get('/', function () {
     return Inertia::render('Index', [
-        'featured_character' => fn () => Character::with(['standardMiniatures' => fn ($q) => $q->limit(1)])
+        'featured_character' => fn () => Character::with(['standardMiniatures' => fn ($q) => $q->limit(1), 'keywords:id,name,slug'])
             ->whereHas('standardMiniatures')
             ->inRandomOrder()
             ->first(),
@@ -70,7 +76,7 @@ Route::get('/', function () {
         'recent_articles' => fn () => BlogPost::published()
             ->with('category:id,name')
             ->latest('published_at')
-            ->take(3)
+            ->take(4)
             ->get()
             ->map(fn (BlogPost $post) => [
                 'title' => $post->title,
@@ -91,6 +97,15 @@ Route::get('/', function () {
                 'channel_slug' => $t->channel?->slug,
                 'channel_image' => $t->channel?->image,
             ]),
+        'faction_counts' => fn () => Character::whereHas('standardMiniatures')
+            ->selectRaw('faction, COUNT(*) as total')
+            ->groupBy('faction')
+            ->pluck('total', 'faction'),
+        'station_counts' => fn () => Character::whereHas('standardMiniatures')
+            ->whereNotNull('station')
+            ->selectRaw('station, COUNT(*) as total')
+            ->groupBy('station')
+            ->pluck('total', 'station'),
         'stats' => fn () => [
             'characters' => Character::count(),
             'keywords' => Keyword::count(),
@@ -307,37 +322,42 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
 // Tournaments
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
-Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->group(function () {
-    Route::get('/create', [TournamentController::class, 'create'])->name('create');
-    Route::post('/', [TournamentController::class, 'store'])->name('store');
+Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
+    Route::get('/create', [TournamentController::class, 'create'])->name('create')->middleware('permission:create_tournaments');
+    Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('permission:create_tournaments');
     Route::get('/{tournament}', [TournamentController::class, 'manage'])->name('manage');
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');
 
     // Organizers
-    Route::post('/{tournament}/organizers', [TournamentController::class, 'addOrganizer'])->name('organizers.add');
-    Route::delete('/{tournament}/organizers/{userId}', [TournamentController::class, 'removeOrganizer'])->name('organizers.remove');
+    Route::post('/{tournament}/organizers', [TournamentOrganizerController::class, 'store'])->name('organizers.add');
+    Route::delete('/{tournament}/organizers/{userId}', [TournamentOrganizerController::class, 'destroy'])->name('organizers.remove');
+
+    // RSVPs
+    Route::post('/{tournament}/rsvp', [TournamentRsvpController::class, 'store'])->name('rsvp');
+    Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
+
+    // User search (used by Add Organizer + Link Player dialogs)
+    Route::get('/{tournament}/users/search', TournamentUserSearchController::class)->name('users.search');
 
     // Players
-    Route::post('/{tournament}/rsvp', [TournamentController::class, 'rsvp'])->name('rsvp');
-    Route::delete('/{tournament}/rsvp', [TournamentController::class, 'cancelRsvp'])->name('rsvp.cancel');
-    Route::post('/{tournament}/players', [TournamentController::class, 'addPlayer'])->name('players.add');
-    Route::put('/{tournament}/players/{player}', [TournamentController::class, 'updatePlayer'])->name('players.update');
-    Route::delete('/{tournament}/players/{player}', [TournamentController::class, 'removePlayer'])->name('players.remove');
+    Route::post('/{tournament}/players', [TournamentPlayerController::class, 'store'])->name('players.add');
+    Route::put('/{tournament}/players/{player}', [TournamentPlayerController::class, 'update'])->name('players.update');
+    Route::delete('/{tournament}/players/{player}', [TournamentPlayerController::class, 'destroy'])->name('players.remove');
 
     // Rounds
-    Route::post('/{tournament}/rounds', [TournamentController::class, 'createRound'])->name('rounds.create');
-    Route::post('/{tournament}/rounds/generate-all', [TournamentController::class, 'generateAllRounds'])->name('rounds.generate_all');
-    Route::put('/{tournament}/rounds/{round}', [TournamentController::class, 'updateRound'])->name('rounds.update');
-    Route::post('/{tournament}/rounds/{round}/pair', [TournamentController::class, 'generatePairings'])->name('rounds.pair');
-    Route::post('/{tournament}/rounds/{round}/randomize', [TournamentController::class, 'randomizeRoundScenario'])->name('rounds.randomize');
+    Route::post('/{tournament}/rounds', [TournamentRoundController::class, 'store'])->name('rounds.create');
+    Route::post('/{tournament}/rounds/generate-all', [TournamentRoundController::class, 'generateAll'])->name('rounds.generate_all');
+    Route::put('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'update'])->name('rounds.update');
+    Route::post('/{tournament}/rounds/{round}/pair', [TournamentRoundController::class, 'pair'])->name('rounds.pair');
+    Route::post('/{tournament}/rounds/{round}/randomize', [TournamentRoundController::class, 'randomize'])->name('rounds.randomize');
 
     // Games / Scores
-    Route::post('/{tournament}/rounds/{round}/games', [TournamentController::class, 'createGame'])->name('games.create');
-    Route::put('/{tournament}/games/{game}', [TournamentController::class, 'updateGameScore'])->name('games.update');
-    Route::delete('/{tournament}/games/{game}', [TournamentController::class, 'deleteGame'])->name('games.delete');
-    Route::post('/{tournament}/games/{game}/forfeit', [TournamentController::class, 'toggleForfeit'])->name('games.forfeit');
+    Route::post('/{tournament}/rounds/{round}/games', [TournamentGameController::class, 'store'])->name('games.create');
+    Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
+    Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
+    Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
 });
 
 Route::prefix('collection')->name('collection.')->group(function () {

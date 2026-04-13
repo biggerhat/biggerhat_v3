@@ -489,11 +489,6 @@ const handleViewChange = (value: string) => {
     filter();
 };
 
-const clearName = () => {
-    filterParams.value.name = null;
-    filter();
-};
-
 const advancedSubSections = ['advancedStats', 'advancedActions', 'advancedAbilities', 'advancedTriggers', 'advancedTokens', 'advancedMarkers'] as const;
 
 const sectionsOpen = ref({

@@ -11,9 +11,13 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Head, router } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { ArrowLeft, CalendarDays, Copy, Crown, Dices, Eye, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Skull, Star, Trophy, Users, X } from 'lucide-vue-next';
+import { useTournament } from '@/composables/useTournament';
+import { useTournamentChannel } from '@/composables/useTournamentChannel';
+import { useTournamentStatus } from '@/composables/useTournamentStatus';
+import { ArrowLeft, CalendarDays, Copy, Crown, Dices, Eye, Link2, Link2Off, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Skull, Star, Trophy, Users, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface TournamentPlayer {
@@ -88,6 +92,12 @@ interface FactionInfo {
     logo: string;
 }
 
+interface Rsvp {
+    id: number;
+    user_id: number;
+    user: { id: number; name: string } | null;
+}
+
 interface TournamentData {
     id: number;
     uuid: string;
@@ -101,9 +111,11 @@ interface TournamentData {
     event_date: string;
     location: string | null;
     round_time_limit: number;
+    creator_id: number;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
     organizers: { id: number; name: string }[];
+    rsvps?: Rsvp[];
 }
 
 const props = defineProps<{
@@ -118,12 +130,21 @@ const props = defineProps<{
     all_deployments: { value: string; label: string; description: string | null; image_url: string | null }[];
 }>();
 
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+// Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
+const tournamentRef = computed(() => props.tournament);
+const { submitting, actionError, doAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
+const { statusColor, statusLabel } = useTournamentStatus();
 
-// Restore tab from URL hash
-const validTabs = ['standings', 'players', 'rounds', 'settings', 'rsvps'];
+// Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
+const visibleTabs = computed(() => {
+    const t = ['standings', 'players', 'rounds', 'settings'];
+    if ((props.tournament as any).rsvps?.length || props.tournament.status === 'draft') {
+        t.push('rsvps');
+    }
+    return t;
+});
 const initialTab = typeof window !== 'undefined' && window.location.hash ? window.location.hash.slice(1) : 'standings';
-const activeTab = ref(validTabs.includes(initialTab) ? initialTab : 'standings');
+const activeTab = ref(visibleTabs.value.includes(initialTab) ? initialTab : 'standings');
 
 const encounterTypeLabel = computed(() => {
     const map: Record<string, string> = {
@@ -145,33 +166,12 @@ const qrOpen = ref(false);
 
 watch(activeTab, (tab) => { if (typeof window !== 'undefined') window.location.hash = tab; });
 
-const reloadPage = () => {
-    router.reload({ preserveScroll: true, preserveState: true });
-};
-const submitting = ref(false);
-const actionError = ref<string | null>(null);
-let errorTimer: ReturnType<typeof setTimeout>;
-const showError = (msg: string) => {
-    actionError.value = msg;
-    clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => (actionError.value = null), 5000);
-};
-const doAction = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
-    try {
-        const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(err.error ?? err.message ?? 'Action failed.');
-            return false;
-        }
-        return true;
-    } catch {
-        showError('Network error. Please try again.');
-        return false;
-    }
-};
+// Reload Inertia props after a mutation while preserving local UI state.
+const reloadPage = () => reloadProps(['tournament', 'standings']);
+
+// Subscribe to the public tournament broadcast channel so collaborating TOs
+// (or this user's other tabs) see updates in near-realtime.
+useTournamentChannel(props.tournament.uuid, () => reloadPage());
 
 // ─── RSVP → Player conversion ───
 const rsvpPlayerFaction = ref<string | null>(null);
@@ -204,24 +204,16 @@ const newPlayerName = ref('');
 const newPlayerFaction = ref<string | null>(null);
 
 const addPlayer = async () => {
-    if (!newPlayerName.value.trim()) return;
+    if (!newPlayerName.value.trim() || !newPlayerFaction.value) return;
     submitting.value = true;
-    try {
-        const res = await fetch(route('tournaments.players.add', props.tournament.uuid), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-            body: JSON.stringify({ display_name: newPlayerName.value.trim(), faction: newPlayerFaction.value }),
-        });
-        if (res.ok) {
-            newPlayerName.value = '';
-            newPlayerFaction.value = null;
-        } else {
-            console.error('Failed to add player:', res.status, await res.text());
-        }
-    } catch (e) {
-        console.error('Add player error:', e);
-    } finally {
-        submitting.value = false;
+    const ok = await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
+        display_name: newPlayerName.value.trim(),
+        faction: newPlayerFaction.value,
+    });
+    submitting.value = false;
+    if (ok) {
+        newPlayerName.value = '';
+        newPlayerFaction.value = null;
         reloadPage();
     }
 };
@@ -251,6 +243,112 @@ const toggleDrop = async (player: TournamentPlayer) => {
     }
 };
 
+// ─── Organizers ───
+const sharedPage = usePage<SharedData>();
+const currentUserId = computed(() => sharedPage.props.auth.user?.id ?? null);
+const isCreator = computed(() => currentUserId.value === props.tournament.creator_id);
+
+const addOrganizerDialogOpen = ref(false);
+const addOrganizerQuery = ref('');
+const addOrganizerResults = ref<{ id: number; name: string }[]>([]);
+const addOrganizerSearching = ref(false);
+let addOrganizerSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+const openAddOrganizerDialog = () => {
+    addOrganizerQuery.value = '';
+    addOrganizerResults.value = [];
+    addOrganizerDialogOpen.value = true;
+};
+
+watch(addOrganizerQuery, (q) => {
+    if (addOrganizerSearchTimer) clearTimeout(addOrganizerSearchTimer);
+    if (!q || q.trim().length < 2) {
+        addOrganizerResults.value = [];
+        return;
+    }
+    addOrganizerSearchTimer = setTimeout(async () => {
+        addOrganizerSearching.value = true;
+        try {
+            const res = await fetch(route('tournaments.users.search', props.tournament.uuid) + '?q=' + encodeURIComponent(q.trim()), {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const existing = new Set(props.tournament.organizers.map((o) => o.id));
+                addOrganizerResults.value = (data.users ?? []).filter((u: { id: number }) => !existing.has(u.id));
+            }
+        } finally {
+            addOrganizerSearching.value = false;
+        }
+    }, 250);
+});
+
+const addOrganizer = async (userId: number) => {
+    if (await doAction(route('tournaments.organizers.add', props.tournament.uuid), 'POST', { user_id: userId })) {
+        addOrganizerDialogOpen.value = false;
+        reloadPage();
+    }
+};
+
+const removeOrganizer = async (userId: number) => {
+    if (userId === props.tournament.creator_id) return;
+    if (await doAction(route('tournaments.organizers.remove', { tournament: props.tournament.uuid, userId }), 'DELETE')) {
+        reloadPage();
+    }
+};
+
+// ─── Link manually-added player to a BiggerHat user ───
+const linkUserDialogOpen = ref(false);
+const linkUserTarget = ref<TournamentPlayer | null>(null);
+const linkUserQuery = ref('');
+const linkUserResults = ref<{ id: number; name: string }[]>([]);
+const linkUserSearching = ref(false);
+let linkUserSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+const openLinkUserDialog = (player: TournamentPlayer) => {
+    linkUserTarget.value = player;
+    linkUserQuery.value = '';
+    linkUserResults.value = [];
+    linkUserDialogOpen.value = true;
+};
+
+watch(linkUserQuery, (q) => {
+    if (linkUserSearchTimer) clearTimeout(linkUserSearchTimer);
+    if (!q || q.trim().length < 2) {
+        linkUserResults.value = [];
+        return;
+    }
+    linkUserSearchTimer = setTimeout(async () => {
+        linkUserSearching.value = true;
+        try {
+            const res = await fetch(route('tournaments.users.search', props.tournament.uuid) + '?q=' + encodeURIComponent(q.trim()), {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                linkUserResults.value = data.users ?? [];
+            }
+        } finally {
+            linkUserSearching.value = false;
+        }
+    }, 250);
+});
+
+const linkUserToPlayer = async (userId: number) => {
+    if (!linkUserTarget.value) return;
+    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: linkUserTarget.value.id }), 'PUT', { user_id: userId })) {
+        linkUserDialogOpen.value = false;
+        linkUserTarget.value = null;
+        reloadPage();
+    }
+};
+
+const unlinkUserFromPlayer = async (player: TournamentPlayer) => {
+    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { user_id: null })) {
+        reloadPage();
+    }
+};
+
 const toggleDQ = async (player: TournamentPlayer) => {
     if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { is_disqualified: !player.is_disqualified })) {
         reloadPage();
@@ -260,12 +358,6 @@ const toggleDQ = async (player: TournamentPlayer) => {
 // ─── Rounds ───
 const createRound = async () => {
     if (await doAction(route('tournaments.rounds.create', props.tournament.uuid))) {
-        reloadPage();
-    }
-};
-
-const generateAllRounds = async () => {
-    if (await doAction(route('tournaments.rounds.generate_all', props.tournament.uuid))) {
         reloadPage();
     }
 };
@@ -307,35 +399,41 @@ const playerOpponents = computed(() => {
 });
 
 // AutoPair availability check
-const canAutoPair = (round: TournamentRound): boolean => {
-    if (props.tournament.status !== 'active') return false;
-    if (round.status !== 'setup') return false;
+const canAutoPair = (round: TournamentRound): boolean => pairBlockReason(round) === null;
+
+// Returns null if pairing is allowed, otherwise a human-readable reason.
+const pairBlockReason = (round: TournamentRound): string | null => {
+    if (round.status !== 'setup') return 'Round is not in setup';
+    if (props.tournament.status !== 'active') {
+        return round.round_number === 1
+            ? 'Tournament must be started before Round 1 can be paired'
+            : 'Tournament must be active to pair rounds';
+    }
     if (round.round_number > 1) {
         const prevRound = props.tournament.rounds.find((r: any) => r.round_number === round.round_number - 1);
-        if (!prevRound || prevRound.status !== 'completed') return false;
+        if (!prevRound || prevRound.status !== 'completed') {
+            return `Round ${round.round_number - 1} must be completed first`;
+        }
     }
-    return true;
+    return null;
 };
 
 const generatePairings = async (roundId: number) => {
     submitting.value = true;
-    try {
-        const res = await fetch(route('tournaments.rounds.pair', { tournament: props.tournament.uuid, round: roundId }), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        });
-        if (!res.ok) console.error('Pairing failed:', res.status, await res.text());
-    } catch (e) {
-        console.error('Pairing error:', e);
-    } finally {
-        submitting.value = false;
-        reloadPage();
-    }
+    const ok = await doAction(route('tournaments.rounds.pair', { tournament: props.tournament.uuid, round: roundId }), 'POST');
+    submitting.value = false;
+    if (ok) reloadPage();
 };
 
 // ─── Manual Pairing ───
-const manualP1 = ref<string>('');
-const manualP2 = ref<string>('');
+// Per-round state so editing the Round 3 pair widget doesn't bleed into Round 2's.
+const manualPairings = ref<Record<number, { p1: string; p2: string }>>({});
+const getManualPair = (roundId: number) => {
+    if (!manualPairings.value[roundId]) {
+        manualPairings.value[roundId] = { p1: '', p2: '' };
+    }
+    return manualPairings.value[roundId];
+};
 
 const pairedPlayerIds = (roundId: number): Set<number> => {
     const round = props.tournament.rounds.find((r) => r.id === roundId);
@@ -354,31 +452,27 @@ const unpairedPlayers = (roundId: number) => {
 };
 
 const addManualPairing = async (roundId: number) => {
-    if (!manualP1.value) return;
+    const pair = getManualPair(roundId);
+    if (!pair.p1) return;
     submitting.value = true;
-    const isBye = !manualP2.value || manualP2.value === 'bye';
-    const body: Record<string, unknown> = {
-        player_one_id: Number(manualP1.value),
-        player_two_id: isBye ? null : Number(manualP2.value),
+    const isBye = !pair.p2 || pair.p2 === 'bye';
+    const ok = await doAction(route('tournaments.games.create', { tournament: props.tournament.uuid, round: roundId }), 'POST', {
+        player_one_id: Number(pair.p1),
+        player_two_id: isBye ? null : Number(pair.p2),
         is_bye: isBye,
-    };
-    await fetch(route('tournaments.games.create', { tournament: props.tournament.uuid, round: roundId }), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify(body),
     });
-    manualP1.value = '';
-    manualP2.value = '';
     submitting.value = false;
-    reloadPage();
+    if (ok) {
+        pair.p1 = '';
+        pair.p2 = '';
+        reloadPage();
+    }
 };
 
 const removeGame = async (gameId: number) => {
-    await fetch(route('tournaments.games.delete', { tournament: props.tournament.uuid, game: gameId }), {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': csrfToken() },
-    });
-    reloadPage();
+    if (await doAction(route('tournaments.games.delete', { tournament: props.tournament.uuid, game: gameId }), 'DELETE')) {
+        reloadPage();
+    }
 };
 
 // ─── Game Scores ───
@@ -413,30 +507,22 @@ const openScoreEdit = (game: TournamentGame) => {
 const saveScore = async () => {
     if (!editingGame.value) return;
     submitting.value = true;
-    try {
-        const res = await fetch(route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-            body: JSON.stringify({
-                player_one_master: editP1Master.value,
-                player_one_title: editP1Title.value,
-                player_one_vp: editP1Vp.value,
-                player_one_strategy_vp: editP1StrategyVp.value,
-                player_one_scheme_vp: editP1SchemeVp.value,
-                player_two_master: editP2Master.value,
-                player_two_title: editP2Title.value,
-                player_two_vp: editP2Vp.value,
-                player_two_strategy_vp: editP2StrategyVp.value,
-                player_two_scheme_vp: editP2SchemeVp.value,
-            }),
-        });
-        if (!res.ok) console.error('Save score failed:', await res.text());
-    } catch (e) {
-        console.error('Save score error:', e);
-    }
-    editingGame.value = null;
+    // Total VP is recomputed server-side from strategy + scheme.
+    const ok = await doAction(route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }), 'PUT', {
+        player_one_master: editP1Master.value,
+        player_one_title: editP1Title.value,
+        player_one_strategy_vp: editP1StrategyVp.value,
+        player_one_scheme_vp: editP1SchemeVp.value,
+        player_two_master: editP2Master.value,
+        player_two_title: editP2Title.value,
+        player_two_strategy_vp: editP2StrategyVp.value,
+        player_two_scheme_vp: editP2SchemeVp.value,
+    });
     submitting.value = false;
-    reloadPage();
+    if (ok) {
+        editingGame.value = null;
+        reloadPage();
+    }
 };
 
 // ─── Round Scenario (inline editing) ───
@@ -458,24 +544,28 @@ const toggleScenarioEdit = (round: TournamentRound) => {
 
 const saveRoundScenario = async (roundId: number) => {
     submitting.value = true;
-    await fetch(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify({
-            deployment: editDeployment.value,
-            strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
-            scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
-        }),
+    const ok = await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', {
+        deployment: editDeployment.value,
+        strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
+        scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
     });
-    expandedScenarioRoundId.value = null;
     submitting.value = false;
-    reloadPage();
+    if (ok) {
+        expandedScenarioRoundId.value = null;
+        reloadPage();
+    }
 };
 
 // ─── Status ───
 const statusTransitions: Record<string, { next: string; label: string }> = {
     draft: { next: 'registration', label: 'Open Registration' },
     registration: { next: 'active', label: 'Start Tournament' },
+};
+
+const revertToDraft = async () => {
+    if (await doAction(route('tournaments.status', props.tournament.uuid), 'PUT', { status: 'draft' })) {
+        reloadPage();
+    }
 };
 
 const confirmStatusDialog = ref(false);
@@ -498,37 +588,22 @@ const endRound = async (roundId: number) => {
 };
 
 const finalizeTournament = async () => {
-    await fetch(route('tournaments.status', props.tournament.uuid), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
-    });
-    confirmFinalizeDialog.value = false;
-    reloadPage();
+    if (await doAction(route('tournaments.status', props.tournament.uuid), 'PUT', { status: 'completed' })) {
+        confirmFinalizeDialog.value = false;
+        reloadPage();
+    }
 };
 
 const advanceStatus = async () => {
     const transition = statusTransitions[props.tournament.status];
     if (!transition) return;
-    await fetch(route('tournaments.status', props.tournament.uuid), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({ status: transition.next }),
-    });
-    confirmStatusDialog.value = false;
-    reloadPage();
+    if (await doAction(route('tournaments.status', props.tournament.uuid), 'PUT', { status: transition.next })) {
+        confirmStatusDialog.value = false;
+        reloadPage();
+    }
 };
 
-const statusColor = (status: string): string =>
-    ({
-        draft: 'bg-muted text-muted-foreground',
-        registration: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-        active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-        completed: 'bg-muted text-muted-foreground',
-    })[status] ?? '';
-
-const statusLabel = (status: string): string =>
-    ({ draft: 'Draft', registration: 'Registration', active: 'Active', completed: 'Completed' })[status] ?? status;
+// statusColor / statusLabel come from useTournamentStatus() above
 
 // ─── Settings Edit ───
 const editingSettings = ref(false);
@@ -555,45 +630,24 @@ const openSettingsEdit = () => {
 
 const saveSettings = async () => {
     submitting.value = true;
-    try {
-        const res = await fetch(route('tournaments.update', props.tournament.uuid), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-            body: JSON.stringify({
-                name: editName.value,
-                description: editDescription.value || null,
-                event_date: editEventDate.value,
-                location: editLocation.value || null,
-                encounter_size: editEncounterSize.value,
-                encounter_type: editEncounterType.value,
-                planned_rounds: editPlannedRounds.value,
-                round_time_limit: editRoundTimeLimit.value,
-            }),
-        });
-        if (res.ok) {
-            editingSettings.value = false;
-        } else {
-            console.error('Save settings failed:', res.status, await res.text());
-        }
-    } catch (e) {
-        console.error('Save settings error:', e);
-    } finally {
-        submitting.value = false;
+    const ok = await doAction(route('tournaments.update', props.tournament.uuid), 'PUT', {
+        name: editName.value,
+        description: editDescription.value || null,
+        event_date: editEventDate.value,
+        location: editLocation.value || null,
+        encounter_size: editEncounterSize.value,
+        encounter_type: editEncounterType.value,
+        planned_rounds: editPlannedRounds.value,
+        round_time_limit: editRoundTimeLimit.value,
+    });
+    submitting.value = false;
+    if (ok) {
+        editingSettings.value = false;
         reloadPage();
     }
 };
 
 // ─── Randomize Scenario ───
-const randomizeRoundAndReload = async (roundId: number) => {
-    submitting.value = true;
-    await fetch(route('tournaments.rounds.randomize', { tournament: props.tournament.uuid, round: roundId }), {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-    });
-    submitting.value = false;
-    reloadPage();
-};
-
 const randomizeInDialog = () => {
     // Randomize locally in the form fields
     const strats = props.all_strategies;
@@ -632,11 +686,6 @@ const viewStrategy = (idStr: string | null) => {
     if (s) openViewDrawer(s.name, s.image_url);
 };
 
-const viewStrategyById = (id: number) => {
-    const s = props.all_strategies.find((x) => x.id === id);
-    if (s) openViewDrawer(s.name, s.image_url);
-};
-
 const viewScheme = (idStr: string | null) => {
     if (!idStr) return;
     const s = props.all_schemes.find((x) => String(x.id) === idStr);
@@ -645,8 +694,6 @@ const viewScheme = (idStr: string | null) => {
         openViewDrawer(s.name, s.image_url, desc || undefined);
     }
 };
-
-const viewSchemeById = (id: number) => viewScheme(String(id));
 
 const activePlayers = computed(() => props.tournament.players.filter((p) => !p.is_disqualified && p.dropped_after_round === null));
 
@@ -667,14 +714,6 @@ const canEndRound = (round: TournamentRound): boolean => {
 
 const isLastRound = computed(() => props.tournament.rounds.length >= props.tournament.planned_rounds);
 
-// Can create the next round when tournament is active, latest round is completed, and more rounds remain
-const canCreateNextRound = computed(() => {
-    if (props.tournament.status !== 'active') return false;
-    if (isLastRound.value) return false;
-    if (!latestRound.value) return true; // No rounds yet
-    return latestRound.value.status === 'completed';
-});
-
 const canFinalize = computed(() => {
     if (props.tournament.status !== 'active') return false;
     if (!isLastRound.value) return false;
@@ -688,15 +727,6 @@ const formatDate = (d: string) => {
 const toDateInput = (d: string) => d ? d.split('T')[0] : '';
 const isEditable = computed(() => !isLocked.value);
 
-const factionBackground = (faction: string | null): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society': return 'bg-explorerssociety';
-        case 'ten_thunders': return 'bg-tenthunders';
-        default: return `bg-${faction}`;
-    }
-};
-
 // Masters filtered by faction
 const mastersForFaction = (faction: string | null) => {
     if (!faction) return [];
@@ -709,14 +739,6 @@ const titlesForMaster = (masterName: string | null) => {
     return master?.titles ?? [];
 };
 
-const playerName = (id: number | null): string => {
-    if (!id) return 'BYE';
-    return props.tournament.players.find((p) => p.id === id)?.display_name ?? 'Unknown';
-};
-const playerFaction = (id: number | null): string | null => {
-    if (!id) return null;
-    return props.tournament.players.find((p) => p.id === id)?.faction ?? null;
-};
 </script>
 
 <template>
@@ -760,6 +782,15 @@ const playerFaction = (id: number | null): string | null => {
                     </Button>
                     <Button variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />
+                    </Button>
+                    <Button
+                        v-if="tournament.status === 'registration'"
+                        variant="ghost"
+                        size="sm"
+                        class="text-xs text-muted-foreground"
+                        @click="revertToDraft"
+                    >
+                        Back to Draft
                     </Button>
                     <Button
                         v-if="statusTransitions[tournament.status]"
@@ -936,6 +967,22 @@ const playerFaction = (id: number | null): string | null => {
                                 </div>
                             </div>
                             <div class="flex shrink-0 items-center gap-0.5">
+                                <button
+                                    v-if="!player.user"
+                                    class="rounded p-1 hover:bg-white/20"
+                                    title="Link to BiggerHat account"
+                                    @click="openLinkUserDialog(player)"
+                                >
+                                    <Link2 class="size-3.5 text-white/50" />
+                                </button>
+                                <button
+                                    v-else
+                                    class="rounded p-1 hover:bg-white/20"
+                                    :title="`Linked to ${player.user.name} — click to unlink`"
+                                    @click="unlinkUserFromPlayer(player)"
+                                >
+                                    <Link2Off class="size-3.5 text-emerald-300" />
+                                </button>
                                 <button v-if="tournament.status === 'active'" class="rounded p-1 hover:bg-white/20" :title="player.dropped_after_round !== null ? 'Undrop' : 'Drop'" @click="toggleDrop(player)">
                                     <LogOut class="size-3.5" :class="player.dropped_after_round !== null ? 'text-amber-300' : 'text-white/50'" />
                                 </button>
@@ -955,42 +1002,16 @@ const playerFaction = (id: number | null): string | null => {
 
                 <!-- ═══ ROUNDS ═══ -->
                 <TabsContent value="rounds">
-                    <div class="mb-4 flex flex-wrap gap-2">
-                        <!-- Create Next Round (when latest round completed or no rounds yet) -->
-                        <Button
-                            v-if="canCreateNextRound"
-                            size="sm"
-                            class="gap-1"
-                            :disabled="submitting"
-                            @click="createRound"
-                        >
-                            <Loader2 v-if="submitting" class="size-3.5 animate-spin" />
-                            <Plus v-else class="size-3.5" />
-                            Create Round {{ tournament.rounds.length + 1 }}
-                        </Button>
-                        <!-- Pre-tournament: allow creating rounds for scenario config -->
-                        <template v-else-if="tournament.status !== 'active' && tournament.status !== 'completed' && tournament.rounds.length < tournament.planned_rounds">
-                            <Button size="sm" class="gap-1" :disabled="submitting" @click="createRound">
-                                <Plus class="size-3.5" /> Create Round {{ tournament.rounds.length + 1 }}
-                            </Button>
-                            <Button v-if="tournament.planned_rounds - tournament.rounds.length > 1" variant="outline" size="sm" class="gap-1" :disabled="submitting" @click="generateAllRounds">
-                                <Plus class="size-3.5" /> Generate All Rounds
-                            </Button>
-                        </template>
-                        <!-- Finalize Tournament (last round completed) -->
-                        <Button
-                            v-if="canFinalize"
-                            class="gap-1"
-                            size="sm"
-                            @click="confirmFinalizeDialog = true"
-                        >
+                    <!-- Finalize Tournament (last round completed) -->
+                    <div v-if="canFinalize" class="mb-4 flex flex-wrap gap-2">
+                        <Button class="gap-1" size="sm" @click="confirmFinalizeDialog = true">
                             <Trophy class="size-3.5" />
                             Finalize Standings &amp; Complete
                         </Button>
                     </div>
 
                     <div v-if="!tournament.rounds.length" class="py-8 text-center text-sm text-muted-foreground">
-                        No rounds created yet. Create rounds to configure scenarios and pair players.
+                        No rounds yet — use the button below to add one.
                     </div>
 
                     <div class="space-y-4">
@@ -1022,7 +1043,7 @@ const playerFaction = (id: number | null): string | null => {
                                         size="sm"
                                         class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
                                         :disabled="submitting || !canAutoPair(round)"
-                                        :title="!canAutoPair(round) ? (tournament.status !== 'active' ? 'Tournament must be active' : 'Previous round must be completed') : ''"
+                                        :title="pairBlockReason(round) ?? 'Generate Swiss pairings'"
                                         @click="generatePairings(round.id)"
                                     >
                                         <Loader2 v-if="submitting" class="size-3 animate-spin" />
@@ -1136,13 +1157,13 @@ const playerFaction = (id: number | null): string | null => {
                                                     <span class="text-[10px] text-muted-foreground">-</span>
                                                     <span class="text-xs font-bold sm:text-sm">{{ game.player_two_vp ?? '-' }}</span>
                                                 </template>
-                                                <Button v-if="!game.is_bye && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="openScoreEdit(game)">
+                                                <Button v-if="!game.is_bye && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="openScoreEdit(game)">
                                                     {{ game.result === 'pending' ? 'Score' : 'Edit' }}
                                                 </Button>
-                                                <Button v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs" @click="openForfeitDialog(game)">
+                                                <Button v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs" @click="openForfeitDialog(game)">
                                                     Forfeit
                                                 </Button>
-                                                <Button v-if="game.is_forfeit && round.status !== 'completed'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="removeForfeit(game)">
+                                                <Button v-if="game.is_forfeit && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="removeForfeit(game)">
                                                     Undo
                                                 </Button>
                                                 <button v-if="round.status === 'setup'" class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" @click="removeGame(game.id)">
@@ -1161,37 +1182,55 @@ const playerFaction = (id: number | null): string | null => {
 
                                 <!-- Manual Pairing -->
                                 <div v-if="round.status === 'setup' && unpairedPlayers(round.id).length" class="mt-3 rounded-md border border-dashed p-2 sm:p-3">
-                                    <div class="mb-2 text-xs font-medium text-muted-foreground">Manual Pairing</div>
-                                    <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                                        <div class="space-y-1">
-                                            <Label class="text-[10px]">Player 1</Label>
-                                            <Select v-model="manualP1">
-                                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select player..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem v-for="p in unpairedPlayers(round.id)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div class="space-y-1">
-                                            <Label class="text-[10px]">Player 2 <span class="text-muted-foreground">(empty = bye)</span></Label>
-                                            <Select v-model="manualP2">
-                                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="BYE" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="bye">BYE</SelectItem>
-                                                    <SelectItem v-for="p in unpairedPlayers(round.id).filter((p) => String(p.id) !== manualP1)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button size="sm" class="h-8 w-full gap-1 sm:w-auto" :disabled="!manualP1 || submitting" @click="addManualPairing(round.id)">
-                                            <Plus class="size-3" /> Pair
-                                        </Button>
+                                    <div class="mb-2 flex items-center justify-between gap-2">
+                                        <span class="text-xs font-medium text-muted-foreground">Manual Pairing</span>
+                                        <span v-if="pairBlockReason(round)" class="text-[10px] italic text-amber-600 dark:text-amber-400">{{ pairBlockReason(round) }}</span>
                                     </div>
+                                    <fieldset :disabled="!canAutoPair(round)" :class="!canAutoPair(round) ? 'cursor-not-allowed opacity-50' : ''">
+                                        <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                                            <div class="space-y-1">
+                                                <Label class="text-[10px]">Player 1</Label>
+                                                <Select v-model="getManualPair(round.id).p1">
+                                                    <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select player..." /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem v-for="p in unpairedPlayers(round.id)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <Label class="text-[10px]">Player 2 <span class="text-muted-foreground">(empty = bye)</span></Label>
+                                                <Select v-model="getManualPair(round.id).p2">
+                                                    <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="BYE" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="bye">BYE</SelectItem>
+                                                        <SelectItem v-for="p in unpairedPlayers(round.id).filter((p) => String(p.id) !== getManualPair(round.id).p1)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                class="h-8 w-full gap-1 sm:w-auto"
+                                                :disabled="!getManualPair(round.id).p1 || submitting || !canAutoPair(round)"
+                                                :title="pairBlockReason(round) ?? ''"
+                                                @click="addManualPairing(round.id)"
+                                            >
+                                                <Plus class="size-3" /> Pair
+                                            </Button>
+                                        </div>
+                                    </fieldset>
                                     <div v-if="unpairedPlayers(round.id).length" class="mt-2 text-[10px] text-muted-foreground">
                                         {{ unpairedPlayers(round.id).length }} unpaired: {{ unpairedPlayers(round.id).map((p) => p.display_name).join(', ') }}
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+
+                    <!-- Add another round (always available; will bump planned_rounds if exceeded) -->
+                    <div v-if="tournament.status !== 'completed'" class="mt-4 flex justify-center">
+                        <Button variant="outline" size="sm" class="gap-1" :disabled="submitting" @click="createRound">
+                            <Plus class="size-3.5" /> Add Round {{ tournament.rounds.length + 1 }}
+                        </Button>
                     </div>
                 </TabsContent>
 
@@ -1305,101 +1344,39 @@ const playerFaction = (id: number | null): string | null => {
                             </div>
 
                             <div class="border-t pt-4">
-                                <h3 class="mb-2 font-semibold">Organizers</h3>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <h3 class="font-semibold">Organizers</h3>
+                                    <Button
+                                        v-if="isCreator"
+                                        variant="outline"
+                                        size="sm"
+                                        class="h-7 gap-1 text-xs"
+                                        @click="openAddOrganizerDialog"
+                                    >
+                                        <Plus class="size-3" /> Add TO
+                                    </Button>
+                                </div>
                                 <div class="space-y-1">
-                                    <div v-for="org in tournament.organizers" :key="org.id" class="flex items-center gap-2 text-sm">
-                                        <Shield class="size-3.5 text-muted-foreground" />
-                                        {{ org.name }}
+                                    <div v-for="org in tournament.organizers" :key="org.id" class="flex items-center justify-between gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent/50">
+                                        <div class="flex items-center gap-2">
+                                            <Shield class="size-3.5 text-muted-foreground" />
+                                            <span>{{ org.name }}</span>
+                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[9px]">Creator</Badge>
+                                        </div>
+                                        <button
+                                            v-if="isCreator && org.id !== tournament.creator_id"
+                                            class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                            title="Remove organizer"
+                                            @click="removeOrganizer(org.id)"
+                                        >
+                                            <X class="size-3.5" />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <!-- Round Scenarios -->
-                    <Card class="mt-4">
-                        <CardContent class="p-4">
-                            <div class="mb-3 flex items-center justify-between">
-                                <h3 class="font-semibold">Round Scenarios</h3>
-                                <Button
-                                    v-if="tournament.rounds.length < tournament.planned_rounds"
-                                    variant="outline"
-                                    size="sm"
-                                    class="h-7 gap-1 text-xs"
-                                    :disabled="submitting"
-                                    @click="createRound"
-                                >
-                                    <Plus class="size-3" /> Add Round
-                                </Button>
-                            </div>
-                            <div v-if="!tournament.rounds.length" class="py-4 text-center text-xs text-muted-foreground">
-                                No rounds configured yet. Add rounds to set up scenarios.
-                            </div>
-                            <div v-else class="space-y-2">
-                                <div
-                                    v-for="round in tournament.rounds"
-                                    :key="'scenario-' + round.id"
-                                    class="rounded-lg border p-3"
-                                >
-                                    <div class="mb-2 flex items-center justify-between">
-                                        <span class="text-sm font-semibold">Round {{ round.round_number }}</span>
-                                        <div class="flex items-center gap-1">
-                                            <Button variant="ghost" size="sm" class="h-6 gap-1 px-2 text-[11px]" :disabled="submitting" @click="randomizeRoundAndReload(round.id)">
-                                                <Dices class="size-3" /> Random
-                                            </Button>
-                                            <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" @click="toggleScenarioEdit(round)">
-                                                {{ expandedScenarioRoundId === round.id ? 'Close' : 'Edit' }}
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Inline editor -->
-                                    <div v-if="expandedScenarioRoundId === round.id" class="space-y-1.5">
-                                        <div class="flex gap-1">
-                                            <Select v-model="editDeployment">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Deployment..." /></SelectTrigger>
-                                                <SelectContent><SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem></SelectContent>
-                                            </Select>
-                                            <button v-if="editDeployment" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent" @click="viewDeployment(editDeployment)"><Eye class="size-3" /></button>
-                                        </div>
-                                        <div class="flex gap-1">
-                                            <Select v-model="editStrategy">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Strategy..." /></SelectTrigger>
-                                                <SelectContent><SelectItem v-for="s in all_strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem></SelectContent>
-                                            </Select>
-                                            <button v-if="editStrategy" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent" @click="viewStrategy(editStrategy)"><Eye class="size-3" /></button>
-                                        </div>
-                                        <div v-for="(_, idx) in editSchemePool" :key="'set-scheme-' + idx" class="flex gap-1">
-                                            <Select :model-value="editSchemePool[idx] ?? undefined" @update:model-value="(v) => editSchemePool[idx] = v ?? null">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue :placeholder="'Scheme ' + (idx + 1)" /></SelectTrigger>
-                                                <SelectContent><SelectItem v-for="s in all_schemes" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem></SelectContent>
-                                            </Select>
-                                            <button v-if="editSchemePool[idx]" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent" @click="viewScheme(editSchemePool[idx])"><Eye class="size-3" /></button>
-                                        </div>
-                                        <Button size="sm" class="w-full text-xs" :disabled="submitting" @click="saveRoundScenario(round.id)">Save</Button>
-                                    </div>
-
-                                    <!-- Summary view -->
-                                    <div v-else class="space-y-1 text-xs">
-                                        <div v-if="round.deployment" class="text-muted-foreground">
-                                            Deployment: <button class="font-medium text-foreground hover:text-primary hover:underline" @click="viewDeployment(round.deployment)">{{ all_deployments.find((d) => d.value === round.deployment)?.label ?? round.deployment }}</button>
-                                        </div>
-                                        <div v-if="round.strategy" class="text-muted-foreground">
-                                            Strategy: <button class="font-medium text-foreground hover:text-primary hover:underline" @click="viewStrategyById(round.strategy!.id)">{{ round.strategy.name }}</button>
-                                        </div>
-                                        <div v-if="round.scheme_pool?.length" class="text-muted-foreground">
-                                            Schemes:
-                                            <template v-for="(id, idx) in round.scheme_pool" :key="id">
-                                                <span v-if="idx > 0">, </span>
-                                                <button class="font-medium text-foreground hover:text-primary hover:underline" @click="viewSchemeById(id)">{{ all_schemes.find((s) => s.id === id)?.name ?? id }}</button>
-                                            </template>
-                                        </div>
-                                        <div v-if="!round.deployment && !round.strategy && !round.scheme_pool?.length" class="italic text-muted-foreground">Not configured</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </TabsContent>
             </Tabs>
         </div>
@@ -1607,6 +1584,60 @@ const playerFaction = (id: number | null): string | null => {
             <DialogFooter>
                 <Button variant="outline" @click="rsvpPlayerDialogOpen = false">Cancel</Button>
                 <Button :disabled="!rsvpPlayerFaction || submitting" @click="confirmAddRsvpAsPlayer">Register</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Add Organizer Dialog -->
+    <Dialog v-model:open="addOrganizerDialogOpen">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Add Tournament Organizer</DialogTitle>
+                <DialogDescription>Search by name. Added organizers can manage all aspects of this tournament.</DialogDescription>
+            </DialogHeader>
+            <Input v-model="addOrganizerQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
+            <div class="max-h-64 overflow-y-auto">
+                <div v-if="addOrganizerSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>
+                <div v-else-if="addOrganizerQuery.trim().length >= 2 && !addOrganizerResults.length" class="py-2 text-center text-xs text-muted-foreground">No users match (or already organizers).</div>
+                <button
+                    v-for="u in addOrganizerResults"
+                    :key="u.id"
+                    class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    @click="addOrganizer(u.id)"
+                >
+                    <span class="flex items-center gap-2"><Shield class="size-3.5 text-muted-foreground" /> {{ u.name }}</span>
+                    <Plus class="size-3.5 text-muted-foreground" />
+                </button>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="addOrganizerDialogOpen = false">Cancel</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Link Player to BiggerHat User Dialog -->
+    <Dialog v-model:open="linkUserDialogOpen">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Link {{ linkUserTarget?.display_name ?? 'Player' }} to a BiggerHat account</DialogTitle>
+                <DialogDescription>Search by name. Linking lets the player see this tournament in their account.</DialogDescription>
+            </DialogHeader>
+            <Input v-model="linkUserQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
+            <div class="max-h-64 overflow-y-auto">
+                <div v-if="linkUserSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>
+                <div v-else-if="linkUserQuery.trim().length >= 2 && !linkUserResults.length" class="py-2 text-center text-xs text-muted-foreground">No users match.</div>
+                <button
+                    v-for="u in linkUserResults"
+                    :key="u.id"
+                    class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    @click="linkUserToPlayer(u.id)"
+                >
+                    <span>{{ u.name }}</span>
+                    <Link2 class="size-3.5 text-muted-foreground" />
+                </button>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="linkUserDialogOpen = false">Cancel</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

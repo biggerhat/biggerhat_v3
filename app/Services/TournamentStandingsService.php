@@ -38,6 +38,7 @@ class TournamentStandingsService
                 'total_diff' => $stats['diff'],
                 'total_vp' => $stats['vp'],
                 'rounds_played' => $stats['rounds'],
+                'has_bye' => $stats['has_bye'],
             ];
         }
 
@@ -80,7 +81,7 @@ class TournamentStandingsService
      * Compute TP, DIFF, VP for a single player across all their games.
      *
      * @param  \Illuminate\Support\Collection<int, TournamentGame>  $allGames
-     * @return array{tp: int, diff: int, vp: int, rounds: int}
+     * @return array{tp: int, diff: int, vp: int, rounds: int, has_bye: bool}
      */
     private function computePlayerStats(int $playerId, $allGames): array
     {
@@ -88,6 +89,7 @@ class TournamentStandingsService
         $diff = 0;
         $vp = 0;
         $rounds = 0;
+        $hasBye = false;
 
         foreach ($allGames as $game) {
             if ($game->player_one_id !== $playerId && $game->player_two_id !== $playerId) {
@@ -103,6 +105,7 @@ class TournamentStandingsService
                 $tp += 3;
                 $diff += 4;
                 $vp += 6;
+                $hasBye = true;
 
                 continue;
             }
@@ -133,6 +136,6 @@ class TournamentStandingsService
             }
         }
 
-        return ['tp' => $tp, 'diff' => $diff, 'vp' => $vp, 'rounds' => $rounds];
+        return ['tp' => $tp, 'diff' => $diff, 'vp' => $vp, 'rounds' => $rounds, 'has_bye' => $hasBye];
     }
 }

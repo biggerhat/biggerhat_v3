@@ -1,14 +1,25 @@
 import { router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted } from 'vue';
 
-export function useTournamentChannel(tournamentUuid: string) {
+/**
+ * Subscribe to the public broadcast channel for a tournament. Whenever the
+ * server emits a `TournamentUpdated` event, we trigger a debounced reload.
+ *
+ * Pass a custom `onUpdate` to override the default full-page reload — useful
+ * for the Manage page which only needs partial props refreshed.
+ */
+export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: any) => void) {
     let channel: any = null;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const reload = () => {
+    const reload = (event: any) => {
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
-            router.reload({ preserveScroll: true });
+            if (onUpdate) {
+                onUpdate(event);
+            } else {
+                router.reload({ preserveScroll: true });
+            }
             reloadTimer = null;
         }, 300);
     };
@@ -21,7 +32,7 @@ export function useTournamentChannel(tournamentUuid: string) {
 
         channel.listen('.TournamentUpdated', (e: any) => {
             if (import.meta.env.DEV) console.log('[TournamentChannel] Event:', e);
-            reload();
+            reload(e);
         });
     };
 

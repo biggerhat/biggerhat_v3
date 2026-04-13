@@ -10,7 +10,8 @@ use App\Traits\UsesEnumSelectOptions;
  * Tournament State Machine:
  *
  * Draft — TO creates tournament, configures scenarios/rounds. RSVP open for users.
- * Registration — TO adds players from RSVP list, assigns factions, designates ringer. RSVP closed.
+ * Registration — TO adds players from RSVP list, assigns factions, designates ringer. RSVP still open
+ *   so players reaching the link after registration is opened can still express interest.
  * Active (Started) — Scenarios/info/registration locked. Round management enabled.
  *   Round lifecycle: Setup → InProgress (pairings locked, game reporting) → Completed (all games reported)
  * Completed — All rounds finished, tournament finalized.
@@ -52,7 +53,7 @@ enum TournamentStatusEnum: string implements HasDefaultEnumMethods
 
     public function allowsRsvp(): bool
     {
-        return $this === self::Draft;
+        return in_array($this, [self::Draft, self::Registration]);
     }
 
     public function allowsRegistration(): bool
@@ -72,7 +73,7 @@ enum TournamentStatusEnum: string implements HasDefaultEnumMethods
     {
         return match ($this) {
             self::Draft => [self::Registration],
-            self::Registration => [self::Active],
+            self::Registration => [self::Draft, self::Active],
             self::Active => [self::Completed],
             self::Completed => [],
         };

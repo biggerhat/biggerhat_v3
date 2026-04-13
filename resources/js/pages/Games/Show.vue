@@ -18,7 +18,7 @@ import { useGameChannel } from '@/composables/useGameChannel';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowUpCircle, Banana, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Layers, Loader2, Maximize2, Minus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface GamePlayer {
     id: number;
@@ -815,6 +815,94 @@ onMounted(() => {
         toggleMyRefs();
         toggleOpponentRefs();
     }
+});
+
+// ─── Leave-confirmation guard for in-progress games ───
+const confirmLeaveOpen = ref(false);
+const pendingNavigation = ref<null | (() => void)>(null);
+let inertiaBeforeRemover: (() => void) | null = null;
+
+const isGameInProgress = computed(() => props.game.status === 'in_progress');
+
+const handlePopState = () => {
+    if (!isGameInProgress.value) return;
+    // Re-push state so they stay on this page until they confirm
+    window.history.pushState(null, '', window.location.href);
+    // The user wanted to go back — show the confirm dialog
+    pendingNavigation.value = () => {
+        // Remove guards and actually go back
+        teardownLeaveGuard();
+        window.history.back();
+    };
+    confirmLeaveOpen.value = true;
+};
+
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (!isGameInProgress.value) return;
+    e.preventDefault();
+    e.returnValue = '';
+};
+
+const setupLeaveGuard = () => {
+    // Push a duplicate history entry so back button triggers popstate without navigating away
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Intercept Inertia link clicks / programmatic navigation
+    inertiaBeforeRemover = router.on('before', (event) => {
+        if (!isGameInProgress.value) return;
+        const targetUrl = event.detail.visit.url.toString();
+        // Allow same-page reloads / partial reloads (e.g., real-time updates)
+        if (targetUrl === window.location.href || targetUrl === window.location.pathname) return;
+        event.preventDefault();
+        pendingNavigation.value = () => {
+            teardownLeaveGuard();
+            router.visit(targetUrl, { method: event.detail.visit.method });
+        };
+        confirmLeaveOpen.value = true;
+    });
+};
+
+const teardownLeaveGuard = () => {
+    window.removeEventListener('popstate', handlePopState);
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    if (inertiaBeforeRemover) {
+        inertiaBeforeRemover();
+        inertiaBeforeRemover = null;
+    }
+};
+
+const cancelLeave = () => {
+    pendingNavigation.value = null;
+    confirmLeaveOpen.value = false;
+};
+
+const confirmLeave = () => {
+    confirmLeaveOpen.value = false;
+    if (pendingNavigation.value) {
+        const fn = pendingNavigation.value;
+        pendingNavigation.value = null;
+        fn();
+    }
+};
+
+onMounted(() => {
+    if (isGameInProgress.value) {
+        setupLeaveGuard();
+    }
+});
+
+// Watch in case status changes (e.g., game completed mid-session)
+watch(isGameInProgress, (active) => {
+    if (active) {
+        setupLeaveGuard();
+    } else {
+        teardownLeaveGuard();
+    }
+});
+
+onUnmounted(() => {
+    teardownLeaveGuard();
 });
 
 // ─── Gameplay ───
@@ -4808,6 +4896,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <div class="flex items-center justify-center">
                 <img :src="cardFullscreenSrc" alt="Card" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
             </div>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Leave confirmation for in-progress games -->
+    <Dialog :open="confirmLeaveOpen" @update:open="(open) => { if (!open) cancelLeave(); }">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Leave game?</DialogTitle>
+                <DialogDescription>
+                    Your game is still in progress. If you leave, you can come back to it later from My Games.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter class="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" @click="cancelLeave">Stay</Button>
+                <Button variant="destructive" @click="confirmLeave">Leave</Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 </template>

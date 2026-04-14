@@ -39,6 +39,8 @@ class CustomCharacter extends Model
             'abilities' => 'array',
             'keywords' => 'array',
             'characteristics' => 'array',
+            'linked_crew_upgrades' => 'array',
+            'linked_totems' => 'array',
         ];
     }
 

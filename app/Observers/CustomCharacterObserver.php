@@ -3,7 +3,6 @@
 namespace App\Observers;
 
 use App\Models\CustomCharacter;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CustomCharacterObserver
@@ -41,19 +40,6 @@ class CustomCharacterObserver
                 $i++;
             }
             $character->slug = $slug;
-        }
-    }
-
-    public function deleting(CustomCharacter $character): void
-    {
-        $paths = array_filter([
-            $character->character_image,
-            $character->front_image,
-            $character->back_image,
-        ]);
-
-        foreach ($paths as $path) {
-            Storage::disk('public')->delete($path);
         }
     }
 }

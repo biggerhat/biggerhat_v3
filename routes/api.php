@@ -29,6 +29,11 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/card-creator/abilities', [CardCreatorSearchController::class, 'abilities'])->name('card-creator.abilities');
     Route::get('/card-creator/triggers', [CardCreatorSearchController::class, 'triggers'])->name('card-creator.triggers');
     Route::get('/card-creator/keywords', [CardCreatorSearchController::class, 'keywords'])->name('card-creator.keywords');
+    Route::get('/card-creator/crew-upgrades', [CardCreatorSearchController::class, 'crewUpgrades'])->name('card-creator.crew-upgrades');
+    Route::get('/card-creator/characters', [CardCreatorSearchController::class, 'characters'])->name('card-creator.characters');
+    Route::get('/card-creator/tokens', [CardCreatorSearchController::class, 'tokens'])->name('card-creator.tokens');
+    Route::get('/card-creator/markers', [CardCreatorSearchController::class, 'markers'])->name('card-creator.markers');
+    Route::get('/card-creator/character-detail/{character:id}', [CardCreatorSearchController::class, 'characterDetail'])->name('card-creator.character-detail');
 
     Route::get('/blog/posts', [BlogPostAPIController::class, 'index'])->name('blog.posts.index');
 

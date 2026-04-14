@@ -6,6 +6,7 @@ use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CompareController;
 use App\Http\Controllers\CrewBuilderController;
 use App\Http\Controllers\CustomCharacterController;
+use App\Http\Controllers\CustomUpgradeController;
 use App\Http\Controllers\Database\AbilityController;
 use App\Http\Controllers\Database\ActionController;
 use App\Http\Controllers\Database\BlogController;
@@ -229,6 +230,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
+        Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
 
         Route::middleware('auth')->group(function () {
             Route::get('/', [CustomCharacterController::class, 'index'])->name('index');
@@ -237,7 +239,14 @@ Route::prefix('tools')->name('tools.')->group(function () {
             Route::get('/{customCharacter}/edit', [CustomCharacterController::class, 'edit'])->name('edit');
             Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
             Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
-            Route::post('/{customCharacter}/export', [CustomCharacterController::class, 'exportImage'])->name('export');
+
+            Route::prefix('upgrades')->name('upgrades.')->group(function () {
+                Route::get('/create', [CustomUpgradeController::class, 'create'])->name('create');
+                Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
+                Route::get('/{customUpgrade}/edit', [CustomUpgradeController::class, 'edit'])->name('edit');
+                Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
+                Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+            });
         });
     });
     Route::prefix('crew-builder')->name('crew_builder.')->group(function () {

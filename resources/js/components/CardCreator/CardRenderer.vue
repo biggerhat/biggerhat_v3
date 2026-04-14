@@ -44,10 +44,17 @@ interface AbilityData {
     source_id: number | null;
 }
 
+interface LinkedItem {
+    source_type: 'official' | 'custom';
+    id: number;
+    name: string;
+}
+
 defineProps<{
     name: string;
     title: string | null;
-    faction: string;
+    faction: string | null;
+    secondFaction: string | null;
     station: string;
     cost: number | null;
     health: number;
@@ -63,6 +70,8 @@ defineProps<{
     characterImage: string | null;
     actions: ActionData[];
     abilities: AbilityData[];
+    linkedCrewUpgrades: LinkedItem[];
+    linkedTotems: LinkedItem[];
 }>();
 
 const flipped = ref(false);
@@ -98,6 +107,7 @@ defineExpose({ frontRef, backRef });
                         :name="name"
                         :title="title"
                         :faction="faction"
+                        :second-faction="secondFaction"
                         :station="station"
                         :cost="cost"
                         :health="health"
@@ -112,6 +122,8 @@ defineExpose({ frontRef, backRef });
                         :characteristics="characteristics"
                         :character-image="characterImage"
                         :abilities="abilities"
+                        :linked-crew-upgrades="linkedCrewUpgrades"
+                        :linked-totems="linkedTotems"
                     />
                 </div>
 
@@ -121,6 +133,7 @@ defineExpose({ frontRef, backRef });
                         :name="name"
                         :title="title"
                         :faction="faction"
+                        :second-faction="secondFaction"
                         :actions="actions"
                         :abilities="abilities"
                     />

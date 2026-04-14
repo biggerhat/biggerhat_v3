@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ defineProps<{
         title: string | null;
         display_name: string;
         faction: string;
+        second_faction: string | null;
         station: string;
         cost: number | null;
         health: number;
@@ -22,12 +24,12 @@ defineProps<{
         speed: number;
         size: number | null;
         base: string;
-        front_image: string | null;
-        back_image: string | null;
-        actions: any[] | null;
-        abilities: any[] | null;
-        keywords: any[] | null;
+        actions: { name: string; type: string; stat: number | null; damage: string | null; description: string | null; triggers: { name: string; suits: string | null; description: string | null }[] }[] | null;
+        abilities: { name: string; description: string | null }[] | null;
+        keywords: { id: number | null; name: string }[] | null;
         characteristics: string[] | null;
+        linked_crew_upgrades: { source_type: string; id: number; name: string }[] | null;
+        linked_totems: { source_type: string; id: number; name: string }[] | null;
     };
     creator_name: string;
 }>();
@@ -59,17 +61,30 @@ const stationLabel = (station: string | null) => {
 
         <div class="container mx-auto mt-6 max-w-3xl px-4 lg:px-6">
             <div class="grid gap-6 md:grid-cols-2">
-                <!-- Card preview -->
-                <Card class="overflow-hidden">
-                    <div class="flex aspect-[550/950] items-center justify-center bg-muted p-4 text-center">
-                        <img v-if="character.front_image" :src="'/storage/' + character.front_image" :alt="character.display_name" class="h-full w-full object-contain" />
-                        <div v-else class="text-xs text-muted-foreground">
-                            <FactionLogo v-if="character.faction" :faction="character.faction" class-name="mx-auto mb-2 size-16 opacity-30" />
-                            <div class="font-medium">{{ character.display_name }}</div>
-                            <div class="mt-1">Card preview not yet generated</div>
-                        </div>
-                    </div>
-                </Card>
+                <!-- Live card preview -->
+                <CardRenderer
+                    :name="character.name"
+                    :title="character.title"
+                    :faction="character.faction || 'guild'"
+                    :second-faction="character.second_faction"
+                    :station="character.station || 'minion'"
+                    :cost="character.cost"
+                    :health="character.health"
+                    :defense="character.defense"
+                    :defense-suit="character.defense_suit"
+                    :willpower="character.willpower"
+                    :willpower-suit="character.willpower_suit"
+                    :speed="character.speed"
+                    :size="character.size"
+                    :base="String(character.base)"
+                    :keywords="character.keywords ?? []"
+                    :characteristics="character.characteristics ?? []"
+                    :character-image="null"
+                    :actions="character.actions ?? []"
+                    :abilities="character.abilities ?? []"
+                    :linked-crew-upgrades="character.linked_crew_upgrades ?? []"
+                    :linked-totems="character.linked_totems ?? []"
+                />
 
                 <!-- Stats & content -->
                 <div class="space-y-4">
@@ -112,6 +127,23 @@ const stationLabel = (station: string | null) => {
 
                             <div v-if="character.keywords?.length" class="flex flex-wrap gap-1">
                                 <Badge v-for="kw in character.keywords" :key="kw.name" variant="secondary" class="text-[10px]">{{ kw.name }}</Badge>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card v-if="character.linked_crew_upgrades?.length || character.linked_totems?.length">
+                        <CardContent class="space-y-2 p-4">
+                            <div v-if="character.linked_crew_upgrades?.length">
+                                <h3 class="text-xs font-semibold">Crew Upgrades</h3>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <Badge v-for="u in character.linked_crew_upgrades" :key="u.source_type + '-' + u.id" variant="secondary" class="text-[10px]">{{ u.name }}</Badge>
+                                </div>
+                            </div>
+                            <div v-if="character.linked_totems?.length">
+                                <h3 class="text-xs font-semibold">Totems</h3>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <Badge v-for="t in character.linked_totems" :key="t.source_type + '-' + t.id" variant="secondary" class="text-[10px]">{{ t.name }}</Badge>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

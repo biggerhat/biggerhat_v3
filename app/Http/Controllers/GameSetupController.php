@@ -37,10 +37,18 @@ class GameSetupController extends Controller
 
         $player->update(['faction' => $validated['faction']]);
 
-        $bothDone = $game->players()->whereNotNull('faction')->count() === 2;
-        if ($bothDone) {
-            $game->update(['status' => GameStatusEnum::MasterSelect]);
-        }
+        // Pessimistic lock: prevent two concurrent submissions from both
+        // seeing "2 of 2 done" and advancing the status twice.
+        $bothDone = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            $done = $locked->players()->whereNotNull('faction')->count() === 2;
+            if ($done && $locked->status === GameStatusEnum::FactionSelect) {
+                $locked->update(['status' => GameStatusEnum::MasterSelect]);
+            }
+
+            return $done;
+        });
 
         if (! $game->is_solo) {
             if ($bothDone) {
@@ -83,12 +91,18 @@ class GameSetupController extends Controller
             'master_id' => $master?->id,
         ]);
 
-        $bothDone = $game->players()->whereNotNull('master_name')->count() === 2;
-        $statusChanged = false;
-        if ($bothDone && $game->status === GameStatusEnum::MasterSelect) {
-            $game->update(['status' => GameStatusEnum::CrewSelect]);
-            $statusChanged = true;
-        }
+        [$bothDone, $statusChanged] = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            $done = $locked->players()->whereNotNull('master_name')->count() === 2;
+            $changed = false;
+            if ($done && $locked->status === GameStatusEnum::MasterSelect) {
+                $locked->update(['status' => GameStatusEnum::CrewSelect]);
+                $changed = true;
+            }
+
+            return [$done, $changed];
+        });
 
         if (! $game->is_solo) {
             if ($statusChanged) {
@@ -150,14 +164,20 @@ class GameSetupController extends Controller
             $player->update(['soulstone_pool' => $pool]);
         });
 
-        // In solo, opponent crew is optional — check with skip support
-        $crewDoneCount = $game->players()
-            ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
-            ->count();
-        $bothDone = $crewDoneCount === 2;
-        if ($bothDone) {
-            $game->update(['status' => GameStatusEnum::SchemeSelect]);
-        }
+        // In solo, opponent crew is optional — check with skip support.
+        // Pessimistic lock to prevent double-advance.
+        $bothDone = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            $done = $locked->players()
+                ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
+                ->count() === 2;
+            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
+                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+            }
+
+            return $done;
+        });
 
         if (! $game->is_solo) {
             if ($bothDone) {
@@ -174,6 +194,9 @@ class GameSetupController extends Controller
         if (! $game->is_solo) {
             return response()->json(['error' => 'Only available in solo mode'], 403);
         }
+        if ($game->creator_id !== Auth::id()) {
+            return response()->json(['error' => 'Not the solo game owner'], 403);
+        }
 
         $player = $this->getPlayer($game, 2);
 
@@ -183,13 +206,18 @@ class GameSetupController extends Controller
 
         $player->update(['crew_skipped' => true]);
 
-        $crewDoneCount = $game->players()
-            ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
-            ->count();
-        $bothDone = $crewDoneCount === 2;
-        if ($bothDone) {
-            $game->update(['status' => GameStatusEnum::SchemeSelect]);
-        }
+        $bothDone = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            $done = $locked->players()
+                ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
+                ->count() === 2;
+            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
+                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+            }
+
+            return $done;
+        });
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
@@ -258,13 +286,21 @@ class GameSetupController extends Controller
                     'scheme_pool' => json_encode($game->scheme_pool ?? []),
                 ]);
             } else {
-                $bothDone = $game->players()->whereNotNull('current_scheme_id')->count() === 2;
+                $bothDone = DB::transaction(function () use ($game) {
+                    /** @var Game $locked */
+                    $locked = Game::lockForUpdate()->find($game->id);
+                    $done = $locked->players()->whereNotNull('current_scheme_id')->count() === 2;
+                    if ($done && $locked->status === GameStatusEnum::SchemeSelect) {
+                        $locked->update([
+                            'status' => GameStatusEnum::InProgress,
+                            'current_turn' => 1,
+                        ]);
+                    }
+
+                    return $done;
+                });
                 if ($bothDone) {
-                    $game->update([
-                        'status' => GameStatusEnum::InProgress,
-                        'current_turn' => 1,
-                    ]);
-                    broadcast(new GameStatusChanged($game))->toOthers();
+                    broadcast(new GameStatusChanged($game->fresh()))->toOthers();
                 }
                 broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers();
             }

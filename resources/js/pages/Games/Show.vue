@@ -20,6 +20,34 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, ArrowUpCircle, Banana, Check, ChevronDown, Circle, Copy, Dices, Eye, EyeOff, Footprints, Heart, Layers, Loader2, Maximize2, Minus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Puzzle, QrCode, Replace, RotateCcw, Settings, Shield, ShieldAlert, Skull, Star, Swords, UserRound, Users, X } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
+interface CrewMember {
+    id: number;
+    character_id: number | null;
+    display_name: string;
+    faction: string | null;
+    current_health: number;
+    max_health: number;
+    defense: number | null;
+    willpower: number | null;
+    speed: number | null;
+    size: number | null;
+    cost: number;
+    station: string | null;
+    hiring_category: string;
+    front_image: string | null;
+    back_image: string | null;
+    is_killed: boolean;
+    is_summoned: boolean;
+    is_activated: boolean;
+    is_custom: boolean;
+    attached_tokens: { id: number; name: string }[];
+    attached_upgrades: { id: number; name: string }[];
+    attached_markers: { id: number; name: string }[];
+    notes: string | null;
+    sort_order: number;
+    game_player_id: number;
+}
+
 interface GamePlayer {
     id: number;
     slot: number;
@@ -36,7 +64,7 @@ interface GamePlayer {
     opponent_name: string | null;
     is_turn_complete: boolean;
     is_game_complete: boolean;
-    crew_members: any[];
+    crew_members: CrewMember[];
     master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
     crew_build: { id: number; crew_upgrade_id: number | null } | null;
     active_crew_upgrade_id: number | null;
@@ -714,6 +742,35 @@ const observeLinkCopied = ref(false);
 const spectateOn = ref(props.game.is_observable);
 const spectateQR = ref('');
 watch(() => props.game.is_observable, (v) => { spectateOn.value = v; });
+// Clear local selection refs when the game status advances (e.g. opponent
+// submits via broadcast → Inertia reload with preserveState). Without this,
+// the old highlighted card/selection stays rendered even though the game
+// has moved past that step.
+watch(() => props.game.status, () => {
+    selectedFaction.value = null;
+    selectedMasterName.value = null;
+    selectedOpponentFaction.value = null;
+    selectedOpponentMasterName.value = null;
+});
+
+// After any Inertia reload, re-apply pending health values that haven't been
+// confirmed by the server yet. This prevents broadcast-triggered reloads from
+// reverting optimistic health changes mid-click-stream.
+watch(
+    () => props.game.players,
+    () => {
+        if (pendingHealth.size === 0) return;
+        for (const p of props.game.players) {
+            for (const m of p.crew_members ?? []) {
+                const pending = pendingHealth.get(m.id);
+                if (pending !== undefined && m.current_health !== pending) {
+                    m.current_health = pending;
+                }
+            }
+        }
+    },
+    { deep: false },
+);
 
 const generateSpectateQR = async () => {
     if (!spectateQR.value) {
@@ -1094,27 +1151,57 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
     }
 };
 
-const healthTimers = new Map<number, ReturnType<typeof setTimeout>>();
-const updateHealth = (member: any, delta: number) => {
+// Per-member AbortController for health PATCHes. Each click aborts any
+// in-flight request for the same member and fires immediately — no debounce
+// gap means no window where a broadcast-triggered reload can overwrite the
+// optimistic value with stale server data.
+const healthAborts = new Map<number, AbortController>();
+// Track members with un-confirmed health changes so we can re-apply them
+// if an Inertia reload overwrites the local value before the PATCH lands.
+const pendingHealth = new Map<number, number>();
+
+const updateHealth = (member: CrewMember, delta: number) => {
     const newHealth = Math.max(0, Math.min(member.max_health, member.current_health + delta));
     if (newHealth === member.current_health) return;
     // Optimistic update — instant UI feedback
     member.current_health = newHealth;
+    pendingHealth.set(member.id, newHealth);
     if (newHealth === 0) {
-        healthTimers.delete(member.id);
+        healthAborts.get(member.id)?.abort();
+        healthAborts.delete(member.id);
+        pendingHealth.delete(member.id);
         killMember(member);
         return;
     }
-    // Debounce the server call per member — wait for rapid clicks to settle
-    clearTimeout(healthTimers.get(member.id));
-    healthTimers.set(member.id, setTimeout(async () => {
-        healthTimers.delete(member.id);
-        await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify({ current_health: member.current_health }),
-        }).catch(() => { /* network error — optimistic value stays */ });
-    }, 500));
+    // Abort previous in-flight PATCH for this member
+    healthAborts.get(member.id)?.abort();
+    const controller = new AbortController();
+    healthAborts.set(member.id, controller);
+
+    fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({ current_health: newHealth }),
+        signal: controller.signal,
+    })
+        .then((res) => {
+            if (healthAborts.get(member.id) === controller) {
+                healthAborts.delete(member.id);
+                pendingHealth.delete(member.id);
+            }
+            if (!res.ok) {
+                router.reload({ only: ['game'], preserveScroll: true });
+            }
+        })
+        .catch((err) => {
+            // AbortError is expected when we cancel a stale request — ignore it.
+            if (err?.name === 'AbortError') return;
+            if (healthAborts.get(member.id) === controller) {
+                healthAborts.delete(member.id);
+                pendingHealth.delete(member.id);
+            }
+            router.reload({ only: ['game'], preserveScroll: true });
+        });
 };
 
 const toggleActivated = async (member: any) => {
@@ -1148,15 +1235,21 @@ const killMember = async (member: any) => {
     const killedUpgrades = [...(member.attached_upgrades ?? [])];
     const wasActivated = !!member.is_activated;
 
-    // Optimistic UI — mark killed immediately
+    // Optimistic UI — mark killed immediately, with rollback on failure.
+    const prevHealth = member.current_health;
     member.is_killed = true;
     member.current_health = 0;
 
-    // Fire kill request — don't await the reload if there are replacements
     const res = await fetch(route('games.play.crew.kill', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'POST',
         headers: { ...csrfHeaders(), Accept: 'application/json' },
     });
+    if (!res.ok) {
+        member.is_killed = false;
+        member.current_health = prevHealth;
+        router.reload({ only: ['game'], preserveScroll: true });
+        return;
+    }
     const data = await res.json().catch(() => ({}));
 
     if (data.replacements?.length) {
@@ -2332,7 +2425,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     >
                                         <FactionLogo :faction="crew.faction" class-name="size-7 shrink-0 mt-0.5" />
                                         <div class="min-w-0 flex-1">
-                                            <p class="truncate text-sm font-medium">{{ crew.name }}</p>
+                                            <p class="break-words text-sm font-medium leading-tight">{{ crew.name }}</p>
                                             <div class="mt-1 flex flex-wrap items-center gap-1">
                                                 <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
                                                 <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
@@ -2466,7 +2559,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     >
                                         <FactionLogo :faction="crew.faction" class-name="size-7 shrink-0 mt-0.5" />
                                         <div class="min-w-0 flex-1">
-                                            <p class="truncate text-sm font-medium">{{ crew.name }}</p>
+                                            <p class="break-words text-sm font-medium leading-tight">{{ crew.name }}</p>
                                             <div class="mt-1 flex flex-wrap items-center gap-1">
                                                 <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
                                                 <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
@@ -2939,13 +3032,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="flex items-center justify-between">
                                                 <div class="text-[10px] uppercase text-muted-foreground">Last Revealed (Turn {{ opponent_scheme_intel.last_revealed.turn_number }})</div>
                                                 <Badge v-if="opponent_scheme_intel.last_revealed.scheme_action === 'scored'" variant="outline" class="border-green-500/50 px-1 py-0 text-[9px] text-green-600 dark:text-green-400">Scored</Badge>
-                                                <Badge v-else variant="outline" class="px-1 py-0 text-[9px]">Not Scored</Badge>
+                                                <Badge v-else-if="opponent_scheme_intel.last_revealed.scheme_action === 'discarded'" variant="outline" class="border-red-500/50 px-1 py-0 text-[9px] text-red-600 dark:text-red-400">Discarded</Badge>
                                             </div>
                                             <div
                                                 class="mt-1 cursor-pointer text-sm font-medium hover:text-primary"
-                                                @click="openSchemeDrawer(findScheme(opponent_scheme_intel.last_revealed.id)!)"
+                                                @click="openSchemeDrawer(findScheme(opponent_scheme_intel.last_revealed.scheme_id)!)"
                                             >
-                                                {{ opponent_scheme_intel.last_revealed.name }}
+                                                {{ opponent_scheme_intel.last_revealed.scheme_name }}
                                             </div>
                                         </div>
 
@@ -2959,12 +3052,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     v-for="scheme in opponent_scheme_intel.possible_schemes"
                                                     :key="'opp-ref-' + scheme.id"
                                                     class="cursor-pointer rounded-md border p-2 transition-colors hover:bg-muted/50"
-                                                    :class="opponent_scheme_intel.last_revealed?.id === scheme.id ? 'border-amber-500/20 bg-amber-500/5' : ''"
+                                                    :class="opponent_scheme_intel.last_revealed?.scheme_id === scheme.id ? 'border-amber-500/20 bg-amber-500/5' : ''"
                                                     @click="openSchemeDrawer(scheme)"
                                                 >
                                                     <div class="flex items-center justify-between">
                                                         <span class="text-xs font-medium">{{ scheme.name }}</span>
-                                                        <Badge v-if="opponent_scheme_intel.last_revealed?.id === scheme.id" variant="outline" class="px-1 py-0 text-[9px]">Kept</Badge>
+                                                        <Badge v-if="opponent_scheme_intel.last_revealed?.scheme_id === scheme.id" variant="outline" class="px-1 py-0 text-[9px]">Kept</Badge>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2990,6 +3083,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         variant="outline"
                                                         class="border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
                                                     >Scored</Badge>
+                                                    <Badge
+                                                        v-else-if="entry.scheme_action === 'discarded'"
+                                                        variant="outline"
+                                                        class="border-red-500/50 px-1 py-0 text-[8px] text-red-600 dark:text-red-400"
+                                                    >Discarded</Badge>
                                                     <Badge
                                                         v-else
                                                         variant="outline"
@@ -3027,9 +3125,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <span v-if="myStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
                                             </div>
                                             <div class="flex items-center gap-1.5">
-                                                <button class="rounded border p-0.5 hover:bg-muted" @click="strategyPoints = Math.max(0, strategyPoints - 1)"><Minus class="size-3.5" /></button>
+                                                <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" @click="strategyPoints = Math.max(0, strategyPoints - 1)"><Minus class="size-3.5" /></button>
                                                 <span class="w-6 text-center font-bold">{{ strategyPoints }}</span>
-                                                <button class="rounded border p-0.5 hover:bg-muted" :disabled="strategyPoints >= maxStrategyThisTurn" :class="strategyPoints >= maxStrategyThisTurn ? 'opacity-30' : ''" @click="strategyPoints = Math.min(maxStrategyThisTurn, strategyPoints + 1)"><Plus class="size-3.5" /></button>
+                                                <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" :disabled="strategyPoints >= maxStrategyThisTurn" :class="strategyPoints >= maxStrategyThisTurn ? 'opacity-30' : ''" @click="strategyPoints = Math.min(maxStrategyThisTurn, strategyPoints + 1)"><Plus class="size-3.5" /></button>
                                             </div>
                                         </div>
 
@@ -3040,9 +3138,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <span class="ml-1 text-[9px] text-muted-foreground/50">{{ myTotalSchemeScored }}/6 total</span>
                                             </div>
                                             <div class="flex items-center gap-1.5">
-                                                <button class="rounded border p-0.5 hover:bg-muted" @click="schemePoints = Math.max(0, schemePoints - 1)"><Minus class="size-3.5" /></button>
+                                                <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" @click="schemePoints = Math.max(0, schemePoints - 1)"><Minus class="size-3.5" /></button>
                                                 <span class="w-6 text-center font-bold">{{ schemePoints }}</span>
-                                                <button class="rounded border p-0.5 hover:bg-muted" :disabled="schemePoints >= maxSchemeThisTurn" :class="schemePoints >= maxSchemeThisTurn ? 'opacity-30' : ''" @click="schemePoints = Math.min(maxSchemeThisTurn, schemePoints + 1)"><Plus class="size-3.5" /></button>
+                                                <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" :disabled="schemePoints >= maxSchemeThisTurn" :class="schemePoints >= maxSchemeThisTurn ? 'opacity-30' : ''" @click="schemePoints = Math.min(maxSchemeThisTurn, schemePoints + 1)"><Plus class="size-3.5" /></button>
                                             </div>
                                         </div>
 
@@ -3153,9 +3251,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[9px] text-muted-foreground/50">bonus used</span>
                                                 </div>
                                                 <div class="flex items-center gap-1.5">
-                                                    <button class="rounded border p-0.5 hover:bg-muted" @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"><Minus class="size-3.5" /></button>
+                                                    <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"><Minus class="size-3.5" /></button>
                                                     <span class="w-6 text-center font-bold">{{ opponentStrategyPoints }}</span>
-                                                    <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn" :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''" @click="opponentStrategyPoints = Math.min(opponentMaxStrategyThisTurn, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
+                                                    <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn" :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''" @click="opponentStrategyPoints = Math.min(opponentMaxStrategyThisTurn, opponentStrategyPoints + 1)"><Plus class="size-3.5" /></button>
                                                 </div>
                                             </div>
                                             <div class="flex items-center justify-between">
@@ -3164,9 +3262,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span class="ml-1 text-[9px] text-muted-foreground/50">{{ opponentTotalSchemeScored }}/6 total</span>
                                                 </div>
                                                 <div class="flex items-center gap-1.5">
-                                                    <button class="rounded border p-0.5 hover:bg-muted" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
+                                                    <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"><Minus class="size-3.5" /></button>
                                                     <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
-                                                    <button class="rounded border p-0.5 hover:bg-muted" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
+                                                    <button class="rounded border p-1.5 hover:bg-muted sm:p-0.5" :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn" :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''" @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"><Plus class="size-3.5" /></button>
                                                 </div>
                                             </div>
                                             <Button
@@ -3216,11 +3314,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </button>
                             </div>
                             <div class="flex items-center gap-1">
-                                <button v-if="!isObserver" class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(-1)"><Minus class="size-3" /></button>
+                                <button v-if="!isObserver" class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateSoulstonePool(-1)"><Minus class="size-4 sm:size-3.5" /></button>
                                 <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
                                     {{ myPlayer?.soulstone_pool ?? 0 }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 </span>
-                                <button v-if="!isObserver" class="rounded p-0.5 hover:bg-muted" @click="updateSoulstonePool(1)"><Plus class="size-3" /></button>
+                                <button v-if="!isObserver" class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateSoulstonePool(1)"><Plus class="size-4 sm:size-3.5" /></button>
                             </div>
                         </div>
                         <Transition

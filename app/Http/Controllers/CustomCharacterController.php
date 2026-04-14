@@ -10,10 +10,10 @@ use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
 use App\Models\CustomCharacter;
+use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Response;
 
 class CustomCharacterController extends Controller
@@ -24,8 +24,13 @@ class CustomCharacterController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
+        $upgrades = CustomUpgrade::where('user_id', Auth::id())
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
         return inertia('Tools/CardCreator/Index', [
             'characters' => $characters,
+            'upgrades' => $upgrades,
         ]);
     }
 
@@ -43,8 +48,6 @@ class CustomCharacterController extends Controller
         $validated['user_id'] = Auth::id();
 
         $character = CustomCharacter::create($validated);
-
-        $this->handleCharacterImage($request, $character);
 
         return response()->json([
             'success' => true,
@@ -74,11 +77,8 @@ class CustomCharacterController extends Controller
 
         $customCharacter->update($validated);
 
-        $this->handleCharacterImage($request, $customCharacter);
-
         return response()->json([
             'success' => true,
-            'character_image' => $customCharacter->fresh()->character_image,
         ]);
     }
 
@@ -103,81 +103,6 @@ class CustomCharacterController extends Controller
             'character' => $character,
             'creator_name' => $character->user->name,
         ]);
-    }
-
-    public function exportImage(Request $request, CustomCharacter $customCharacter): JsonResponse
-    {
-        if ($customCharacter->user_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $request->validate([
-            'front_image' => ['required', 'string'],
-            'back_image' => ['required', 'string'],
-            'combo_image' => ['required', 'string'],
-        ]);
-
-        $basePath = 'custom-characters/'.Auth::id().'/cards';
-        $updates = [];
-
-        foreach (['front_image', 'back_image', 'combo_image'] as $field) {
-            $data = $request->input($field);
-            if (! str_starts_with($data, 'data:image/png;base64,')) {
-                continue;
-            }
-
-            $imageData = base64_decode(str_replace('data:image/png;base64,', '', $data));
-            $filename = "{$basePath}/{$customCharacter->id}-{$field}.png";
-
-            // Delete old image if exists
-            if ($customCharacter->$field) {
-                Storage::disk('public')->delete($customCharacter->$field);
-            }
-
-            Storage::disk('public')->put($filename, $imageData);
-            $updates[$field] = $filename;
-        }
-
-        if (! empty($updates)) {
-            $customCharacter->update($updates);
-        }
-
-        $fresh = $customCharacter->fresh();
-
-        return response()->json([
-            'success' => true,
-            'front_image' => $fresh->front_image,
-            'back_image' => $fresh->back_image,
-            'combo_image' => $fresh->combo_image,
-        ]);
-    }
-
-    private function handleCharacterImage(Request $request, CustomCharacter $character): void
-    {
-        if ($request->boolean('remove_character_image')) {
-            if ($character->character_image) {
-                Storage::disk('public')->delete($character->character_image);
-            }
-            $character->update(['character_image' => null]);
-
-            return;
-        }
-
-        $data = $request->input('character_image');
-        if (! $data || ! preg_match('/^data:image\/(\w+);base64,/', $data, $matches)) {
-            return;
-        }
-
-        $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
-        $imageData = base64_decode(preg_replace('/^data:image\/\w+;base64,/', '', $data));
-        $path = "custom-characters/{$character->user_id}/art/{$character->id}.{$extension}";
-
-        if ($character->character_image) {
-            Storage::disk('public')->delete($character->character_image);
-        }
-
-        Storage::disk('public')->put($path, $imageData);
-        $character->update(['character_image' => $path]);
     }
 
     private function validateCharacter(Request $request): array
@@ -235,6 +160,14 @@ class CustomCharacterController extends Controller
             'keywords.*.name' => ['required', 'string', 'max:255'],
             'characteristics' => ['nullable', 'array'],
             'characteristics.*' => ['string', 'max:255'],
+            'linked_crew_upgrades' => ['nullable', 'array'],
+            'linked_crew_upgrades.*.source_type' => ['required', 'string', 'in:official,custom'],
+            'linked_crew_upgrades.*.id' => ['required', 'integer'],
+            'linked_crew_upgrades.*.name' => ['required', 'string', 'max:255'],
+            'linked_totems' => ['nullable', 'array'],
+            'linked_totems.*.source_type' => ['required', 'string', 'in:official,custom'],
+            'linked_totems.*.id' => ['required', 'integer'],
+            'linked_totems.*.name' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
     }

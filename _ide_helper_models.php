@@ -569,6 +569,10 @@ namespace App\Models{
 	class IdeHelperCustomCharacter {}
 }
 
+namespace App\Models {
+	class IdeHelperCustomUpgrade {}
+}
+
 namespace App\Models{
 /**
  * 

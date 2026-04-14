@@ -185,6 +185,34 @@ class GameController extends Controller
         $game->load($eagerLoads);
         $this->ensureCrewReferences($game);
 
+        // ─── Simultaneous reveal for faction + master ───
+        // During FactionSelect / MasterSelect, each player's choice must be
+        // hidden from the opponent until BOTH have locked in (game advances
+        // to the next status). Without this, the first player to submit has
+        // their pick leaked via the Inertia payload.
+        if (! $game->is_solo) {
+            $mySlot = $game->players->firstWhere('user_id', $userId)?->slot;
+
+            if ($game->status === GameStatusEnum::FactionSelect) {
+                foreach ($game->players as $player) {
+                    if ($player->slot === $mySlot) {
+                        continue;
+                    }
+                    $player->setAttribute('faction', null);
+                }
+            }
+
+            if ($game->status === GameStatusEnum::MasterSelect) {
+                foreach ($game->players as $player) {
+                    if ($player->slot === $mySlot) {
+                        continue;
+                    }
+                    $player->setAttribute('master_name', null);
+                    $player->setAttribute('master_id', null);
+                }
+            }
+        }
+
         // Append image_url on strategy for the show page
         $game->strategy?->append('image_url');
 
@@ -193,22 +221,23 @@ class GameController extends Controller
         $schemeCache = Scheme::forSeason($game->season)->get()->keyBy('id');
         $poolSchemes = $schemeCache->filter(fn (Scheme $s) => in_array($s->id, $schemePoolOrder));
 
-        // Build full reachable scheme tree: pool + all follow-ups (recursively)
-        $reachableIds = collect($schemePoolOrder);
-        $queue = $reachableIds->values()->all();
-        while ($queue) {
-            $id = array_shift($queue);
-            $scheme = $schemeCache->get($id);
+        // Build full reachable scheme tree: pool + all follow-ups (recursively).
+        // Uses a seen-set + index cursor instead of array_shift (O(n) per shift → O(n²) total).
+        $seen = array_flip($schemePoolOrder);
+        $queue = array_values($schemePoolOrder);
+        for ($qi = 0; $qi < count($queue); $qi++) {
+            $scheme = $schemeCache->get($queue[$qi]);
             if (! $scheme) {
                 continue;
             }
             foreach ([$scheme->next_scheme_one_id, $scheme->next_scheme_two_id, $scheme->next_scheme_three_id] as $nextId) {
-                if ($nextId && ! $reachableIds->contains($nextId)) {
-                    $reachableIds->push($nextId);
+                if ($nextId && ! isset($seen[$nextId])) {
+                    $seen[$nextId] = true;
                     $queue[] = $nextId;
                 }
             }
         }
+        $reachableIds = collect(array_keys($seen));
 
         $schemes = $poolSchemes
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
@@ -463,27 +492,86 @@ class GameController extends Controller
                     return null;
                 }
 
-                // Possible schemes = opponent's stored pool (no derivation needed)
-                $poolIds = $opponent->scheme_pool ?? $game->scheme_pool ?? [];
+                // Possible schemes: derived from the opponent's LAST REVEALED
+                // scheme (scored/discarded), not their current scheme_pool — that
+                // pool reflects their next-scheme pick, which is still hidden.
+                //
+                // Before any reveal: show the game's initial pool (shared knowledge).
+                // After a reveal: compute follow-ups of the most recently revealed scheme.
+                $lastRevealedTurn = $opponent->turns
+                    ->sortByDesc('turn_number')
+                    ->first(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded']));
+
+                if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
+                    $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
+                    $poolIds = $revealedScheme
+                        ? array_values(array_filter([
+                            $revealedScheme->next_scheme_one_id,
+                            $revealedScheme->next_scheme_two_id,
+                            $revealedScheme->next_scheme_three_id,
+                        ]))
+                        : ($game->scheme_pool ?? []);
+                    // If the revealed scheme has no follow-ups, fall back to game pool.
+                    if (empty($poolIds)) {
+                        $poolIds = $game->scheme_pool ?? [];
+                    }
+                } else {
+                    // No reveals yet — show the game's initial shared pool.
+                    $poolIds = $game->scheme_pool ?? [];
+                }
+
                 $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
                     ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
 
-                // Scheme history: turns where scheme_action was scored or discarded (explicit)
-                $schemeHistory = $opponent->turns->sortBy('turn_number')
-                    ->filter(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded']))
-                    ->map(function (GameTurn $t) use ($schemeCache) {
-                        $scheme = $schemeCache->get($t->scheme_id);
+                // Scheme history — build in two passes:
+                //
+                // 1. Walk turns in order, collecting held turns into a buffer.
+                // 2. When a scored/discarded turn arrives, it "reveals" all the
+                //    preceding held turns (they were all the same scheme). Flush
+                //    the buffer with the revealed scheme's name + id.
+                //
+                // Any trailing held turns (scheme not yet revealed) are omitted
+                // entirely — the opponent hasn't shown their hand yet.
+                $schemeHistory = [];
+                $heldBuffer = [];
+                foreach ($opponent->turns->sortBy('turn_number') as $t) {
+                    /** @var GameTurn $t */
+                    if ($t->scheme_action === null) {
+                        continue;
+                    }
 
-                        return [
-                            'turn_number' => $t->turn_number,
+                    if ($t->scheme_action === 'held') {
+                        $heldBuffer[] = $t->turn_number;
+
+                        continue;
+                    }
+
+                    // scored or discarded — flush held buffer with this scheme's info
+                    $scheme = $t->scheme_id ? $schemeCache->get($t->scheme_id) : null;
+                    $schemeName = $scheme->name ?? 'Unknown';
+                    foreach ($heldBuffer as $heldTurn) {
+                        $schemeHistory[] = [
+                            'turn_number' => $heldTurn,
                             'scheme_id' => $t->scheme_id,
-                            'scheme_name' => $scheme->name ?? 'Unknown',
-                            'scheme_action' => $t->scheme_action,
+                            'scheme_name' => $schemeName,
+                            'scheme_action' => 'held',
                         ];
-                    })->values()->toArray();
+                    }
+                    $heldBuffer = [];
 
-                // Last revealed = most recent scored/discarded turn
-                $lastRevealed = ! empty($schemeHistory) ? end($schemeHistory) : null;
+                    $schemeHistory[] = [
+                        'turn_number' => $t->turn_number,
+                        'scheme_id' => $t->scheme_id,
+                        'scheme_name' => $schemeName,
+                        'scheme_action' => $t->scheme_action,
+                    ];
+                }
+                // Trailing held turns are intentionally NOT flushed — the scheme
+                // hasn't been revealed yet, so we don't show them.
+
+                // Last revealed = most recent scored/discarded turn (not held)
+                $lastRevealed = collect($schemeHistory)
+                    ->last(fn ($h) => in_array($h['scheme_action'], ['scored', 'discarded']));
 
                 return [
                     'last_revealed' => $lastRevealed,
@@ -691,6 +779,22 @@ class GameController extends Controller
 
         $game->load($eagerLoads);
         $this->ensureCrewReferences($game);
+
+        // Observers should never see unrevealed faction/master picks.
+        if (! $game->is_solo) {
+            if ($game->status === GameStatusEnum::FactionSelect) {
+                foreach ($game->players as $player) {
+                    $player->setAttribute('faction', null);
+                }
+            }
+            if ($game->status === GameStatusEnum::MasterSelect) {
+                foreach ($game->players as $player) {
+                    $player->setAttribute('master_name', null);
+                    $player->setAttribute('master_id', null);
+                }
+            }
+        }
+
         $game->strategy?->append('image_url');
 
         $schemePoolOrder = $game->scheme_pool ?? [];

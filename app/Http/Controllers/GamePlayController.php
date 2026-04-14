@@ -37,7 +37,7 @@ class GamePlayController extends Controller
         }
 
         $validated = $request->validate([
-            'current_health' => ['sometimes', 'integer', 'min:0'],
+            'current_health' => ['sometimes', 'integer', 'min:0', 'max:'.$gameCrewMember->max_health],
             'is_activated' => ['sometimes', 'boolean'],
             'attached_tokens' => ['sometimes', 'array'],
             'attached_markers' => ['sometimes', 'array'],
@@ -92,7 +92,11 @@ class GamePlayController extends Controller
             abort(403);
         }
 
-        $gameCrewMember->update(['is_killed' => true, 'current_health' => 0]);
+        // Idempotent: if already killed, skip DB write + broadcast but
+        // still return replacements so the UI can handle the state.
+        if (! $gameCrewMember->is_killed) {
+            $gameCrewMember->update(['is_killed' => true, 'current_health' => 0]);
+        }
 
         if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'killed'))->toOthers();
@@ -138,6 +142,11 @@ class GamePlayController extends Controller
             abort(403);
         }
 
+        // Idempotent: skip if already alive.
+        if (! $gameCrewMember->is_killed) {
+            return response()->json(['success' => true]);
+        }
+
         $gameCrewMember->update(['is_killed' => false, 'current_health' => $gameCrewMember->max_health]);
 
         if (! $game->is_solo || $game->is_observable) {
@@ -171,15 +180,24 @@ class GamePlayController extends Controller
             ? $character->miniatures->firstWhere('id', $validated['miniature_id']) ?? $character->miniatures->first()
             : $character->miniatures->first();
 
-        // Enforce character count limit
-        $existingCount = GameCrewMember::where('game_id', $game->id)
-            ->where('game_player_id', $player->id)
-            ->where('character_id', $character->id)
-            ->where('is_killed', false)
-            ->count();
-
+        // Enforce character count limit. Lock the player's crew rows to prevent
+        // two concurrent summon requests from both passing the count check.
         $maxCount = $character->count ?? 1;
-        if ($existingCount >= $maxCount) {
+        $overLimit = DB::transaction(function () use ($game, $player, $character, $maxCount) {
+            // Lock the player's rows so a concurrent summon blocks until we finish.
+            GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->lockForUpdate()
+                ->get();
+
+            return GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->where('character_id', $character->id)
+                ->where('is_killed', false)
+                ->count() >= $maxCount;
+        });
+
+        if ($overLimit) {
             return response()->json([
                 'error' => "{$character->display_name} is at its limit ({$maxCount})",
                 'at_limit' => true,
@@ -246,8 +264,14 @@ class GamePlayController extends Controller
     public function replaceCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
         $this->assertInProgress($game);
+        $player = $this->getMyPlayer($game);
         if ($gameCrewMember->game_id !== $game->id) {
             abort(403);
+        }
+        // Replacements only apply to your own crew — you can't replace
+        // an opponent's killed model with something from your card pool.
+        if (! $game->is_solo) {
+            $this->assertOwnsCrewMember($player, $gameCrewMember);
         }
 
         $validated = $request->validate([
@@ -489,24 +513,28 @@ class GamePlayController extends Controller
         // For scored/discarded without next_scheme_id (last turn), no pool update needed
 
         // ── Turn completion + advancement ──
+        // Pessimistic lock: prevents two concurrent turn submissions from
+        // both seeing "2 of 2 done" and double-advancing the turn counter.
         $result = DB::transaction(function () use ($game, $player) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
             $player->update(['is_turn_complete' => true]);
 
-            GameCrewMember::where('game_id', $game->id)
+            GameCrewMember::where('game_id', $locked->id)
                 ->where('game_player_id', $player->id)
                 ->update(['is_activated' => false]);
 
-            $bothDone = $game->players()->where('is_turn_complete', true)->count() === 2;
+            $bothDone = $locked->players()->where('is_turn_complete', true)->count() === 2;
             if ($bothDone) {
-                if ($game->current_turn >= $game->max_turns) {
-                    $game->players()->update(['is_game_complete' => true]);
-                    $this->finalizeGame($game);
+                if ($locked->current_turn >= $locked->max_turns) {
+                    $locked->players()->update(['is_game_complete' => true]);
+                    $this->finalizeGame($locked);
 
                     return ['both_done' => true, 'game_complete' => true];
                 }
 
-                $game->increment('current_turn');
-                $game->players()->update(['is_turn_complete' => false]);
+                $locked->increment('current_turn');
+                $locked->players()->update(['is_turn_complete' => false]);
             }
 
             return ['both_done' => $bothDone, 'game_complete' => false];
@@ -538,18 +566,19 @@ class GamePlayController extends Controller
         }
 
         $bothDone = DB::transaction(function () use ($game, $player) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
             $player->update(['is_game_complete' => true]);
-            $bothDone = $game->players()->where('is_game_complete', true)->count() === 2;
-            if ($bothDone) {
-                $this->finalizeGame($game);
+            $done = $locked->players()->where('is_game_complete', true)->count() === 2;
+            if ($done) {
+                $this->finalizeGame($locked);
             }
 
-            return $bothDone;
+            return $done;
         });
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
-        }
+        // Solo games already returned above — this is always multiplayer.
+        broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
 
         return response()->json(['success' => true, 'game_complete' => $bothDone]);
     }
@@ -589,32 +618,8 @@ class GamePlayController extends Controller
                 ->first();
 
             if (! $existingTurn) {
-                // Create a turn record with 0 points to capture the crew snapshot
-                $crewSnapshot = GameCrewMember::where('game_id', $game->id)
-                    ->where('game_player_id', $player->id)
-                    ->orderBy('sort_order')
-                    ->get()
-                    ->map(fn (GameCrewMember $m) => [
-                        'id' => $m->id,
-                        'character_id' => $m->character_id,
-                        'display_name' => $m->display_name,
-                        'faction' => $m->getRawOriginal('faction'),
-                        'current_health' => $m->current_health,
-                        'max_health' => $m->max_health,
-                        'defense' => $m->defense,
-                        'willpower' => $m->willpower,
-                        'speed' => $m->speed,
-                        'size' => $m->size,
-                        'is_killed' => $m->is_killed,
-                        'is_summoned' => $m->is_summoned,
-                        'is_activated' => $m->is_activated,
-                        'attached_tokens' => $m->attached_tokens ?? [],
-                        'attached_upgrades' => $m->attached_upgrades ?? [],
-                        'hiring_category' => $m->hiring_category,
-                        'cost' => $m->cost,
-                    ])
-                    ->toArray();
-
+                // Reuse the shared buildCrewSnapshot helper.
+                $crewSnapshot = $this->buildCrewSnapshot($game->id, $player->id);
                 GameTurn::create([
                     'game_id' => $game->id,
                     'turn_number' => $game->current_turn,
@@ -656,6 +661,11 @@ class GamePlayController extends Controller
         }
     }
 
+    /**
+     * Build a JSON-serializable snapshot of all crew members for a player.
+     * Used both per-turn (inside submitTurnScore) and on finalize (to record
+     * the crew state at game completion).
+     */
     private function buildCrewSnapshot(int $gameId, int $playerId): array
     {
         return GameCrewMember::where('game_id', $gameId)
@@ -672,6 +682,7 @@ class GamePlayController extends Controller
                 'defense' => $m->defense,
                 'willpower' => $m->willpower,
                 'speed' => $m->speed,
+                'size' => $m->size,
                 'is_killed' => $m->is_killed,
                 'is_summoned' => $m->is_summoned,
                 'is_activated' => $m->is_activated,

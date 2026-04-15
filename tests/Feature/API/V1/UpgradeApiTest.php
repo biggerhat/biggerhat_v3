@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UpgradeDomainTypeEnum;
+use App\Models\Character;
 use App\Models\Upgrade;
 
 it('lists upgrades with pagination', function () {
@@ -47,4 +48,42 @@ it('shows a single upgrade by slug', function () {
 it('returns 404 for missing upgrade', function () {
     $this->getJson('/api/v1/upgrades/nonexistent-slug')
         ->assertNotFound();
+});
+
+it('searches crew upgrades by linked character display_name', function () {
+    $character = Character::factory()->create(['name' => 'Maxine Agassiz']);
+    $upgrade = Upgrade::factory()->create(['name' => 'Age of Inspiration', 'domain' => UpgradeDomainTypeEnum::Crew]);
+    $character->upgrades()->attach($upgrade);
+
+    Upgrade::factory()->create(['name' => 'Other Crew Card', 'domain' => UpgradeDomainTypeEnum::Crew]);
+
+    $response = $this->getJson('/api/v1/upgrades?search=Maxine&domain=crew');
+
+    $response->assertOk();
+    $names = collect($response->json('data'))->pluck('name')->all();
+    expect($names)->toContain('Age of Inspiration');
+    expect($names)->not->toContain('Other Crew Card');
+});
+
+it('searches crew upgrades by linked character nicknames', function () {
+    $character = Character::factory()->create(['name' => 'Some Master', 'nicknames' => 'Maxie']);
+    $upgrade = Upgrade::factory()->create(['name' => 'Crew Card With Nickname Master', 'domain' => UpgradeDomainTypeEnum::Crew]);
+    $character->upgrades()->attach($upgrade);
+
+    $response = $this->getJson('/api/v1/upgrades?search=Maxie&domain=crew');
+
+    $response->assertOk();
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.name'))->toBe('Crew Card With Nickname Master');
+});
+
+it('does not search by character name when domain is not crew', function () {
+    $character = Character::factory()->create(['name' => 'Justice McMourning']);
+    $upgrade = Upgrade::factory()->create(['name' => 'Some Character Upgrade', 'domain' => UpgradeDomainTypeEnum::Character]);
+    $character->upgrades()->attach($upgrade);
+
+    $response = $this->getJson('/api/v1/upgrades?search=Justice&domain=character');
+
+    $response->assertOk();
+    expect($response->json('data'))->toHaveCount(0);
 });

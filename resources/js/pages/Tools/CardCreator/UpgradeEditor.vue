@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
-import { createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import { createComboImage, fetchFontEmbedCSS, formatRange, triggerDownload } from '@/components/CardCreator/utils';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -278,9 +278,28 @@ const exportImages = async () => {
 };
 
 // Save
+const emptyToNull = (v: unknown): unknown => (v === '' || v === undefined ? null : v);
+
+const normalizeActionData = (data: Record<string, unknown>): Record<string, unknown> => ({
+    ...data,
+    range: emptyToNull(data.range),
+    stat: emptyToNull(data.stat),
+    target_number: emptyToNull(data.target_number),
+    stone_cost: data.stone_cost === '' || data.stone_cost == null ? 0 : data.stone_cost,
+    triggers: Array.isArray(data.triggers)
+        ? data.triggers.map((t: Record<string, unknown>) => ({ ...t, stone_cost: t.stone_cost === '' || t.stone_cost == null ? 0 : t.stone_cost }))
+        : [],
+});
+
 const save = async () => {
     saving.value = true;
     errors.value = {};
+
+    const normalizedBlocks = contentBlocks.map((b) => {
+        if (b.type === 'action' && b.data) return { ...b, data: normalizeActionData(b.data) };
+        if (b.type === 'trigger' && b.data) return { ...b, data: { ...b.data, stone_cost: b.data.stone_cost === '' || b.data.stone_cost == null ? 0 : b.data.stone_cost } };
+        return b;
+    });
 
     const body: Record<string, any> = {
         name: form.name,
@@ -292,7 +311,7 @@ const save = async () => {
         master_name: form.master_name || null,
         keyword_name: form.keyword_name || null,
         notes: form.notes || null,
-        content_blocks: contentBlocks,
+        content_blocks: normalizedBlocks,
         back_tokens: isCrew.value ? backTokens : [],
         back_markers: isCrew.value ? backMarkers : [],
     };
@@ -518,7 +537,7 @@ const blockTypeColor = (type: string) => {
                                                         <Badge class="text-[9px]">{{ block.data.type }}</Badge>
                                                     </div>
                                                     <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                                                        <span v-if="block.data.range != null">Rg {{ block.data.range }}"</span>
+                                                        <span v-if="block.data.range != null">Rg {{ formatRange(block.data.range as number | string | null | undefined) }}</span>
                                                         <span v-if="block.data.stat != null">Stat {{ block.data.stat }}</span>
                                                         <span v-if="block.data.damage">Dmg {{ block.data.damage }}</span>
                                                     </div>
@@ -538,11 +557,11 @@ const blockTypeColor = (type: string) => {
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Range</label>
-                                                            <Input v-model.number="block.data!.range" type="number" min="0" class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.range" placeholder='e.g. 2, *, X' class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                            <Input v-model.number="block.data!.stat" type="number" min="0" class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.stat" placeholder='e.g. 5, X' class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Resisted By</label>
@@ -550,7 +569,7 @@ const blockTypeColor = (type: string) => {
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">TN</label>
-                                                            <Input v-model.number="block.data!.target_number" type="number" class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.target_number" placeholder='e.g. 12' class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Damage</label>

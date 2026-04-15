@@ -2,7 +2,7 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { getFactionVar, splitSuits } from '@/components/CardCreator/utils';
+import { formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import { computed } from 'vue';
 
 interface ContentBlock {
@@ -127,7 +127,7 @@ const headerTextSize = computed(() => {
                             <template v-for="n in block.data.stone_cost" :key="'sc-' + n"><GameIcon type="soulstone" class-name="text-sm shrink-0" /></template>
                             <span class="truncate">{{ block.data.name }}</span>
                         </div>
-                        <span class="w-8 text-center"><span class="inline-flex items-center justify-center gap-0.5"><GameIcon v-if="block.data.range_type" :type="block.data.range_type" class-name="text-xs" />{{ block.data.range != null ? block.data.range + '"' : '-' }}</span></span>
+                        <span class="w-8 text-center"><span class="inline-flex items-center justify-center gap-0.5"><GameIcon v-if="block.data.range_type" :type="block.data.range_type" class-name="text-xs" />{{ formatRange(block.data.range as number | string | null | undefined) }}</span></span>
                         <span class="w-8 text-center"><span v-if="block.data.stat != null" class="inline-flex items-center justify-center gap-0.5">{{ block.data.stat }}<GameIcon v-for="s in splitSuits(block.data.stat_suits)" :key="s" :type="s" class-name="text-xs" /></span><span v-else>-</span></span>
                         <span class="w-7 text-center text-white/60">{{ block.data.resisted_by ?? '-' }}</span>
                         <span class="w-8 text-center"><span v-if="block.data.target_number != null" class="inline-flex items-center justify-center gap-0.5">{{ block.data.target_number }}<GameIcon v-for="s in splitSuits(block.data.target_suits)" :key="s" :type="s" class-name="text-xs" /></span><span v-else>-</span></span>

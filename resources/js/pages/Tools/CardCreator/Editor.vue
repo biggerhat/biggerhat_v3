@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, formatRange, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -31,14 +31,14 @@ interface ActionData {
     name: string;
     type: string;
     is_signature: boolean;
-    stone_cost: number;
-    range: number | null;
+    stone_cost: number | string;
+    range: number | string | null;
     range_type: string | null;
-    stat: number | null;
+    stat: number | string | null;
     stat_suits: string | null;
     stat_modifier: string | null;
     resisted_by: string | null;
-    target_number: number | null;
+    target_number: number | string | null;
     target_suits: string | null;
     damage: string | null;
     description: string | null;
@@ -305,7 +305,15 @@ const save = async () => {
         willpower_suit: noneToNull(form.willpower_suit),
         second_faction: noneToNull(form.second_faction),
         title: form.title || null,
-        actions: actions.map((a) => ({ ...a, range_type: noneToNull(a.range_type), triggers: a.triggers })),
+        actions: actions.map((a) => ({
+            ...a,
+            range_type: noneToNull(a.range_type),
+            range: a.range === '' ? null : a.range,
+            stat: a.stat === '' ? null : a.stat,
+            target_number: a.target_number === '' ? null : a.target_number,
+            stone_cost: a.stone_cost === '' || a.stone_cost == null ? 0 : a.stone_cost,
+            triggers: (a.triggers ?? []).map((t) => ({ ...t, stone_cost: t.stone_cost === '' || t.stone_cost == null ? 0 : t.stone_cost })),
+        })),
         abilities: abilities.map((a) => ({ ...a, suits: noneToNull(a.suits), defensive_ability_type: noneToNull(a.defensive_ability_type) })),
         keywords,
         characteristics,
@@ -934,7 +942,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     <button class="text-muted-foreground hover:text-destructive" @click="removeAction(idx)"><Trash2 class="size-3.5" /></button>
                                                 </div>
                                                 <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                                                    <span v-if="action.range != null">Rg {{ action.range }}"</span>
+                                                    <span v-if="action.range != null">Rg {{ formatRange(action.range) }}</span>
                                                     <span v-if="action.stat != null">Stat {{ action.stat }}{{ action.stat_suits ? ' ' + action.stat_suits : '' }}</span>
                                                     <span v-if="action.resisted_by">vs {{ action.resisted_by }}</span>
                                                     <span v-if="action.damage">Dmg {{ action.damage }}</span>
@@ -958,7 +966,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Range</label>
-                                                        <Input v-model.number="action.range" type="number" min="0" class="h-7 text-xs" />
+                                                        <Input v-model="action.range" placeholder='e.g. 2, *, X' class="h-7 text-xs" />
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Range Type</label>
@@ -972,7 +980,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                        <Input v-model.number="action.stat" type="number" min="0" class="h-7 text-xs" />
+                                                        <Input v-model="action.stat" placeholder='e.g. 5, X' class="h-7 text-xs" />
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Resisted By</label>

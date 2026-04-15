@@ -24,6 +24,14 @@ export function splitSuits(suits: string | null): string[] {
     return suits ? suits.split(/\s+/).filter(Boolean) : [];
 }
 
+// Formats an action range for display. Appends an inches mark when numeric,
+// otherwise renders the raw value (e.g. *, X, Ml). Renders '-' when nullish.
+export function formatRange(range: number | string | null | undefined): string {
+    if (range === null || range === undefined || range === '') return '-';
+    const str = String(range);
+    return /^-?\d+(\.\d+)?$/.test(str) ? `${str}"` : str;
+}
+
 export function contentScaleClass(charCount: number): 'scale-sm' | 'scale-md' | 'scale-lg' | 'scale-xl' {
     if (charCount > 1500) return 'scale-sm';
     if (charCount > 1000) return 'scale-md';

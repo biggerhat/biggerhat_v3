@@ -85,3 +85,28 @@ it('returns 404 for missing character', function () {
     $this->getJson('/api/v1/characters/nonexistent-slug')
         ->assertNotFound();
 });
+
+it('prioritizes exact name matches over substring matches', function () {
+    Character::factory()->create(['name' => 'Susan Sue-Smith']);
+    Character::factory()->create(['name' => 'Suesan']);
+    Character::factory()->create(['name' => 'Sue']);
+    Character::factory()->create(['name' => 'Old Man Suey']);
+
+    $response = $this->getJson('/api/v1/characters?search=Sue');
+
+    $response->assertOk();
+    // Exact "Sue" match should be first
+    expect($response->json('data.0.name'))->toBe('Sue');
+    // All 4 should be returned
+    expect($response->json('data'))->toHaveCount(4);
+});
+
+it('prioritizes exact match case-insensitively', function () {
+    Character::factory()->create(['name' => 'Bob The Great']);
+    Character::factory()->create(['name' => 'Bob']);
+
+    $response = $this->getJson('/api/v1/characters?search=bob');
+
+    $response->assertOk();
+    expect($response->json('data.0.name'))->toBe('Bob');
+});

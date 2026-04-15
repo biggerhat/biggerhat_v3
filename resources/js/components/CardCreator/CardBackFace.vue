@@ -2,7 +2,7 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { getFactionVar, factionGradient, splitSuits } from '@/components/CardCreator/utils';
+import { factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import { computed } from 'vue';
 
 interface TriggerData {
@@ -129,7 +129,7 @@ const contentScale = computed(() => {
                         <span class="w-8 text-center">
                             <span class="inline-flex items-center justify-center gap-0.5">
                                 <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" />
-                                {{ action.range != null ? action.range + '"' : '-' }}
+                                {{ formatRange(action.range) }}
                             </span>
                         </span>
                         <span class="w-8 text-center">
@@ -196,7 +196,7 @@ const contentScale = computed(() => {
                         <span class="w-8 text-center">
                             <span class="inline-flex items-center justify-center gap-0.5">
                                 <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" />
-                                {{ action.range != null ? action.range + '"' : '-' }}
+                                {{ formatRange(action.range) }}
                             </span>
                         </span>
                         <span class="w-8 text-center">

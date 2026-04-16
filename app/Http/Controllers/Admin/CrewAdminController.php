@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
@@ -110,6 +111,7 @@ class CrewAdminController extends Controller
             }),
             'abilities' => fn () => Ability::all(),
             'triggers' => fn () => Trigger::all(),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ];
     }
 
@@ -126,6 +128,7 @@ class CrewAdminController extends Controller
 
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'description' => ['nullable', 'string'],
             'power_bar_count' => ['nullable', 'integer'],

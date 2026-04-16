@@ -61,8 +61,8 @@ class ChannelController extends Controller
             'transmission_types' => TransmissionTypeEnum::toSelectOptions(),
             'content_types' => ContentTypeEnum::toSelectOptions(),
             'factions' => FactionEnum::toSelectOptions(),
-            'keywords' => fn () => Keyword::toSelectOptions('name', 'slug'),
-            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'keywords' => fn () => Keyword::standard()->toSelectOptions('name', 'slug'),
+            'characters' => fn () => Character::standard()->toSelectOptions('display_name', 'slug'),
         ];
     }
 

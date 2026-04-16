@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\GameModeTypeEnum;
+use App\Traits\HasGameModeType;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,6 +20,7 @@ class Action extends Model
     /** @use HasFactory<\Database\Factories\ActionFactory> */
     use HasFactory;
 
+    use HasGameModeType;
     use UsesSelectOptionsScope;
     use UsesUpgrades;
 
@@ -25,6 +28,13 @@ class Action extends Model
      * @var array<string>|bool
      */
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'game_mode_type' => GameModeTypeEnum::class,
+        ];
+    }
 
     protected static function boot(): void
     {

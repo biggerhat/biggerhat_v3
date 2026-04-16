@@ -55,12 +55,12 @@ class CrewBuilderController extends Controller
     private function getCharacters()
     {
         // Collect IDs of all totems referenced by masters so they're always included
-        $totemIds = Character::where('station', 'master')
+        $totemIds = Character::standard()->where('station', 'master')
             ->whereNotNull('has_totem_id')
             ->pluck('has_totem_id')
             ->unique();
 
-        return Character::with(['keywords', 'characteristics', 'crewUpgrades.keywords', 'totem', 'miniatures', 'actions.triggers'])
+        return Character::standard()->with(['keywords', 'characteristics', 'crewUpgrades.keywords', 'totem', 'miniatures', 'actions.triggers'])
             ->where('is_hidden', false)
             ->where(function ($query) use ($totemIds) {
                 $query->where('station', 'master')
@@ -81,7 +81,7 @@ class CrewBuilderController extends Controller
 
         return [
             'factions' => fn () => FactionEnum::buildDetails(),
-            'keywords' => fn () => Keyword::orderBy('name', 'ASC')->get(['id', 'name', 'slug']),
+            'keywords' => fn () => Keyword::standard()->orderBy('name', 'ASC')->get(['id', 'name', 'slug']),
             'characters' => fn () => CharacterCrewBuilderResource::collection($characters)->toArray($request),
             'savedBuilds' => fn () => Auth::check()
                 ? $this->serializeBuilds(CrewBuild::where('user_id', Auth::id())->orderBy('updated_at', 'desc')->get())
@@ -106,8 +106,8 @@ class CrewBuilderController extends Controller
                         'count' => $c->count ?? 1,
                         'keywords' => $c->keywords ?? [],
                         'characteristics' => $c->characteristics ?? [],
-                        'front_image' => $c->front_image,
-                        'back_image' => $c->back_image,
+                        'front_image' => null,
+                        'back_image' => null,
                         'is_custom' => true,
                     ])->toArray()
                 : [],
@@ -284,7 +284,7 @@ class CrewBuilderController extends Controller
         if ($hiringRules && isset($hiringRules['fixed_crew_keyword'])) {
             $keyword = Keyword::where('slug', $hiringRules['fixed_crew_keyword'])->first();
             $fixedMembers = $keyword
-                ? Character::whereHas('keywords', fn ($q) => $q->where('keywords.id', $keyword->id))
+                ? Character::standard()->whereHas('keywords', fn ($q) => $q->where('keywords.id', $keyword->id))
                     ->where('is_hidden', false)
                     ->get()
                 : collect();
@@ -321,7 +321,7 @@ class CrewBuilderController extends Controller
         // Required hires mode (e.g. Riders of Fate)
         $requiredCharIds = [];
         if ($hiringRules && isset($hiringRules['required_characteristic'])) {
-            $requiredCharIds = Character::whereHas('characteristics', fn ($q) => $q->whereRaw('LOWER(name) = ?', [strtolower($hiringRules['required_characteristic'])]))
+            $requiredCharIds = Character::standard()->whereHas('characteristics', fn ($q) => $q->whereRaw('LOWER(name) = ?', [strtolower($hiringRules['required_characteristic'])]))
                 ->where('is_hidden', false)
                 ->pluck('id')
                 ->toArray();

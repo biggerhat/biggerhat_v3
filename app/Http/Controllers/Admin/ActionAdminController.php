@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\ModifierTypeEnum;
 use App\Enums\ResistanceTypeEnum;
 use App\Enums\SuitEnum;
@@ -68,6 +69,7 @@ class ActionAdminController extends Controller
             'modifier_types' => fn () => ModifierTypeEnum::toSelectOptions(),
             'triggers' => fn () => Trigger::toSelectOptions('name', 'slug'),
             'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ];
     }
 
@@ -75,6 +77,7 @@ class ActionAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'type' => ['required', 'string', Rule::enum(ActionTypeEnum::class)],
             'is_signature' => ['required', 'boolean'],
             'stone_cost' => ['required', 'integer', 'min:0', 'max:10'],

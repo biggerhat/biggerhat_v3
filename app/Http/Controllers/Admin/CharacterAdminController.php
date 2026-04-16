@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
@@ -88,6 +89,7 @@ class CharacterAdminController extends Controller
             })->toSelectOptions('display_name', 'slug'),
             'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
             'crew_upgrade_modes' => fn () => \App\Enums\CrewUpgradeModeEnum::toSelectOptions(),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
             'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
         ];
     }
@@ -124,6 +126,7 @@ class CharacterAdminController extends Controller
             'is_unhirable' => ['required', 'boolean'],
             'crew_upgrade_mode' => ['nullable', 'string', Rule::enum(\App\Enums\CrewUpgradeModeEnum::class)],
             'is_beta' => ['required', 'boolean'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'is_hidden' => ['required', 'boolean'],
             'summons' => ['nullable', 'array'],
             'summons.*' => ['string'],

@@ -16,7 +16,7 @@ class ActionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Action::with('triggers')
+        $query = Action::standard()->with('triggers')
             ->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')->with('standardMiniatures:id,slug,character_id')->limit(2)])
             ->with(['upgrades' => fn ($q) => $q->select('upgrades.id', 'upgrades.name', 'upgrades.slug')->limit(3)]);
@@ -109,7 +109,7 @@ class ActionController extends Controller
         return inertia('Actions/Index', [
             'actions' => $actions,
             'result_count' => $actions->total(),
-            'action_names' => fn () => Action::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'action_names' => fn () => Action::standard()->select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
             'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
             'action_range_types' => fn () => ActionRangeTypeEnum::toSelectOptions(),
             'suits' => fn () => SuitEnum::toSelectOptions(),

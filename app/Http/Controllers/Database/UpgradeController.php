@@ -12,7 +12,7 @@ class UpgradeController extends Controller
 {
     public function crewIndex(Request $request)
     {
-        $upgrades = Upgrade::forCrews()
+        $upgrades = Upgrade::standard()->forCrews()
             ->with(['masters', 'keywords'])
             ->orderBy('name', 'ASC')
             ->get()
@@ -43,7 +43,7 @@ class UpgradeController extends Controller
 
     public function characterIndex(Request $request)
     {
-        $upgrades = Upgrade::forCharacters()
+        $upgrades = Upgrade::standard()->forCharacters()
             ->with(['masters', 'keywords', 'characters'])
             ->orderBy('name', 'ASC')
             ->get()

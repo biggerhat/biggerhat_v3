@@ -228,7 +228,7 @@ class TournamentController extends Controller
 
         // Masters grouped by name with titles
         $masters = function () {
-            $characters = \App\Models\Character::where('station', 'master')
+            $characters = \App\Models\Character::standard()->where('station', 'master')
                 ->where('is_hidden', false)
                 ->orderBy('name')->orderBy('title')
                 ->get();

@@ -49,7 +49,7 @@ class LoreController extends Controller
                 'name' => $m->name,
                 'value' => (string) $m->id,
             ]),
-            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'characters' => fn () => Character::standard()->toSelectOptions('display_name', 'slug'),
         ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\API\V1\UpgradeResource;
 use App\Models\Upgrade;
@@ -25,14 +26,16 @@ class UpgradeController extends Controller
      * @queryParam domain string Filter by upgrade domain (character or crew). Example: character
      * @queryParam faction string Filter by faction enum value. Example: arcanists
      * @queryParam type string Filter by upgrade type. Example: limited
+     * @queryParam game_mode_type string Filter by game mode type (standard, campaign, cooperative). Defaults to standard. Example: standard
      * @queryParam per_page int Number of results per page (max 100). Example: 15
      */
     public function index(Request $request): AnonymousResourceCollection
     {
         $domain = $request->query('domain');
         $search = $request->query('search');
+        $gameMode = GameModeTypeEnum::tryFrom($request->query('game_mode_type', 'standard')) ?? GameModeTypeEnum::Standard;
 
-        $upgrades = Upgrade::query()
+        $upgrades = Upgrade::forGameMode($gameMode)
             ->when($domain, fn ($q, $d) => $q->where('domain', $d))
             ->when($request->query('faction'), fn ($q, $faction) => $q->where('faction', $faction))
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))

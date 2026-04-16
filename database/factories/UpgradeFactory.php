@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeTypeEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -19,6 +20,7 @@ class UpgradeFactory extends Factory
     public function definition(): array
     {
         return [
+            'game_mode_type' => GameModeTypeEnum::Standard,
             'name' => $this->faker->unique()->word(),
             'domain' => $this->faker->randomElement(UpgradeDomainTypeEnum::cases()),
             'type' => $this->faker->optional()->randomElement(UpgradeTypeEnum::cases()),

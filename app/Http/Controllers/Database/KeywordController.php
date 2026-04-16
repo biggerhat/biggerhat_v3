@@ -20,7 +20,7 @@ class KeywordController extends Controller
 {
     public function index(Request $request)
     {
-        $keywords = Keyword::orderBy('name', 'ASC')->withCount('packages')->with(['masters.crewUpgrades', 'masters.standardMiniatures', 'characters.standardMiniatures'])->get();
+        $keywords = Keyword::standard()->orderBy('name', 'ASC')->withCount('packages')->with(['masters.crewUpgrades', 'masters.standardMiniatures', 'characters.standardMiniatures'])->get();
 
         return inertia('Keywords/Index', [
             'keywords' => KeywordResource::collection($keywords)->toArray($request),
@@ -29,7 +29,7 @@ class KeywordController extends Controller
 
     public function view(Request $request, Keyword $keyword)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')
+        $query = Character::standard()->with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')
             ->whereHas('standardMiniatures')
             ->whereHas('keywords', function ($query) use ($keyword) {
                 $query->where('slug', $keyword->slug);

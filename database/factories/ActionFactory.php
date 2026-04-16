@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\ModifierTypeEnum;
 use App\Enums\ResistanceTypeEnum;
 use App\Enums\SuitEnum;
@@ -27,6 +28,7 @@ class ActionFactory extends Factory
         $hasTarget = $this->faker->boolean(50);
 
         return [
+            'game_mode_type' => GameModeTypeEnum::Standard,
             'name' => $this->faker->unique()->words(random_int(1, 3), true),
             'type' => $type,
             'is_signature' => $this->faker->boolean(15),

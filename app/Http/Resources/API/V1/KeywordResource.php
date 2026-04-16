@@ -16,6 +16,8 @@ class KeywordResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'game_mode_type' => $this->game_mode_type->value,
+            'game_mode_type_label' => $this->game_mode_type->label(),
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,

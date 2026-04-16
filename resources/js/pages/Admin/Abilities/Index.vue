@@ -2,10 +2,11 @@
 import AdminActions from '@/components/AdminActions.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { h, ref } from 'vue';
+import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -41,6 +42,14 @@ const columns: ColumnDef<Abilities>[] = [
         },
     },
     {
+        accessorKey: 'game_mode_type',
+        header: () => h('div', {}, 'Game Mode'),
+        cell: ({ row }) => {
+            return h('div', { class: 'capitalize' }, row.getValue('game_mode_type') ?? 'standard');
+        },
+        filterFn: 'equalsString',
+    },
+    {
         accessorKey: 'costs_stone',
         header: () => h('div', {}, 'Costs Stone'),
         cell: ({ row }) => {
@@ -72,6 +81,7 @@ const props = defineProps<{
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);
+const gameModeFilter = ref('all');
 
 const table = useVueTable({
     get data() {
@@ -90,6 +100,10 @@ const table = useVueTable({
         },
     },
 });
+
+watch(gameModeFilter, (val) => {
+    table.getColumn('game_mode_type')?.setFilterValue(val === 'all' ? undefined : val);
+});
 </script>
 
 <template>
@@ -97,13 +111,27 @@ const table = useVueTable({
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input
-                class="max-w-sm"
-                placeholder="Filter Abilities"
-                :model-value="table.getColumn('name')?.getFilterValue() as string"
-                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
-            />
-            <div>Total {{ props.abilities.length }}</div>
+            <div class="flex items-center gap-2">
+                <Input
+                    class="max-w-sm"
+                    placeholder="Filter Abilities"
+                    :model-value="table.getColumn('name')?.getFilterValue() as string"
+                    @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+                />
+                <Select v-model="gameModeFilter">
+                    <SelectTrigger class="w-[160px]">
+                        <SelectValue placeholder="Game Mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Modes</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="campaign">Campaign</SelectItem>
+                        <SelectItem value="cooperative">Cooperative</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div>Total {{ table.getFilteredRowModel().rows.length }}</div>
             <Button @click="router.get(route('admin.abilities.create'))"> Create New Ability </Button>
         </div>
         <div class="rounded-md border">

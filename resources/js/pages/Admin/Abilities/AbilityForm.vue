@@ -40,9 +40,17 @@ const props = defineProps({
             return [];
         },
     },
+    game_mode_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
+    game_mode_type: 'standard',
     name: null,
     suits: null,
     defensive_ability_type: null,
@@ -56,6 +64,7 @@ const submit = () => {
 };
 
 onMounted(() => {
+    formInfo.value.game_mode_type = props.ability?.game_mode_type ?? 'standard';
     formInfo.value.name = props.ability?.name ?? null;
     formInfo.value.costs_stone = props.ability?.costs_stone ?? false;
     formInfo.value.defensive_ability_type = props.ability?.defensive_ability_type ?? null;
@@ -79,6 +88,20 @@ onMounted(() => {
             <CardContent>
                 <form>
                     <div class="grid w-full items-center gap-4">
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="game_mode_type">Game Mode</Label>
+                            <Select id="game_mode_type" v-model="formInfo.game_mode_type">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Game Mode Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="mode in props.game_mode_types" :value="mode.value" :key="mode.value">
+                                        {{ mode.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="usePage().props.errors.game_mode_type" />
+                        </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name</Label>
                             <Input id="name" autofocus v-model="formInfo.name" placeholder="Ability Name" />

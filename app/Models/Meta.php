@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
  * A "meta" — a regional / community grouping of players (e.g. "Boston",
  * "PNW", "FB Online"). Used for Round 1 same-meta-avoidance pairing and
  * for displaying community affiliation on player profiles.
+ *
+ * @mixin IdeHelperMeta
  */
 class Meta extends Model
 {

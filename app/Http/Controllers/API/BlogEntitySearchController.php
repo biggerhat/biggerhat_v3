@@ -34,7 +34,7 @@ class BlogEntitySearchController extends Controller
 
         $results = [];
 
-        $characters = Character::where('display_name', 'LIKE', "%{$q}%")
+        $characters = Character::standard()->where('display_name', 'LIKE', "%{$q}%")
             ->limit(5)
             ->get(['id', 'display_name as name', 'slug', 'faction']);
         foreach ($characters as $char) {
@@ -46,7 +46,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $keywords = Keyword::where('name', 'LIKE', "%{$q}%")
+        $keywords = Keyword::standard()->where('name', 'LIKE', "%{$q}%")
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($keywords as $kw) {
@@ -70,7 +70,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $upgrades = Upgrade::where('name', 'LIKE', "%{$q}%")
+        $upgrades = Upgrade::standard()->where('name', 'LIKE', "%{$q}%")
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($upgrades as $upgrade) {
@@ -82,7 +82,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $actions = Action::where('name', 'LIKE', "%{$q}%")
+        $actions = Action::standard()->where('name', 'LIKE', "%{$q}%")
             ->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
@@ -102,7 +102,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $abilities = Ability::where('name', 'LIKE', "%{$q}%")
+        $abilities = Ability::standard()->where('name', 'LIKE', "%{$q}%")
             ->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
@@ -311,7 +311,7 @@ class BlogEntitySearchController extends Controller
             return response()->json(['error' => 'Not found'], 404);
         }
 
-        $factions = Character::whereHas('keywords', fn ($q) => $q->where('slug', $slug))
+        $factions = Character::standard()->whereHas('keywords', fn ($q) => $q->where('slug', $slug))
             ->distinct('faction')
             ->pluck('faction')
             ->map(fn (string $f) => FactionEnum::tryFrom($f))
@@ -343,10 +343,10 @@ class BlogEntitySearchController extends Controller
             return response()->json(['error' => 'Not found'], 404);
         }
 
-        $characterCount = Character::where('faction', $faction->value)->count();
-        $masterCount = Character::where('faction', $faction->value)
+        $characterCount = Character::standard()->where('faction', $faction->value)->count();
+        $masterCount = Character::standard()->where('faction', $faction->value)
             ->where('station', CharacterStationEnum::Master->value)->count();
-        $keywordCount = Keyword::whereHas('characters', fn ($q) => $q->where('faction', $faction->value))->count();
+        $keywordCount = Keyword::standard()->whereHas('characters', fn ($q) => $q->where('faction', $faction->value))->count();
 
         return response()->json([
             'name' => $faction->label(),

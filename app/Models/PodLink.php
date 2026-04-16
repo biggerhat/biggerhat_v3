@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+/**
+ * @mixin IdeHelperPodLink
+ */
 class PodLink extends Model
 {
     protected $guarded = ['id'];

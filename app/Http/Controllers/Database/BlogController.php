@@ -52,11 +52,11 @@ class BlogController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (User $u) => ['name' => $u->name, 'value' => $u->name]),
-            'tagged_characters' => fn () => \App\Models\Character::whereHas('blogPosts')
+            'tagged_characters' => fn () => \App\Models\Character::standard()->whereHas('blogPosts')
                 ->orderBy('display_name')
                 ->get(['id', 'display_name', 'slug'])
                 ->map(fn ($c) => ['name' => $c->display_name, 'value' => $c->slug]),
-            'tagged_keywords' => fn () => \App\Models\Keyword::whereHas('blogPosts')
+            'tagged_keywords' => fn () => \App\Models\Keyword::standard()->whereHas('blogPosts')
                 ->orderBy('name')
                 ->get(['id', 'name', 'slug'])
                 ->map(fn ($k) => ['name' => $k->name, 'value' => $k->slug]),

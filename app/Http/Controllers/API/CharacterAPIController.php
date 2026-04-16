@@ -37,8 +37,10 @@ class CharacterAPIController extends Controller
             return response()->json([]);
         }
 
-        $characters = Character::where('display_name', 'LIKE', "%{$q}%")
-            ->orWhere('name', 'LIKE', "%{$q}%")
+        $characters = Character::standard()->where(function ($query) use ($q) {
+            $query->where('display_name', 'LIKE', "%{$q}%")
+                ->orWhere('name', 'LIKE', "%{$q}%");
+        })
             ->with('miniatures')
             ->limit(15)
             ->get();
@@ -153,7 +155,7 @@ class CharacterAPIController extends Controller
     {
         $storageUrl = config('filesystems.disks.public.url').'/';
 
-        return Character::whereHas('miniatures')
+        return Character::standard()->whereHas('miniatures')
             ->with(['miniatures', 'crewUpgrades'])
             ->orderBy('display_name', 'ASC')
             ->get()

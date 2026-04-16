@@ -60,6 +60,13 @@ const props = defineProps({
             return {};
         },
     },
+    game_mode_types: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return {};
+        },
+    },
     stations: {
         type: [Object, Array],
         required: false,
@@ -200,6 +207,8 @@ const props = defineProps({
     },
 });
 
+const selectedGameModes = ref<string[]>([]);
+const excludedGameModes = ref<string[]>([]);
 const selectedFactions = ref<string[]>([]);
 const excludedFactions = ref<string[]>([]);
 const selectedKeywords = ref<string[]>([]);
@@ -356,6 +365,8 @@ const lookupName = (list: any[], value: string, valueKey = 'value', labelKey = '
 const activeFilterCount = computed(() => {
     const paramCount = filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
     return paramCount
+        + (selectedGameModes.value.length > 0 ? 1 : 0)
+        + (excludedGameModes.value.length > 0 ? 1 : 0)
         + (selectedFactions.value.length > 0 ? 1 : 0)
         + (excludedFactions.value.length > 0 ? 1 : 0)
         + (selectedKeywords.value.length > 0 ? 1 : 0)
@@ -377,6 +388,9 @@ const filter = () => {
             params[key] = null;
         }
     }
+    // Game mode types
+    params.game_mode_type = selectedGameModes.value.length > 0 ? selectedGameModes.value.join(',') : null;
+    params.game_mode_type_exclude = excludedGameModes.value.length > 0 ? excludedGameModes.value.join(',') : null;
     // Convert faction names to comma-separated values
     if (selectedFactions.value.length > 0) {
         params.faction = selectedFactions.value
@@ -442,6 +456,8 @@ const resetFilters = () => {
     for (const key of filterKeys) {
         filterParams.value[key] = null;
     }
+    selectedGameModes.value = [];
+    excludedGameModes.value = [];
     selectedFactions.value = [];
     excludedFactions.value = [];
     selectedKeywords.value = [];
@@ -556,6 +572,11 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
             statCompareRight.value = scMatch[3];
         }
     }
+    // Game mode types
+    const gameModeParam = urlParams.get('game_mode_type');
+    if (gameModeParam) selectedGameModes.value = gameModeParam.split(',').filter(Boolean);
+    const gameModeExcludeParam = urlParams.get('game_mode_type_exclude');
+    if (gameModeExcludeParam) excludedGameModes.value = gameModeExcludeParam.split(',').filter(Boolean);
     const keywordParam = urlParams.get('keyword');
     if (keywordParam) {
         selectedKeywords.value = keywordParam.split(',').filter(Boolean);
@@ -678,7 +699,7 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
         if (hasTokens) sectionsOpen.value.advancedTokens = true;
         if (hasMarkers) sectionsOpen.value.advancedMarkers = true;
     }
-    if (excludedFactions.value.length || excludedKeywords.value.length || excludedCharacteristics.value.length) {
+    if (excludedGameModes.value.length || excludedFactions.value.length || excludedKeywords.value.length || excludedCharacteristics.value.length) {
         sectionsOpen.value.exclusions = true;
     }
     if (filterParams.value.sort !== 'name' || filterParams.value.sort_type !== 'ascending') {
@@ -706,6 +727,8 @@ const buildCurrentParams = (): Record<string, string> => {
         params.faction = null;
     }
     params.faction_exclude = excludedFactions.value.length > 0 ? excludedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',') : null;
+    params.game_mode_type = selectedGameModes.value.length > 0 ? selectedGameModes.value.join(',') : null;
+    params.game_mode_type_exclude = excludedGameModes.value.length > 0 ? excludedGameModes.value.join(',') : null;
     params.keyword = selectedKeywords.value.length > 0 ? selectedKeywords.value.join(',') : null;
     params.keyword_logic = selectedKeywords.value.length > 1 ? keywordLogic.value : null;
     params.keyword_exclude = excludedKeywords.value.length > 0 ? excludedKeywords.value.join(',') : null;
@@ -756,7 +779,7 @@ const applySyntax = () => {
 
 // Watch all filter-related refs to update syntax bar
 watch(
-    [filterParams, selectedFactions, excludedFactions, selectedKeywords, excludedKeywords, keywordLogic, selectedCharacteristics, excludedCharacteristics, characteristicLogic, selectedActions, actionLogic, selectedAbilities, abilityLogic, selectedTriggers, triggerLogic, selectedTokens, tokenLogic, selectedMarkers, markerLogic, statCompareLeft, statCompareOp, statCompareRight],
+    [filterParams, selectedGameModes, excludedGameModes, selectedFactions, excludedFactions, selectedKeywords, excludedKeywords, keywordLogic, selectedCharacteristics, excludedCharacteristics, characteristicLogic, selectedActions, actionLogic, selectedAbilities, abilityLogic, selectedTriggers, triggerLogic, selectedTokens, tokenLogic, selectedMarkers, markerLogic, statCompareLeft, statCompareOp, statCompareRight],
     () => {
         if (isSyncing.value) return;
         isSyncing.value = true;
@@ -796,6 +819,8 @@ const searchExplanation = computed(() => {
     if (statCompareLeft.value && statCompareOp.value && statCompareRight.value) {
         parts.push(`${statCompareLeft.value} ${statCompareOp.value} ${statCompareRight.value}`);
     }
+    if (selectedGameModes.value.length) parts.push(`mode: ${selectedGameModes.value.join(', ')}`);
+    if (excludedGameModes.value.length) parts.push(`excl. modes: ${excludedGameModes.value.join(', ')}`);
     if (excludedFactions.value.length) parts.push(`excl. factions: ${excludedFactions.value.join(', ')}`);
     if (excludedKeywords.value.length) parts.push(`excl. keywords: ${excludedKeywords.value.join(', ')}`);
     if (excludedCharacteristics.value.length) parts.push(`excl. characteristics: ${excludedCharacteristics.value.join(', ')}`);
@@ -905,6 +930,12 @@ const activeFilters = computed(() => {
     }
     if (statCompareLeft.value && statCompareOp.value && statCompareRight.value) {
         chips.push({ label: `Stat: ${statCompareLeft.value} ${statCompareOp.value} ${statCompareRight.value}`, remove: () => { statCompareLeft.value = null; statCompareOp.value = null; statCompareRight.value = null; filterParams.value.stat_compare = null; filter(); } });
+    }
+    for (const gm of selectedGameModes.value) {
+        chips.push({ label: `Mode: ${gm}`, remove: () => { selectedGameModes.value = selectedGameModes.value.filter((v) => v !== gm); filter(); } });
+    }
+    for (const gm of excludedGameModes.value) {
+        chips.push({ label: `Excl. mode: ${gm}`, remove: () => { excludedGameModes.value = excludedGameModes.value.filter((v) => v !== gm); filter(); } });
     }
     for (const f of excludedFactions.value) {
         chips.push({ label: `Excl. faction: ${f}`, remove: () => { excludedFactions.value = excludedFactions.value.filter((v) => v !== f); filter(); } });
@@ -1524,6 +1555,10 @@ onUnmounted(() => {
                             <!-- General -->
                             <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">General</div>
                             <div class="space-y-2">
+                                <label class="text-sm font-medium">Game Mode</label>
+                                <SearchableMultiselect v-model="selectedGameModes" placeholder="Standard (default)" :options="props.game_mode_types" />
+                            </div>
+                            <div class="space-y-2">
                                 <label class="text-sm font-medium">Factions</label>
                                 <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
                             </div>
@@ -1564,13 +1599,17 @@ onUnmounted(() => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
                                     Exclude
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
-                                            {{ excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
+                                        <Badge v-if="excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                                            {{ excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
                                         </Badge>
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.exclusions }" />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-medium text-muted-foreground">Game Modes</label>
+                                        <SearchableMultiselect v-model="excludedGameModes" placeholder="Exclude Game Modes" :options="props.game_mode_types" />
+                                    </div>
                                     <div class="space-y-1">
                                         <label class="text-xs font-medium text-muted-foreground">Factions</label>
                                         <SearchableMultiselect v-model="excludedFactions" placeholder="Exclude Factions" :options="props.factions" option-value="name" />
@@ -2032,6 +2071,10 @@ onUnmounted(() => {
                         <!-- General -->
                         <div class="space-y-3 px-1">
                             <div class="space-y-1">
+                                <label class="text-xs font-medium text-muted-foreground">Game Mode</label>
+                                <SearchableMultiselect v-model="selectedGameModes" placeholder="Standard (default)" :options="props.game_mode_types" />
+                            </div>
+                            <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Factions</label>
                                 <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
                             </div>
@@ -2073,13 +2116,17 @@ onUnmounted(() => {
                             <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
                                 Exclude
                                 <div class="flex items-center gap-1.5">
-                                    <Badge v-if="excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
-                                        {{ excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
+                                    <Badge v-if="excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                                        {{ excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
                                     </Badge>
                                     <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.exclusions }" />
                                 </div>
                             </CollapsibleTrigger>
                             <CollapsibleContent class="space-y-3 px-1 pt-3">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-muted-foreground">Game Modes</label>
+                                    <SearchableMultiselect v-model="excludedGameModes" placeholder="Exclude Game Modes" :options="props.game_mode_types" />
+                                </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Factions</label>
                                     <SearchableMultiselect v-model="excludedFactions" placeholder="Exclude Factions" :options="props.factions" option-value="name" />
@@ -2528,7 +2575,7 @@ onUnmounted(() => {
                         </template>
                         <EmptyState v-else>
                             <div class="mt-3 space-y-2 text-center">
-                                <p v-if="excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
+                                <p v-if="excludedGameModes.length || excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
                                     Try removing some exclusion filters.
                                 </p>
                                 <p v-if="selectedKeywords.length > 1 && keywordLogic === 'and'" class="text-xs text-muted-foreground">
@@ -2595,7 +2642,7 @@ onUnmounted(() => {
                         </div>
                         <EmptyState v-else>
                             <div class="mt-3 space-y-2 text-center">
-                                <p v-if="excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
+                                <p v-if="excludedGameModes.length || excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
                                     Try removing some exclusion filters.
                                 </p>
                                 <p v-if="selectedKeywords.length > 1 && keywordLogic === 'and'" class="text-xs text-muted-foreground">

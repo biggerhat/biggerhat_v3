@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Keyword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class KeywordAdminController extends Controller
 {
@@ -18,13 +20,16 @@ class KeywordAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/Keywords/KeywordForm');
+        return inertia('Admin/Keywords/KeywordForm', [
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
+        ]);
     }
 
     public function edit(Request $request, Keyword $keyword)
     {
         return inertia('Admin/Keywords/KeywordForm', [
             'keyword' => $keyword,
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ]);
     }
 
@@ -32,6 +37,7 @@ class KeywordAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'description' => ['nullable', 'string'],
         ]);
 
@@ -46,6 +52,7 @@ class KeywordAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'description' => ['nullable', 'string'],
         ]);
 

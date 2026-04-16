@@ -234,7 +234,7 @@ class CollectionController extends Controller
         $ownedMiniatureIds = $user->collectionMiniatures()->pluck('miniatures.id')->toArray();
         $ownedPackageIds = $user->collectionPackages()->pluck('packages.id')->toArray();
 
-        $allCharacters = Character::with('miniatures:id,character_id')
+        $allCharacters = Character::standard()->with('miniatures:id,character_id')
             ->where('is_hidden', false)
             ->get();
 
@@ -263,7 +263,7 @@ class CollectionController extends Controller
         // Keyword stats — use withCount to avoid loading all character IDs
         $keywordStats = [];
         $ownedCharacterIds = $ownedCharacters->pluck('id')->all();
-        $allKeywords = Keyword::withCount([
+        $allKeywords = Keyword::standard()->withCount([
             'characters',
             'characters as owned_characters_count' => fn ($q) => $q->whereIn('characters.id', $ownedCharacterIds),
         ])->orderBy('name')->get();

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\DefensiveAbilityTypeEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
@@ -25,6 +26,7 @@ class AbilityAdminController extends Controller
             'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
             'suits' => fn () => SuitEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ]);
     }
 
@@ -35,6 +37,7 @@ class AbilityAdminController extends Controller
             'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
             'suits' => fn () => SuitEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ]);
     }
 
@@ -64,6 +67,7 @@ class AbilityAdminController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
             'suits' => ['nullable', 'string', 'max:255'],
             'defensive_ability_type' => ['nullable', 'string', Rule::enum(DefensiveAbilityTypeEnum::class)],
             'costs_stone' => ['required', 'boolean'],

@@ -16,7 +16,7 @@ class CommandController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $characters = Character::with('miniatures')->whereHas('miniatures')->orderBy('display_name', 'ASC')->get();
+        $characters = Character::standard()->with('miniatures')->whereHas('miniatures')->orderBy('display_name', 'ASC')->get();
 
         $characters = $characters->map(function (Character $character) {
             return [
@@ -25,7 +25,7 @@ class CommandController extends Controller
             ];
         });
 
-        $upgrades = Upgrade::orderBy('name', 'ASC')->get()->map(function (Upgrade $upgrade) {
+        $upgrades = Upgrade::standard()->orderBy('name', 'ASC')->get()->map(function (Upgrade $upgrade) {
             return [
                 'name' => $upgrade->name,
                 'route' => route('upgrades.view', ['upgrade' => $upgrade->slug]),
@@ -39,7 +39,7 @@ class CommandController extends Controller
             ];
         });
 
-        $keywords = Keyword::orderBy('name', 'ASC')->get()->map(function (Keyword $keyword) {
+        $keywords = Keyword::standard()->orderBy('name', 'ASC')->get()->map(function (Keyword $keyword) {
             return [
                 'name' => $keyword->name,
                 'route' => route('keywords.view', ['keyword' => $keyword->slug]),

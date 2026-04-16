@@ -100,7 +100,9 @@ const formatDate = (dateStr: string) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Track your Malifaux games in real time
-                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400">Beta</Badge>
+                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                        >Beta</Badge
+                    >
                 </div>
             </template>
         </PageBanner>
@@ -163,7 +165,9 @@ const formatDate = (dateStr: string) => {
                                                 {{ player.role }}
                                             </Badge>
                                         </div>
-                                        <span v-if="!game.is_solo && game.players.length < 2" class="text-xs italic text-muted-foreground">Waiting for opponent...</span>
+                                        <span v-if="!game.is_solo && game.players.length < 2" class="text-xs italic text-muted-foreground"
+                                            >Waiting for opponent...</span
+                                        >
                                         <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
                                     </div>
                                 </CardContent>
@@ -194,7 +198,9 @@ const formatDate = (dateStr: string) => {
                                 <div class="flex items-center gap-2 text-sm">
                                     <span v-for="(player, idx) in game.players" :key="player.id">
                                         <span v-if="idx > 0" class="text-muted-foreground"> vs </span>
-                                        <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}</span>
+                                        <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{
+                                            player.user?.name ?? player.opponent_name ?? 'Opponent'
+                                        }}</span>
                                         <span class="text-muted-foreground">({{ player.total_points }})</span>
                                     </span>
                                     <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
@@ -222,7 +228,7 @@ const formatDate = (dateStr: string) => {
             <!-- Observable Games -->
             <div v-if="observable_games.length">
                 <div class="my-6 border-t" />
-                <h2 class="mb-1 font-semibold flex items-center gap-2">
+                <h2 class="mb-1 flex items-center gap-2 font-semibold">
                     <Eye class="size-4 text-amber-500" />
                     Public Games
                 </h2>
@@ -252,14 +258,23 @@ const formatDate = (dateStr: string) => {
                                 <div v-if="game.status === 'in_progress'" class="mb-2 text-xs text-muted-foreground">
                                     Turn {{ game.current_turn }}
                                 </div>
-                                <div v-if="game.status === 'completed' && game.winner" class="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                <div
+                                    v-if="game.status === 'completed' && game.winner"
+                                    class="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400"
+                                >
                                     {{ game.winner.name }} wins!
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <div v-for="player in game.players" :key="player.id" class="flex items-center gap-1.5">
                                         <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
-                                        <span class="text-xs" :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}</span>
-                                        <span v-if="game.status === 'in_progress' || game.status === 'completed'" class="text-xs font-bold text-muted-foreground">({{ player.total_points }})</span>
+                                        <span class="text-xs" :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{
+                                            player.user?.name ?? player.opponent_name ?? 'Opponent'
+                                        }}</span>
+                                        <span
+                                            v-if="game.status === 'in_progress' || game.status === 'completed'"
+                                            class="text-xs font-bold text-muted-foreground"
+                                            >({{ player.total_points }})</span
+                                        >
                                     </div>
                                     <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
                                 </div>
@@ -290,8 +305,11 @@ const formatDate = (dateStr: string) => {
             <DialogHeader>
                 <DialogTitle>Delete Game</DialogTitle>
                 <DialogDescription>
-                    Are you sure you want to remove "{{ gameToDelete?.name || (gameToDelete?.encounter_size ?? '') + 'ss Encounter' }}" from your game list?
-                    <span v-if="!gameToDelete?.is_solo && (gameToDelete?.players?.length ?? 0) > 1" class="mt-1 block text-xs">Your opponent will still be able to see this game.</span>
+                    Are you sure you want to remove "{{ gameToDelete?.name || (gameToDelete?.encounter_size ?? '') + 'ss Encounter' }}" from your game
+                    list?
+                    <span v-if="!gameToDelete?.is_solo && (gameToDelete?.players?.length ?? 0) > 1" class="mt-1 block text-xs"
+                        >Your opponent will still be able to see this game.</span
+                    >
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter class="gap-2 sm:gap-0">

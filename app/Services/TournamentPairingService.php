@@ -116,10 +116,14 @@ class TournamentPairingService
         }
 
         // Generate pairings for everyone not in a manual pairing.
-        $tournament->load('players:id,tournament_id,faction');
         $pairings = $this->generatePairings($tournament, $round, $alreadyPaired);
 
-        $players = $tournament->players->keyBy('id');
+        // Faction lookup for persistence. Do NOT use $tournament->load('players:...')
+        // here — a column-subset load clobbers the relation and breaks the standings
+        // pipeline (which trips strict-mode missing-attribute errors reading
+        // is_disqualified / dropped_after_round / display_name). A separate local
+        // query leaves $tournament->players untouched for downstream consumers.
+        $playersById = $tournament->players()->get(['id', 'faction'])->keyBy('id');
         $tableNumber = $highestTable + 1;
         foreach ($pairings as $pairing) {
             TournamentGame::create([
@@ -134,9 +138,9 @@ class TournamentPairingService
                 // game scoring lifecycle.
                 'result' => TournamentGameResultEnum::Pending,
                 'table_number' => $pairing['is_bye'] ? null : $tableNumber++,
-                'player_one_faction' => $players->get($pairing['player_one_id'])?->getRawOriginal('faction'),
+                'player_one_faction' => $playersById->get($pairing['player_one_id'])?->getRawOriginal('faction'),
                 'player_two_faction' => $pairing['player_two_id']
-                    ? $players->get($pairing['player_two_id'])?->getRawOriginal('faction')
+                    ? $playersById->get($pairing['player_two_id'])?->getRawOriginal('faction')
                     : null,
             ]);
         }

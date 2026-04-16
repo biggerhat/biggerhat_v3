@@ -46,9 +46,7 @@ const submit = () => {
 
         <PageBanner title="Create Game" class="mb-2">
             <template #subtitle>
-                <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    Set up a new encounter
-                </div>
+                <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">Set up a new encounter</div>
             </template>
         </PageBanner>
 
@@ -119,8 +117,8 @@ const submit = () => {
                             A scenario will be generated and you'll control both sides of the encounter. No opponent needed.
                         </template>
                         <template v-else>
-                            A strategy, deployment, and scheme pool will be randomly generated when you create the game. You can share the
-                            join link with your opponent.
+                            A strategy, deployment, and scheme pool will be randomly generated when you create the game. You can share the join link
+                            with your opponent.
                         </template>
                     </div>
 

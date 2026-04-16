@@ -8,7 +8,6 @@ import { computed, onMounted, ref } from 'vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
-import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
@@ -20,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import { cleanObject } from '@/composables/CleanObject';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
@@ -390,12 +390,7 @@ onMounted(() => {
             </div>
         </div>
         <!-- Resources -->
-        <ResourcesPanel
-            v-if="resources"
-            :articles="resources.articles"
-            :transmissions="resources.transmissions"
-            :pod-links="resources.pod_links"
-        />
+        <ResourcesPanel v-if="resources" :articles="resources.articles" :transmissions="resources.transmissions" :pod-links="resources.pod_links" />
 
         <div
             v-if="isLoading && (filterParams.page_view === 'table' || filterParams.page_view === 'keyword_breakdown')"
@@ -433,21 +428,20 @@ onMounted(() => {
         <div v-else class="container mx-auto items-center sm:px-4">
             <template v-if="props.characters?.length">
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <template
-                        v-for="(character, index) in props.characters"
-                        :key="`character-${character.id}`"
-                    >
-                        <div
-                            class="animate-fade-in-up opacity-0"
-                            :style="delays[index]"
-                        >
+                    <template v-for="(character, index) in props.characters" :key="`character-${character.id}`">
+                        <div class="animate-fade-in-up opacity-0" :style="delays[index]">
                             <CharacterCardView
                                 :miniature="character.standard_miniatures[0]"
                                 :character-slug="character.slug"
                                 :all-miniature-ids="character.standard_miniatures.map((m: any) => m.id)"
                             />
                         </div>
-                        <div v-for="upgrade in character.crew_upgrades ?? []" :key="'cu-' + upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[index]">
+                        <div
+                            v-for="upgrade in character.crew_upgrades ?? []"
+                            :key="'cu-' + upgrade.id"
+                            class="animate-fade-in-up opacity-0"
+                            :style="delays[index]"
+                        >
                             <UpgradeCardView :upgrade="upgrade" />
                         </div>
                     </template>

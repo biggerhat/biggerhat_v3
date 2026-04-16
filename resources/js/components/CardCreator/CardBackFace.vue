@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import { computed } from 'vue';
 
 interface TriggerData {
@@ -116,9 +116,17 @@ const contentScale = computed(() => {
                     <span class="w-8 text-center">Dmg</span>
                 </div>
 
-                <div v-for="action in attackActions" :key="'atk-' + action.name" class="mb-1.5 rounded" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+                <div
+                    v-for="action in attackActions"
+                    :key="'atk-' + action.name"
+                    class="mb-1.5 rounded"
+                    :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
+                >
                     <!-- Stat row -->
-                    <div class="flex items-center px-1.5 py-1" :class="contentScale === 'scale-sm' ? 'text-[11px]' : contentScale === 'scale-md' ? 'text-xs' : 'text-sm'">
+                    <div
+                        class="flex items-center px-1.5 py-1"
+                        :class="contentScale === 'scale-sm' ? 'text-[11px]' : contentScale === 'scale-md' ? 'text-xs' : 'text-sm'"
+                    >
                         <div class="flex min-w-0 flex-1 items-center gap-0.5 font-bold">
                             <GameIcon v-if="action.is_signature" type="signature_action" class-name="text-sm shrink-0" />
                             <template v-for="n in action.stone_cost" :key="'sc-' + n">
@@ -141,7 +149,8 @@ const contentScale = computed(() => {
                         <span class="w-7 text-center text-white/60">{{ action.resisted_by ?? '-' }}</span>
                         <span class="w-8 text-center">
                             <span v-if="action.target_number != null" class="inline-flex items-center justify-center gap-0.5">
-                                {{ action.target_number }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-[11px]" />
+                                {{ action.target_number
+                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-[11px]" />
                             </span>
                             <span v-else>-</span>
                         </span>
@@ -149,12 +158,32 @@ const contentScale = computed(() => {
                     </div>
 
                     <!-- Description -->
-                    <div v-if="action.description" class="px-1.5 pb-1 text-white/80" :class="contentScale === 'scale-sm' ? 'text-[10px] leading-[15px]' : contentScale === 'scale-md' ? 'text-[11px] leading-4' : 'text-xs leading-5'">
+                    <div
+                        v-if="action.description"
+                        class="px-1.5 pb-1 text-white/80"
+                        :class="
+                            contentScale === 'scale-sm'
+                                ? 'text-[10px] leading-[15px]'
+                                : contentScale === 'scale-md'
+                                  ? 'text-[11px] leading-4'
+                                  : 'text-xs leading-5'
+                        "
+                    >
                         <GameText :text="action.description" icon-class="h-3 inline-block align-text-bottom" />
                     </div>
 
                     <!-- Triggers -->
-                    <div v-if="action.triggers.length" class="space-y-0.5 border-t border-white/10 px-1.5 py-1" :class="contentScale === 'scale-sm' ? 'text-[10px] leading-[15px]' : contentScale === 'scale-md' ? 'text-[11px] leading-4' : 'text-xs leading-5'">
+                    <div
+                        v-if="action.triggers.length"
+                        class="space-y-0.5 border-t border-white/10 px-1.5 py-1"
+                        :class="
+                            contentScale === 'scale-sm'
+                                ? 'text-[10px] leading-[15px]'
+                                : contentScale === 'scale-md'
+                                  ? 'text-[11px] leading-4'
+                                  : 'text-xs leading-5'
+                        "
+                    >
                         <div v-for="trigger in action.triggers" :key="trigger.name">
                             <span class="font-bold">
                                 <GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-xs" />
@@ -174,7 +203,13 @@ const contentScale = computed(() => {
             <!-- Tactical Actions -->
             <template v-if="tacticalActions.length">
                 <!-- Section header row -->
-                <div class="mb-0.5 flex items-center px-1.5 text-white/40" :class="[contentScale === 'scale-sm' ? 'text-[9px]' : 'text-[10px]', attackActions.length ? 'mt-5 border-t border-white/15 pt-3' : '']">
+                <div
+                    class="mb-0.5 flex items-center px-1.5 text-white/40"
+                    :class="[
+                        contentScale === 'scale-sm' ? 'text-[9px]' : 'text-[10px]',
+                        attackActions.length ? 'mt-5 border-t border-white/15 pt-3' : '',
+                    ]"
+                >
                     <span class="flex-1 font-semibold uppercase tracking-wider">Tactical Actions</span>
                     <span class="w-8 text-center">Rg</span>
                     <span class="w-8 text-center">Stat</span>
@@ -183,9 +218,17 @@ const contentScale = computed(() => {
                     <span class="w-8 text-center">Dmg</span>
                 </div>
 
-                <div v-for="action in tacticalActions" :key="'tac-' + action.name" class="mb-1.5 rounded" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+                <div
+                    v-for="action in tacticalActions"
+                    :key="'tac-' + action.name"
+                    class="mb-1.5 rounded"
+                    :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
+                >
                     <!-- Stat row -->
-                    <div class="flex items-center px-1.5 py-1" :class="contentScale === 'scale-sm' ? 'text-[11px]' : contentScale === 'scale-md' ? 'text-xs' : 'text-sm'">
+                    <div
+                        class="flex items-center px-1.5 py-1"
+                        :class="contentScale === 'scale-sm' ? 'text-[11px]' : contentScale === 'scale-md' ? 'text-xs' : 'text-sm'"
+                    >
                         <div class="flex min-w-0 flex-1 items-center gap-0.5 font-bold">
                             <GameIcon v-if="action.is_signature" type="signature_action" class-name="text-sm shrink-0" />
                             <template v-for="n in action.stone_cost" :key="'sc-' + n">
@@ -208,7 +251,8 @@ const contentScale = computed(() => {
                         <span class="w-7 text-center text-white/60">{{ action.resisted_by ?? '-' }}</span>
                         <span class="w-8 text-center">
                             <span v-if="action.target_number != null" class="inline-flex items-center justify-center gap-0.5">
-                                {{ action.target_number }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-[11px]" />
+                                {{ action.target_number
+                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-[11px]" />
                             </span>
                             <span v-else>-</span>
                         </span>
@@ -216,12 +260,32 @@ const contentScale = computed(() => {
                     </div>
 
                     <!-- Description -->
-                    <div v-if="action.description" class="px-1.5 pb-1 text-white/80" :class="contentScale === 'scale-sm' ? 'text-[10px] leading-[15px]' : contentScale === 'scale-md' ? 'text-[11px] leading-4' : 'text-xs leading-5'">
+                    <div
+                        v-if="action.description"
+                        class="px-1.5 pb-1 text-white/80"
+                        :class="
+                            contentScale === 'scale-sm'
+                                ? 'text-[10px] leading-[15px]'
+                                : contentScale === 'scale-md'
+                                  ? 'text-[11px] leading-4'
+                                  : 'text-xs leading-5'
+                        "
+                    >
                         <GameText :text="action.description" icon-class="h-3 inline-block align-text-bottom" />
                     </div>
 
                     <!-- Triggers -->
-                    <div v-if="action.triggers.length" class="space-y-0.5 border-t border-white/10 px-1.5 py-1" :class="contentScale === 'scale-sm' ? 'text-[10px] leading-[15px]' : contentScale === 'scale-md' ? 'text-[11px] leading-4' : 'text-xs leading-5'">
+                    <div
+                        v-if="action.triggers.length"
+                        class="space-y-0.5 border-t border-white/10 px-1.5 py-1"
+                        :class="
+                            contentScale === 'scale-sm'
+                                ? 'text-[10px] leading-[15px]'
+                                : contentScale === 'scale-md'
+                                  ? 'text-[11px] leading-4'
+                                  : 'text-xs leading-5'
+                        "
+                    >
                         <div v-for="trigger in action.triggers" :key="trigger.name">
                             <span class="font-bold">
                                 <GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-xs" />

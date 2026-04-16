@@ -53,7 +53,10 @@ const blockTypeLabel = (type: string) => {
     <Head :title="`${upgrade.display_name} — Custom ${domainLabel}`" />
 
     <div class="relative pb-12">
-        <div class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]" :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }" />
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
 
         <PageBanner :title="upgrade.display_name">
             <template #subtitle>

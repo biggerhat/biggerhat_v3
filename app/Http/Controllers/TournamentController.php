@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -64,8 +65,8 @@ class TournamentController extends Controller
             'players.user.meta:id,name',
             'players.meta:id,name',
             'rsvps.user:id,name',
-            'rounds.games.playerOne',
-            'rounds.games.playerTwo',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
             // Don't column-restrict trackerGame — Game has appended attributes
             // (season_label) that need other columns to compute.
             'rounds.games.trackerGame',
@@ -75,7 +76,17 @@ class TournamentController extends Controller
 
         $standings = $this->standings->compute($tournament);
 
-        // Resolve each round's deployment/strategy/schemes into full objects with images
+        // Fetch every scheme referenced by any round in a single query instead
+        // of one query per round (previously N+1).
+        $allSchemeIds = collect($tournament->rounds)
+            ->flatMap(fn (TournamentRound $r) => is_array($r->scheme_pool) ? $r->scheme_pool : [])
+            ->unique()
+            ->values()
+            ->all();
+        $schemesById = empty($allSchemeIds)
+            ? collect()
+            : Scheme::whereIn('id', $allSchemeIds)->get()->keyBy('id');
+
         $roundsData = [];
         foreach ($tournament->rounds as $round) {
             /** @var TournamentRound $round */
@@ -103,23 +114,19 @@ class TournamentController extends Controller
                 ];
             }
 
-            /** @var array|null $schemePool */
-            $schemePool = $round->scheme_pool;
             $schemes = [];
-            if (is_array($schemePool) && count($schemePool) > 0) {
-                $schemeModels = Scheme::whereIn('id', $schemePool)->get();
-                foreach ($schemePool as $id) {
-                    $s = $schemeModels->firstWhere('id', $id);
-                    if ($s) {
-                        $schemes[] = [
-                            'id' => $s->id,
-                            'name' => $s->name,
-                            'image_url' => $s->image_url,
-                            'prerequisite' => $s->prerequisite,
-                            'reveal' => $s->reveal,
-                            'scoring' => $s->scoring,
-                        ];
-                    }
+            foreach ((array) $round->scheme_pool as $id) {
+                /** @var Scheme|null $s */
+                $s = $schemesById->get($id);
+                if ($s) {
+                    $schemes[] = [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'image_url' => $s->image_url,
+                        'prerequisite' => $s->prerequisite,
+                        'reveal' => $s->reveal,
+                        'scoring' => $s->scoring,
+                    ];
                 }
             }
 
@@ -136,7 +143,7 @@ class TournamentController extends Controller
             ];
         }
 
-        // Unset loaded rounds/rsvps to avoid double-serializing with the custom roundsData
+        // Unset loaded rounds to avoid double-serializing alongside roundsData.
         $tournament->unsetRelation('rounds');
 
         return inertia('Tournaments/View', [
@@ -213,8 +220,8 @@ class TournamentController extends Controller
             'players.user.meta:id,name',
             'players.meta:id,name',
             'rsvps.user:id,name',
-            'rounds.games.playerOne',
-            'rounds.games.playerTwo',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
             'rounds.strategy:id,name',
             'organizers:id,name',
         ]);
@@ -226,12 +233,39 @@ class TournamentController extends Controller
             'label' => $s->label(),
         ]);
 
-        // Masters grouped by name with titles
-        $masters = function () {
+        // Reference data needed for editing (scenario picker, score dialog, master
+        // dropdown) — deferred so the page renders immediately and these batch
+        // in a follow-up request. Grouped under "scenario" so the Inertia client
+        // fires one extra request for all three instead of three separate ones.
+        $strategiesDeferred = Inertia::defer(function () use ($tournament) {
+            /** @var \App\Enums\PoolSeasonEnum $season */
+            $season = $tournament->season;
+            $results = [];
+            foreach (Strategy::forSeason($season)->orderBy('name')->get() as $s) {
+                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url];
+            }
+
+            return $results;
+        }, 'scenario');
+
+        $schemesDeferred = Inertia::defer(function () use ($tournament) {
+            /** @var \App\Enums\PoolSeasonEnum $season */
+            $season = $tournament->season;
+            $results = [];
+            foreach (Scheme::forSeason($season)->orderBy('name')->get() as $s) {
+                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite, 'reveal' => $s->reveal, 'scoring' => $s->scoring];
+            }
+
+            return $results;
+        }, 'scenario');
+
+        // Masters grouped by name with titles — only used in the score-entry
+        // dialog, so defer under its own group.
+        $mastersDeferred = Inertia::defer(function () {
             $characters = \App\Models\Character::standard()->where('station', 'master')
                 ->where('is_hidden', false)
                 ->orderBy('name')->orderBy('title')
-                ->get();
+                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
 
             $grouped = [];
             foreach ($characters->groupBy('name') as $name => $group) {
@@ -249,7 +283,7 @@ class TournamentController extends Controller
             }
 
             return $grouped; // @phpstan-ignore return.type
-        };
+        }, 'masters');
 
         return inertia('Tournaments/Manage', [
             'tournament' => $tournament,
@@ -257,28 +291,13 @@ class TournamentController extends Controller
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
             'encounter_types' => collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
-            'masters' => $masters,
-            'all_strategies' => function () use ($tournament) {
-                /** @var \App\Enums\PoolSeasonEnum $season */
-                $season = $tournament->season;
-                $results = [];
-                foreach (Strategy::forSeason($season)->orderBy('name')->get() as $s) {
-                    $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url];
-                }
-
-                return $results;
-            },
-            'all_schemes' => function () use ($tournament) {
-                /** @var \App\Enums\PoolSeasonEnum $season */
-                $season = $tournament->season;
-                $results = [];
-                foreach (Scheme::forSeason($season)->orderBy('name')->get() as $s) {
-                    $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite, 'reveal' => $s->reveal, 'scoring' => $s->scoring];
-                }
-
-                return $results;
-            },
-            'all_deployments' => fn () => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
+            'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
+            // Deferred below — page renders without these, a follow-up request
+            // fills them in. Grouping means strategies + schemes batch into one
+            // request, masters into another.
+            'all_strategies' => $strategiesDeferred,
+            'all_schemes' => $schemesDeferred,
+            'masters' => $mastersDeferred,
         ]);
     }
 

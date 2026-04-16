@@ -121,9 +121,18 @@ onMounted(async () => {
             </div>
 
             <!-- Scheme / Strategy / Deployment with image -->
-            <div v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image" class="flex justify-center">
+            <div
+                v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image"
+                class="flex justify-center"
+            >
                 <div class="w-full max-w-72">
-                    <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" loading="lazy" decoding="async" />
+                    <img
+                        :src="entityData.image as string"
+                        :alt="(entityData.name ?? displayName) as string"
+                        class="w-full rounded-lg"
+                        loading="lazy"
+                        decoding="async"
+                    />
                     <div class="mt-2 text-center">
                         <Button v-if="entityData.link" size="sm" @click="navigateToEntity">View Details</Button>
                     </div>
@@ -201,7 +210,13 @@ onMounted(async () => {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div v-if="entityData.front_image" class="size-16 shrink-0 overflow-hidden rounded-md">
-                            <img :src="'/storage/' + entityData.front_image" :alt="(entityData.name ?? displayName) as string" class="h-full w-full object-cover" loading="lazy" decoding="async" />
+                            <img
+                                :src="'/storage/' + entityData.front_image"
+                                :alt="(entityData.name ?? displayName) as string"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                            />
                         </div>
                         <Package v-else class="size-8 shrink-0 text-muted-foreground" />
                         <div>
@@ -249,7 +264,9 @@ onMounted(async () => {
             >
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline">Keyword</Badge>
+                        <Badge class="border-0 bg-green-100 text-xs text-green-800 dark:bg-green-900 dark:text-green-200" variant="outline"
+                            >Keyword</Badge
+                        >
                         <span class="text-lg font-semibold">{{ entityData.name ?? displayName }}</span>
                     </div>
                     <Button v-if="entityData.link" size="sm" variant="outline" @click.stop="navigateToEntity">View Keyword</Button>
@@ -279,13 +296,26 @@ onMounted(async () => {
             >
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <img v-if="entityData.logo" :src="entityData.logo as string" :alt="entityData.name as string" class="size-10" loading="lazy" decoding="async" />
+                        <img
+                            v-if="entityData.logo"
+                            :src="entityData.logo as string"
+                            :alt="entityData.name as string"
+                            class="size-10"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <div>
                             <div class="text-lg font-semibold">{{ entityData.name ?? displayName }}</div>
                             <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                <span v-if="entityData.masters_count">{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span>
-                                <span v-if="entityData.characters_count">{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span>
-                                <span v-if="entityData.keywords_count">{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span>
+                                <span v-if="entityData.masters_count"
+                                    >{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span
+                                >
+                                <span v-if="entityData.characters_count"
+                                    >{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span
+                                >
+                                <span v-if="entityData.keywords_count"
+                                    >{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span
+                                >
                             </div>
                         </div>
                     </div>

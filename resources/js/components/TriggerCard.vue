@@ -29,7 +29,10 @@ const props = defineProps<{
 }>();
 
 const uniqueCharacters = computed(() => {
-    const map = new Map<number, { display_name: string; slug: string; faction: string | null; standard_miniatures?: { id: number; slug: string }[] }>();
+    const map = new Map<
+        number,
+        { display_name: string; slug: string; faction: string | null; standard_miniatures?: { id: number; slug: string }[] }
+    >();
     for (const action of props.trigger.actions ?? []) {
         for (const char of action.characters ?? []) {
             if (!map.has(char.id)) {
@@ -79,10 +82,7 @@ const characterCount = computed(() => uniqueCharacters.value.length);
                         </Link>
                     </template>
                     <template v-else-if="characterCount > 1">
-                        <Link
-                            :href="route('search.view', { trigger: trigger.name })"
-                            class="text-primary hover:underline"
-                        >
+                        <Link :href="route('search.view', { trigger: trigger.name })" class="text-primary hover:underline">
                             {{ characterCount }} characters
                         </Link>
                     </template>
@@ -98,9 +98,7 @@ const characterCount = computed(() => uniqueCharacters.value.length);
                 <template v-if="(trigger.actions_count ?? trigger.actions?.length ?? 0) === 1 && trigger.actions?.length === 1">
                     {{ trigger.actions[0].name }}
                 </template>
-                <template v-else>
-                    {{ trigger.actions_count ?? trigger.actions?.length ?? 0 }} Actions
-                </template>
+                <template v-else> {{ trigger.actions_count ?? trigger.actions?.length ?? 0 }} Actions </template>
             </Link>
         </div>
     </Card>

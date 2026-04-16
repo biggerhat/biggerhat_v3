@@ -52,7 +52,9 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
 <template>
     <div v-if="hasContent" class="container mx-auto mb-2 sm:px-4">
         <Collapsible v-model:open="open">
-            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent/50">
+            <CollapsibleTrigger
+                class="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent/50"
+            >
                 <div class="flex items-center gap-2">
                     <span>Resources</span>
                     <Badge variant="secondary" class="px-1.5 py-0 text-[10px]">{{ totalCount }}</Badge>
@@ -102,7 +104,12 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                                     rel="noopener noreferrer"
                                     class="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                                 >
-                                    <img v-if="t.channel?.image" :src="'/storage/' + t.channel.image" :alt="t.channel.name" class="mt-0.5 size-5 shrink-0 rounded" />
+                                    <img
+                                        v-if="t.channel?.image"
+                                        :src="'/storage/' + t.channel.image"
+                                        :alt="t.channel.name"
+                                        class="mt-0.5 size-5 shrink-0 rounded"
+                                    />
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium leading-tight">{{ t.title }}</div>
                                         <div class="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">

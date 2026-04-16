@@ -74,7 +74,7 @@ const form = reactive({
     type: props.upgrade?.type ?? '',
     faction: props.upgrade?.faction ?? 'none',
     limitations: props.upgrade?.limitations ?? '',
-    plentiful: props.upgrade?.plentiful ?? null as number | null,
+    plentiful: props.upgrade?.plentiful ?? (null as number | null),
     master_name: props.upgrade?.master_name ?? '',
     keyword_name: props.upgrade?.keyword_name ?? '',
     notes: props.upgrade?.notes ?? '',
@@ -297,7 +297,8 @@ const save = async () => {
 
     const normalizedBlocks = contentBlocks.map((b) => {
         if (b.type === 'action' && b.data) return { ...b, data: normalizeActionData(b.data) };
-        if (b.type === 'trigger' && b.data) return { ...b, data: { ...b.data, stone_cost: b.data.stone_cost === '' || b.data.stone_cost == null ? 0 : b.data.stone_cost } };
+        if (b.type === 'trigger' && b.data)
+            return { ...b, data: { ...b.data, stone_cost: b.data.stone_cost === '' || b.data.stone_cost == null ? 0 : b.data.stone_cost } };
         return b;
     });
 
@@ -346,7 +347,12 @@ const blockTypeLabel = (type: string) => {
 };
 
 const blockTypeColor = (type: string) => {
-    const map: Record<string, string> = { text: 'bg-muted', ability: 'bg-blue-500/10 border-blue-500/20', action: 'bg-amber-500/10 border-amber-500/20', trigger: 'bg-purple-500/10 border-purple-500/20' };
+    const map: Record<string, string> = {
+        text: 'bg-muted',
+        ability: 'bg-blue-500/10 border-blue-500/20',
+        action: 'bg-amber-500/10 border-amber-500/20',
+        trigger: 'bg-purple-500/10 border-purple-500/20',
+    };
     return map[type] ?? 'bg-muted';
 };
 </script>
@@ -355,7 +361,10 @@ const blockTypeColor = (type: string) => {
     <Head :title="isEdit ? `Edit — ${upgrade!.name}` : `New Custom ${domainLabel}`" />
 
     <div class="relative pb-12">
-        <div class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]" :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }" />
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
 
         <PageBanner :title="isEdit ? `Edit ${domainLabel}` : `New Custom ${domainLabel}`">
             <template #subtitle>
@@ -375,7 +384,6 @@ const blockTypeColor = (type: string) => {
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Form column -->
                 <div class="space-y-4 lg:col-span-2">
-
                     <!-- Identity -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
@@ -404,12 +412,18 @@ const blockTypeColor = (type: string) => {
                                         @focus="showTypeSuggestions = true"
                                         @blur="window.setTimeout(() => (showTypeSuggestions = false), 150)"
                                     />
-                                    <div v-if="showTypeSuggestions && typeSuggestions.length" class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                                    <div
+                                        v-if="showTypeSuggestions && typeSuggestions.length"
+                                        class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                                    >
                                         <button
                                             v-for="t in typeSuggestions"
                                             :key="t.value"
                                             class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                            @mousedown.prevent="form.type = t.name; showTypeSuggestions = false"
+                                            @mousedown.prevent="
+                                                form.type = t.name;
+                                                showTypeSuggestions = false;
+                                            "
                                         >
                                             {{ t.name }}
                                             <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
@@ -424,12 +438,18 @@ const blockTypeColor = (type: string) => {
                                         @focus="showLimitationsSuggestions = true"
                                         @blur="window.setTimeout(() => (showLimitationsSuggestions = false), 150)"
                                     />
-                                    <div v-if="showLimitationsSuggestions && limitationsSuggestions.length" class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                                    <div
+                                        v-if="showLimitationsSuggestions && limitationsSuggestions.length"
+                                        class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                                    >
                                         <button
                                             v-for="l in limitationsSuggestions"
                                             :key="l.value"
                                             class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                            @mousedown.prevent="form.limitations = l.name; showLimitationsSuggestions = false"
+                                            @mousedown.prevent="
+                                                form.limitations = l.name;
+                                                showLimitationsSuggestions = false;
+                                            "
                                         >
                                             {{ l.name }}
                                             <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
@@ -458,51 +478,112 @@ const blockTypeColor = (type: string) => {
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
                                     <div class="mt-3 space-y-3">
-                                        <p class="text-[11px] text-muted-foreground">Add text prefaces and game elements in the order they should appear on the card.</p>
+                                        <p class="text-[11px] text-muted-foreground">
+                                            Add text prefaces and game elements in the order they should appear on the card.
+                                        </p>
 
                                         <!-- Search official -->
                                         <div class="relative">
-                                            <Input placeholder="Search official abilities, actions, or triggers..." class="h-8 text-xs" @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)" />
-                                            <div v-if="searchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                <button v-for="r in searchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickSearchResult(r)">
+                                            <Input
+                                                placeholder="Search official abilities, actions, or triggers..."
+                                                class="h-8 text-xs"
+                                                @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)"
+                                            />
+                                            <div
+                                                v-if="searchResults.length"
+                                                class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                            >
+                                                <button
+                                                    v-for="r in searchResults"
+                                                    :key="r.id"
+                                                    class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                    @click="pickSearchResult(r)"
+                                                >
                                                     <span class="font-medium">{{ r.name }}</span>
-                                                    <span v-if="r.description" class="ml-2 text-xs text-muted-foreground">{{ r.description?.slice(0, 50) }}...</span>
+                                                    <span v-if="r.description" class="ml-2 text-xs text-muted-foreground"
+                                                        >{{ r.description?.slice(0, 50) }}...</span
+                                                    >
                                                 </button>
                                             </div>
                                         </div>
 
                                         <!-- Add buttons -->
                                         <div class="flex flex-wrap gap-1.5">
-                                            <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addTextBlock"><Plus class="mr-1 size-3" /> Text</Button>
-                                            <Button variant="outline" size="sm" class="h-7 border-blue-500/30 text-[11px] text-blue-600 dark:text-blue-400" @click="addAbilityBlock"><Plus class="mr-1 size-3" /> Ability</Button>
-                                            <Button variant="outline" size="sm" class="h-7 border-amber-500/30 text-[11px] text-amber-600 dark:text-amber-400" @click="addActionBlock"><Plus class="mr-1 size-3" /> Action</Button>
-                                            <Button variant="outline" size="sm" class="h-7 border-purple-500/30 text-[11px] text-purple-600 dark:text-purple-400" @click="addTriggerBlock"><Plus class="mr-1 size-3" /> Trigger</Button>
+                                            <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addTextBlock"
+                                                ><Plus class="mr-1 size-3" /> Text</Button
+                                            >
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                class="h-7 border-blue-500/30 text-[11px] text-blue-600 dark:text-blue-400"
+                                                @click="addAbilityBlock"
+                                                ><Plus class="mr-1 size-3" /> Ability</Button
+                                            >
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                class="h-7 border-amber-500/30 text-[11px] text-amber-600 dark:text-amber-400"
+                                                @click="addActionBlock"
+                                                ><Plus class="mr-1 size-3" /> Action</Button
+                                            >
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                class="h-7 border-purple-500/30 text-[11px] text-purple-600 dark:text-purple-400"
+                                                @click="addTriggerBlock"
+                                                ><Plus class="mr-1 size-3" /> Trigger</Button
+                                            >
                                         </div>
 
                                         <!-- Block list -->
-                                        <div v-for="(block, idx) in contentBlocks" :key="'block-' + idx" class="rounded-lg border p-3" :class="blockTypeColor(block.type)">
+                                        <div
+                                            v-for="(block, idx) in contentBlocks"
+                                            :key="'block-' + idx"
+                                            class="rounded-lg border p-3"
+                                            :class="blockTypeColor(block.type)"
+                                        >
                                             <div class="mb-2 flex items-center justify-between">
                                                 <div class="flex items-center gap-2">
                                                     <div class="flex flex-col">
-                                                        <button class="text-muted-foreground hover:text-foreground disabled:opacity-30" :disabled="idx === 0" @click="moveBlockUp(idx)"><ChevronDown class="size-3 rotate-180" /></button>
-                                                        <button class="text-muted-foreground hover:text-foreground disabled:opacity-30" :disabled="idx === contentBlocks.length - 1" @click="moveBlockDown(idx)"><ChevronDown class="size-3" /></button>
+                                                        <button
+                                                            class="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                                            :disabled="idx === 0"
+                                                            @click="moveBlockUp(idx)"
+                                                        >
+                                                            <ChevronDown class="size-3 rotate-180" />
+                                                        </button>
+                                                        <button
+                                                            class="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                                            :disabled="idx === contentBlocks.length - 1"
+                                                            @click="moveBlockDown(idx)"
+                                                        >
+                                                            <ChevronDown class="size-3" />
+                                                        </button>
                                                     </div>
                                                     <Badge variant="outline" class="text-[9px]">{{ blockTypeLabel(block.type) }}</Badge>
                                                     <span v-if="block.data?.source_id" class="text-[9px] text-muted-foreground">(Official)</span>
                                                 </div>
-                                                <button class="text-muted-foreground hover:text-destructive" @click="removeBlock(idx)"><Trash2 class="size-3.5" /></button>
+                                                <button class="text-muted-foreground hover:text-destructive" @click="removeBlock(idx)">
+                                                    <Trash2 class="size-3.5" />
+                                                </button>
                                             </div>
 
                                             <!-- Text block -->
                                             <div v-if="block.type === 'text'">
-                                                <Input v-model="block.text" placeholder="e.g. This model gains the following ability:" class="h-8 text-xs italic" />
+                                                <Input
+                                                    v-model="block.text"
+                                                    placeholder="e.g. This model gains the following ability:"
+                                                    class="h-8 text-xs italic"
+                                                />
                                             </div>
 
                                             <!-- Ability block -->
                                             <div v-else-if="block.type === 'ability'" class="space-y-2">
                                                 <template v-if="block.data?.source_id">
                                                     <div class="text-sm font-medium">{{ block.data.name }}</div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">{{ block.data.description }}</div>
+                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
+                                                        {{ block.data.description }}
+                                                    </div>
                                                 </template>
                                                 <template v-else>
                                                     <Input v-model="block.data!.name" placeholder="Ability name" class="h-7 text-sm font-medium" />
@@ -511,11 +592,15 @@ const blockTypeColor = (type: string) => {
                                                             <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Suit" /></SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="none">None</SelectItem>
-                                                                <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{ s.name }}</SelectItem>
+                                                                <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{
+                                                                    s.name
+                                                                }}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                         <Select v-model="block.data!.defensive_ability_type">
-                                                            <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Defense type" /></SelectTrigger>
+                                                            <SelectTrigger class="h-7 text-xs"
+                                                                ><SelectValue placeholder="Defense type"
+                                                            /></SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="none">None</SelectItem>
                                                             </SelectContent>
@@ -525,7 +610,12 @@ const blockTypeColor = (type: string) => {
                                                             Costs Soulstone
                                                         </label>
                                                     </div>
-                                                    <Textarea v-model="block.data!.description" placeholder="Ability description..." rows="2" class="text-xs" />
+                                                    <Textarea
+                                                        v-model="block.data!.description"
+                                                        placeholder="Ability description..."
+                                                        rows="2"
+                                                        class="text-xs"
+                                                    />
                                                 </template>
                                             </div>
 
@@ -537,11 +627,15 @@ const blockTypeColor = (type: string) => {
                                                         <Badge class="text-[9px]">{{ block.data.type }}</Badge>
                                                     </div>
                                                     <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                                                        <span v-if="block.data.range != null">Rg {{ formatRange(block.data.range as number | string | null | undefined) }}</span>
+                                                        <span v-if="block.data.range != null"
+                                                            >Rg {{ formatRange(block.data.range as number | string | null | undefined) }}</span
+                                                        >
                                                         <span v-if="block.data.stat != null">Stat {{ block.data.stat }}</span>
                                                         <span v-if="block.data.damage">Dmg {{ block.data.damage }}</span>
                                                     </div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">{{ block.data.description }}</div>
+                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
+                                                        {{ block.data.description }}
+                                                    </div>
                                                 </template>
                                                 <template v-else>
                                                     <Input v-model="block.data!.name" placeholder="Action name" class="h-7 text-sm font-medium" />
@@ -551,17 +645,19 @@ const blockTypeColor = (type: string) => {
                                                             <Select v-model="block.data!.type">
                                                                 <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
                                                                 <SelectContent>
-                                                                    <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
+                                                                    <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
+                                                                        t.name
+                                                                    }}</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Range</label>
-                                                            <Input v-model="block.data!.range" placeholder='e.g. 2, *, X' class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                            <Input v-model="block.data!.stat" placeholder='e.g. 5, X' class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Resisted By</label>
@@ -569,14 +665,19 @@ const blockTypeColor = (type: string) => {
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">TN</label>
-                                                            <Input v-model="block.data!.target_number" placeholder='e.g. 12' class="h-7 text-xs" />
+                                                            <Input v-model="block.data!.target_number" placeholder="e.g. 12" class="h-7 text-xs" />
                                                         </div>
                                                         <div>
                                                             <label class="text-[10px] text-muted-foreground">Damage</label>
                                                             <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
                                                         </div>
                                                     </div>
-                                                    <Textarea v-model="block.data!.description" placeholder="Action description..." rows="2" class="text-xs" />
+                                                    <Textarea
+                                                        v-model="block.data!.description"
+                                                        placeholder="Action description..."
+                                                        rows="2"
+                                                        class="text-xs"
+                                                    />
                                                 </template>
                                             </div>
 
@@ -587,11 +688,17 @@ const blockTypeColor = (type: string) => {
                                                         <span v-if="block.data.suits" class="text-muted-foreground">{{ block.data.suits }}</span>
                                                         {{ block.data.name }}
                                                     </div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">{{ block.data.description }}</div>
+                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
+                                                        {{ block.data.description }}
+                                                    </div>
                                                 </template>
                                                 <template v-else>
                                                     <div class="flex items-center gap-2">
-                                                        <Input v-model="block.data!.name" placeholder="Trigger name" class="h-7 text-sm font-medium" />
+                                                        <Input
+                                                            v-model="block.data!.name"
+                                                            placeholder="Trigger name"
+                                                            class="h-7 text-sm font-medium"
+                                                        />
                                                         <Input v-model="block.data!.suits" placeholder="Suits" class="h-7 w-28 text-xs" />
                                                     </div>
                                                     <Input v-model="block.data!.description" placeholder="Trigger description" class="h-7 text-xs" />
@@ -611,7 +718,9 @@ const blockTypeColor = (type: string) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge v-if="backTokens.length + backMarkers.length" variant="secondary" class="text-[10px]">{{ backTokens.length + backMarkers.length }}</Badge>
+                                        <Badge v-if="backTokens.length + backMarkers.length" variant="secondary" class="text-[10px]">{{
+                                            backTokens.length + backMarkers.length
+                                        }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
@@ -621,32 +730,63 @@ const blockTypeColor = (type: string) => {
                                         <div>
                                             <div class="mb-2 flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Tokens</label>
-                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addToken"><Plus class="mr-1 size-3" /> Custom</Button>
+                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addToken"
+                                                    ><Plus class="mr-1 size-3" /> Custom</Button
+                                                >
                                             </div>
                                             <div class="relative mb-2">
-                                                <Input placeholder="Search official tokens..." class="h-8 text-xs" @input="(e: Event) => searchTokens((e.target as HTMLInputElement).value)" />
-                                                <div v-if="tokenSearchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                    <button v-for="r in tokenSearchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickToken(r)">
+                                                <Input
+                                                    placeholder="Search official tokens..."
+                                                    class="h-8 text-xs"
+                                                    @input="(e: Event) => searchTokens((e.target as HTMLInputElement).value)"
+                                                />
+                                                <div
+                                                    v-if="tokenSearchResults.length"
+                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                                >
+                                                    <button
+                                                        v-for="r in tokenSearchResults"
+                                                        :key="r.id"
+                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                        @click="pickToken(r)"
+                                                    >
                                                         <span class="font-medium">{{ r.name }}</span>
                                                         <Badge variant="outline" class="ml-2 px-1 py-0 text-[8px]">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div v-for="(token, tIdx) in backTokens" :key="'token-' + tIdx" class="mb-2 flex items-start gap-2 rounded-lg border p-2">
+                                            <div
+                                                v-for="(token, tIdx) in backTokens"
+                                                :key="'token-' + tIdx"
+                                                class="mb-2 flex items-start gap-2 rounded-lg border p-2"
+                                            >
                                                 <div class="flex-1 space-y-1">
                                                     <template v-if="token.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ token.name }}</span>
                                                             <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
                                                         </div>
-                                                        <div v-if="token.description" class="text-xs text-muted-foreground">{{ token.description }}</div>
+                                                        <div v-if="token.description" class="text-xs text-muted-foreground">
+                                                            {{ token.description }}
+                                                        </div>
                                                     </template>
                                                     <template v-else>
-                                                        <Input v-model="token.name" placeholder="Token name (e.g. Fast, Shielded)" class="h-7 text-xs font-medium" />
-                                                        <Textarea v-model="token.description" placeholder="Token effect description..." rows="2" class="text-xs" />
+                                                        <Input
+                                                            v-model="token.name"
+                                                            placeholder="Token name (e.g. Fast, Shielded)"
+                                                            class="h-7 text-xs font-medium"
+                                                        />
+                                                        <Textarea
+                                                            v-model="token.description"
+                                                            placeholder="Token effect description..."
+                                                            rows="2"
+                                                            class="text-xs"
+                                                        />
                                                     </template>
                                                 </div>
-                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeToken(tIdx)"><Trash2 class="size-3.5" /></button>
+                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeToken(tIdx)">
+                                                    <Trash2 class="size-3.5" />
+                                                </button>
                                             </div>
                                         </div>
 
@@ -654,32 +794,59 @@ const blockTypeColor = (type: string) => {
                                         <div>
                                             <div class="mb-2 flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Markers</label>
-                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addMarker"><Plus class="mr-1 size-3" /> Custom</Button>
+                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addMarker"
+                                                    ><Plus class="mr-1 size-3" /> Custom</Button
+                                                >
                                             </div>
                                             <div class="relative mb-2">
-                                                <Input placeholder="Search official markers..." class="h-8 text-xs" @input="(e: Event) => searchMarkers((e.target as HTMLInputElement).value)" />
-                                                <div v-if="markerSearchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                    <button v-for="r in markerSearchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickMarker(r)">
+                                                <Input
+                                                    placeholder="Search official markers..."
+                                                    class="h-8 text-xs"
+                                                    @input="(e: Event) => searchMarkers((e.target as HTMLInputElement).value)"
+                                                />
+                                                <div
+                                                    v-if="markerSearchResults.length"
+                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                                >
+                                                    <button
+                                                        v-for="r in markerSearchResults"
+                                                        :key="r.id"
+                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                        @click="pickMarker(r)"
+                                                    >
                                                         <span class="font-medium">{{ r.name }}</span>
                                                         <Badge variant="outline" class="ml-2 px-1 py-0 text-[8px]">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div v-for="(marker, mIdx) in backMarkers" :key="'marker-' + mIdx" class="mb-2 flex items-start gap-2 rounded-lg border p-2">
+                                            <div
+                                                v-for="(marker, mIdx) in backMarkers"
+                                                :key="'marker-' + mIdx"
+                                                class="mb-2 flex items-start gap-2 rounded-lg border p-2"
+                                            >
                                                 <div class="flex-1 space-y-1">
                                                     <template v-if="marker.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ marker.name }}</span>
                                                             <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
                                                         </div>
-                                                        <div v-if="marker.description" class="text-xs text-muted-foreground">{{ marker.description }}</div>
+                                                        <div v-if="marker.description" class="text-xs text-muted-foreground">
+                                                            {{ marker.description }}
+                                                        </div>
                                                     </template>
                                                     <template v-else>
                                                         <Input v-model="marker.name" placeholder="Marker name" class="h-7 text-xs font-medium" />
-                                                        <Textarea v-model="marker.description" placeholder="Marker description..." rows="2" class="text-xs" />
+                                                        <Textarea
+                                                            v-model="marker.description"
+                                                            placeholder="Marker description..."
+                                                            rows="2"
+                                                            class="text-xs"
+                                                        />
                                                     </template>
                                                 </div>
-                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeMarker(mIdx)"><Trash2 class="size-3.5" /></button>
+                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeMarker(mIdx)">
+                                                    <Trash2 class="size-3.5" />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -741,7 +908,9 @@ const blockTypeColor = (type: string) => {
         <div class="container mx-auto mt-4 px-4 lg:px-6">
             <div class="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2.5">
                 <div v-if="Object.keys(errors).length" class="text-xs text-destructive">Please fix validation errors above.</div>
-                <div v-else class="text-xs text-muted-foreground">{{ isEdit ? 'Editing ' + (form.name || domainLabel.toLowerCase()) : `New ${domainLabel.toLowerCase()}` }}</div>
+                <div v-else class="text-xs text-muted-foreground">
+                    {{ isEdit ? 'Editing ' + (form.name || domainLabel.toLowerCase()) : `New ${domainLabel.toLowerCase()}` }}
+                </div>
                 <Button :disabled="saving || !form.name" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />
                     <Save v-else class="mr-2 size-4" />

@@ -20,21 +20,53 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         title: 'Character & Model Lookup',
         icon: Search,
         commands: [
-            { name: '/mini', aliases: ['!mini'], description: 'Search for a character by name. Supports version filters: --alt, --special, --nightmare, --rotten, --promo', example: '/mini Lady Justice' },
+            {
+                name: '/mini',
+                aliases: ['!mini'],
+                description: 'Search for a character by name. Supports version filters: --alt, --special, --nightmare, --rotten, --promo',
+                example: '/mini Lady Justice',
+            },
             { name: '/miniature', description: 'Search for a specific sculpt variant of a miniature', example: '/miniature Rasputina Alt' },
-            { name: '/keyword', aliases: ['!keyword'], description: 'Look up a keyword and see all associated characters with station breakdown', example: '/keyword Redchapel' },
-            { name: '/faction', description: 'Show faction overview with character count, miniature count, and keyword count', example: '/faction Arcanists' },
+            {
+                name: '/keyword',
+                aliases: ['!keyword'],
+                description: 'Look up a keyword and see all associated characters with station breakdown',
+                example: '/keyword Redchapel',
+            },
+            {
+                name: '/faction',
+                description: 'Show faction overview with character count, miniature count, and keyword count',
+                example: '/faction Arcanists',
+            },
         ],
     },
     {
         title: 'Cards & Upgrades',
         icon: BookOpen,
         commands: [
-            { name: '/upgrade', aliases: ['!upgrade'], description: 'Search for character upgrades with card images', example: '/upgrade Inhuman Reflexes' },
-            { name: '/crew', aliases: ['!crew'], description: 'Search for crew-level upgrades and see associated characters', example: '/crew Seeker' },
-            { name: '/action', description: 'Look up game actions with full stat lines, triggers, and descriptions. Filter by Attack or Tactical', example: '/action Obey' },
+            {
+                name: '/upgrade',
+                aliases: ['!upgrade'],
+                description: 'Search for character upgrades with card images',
+                example: '/upgrade Inhuman Reflexes',
+            },
+            {
+                name: '/crew',
+                aliases: ['!crew'],
+                description: 'Search for crew-level upgrades and see associated characters',
+                example: '/crew Seeker',
+            },
+            {
+                name: '/action',
+                description: 'Look up game actions with full stat lines, triggers, and descriptions. Filter by Attack or Tactical',
+                example: '/action Obey',
+            },
             { name: '/ability', description: 'Search for character abilities with descriptions and soulstone costs', example: '/ability Armor' },
-            { name: '/trigger', description: 'Search for action triggers with descriptions and associated actions', example: '/trigger Critical Strike' },
+            {
+                name: '/trigger',
+                description: 'Search for action triggers with descriptions and associated actions',
+                example: '/trigger Critical Strike',
+            },
         ],
     },
     {
@@ -52,10 +84,23 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         title: 'Collections & Media',
         icon: MessageSquare,
         commands: [
-            { name: '/package', aliases: ['!package'], description: 'Search for product boxes with contents, factions, and store links', example: '/package Rasputina Core Box' },
-            { name: '/blueprint', description: 'Search for miniature assembly/sculpt guides with publication dates', example: '/blueprint Lady Justice' },
+            {
+                name: '/package',
+                aliases: ['!package'],
+                description: 'Search for product boxes with contents, factions, and store links',
+                example: '/package Rasputina Core Box',
+            },
+            {
+                name: '/blueprint',
+                description: 'Search for miniature assembly/sculpt guides with publication dates',
+                example: '/blueprint Lady Justice',
+            },
             { name: '/channel', description: 'Search for community media channels (YouTube, podcasts)', example: '/channel Third Floor Wars' },
-            { name: '/transmission', description: 'Search for videos, podcasts, and articles from community creators', example: '/transmission Malifaux' },
+            {
+                name: '/transmission',
+                description: 'Search for videos, podcasts, and articles from community creators',
+                example: '/transmission Malifaux',
+            },
         ],
     },
     {
@@ -102,8 +147,8 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                         <div class="flex-1">
                             <h2 class="text-xl font-bold">Hat Gamin</h2>
                             <p class="mt-1 text-sm text-muted-foreground">
-                                Look up characters, upgrades, keywords, schemes, strategies, and more — directly from Discord.
-                                Powered by the BiggerHat database with autocomplete search and card images.
+                                Look up characters, upgrades, keywords, schemes, strategies, and more — directly from Discord. Powered by the
+                                BiggerHat database with autocomplete search and card images.
                             </p>
                             <div class="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                                 <Badge variant="secondary">22 Commands</Badge>
@@ -128,21 +173,27 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                     <CardContent class="p-4 text-center">
                         <Search class="mx-auto mb-2 size-6 text-primary" />
                         <div class="font-semibold">Autocomplete Search</div>
-                        <p class="mt-1 text-xs text-muted-foreground">Start typing and get instant suggestions for characters, keywords, upgrades, and more</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Start typing and get instant suggestions for characters, keywords, upgrades, and more
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
                         <BookOpen class="mx-auto mb-2 size-6 text-primary" />
                         <div class="font-semibold">Card Images</div>
-                        <p class="mt-1 text-xs text-muted-foreground">View character cards, scheme cards, strategy cards, and upgrade cards right in Discord</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            View character cards, scheme cards, strategy cards, and upgrade cards right in Discord
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
                         <Zap class="mx-auto mb-2 size-6 text-primary" />
                         <div class="font-semibold">Fast & Cached</div>
-                        <p class="mt-1 text-xs text-muted-foreground">Results are cached for speed. Works with both slash commands and traditional ! prefix</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Results are cached for speed. Works with both slash commands and traditional ! prefix
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -158,14 +209,12 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                         </CardTitle>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
-                        <div
-                            v-for="cmd in category.commands"
-                            :key="cmd.name"
-                            class="border-t px-4 py-3 sm:px-6"
-                        >
+                        <div v-for="cmd in category.commands" :key="cmd.name" class="border-t px-4 py-3 sm:px-6">
                             <div class="flex flex-wrap items-center gap-2">
                                 <code class="rounded bg-primary/10 px-2 py-0.5 text-sm font-bold text-primary">{{ cmd.name }}</code>
-                                <Badge v-for="alias in cmd.aliases ?? []" :key="alias" variant="outline" class="font-mono text-[10px]">{{ alias }}</Badge>
+                                <Badge v-for="alias in cmd.aliases ?? []" :key="alias" variant="outline" class="font-mono text-[10px]">{{
+                                    alias
+                                }}</Badge>
                             </div>
                             <p class="mt-1 text-sm text-muted-foreground">{{ cmd.description }}</p>
                             <div v-if="cmd.example" class="mt-1.5">

@@ -155,13 +155,11 @@ watch(upgradeDrawerOpen, (val) => {
                     </div>
                     <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/70">
                         <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-white">
-                            {{ member.effective_cost ?? member.cost
-                            }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                            {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                             <span class="text-xs font-normal text-red-300">({{ member.cost - 1 }}+1)</span>
                         </span>
                         <span v-else class="flex items-center text-sm font-bold text-white">
-                            {{ member.effective_cost ?? member.cost
-                            }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                            {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                         </span>
                         <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-[10px]">
                             {{ categoryLabel(member.category) }}
@@ -261,9 +259,7 @@ watch(upgradeDrawerOpen, (val) => {
                     <DrawerTitle class="text-center">{{ upgradePreview.name }}</DrawerTitle>
                     <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
                 </DrawerHeader>
-                <div
-                    class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain"
-                >
+                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
                     <UpgradeFlipCard
                         :front-image="upgradePreview.front_image!"
                         :back-image="upgradePreview.back_image"

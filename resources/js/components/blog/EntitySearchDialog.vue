@@ -21,7 +21,8 @@ const props = withDefaults(
     }>(),
     {
         title: 'Link Entity',
-        description: 'Search for a character, keyword, faction, upgrade, action, ability, scheme, strategy, deployment, token, marker, or package to insert.',
+        description:
+            'Search for a character, keyword, faction, upgrade, action, ability, scheme, strategy, deployment, token, marker, or package to insert.',
     },
 );
 

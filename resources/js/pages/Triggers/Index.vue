@@ -211,7 +211,12 @@ const uniqueCharactersForTrigger = (trigger: any) => {
                                         <TableCell class="font-medium">
                                             <span class="inline-flex items-center gap-1">
                                                 <GameIcon v-if="trigger.suits" :type="trigger.suits" class-name="h-4 inline-block" />
-                                                <GameIcon v-for="n in trigger.stone_cost ?? 0" :key="n" type="soulstone" class-name="h-4 inline-block" />
+                                                <GameIcon
+                                                    v-for="n in trigger.stone_cost ?? 0"
+                                                    :key="n"
+                                                    type="soulstone"
+                                                    class-name="h-4 inline-block"
+                                                />
                                                 {{ trigger.name }}
                                             </span>
                                         </TableCell>

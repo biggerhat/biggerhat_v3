@@ -35,10 +35,11 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
     };
 
     /**
-     * Fetch wrapper — auto-attaches CSRF + JSON headers, surfaces server-side
-     * `error` payloads via showError(). Returns true on 2xx, false otherwise.
+     * Internal: the shared fetch + error-extract pipeline used by doAction and
+     * doModalAction. Returns { ok, error } where error is a user-facing string
+     * on failure. Callers decide whether to surface the error globally.
      */
-    const doAction = async (url: string, method: string = 'POST', body?: Record<string, unknown>): Promise<boolean> => {
+    const runAction = async (url: string, method: string, body?: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> => {
         try {
             const opts: RequestInit = {
                 method,
@@ -48,14 +49,41 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
             const res = await fetch(url, opts);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                showError(err.error ?? err.message ?? 'Action failed.');
-                return false;
+                return { ok: false, error: err.error ?? err.message ?? 'Action failed.' };
             }
-            return true;
+            return { ok: true, error: null };
         } catch {
-            showError('Network error. Please try again.');
-            return false;
+            return { ok: false, error: 'Network error. Please try again.' };
         }
+    };
+
+    /**
+     * Fetch wrapper — auto-attaches CSRF + JSON headers, surfaces server-side
+     * `error` payloads via showError() (the page-level banner). Returns true
+     * on 2xx, false otherwise.
+     *
+     * Use this for page-level actions. For actions fired from inside a dialog,
+     * prefer doModalAction() so the error shows INSIDE the dialog instead of
+     * on the (disabled) page behind it.
+     */
+    const doAction = async (url: string, method: string = 'POST', body?: Record<string, unknown>): Promise<boolean> => {
+        const { ok, error } = await runAction(url, method, body);
+        if (!ok && error) showError(error);
+        return ok;
+    };
+
+    /**
+     * Modal-friendly variant of doAction — returns { ok, error } and does NOT
+     * fire the page-level toast. The caller is responsible for displaying the
+     * error inside the open dialog. Without this, validation errors appear on
+     * the disabled page behind the modal where the user can't see them.
+     */
+    const doModalAction = async (
+        url: string,
+        method: string = 'POST',
+        body?: Record<string, unknown>,
+    ): Promise<{ ok: boolean; error: string | null }> => {
+        return runAction(url, method, body);
     };
 
     /**
@@ -104,6 +132,7 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
         actionError,
         showError,
         doAction,
+        doModalAction,
         reloadProps,
         playerMap,
         playerName,

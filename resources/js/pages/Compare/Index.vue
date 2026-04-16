@@ -169,10 +169,18 @@ watch(searchQuery, (q) => {
 
 const handleKeydown = (e: KeyboardEvent) => {
     if (!showResults.value) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); highlightIndex.value = Math.min(highlightIndex.value + 1, searchResults.value.length - 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); highlightIndex.value = Math.max(highlightIndex.value - 1, -1); }
-    else if (e.key === 'Enter' && highlightIndex.value >= 0) { e.preventDefault(); addCharacter(searchResults.value[highlightIndex.value].slug); }
-    else if (e.key === 'Escape') { showResults.value = false; }
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightIndex.value = Math.min(highlightIndex.value + 1, searchResults.value.length - 1);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightIndex.value = Math.max(highlightIndex.value - 1, -1);
+    } else if (e.key === 'Enter' && highlightIndex.value >= 0) {
+        e.preventDefault();
+        addCharacter(searchResults.value[highlightIndex.value].slug);
+    } else if (e.key === 'Escape') {
+        showResults.value = false;
+    }
 };
 
 onMounted(() => {
@@ -185,9 +193,14 @@ onMounted(() => {
 
 const factionColor = (faction: string) => {
     const map: Record<string, string> = {
-        arcanists: 'arcanists', bayou: 'bayou', guild: 'guild',
-        explorers_society: 'explorerssociety', neverborn: 'neverborn',
-        outcasts: 'outcasts', resurrectionists: 'resurrectionists', ten_thunders: 'tenthunders',
+        arcanists: 'arcanists',
+        bayou: 'bayou',
+        guild: 'guild',
+        explorers_society: 'explorerssociety',
+        neverborn: 'neverborn',
+        outcasts: 'outcasts',
+        resurrectionists: 'resurrectionists',
+        ten_thunders: 'tenthunders',
     };
     return map[faction] ?? faction;
 };
@@ -222,7 +235,10 @@ const factionColor = (faction: string) => {
                         @keydown="handleKeydown"
                         @blur="setTimeout(() => (showResults = false), 200)"
                     />
-                    <div v-if="showResults && searchResults.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
+                    <div
+                        v-if="showResults && searchResults.length"
+                        class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg"
+                    >
                         <button
                             v-for="(item, idx) in searchResults"
                             :key="item.id"
@@ -236,7 +252,7 @@ const factionColor = (faction: string) => {
                         </button>
                     </div>
                 </div>
-                <Button v-if="characters.length >= 2" variant="outline" size="sm" class="gap-1.5 shrink-0" @click="copyLink">
+                <Button v-if="characters.length >= 2" variant="outline" size="sm" class="shrink-0 gap-1.5" @click="copyLink">
                     <Copy class="size-3.5" />
                     {{ linkCopied ? 'Copied!' : 'Share' }}
                 </Button>
@@ -258,12 +274,27 @@ const factionColor = (faction: string) => {
 
             <!-- Comparison grid -->
             <div v-else>
-                <div class="grid gap-4" :class="characters.length === 1 ? 'grid-cols-1 max-w-sm' : characters.length === 2 ? 'grid-cols-2' : characters.length === 3 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'">
+                <div
+                    class="grid gap-4"
+                    :class="
+                        characters.length === 1
+                            ? 'max-w-sm grid-cols-1'
+                            : characters.length === 2
+                              ? 'grid-cols-2'
+                              : characters.length === 3
+                                ? 'grid-cols-2 lg:grid-cols-3'
+                                : 'grid-cols-2 lg:grid-cols-4'
+                    "
+                >
                     <div v-for="char in characters" :key="char.slug" class="min-w-0">
                         <!-- Header: image + name -->
                         <Card class="mb-3 overflow-hidden">
                             <div class="relative" :style="{ borderTop: `3px solid hsl(var(--${factionColor(char.faction)}))` }">
-                                <button class="absolute right-1 top-1 z-10 rounded-full bg-black/40 p-1 text-white/70 hover:bg-red-500/80 hover:text-white" aria-label="Remove" @click="removeCharacter(char.slug)">
+                                <button
+                                    class="absolute right-1 top-1 z-10 rounded-full bg-black/40 p-1 text-white/70 hover:bg-red-500/80 hover:text-white"
+                                    aria-label="Remove"
+                                    @click="removeCharacter(char.slug)"
+                                >
                                     <X class="size-3" />
                                 </button>
                                 <!-- XL: combo image (front + back side by side) -->
@@ -273,7 +304,13 @@ const factionColor = (faction: string) => {
                                 <!-- Smaller screens: flip card -->
                                 <div v-if="char.front_image" class="bg-muted/30 p-2" :class="char.combination_image ? 'xl:hidden' : ''">
                                     <CharacterCardView
-                                        :miniature="{ id: char.id, display_name: char.display_name, slug: char.slug, front_image: char.front_image, back_image: char.back_image }"
+                                        :miniature="{
+                                            id: char.id,
+                                            display_name: char.display_name,
+                                            slug: char.slug,
+                                            front_image: char.front_image,
+                                            back_image: char.back_image,
+                                        }"
                                         :show-link="false"
                                         :show-collection="false"
                                     />
@@ -282,7 +319,16 @@ const factionColor = (faction: string) => {
                             <CardContent class="p-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo :faction="char.faction" class-name="size-5 shrink-0" />
-                                    <Link :href="route('characters.view', { character: char.slug, miniature: char.miniature_id, slug: char.miniature_slug ?? char.slug })" class="min-w-0 truncate text-sm font-bold hover:text-primary hover:underline">
+                                    <Link
+                                        :href="
+                                            route('characters.view', {
+                                                character: char.slug,
+                                                miniature: char.miniature_id,
+                                                slug: char.miniature_slug ?? char.slug,
+                                            })
+                                        "
+                                        class="min-w-0 truncate text-sm font-bold hover:text-primary hover:underline"
+                                    >
                                         {{ char.display_name }}
                                     </Link>
                                 </div>
@@ -302,7 +348,11 @@ const factionColor = (faction: string) => {
                                         <div class="text-lg font-bold" :class="statClass(stat.key, (char as any)[stat.key])">
                                             <template v-if="(char as any)[stat.key] != null">
                                                 {{ (char as any)[stat.key] }}{{ stat.suffix ?? '' }}
-                                                <GameIcon v-if="(stat as any).suitKey && (char as any)[(stat as any).suitKey]" :type="(char as any)[(stat as any).suitKey]" class-name="inline-block h-4 ml-0.5" />
+                                                <GameIcon
+                                                    v-if="(stat as any).suitKey && (char as any)[(stat as any).suitKey]"
+                                                    :type="(char as any)[(stat as any).suitKey]"
+                                                    class-name="inline-block h-4 ml-0.5"
+                                                />
                                             </template>
                                             <span v-else class="text-muted-foreground/30">-</span>
                                         </div>
@@ -326,7 +376,9 @@ const factionColor = (faction: string) => {
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-muted-foreground">Triggers</span>
-                                        <span class="font-bold">{{ char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.length ?? 0), 0) }}</span>
+                                        <span class="font-bold">{{
+                                            char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.length ?? 0), 0)
+                                        }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-muted-foreground">Abilities</span>
@@ -334,11 +386,21 @@ const factionColor = (faction: string) => {
                                     </div>
                                     <div v-if="char.actions.some((a: any) => a.range)" class="flex justify-between">
                                         <span class="text-muted-foreground">Max Range</span>
-                                        <span class="font-bold">{{ Math.max(...char.actions.filter((a: any) => a.range).map((a: any) => parseInt(a.range) || 0)) }}"</span>
+                                        <span class="font-bold"
+                                            >{{
+                                                Math.max(...char.actions.filter((a: any) => a.range).map((a: any) => parseInt(a.range) || 0))
+                                            }}"</span
+                                        >
                                     </div>
                                     <div v-if="char.actions.some((a: any) => a.damage)" class="flex justify-between">
                                         <span class="text-muted-foreground">Max Damage</span>
-                                        <span class="font-bold">{{ char.actions.filter((a: any) => a.damage).map((a: any) => a.damage).sort().pop() }}</span>
+                                        <span class="font-bold">{{
+                                            char.actions
+                                                .filter((a: any) => a.damage)
+                                                .map((a: any) => a.damage)
+                                                .sort()
+                                                .pop()
+                                        }}</span>
                                     </div>
                                 </div>
                                 <!-- Trigger suit breakdown -->
@@ -346,9 +408,24 @@ const factionColor = (faction: string) => {
                                     <div class="mb-1 text-[10px] text-muted-foreground">Trigger Suits</div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <template v-for="suit in ['ram', 'crow', 'tome', 'mask']" :key="suit">
-                                            <span v-if="char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0), 0) > 0" class="flex items-center gap-0.5 text-xs">
+                                            <span
+                                                v-if="
+                                                    char.actions.reduce(
+                                                        (sum: number, a: any) =>
+                                                            sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0),
+                                                        0,
+                                                    ) > 0
+                                                "
+                                                class="flex items-center gap-0.5 text-xs"
+                                            >
                                                 <GameIcon :type="suit" class-name="inline-block h-3.5" />
-                                                <span class="font-bold">{{ char.actions.reduce((sum: number, a: any) => sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0), 0) }}</span>
+                                                <span class="font-bold">{{
+                                                    char.actions.reduce(
+                                                        (sum: number, a: any) =>
+                                                            sum + (a.triggers?.filter((t: any) => t.suits?.toLowerCase().includes(suit)).length ?? 0),
+                                                        0,
+                                                    )
+                                                }}</span>
                                             </span>
                                         </template>
                                     </div>
@@ -371,11 +448,12 @@ const factionColor = (faction: string) => {
                             <CardContent class="p-3">
                                 <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Characteristics</div>
                                 <div class="flex flex-wrap gap-1">
-                                    <Badge v-for="ch in char.characteristics" :key="ch" variant="outline" class="text-[10px] capitalize">{{ ch }}</Badge>
+                                    <Badge v-for="ch in char.characteristics" :key="ch" variant="outline" class="text-[10px] capitalize">{{
+                                        ch
+                                    }}</Badge>
                                 </div>
                             </CardContent>
                         </Card>
-
                     </div>
                 </div>
             </div>

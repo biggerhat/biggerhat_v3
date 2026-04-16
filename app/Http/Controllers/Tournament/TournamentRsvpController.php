@@ -6,19 +6,25 @@ use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentRsvp;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * RSVP actions live on the public View page, so we redirect back (Inertia-
+ * native) instead of returning JSON — the caller uses `router.post/delete`
+ * with `preserveScroll` and the resulting redirect transparently refreshes
+ * props.
+ */
 class TournamentRsvpController extends Controller
 {
     use BroadcastsTournamentUpdates;
 
-    public function store(Tournament $tournament): JsonResponse
+    public function store(Tournament $tournament): RedirectResponse
     {
         /** @var TournamentStatusEnum $status */
         $status = $tournament->status;
         if (! $status->allowsRsvp()) {
-            return response()->json(['error' => 'RSVP is not open for this tournament'], 422);
+            return back()->withErrors(['rsvp' => 'RSVP is not open for this tournament']);
         }
 
         $userId = Auth::id();
@@ -27,7 +33,7 @@ class TournamentRsvpController extends Controller
         }
 
         if ($tournament->rsvps()->where('user_id', $userId)->exists()) {
-            return response()->json(['error' => 'Already RSVPed'], 422);
+            return back()->withErrors(['rsvp' => 'Already RSVPed']);
         }
 
         TournamentRsvp::create([
@@ -37,10 +43,10 @@ class TournamentRsvpController extends Controller
 
         $this->broadcastUpdate($tournament, 'rsvp_added');
 
-        return response()->json(['success' => true]);
+        return back();
     }
 
-    public function destroy(Tournament $tournament): JsonResponse
+    public function destroy(Tournament $tournament): RedirectResponse
     {
         // Users can always withdraw their own RSVP, regardless of tournament phase.
         // This avoids the race where a TO advances to Active before a user cancels.
@@ -48,6 +54,6 @@ class TournamentRsvpController extends Controller
 
         $this->broadcastUpdate($tournament, 'rsvp_cancelled');
 
-        return response()->json(['success' => true]);
+        return back();
     }
 }

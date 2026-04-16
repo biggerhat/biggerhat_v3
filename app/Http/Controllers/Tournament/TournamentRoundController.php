@@ -91,6 +91,18 @@ class TournamentRoundController extends Controller
             return response()->json(['error' => 'Cannot delete a round that is in progress.'], 422);
         }
 
+        // Block deletion of a round that still has later rounds attached:
+        // canPairRound (and other round-N guards) assume round N-1 exists,
+        // so orphaning a middle round would strand every later round.
+        $hasLater = $tournament->rounds()
+            ->where('round_number', '>', $round->round_number)
+            ->exists();
+        if ($hasLater) {
+            return response()->json([
+                'error' => 'Delete the later rounds first — removing a middle round would strand the rounds that follow it.',
+            ], 422);
+        }
+
         // Also clean up any linked Game Tracker games to avoid orphans.
         $this->trackerGames->destroyForRound($round);
         $round->delete();

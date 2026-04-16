@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { getFactionVar } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameText from '@/components/GameText.vue';
-import { getFactionVar } from '@/components/CardCreator/utils';
 import { computed } from 'vue';
 
 interface TokenData {
@@ -34,7 +34,9 @@ const nameFontSize = computed(() => {
 });
 
 const contentScale = computed(() => {
-    const total = props.backTokens.reduce((sum, t) => sum + (t.description?.length ?? 0) + t.name.length, 0) + props.backMarkers.reduce((sum, m) => sum + (m.description?.length ?? 0) + m.name.length, 0);
+    const total =
+        props.backTokens.reduce((sum, t) => sum + (t.description?.length ?? 0) + t.name.length, 0) +
+        props.backMarkers.reduce((sum, m) => sum + (m.description?.length ?? 0) + m.name.length, 0);
     if (total > 1200) return 'scale-sm';
     if (total > 800) return 'scale-md';
     if (total > 400) return 'scale-lg';
@@ -96,7 +98,10 @@ const textSize = computed(() => {
             </div>
 
             <!-- Footer -->
-            <div class="px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-widest text-white/30" :style="{ background: `hsl(var(${factionVar}) / 0.1)` }">
+            <div
+                class="px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-widest text-white/30"
+                :style="{ background: `hsl(var(${factionVar}) / 0.1)` }"
+            >
                 Reference
             </div>
         </template>

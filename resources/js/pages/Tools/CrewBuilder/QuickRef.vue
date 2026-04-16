@@ -55,9 +55,7 @@ const printPage = () => window.print();
             <Button variant="ghost" size="sm" class="gap-1.5" @click="$inertia?.visit ? undefined : history.back()">
                 <ArrowLeft class="size-4" /> Back
             </Button>
-            <Button class="gap-1.5" @click="printPage">
-                <Printer class="size-4" /> Print Quick Reference
-            </Button>
+            <Button class="gap-1.5" @click="printPage"> <Printer class="size-4" /> Print Quick Reference </Button>
         </div>
     </div>
 
@@ -68,12 +66,11 @@ const printPage = () => window.print();
             <div>
                 <div class="text-lg font-bold print:text-sm">{{ crew.name }}</div>
                 <div class="text-xs text-muted-foreground print:text-[8px]">
-                    {{ crew.master }} &middot; {{ crew.faction.replace('_', ' ') }} &middot; {{ crew.encounter_size }}ss &middot; Pool: {{ crew.soulstone_pool }}ss
+                    {{ crew.master }} &middot; {{ crew.faction.replace('_', ' ') }} &middot; {{ crew.encounter_size }}ss &middot; Pool:
+                    {{ crew.soulstone_pool }}ss
                 </div>
             </div>
-            <div class="text-right text-xs text-muted-foreground print:text-[8px]">
-                {{ members.length }} models &middot; biggerhat.net
-            </div>
+            <div class="text-right text-xs text-muted-foreground print:text-[8px]">{{ members.length }} models &middot; biggerhat.net</div>
         </div>
 
         <!-- Model cards in 2-column grid -->
@@ -91,8 +88,14 @@ const printPage = () => window.print();
 
                 <!-- Stat line -->
                 <div class="mb-1.5 flex gap-3 text-[10px] font-medium print:text-[8px]">
-                    <span>Df {{ member.defense }}<template v-if="member.defense_suit"><GameIcon :type="member.defense_suit" class-name="inline-block h-2.5" /></template></span>
-                    <span>Wp {{ member.willpower }}<template v-if="member.willpower_suit"><GameIcon :type="member.willpower_suit" class-name="inline-block h-2.5" /></template></span>
+                    <span
+                        >Df {{ member.defense
+                        }}<template v-if="member.defense_suit"><GameIcon :type="member.defense_suit" class-name="inline-block h-2.5" /></template
+                    ></span>
+                    <span
+                        >Wp {{ member.willpower
+                        }}<template v-if="member.willpower_suit"><GameIcon :type="member.willpower_suit" class-name="inline-block h-2.5" /></template
+                    ></span>
                     <span>Spd {{ member.speed }}</span>
                     <span>Hp {{ member.health }}</span>
                     <span v-if="member.size">Sz {{ member.size }}</span>
@@ -110,8 +113,12 @@ const printPage = () => window.print();
                             <GameIcon v-if="ab.suits" :type="ab.suits" class-name="inline-block h-2.5" />
                             {{ ab.name }}
                         </span>
-                        <span v-if="ab.defensive_ability_type" class="text-[9px] text-muted-foreground print:text-[7px]"> ({{ ab.defensive_ability_type }})</span>
-                        <span v-if="ab.description" class="text-muted-foreground"> - <GameText :text="ab.description" icon-class="h-2.5 inline-block align-text-bottom" /></span>
+                        <span v-if="ab.defensive_ability_type" class="text-[9px] text-muted-foreground print:text-[7px]">
+                            ({{ ab.defensive_ability_type }})</span
+                        >
+                        <span v-if="ab.description" class="text-muted-foreground">
+                            - <GameText :text="ab.description" icon-class="h-2.5 inline-block align-text-bottom"
+                        /></span>
                     </div>
                 </div>
 
@@ -121,7 +128,9 @@ const printPage = () => window.print();
                         <div class="flex items-baseline gap-1">
                             <GameIcon v-if="action.type" :type="action.type" class-name="inline-block h-2.5 shrink-0" />
                             <span class="font-bold">{{ action.name }}</span>
-                            <span v-if="action.stat" class="text-muted-foreground">{{ action.stat }}<GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="inline-block h-2.5" /></span>
+                            <span v-if="action.stat" class="text-muted-foreground"
+                                >{{ action.stat }}<GameIcon v-if="action.stat_suits" :type="action.stat_suits" class-name="inline-block h-2.5"
+                            /></span>
                             <span v-if="action.range" class="text-muted-foreground">Rg {{ action.range }}</span>
                             <span v-if="action.damage" class="text-muted-foreground">Dmg {{ action.damage }}</span>
                         </div>
@@ -132,7 +141,9 @@ const printPage = () => window.print();
                             <div v-for="t in action.triggers" :key="t.name">
                                 <GameIcon v-if="t.suits" :type="t.suits" class-name="inline-block h-2.5" />
                                 <span class="font-semibold">{{ t.name }}</span>
-                                <span v-if="t.description" class="text-muted-foreground"> - <GameText :text="t.description" icon-class="h-2.5 inline-block align-text-bottom" /></span>
+                                <span v-if="t.description" class="text-muted-foreground">
+                                    - <GameText :text="t.description" icon-class="h-2.5 inline-block align-text-bottom"
+                                /></span>
                             </div>
                         </div>
                     </div>

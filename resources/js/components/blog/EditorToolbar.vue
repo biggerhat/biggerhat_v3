@@ -400,7 +400,10 @@ const addLink = () => {
                     <TooltipContent>Table</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="start">
-                    <DropdownMenuItem v-if="!editor.isActive('table')" @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
+                    <DropdownMenuItem
+                        v-if="!editor.isActive('table')"
+                        @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
+                    >
                         Insert Table
                     </DropdownMenuItem>
                     <template v-if="editor.isActive('table')">

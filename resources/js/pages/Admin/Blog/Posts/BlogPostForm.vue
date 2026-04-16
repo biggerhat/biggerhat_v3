@@ -2,6 +2,7 @@
 import TipTapEditor from '@/components/blog/TipTapEditor.vue';
 import EntityTagger, { type TaggedEntity } from '@/components/EntityTagger.vue';
 import InputError from '@/components/InputError.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { type SharedData } from '@/types';
-import { Badge } from '@/components/ui/badge';
 import { router, usePage } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -115,7 +115,9 @@ const saveToLocal = () => {
         autosaveStatus.value = 'saved';
         clearTimeout(statusTimer!);
         statusTimer = setTimeout(() => (autosaveStatus.value = null), 3000);
-    } catch { /* quota exceeded or private browsing */ }
+    } catch {
+        /* quota exceeded or private browsing */
+    }
 };
 
 const restoreFromLocal = (): boolean => {
@@ -149,11 +151,17 @@ const applyLocalRestore = () => {
         autosaveStatus.value = 'restored';
         clearTimeout(statusTimer!);
         statusTimer = setTimeout(() => (autosaveStatus.value = null), 3000);
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
 };
 
 const clearAutosave = () => {
-    try { localStorage.removeItem(AUTOSAVE_KEY); } catch { /* ignore */ }
+    try {
+        localStorage.removeItem(AUTOSAVE_KEY);
+    } catch {
+        /* ignore */
+    }
 };
 
 const showRestorePrompt = ref(false);
@@ -192,11 +200,29 @@ onBeforeUnmount(() => {
 <template>
     <div class="container mx-auto mb-6 mt-6">
         <!-- Restore from autosave prompt -->
-        <div v-if="showRestorePrompt" class="mb-4 flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+        <div
+            v-if="showRestorePrompt"
+            class="mb-4 flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+        >
             <span class="text-amber-700 dark:text-amber-400">An unsaved draft was found. Would you like to restore it?</span>
             <div class="flex gap-2">
-                <Button size="sm" variant="outline" @click="showRestorePrompt = false; clearAutosave();">Discard</Button>
-                <Button size="sm" @click="applyLocalRestore(); showRestorePrompt = false;">Restore</Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    @click="
+                        showRestorePrompt = false;
+                        clearAutosave();
+                    "
+                    >Discard</Button
+                >
+                <Button
+                    size="sm"
+                    @click="
+                        applyLocalRestore();
+                        showRestorePrompt = false;
+                    "
+                    >Restore</Button
+                >
             </div>
         </div>
 
@@ -207,8 +233,18 @@ onBeforeUnmount(() => {
                         <CardTitle>Article</CardTitle>
                         <CardDescription>Create and Edit Articles</CardDescription>
                     </div>
-                    <Badge v-if="autosaveStatus === 'saved'" variant="outline" class="border-green-500/50 text-[10px] text-green-600 dark:text-green-400">Draft saved</Badge>
-                    <Badge v-else-if="autosaveStatus === 'restored'" variant="outline" class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Draft restored</Badge>
+                    <Badge
+                        v-if="autosaveStatus === 'saved'"
+                        variant="outline"
+                        class="border-green-500/50 text-[10px] text-green-600 dark:text-green-400"
+                        >Draft saved</Badge
+                    >
+                    <Badge
+                        v-else-if="autosaveStatus === 'restored'"
+                        variant="outline"
+                        class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                        >Draft restored</Badge
+                    >
                 </div>
             </CardHeader>
             <CardContent>

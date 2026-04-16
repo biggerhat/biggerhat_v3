@@ -8,7 +8,9 @@ const reverbHost = import.meta.env.VITE_REVERB_HOST;
 
 if (reverbKey && reverbHost) {
     if (import.meta.env.DEV) {
-        console.log(`[Echo] Connecting to Reverb: ${reverbHost}:${import.meta.env.VITE_REVERB_PORT} (TLS: ${(import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https'})`);
+        console.log(
+            `[Echo] Connecting to Reverb: ${reverbHost}:${import.meta.env.VITE_REVERB_PORT} (TLS: ${(import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https'})`,
+        );
     }
     window.Echo = new Echo({
         broadcaster: 'reverb',

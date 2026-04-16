@@ -109,7 +109,12 @@ onBeforeUnmount(() => {
 
 <template>
     <div v-if="editor" class="rounded-md border">
-        <EditorToolbar :editor="editor" @open-entity-search="entitySearchOpen = true" @open-entity-embed-search="entityEmbedSearchOpen = true" @upload-image="handleImageUpload" />
+        <EditorToolbar
+            :editor="editor"
+            @open-entity-search="entitySearchOpen = true"
+            @open-entity-embed-search="entityEmbedSearchOpen = true"
+            @upload-image="handleImageUpload"
+        />
         <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
         <EditorContent
             :editor="editor"

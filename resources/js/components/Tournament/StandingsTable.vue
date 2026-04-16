@@ -51,18 +51,33 @@ const props = defineProps<{
                             <td class="px-2 py-2 font-bold sm:px-3">{{ entry.rank ?? '-' }}</td>
                             <td class="px-2 py-2 sm:px-3">
                                 <div class="flex items-center gap-1.5">
-                                    <FactionLogo v-if="entry.faction" :faction="entry.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                    <Crown v-if="entry.rank === 1 && !entry.is_ringer" class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                    <FactionLogo
+                                        v-if="entry.faction"
+                                        :faction="entry.faction"
+                                        class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                    />
+                                    <Crown
+                                        v-if="entry.rank === 1 && !entry.is_ringer"
+                                        class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                    />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
-                                    <Badge v-if="entry.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
-                                    <Badge v-if="entry.is_dropped" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/60 sm:inline-flex">Dropped</Badge>
+                                    <Badge
+                                        v-if="entry.is_ringer"
+                                        variant="outline"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        >Ringer</Badge
+                                    >
+                                    <Badge
+                                        v-if="entry.is_dropped"
+                                        variant="outline"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/60 sm:inline-flex"
+                                        >Dropped</Badge
+                                    >
                                 </div>
                             </td>
                             <td class="px-1 py-2 text-center font-bold sm:px-3">{{ entry.total_tp }}</td>
                             <td class="px-1 py-2 text-center font-medium sm:px-3">{{ entry.total_sos }}</td>
-                            <td class="px-1 py-2 text-center font-medium sm:px-3">
-                                {{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}
-                            </td>
+                            <td class="px-1 py-2 text-center font-medium sm:px-3">{{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}</td>
                             <td class="px-1 py-2 text-center sm:px-3">{{ entry.total_vp }}</td>
                             <td class="hidden px-3 py-2 text-center opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
                         </tr>

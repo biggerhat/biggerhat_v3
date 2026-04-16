@@ -53,7 +53,10 @@ defineExpose({ frontRef, backRef });
 
         <!-- Card container with 3D flip -->
         <div class="card-flip-container mx-auto aspect-[550/950]" style="perspective: 1200px">
-            <div class="card-flip-inner relative h-full w-full transition-transform duration-500" :style="{ transformStyle: 'preserve-3d', transform: flipped ? 'rotateY(180deg)' : '' }">
+            <div
+                class="card-flip-inner relative h-full w-full transition-transform duration-500"
+                :style="{ transformStyle: 'preserve-3d', transform: flipped ? 'rotateY(180deg)' : '' }"
+            >
                 <!-- Front -->
                 <div ref="frontRef" class="absolute inset-0" style="backface-visibility: hidden">
                     <UpgradeFrontFace
@@ -72,7 +75,14 @@ defineExpose({ frontRef, backRef });
 
                 <!-- Back -->
                 <div ref="backRef" class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
-                    <UpgradeBackFace :name="name" :domain="domain" :faction="faction" :master-name="masterName" :back-tokens="backTokens" :back-markers="backMarkers" />
+                    <UpgradeBackFace
+                        :name="name"
+                        :domain="domain"
+                        :faction="faction"
+                        :master-name="masterName"
+                        :back-tokens="backTokens"
+                        :back-markers="backMarkers"
+                    />
                 </div>
             </div>
         </div>

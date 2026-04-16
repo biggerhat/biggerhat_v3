@@ -35,6 +35,24 @@ it('lets the TO delete a setup round during an active tournament', function () {
     expect($this->tournament->fresh()->rounds()->where('round_number', 2)->exists())->toBeFalse();
 });
 
+it('refuses to delete a middle round while later rounds exist', function () {
+    // Regression: deleting a middle round previously left subsequent rounds
+    // unpairable because canPairRound hunts for round_number - 1. Blocking
+    // middle-round deletion is the simplest safeguard.
+    TournamentRound::factory()->for($this->tournament)->completed()->create(['round_number' => 1]);
+    $r2 = TournamentRound::factory()->for($this->tournament)->completed()->create(['round_number' => 2]);
+    TournamentRound::factory()->for($this->tournament)->create(['round_number' => 3]);
+
+    $this->actingAs($this->creator)
+        ->deleteJson(route('tournaments.rounds.delete', [$this->tournament->uuid, $r2]))
+        ->assertStatus(422)
+        ->assertJsonFragment([
+            'error' => 'Delete the later rounds first — removing a middle round would strand the rounds that follow it.',
+        ]);
+
+    expect($this->tournament->fresh()->rounds()->where('round_number', 2)->exists())->toBeTrue();
+});
+
 it('refuses to delete a round that is currently in progress', function () {
     $r = TournamentRound::factory()->for($this->tournament)->inProgress()->create(['round_number' => 1]);
 
@@ -73,6 +91,38 @@ it('only marks bye games Completed when the round is started, not at pair time',
         ->assertOk();
 
     expect($bye->fresh()->result->value)->toBe('completed');
+});
+
+it('auto-pairs round 2 after round 1 completes', function () {
+    // Regression: the service used to column-subset-load the players relation,
+    // which then tripped strict-mode missing-attribute errors the moment the
+    // standings pipeline read is_disqualified / dropped_after_round. Only
+    // surfaced round 2+ because round 1 skips sortByStandings.
+    $players = \App\Models\TournamentPlayer::factory()->for($this->tournament)->count(4)->create();
+    [$a, $b, $c, $d] = $players->all();
+
+    $r1 = TournamentRound::factory()->for($this->tournament)->completed()->create(['round_number' => 1]);
+    \App\Models\TournamentGame::factory()->for($r1, 'round')->withScore(7, 4)->create([
+        'player_one_id' => $a->id, 'player_two_id' => $b->id,
+    ]);
+    \App\Models\TournamentGame::factory()->for($r1, 'round')->withScore(6, 5)->create([
+        'player_one_id' => $c->id, 'player_two_id' => $d->id,
+    ]);
+
+    $strategy = \App\Models\Strategy::factory()->create();
+    $schemes = \App\Models\Scheme::factory()->count(3)->create();
+    $r2 = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 2,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->all(),
+    ]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $r2]))
+        ->assertOk();
+
+    expect($r2->fresh()->games()->count())->toBe(2);
 });
 
 it('lets the TO add a player between rounds during an active tournament', function () {

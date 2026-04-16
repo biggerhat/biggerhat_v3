@@ -24,7 +24,9 @@ const sourceLabel = (source: string) => {
 };
 
 const sourceBadgeClass = (source: string) => {
-    return source === 'forgefire' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200';
+    return source === 'forgefire'
+        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+        : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200';
 };
 
 const columns: ColumnDef<PodLink>[] = [
@@ -46,7 +48,11 @@ const columns: ColumnDef<PodLink>[] = [
         header: () => h('div', {}, 'URL'),
         cell: ({ row }) => {
             const url = row.getValue('url') as string;
-            return h('a', { href: url, target: '_blank', class: 'text-xs text-primary hover:underline truncate max-w-[200px] block' }, url.replace(/^https?:\/\//, '').slice(0, 40) + (url.length > 60 ? '...' : ''));
+            return h(
+                'a',
+                { href: url, target: '_blank', class: 'text-xs text-primary hover:underline truncate max-w-[200px] block' },
+                url.replace(/^https?:\/\//, '').slice(0, 40) + (url.length > 60 ? '...' : ''),
+            );
         },
     },
     {

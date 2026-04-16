@@ -589,17 +589,26 @@ onMounted(() => {
                             <Label>Replaces on Death (with count)</Label>
                             <div class="relative">
                                 <Input v-model="rodSearch" placeholder="Search character to add..." class="h-9 text-sm" />
-                                <div v-if="rodFilteredChars.length" class="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+                                <div
+                                    v-if="rodFilteredChars.length"
+                                    class="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-popover shadow-md"
+                                >
                                     <button
                                         v-for="c in rodFilteredChars"
                                         :key="(c as any).value"
                                         class="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
                                         @click="addRod((c as any).value)"
-                                    >{{ (c as any).name }}</button>
+                                    >
+                                        {{ (c as any).name }}
+                                    </button>
                                 </div>
                             </div>
                             <div v-if="formInfo.replaces_on_death.length" class="space-y-1">
-                                <div v-for="rod in formInfo.replaces_on_death" :key="rod.slug" class="flex items-center gap-2 rounded-md border px-2 py-1">
+                                <div
+                                    v-for="rod in formInfo.replaces_on_death"
+                                    :key="rod.slug"
+                                    class="flex items-center gap-2 rounded-md border px-2 py-1"
+                                >
                                     <span class="min-w-0 flex-1 truncate text-sm">{{ rodCharName(rod.slug) }}</span>
                                     <div class="flex items-center gap-1">
                                         <Label class="text-xs text-muted-foreground">Count:</Label>
@@ -609,7 +618,7 @@ onMounted(() => {
                                             max="10"
                                             class="h-7 w-14 text-center text-sm"
                                             :model-value="rod.count || 1"
-                                            @update:model-value="(v: any) => rod.count = Math.max(1, Number(v) || 1)"
+                                            @update:model-value="(v: any) => (rod.count = Math.max(1, Number(v) || 1))"
                                         />
                                     </div>
                                     <div class="flex items-center gap-1">
@@ -621,7 +630,7 @@ onMounted(() => {
                                             placeholder="Auto"
                                             class="h-7 w-14 text-center text-sm"
                                             :model-value="rod.health ?? ''"
-                                            @update:model-value="(v: any) => rod.health = v === '' || v === null ? null : Number(v)"
+                                            @update:model-value="(v: any) => (rod.health = v === '' || v === null ? null : Number(v))"
                                         />
                                     </div>
                                     <button class="rounded p-0.5 text-muted-foreground hover:text-destructive" @click="removeRod(rod.slug)">

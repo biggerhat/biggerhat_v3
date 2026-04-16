@@ -177,9 +177,7 @@ class TournamentStateMachine
             }
         }
         $unpaired = $round->tournament->players
-            ->filter(fn ($p) => ! $p->is_disqualified
-                && ($p->dropped_after_round === null || $p->dropped_after_round >= $round->round_number)
-                && ! isset($pairedIds[$p->id]))
+            ->filter(fn ($p) => $p->isActiveForRound($round->round_number) && ! isset($pairedIds[$p->id]))
             ->pluck('display_name')
             ->all();
 

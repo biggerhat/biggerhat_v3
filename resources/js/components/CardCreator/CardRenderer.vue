@@ -87,10 +87,7 @@ defineExpose({ frontRef, backRef });
     <div class="card-renderer">
         <!-- Flip toggle -->
         <div class="mb-2 flex justify-center">
-            <button
-                class="rounded-md border px-3 py-1 text-xs transition-colors hover:bg-accent"
-                @click="flipped = !flipped"
-            >
+            <button class="rounded-md border px-3 py-1 text-xs transition-colors hover:bg-accent" @click="flipped = !flipped">
                 {{ flipped ? 'Show Front' : 'Show Back' }}
             </button>
         </div>

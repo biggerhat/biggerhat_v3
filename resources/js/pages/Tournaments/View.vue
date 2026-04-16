@@ -3,9 +3,9 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { type SharedData } from '@/types';
@@ -98,7 +98,11 @@ const props = defineProps<{
 }>();
 
 // Live updates via websocket
-useTournamentChannel(props.tournament.uuid);
+useTournamentChannel(props.tournament.uuid, () => {
+    // Narrow partial reload so the broadcast refresh avoids recomputing the
+    // static `factions` enum map on every tick.
+    router.reload({ only: ['tournament', 'rounds', 'standings'], preserveScroll: true, preserveState: true });
+});
 
 const isCompleted = computed(() => props.tournament.status === 'completed');
 
@@ -125,25 +129,25 @@ const canRsvp = computed(
 const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
 
 const rsvping = ref(false);
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
-const submitRsvp = async () => {
-    rsvping.value = true;
-    await fetch(route('tournaments.rsvp', props.tournament.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-        body: JSON.stringify({}),
-    });
-    rsvping.value = false;
-    router.reload();
+// Use Inertia's router rather than raw fetch: CSRF + progress bar come for
+// free, and the preserveScroll reload keeps the user's position on the page.
+const submitRsvp = () => {
+    router.post(
+        route('tournaments.rsvp', props.tournament.uuid),
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => (rsvping.value = true),
+            onFinish: () => (rsvping.value = false),
+        },
+    );
 };
 
-const cancelRsvp = async () => {
-    await fetch(route('tournaments.rsvp.cancel', props.tournament.uuid), {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': csrfToken() },
+const cancelRsvp = () => {
+    router.delete(route('tournaments.rsvp.cancel', props.tournament.uuid), {
+        preserveScroll: true,
     });
-    router.reload();
 };
 
 const formatDate = (d: string) => {
@@ -168,8 +172,12 @@ const isMyGame = (game: ViewGame): boolean => {
 
 const encounterTypeLabel = computed(() => {
     const map: Record<string, string> = {
-        traditional: 'Traditional', enforcer_brawl: 'Enforcer Brawl', crossroads: 'Crossroads',
-        team_event: 'Team Event', double_rush: 'Double Rush', total_war: 'Total War',
+        traditional: 'Traditional',
+        enforcer_brawl: 'Enforcer Brawl',
+        crossroads: 'Crossroads',
+        team_event: 'Team Event',
+        double_rush: 'Double Rush',
+        total_war: 'Total War',
     };
     return map[props.tournament.encounter_type] ?? props.tournament.encounter_type;
 });
@@ -209,7 +217,13 @@ const tournamentStats = computed(() => {
     }
 
     return {
-        winner, topVp, topDiff, spoon, topFaction, topMaster, bestInFaction,
+        winner,
+        topVp,
+        topDiff,
+        spoon,
+        topFaction,
+        topMaster,
+        bestInFaction,
         totalGames: props.rounds.reduce((sum, r) => sum + r.games.filter((g) => !g.is_bye).length, 0),
     };
 });
@@ -238,13 +252,25 @@ const openCard = (title: string, image?: string | null, description?: string | n
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>
                 <div class="my-auto flex flex-wrap items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm">
-                    <Badge variant="outline" class="text-[10px]">{{ tournament.status === 'completed' ? 'Completed' : tournament.status === 'active' ? 'Active' : tournament.status === 'registration' ? 'Registration Open' : 'Draft' }}</Badge>
+                    <Badge variant="outline" class="text-[10px]">{{
+                        tournament.status === 'completed'
+                            ? 'Completed'
+                            : tournament.status === 'active'
+                              ? 'Active'
+                              : tournament.status === 'registration'
+                                ? 'Registration Open'
+                                : 'Draft'
+                    }}</Badge>
                     <span>{{ tournament.season_label }}</span>
                     <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
-                    <span v-if="tournament.event_date" class="flex items-center gap-1"><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span>
+                    <span v-if="tournament.event_date" class="flex items-center gap-1"
+                        ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span
+                    >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
                     <span>{{ tournament.players.length }} players</span>
-                    <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && (tournament as any).rsvps?.length">{{ (tournament as any).rsvps.length }} RSVPs</span>
+                    <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && (tournament as any).rsvps?.length"
+                        >{{ (tournament as any).rsvps.length }} RSVPs</span
+                    >
                 </div>
             </template>
         </PageBanner>
@@ -260,26 +286,36 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
-                        <p class="mt-1 text-xs text-muted-foreground">Express your interest in playing. The organizer will finalize the player list and assign your faction.</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Express your interest in playing. The organizer will finalize the player list and assign your faction.
+                        </p>
                     </div>
                     <Button size="sm" :disabled="rsvping" @click="submitRsvp">
                         <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
                     </Button>
                 </CardContent>
             </Card>
-            <Card v-else-if="hasRsvped && (tournament.status === 'draft' || tournament.status === 'registration')" class="mb-6 border-blue-500/30 bg-blue-500/5">
+            <Card
+                v-else-if="hasRsvped && (tournament.status === 'draft' || tournament.status === 'registration')"
+                class="mb-6 border-blue-500/30 bg-blue-500/5"
+            >
                 <CardContent class="flex items-center justify-between p-4">
                     <span class="text-sm text-blue-700 dark:text-blue-400">
-                        {{ tournament.status === 'registration' ? "You've signed up. Waiting for the organizer to confirm you in the player list." : "You've RSVPed for this tournament." }}
+                        {{
+                            tournament.status === 'registration'
+                                ? "You've signed up. Waiting for the organizer to confirm you in the player list."
+                                : "You've RSVPed for this tournament."
+                        }}
                     </span>
                     <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" @click="cancelRsvp">Cancel RSVP</Button>
                 </CardContent>
             </Card>
             <!-- Registration confirmation -->
-            <Card v-else-if="isRegistered && (tournament.status === 'registration' || tournament.status === 'active')" class="mb-6 border-green-500/30 bg-green-500/5">
-                <CardContent class="p-4 text-center text-sm text-green-700 dark:text-green-400">
-                    You're registered for this tournament.
-                </CardContent>
+            <Card
+                v-else-if="isRegistered && (tournament.status === 'registration' || tournament.status === 'active')"
+                class="mb-6 border-green-500/30 bg-green-500/5"
+            >
+                <CardContent class="p-4 text-center text-sm text-green-700 dark:text-green-400"> You're registered for this tournament. </CardContent>
             </Card>
 
             <!-- Main Tabs -->
@@ -295,9 +331,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         RSVPs
                         <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ (tournament as any).rsvps.length }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm">
-                        <BarChart3 class="mr-1 size-3" /> Stats
-                    </TabsTrigger>
+                    <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm"> <BarChart3 class="mr-1 size-3" /> Stats </TabsTrigger>
                 </TabsList>
 
                 <!-- Round Tabs -->
@@ -307,22 +341,48 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                             <span v-if="round.deployment" class="flex items-center gap-1">
                                 <span class="text-muted-foreground">Deploy:</span>
-                                <button class="font-medium hover:text-primary" @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)">{{ round.deployment.label }}</button>
+                                <button
+                                    class="font-medium hover:text-primary"
+                                    @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
+                                >
+                                    {{ round.deployment.label }}
+                                </button>
                             </span>
                             <span v-if="round.strategy" class="flex items-center gap-1">
                                 <span class="text-muted-foreground">Strategy:</span>
-                                <button class="font-medium hover:text-primary" @click="openCard(round.strategy.name, round.strategy.image_url)">{{ round.strategy.name }}</button>
+                                <button class="font-medium hover:text-primary" @click="openCard(round.strategy.name, round.strategy.image_url)">
+                                    {{ round.strategy.name }}
+                                </button>
                             </span>
                             <span v-if="round.schemes.length" class="flex items-center gap-1">
                                 <span class="text-muted-foreground">Schemes:</span>
                                 <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
                                     <span v-if="idx > 0" class="text-muted-foreground">, </span>
-                                    <button class="font-medium hover:text-primary" @click="openCard(scheme.name, scheme.image_url, [scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '', scheme.reveal ? 'Reveal: ' + scheme.reveal : '', scheme.scoring ? 'Scoring: ' + scheme.scoring : ''].filter(Boolean).join('\n\n'))">{{ scheme.name }}</button>
+                                    <button
+                                        class="font-medium hover:text-primary"
+                                        @click="
+                                            openCard(
+                                                scheme.name,
+                                                scheme.image_url,
+                                                [
+                                                    scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '',
+                                                    scheme.reveal ? 'Reveal: ' + scheme.reveal : '',
+                                                    scheme.scoring ? 'Scoring: ' + scheme.scoring : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join('\n\n'),
+                                            )
+                                        "
+                                    >
+                                        {{ scheme.name }}
+                                    </button>
                                 </span>
                             </span>
                         </div>
                     </div>
-                    <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">Scenario not yet announced</div>
+                    <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                        Scenario not yet announced
+                    </div>
 
                     <!-- Pairings / Results -->
                     <div v-if="round.games.length" class="space-y-1.5">
@@ -336,9 +396,17 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                             <!-- Player 1 -->
                             <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                <FactionLogo v-if="game.player_one_faction || playerFaction(game.player_one_id)" :faction="(game.player_one_faction || playerFaction(game.player_one_id))!" class-name="size-4 shrink-0" />
-                                <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{ playerName(game.player_one_id) }}</span>
-                                <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground">· {{ game.player_one_title || game.player_one_master }}</span>
+                                <FactionLogo
+                                    v-if="game.player_one_faction || playerFaction(game.player_one_id)"
+                                    :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
+                                    class-name="size-4 shrink-0"
+                                />
+                                <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
+                                    playerName(game.player_one_id)
+                                }}</span>
+                                <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground"
+                                    >· {{ game.player_one_title || game.player_one_master }}</span
+                                >
                             </div>
 
                             <template v-if="game.is_bye">
@@ -347,16 +415,38 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <template v-else>
                                 <!-- Score -->
                                 <div class="flex shrink-0 items-center gap-1 font-mono text-xs">
-                                    <span :class="(game.player_one_vp ?? 0) > (game.player_two_vp ?? 0) ? 'font-bold text-green-600 dark:text-green-400' : ''">{{ game.player_one_vp ?? '–' }}</span>
+                                    <span
+                                        :class="
+                                            (game.player_one_vp ?? 0) > (game.player_two_vp ?? 0)
+                                                ? 'font-bold text-green-600 dark:text-green-400'
+                                                : ''
+                                        "
+                                        >{{ game.player_one_vp ?? '–' }}</span
+                                    >
                                     <span class="text-muted-foreground">-</span>
-                                    <span :class="(game.player_two_vp ?? 0) > (game.player_one_vp ?? 0) ? 'font-bold text-green-600 dark:text-green-400' : ''">{{ game.player_two_vp ?? '–' }}</span>
+                                    <span
+                                        :class="
+                                            (game.player_two_vp ?? 0) > (game.player_one_vp ?? 0)
+                                                ? 'font-bold text-green-600 dark:text-green-400'
+                                                : ''
+                                        "
+                                        >{{ game.player_two_vp ?? '–' }}</span
+                                    >
                                 </div>
 
                                 <!-- Player 2 -->
                                 <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-                                    <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground">{{ game.player_two_title || game.player_two_master }} ·</span>
-                                    <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{ playerName(game.player_two_id) }}</span>
-                                    <FactionLogo v-if="game.player_two_faction || playerFaction(game.player_two_id)" :faction="(game.player_two_faction || playerFaction(game.player_two_id))!" class-name="size-4 shrink-0" />
+                                    <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground"
+                                        >{{ game.player_two_title || game.player_two_master }} ·</span
+                                    >
+                                    <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
+                                        playerName(game.player_two_id)
+                                    }}</span>
+                                    <FactionLogo
+                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
+                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                        class-name="size-4 shrink-0"
+                                    />
                                 </div>
 
                                 <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
@@ -389,7 +479,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 <TabsContent value="rsvps">
                     <Card>
                         <CardContent class="p-4">
-                            <h2 class="mb-3 flex items-center gap-2 font-semibold"><UserPlus class="size-4" /> {{ (tournament as any).rsvps?.length ?? 0 }} RSVPs</h2>
+                            <h2 class="mb-3 flex items-center gap-2 font-semibold">
+                                <UserPlus class="size-4" /> {{ (tournament as any).rsvps?.length ?? 0 }} RSVPs
+                            </h2>
                             <div class="space-y-1.5">
                                 <div
                                     v-for="rsvp in (tournament as any).rsvps ?? []"
@@ -413,7 +505,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 <Trophy class="size-8 text-amber-500" />
                                 <div>
                                     <div class="text-lg font-bold text-amber-700 dark:text-amber-400">{{ tournamentStats.winner.display_name }}</div>
-                                    <div class="text-xs text-muted-foreground">Tournament Winner — {{ tournamentStats.winner.total_tp }} TP · {{ tournamentStats.winner.total_diff > 0 ? '+' : '' }}{{ tournamentStats.winner.total_diff }} DIFF · {{ tournamentStats.winner.total_vp }} VP</div>
+                                    <div class="text-xs text-muted-foreground">
+                                        Tournament Winner — {{ tournamentStats.winner.total_tp }} TP ·
+                                        {{ tournamentStats.winner.total_diff > 0 ? '+' : '' }}{{ tournamentStats.winner.total_diff }} DIFF ·
+                                        {{ tournamentStats.winner.total_vp }} VP
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -439,19 +535,28 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <Card v-if="tournamentStats.topMaster">
                                 <CardContent class="p-4">
                                     <div class="text-[10px] uppercase text-muted-foreground">Most Picked Master</div>
-                                    <div class="mt-1 text-sm font-medium">{{ tournamentStats.topMaster[0] }} <span class="text-xs text-muted-foreground">({{ tournamentStats.topMaster[1] }}x)</span></div>
+                                    <div class="mt-1 text-sm font-medium">
+                                        {{ tournamentStats.topMaster[0] }}
+                                        <span class="text-xs text-muted-foreground">({{ tournamentStats.topMaster[1] }}x)</span>
+                                    </div>
                                 </CardContent>
                             </Card>
                             <Card v-if="tournamentStats.topVp && tournamentStats.topVp.player_id !== tournamentStats.winner?.player_id">
                                 <CardContent class="p-4">
                                     <div class="text-[10px] uppercase text-muted-foreground">Top VP</div>
-                                    <div class="mt-1 text-sm font-medium">{{ tournamentStats.topVp.display_name }} <span class="text-xs text-muted-foreground">({{ tournamentStats.topVp.total_vp }} VP)</span></div>
+                                    <div class="mt-1 text-sm font-medium">
+                                        {{ tournamentStats.topVp.display_name }}
+                                        <span class="text-xs text-muted-foreground">({{ tournamentStats.topVp.total_vp }} VP)</span>
+                                    </div>
                                 </CardContent>
                             </Card>
                             <Card v-if="tournamentStats.topDiff && tournamentStats.topDiff.player_id !== tournamentStats.winner?.player_id">
                                 <CardContent class="p-4">
                                     <div class="text-[10px] uppercase text-muted-foreground">Top Differential</div>
-                                    <div class="mt-1 text-sm font-medium">{{ tournamentStats.topDiff.display_name }} <span class="text-xs text-muted-foreground">(+{{ tournamentStats.topDiff.total_diff }})</span></div>
+                                    <div class="mt-1 text-sm font-medium">
+                                        {{ tournamentStats.topDiff.display_name }}
+                                        <span class="text-xs text-muted-foreground">(+{{ tournamentStats.topDiff.total_diff }})</span>
+                                    </div>
                                 </CardContent>
                             </Card>
                             <Card v-if="tournamentStats.spoon">
@@ -467,7 +572,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <CardContent class="p-4">
                                 <div class="mb-3 text-[10px] font-semibold uppercase text-muted-foreground">Best in Faction</div>
                                 <div class="grid gap-2 sm:grid-cols-2">
-                                    <div v-for="(entry, faction) in tournamentStats.bestInFaction" :key="faction" class="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                                    <div
+                                        v-for="(entry, faction) in tournamentStats.bestInFaction"
+                                        :key="faction"
+                                        class="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+                                    >
                                         <FactionLogo :faction="String(faction)" class-name="size-5 shrink-0" />
                                         <div class="min-w-0 flex-1">
                                             <div class="truncate font-medium">{{ entry.display_name }}</div>

@@ -169,10 +169,12 @@ onMounted(() => {
                             <p class="text-sm text-muted-foreground">Define what info the player needs to track when using this scheme.</p>
 
                             <!-- Existing requirements -->
-                            <div v-for="(req, idx) in formInfo.requirements" :key="idx" class="rounded-md border p-3 space-y-2">
+                            <div v-for="(req, idx) in formInfo.requirements" :key="idx" class="space-y-2 rounded-md border p-3">
                                 <div class="flex items-center justify-between">
                                     <span class="text-sm font-medium">{{ requirementLabel(req) }}</span>
-                                    <button type="button" class="text-xs text-destructive hover:underline" @click="removeRequirement(idx)">Remove</button>
+                                    <button type="button" class="text-xs text-destructive hover:underline" @click="removeRequirement(idx)">
+                                        Remove
+                                    </button>
                                 </div>
 
                                 <!-- Model-specific options -->

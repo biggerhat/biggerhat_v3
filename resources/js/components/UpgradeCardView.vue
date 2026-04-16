@@ -46,7 +46,15 @@ const currentLabel = computed(() => {
     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
         <p class="mb-1 text-xs text-muted-foreground">{{ upgrade.name }}</p>
         <div class="relative mx-auto w-fit">
-            <div v-if="upgrade.back_image" @click="flip" @keydown.enter="flip" role="button" tabindex="0" class="cursor-pointer" style="perspective: 1000px">
+            <div
+                v-if="upgrade.back_image"
+                @click="flip"
+                @keydown.enter="flip"
+                role="button"
+                tabindex="0"
+                class="cursor-pointer"
+                style="perspective: 1000px"
+            >
                 <div
                     class="card-flip-inner relative w-full"
                     :class="{ 'card-flipped': flipped }"
@@ -73,7 +81,13 @@ const currentLabel = computed(() => {
                 </div>
             </div>
             <div v-else>
-                <img :src="'/storage/' + upgrade.front_image" :alt="upgrade.name" loading="lazy" decoding="async" class="aspect-[550/950] h-full w-full rounded-lg object-cover" />
+                <img
+                    :src="'/storage/' + upgrade.front_image"
+                    :alt="upgrade.name"
+                    loading="lazy"
+                    decoding="async"
+                    class="aspect-[550/950] h-full w-full rounded-lg object-cover"
+                />
             </div>
             <button
                 @click.stop="fullscreenOpen = true"
@@ -91,7 +105,13 @@ const currentLabel = computed(() => {
             <DialogContent class="max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
                 <DialogTitle class="sr-only">{{ currentLabel }}</DialogTitle>
                 <div class="flex items-center justify-center">
-                    <img :src="currentImage" :alt="currentLabel" loading="lazy" decoding="async" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
+                    <img
+                        :src="currentImage"
+                        :alt="currentLabel"
+                        loading="lazy"
+                        decoding="async"
+                        class="max-h-[90dvh] w-auto rounded-lg object-contain"
+                    />
                 </div>
             </DialogContent>
         </Dialog>

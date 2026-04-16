@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
-import { useTournamentStatus } from '@/composables/useTournamentStatus';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useTournamentStatus } from '@/composables/useTournamentStatus';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { CalendarDays, MapPin, Plus, Trophy, Users } from 'lucide-vue-next';
@@ -53,7 +53,9 @@ const formatDate = (dateStr: string) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Organize and track Gaining Grounds events
-                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400">Beta</Badge>
+                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                        >Beta</Badge
+                    >
                 </div>
             </template>
         </PageBanner>
@@ -63,7 +65,9 @@ const formatDate = (dateStr: string) => {
             <Link v-if="canCreateTournaments" :href="route('tournaments.create')" class="group mb-6 block">
                 <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <CardContent class="flex items-center gap-4 p-5">
-                        <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                        <div
+                            class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                        >
                             <Plus class="size-6" />
                         </div>
                         <div>
@@ -82,8 +86,13 @@ const formatDate = (dateStr: string) => {
                         <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span>
+                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
+                                        statusLabel(t.status)
+                                    }}</Badge>
+                                    <span class="text-[11px] text-muted-foreground"
+                                        >{{ t.encounter_size }}ss
+                                        {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
+                                    >
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />
@@ -109,8 +118,13 @@ const formatDate = (dateStr: string) => {
                         <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground">{{ t.encounter_size }}ss {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span>
+                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
+                                        statusLabel(t.status)
+                                    }}</Badge>
+                                    <span class="text-[11px] text-muted-foreground"
+                                        >{{ t.encounter_size }}ss
+                                        {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
+                                    >
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />

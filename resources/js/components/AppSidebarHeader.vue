@@ -42,11 +42,10 @@ function toggleDialog() {
         </div>
         <div class="ml-auto">
             <div class="mx-auto">
-                <button aria-label="Search" @click="toggleDialog"><Search class="inline-block" /></button><button
-                    aria-label="Random character"
-                    class="ml-2"
-                    @click="router.get(route('characters.random'))"
-                ><Dice6 class="inline-block" /></button>
+                <button aria-label="Search" @click="toggleDialog"><Search class="inline-block" /></button
+                ><button aria-label="Random character" class="ml-2" @click="router.get(route('characters.random'))">
+                    <Dice6 class="inline-block" />
+                </button>
             </div>
         </div>
     </header>
@@ -112,12 +111,7 @@ function toggleDialog() {
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup heading="Packages">
-                    <CommandItem
-                        v-for="pkg in commandSearch.packages"
-                        v-bind:key="pkg.name"
-                        @select="commandRoute(pkg.route)"
-                        :value="pkg.name"
-                    >
+                    <CommandItem v-for="pkg in commandSearch.packages" v-bind:key="pkg.name" @select="commandRoute(pkg.route)" :value="pkg.name">
                         {{ pkg.name }}
                     </CommandItem>
                 </CommandGroup>

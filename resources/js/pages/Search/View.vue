@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import type { SharedData } from '@/types';
 import { fieldMap, parseSyntax, toSyntax } from '@/composables/useSearchSyntax';
-import { BookOpen, Bookmark, Check, ChevronDown, ClipboardCopy, Download, HelpCircle, LayoutGrid, List, Search, Sparkles, Trash2, X } from 'lucide-vue-next';
+import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import type { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    Bookmark,
+    Check,
+    ChevronDown,
+    ClipboardCopy,
+    Download,
+    HelpCircle,
+    LayoutGrid,
+    List,
+    Search,
+    Sparkles,
+    Trash2,
+    X,
+} from 'lucide-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const urlCopied = ref(false);
@@ -15,8 +29,6 @@ const copySearchUrl = () => {
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
-import UpgradeCardView from '@/components/UpgradeCardView.vue';
-import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
@@ -33,6 +45,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UpgradeCardView from '@/components/UpgradeCardView.vue';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { cleanObject } from '@/composables/CleanObject';
 
 const booleanOptions = [
@@ -364,20 +378,22 @@ const lookupName = (list: any[], value: string, valueKey = 'value', labelKey = '
 
 const activeFilterCount = computed(() => {
     const paramCount = filterKeys.filter((key) => filterParams.value[key] != null && filterParams.value[key] !== '').length;
-    return paramCount
-        + (selectedGameModes.value.length > 0 ? 1 : 0)
-        + (excludedGameModes.value.length > 0 ? 1 : 0)
-        + (selectedFactions.value.length > 0 ? 1 : 0)
-        + (excludedFactions.value.length > 0 ? 1 : 0)
-        + (selectedKeywords.value.length > 0 ? 1 : 0)
-        + (excludedKeywords.value.length > 0 ? 1 : 0)
-        + (selectedCharacteristics.value.length > 0 ? 1 : 0)
-        + (excludedCharacteristics.value.length > 0 ? 1 : 0)
-        + (selectedActions.value.length > 0 ? 1 : 0)
-        + (selectedAbilities.value.length > 0 ? 1 : 0)
-        + (selectedTriggers.value.length > 0 ? 1 : 0)
-        + (selectedTokens.value.length > 0 ? 1 : 0)
-        + (selectedMarkers.value.length > 0 ? 1 : 0);
+    return (
+        paramCount +
+        (selectedGameModes.value.length > 0 ? 1 : 0) +
+        (excludedGameModes.value.length > 0 ? 1 : 0) +
+        (selectedFactions.value.length > 0 ? 1 : 0) +
+        (excludedFactions.value.length > 0 ? 1 : 0) +
+        (selectedKeywords.value.length > 0 ? 1 : 0) +
+        (excludedKeywords.value.length > 0 ? 1 : 0) +
+        (selectedCharacteristics.value.length > 0 ? 1 : 0) +
+        (excludedCharacteristics.value.length > 0 ? 1 : 0) +
+        (selectedActions.value.length > 0 ? 1 : 0) +
+        (selectedAbilities.value.length > 0 ? 1 : 0) +
+        (selectedTriggers.value.length > 0 ? 1 : 0) +
+        (selectedTokens.value.length > 0 ? 1 : 0) +
+        (selectedMarkers.value.length > 0 ? 1 : 0)
+    );
 });
 
 const filter = () => {
@@ -401,9 +417,13 @@ const filter = () => {
         params.faction = null;
     }
     // Excluded factions
-    params.faction_exclude = excludedFactions.value.length > 0
-        ? excludedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',')
-        : null;
+    params.faction_exclude =
+        excludedFactions.value.length > 0
+            ? excludedFactions.value
+                  .map((name) => factionNameToValue(name))
+                  .filter(Boolean)
+                  .join(',')
+            : null;
     // Keywords with logic
     params.keyword = selectedKeywords.value.length > 0 ? selectedKeywords.value.join(',') : null;
     params.keyword_logic = selectedKeywords.value.length > 1 ? keywordLogic.value : null;
@@ -505,7 +525,14 @@ const handleViewChange = (value: string) => {
     filter();
 };
 
-const advancedSubSections = ['advancedStats', 'advancedActions', 'advancedAbilities', 'advancedTriggers', 'advancedTokens', 'advancedMarkers'] as const;
+const advancedSubSections = [
+    'advancedStats',
+    'advancedActions',
+    'advancedAbilities',
+    'advancedTriggers',
+    'advancedTokens',
+    'advancedMarkers',
+] as const;
 
 const sectionsOpen = ref({
     exclusions: false,
@@ -588,7 +615,10 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
     // Excluded factions
     const factionExcludeParam = urlParams.get('faction_exclude');
     if (factionExcludeParam) {
-        excludedFactions.value = factionExcludeParam.split(',').map((v) => factionValueToName(v)).filter(Boolean) as string[];
+        excludedFactions.value = factionExcludeParam
+            .split(',')
+            .map((v) => factionValueToName(v))
+            .filter(Boolean) as string[];
     }
     // Excluded keywords/characteristics
     const keywordExcludeParam = urlParams.get('keyword_exclude');
@@ -722,11 +752,20 @@ const buildCurrentParams = (): Record<string, string> => {
         if (params[key] === '') params[key] = null;
     }
     if (selectedFactions.value.length > 0) {
-        params.faction = selectedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',');
+        params.faction = selectedFactions.value
+            .map((name) => factionNameToValue(name))
+            .filter(Boolean)
+            .join(',');
     } else {
         params.faction = null;
     }
-    params.faction_exclude = excludedFactions.value.length > 0 ? excludedFactions.value.map((name) => factionNameToValue(name)).filter(Boolean).join(',') : null;
+    params.faction_exclude =
+        excludedFactions.value.length > 0
+            ? excludedFactions.value
+                  .map((name) => factionNameToValue(name))
+                  .filter(Boolean)
+                  .join(',')
+            : null;
     params.game_mode_type = selectedGameModes.value.length > 0 ? selectedGameModes.value.join(',') : null;
     params.game_mode_type_exclude = excludedGameModes.value.length > 0 ? excludedGameModes.value.join(',') : null;
     params.keyword = selectedKeywords.value.length > 0 ? selectedKeywords.value.join(',') : null;
@@ -779,7 +818,32 @@ const applySyntax = () => {
 
 // Watch all filter-related refs to update syntax bar
 watch(
-    [filterParams, selectedGameModes, excludedGameModes, selectedFactions, excludedFactions, selectedKeywords, excludedKeywords, keywordLogic, selectedCharacteristics, excludedCharacteristics, characteristicLogic, selectedActions, actionLogic, selectedAbilities, abilityLogic, selectedTriggers, triggerLogic, selectedTokens, tokenLogic, selectedMarkers, markerLogic, statCompareLeft, statCompareOp, statCompareRight],
+    [
+        filterParams,
+        selectedGameModes,
+        excludedGameModes,
+        selectedFactions,
+        excludedFactions,
+        selectedKeywords,
+        excludedKeywords,
+        keywordLogic,
+        selectedCharacteristics,
+        excludedCharacteristics,
+        characteristicLogic,
+        selectedActions,
+        actionLogic,
+        selectedAbilities,
+        abilityLogic,
+        selectedTriggers,
+        triggerLogic,
+        selectedTokens,
+        tokenLogic,
+        selectedMarkers,
+        markerLogic,
+        statCompareLeft,
+        statCompareOp,
+        statCompareRight,
+    ],
     () => {
         if (isSyncing.value) return;
         isSyncing.value = true;
@@ -796,7 +860,8 @@ const searchExplanation = computed(() => {
     if (filterParams.value.station) parts.push(lookupName(props.stations, filterParams.value.station) + 's');
     if (filterParams.value.name) parts.push(`name: "${filterParams.value.name}"`);
     if (selectedKeywords.value.length) parts.push(`keyword: ${selectedKeywords.value.join(keywordLogic.value === 'or' ? ' or ' : ' + ')}`);
-    if (selectedCharacteristics.value.length) parts.push(`characteristic: ${selectedCharacteristics.value.join(characteristicLogic.value === 'or' ? ' or ' : ' + ')}`);
+    if (selectedCharacteristics.value.length)
+        parts.push(`characteristic: ${selectedCharacteristics.value.join(characteristicLogic.value === 'or' ? ' or ' : ' + ')}`);
     if (filterParams.value.description) parts.push(`rules text: "${filterParams.value.description}"`);
     for (const stat of statFields) {
         const min = filterParams.value[`${stat}_min` as keyof typeof filterParams.value];
@@ -831,29 +896,65 @@ const searchExplanation = computed(() => {
 const activeFilters = computed(() => {
     const chips: Array<{ label: string; remove: () => void }> = [];
     if (filterParams.value.name) {
-        chips.push({ label: `Name: "${filterParams.value.name}"`, remove: () => { filterParams.value.name = null; filter(); } });
+        chips.push({
+            label: `Name: "${filterParams.value.name}"`,
+            remove: () => {
+                filterParams.value.name = null;
+                filter();
+            },
+        });
     }
     for (const f of selectedFactions.value) {
-        chips.push({ label: `Faction: ${f}`, remove: () => { selectedFactions.value = selectedFactions.value.filter((v) => v !== f); filter(); } });
+        chips.push({
+            label: `Faction: ${f}`,
+            remove: () => {
+                selectedFactions.value = selectedFactions.value.filter((v) => v !== f);
+                filter();
+            },
+        });
     }
     if (filterParams.value.station) {
         const label = lookupName(props.stations, filterParams.value.station);
-        chips.push({ label: `Station: ${label}`, remove: () => { filterParams.value.station = null; filter(); } });
+        chips.push({
+            label: `Station: ${label}`,
+            remove: () => {
+                filterParams.value.station = null;
+                filter();
+            },
+        });
     }
     if (selectedKeywords.value.length) {
         const logicLabel = selectedKeywords.value.length > 1 && keywordLogic.value !== 'and' ? ' (ANY)' : '';
         for (const kw of selectedKeywords.value) {
-            chips.push({ label: `Keyword: ${kw}${logicLabel}`, remove: () => { selectedKeywords.value = selectedKeywords.value.filter((v) => v !== kw); filter(); } });
+            chips.push({
+                label: `Keyword: ${kw}${logicLabel}`,
+                remove: () => {
+                    selectedKeywords.value = selectedKeywords.value.filter((v) => v !== kw);
+                    filter();
+                },
+            });
         }
     }
     if (selectedCharacteristics.value.length) {
         const logicLabel = selectedCharacteristics.value.length > 1 && characteristicLogic.value !== 'and' ? ' (ANY)' : '';
         for (const ch of selectedCharacteristics.value) {
-            chips.push({ label: `Characteristic: ${ch}${logicLabel}`, remove: () => { selectedCharacteristics.value = selectedCharacteristics.value.filter((v) => v !== ch); filter(); } });
+            chips.push({
+                label: `Characteristic: ${ch}${logicLabel}`,
+                remove: () => {
+                    selectedCharacteristics.value = selectedCharacteristics.value.filter((v) => v !== ch);
+                    filter();
+                },
+            });
         }
     }
     if (filterParams.value.description) {
-        chips.push({ label: `Rules text: "${filterParams.value.description}"`, remove: () => { filterParams.value.description = null; filter(); } });
+        chips.push({
+            label: `Rules text: "${filterParams.value.description}"`,
+            remove: () => {
+                filterParams.value.description = null;
+                filter();
+            },
+        });
     }
     for (const stat of statFields) {
         const min = filterParams.value[`${stat}_min` as keyof typeof filterParams.value];
@@ -864,87 +965,314 @@ const activeFilters = computed(() => {
             else if (min && max) label += `${min}-${max}`;
             else if (min) label += `>= ${min}`;
             else label += `<= ${max}`;
-            chips.push({ label, remove: () => { clearStat(stat); filter(); } });
+            chips.push({
+                label,
+                remove: () => {
+                    clearStat(stat);
+                    filter();
+                },
+            });
         }
     }
     if (filterParams.value.base) {
-        chips.push({ label: `Base: ${lookupName(props.base_sizes, filterParams.value.base)}`, remove: () => { filterParams.value.base = null; filter(); } });
+        chips.push({
+            label: `Base: ${lookupName(props.base_sizes, filterParams.value.base)}`,
+            remove: () => {
+                filterParams.value.base = null;
+                filter();
+            },
+        });
     }
     if (selectedActions.value.length) {
         const logicLabel = selectedActions.value.length > 1 && actionLogic.value !== 'or' ? ' (ALL)' : '';
         for (const a of selectedActions.value) {
-            chips.push({ label: `Action: ${a}${logicLabel}`, remove: () => { selectedActions.value = selectedActions.value.filter((v) => v !== a); filter(); } });
+            chips.push({
+                label: `Action: ${a}${logicLabel}`,
+                remove: () => {
+                    selectedActions.value = selectedActions.value.filter((v) => v !== a);
+                    filter();
+                },
+            });
         }
     }
-    if (filterParams.value.action_name) chips.push({ label: `Action name: "${filterParams.value.action_name}"`, remove: () => { filterParams.value.action_name = null; filter(); } });
-    if (filterParams.value.action_type) chips.push({ label: `Action type: ${lookupName(props.action_types, filterParams.value.action_type)}`, remove: () => { filterParams.value.action_type = null; filter(); } });
-    if (filterParams.value.action_range_type) chips.push({ label: `Range type: ${lookupName(props.action_range_types, filterParams.value.action_range_type)}`, remove: () => { filterParams.value.action_range_type = null; filter(); } });
-    if (filterParams.value.action_stat_suits) chips.push({ label: `Stat suit: ${lookupName(props.suits, filterParams.value.action_stat_suits)}`, remove: () => { filterParams.value.action_stat_suits = null; filter(); } });
-    if (filterParams.value.action_stat_modifier) chips.push({ label: `Stat modifier: ${lookupName(props.stat_modifiers, filterParams.value.action_stat_modifier)}`, remove: () => { filterParams.value.action_stat_modifier = null; filter(); } });
-    if (filterParams.value.action_resisted_by) chips.push({ label: `Resisted by: ${lookupName(props.resistance_types, filterParams.value.action_resisted_by)}`, remove: () => { filterParams.value.action_resisted_by = null; filter(); } });
-    if (filterParams.value.action_target_suits) chips.push({ label: `Target suit: ${lookupName(props.suits, filterParams.value.action_target_suits)}`, remove: () => { filterParams.value.action_target_suits = null; filter(); } });
-    if (filterParams.value.action_damage) chips.push({ label: `Damage: "${filterParams.value.action_damage}"`, remove: () => { filterParams.value.action_damage = null; filter(); } });
-    if (filterParams.value.action_description) chips.push({ label: `Action desc: "${filterParams.value.action_description}"`, remove: () => { filterParams.value.action_description = null; filter(); } });
-    if (filterParams.value.action_is_signature) chips.push({ label: `Signature: ${filterParams.value.action_is_signature === 'true' ? 'Yes' : 'No'}`, remove: () => { filterParams.value.action_is_signature = null; filter(); } });
-    if (filterParams.value.action_costs_stone) chips.push({ label: `Action costs SS: ${filterParams.value.action_costs_stone === 'true' ? 'Yes' : 'No'}`, remove: () => { filterParams.value.action_costs_stone = null; filter(); } });
+    if (filterParams.value.action_name)
+        chips.push({
+            label: `Action name: "${filterParams.value.action_name}"`,
+            remove: () => {
+                filterParams.value.action_name = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_type)
+        chips.push({
+            label: `Action type: ${lookupName(props.action_types, filterParams.value.action_type)}`,
+            remove: () => {
+                filterParams.value.action_type = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_range_type)
+        chips.push({
+            label: `Range type: ${lookupName(props.action_range_types, filterParams.value.action_range_type)}`,
+            remove: () => {
+                filterParams.value.action_range_type = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_stat_suits)
+        chips.push({
+            label: `Stat suit: ${lookupName(props.suits, filterParams.value.action_stat_suits)}`,
+            remove: () => {
+                filterParams.value.action_stat_suits = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_stat_modifier)
+        chips.push({
+            label: `Stat modifier: ${lookupName(props.stat_modifiers, filterParams.value.action_stat_modifier)}`,
+            remove: () => {
+                filterParams.value.action_stat_modifier = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_resisted_by)
+        chips.push({
+            label: `Resisted by: ${lookupName(props.resistance_types, filterParams.value.action_resisted_by)}`,
+            remove: () => {
+                filterParams.value.action_resisted_by = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_target_suits)
+        chips.push({
+            label: `Target suit: ${lookupName(props.suits, filterParams.value.action_target_suits)}`,
+            remove: () => {
+                filterParams.value.action_target_suits = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_damage)
+        chips.push({
+            label: `Damage: "${filterParams.value.action_damage}"`,
+            remove: () => {
+                filterParams.value.action_damage = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_description)
+        chips.push({
+            label: `Action desc: "${filterParams.value.action_description}"`,
+            remove: () => {
+                filterParams.value.action_description = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_is_signature)
+        chips.push({
+            label: `Signature: ${filterParams.value.action_is_signature === 'true' ? 'Yes' : 'No'}`,
+            remove: () => {
+                filterParams.value.action_is_signature = null;
+                filter();
+            },
+        });
+    if (filterParams.value.action_costs_stone)
+        chips.push({
+            label: `Action costs SS: ${filterParams.value.action_costs_stone === 'true' ? 'Yes' : 'No'}`,
+            remove: () => {
+                filterParams.value.action_costs_stone = null;
+                filter();
+            },
+        });
     if (selectedAbilities.value.length) {
         const logicLabel = selectedAbilities.value.length > 1 && abilityLogic.value !== 'or' ? ' (ALL)' : '';
         for (const a of selectedAbilities.value) {
-            chips.push({ label: `Ability: ${a}${logicLabel}`, remove: () => { selectedAbilities.value = selectedAbilities.value.filter((v) => v !== a); filter(); } });
+            chips.push({
+                label: `Ability: ${a}${logicLabel}`,
+                remove: () => {
+                    selectedAbilities.value = selectedAbilities.value.filter((v) => v !== a);
+                    filter();
+                },
+            });
         }
     }
-    if (filterParams.value.ability_name) chips.push({ label: `Ability name: "${filterParams.value.ability_name}"`, remove: () => { filterParams.value.ability_name = null; filter(); } });
-    if (filterParams.value.ability_defensive_type) chips.push({ label: `Defensive type: ${lookupName(props.defensive_ability_types, filterParams.value.ability_defensive_type)}`, remove: () => { filterParams.value.ability_defensive_type = null; filter(); } });
-    if (filterParams.value.ability_costs_stone) chips.push({ label: `Ability costs SS: ${filterParams.value.ability_costs_stone === 'true' ? 'Yes' : 'No'}`, remove: () => { filterParams.value.ability_costs_stone = null; filter(); } });
-    if (filterParams.value.ability_description) chips.push({ label: `Ability desc: "${filterParams.value.ability_description}"`, remove: () => { filterParams.value.ability_description = null; filter(); } });
-    if (filterParams.value.ability_suits) chips.push({ label: `Ability suit: ${lookupName(props.suits, filterParams.value.ability_suits)}`, remove: () => { filterParams.value.ability_suits = null; filter(); } });
+    if (filterParams.value.ability_name)
+        chips.push({
+            label: `Ability name: "${filterParams.value.ability_name}"`,
+            remove: () => {
+                filterParams.value.ability_name = null;
+                filter();
+            },
+        });
+    if (filterParams.value.ability_defensive_type)
+        chips.push({
+            label: `Defensive type: ${lookupName(props.defensive_ability_types, filterParams.value.ability_defensive_type)}`,
+            remove: () => {
+                filterParams.value.ability_defensive_type = null;
+                filter();
+            },
+        });
+    if (filterParams.value.ability_costs_stone)
+        chips.push({
+            label: `Ability costs SS: ${filterParams.value.ability_costs_stone === 'true' ? 'Yes' : 'No'}`,
+            remove: () => {
+                filterParams.value.ability_costs_stone = null;
+                filter();
+            },
+        });
+    if (filterParams.value.ability_description)
+        chips.push({
+            label: `Ability desc: "${filterParams.value.ability_description}"`,
+            remove: () => {
+                filterParams.value.ability_description = null;
+                filter();
+            },
+        });
+    if (filterParams.value.ability_suits)
+        chips.push({
+            label: `Ability suit: ${lookupName(props.suits, filterParams.value.ability_suits)}`,
+            remove: () => {
+                filterParams.value.ability_suits = null;
+                filter();
+            },
+        });
     if (selectedTriggers.value.length) {
         const logicLabel = selectedTriggers.value.length > 1 && triggerLogic.value !== 'or' ? ' (ALL)' : '';
         for (const t of selectedTriggers.value) {
-            chips.push({ label: `Trigger: ${t}${logicLabel}`, remove: () => { selectedTriggers.value = selectedTriggers.value.filter((v) => v !== t); filter(); } });
+            chips.push({
+                label: `Trigger: ${t}${logicLabel}`,
+                remove: () => {
+                    selectedTriggers.value = selectedTriggers.value.filter((v) => v !== t);
+                    filter();
+                },
+            });
         }
     }
-    if (filterParams.value.trigger_suits) chips.push({ label: `Trigger suit: ${lookupName(props.suits, filterParams.value.trigger_suits)}`, remove: () => { filterParams.value.trigger_suits = null; filter(); } });
-    if (filterParams.value.trigger_description) chips.push({ label: `Trigger desc: "${filterParams.value.trigger_description}"`, remove: () => { filterParams.value.trigger_description = null; filter(); } });
+    if (filterParams.value.trigger_suits)
+        chips.push({
+            label: `Trigger suit: ${lookupName(props.suits, filterParams.value.trigger_suits)}`,
+            remove: () => {
+                filterParams.value.trigger_suits = null;
+                filter();
+            },
+        });
+    if (filterParams.value.trigger_description)
+        chips.push({
+            label: `Trigger desc: "${filterParams.value.trigger_description}"`,
+            remove: () => {
+                filterParams.value.trigger_description = null;
+                filter();
+            },
+        });
     if (selectedTokens.value.length) {
         const logicLabel = selectedTokens.value.length > 1 && tokenLogic.value !== 'or' ? ' (ALL)' : '';
         for (const t of selectedTokens.value) {
-            chips.push({ label: `Token: ${t}${logicLabel}`, remove: () => { selectedTokens.value = selectedTokens.value.filter((v) => v !== t); filter(); } });
+            chips.push({
+                label: `Token: ${t}${logicLabel}`,
+                remove: () => {
+                    selectedTokens.value = selectedTokens.value.filter((v) => v !== t);
+                    filter();
+                },
+            });
         }
     }
     if (selectedMarkers.value.length) {
         const logicLabel = selectedMarkers.value.length > 1 && markerLogic.value !== 'or' ? ' (ALL)' : '';
         for (const m of selectedMarkers.value) {
-            chips.push({ label: `Marker: ${m}${logicLabel}`, remove: () => { selectedMarkers.value = selectedMarkers.value.filter((v) => v !== m); filter(); } });
+            chips.push({
+                label: `Marker: ${m}${logicLabel}`,
+                remove: () => {
+                    selectedMarkers.value = selectedMarkers.value.filter((v) => v !== m);
+                    filter();
+                },
+            });
         }
     }
     if (filterParams.value.is) {
         for (const v of filterParams.value.is.split(',')) {
-            chips.push({ label: `Is: ${v}`, remove: () => { filterParams.value.is = filterParams.value.is?.split(',').filter((x) => x !== v).join(',') || null; filter(); } });
+            chips.push({
+                label: `Is: ${v}`,
+                remove: () => {
+                    filterParams.value.is =
+                        filterParams.value.is
+                            ?.split(',')
+                            .filter((x) => x !== v)
+                            .join(',') || null;
+                    filter();
+                },
+            });
         }
     }
     if (filterParams.value.has) {
         for (const v of filterParams.value.has.split(',')) {
-            chips.push({ label: `Has: ${v}`, remove: () => { filterParams.value.has = filterParams.value.has?.split(',').filter((x) => x !== v).join(',') || null; filter(); } });
+            chips.push({
+                label: `Has: ${v}`,
+                remove: () => {
+                    filterParams.value.has =
+                        filterParams.value.has
+                            ?.split(',')
+                            .filter((x) => x !== v)
+                            .join(',') || null;
+                    filter();
+                },
+            });
         }
     }
     if (statCompareLeft.value && statCompareOp.value && statCompareRight.value) {
-        chips.push({ label: `Stat: ${statCompareLeft.value} ${statCompareOp.value} ${statCompareRight.value}`, remove: () => { statCompareLeft.value = null; statCompareOp.value = null; statCompareRight.value = null; filterParams.value.stat_compare = null; filter(); } });
+        chips.push({
+            label: `Stat: ${statCompareLeft.value} ${statCompareOp.value} ${statCompareRight.value}`,
+            remove: () => {
+                statCompareLeft.value = null;
+                statCompareOp.value = null;
+                statCompareRight.value = null;
+                filterParams.value.stat_compare = null;
+                filter();
+            },
+        });
     }
     for (const gm of selectedGameModes.value) {
-        chips.push({ label: `Mode: ${gm}`, remove: () => { selectedGameModes.value = selectedGameModes.value.filter((v) => v !== gm); filter(); } });
+        chips.push({
+            label: `Mode: ${gm}`,
+            remove: () => {
+                selectedGameModes.value = selectedGameModes.value.filter((v) => v !== gm);
+                filter();
+            },
+        });
     }
     for (const gm of excludedGameModes.value) {
-        chips.push({ label: `Excl. mode: ${gm}`, remove: () => { excludedGameModes.value = excludedGameModes.value.filter((v) => v !== gm); filter(); } });
+        chips.push({
+            label: `Excl. mode: ${gm}`,
+            remove: () => {
+                excludedGameModes.value = excludedGameModes.value.filter((v) => v !== gm);
+                filter();
+            },
+        });
     }
     for (const f of excludedFactions.value) {
-        chips.push({ label: `Excl. faction: ${f}`, remove: () => { excludedFactions.value = excludedFactions.value.filter((v) => v !== f); filter(); } });
+        chips.push({
+            label: `Excl. faction: ${f}`,
+            remove: () => {
+                excludedFactions.value = excludedFactions.value.filter((v) => v !== f);
+                filter();
+            },
+        });
     }
     for (const kw of excludedKeywords.value) {
-        chips.push({ label: `Excl. keyword: ${kw}`, remove: () => { excludedKeywords.value = excludedKeywords.value.filter((v) => v !== kw); filter(); } });
+        chips.push({
+            label: `Excl. keyword: ${kw}`,
+            remove: () => {
+                excludedKeywords.value = excludedKeywords.value.filter((v) => v !== kw);
+                filter();
+            },
+        });
     }
     for (const ch of excludedCharacteristics.value) {
-        chips.push({ label: `Excl. characteristic: ${ch}`, remove: () => { excludedCharacteristics.value = excludedCharacteristics.value.filter((v) => v !== ch); filter(); } });
+        chips.push({
+            label: `Excl. characteristic: ${ch}`,
+            remove: () => {
+                excludedCharacteristics.value = excludedCharacteristics.value.filter((v) => v !== ch);
+                filter();
+            },
+        });
     }
     return chips;
 });
@@ -963,7 +1291,25 @@ const statsFilterCount = computed(() => {
 const actionsFilterCount = computed(() => {
     let count = 0;
     if (selectedActions.value.length) count += selectedActions.value.length;
-    const actionKeys = ['action_name', 'action_type', 'action_is_signature', 'action_costs_stone', 'action_range_min', 'action_range_max', 'action_range_type', 'action_stat_min', 'action_stat_max', 'action_stat_suits', 'action_stat_modifier', 'action_resisted_by', 'action_tn_min', 'action_tn_max', 'action_target_suits', 'action_damage', 'action_description'] as const;
+    const actionKeys = [
+        'action_name',
+        'action_type',
+        'action_is_signature',
+        'action_costs_stone',
+        'action_range_min',
+        'action_range_max',
+        'action_range_type',
+        'action_stat_min',
+        'action_stat_max',
+        'action_stat_suits',
+        'action_stat_modifier',
+        'action_resisted_by',
+        'action_tn_min',
+        'action_tn_max',
+        'action_target_suits',
+        'action_damage',
+        'action_description',
+    ] as const;
     for (const key of actionKeys) {
         if (filterParams.value[key]) count++;
     }
@@ -1253,17 +1599,48 @@ const applySyntaxSuggestion = (suggestion: string) => {
 const handleSearchKeydown = (e: KeyboardEvent) => {
     // Name autocomplete navigation (bare text mode)
     if (showNameSuggestions.value && nameSuggestions.value.length > 0) {
-        if (e.key === 'ArrowDown') { e.preventDefault(); nameSuggestionIndex.value = Math.min(nameSuggestionIndex.value + 1, nameSuggestions.value.length - 1); return; }
-        if (e.key === 'ArrowUp') { e.preventDefault(); nameSuggestionIndex.value = Math.max(nameSuggestionIndex.value - 1, -1); return; }
-        if (e.key === 'Enter' && nameSuggestionIndex.value >= 0) { e.preventDefault(); selectNameSuggestion(nameSuggestions.value[nameSuggestionIndex.value]); return; }
-        if (e.key === 'Escape') { showNameSuggestions.value = false; return; }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            nameSuggestionIndex.value = Math.min(nameSuggestionIndex.value + 1, nameSuggestions.value.length - 1);
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            nameSuggestionIndex.value = Math.max(nameSuggestionIndex.value - 1, -1);
+            return;
+        }
+        if (e.key === 'Enter' && nameSuggestionIndex.value >= 0) {
+            e.preventDefault();
+            selectNameSuggestion(nameSuggestions.value[nameSuggestionIndex.value]);
+            return;
+        }
+        if (e.key === 'Escape') {
+            showNameSuggestions.value = false;
+            return;
+        }
     }
     // Syntax autocomplete navigation
     if (showSyntaxSuggestions.value && syntaxSuggestions.value.length > 0) {
-        if (e.key === 'ArrowDown') { e.preventDefault(); syntaxSuggestionIndex.value = Math.min(syntaxSuggestionIndex.value + 1, syntaxSuggestions.value.length - 1); return; }
-        if (e.key === 'ArrowUp') { e.preventDefault(); syntaxSuggestionIndex.value = Math.max(syntaxSuggestionIndex.value - 1, -1); return; }
-        if ((e.key === 'Enter' || e.key === 'Tab') && syntaxSuggestionIndex.value >= 0) { e.preventDefault(); applySyntaxSuggestion(syntaxSuggestions.value[syntaxSuggestionIndex.value]); return; }
-        if (e.key === 'Escape') { e.preventDefault(); showSyntaxSuggestions.value = false; return; }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            syntaxSuggestionIndex.value = Math.min(syntaxSuggestionIndex.value + 1, syntaxSuggestions.value.length - 1);
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            syntaxSuggestionIndex.value = Math.max(syntaxSuggestionIndex.value - 1, -1);
+            return;
+        }
+        if ((e.key === 'Enter' || e.key === 'Tab') && syntaxSuggestionIndex.value >= 0) {
+            e.preventDefault();
+            applySyntaxSuggestion(syntaxSuggestions.value[syntaxSuggestionIndex.value]);
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            showSyntaxSuggestions.value = false;
+            return;
+        }
     }
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -1324,16 +1701,25 @@ onUnmounted(() => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     <template v-if="props.result_breakdown.upgrades > 0">
-                        {{ props.result_breakdown.characters }} {{ props.result_breakdown.characters === 1 ? 'character' : 'characters' }}, {{ props.result_breakdown.upgrades }} {{ props.result_breakdown.upgrades === 1 ? 'upgrade' : 'upgrades' }}
+                        {{ props.result_breakdown.characters }} {{ props.result_breakdown.characters === 1 ? 'character' : 'characters' }},
+                        {{ props.result_breakdown.upgrades }} {{ props.result_breakdown.upgrades === 1 ? 'upgrade' : 'upgrades' }}
                     </template>
-                    <template v-else>
-                        {{ props.result_count }} {{ props.result_count === 1 ? 'result' : 'results' }}
-                    </template>
-                    <button v-if="activeFilterCount > 0" class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title="Copy search URL" @click="copySearchUrl">
+                    <template v-else> {{ props.result_count }} {{ props.result_count === 1 ? 'result' : 'results' }} </template>
+                    <button
+                        v-if="activeFilterCount > 0"
+                        class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        title="Copy search URL"
+                        @click="copySearchUrl"
+                    >
                         <Check v-if="urlCopied" class="size-3.5 text-green-500" />
                         <ClipboardCopy v-else class="size-3.5" />
                     </button>
-                    <a v-if="activeFilterCount > 0 && props.result_count > 0" :href="exportUrl" class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title="Export CSV">
+                    <a
+                        v-if="activeFilterCount > 0 && props.result_count > 0"
+                        :href="exportUrl"
+                        class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        title="Export CSV"
+                    >
                         <Download class="size-3.5" />
                     </a>
                 </div>
@@ -1353,18 +1739,37 @@ onUnmounted(() => {
                         class="border-2 border-primary pl-10 pr-10"
                         @keydown="handleSearchKeydown"
                         @input="handleSearchInput"
-                        @focus="() => { handleSearchInput(); if (!syntaxInput.trim()) showHistory = true; }"
-                        @blur="setTimeout(() => { showSyntaxSuggestions = false; showNameSuggestions = false; showHistory = false; }, 200)"
+                        @focus="
+                            () => {
+                                handleSearchInput();
+                                if (!syntaxInput.trim()) showHistory = true;
+                            }
+                        "
+                        @blur="
+                            setTimeout(() => {
+                                showSyntaxSuggestions = false;
+                                showNameSuggestions = false;
+                                showHistory = false;
+                            }, 200)
+                        "
                     />
                     <button
                         v-if="syntaxInput"
                         class="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        @click="syntaxInput = ''; showNameSuggestions = false; resetFilters(); filter();"
+                        @click="
+                            syntaxInput = '';
+                            showNameSuggestions = false;
+                            resetFilters();
+                            filter();
+                        "
                     >
                         <X class="h-4 w-4" />
                     </button>
                     <!-- Name autocomplete dropdown (bare text) -->
-                    <div v-if="showNameSuggestions && nameSuggestions.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
+                    <div
+                        v-if="showNameSuggestions && nameSuggestions.length"
+                        class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg"
+                    >
                         <button
                             v-for="(item, idx) in nameSuggestions"
                             :key="item.id ?? idx"
@@ -1377,7 +1782,10 @@ onUnmounted(() => {
                         </button>
                     </div>
                     <!-- Syntax autocomplete dropdown -->
-                    <div v-if="showSyntaxSuggestions && syntaxSuggestions.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
+                    <div
+                        v-if="showSyntaxSuggestions && syntaxSuggestions.length"
+                        class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg"
+                    >
                         <button
                             v-for="(suggestion, idx) in syntaxSuggestions"
                             :key="idx"
@@ -1389,8 +1797,13 @@ onUnmounted(() => {
                         </button>
                     </div>
                     <!-- Search history dropdown -->
-                    <div v-if="showHistory && !showSyntaxSuggestions && !showNameSuggestions && !syntaxInput.trim() && searchHistory.length" class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg">
-                        <div class="flex items-center justify-between border-b px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div
+                        v-if="showHistory && !showSyntaxSuggestions && !showNameSuggestions && !syntaxInput.trim() && searchHistory.length"
+                        class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg"
+                    >
+                        <div
+                            class="flex items-center justify-between border-b px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
                             Recent searches
                             <button class="text-muted-foreground hover:text-foreground" @mousedown.prevent="clearHistory">Clear history</button>
                         </div>
@@ -1421,27 +1834,19 @@ onUnmounted(() => {
                     <div class="space-y-1.5">
                         <p class="font-semibold">Fields</p>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                            <code>f:arcanists</code><span>Faction</span>
-                            <code>st:master</code><span>Station</span>
-                            <code>kw:amalgam</code><span>Keyword</span>
-                            <code>char:Living</code><span>Characteristic</span>
-                            <code>act:Obey</code><span>Action</span>
-                            <code>ab:Armor</code><span>Ability</span>
-                            <code>tr:Critical</code><span>Trigger</span>
-                            <code>token:Focus</code><span>Token</span>
-                            <code>marker:Scrap</code><span>Marker</span>
-                            <code>o:"heal friendly"</code><span>Rules text</span>
+                            <code>f:arcanists</code><span>Faction</span> <code>st:master</code><span>Station</span> <code>kw:amalgam</code
+                            ><span>Keyword</span> <code>char:Living</code><span>Characteristic</span> <code>act:Obey</code><span>Action</span>
+                            <code>ab:Armor</code><span>Ability</span> <code>tr:Critical</code><span>Trigger</span> <code>token:Focus</code
+                            ><span>Token</span> <code>marker:Scrap</code><span>Marker</span> <code>o:"heal friendly"</code><span>Rules text</span>
                             <code>base:30mm</code><span>Base size</span>
                         </div>
                     </div>
                     <div class="space-y-1.5">
                         <p class="font-semibold">Numeric Comparisons</p>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                            <code>cost>=5</code><span>Cost at least 5</span>
-                            <code v-text="'health<=8'" /><span>Health at most 8</span>
-                            <code>speed=5</code><span>Speed exactly 5</span>
-                            <code>defense>5</code><span>Defense above 5</span>
-                            <code>wp>=6</code><span>Willpower at least 6</span>
+                            <code>cost>=5</code><span>Cost at least 5</span> <code v-text="'health<=8'" /><span>Health at most 8</span>
+                            <code>speed=5</code><span>Speed exactly 5</span> <code>defense>5</code><span>Defense above 5</span> <code>wp>=6</code
+                            ><span>Willpower at least 6</span>
                         </div>
                     </div>
                     <div class="space-y-1.5">
@@ -1455,17 +1860,16 @@ onUnmounted(() => {
                     <div class="space-y-1.5">
                         <p class="font-semibold">Boolean Filters</p>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                            <code>is:versatile</code><span>Versatile models</span>
-                            <code>is:totem</code><span>Totems</span>
-                            <code>has:demise</code><span>Has Demise ability</span>
-                            <code>sf:arcanists</code><span>Second faction</span>
+                            <code>is:versatile</code><span>Versatile models</span> <code>is:totem</code><span>Totems</span> <code>has:demise</code
+                            ><span>Has Demise ability</span> <code>sf:arcanists</code><span>Second faction</span>
                         </div>
                     </div>
                     <div class="space-y-1.5">
                         <p class="font-semibold">Stat Comparison</p>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                            <code>defense>willpower</code><span>Df higher than Wp</span>
-                            <code v-text="'health>=cost'" /><span>Health at least cost</span>
+                            <code>defense>willpower</code><span>Df higher than Wp</span> <code v-text="'health>=cost'" /><span
+                                >Health at least cost</span
+                            >
                         </div>
                     </div>
                     <div class="space-y-1.5">
@@ -1530,9 +1934,17 @@ onUnmounted(() => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
-                            <DropdownMenuItem v-for="ss in props.saved_searches" :key="ss.id" class="flex items-center justify-between gap-2" @click="loadSavedSearch(ss)">
+                            <DropdownMenuItem
+                                v-for="ss in props.saved_searches"
+                                :key="ss.id"
+                                class="flex items-center justify-between gap-2"
+                                @click="loadSavedSearch(ss)"
+                            >
                                 <span class="truncate">{{ ss.name }}</span>
-                                <button class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-destructive" @click.stop="deleteSavedSearch(ss)">
+                                <button
+                                    class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                                    @click.stop="deleteSavedSearch(ss)"
+                                >
                                     <Trash2 class="h-3 w-3" />
                                 </button>
                             </DropdownMenuItem>
@@ -1556,33 +1968,69 @@ onUnmounted(() => {
                             <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">General</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Game Mode</label>
-                                <SearchableMultiselect v-model="selectedGameModes" placeholder="Standard (default)" :options="props.game_mode_types" />
+                                <SearchableMultiselect
+                                    v-model="selectedGameModes"
+                                    placeholder="Standard (default)"
+                                    :options="props.game_mode_types"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Factions</label>
-                                <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
+                                <SearchableMultiselect
+                                    v-model="selectedFactions"
+                                    placeholder="Select Factions"
+                                    :options="props.factions"
+                                    option-value="name"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Station</label>
-                                <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" trigger-class="border-2 border-primary rounded" />
+                                <ClearableSelect
+                                    v-model="filterParams.station"
+                                    placeholder="Any Station"
+                                    :options="props.stations"
+                                    trigger-class="border-2 border-primary rounded"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <div class="flex items-center justify-between">
                                     <label class="text-sm font-medium">Keywords</label>
-                                    <button v-if="selectedKeywords.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'">
+                                    <button
+                                        v-if="selectedKeywords.length > 1"
+                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+                                        @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'"
+                                    >
                                         {{ keywordLogic === 'and' ? 'ALL' : 'ANY' }}
                                     </button>
                                 </div>
-                                <SearchableMultiselect v-model="selectedKeywords" placeholder="Select Keywords" :options="props.keywords" option-value="slug" />
+                                <SearchableMultiselect
+                                    v-model="selectedKeywords"
+                                    placeholder="Select Keywords"
+                                    :options="props.keywords"
+                                    option-value="slug"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <div class="flex items-center justify-between">
                                     <label class="text-sm font-medium">Characteristics</label>
-                                    <button v-if="selectedCharacteristics.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="characteristicLogic = characteristicLogic === 'and' ? 'or' : 'and'">
+                                    <button
+                                        v-if="selectedCharacteristics.length > 1"
+                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        :class="
+                                            characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                        "
+                                        @click="characteristicLogic = characteristicLogic === 'and' ? 'or' : 'and'"
+                                    >
                                         {{ characteristicLogic === 'and' ? 'ALL' : 'ANY' }}
                                     </button>
                                 </div>
-                                <SearchableMultiselect v-model="selectedCharacteristics" placeholder="Select Characteristics" :options="props.characteristics" option-value="slug" />
+                                <SearchableMultiselect
+                                    v-model="selectedCharacteristics"
+                                    placeholder="Select Characteristics"
+                                    :options="props.characteristics"
+                                    option-value="slug"
+                                />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Rules Text</label>
@@ -1596,11 +2044,27 @@ onUnmounted(() => {
 
                             <!-- Exclusions -->
                             <Collapsible v-model:open="sectionsOpen.exclusions">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80">
+                                <CollapsibleTrigger
+                                    class="flex w-full items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                >
                                     Exclude
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
-                                            {{ excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
+                                        <Badge
+                                            v-if="
+                                                excludedGameModes.length +
+                                                excludedFactions.length +
+                                                excludedKeywords.length +
+                                                excludedCharacteristics.length
+                                            "
+                                            variant="secondary"
+                                            class="px-1 py-0 text-[9px]"
+                                        >
+                                            {{
+                                                excludedGameModes.length +
+                                                excludedFactions.length +
+                                                excludedKeywords.length +
+                                                excludedCharacteristics.length
+                                            }}
                                         </Badge>
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.exclusions }" />
                                     </div>
@@ -1608,19 +2072,38 @@ onUnmounted(() => {
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-1">
                                         <label class="text-xs font-medium text-muted-foreground">Game Modes</label>
-                                        <SearchableMultiselect v-model="excludedGameModes" placeholder="Exclude Game Modes" :options="props.game_mode_types" />
+                                        <SearchableMultiselect
+                                            v-model="excludedGameModes"
+                                            placeholder="Exclude Game Modes"
+                                            :options="props.game_mode_types"
+                                        />
                                     </div>
                                     <div class="space-y-1">
                                         <label class="text-xs font-medium text-muted-foreground">Factions</label>
-                                        <SearchableMultiselect v-model="excludedFactions" placeholder="Exclude Factions" :options="props.factions" option-value="name" />
+                                        <SearchableMultiselect
+                                            v-model="excludedFactions"
+                                            placeholder="Exclude Factions"
+                                            :options="props.factions"
+                                            option-value="name"
+                                        />
                                     </div>
                                     <div class="space-y-1">
                                         <label class="text-xs font-medium text-muted-foreground">Keywords</label>
-                                        <SearchableMultiselect v-model="excludedKeywords" placeholder="Exclude Keywords" :options="props.keywords" option-value="slug" />
+                                        <SearchableMultiselect
+                                            v-model="excludedKeywords"
+                                            placeholder="Exclude Keywords"
+                                            :options="props.keywords"
+                                            option-value="slug"
+                                        />
                                     </div>
                                     <div class="space-y-1">
                                         <label class="text-xs font-medium text-muted-foreground">Characteristics</label>
-                                        <SearchableMultiselect v-model="excludedCharacteristics" placeholder="Exclude Characteristics" :options="props.characteristics" option-value="slug" />
+                                        <SearchableMultiselect
+                                            v-model="excludedCharacteristics"
+                                            placeholder="Exclude Characteristics"
+                                            :options="props.characteristics"
+                                            option-value="slug"
+                                        />
                                     </div>
                                 </CollapsibleContent>
                             </Collapsible>
@@ -1676,9 +2159,24 @@ onUnmounted(() => {
                                     <div class="space-y-1">
                                         <label class="text-sm font-medium">Stat Comparison</label>
                                         <div class="flex items-center gap-1">
-                                            <ClearableSelect v-model="statCompareLeft" placeholder="Stat" :options="statCompareOptions" trigger-class="border-2 border-primary rounded" />
-                                            <ClearableSelect v-model="statCompareOp" placeholder="Op" :options="statCompareOps" trigger-class="border-2 border-primary rounded" />
-                                            <ClearableSelect v-model="statCompareRight" placeholder="Stat" :options="statCompareOptions" trigger-class="border-2 border-primary rounded" />
+                                            <ClearableSelect
+                                                v-model="statCompareLeft"
+                                                placeholder="Stat"
+                                                :options="statCompareOptions"
+                                                trigger-class="border-2 border-primary rounded"
+                                            />
+                                            <ClearableSelect
+                                                v-model="statCompareOp"
+                                                placeholder="Op"
+                                                :options="statCompareOps"
+                                                trigger-class="border-2 border-primary rounded"
+                                            />
+                                            <ClearableSelect
+                                                v-model="statCompareRight"
+                                                placeholder="Stat"
+                                                :options="statCompareOptions"
+                                                trigger-class="border-2 border-primary rounded"
+                                            />
                                         </div>
                                     </div>
                                 </CollapsibleContent>
@@ -1691,15 +2189,27 @@ onUnmounted(() => {
                                 >
                                     Actions
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ actionsFilterCount }}</Badge>
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedActions }" />
+                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            actionsFilterCount
+                                        }}</Badge>
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedActions }"
+                                        />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
                                             <label class="text-sm font-medium">Name</label>
-                                            <button v-if="selectedActions.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="actionLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="actionLogic = actionLogic === 'and' ? 'or' : 'and'">
+                                            <button
+                                                v-if="selectedActions.length > 1"
+                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                :class="
+                                                    actionLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                "
+                                                @click="actionLogic = actionLogic === 'and' ? 'or' : 'and'"
+                                            >
                                                 {{ actionLogic === 'and' ? 'ALL' : 'ANY' }}
                                             </button>
                                         </div>
@@ -1853,19 +2363,35 @@ onUnmounted(() => {
                                 >
                                     Abilities
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ abilitiesFilterCount }}</Badge>
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedAbilities }" />
+                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            abilitiesFilterCount
+                                        }}</Badge>
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedAbilities }"
+                                        />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
                                             <label class="text-sm font-medium">Name</label>
-                                            <button v-if="selectedAbilities.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="abilityLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="abilityLogic = abilityLogic === 'and' ? 'or' : 'and'">
+                                            <button
+                                                v-if="selectedAbilities.length > 1"
+                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                :class="
+                                                    abilityLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                "
+                                                @click="abilityLogic = abilityLogic === 'and' ? 'or' : 'and'"
+                                            >
                                                 {{ abilityLogic === 'and' ? 'ALL' : 'ANY' }}
                                             </button>
                                         </div>
-                                        <SearchableMultiselect v-model="selectedAbilities" placeholder="Select Abilities" :options="props.abilities" />
+                                        <SearchableMultiselect
+                                            v-model="selectedAbilities"
+                                            placeholder="Select Abilities"
+                                            :options="props.abilities"
+                                        />
                                         <Input
                                             v-model="filterParams.ability_name"
                                             type="text"
@@ -1910,15 +2436,27 @@ onUnmounted(() => {
                                 >
                                     Triggers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ triggersFilterCount }}</Badge>
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTriggers }" />
+                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            triggersFilterCount
+                                        }}</Badge>
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedTriggers }"
+                                        />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
                                             <label class="text-sm font-medium">Trigger</label>
-                                            <button v-if="selectedTriggers.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="triggerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="triggerLogic = triggerLogic === 'and' ? 'or' : 'and'">
+                                            <button
+                                                v-if="selectedTriggers.length > 1"
+                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                :class="
+                                                    triggerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                "
+                                                @click="triggerLogic = triggerLogic === 'and' ? 'or' : 'and'"
+                                            >
                                                 {{ triggerLogic === 'and' ? 'ALL' : 'ANY' }}
                                             </button>
                                         </div>
@@ -1952,15 +2490,27 @@ onUnmounted(() => {
                                 >
                                     Tokens
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ tokensFilterCount }}</Badge>
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTokens }" />
+                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            tokensFilterCount
+                                        }}</Badge>
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedTokens }"
+                                        />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
                                             <label class="text-sm font-medium">Token</label>
-                                            <button v-if="selectedTokens.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="tokenLogic = tokenLogic === 'and' ? 'or' : 'and'">
+                                            <button
+                                                v-if="selectedTokens.length > 1"
+                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                :class="
+                                                    tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                "
+                                                @click="tokenLogic = tokenLogic === 'and' ? 'or' : 'and'"
+                                            >
                                                 {{ tokenLogic === 'and' ? 'ALL' : 'ANY' }}
                                             </button>
                                         </div>
@@ -1976,15 +2526,27 @@ onUnmounted(() => {
                                 >
                                     Markers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ markersFilterCount }}</Badge>
-                                        <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedMarkers }" />
+                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            markersFilterCount
+                                        }}</Badge>
+                                        <ChevronDown
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-180': sectionsOpen.advancedMarkers }"
+                                        />
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
                                             <label class="text-sm font-medium">Marker</label>
-                                            <button v-if="selectedMarkers.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="markerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="markerLogic = markerLogic === 'and' ? 'or' : 'and'">
+                                            <button
+                                                v-if="selectedMarkers.length > 1"
+                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                :class="
+                                                    markerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                "
+                                                @click="markerLogic = markerLogic === 'and' ? 'or' : 'and'"
+                                            >
                                                 {{ markerLogic === 'and' ? 'ALL' : 'ANY' }}
                                             </button>
                                         </div>
@@ -2037,28 +2599,19 @@ onUnmounted(() => {
 
         <!-- Search explanation banner -->
         <div v-if="searchExplanation" class="container mx-auto mb-2 sm:px-4">
-            <div class="rounded-md bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
-                Showing: {{ searchExplanation }}
-            </div>
+            <div class="rounded-md bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">Showing: {{ searchExplanation }}</div>
         </div>
 
         <!-- Active filter chips -->
         <div v-if="activeFilters.length" class="container mx-auto mb-2 sm:px-4">
             <div class="flex flex-wrap items-center gap-1.5">
-                <Badge
-                    v-for="(chip, idx) in activeFilters"
-                    :key="idx"
-                    variant="secondary"
-                    class="gap-1 pr-1 text-xs"
-                >
+                <Badge v-for="(chip, idx) in activeFilters" :key="idx" variant="secondary" class="gap-1 pr-1 text-xs">
                     {{ chip.label }}
                     <button class="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20" @click="chip.remove()">
                         <X class="h-3 w-3" />
                     </button>
                 </Badge>
-                <Button v-if="activeFilters.length > 1" variant="ghost" size="sm" class="h-6 px-2 text-[10px]" @click="clear">
-                    Clear all
-                </Button>
+                <Button v-if="activeFilters.length > 1" variant="ghost" size="sm" class="h-6 px-2 text-[10px]" @click="clear"> Clear all </Button>
             </div>
         </div>
 
@@ -2072,11 +2625,20 @@ onUnmounted(() => {
                         <div class="space-y-3 px-1">
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Game Mode</label>
-                                <SearchableMultiselect v-model="selectedGameModes" placeholder="Standard (default)" :options="props.game_mode_types" />
+                                <SearchableMultiselect
+                                    v-model="selectedGameModes"
+                                    placeholder="Standard (default)"
+                                    :options="props.game_mode_types"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Factions</label>
-                                <SearchableMultiselect v-model="selectedFactions" placeholder="Select Factions" :options="props.factions" option-value="name" />
+                                <SearchableMultiselect
+                                    v-model="selectedFactions"
+                                    placeholder="Select Factions"
+                                    :options="props.factions"
+                                    option-value="name"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Station</label>
@@ -2085,39 +2647,72 @@ onUnmounted(() => {
                             <div class="space-y-1">
                                 <div class="flex items-center justify-between">
                                     <label class="text-xs font-medium text-muted-foreground">Keywords</label>
-                                    <button v-if="selectedKeywords.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'">
+                                    <button
+                                        v-if="selectedKeywords.length > 1"
+                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+                                        @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'"
+                                    >
                                         {{ keywordLogic === 'and' ? 'ALL' : 'ANY' }}
                                     </button>
                                 </div>
-                                <SearchableMultiselect v-model="selectedKeywords" placeholder="Select Keywords" :options="props.keywords" option-value="slug" />
+                                <SearchableMultiselect
+                                    v-model="selectedKeywords"
+                                    placeholder="Select Keywords"
+                                    :options="props.keywords"
+                                    option-value="slug"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <div class="flex items-center justify-between">
                                     <label class="text-xs font-medium text-muted-foreground">Characteristics</label>
-                                    <button v-if="selectedCharacteristics.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="characteristicLogic = characteristicLogic === 'and' ? 'or' : 'and'">
+                                    <button
+                                        v-if="selectedCharacteristics.length > 1"
+                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        :class="
+                                            characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                        "
+                                        @click="characteristicLogic = characteristicLogic === 'and' ? 'or' : 'and'"
+                                    >
                                         {{ characteristicLogic === 'and' ? 'ALL' : 'ANY' }}
                                     </button>
                                 </div>
-                                <SearchableMultiselect v-model="selectedCharacteristics" placeholder="Select Characteristics" :options="props.characteristics" option-value="slug" />
+                                <SearchableMultiselect
+                                    v-model="selectedCharacteristics"
+                                    placeholder="Select Characteristics"
+                                    :options="props.characteristics"
+                                    option-value="slug"
+                                />
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Rules Text</label>
-                                <Input
-                                    v-model="filterParams.description"
-                                    type="text"
-                                    placeholder="Search rules text..."
-                                    class="h-8 text-xs"
-                                />
+                                <Input v-model="filterParams.description" type="text" placeholder="Search rules text..." class="h-8 text-xs" />
                             </div>
                         </div>
 
                         <!-- Exclusions -->
                         <Collapsible v-model:open="sectionsOpen.exclusions">
-                            <CollapsibleTrigger class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80">
+                            <CollapsibleTrigger
+                                class="flex w-full items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80"
+                            >
                                 Exclude
                                 <div class="flex items-center gap-1.5">
-                                    <Badge v-if="excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length" variant="secondary" class="px-1 py-0 text-[9px]">
-                                        {{ excludedGameModes.length + excludedFactions.length + excludedKeywords.length + excludedCharacteristics.length }}
+                                    <Badge
+                                        v-if="
+                                            excludedGameModes.length +
+                                            excludedFactions.length +
+                                            excludedKeywords.length +
+                                            excludedCharacteristics.length
+                                        "
+                                        variant="secondary"
+                                        class="px-1 py-0 text-[9px]"
+                                    >
+                                        {{
+                                            excludedGameModes.length +
+                                            excludedFactions.length +
+                                            excludedKeywords.length +
+                                            excludedCharacteristics.length
+                                        }}
                                     </Badge>
                                     <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.exclusions }" />
                                 </div>
@@ -2125,19 +2720,38 @@ onUnmounted(() => {
                             <CollapsibleContent class="space-y-3 px-1 pt-3">
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Game Modes</label>
-                                    <SearchableMultiselect v-model="excludedGameModes" placeholder="Exclude Game Modes" :options="props.game_mode_types" />
+                                    <SearchableMultiselect
+                                        v-model="excludedGameModes"
+                                        placeholder="Exclude Game Modes"
+                                        :options="props.game_mode_types"
+                                    />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Factions</label>
-                                    <SearchableMultiselect v-model="excludedFactions" placeholder="Exclude Factions" :options="props.factions" option-value="name" />
+                                    <SearchableMultiselect
+                                        v-model="excludedFactions"
+                                        placeholder="Exclude Factions"
+                                        :options="props.factions"
+                                        option-value="name"
+                                    />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Keywords</label>
-                                    <SearchableMultiselect v-model="excludedKeywords" placeholder="Exclude Keywords" :options="props.keywords" option-value="slug" />
+                                    <SearchableMultiselect
+                                        v-model="excludedKeywords"
+                                        placeholder="Exclude Keywords"
+                                        :options="props.keywords"
+                                        option-value="slug"
+                                    />
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-medium text-muted-foreground">Characteristics</label>
-                                    <SearchableMultiselect v-model="excludedCharacteristics" placeholder="Exclude Characteristics" :options="props.characteristics" option-value="slug" />
+                                    <SearchableMultiselect
+                                        v-model="excludedCharacteristics"
+                                        placeholder="Exclude Characteristics"
+                                        :options="props.characteristics"
+                                        option-value="slug"
+                                    />
                                 </div>
                             </CollapsibleContent>
                         </Collapsible>
@@ -2158,8 +2772,13 @@ onUnmounted(() => {
                                     >
                                         Stats
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ statsFilterCount }}</Badge>
-                                            <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
+                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                statsFilterCount
+                                            }}</Badge>
+                                            <ChevronDown
+                                                class="h-3.5 w-3.5 transition-transform"
+                                                :class="{ 'rotate-180': sectionsOpen.advancedStats }"
+                                            />
                                         </div>
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
@@ -2209,7 +2828,9 @@ onUnmounted(() => {
                                     >
                                         Actions
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ actionsFilterCount }}</Badge>
+                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                actionsFilterCount
+                                            }}</Badge>
                                             <ChevronDown
                                                 class="h-3.5 w-3.5 transition-transform"
                                                 :class="{ 'rotate-180': sectionsOpen.advancedActions }"
@@ -2220,7 +2841,16 @@ onUnmounted(() => {
                                         <div class="space-y-1">
                                             <div class="flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Name</label>
-                                                <button v-if="selectedActions.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="actionLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="actionLogic = actionLogic === 'and' ? 'or' : 'and'">
+                                                <button
+                                                    v-if="selectedActions.length > 1"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    :class="
+                                                        actionLogic === 'and'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    "
+                                                    @click="actionLogic = actionLogic === 'and' ? 'or' : 'and'"
+                                                >
                                                     {{ actionLogic === 'and' ? 'ALL' : 'ANY' }}
                                                 </button>
                                             </div>
@@ -2359,7 +2989,9 @@ onUnmounted(() => {
                                     >
                                         Abilities
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ abilitiesFilterCount }}</Badge>
+                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                abilitiesFilterCount
+                                            }}</Badge>
                                             <ChevronDown
                                                 class="h-3.5 w-3.5 transition-transform"
                                                 :class="{ 'rotate-180': sectionsOpen.advancedAbilities }"
@@ -2370,11 +3002,24 @@ onUnmounted(() => {
                                         <div class="space-y-1">
                                             <div class="flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Name</label>
-                                                <button v-if="selectedAbilities.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="abilityLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="abilityLogic = abilityLogic === 'and' ? 'or' : 'and'">
+                                                <button
+                                                    v-if="selectedAbilities.length > 1"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    :class="
+                                                        abilityLogic === 'and'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    "
+                                                    @click="abilityLogic = abilityLogic === 'and' ? 'or' : 'and'"
+                                                >
                                                     {{ abilityLogic === 'and' ? 'ALL' : 'ANY' }}
                                                 </button>
                                             </div>
-                                            <SearchableMultiselect v-model="selectedAbilities" placeholder="Select Abilities" :options="props.abilities" />
+                                            <SearchableMultiselect
+                                                v-model="selectedAbilities"
+                                                placeholder="Select Abilities"
+                                                :options="props.abilities"
+                                            />
                                             <Input
                                                 v-model="filterParams.ability_name"
                                                 type="text"
@@ -2412,19 +3057,37 @@ onUnmounted(() => {
                                     >
                                         Triggers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ triggersFilterCount }}</Badge>
-                                            <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTriggers }" />
+                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                triggersFilterCount
+                                            }}</Badge>
+                                            <ChevronDown
+                                                class="h-3.5 w-3.5 transition-transform"
+                                                :class="{ 'rotate-180': sectionsOpen.advancedTriggers }"
+                                            />
                                         </div>
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <div class="flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Trigger</label>
-                                                <button v-if="selectedTriggers.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="triggerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="triggerLogic = triggerLogic === 'and' ? 'or' : 'and'">
+                                                <button
+                                                    v-if="selectedTriggers.length > 1"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    :class="
+                                                        triggerLogic === 'and'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    "
+                                                    @click="triggerLogic = triggerLogic === 'and' ? 'or' : 'and'"
+                                                >
                                                     {{ triggerLogic === 'and' ? 'ALL' : 'ANY' }}
                                                 </button>
                                             </div>
-                                            <SearchableMultiselect v-model="selectedTriggers" placeholder="Select Triggers" :options="props.triggers" />
+                                            <SearchableMultiselect
+                                                v-model="selectedTriggers"
+                                                placeholder="Select Triggers"
+                                                :options="props.triggers"
+                                            />
                                         </div>
                                         <div class="space-y-1">
                                             <label class="text-xs font-medium text-muted-foreground">Suit</label>
@@ -2448,19 +3111,35 @@ onUnmounted(() => {
                                     >
                                         Tokens
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ tokensFilterCount }}</Badge>
-                                            <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedTokens }" />
+                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                tokensFilterCount
+                                            }}</Badge>
+                                            <ChevronDown
+                                                class="h-3.5 w-3.5 transition-transform"
+                                                :class="{ 'rotate-180': sectionsOpen.advancedTokens }"
+                                            />
                                         </div>
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <div class="flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Token</label>
-                                                <button v-if="selectedTokens.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="tokenLogic = tokenLogic === 'and' ? 'or' : 'and'">
+                                                <button
+                                                    v-if="selectedTokens.length > 1"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    :class="
+                                                        tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                                                    "
+                                                    @click="tokenLogic = tokenLogic === 'and' ? 'or' : 'and'"
+                                                >
                                                     {{ tokenLogic === 'and' ? 'ALL' : 'ANY' }}
                                                 </button>
                                             </div>
-                                            <SearchableMultiselect v-model="selectedTokens" placeholder="Select Tokens" :options="props.tokens_list" />
+                                            <SearchableMultiselect
+                                                v-model="selectedTokens"
+                                                placeholder="Select Tokens"
+                                                :options="props.tokens_list"
+                                            />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -2471,19 +3150,37 @@ onUnmounted(() => {
                                     >
                                         Markers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ markersFilterCount }}</Badge>
-                                            <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedMarkers }" />
+                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                                markersFilterCount
+                                            }}</Badge>
+                                            <ChevronDown
+                                                class="h-3.5 w-3.5 transition-transform"
+                                                :class="{ 'rotate-180': sectionsOpen.advancedMarkers }"
+                                            />
                                         </div>
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-1">
                                             <div class="flex items-center justify-between">
                                                 <label class="text-xs font-medium text-muted-foreground">Marker</label>
-                                                <button v-if="selectedMarkers.length > 1" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="markerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" @click="markerLogic = markerLogic === 'and' ? 'or' : 'and'">
+                                                <button
+                                                    v-if="selectedMarkers.length > 1"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    :class="
+                                                        markerLogic === 'and'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    "
+                                                    @click="markerLogic = markerLogic === 'and' ? 'or' : 'and'"
+                                                >
                                                     {{ markerLogic === 'and' ? 'ALL' : 'ANY' }}
                                                 </button>
                                             </div>
-                                            <SearchableMultiselect v-model="selectedMarkers" placeholder="Select Markers" :options="props.markers_list" />
+                                            <SearchableMultiselect
+                                                v-model="selectedMarkers"
+                                                placeholder="Select Markers"
+                                                :options="props.markers_list"
+                                            />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -2532,7 +3229,11 @@ onUnmounted(() => {
                         <div v-if="props.results.data?.some((r: any) => r.result_type === 'upgrade')" class="mb-6">
                             <h3 class="mb-3 text-sm font-semibold text-muted-foreground">Matching Upgrades</h3>
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                                <div v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')" :key="`upgrade-${item.id}`" class="text-center">
+                                <div
+                                    v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')"
+                                    :key="`upgrade-${item.id}`"
+                                    class="text-center"
+                                >
                                     <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
                                     <UpgradeFlipCard
                                         :front-image="item.front_image.replace('/storage/', '')"
@@ -2575,13 +3276,24 @@ onUnmounted(() => {
                         </template>
                         <EmptyState v-else>
                             <div class="mt-3 space-y-2 text-center">
-                                <p v-if="excludedGameModes.length || excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
+                                <p
+                                    v-if="
+                                        excludedGameModes.length ||
+                                        excludedFactions.length ||
+                                        excludedKeywords.length ||
+                                        excludedCharacteristics.length
+                                    "
+                                    class="text-xs text-muted-foreground"
+                                >
                                     Try removing some exclusion filters.
                                 </p>
                                 <p v-if="selectedKeywords.length > 1 && keywordLogic === 'and'" class="text-xs text-muted-foreground">
                                     Try switching keywords to ANY mode instead of ALL.
                                 </p>
-                                <p v-if="statFields.some((s) => filterParams[`${s}_min`] || filterParams[`${s}_max`])" class="text-xs text-muted-foreground">
+                                <p
+                                    v-if="statFields.some((s) => filterParams[`${s}_min`] || filterParams[`${s}_max`])"
+                                    class="text-xs text-muted-foreground"
+                                >
                                     Try widening or removing stat range filters.
                                 </p>
                                 <Button v-if="activeFilterCount > 0" variant="outline" size="sm" class="mt-2" @click="clear">
@@ -2593,10 +3305,7 @@ onUnmounted(() => {
                     </div>
                     <div v-else>
                         <div v-if="props.results?.data?.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                            <template
-                                v-for="(item, idx) in props.results.data"
-                                :key="`${item.result_type}-${item.id}`"
-                            >
+                            <template v-for="(item, idx) in props.results.data" :key="`${item.result_type}-${item.id}`">
                                 <div v-if="item.result_type === 'upgrade'" class="animate-fade-in-up opacity-0" :style="delays[idx]">
                                     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
                                         <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
@@ -2634,7 +3343,12 @@ onUnmounted(() => {
                                             </button>
                                         </div>
                                     </div>
-                                    <div v-for="upgrade in item.crew_upgrades ?? []" :key="'cu-' + upgrade.id" class="animate-fade-in-up opacity-0" :style="delays[idx]">
+                                    <div
+                                        v-for="upgrade in item.crew_upgrades ?? []"
+                                        :key="'cu-' + upgrade.id"
+                                        class="animate-fade-in-up opacity-0"
+                                        :style="delays[idx]"
+                                    >
                                         <UpgradeCardView :upgrade="upgrade" />
                                     </div>
                                 </template>
@@ -2642,13 +3356,24 @@ onUnmounted(() => {
                         </div>
                         <EmptyState v-else>
                             <div class="mt-3 space-y-2 text-center">
-                                <p v-if="excludedGameModes.length || excludedFactions.length || excludedKeywords.length || excludedCharacteristics.length" class="text-xs text-muted-foreground">
+                                <p
+                                    v-if="
+                                        excludedGameModes.length ||
+                                        excludedFactions.length ||
+                                        excludedKeywords.length ||
+                                        excludedCharacteristics.length
+                                    "
+                                    class="text-xs text-muted-foreground"
+                                >
                                     Try removing some exclusion filters.
                                 </p>
                                 <p v-if="selectedKeywords.length > 1 && keywordLogic === 'and'" class="text-xs text-muted-foreground">
                                     Try switching keywords to ANY mode instead of ALL.
                                 </p>
-                                <p v-if="statFields.some((s) => filterParams[`${s}_min`] || filterParams[`${s}_max`])" class="text-xs text-muted-foreground">
+                                <p
+                                    v-if="statFields.some((s) => filterParams[`${s}_min`] || filterParams[`${s}_max`])"
+                                    class="text-xs text-muted-foreground"
+                                >
                                     Try widening or removing stat range filters.
                                 </p>
                                 <Button v-if="activeFilterCount > 0" variant="outline" size="sm" class="mt-2" @click="clear">

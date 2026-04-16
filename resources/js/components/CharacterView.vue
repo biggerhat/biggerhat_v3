@@ -28,8 +28,8 @@ import {
     ExternalLink,
     FileImage,
     Library,
-    Package,
     Newspaper,
+    Package,
     Radio,
     Scale,
     Star,
@@ -749,7 +749,9 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
                             <div class="min-w-0 flex-1">
                                 <div class="font-medium">{{ pod.name }}</div>
-                                <Badge variant="outline" class="mt-0.5 text-[10px]">{{ pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault' }}</Badge>
+                                <Badge variant="outline" class="mt-0.5 text-[10px]">{{
+                                    pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault'
+                                }}</Badge>
                             </div>
                             <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" />
                         </a>

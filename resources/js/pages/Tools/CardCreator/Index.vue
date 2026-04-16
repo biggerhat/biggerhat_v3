@@ -118,7 +118,9 @@ const stationLabel = (station: string | null) => {
             <div class="mb-6 flex items-center gap-4 border-b">
                 <button
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
-                    :class="activeTab === 'characters' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                    :class="
+                        activeTab === 'characters' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    "
                     @click="activeTab = 'characters'"
                 >
                     Characters
@@ -126,7 +128,9 @@ const stationLabel = (station: string | null) => {
                 </button>
                 <button
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
-                    :class="activeTab === 'crew_cards' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                    :class="
+                        activeTab === 'crew_cards' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    "
                     @click="activeTab = 'crew_cards'"
                 >
                     Crew Cards
@@ -134,7 +138,9 @@ const stationLabel = (station: string | null) => {
                 </button>
                 <button
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
-                    :class="activeTab === 'upgrades' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                    :class="
+                        activeTab === 'upgrades' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    "
                     @click="activeTab = 'upgrades'"
                 >
                     Upgrades
@@ -160,7 +166,7 @@ const stationLabel = (station: string | null) => {
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <Card v-for="character in characters" :key="character.id" class="group overflow-hidden transition-shadow hover:shadow-md">
-                        <div class="relative max-h-48 overflow-hidden bg-muted aspect-[550/950]">
+                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
@@ -181,11 +187,23 @@ const stationLabel = (station: string | null) => {
                                 <Link :href="route('tools.card_creator.edit', character.id)" class="flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
-                                <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyCharacterShareLink(character)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    aria-label="Copy share link"
+                                    @click="copyCharacterShareLink(character)"
+                                >
                                     <Check v-if="copiedId === 'char-' + character.id" class="size-3 text-green-500" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
-                                <Button variant="outline" size="sm" class="text-xs text-destructive hover:bg-destructive/10" aria-label="Delete" @click="confirmDeleteCharacter(character)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs text-destructive hover:bg-destructive/10"
+                                    aria-label="Delete"
+                                    @click="confirmDeleteCharacter(character)"
+                                >
                                     <Trash2 class="size-3" />
                                 </Button>
                             </div>
@@ -212,7 +230,7 @@ const stationLabel = (station: string | null) => {
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <Card v-for="card in crewCards" :key="card.id" class="group overflow-hidden transition-shadow hover:shadow-md">
-                        <div class="relative max-h-48 overflow-hidden bg-muted aspect-[550/950]">
+                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-12 opacity-30" />
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
@@ -238,7 +256,13 @@ const stationLabel = (station: string | null) => {
                                     <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-500" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
-                                <Button variant="outline" size="sm" class="text-xs text-destructive hover:bg-destructive/10" aria-label="Delete" @click="confirmDeleteUpgrade(card)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs text-destructive hover:bg-destructive/10"
+                                    aria-label="Delete"
+                                    @click="confirmDeleteUpgrade(card)"
+                                >
                                     <Trash2 class="size-3" />
                                 </Button>
                             </div>
@@ -265,7 +289,7 @@ const stationLabel = (station: string | null) => {
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <Card v-for="upgrade in characterUpgrades" :key="upgrade.id" class="group overflow-hidden transition-shadow hover:shadow-md">
-                        <div class="relative max-h-48 overflow-hidden bg-muted aspect-[550/950]">
+                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="upgrade.faction" :faction="upgrade.faction" class-name="size-12 opacity-30" />
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
@@ -287,11 +311,23 @@ const stationLabel = (station: string | null) => {
                                 <Link :href="route('tools.card_creator.upgrades.edit', upgrade.id)" class="flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
-                                <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyUpgradeShareLink(upgrade)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    aria-label="Copy share link"
+                                    @click="copyUpgradeShareLink(upgrade)"
+                                >
                                     <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-500" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
-                                <Button variant="outline" size="sm" class="text-xs text-destructive hover:bg-destructive/10" aria-label="Delete" @click="confirmDeleteUpgrade(upgrade)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs text-destructive hover:bg-destructive/10"
+                                    aria-label="Delete"
+                                    @click="confirmDeleteUpgrade(upgrade)"
+                                >
                                     <Trash2 class="size-3" />
                                 </Button>
                             </div>
@@ -308,7 +344,8 @@ const stationLabel = (station: string | null) => {
             <DialogHeader>
                 <DialogTitle>Delete Custom {{ deleteTarget?.type === 'upgrade' ? 'Card' : 'Character' }}</DialogTitle>
                 <DialogDescription>
-                    Are you sure you want to delete <strong>{{ deleteTarget?.display_name }}</strong>? This cannot be undone.
+                    Are you sure you want to delete <strong>{{ deleteTarget?.display_name }}</strong
+                    >? This cannot be undone.
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter>

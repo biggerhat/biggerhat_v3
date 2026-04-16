@@ -18,6 +18,13 @@ onMounted(() => {
 </script>
 
 <template>
-    <img v-if="currentTheme === 'light'" src="/images/Symbols/M4E-Symbol_Soulstone-Black.png" :class="className" alt="Soulstone" loading="lazy" decoding="async" />
+    <img
+        v-if="currentTheme === 'light'"
+        src="/images/Symbols/M4E-Symbol_Soulstone-Black.png"
+        :class="className"
+        alt="Soulstone"
+        loading="lazy"
+        decoding="async"
+    />
     <img v-else src="/images/Symbols/M4E-Symbol_Soulstone-White.png" :class="className" alt="Soulstone" loading="lazy" decoding="async" />
 </template>

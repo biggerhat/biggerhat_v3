@@ -41,7 +41,19 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                 } else if (status === 'scheme_select') {
                     reload([...base, 'schemes', 'deployment', 'current_schemes']);
                 } else if (status === 'in_progress') {
-                    reload([...base, 'schemes', 'deployment', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel', 'observer_scheme_intel', 'tokens', 'character_upgrades', 'all_markers']);
+                    reload([
+                        ...base,
+                        'schemes',
+                        'deployment',
+                        'current_schemes',
+                        'next_schemes',
+                        'opponent_next_schemes',
+                        'opponent_scheme_intel',
+                        'observer_scheme_intel',
+                        'tokens',
+                        'character_upgrades',
+                        'all_markers',
+                    ]);
                 } else if (status === 'completed' || status === 'abandoned') {
                     reload([...base, 'current_schemes', 'starting_crews']);
                 } else {
@@ -81,8 +93,14 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     };
 
     const joinChannel = () => {
-        if (!window.Echo) { if (import.meta.env.DEV) console.warn('[GameChannel] Echo not available'); return; }
-        if (!gameUuid) { if (import.meta.env.DEV) console.log('[GameChannel] No UUID, skipping'); return; }
+        if (!window.Echo) {
+            if (import.meta.env.DEV) console.warn('[GameChannel] Echo not available');
+            return;
+        }
+        if (!gameUuid) {
+            if (import.meta.env.DEV) console.log('[GameChannel] No UUID, skipping');
+            return;
+        }
 
         if (isObserver) {
             if (import.meta.env.DEV) console.log(`[GameChannel] Observer joining public channel: game-observe.${gameUuid}`);

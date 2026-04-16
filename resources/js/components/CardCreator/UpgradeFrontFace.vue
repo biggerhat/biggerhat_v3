@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import { computed } from 'vue';
 
 interface ContentBlock {
@@ -70,7 +70,11 @@ const headerTextSize = computed(() => {
         <div class="h-1.5 w-full" :style="{ background: `hsl(var(${factionVar}))` }" />
 
         <!-- Type label (character upgrades) -->
-        <div v-if="!isCrew && upgradeTypeLabel" class="px-3 py-1 text-center text-[11px] font-bold uppercase tracking-widest" :style="{ background: `hsl(var(${factionVar}) / 0.2)`, color: `hsl(var(${factionVar}))` }">
+        <div
+            v-if="!isCrew && upgradeTypeLabel"
+            class="px-3 py-1 text-center text-[11px] font-bold uppercase tracking-widest"
+            :style="{ background: `hsl(var(${factionVar}) / 0.2)`, color: `hsl(var(${factionVar}))` }"
+        >
             {{ upgradeTypeLabel }}
         </div>
 
@@ -100,7 +104,11 @@ const headerTextSize = computed(() => {
                 <div v-else-if="block.type === 'ability' && block.data" class="mb-1.5" :class="textSize">
                     <span class="font-bold">
                         <GameIcon v-if="block.data.costs_stone" type="soulstone" class-name="text-sm" />
-                        <GameIcon v-if="block.data.defensive_ability_type && block.data.defensive_ability_type !== 'none'" :type="block.data.defensive_ability_type" class-name="text-sm" />
+                        <GameIcon
+                            v-if="block.data.defensive_ability_type && block.data.defensive_ability_type !== 'none'"
+                            :type="block.data.defensive_ability_type"
+                            class-name="text-sm"
+                        />
                         {{ block.data.name }}
                         <GameIcon v-if="block.data.suits && block.data.suits !== 'none'" :type="block.data.suits" class-name="text-sm" />:
                     </span>
@@ -110,10 +118,16 @@ const headerTextSize = computed(() => {
                 </div>
 
                 <!-- Action -->
-                <div v-else-if="block.type === 'action' && block.data" class="mb-1.5 rounded" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+                <div
+                    v-else-if="block.type === 'action' && block.data"
+                    class="mb-1.5 rounded"
+                    :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
+                >
                     <!-- Header row -->
                     <div class="mb-0.5 flex items-center px-1.5 text-white/40" :class="headerTextSize">
-                        <span class="flex-1 font-semibold uppercase tracking-wider">{{ block.data.type === 'tactical' ? 'Tactical Action' : 'Attack Action' }}</span>
+                        <span class="flex-1 font-semibold uppercase tracking-wider">{{
+                            block.data.type === 'tactical' ? 'Tactical Action' : 'Attack Action'
+                        }}</span>
                         <span class="w-8 text-center">Rg</span>
                         <span class="w-8 text-center">Stat</span>
                         <span class="w-7 text-center">Rst</span>
@@ -124,21 +138,45 @@ const headerTextSize = computed(() => {
                     <div class="flex items-center px-1.5 py-1" :class="statTextSize">
                         <div class="flex min-w-0 flex-1 items-center gap-0.5 font-bold">
                             <GameIcon v-if="block.data.is_signature" type="signature_action" class-name="text-sm shrink-0" />
-                            <template v-for="n in block.data.stone_cost" :key="'sc-' + n"><GameIcon type="soulstone" class-name="text-sm shrink-0" /></template>
+                            <template v-for="n in block.data.stone_cost" :key="'sc-' + n"
+                                ><GameIcon type="soulstone" class-name="text-sm shrink-0"
+                            /></template>
                             <span class="truncate">{{ block.data.name }}</span>
                         </div>
-                        <span class="w-8 text-center"><span class="inline-flex items-center justify-center gap-0.5"><GameIcon v-if="block.data.range_type" :type="block.data.range_type" class-name="text-xs" />{{ formatRange(block.data.range as number | string | null | undefined) }}</span></span>
-                        <span class="w-8 text-center"><span v-if="block.data.stat != null" class="inline-flex items-center justify-center gap-0.5">{{ block.data.stat }}<GameIcon v-for="s in splitSuits(block.data.stat_suits)" :key="s" :type="s" class-name="text-xs" /></span><span v-else>-</span></span>
+                        <span class="w-8 text-center"
+                            ><span class="inline-flex items-center justify-center gap-0.5"
+                                ><GameIcon v-if="block.data.range_type" :type="block.data.range_type" class-name="text-xs" />{{
+                                    formatRange(block.data.range as number | string | null | undefined)
+                                }}</span
+                            ></span
+                        >
+                        <span class="w-8 text-center"
+                            ><span v-if="block.data.stat != null" class="inline-flex items-center justify-center gap-0.5"
+                                >{{ block.data.stat
+                                }}<GameIcon v-for="s in splitSuits(block.data.stat_suits)" :key="s" :type="s" class-name="text-xs" /></span
+                            ><span v-else>-</span></span
+                        >
                         <span class="w-7 text-center text-white/60">{{ block.data.resisted_by ?? '-' }}</span>
-                        <span class="w-8 text-center"><span v-if="block.data.target_number != null" class="inline-flex items-center justify-center gap-0.5">{{ block.data.target_number }}<GameIcon v-for="s in splitSuits(block.data.target_suits)" :key="s" :type="s" class-name="text-xs" /></span><span v-else>-</span></span>
+                        <span class="w-8 text-center"
+                            ><span v-if="block.data.target_number != null" class="inline-flex items-center justify-center gap-0.5"
+                                >{{ block.data.target_number
+                                }}<GameIcon v-for="s in splitSuits(block.data.target_suits)" :key="s" :type="s" class-name="text-xs" /></span
+                            ><span v-else>-</span></span
+                        >
                         <span class="w-8 text-center font-medium text-red-400">{{ block.data.damage ?? '-' }}</span>
                     </div>
-                    <div v-if="block.data.description" class="px-1.5 pb-1 text-white/80" :class="textSize"><GameText :text="block.data.description" icon-class="h-3 inline-block align-text-bottom" /></div>
+                    <div v-if="block.data.description" class="px-1.5 pb-1 text-white/80" :class="textSize">
+                        <GameText :text="block.data.description" icon-class="h-3 inline-block align-text-bottom" />
+                    </div>
                     <!-- Triggers within action -->
                     <div v-if="block.data.triggers?.length" class="space-y-0.5 border-t border-white/10 px-1.5 py-1" :class="textSize">
                         <div v-for="trigger in block.data.triggers" :key="trigger.name">
-                            <span class="font-bold"><GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-xs" /> {{ trigger.name }}:</span>
-                            <span class="text-white/80"><GameText v-if="trigger.description" :text="trigger.description" icon-class="h-3 inline-block align-text-bottom" /></span>
+                            <span class="font-bold"
+                                ><GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-xs" /> {{ trigger.name }}:</span
+                            >
+                            <span class="text-white/80"
+                                ><GameText v-if="trigger.description" :text="trigger.description" icon-class="h-3 inline-block align-text-bottom"
+                            /></span>
                         </div>
                     </div>
                 </div>
@@ -158,12 +196,18 @@ const headerTextSize = computed(() => {
         </div>
 
         <!-- Limitations (character upgrades) -->
-        <div v-if="!isCrew && limitationsLabel" class="mx-2.5 mb-2 rounded border border-white/20 px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wider text-white/60">
+        <div
+            v-if="!isCrew && limitationsLabel"
+            class="mx-2.5 mb-2 rounded border border-white/20 px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wider text-white/60"
+        >
             Limitations: {{ limitationsLabel }}
         </div>
 
         <!-- Footer -->
-        <div class="px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-widest text-white/30" :style="{ background: `hsl(var(${factionVar}) / 0.1)` }">
+        <div
+            class="px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-widest text-white/30"
+            :style="{ background: `hsl(var(${factionVar}) / 0.1)` }"
+        >
             {{ isCrew ? 'Crew Card' : 'Upgrade' }}
         </div>
 

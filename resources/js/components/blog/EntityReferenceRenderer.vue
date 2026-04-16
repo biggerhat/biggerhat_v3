@@ -126,7 +126,10 @@ const navigateToEntity = () => {
                         </div>
 
                         <!-- Scheme / Strategy / Deployment with image -->
-                        <div v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image" class="flex justify-center">
+                        <div
+                            v-else-if="(entityType === 'scheme' || entityType === 'strategy' || entityType === 'deployment') && entityData.image"
+                            class="flex justify-center"
+                        >
                             <div class="w-full max-w-72">
                                 <img :src="entityData.image as string" :alt="(entityData.name ?? displayName) as string" class="w-full rounded-lg" />
                             </div>
@@ -159,7 +162,12 @@ const navigateToEntity = () => {
                         <div v-else-if="entityType === 'trigger'" class="rounded-lg border p-4">
                             <div class="flex items-center gap-2">
                                 <GameIcon v-if="entityData.suits" :type="entityData.suits as string" class-name="h-5 inline-block" />
-                                <GameIcon v-for="n in (entityData.stone_cost as number) ?? 0" :key="n" type="soulstone" class-name="h-5 inline-block" />
+                                <GameIcon
+                                    v-for="n in (entityData.stone_cost as number) ?? 0"
+                                    :key="n"
+                                    type="soulstone"
+                                    class-name="h-5 inline-block"
+                                />
                                 <span class="font-semibold">{{ entityData.name ?? displayName }}</span>
                                 <span v-if="entityData.actions_count" class="ml-auto flex items-center gap-1 text-sm text-muted-foreground">
                                     <Swords class="size-3.5" />
@@ -175,7 +183,12 @@ const navigateToEntity = () => {
                         <div v-else-if="entityType === 'package'" class="rounded-lg border p-4">
                             <div class="flex items-center gap-3">
                                 <div v-if="entityData.front_image" class="size-16 shrink-0 overflow-hidden rounded-md">
-                                    <img :src="'/storage/' + entityData.front_image" :alt="(entityData.name ?? displayName) as string" class="h-full w-full object-cover" loading="lazy" />
+                                    <img
+                                        :src="'/storage/' + entityData.front_image"
+                                        :alt="(entityData.name ?? displayName) as string"
+                                        class="h-full w-full object-cover"
+                                        loading="lazy"
+                                    />
                                 </div>
                                 <Package v-else class="size-8 shrink-0 text-muted-foreground" />
                                 <div>
@@ -214,13 +227,25 @@ const navigateToEntity = () => {
                         <!-- Faction -->
                         <div v-else-if="entityType === 'faction'" class="rounded-lg border p-4">
                             <div class="flex items-center gap-3">
-                                <img v-if="entityData.logo" :src="entityData.logo as string" :alt="entityData.name as string" class="size-10" loading="lazy" />
+                                <img
+                                    v-if="entityData.logo"
+                                    :src="entityData.logo as string"
+                                    :alt="entityData.name as string"
+                                    class="size-10"
+                                    loading="lazy"
+                                />
                                 <div>
                                     <div class="font-semibold">{{ entityData.name ?? displayName }}</div>
                                     <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                        <span v-if="entityData.masters_count">{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span>
-                                        <span v-if="entityData.characters_count">{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span>
-                                        <span v-if="entityData.keywords_count">{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span>
+                                        <span v-if="entityData.masters_count"
+                                            >{{ entityData.masters_count }} {{ entityData.masters_count === 1 ? 'Master' : 'Masters' }}</span
+                                        >
+                                        <span v-if="entityData.characters_count"
+                                            >{{ entityData.characters_count }} {{ entityData.characters_count === 1 ? 'Model' : 'Models' }}</span
+                                        >
+                                        <span v-if="entityData.keywords_count"
+                                            >{{ entityData.keywords_count }} {{ entityData.keywords_count === 1 ? 'Keyword' : 'Keywords' }}</span
+                                        >
                                     </div>
                                 </div>
                             </div>

@@ -102,13 +102,6 @@ class Tournament extends Model
         );
     }
 
-    public function activePlayers(): HasMany
-    {
-        return $this->players()
-            ->where('is_disqualified', false)
-            ->whereNull('dropped_after_round');
-    }
-
     public function ringerPlayer(): ?TournamentPlayer
     {
         return $this->players()->where('is_ringer', true)->first(); // @phpstan-ignore return.type

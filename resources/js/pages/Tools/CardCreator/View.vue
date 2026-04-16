@@ -24,7 +24,16 @@ defineProps<{
         speed: number;
         size: number | null;
         base: string;
-        actions: { name: string; type: string; stat: number | null; damage: string | null; description: string | null; triggers: { name: string; suits: string | null; description: string | null }[] }[] | null;
+        actions:
+            | {
+                  name: string;
+                  type: string;
+                  stat: number | null;
+                  damage: string | null;
+                  description: string | null;
+                  triggers: { name: string; suits: string | null; description: string | null }[];
+              }[]
+            | null;
         abilities: { name: string; description: string | null }[] | null;
         keywords: { id: number | null; name: string }[] | null;
         characteristics: string[] | null;
@@ -95,7 +104,8 @@ const stationLabel = (station: string | null) => {
                                 <span class="font-semibold">{{ character.display_name }}</span>
                             </div>
                             <div class="text-xs text-muted-foreground">
-                                <span v-if="stationLabel(character.station)">{{ stationLabel(character.station) }} | </span>{{ character.cost ?? '—' }}ss
+                                <span v-if="stationLabel(character.station)">{{ stationLabel(character.station) }} | </span
+                                >{{ character.cost ?? '—' }}ss
                             </div>
 
                             <div class="grid grid-cols-3 gap-2 text-center text-xs">
@@ -136,13 +146,25 @@ const stationLabel = (station: string | null) => {
                             <div v-if="character.linked_crew_upgrades?.length">
                                 <h3 class="text-xs font-semibold">Crew Upgrades</h3>
                                 <div class="mt-1 flex flex-wrap gap-1">
-                                    <Badge v-for="u in character.linked_crew_upgrades" :key="u.source_type + '-' + u.id" variant="secondary" class="text-[10px]">{{ u.name }}</Badge>
+                                    <Badge
+                                        v-for="u in character.linked_crew_upgrades"
+                                        :key="u.source_type + '-' + u.id"
+                                        variant="secondary"
+                                        class="text-[10px]"
+                                        >{{ u.name }}</Badge
+                                    >
                                 </div>
                             </div>
                             <div v-if="character.linked_totems?.length">
                                 <h3 class="text-xs font-semibold">Totems</h3>
                                 <div class="mt-1 flex flex-wrap gap-1">
-                                    <Badge v-for="t in character.linked_totems" :key="t.source_type + '-' + t.id" variant="secondary" class="text-[10px]">{{ t.name }}</Badge>
+                                    <Badge
+                                        v-for="t in character.linked_totems"
+                                        :key="t.source_type + '-' + t.id"
+                                        variant="secondary"
+                                        class="text-[10px]"
+                                        >{{ t.name }}</Badge
+                                    >
                                 </div>
                             </div>
                         </CardContent>

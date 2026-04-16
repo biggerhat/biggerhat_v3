@@ -73,9 +73,7 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-4 sm:pt-8 lg:pt-12">
                 <img src="/images/hat_side.webp" class="h-32 sm:h-40 md:h-48" alt="BiggerHat.net" fetchpriority="high" />
-                <h1 class="mt-4 text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
-                    Your Malifaux Companion
-                </h1>
+                <h1 class="mt-4 text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">Your Malifaux Companion</h1>
                 <p class="mt-2 max-w-2xl text-center text-sm text-muted-foreground sm:text-base">
                     Browse the entire database, build crews, track your collection, and play your games — all in one place.
                 </p>
@@ -94,11 +92,17 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                     </Link>
                 </div>
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:gap-x-5 sm:text-xs">
-                    <span><strong class="text-foreground">{{ stats.characters }}</strong> characters</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.characters }}</strong> characters</span
+                    >
                     <span class="opacity-50">·</span>
-                    <span><strong class="text-foreground">{{ stats.miniatures }}</strong> miniatures</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.miniatures }}</strong> miniatures</span
+                    >
                     <span class="opacity-50">·</span>
-                    <span><strong class="text-foreground">{{ stats.keywords }}</strong> keywords</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.keywords }}</strong> keywords</span
+                    >
                     <span class="opacity-50">·</span>
                     <span><strong class="text-foreground">8</strong> factions</span>
                 </div>
@@ -111,12 +115,18 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                 </div>
                 <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
                     <Link
-                        v-for="([key, faction]) in factionEntries"
+                        v-for="[key, faction] in factionEntries"
                         :key="key"
                         :href="route('factions.view', key)"
                         class="group flex flex-col items-center gap-1 rounded-lg border border-transparent p-2 transition-all duration-200 hover:-translate-y-1 hover:border-border hover:bg-muted hover:shadow-md sm:p-3"
                     >
-                        <img :src="faction.logo" :alt="faction.name" class="size-10 transition-transform group-hover:scale-105 sm:size-12 md:size-14" loading="lazy" decoding="async" />
+                        <img
+                            :src="faction.logo"
+                            :alt="faction.name"
+                            class="size-10 transition-transform group-hover:scale-105 sm:size-12 md:size-14"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <span class="text-center text-[10px] font-medium leading-tight sm:text-xs">{{ faction.name }}</span>
                         <span class="text-[9px] text-muted-foreground sm:text-[10px]">{{ factionCount(key as string) }} models</span>
                     </Link>
@@ -135,13 +145,19 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                         class="group relative overflow-hidden rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
                     >
                         <div class="flex items-start gap-3">
-                            <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                            <div
+                                class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                            >
                                 <Swords class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h3 class="font-semibold leading-tight group-hover:text-primary">Crew Builder</h3>
-                                <p class="mt-1 text-xs text-muted-foreground">Build, save, and share crews. PDF export, soulstone tracking, and reference cards built in.</p>
-                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    Build, save, and share crews. PDF export, soulstone tracking, and reference cards built in.
+                                </p>
+                                <div
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100"
+                                >
                                     Open builder <ArrowRight class="size-3" />
                                 </div>
                             </div>
@@ -154,13 +170,21 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                         class="group relative overflow-hidden rounded-xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:shadow-lg"
                     >
                         <div class="flex items-start gap-3">
-                            <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white dark:text-emerald-400">
+                            <div
+                                class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white dark:text-emerald-400"
+                            >
                                 <Target class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Game Tracker</h3>
-                                <p class="mt-1 text-xs text-muted-foreground">Track health, activations, schemes, and VP. Solo or multiplayer with live updates.</p>
-                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-emerald-400">
+                                <h3 class="font-semibold leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                    Game Tracker
+                                </h3>
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    Track health, activations, schemes, and VP. Solo or multiplayer with live updates.
+                                </p>
+                                <div
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-emerald-400"
+                                >
                                     {{ isLoggedIn ? 'Start a game' : 'Sign in to play' }} <ArrowRight class="size-3" />
                                 </div>
                             </div>
@@ -173,13 +197,21 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                         class="group relative overflow-hidden rounded-xl border-2 border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/50 hover:shadow-lg sm:col-span-2 lg:col-span-1"
                     >
                         <div class="flex items-start gap-3">
-                            <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white dark:text-amber-400">
+                            <div
+                                class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white dark:text-amber-400"
+                            >
                                 <BookMarked class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400">Collection & Wishlist</h3>
-                                <p class="mt-1 text-xs text-muted-foreground">Track owned, built, and painted models. Create wishlists by keyword or package.</p>
-                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-amber-400">
+                                <h3 class="font-semibold leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                                    Collection & Wishlist
+                                </h3>
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    Track owned, built, and painted models. Create wishlists by keyword or package.
+                                </p>
+                                <div
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-amber-400"
+                                >
                                     {{ isLoggedIn ? 'My collection' : 'Sign in to track' }} <ArrowRight class="size-3" />
                                 </div>
                             </div>
@@ -189,24 +221,36 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
             </div>
 
             <!-- ═══ Featured Character Spotlight ═══ -->
-            <section v-if="featured_character && featured_character.standard_miniatures?.length" class="animate-fade-in-up w-full min-w-0" style="animation-delay: 160ms; max-width: 100%;">
-                <div class="w-full min-w-0 overflow-hidden rounded-xl border bg-card p-4 sm:p-6" style="max-width: 100%;">
+            <section
+                v-if="featured_character && featured_character.standard_miniatures?.length"
+                class="animate-fade-in-up w-full min-w-0"
+                style="animation-delay: 160ms; max-width: 100%"
+            >
+                <div class="w-full min-w-0 overflow-hidden rounded-xl border bg-card p-4 sm:p-6" style="max-width: 100%">
                     <!-- Card -->
-                    <div class="mx-auto mb-5 max-w-full overflow-hidden" style="width: 10rem;">
+                    <div class="mx-auto mb-5 max-w-full overflow-hidden" style="width: 10rem">
                         <CharacterCardView :miniature="featured_character.standard_miniatures[0]" :character-slug="featured_character.slug" />
                     </div>
                     <!-- Info -->
                     <div class="min-w-0 text-center">
-                        <div class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                        <div
+                            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary"
+                        >
                             <Sparkles class="size-3" />
                             Featured Character
                         </div>
                         <h2 class="break-words text-xl font-bold sm:text-2xl">{{ featured_character.display_name }}</h2>
                         <p v-if="featured_character.title" class="break-words text-sm text-muted-foreground">{{ featured_character.title }}</p>
                         <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-                            <Badge variant="outline" class="text-[10px] capitalize">{{ featured_character.faction_label || featured_character.faction }}</Badge>
-                            <Badge v-if="featured_character.station" variant="secondary" class="text-[10px] capitalize">{{ featured_character.station }}</Badge>
-                            <Badge v-for="kw in (featured_character.keywords ?? []).slice(0, 3)" :key="kw.id" variant="outline" class="text-[10px]">{{ kw.name }}</Badge>
+                            <Badge variant="outline" class="text-[10px] capitalize">{{
+                                featured_character.faction_label || featured_character.faction
+                            }}</Badge>
+                            <Badge v-if="featured_character.station" variant="secondary" class="text-[10px] capitalize">{{
+                                featured_character.station
+                            }}</Badge>
+                            <Badge v-for="kw in (featured_character.keywords ?? []).slice(0, 3)" :key="kw.id" variant="outline" class="text-[10px]">{{
+                                kw.name
+                            }}</Badge>
                         </div>
                         <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center">
                             <div class="rounded-md bg-muted px-2 py-2">
@@ -224,7 +268,13 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                         </div>
                         <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
                             <Link
-                                :href="route('characters.view', { character: featured_character.slug, miniature: featured_character.standard_miniatures[0].id, slug: featured_character.standard_miniatures[0].slug })"
+                                :href="
+                                    route('characters.view', {
+                                        character: featured_character.slug,
+                                        miniature: featured_character.standard_miniatures[0].id,
+                                        slug: featured_character.standard_miniatures[0].slug,
+                                    })
+                                "
                             >
                                 <Button size="sm" class="gap-1.5"><span>View Character</span><ArrowRight class="size-3.5" /></Button>
                             </Link>
@@ -276,7 +326,9 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                                 <h3 class="text-sm font-semibold leading-tight group-hover:text-primary">Schemes &amp; Strategies</h3>
                                 <p class="mt-1 text-xs text-muted-foreground">Browse the current season's tactical cards.</p>
                             </div>
-                            <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                            <ArrowRight
+                                class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                            />
                         </div>
                     </Link>
 
@@ -293,7 +345,9 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
                                 <h3 class="text-sm font-semibold leading-tight group-hover:text-primary">Surprise Me</h3>
                                 <p class="mt-1 text-xs text-muted-foreground">Jump to a random character page.</p>
                             </div>
-                            <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                            <ArrowRight
+                                class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                            />
                         </div>
                     </Link>
                 </div>

@@ -334,7 +334,13 @@ const rebuildCrew = () => {
         const totem = characterById.value.get(master.value.has_totem_id);
         if (totem) {
             for (let i = 0; i < (totem.count || 1); i++) {
-                crew.value.push({ character: totem, miniature: getSelectedMiniature(totem), isTotem: true, effectiveCost: 0, hiringCategory: 'totem' });
+                crew.value.push({
+                    character: totem,
+                    miniature: getSelectedMiniature(totem),
+                    isTotem: true,
+                    effectiveCost: 0,
+                    hiringCategory: 'totem',
+                });
             }
         }
     }
@@ -538,15 +544,9 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <CrewListDisplay
-                            :members="crewMembersForDisplay"
-                            :crew-upgrades="crewUpgradesForDisplay"
-                        />
+                        <CrewListDisplay :members="crewMembersForDisplay" :crew-upgrades="crewUpgradesForDisplay" />
 
-                        <CrewBuilderReferences
-                            :references="references"
-                            :loading="referencesLoading"
-                        />
+                        <CrewBuilderReferences :references="references" :loading="referencesLoading" />
 
                         <Separator class="my-4" />
 
@@ -580,6 +580,4 @@ onMounted(() => {
             </div>
         </div>
     </div>
-
-
 </template>

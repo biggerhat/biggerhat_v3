@@ -102,9 +102,12 @@ const activeTab = ref('characters');
 const factionBackground = (faction: string): string => {
     if (!faction) return '';
     switch (faction.toLowerCase()) {
-        case 'explorers_society': return 'bg-explorerssociety';
-        case 'ten_thunders': return 'bg-tenthunders';
-        default: return `bg-${faction}`;
+        case 'explorers_society':
+            return 'bg-explorerssociety';
+        case 'ten_thunders':
+            return 'bg-tenthunders';
+        default:
+            return `bg-${faction}`;
     }
 };
 
@@ -158,7 +161,7 @@ const searchAdd = (q: string) => {
             }
             const res = await fetch(url);
             const data = await res.json();
-            addResults.value = Array.isArray(data) ? data : data.data ?? [];
+            addResults.value = Array.isArray(data) ? data : (data.data ?? []);
         } catch {
             addResults.value = [];
         }
@@ -232,7 +235,13 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ char.display_name }}</span>
                     </button>
                 </div>
-                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('characters')">
+                <Button
+                    v-if="editable"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-1 w-full gap-1 text-xs text-muted-foreground"
+                    @click="openAddDialog('characters')"
+                >
                     <Plus class="size-3" /> Add Character
                 </Button>
             </TabsContent>
@@ -250,7 +259,13 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         <Badge v-if="upgrade.type" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">{{ upgrade.type }}</Badge>
                     </button>
                 </div>
-                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('upgrades')">
+                <Button
+                    v-if="editable"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-1 w-full gap-1 text-xs text-muted-foreground"
+                    @click="openAddDialog('upgrades')"
+                >
                     <Plus class="size-3" /> Add Upgrade
                 </Button>
             </TabsContent>
@@ -268,7 +283,13 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Marker</Badge>
                     </button>
                 </div>
-                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('markers')">
+                <Button
+                    v-if="editable"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-1 w-full gap-1 text-xs text-muted-foreground"
+                    @click="openAddDialog('markers')"
+                >
                     <Plus class="size-3" /> Add Marker
                 </Button>
             </TabsContent>
@@ -286,7 +307,13 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
                     </button>
                 </div>
-                <Button v-if="editable" variant="ghost" size="sm" class="mt-1 w-full gap-1 text-xs text-muted-foreground" @click="openAddDialog('tokens')">
+                <Button
+                    v-if="editable"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-1 w-full gap-1 text-xs text-muted-foreground"
+                    @click="openAddDialog('tokens')"
+                >
                     <Plus class="size-3" /> Add Token
                 </Button>
             </TabsContent>
@@ -379,7 +406,17 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
     </Drawer>
 
     <!-- Add Item Dialog -->
-    <Dialog v-model:open="addDialogOpen" @update:open="(open) => { if (!open) { addSearch = ''; addResults = []; } }">
+    <Dialog
+        v-model:open="addDialogOpen"
+        @update:open="
+            (open) => {
+                if (!open) {
+                    addSearch = '';
+                    addResults = [];
+                }
+            }
+        "
+    >
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>{{ addDialogTitle }}</DialogTitle>
@@ -396,14 +433,22 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
                         :class="[
                             addDialogType === 'characters' && item.faction ? factionBackground(item.faction) + ' text-white' : '',
-                            existingIds.has(item.id) ? 'opacity-40 cursor-not-allowed' : addDialogType === 'characters' && item.faction ? 'hover:opacity-80' : 'hover:bg-accent',
+                            existingIds.has(item.id)
+                                ? 'cursor-not-allowed opacity-40'
+                                : addDialogType === 'characters' && item.faction
+                                  ? 'hover:opacity-80'
+                                  : 'hover:bg-accent',
                         ]"
                         :disabled="existingIds.has(item.id)"
                         @click="selectAddItem(item)"
                     >
                         <div class="min-w-0 flex-1">
                             <div class="truncate text-xs font-medium">{{ itemDisplayName(item) }}</div>
-                            <div v-if="addDialogType === 'characters'" class="flex items-center gap-1.5 text-[10px]" :class="item.faction ? 'text-white/70' : 'text-muted-foreground'">
+                            <div
+                                v-if="addDialogType === 'characters'"
+                                class="flex items-center gap-1.5 text-[10px]"
+                                :class="item.faction ? 'text-white/70' : 'text-muted-foreground'"
+                            >
                                 <span v-if="item.station" class="capitalize">{{ item.station }}</span>
                                 <span v-if="item.miniatures?.length > 1">&middot; {{ item.miniatures.length }} sculpts</span>
                             </div>

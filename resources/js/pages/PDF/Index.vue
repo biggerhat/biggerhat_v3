@@ -398,7 +398,13 @@ onMounted(() => {
                                                         :class="factionBackground(upgrade.faction)"
                                                         class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                                     >
-                                                        <div role="button" tabindex="0" class="min-w-0 flex-1 cursor-pointer" @click="openPreview(upgrade, 'upgrade')" @keydown.enter="openPreview(upgrade, 'upgrade')">
+                                                        <div
+                                                            role="button"
+                                                            tabindex="0"
+                                                            class="min-w-0 flex-1 cursor-pointer"
+                                                            @click="openPreview(upgrade, 'upgrade')"
+                                                            @keydown.enter="openPreview(upgrade, 'upgrade')"
+                                                        >
                                                             <div class="text-sm font-semibold">{{ upgrade.name }}</div>
                                                             <div class="text-xs text-muted-foreground">
                                                                 <span v-if="upgrade.type">
@@ -564,7 +570,13 @@ onMounted(() => {
                                             :class="factionBackground(card.faction)"
                                             class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                         >
-                                            <div role="button" tabindex="0" class="min-w-0 flex-1 cursor-pointer" @click="openPreview(card, 'character')" @keydown.enter="openPreview(card, 'character')">
+                                            <div
+                                                role="button"
+                                                tabindex="0"
+                                                class="min-w-0 flex-1 cursor-pointer"
+                                                @click="openPreview(card, 'character')"
+                                                @keydown.enter="openPreview(card, 'character')"
+                                            >
                                                 <div class="text-sm font-semibold">{{ card.display_name }}</div>
                                                 <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                                     <span v-if="card.cost">{{ card.cost }}ss</span>
@@ -585,7 +597,13 @@ onMounted(() => {
                                                 :class="factionBackground(card.faction)"
                                                 class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                             >
-                                                <div role="button" tabindex="0" class="min-w-0 flex-1 cursor-pointer" @click="openPreview(card, 'upgrade')" @keydown.enter="openPreview(card, 'upgrade')">
+                                                <div
+                                                    role="button"
+                                                    tabindex="0"
+                                                    class="min-w-0 flex-1 cursor-pointer"
+                                                    @click="openPreview(card, 'upgrade')"
+                                                    @keydown.enter="openPreview(card, 'upgrade')"
+                                                >
                                                     <div class="text-sm font-semibold">{{ card.name }}</div>
                                                     <div class="text-xs text-muted-foreground">
                                                         <span v-if="card.type">

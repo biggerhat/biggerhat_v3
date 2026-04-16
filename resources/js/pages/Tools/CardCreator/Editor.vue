@@ -132,7 +132,7 @@ const form = reactive({
     willpower_suit: props.character?.willpower_suit ?? 'none',
     speed: props.character?.speed ?? 5,
     count: props.character?.count ?? 1,
-    summon_target_number: props.character?.summon_target_number ?? null as number | null,
+    summon_target_number: props.character?.summon_target_number ?? (null as number | null),
     generates_stone: props.character?.generates_stone ?? false,
     is_unhirable: props.character?.is_unhirable ?? false,
     notes: props.character?.notes ?? '',
@@ -239,7 +239,6 @@ const exporting = ref(false);
 
 const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
-
 const exportImages = async () => {
     if (!cardRendererRef.value) return;
     exporting.value = true;
@@ -321,9 +320,7 @@ const save = async () => {
         linked_totems: linkedTotems,
     };
 
-    const url = isEdit.value
-        ? route('tools.card_creator.update', props.character!.id)
-        : route('tools.card_creator.store');
+    const url = isEdit.value ? route('tools.card_creator.update', props.character!.id) : route('tools.card_creator.store');
 
     const res = await fetch(url, {
         method: isEdit.value ? 'PUT' : 'POST',
@@ -574,7 +571,6 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Form column -->
                 <div class="space-y-4 lg:col-span-2">
-
                     <!-- ═══ CLONE FROM OFFICIAL ═══ -->
                     <div v-if="!isEdit" class="relative rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
                         <div class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -589,7 +585,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 class="h-8 text-xs"
                                 @input="searchCloneCharacter(cloneSearchQuery)"
                             />
-                            <div v-if="cloneSearchResults.length" class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                            <div
+                                v-if="cloneSearchResults.length"
+                                class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                            >
                                 <button
                                     v-for="r in cloneSearchResults"
                                     :key="r.id"
@@ -600,7 +599,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 </button>
                             </div>
                         </div>
-                        <p class="mt-1 text-[10px] text-muted-foreground/60">Populates all fields from an official character. You can edit everything after cloning.</p>
+                        <p class="mt-1 text-[10px] text-muted-foreground/60">
+                            Populates all fields from an official character. You can edit everything after cloning.
+                        </p>
                     </div>
 
                     <!-- ═══ IDENTITY + ART ═══ -->
@@ -617,7 +618,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <Input v-model="form.title" placeholder="Optional title (e.g. The Returned)" maxlength="30" />
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 text-[11px]" :class="displayNameLength > NAME_LIMIT ? 'text-destructive' : 'text-muted-foreground'">
+                            <div
+                                class="flex items-center gap-2 text-[11px]"
+                                :class="displayNameLength > NAME_LIMIT ? 'text-destructive' : 'text-muted-foreground'"
+                            >
                                 <span>{{ displayNameLength }}/{{ NAME_LIMIT }} characters</span>
                                 <span v-if="displayNameLength > NAME_LIMIT">— name may not fit on card</span>
                             </div>
@@ -642,7 +646,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">None</SelectItem>
-                                            <SelectItem v-for="f in enums.factions.filter((f) => f.value !== form.faction)" :key="'2f-' + f.value" :value="f.value">
+                                            <SelectItem
+                                                v-for="f in enums.factions.filter((f) => f.value !== form.faction)"
+                                                :key="'2f-' + f.value"
+                                                :value="f.value"
+                                            >
                                                 <div class="flex items-center gap-2">
                                                     <FactionLogo :faction="f.value" class-name="size-4" />
                                                     {{ f.name }}
@@ -667,10 +675,22 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             <div class="border-t pt-3">
                                 <label class="mb-1.5 block text-xs text-muted-foreground">Character Art</label>
                                 <div v-if="characterImagePreview" class="relative">
-                                    <img :src="characterImagePreview" alt="Character art preview" class="h-32 w-full rounded-md border object-cover" />
-                                    <button class="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80" @click="removeImage"><X class="size-4" /></button>
+                                    <img
+                                        :src="characterImagePreview"
+                                        alt="Character art preview"
+                                        class="h-32 w-full rounded-md border object-cover"
+                                    />
+                                    <button
+                                        class="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                                        @click="removeImage"
+                                    >
+                                        <X class="size-4" />
+                                    </button>
                                 </div>
-                                <label v-else class="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 transition-colors hover:border-muted-foreground/50 hover:bg-muted/50">
+                                <label
+                                    v-else
+                                    class="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
+                                >
                                     <ImagePlus class="size-5 shrink-0 text-muted-foreground/50" />
                                     <div>
                                         <span class="text-xs font-medium">Click to upload</span>
@@ -678,7 +698,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     </div>
                                     <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelected" />
                                 </label>
-                                <p class="mt-1 text-[10px] text-muted-foreground/60">Art is used for preview only and must be re-added each session.</p>
+                                <p class="mt-1 text-[10px] text-muted-foreground/60">
+                                    Art is used for preview only and must be re-added each session.
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
@@ -764,9 +786,23 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     </Badge>
                                 </div>
                                 <div class="relative">
-                                    <Input v-model="newKeyword" placeholder="Search or type a keyword..." class="h-8 text-xs" @input="searchKeywords(newKeyword)" @keydown.enter.prevent="addKeyword()" />
-                                    <div v-if="searchType === 'keyword' && searchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                        <button v-for="r in searchResults" :key="r.id" class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickKeyword(r)">
+                                    <Input
+                                        v-model="newKeyword"
+                                        placeholder="Search or type a keyword..."
+                                        class="h-8 text-xs"
+                                        @input="searchKeywords(newKeyword)"
+                                        @keydown.enter.prevent="addKeyword()"
+                                    />
+                                    <div
+                                        v-if="searchType === 'keyword' && searchResults.length"
+                                        class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                    >
+                                        <button
+                                            v-for="r in searchResults"
+                                            :key="r.id"
+                                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                            @click="pickKeyword(r)"
+                                        >
                                             {{ r.name }}
                                             <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
                                         </button>
@@ -783,7 +819,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         <button class="ml-0.5 hover:text-destructive" @click="removeCharacteristic(i)"><X class="size-3" /></button>
                                     </Badge>
                                 </div>
-                                <Input v-model="newCharacteristic" placeholder="Type a characteristic and press Enter" class="h-8 text-xs" @keydown.enter.prevent="addCharacteristic()" />
+                                <Input
+                                    v-model="newCharacteristic"
+                                    placeholder="Type a characteristic and press Enter"
+                                    class="h-8 text-xs"
+                                    @keydown.enter.prevent="addCharacteristic()"
+                                />
                             </div>
 
                             <!-- Crew Upgrades -->
@@ -792,18 +833,37 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedCrewUpgrades.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(u, i) in linkedCrewUpgrades" :key="'cu-' + i" variant="secondary" class="gap-1">
                                         {{ u.name }}
-                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]">Official</Badge>
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500">Custom</Badge>
+                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]"
+                                            >Official</Badge
+                                        >
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                            >Custom</Badge
+                                        >
                                         <button class="ml-0.5 hover:text-destructive" @click="removeCrewUpgrade(i)"><X class="size-3" /></button>
                                     </Badge>
                                 </div>
                                 <div class="relative">
-                                    <Input v-model="upgradeSearchQuery" placeholder="Search crew upgrades..." class="h-8 text-xs" @input="searchCrewUpgrades(upgradeSearchQuery)" />
-                                    <div v-if="upgradeSearchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                        <button v-for="r in upgradeSearchResults" :key="r.source_type + '-' + r.id" class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickCrewUpgrade(r)">
+                                    <Input
+                                        v-model="upgradeSearchQuery"
+                                        placeholder="Search crew upgrades..."
+                                        class="h-8 text-xs"
+                                        @input="searchCrewUpgrades(upgradeSearchQuery)"
+                                    />
+                                    <div
+                                        v-if="upgradeSearchResults.length"
+                                        class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                    >
+                                        <button
+                                            v-for="r in upgradeSearchResults"
+                                            :key="r.source_type + '-' + r.id"
+                                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                            @click="pickCrewUpgrade(r)"
+                                        >
                                             {{ r.name }}
                                             <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500">Custom</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                                >Custom</Badge
+                                            >
                                         </button>
                                     </div>
                                 </div>
@@ -815,18 +875,37 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedTotems.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(t, i) in linkedTotems" :key="'totem-' + i" variant="secondary" class="gap-1">
                                         {{ t.name }}
-                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]">Official</Badge>
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500">Custom</Badge>
+                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]"
+                                            >Official</Badge
+                                        >
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                            >Custom</Badge
+                                        >
                                         <button class="ml-0.5 hover:text-destructive" @click="removeTotem(i)"><X class="size-3" /></button>
                                     </Badge>
                                 </div>
                                 <div class="relative">
-                                    <Input v-model="totemSearchQuery" placeholder="Search characters for totems..." class="h-8 text-xs" @input="searchTotems(totemSearchQuery)" />
-                                    <div v-if="totemSearchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                        <button v-for="r in totemSearchResults" :key="r.source_type + '-' + r.id" class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickTotem(r)">
+                                    <Input
+                                        v-model="totemSearchQuery"
+                                        placeholder="Search characters for totems..."
+                                        class="h-8 text-xs"
+                                        @input="searchTotems(totemSearchQuery)"
+                                    />
+                                    <div
+                                        v-if="totemSearchResults.length"
+                                        class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                    >
+                                        <button
+                                            v-for="r in totemSearchResults"
+                                            :key="r.source_type + '-' + r.id"
+                                            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                            @click="pickTotem(r)"
+                                        >
                                             {{ r.name }}
                                             <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500">Custom</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                                >Custom</Badge
+                                            >
                                         </button>
                                     </div>
                                 </div>
@@ -849,15 +928,31 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <div class="mt-3 space-y-3">
                                         <div class="flex items-center gap-2">
                                             <div class="relative flex-1">
-                                                <Input placeholder="Search official abilities..." class="h-8 text-xs" @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)" />
-                                                <div v-if="searchType === 'ability' && searchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                    <button v-for="r in searchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickAbility(r)">
+                                                <Input
+                                                    placeholder="Search official abilities..."
+                                                    class="h-8 text-xs"
+                                                    @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)"
+                                                />
+                                                <div
+                                                    v-if="searchType === 'ability' && searchResults.length"
+                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                                >
+                                                    <button
+                                                        v-for="r in searchResults"
+                                                        :key="r.id"
+                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                        @click="pickAbility(r)"
+                                                    >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <span class="ml-2 text-xs text-muted-foreground">{{ r.description?.slice(0, 60) }}{{ r.description?.length > 60 ? '...' : '' }}</span>
+                                                        <span class="ml-2 text-xs text-muted-foreground"
+                                                            >{{ r.description?.slice(0, 60) }}{{ r.description?.length > 60 ? '...' : '' }}</span
+                                                        >
                                                     </button>
                                                 </div>
                                             </div>
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAbility"><Plus class="mr-1 size-3" /> Custom</Button>
+                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAbility"
+                                                ><Plus class="mr-1 size-3" /> Custom</Button
+                                            >
                                         </div>
 
                                         <div v-for="(ability, aIdx) in abilities" :key="'ability-' + aIdx" class="space-y-2 rounded-lg border p-3">
@@ -867,28 +962,36 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <span class="text-sm font-medium">{{ ability.name }}</span>
                                                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
                                                     </div>
-                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)"><Trash2 class="size-3.5" /></button>
+                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)">
+                                                        <Trash2 class="size-3.5" />
+                                                    </button>
                                                 </div>
                                                 <div v-if="ability.description" class="text-xs text-muted-foreground">{{ ability.description }}</div>
                                             </template>
                                             <template v-else>
                                                 <div class="flex items-center justify-between">
                                                     <Input v-model="ability.name" placeholder="Ability name" class="h-7 text-sm font-medium" />
-                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)"><Trash2 class="size-3.5" /></button>
+                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)">
+                                                        <Trash2 class="size-3.5" />
+                                                    </button>
                                                 </div>
                                                 <div class="grid gap-2 sm:grid-cols-3">
                                                     <Select v-model="ability.suits">
                                                         <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Suit" /></SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="none">None</SelectItem>
-                                                            <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{ s.name }}</SelectItem>
+                                                            <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{
+                                                                s.name
+                                                            }}</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <Select v-model="ability.defensive_ability_type">
                                                         <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Defense type" /></SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="none">None</SelectItem>
-                                                            <SelectItem v-for="d in enums.defensive_ability_types" :key="d.value" :value="d.value">{{ d.name }}</SelectItem>
+                                                            <SelectItem v-for="d in enums.defensive_ability_types" :key="d.value" :value="d.value">{{
+                                                                d.name
+                                                            }}</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <label class="flex items-center gap-1.5 text-xs">
@@ -896,7 +999,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         Costs Soulstone
                                                     </label>
                                                 </div>
-                                                <Textarea v-model="ability.description" placeholder="Ability description..." rows="2" class="text-xs" />
+                                                <Textarea
+                                                    v-model="ability.description"
+                                                    placeholder="Ability description..."
+                                                    rows="2"
+                                                    class="text-xs"
+                                                />
                                             </template>
                                         </div>
                                     </div>
@@ -920,15 +1028,29 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <div class="mt-3 space-y-3">
                                         <div class="flex items-center gap-2">
                                             <div class="relative flex-1">
-                                                <Input placeholder="Search official actions..." class="h-8 text-xs" @input="(e: Event) => searchOfficial('action', (e.target as HTMLInputElement).value)" />
-                                                <div v-if="searchType === 'action' && searchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                    <button v-for="r in searchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickAction(r)">
+                                                <Input
+                                                    placeholder="Search official actions..."
+                                                    class="h-8 text-xs"
+                                                    @input="(e: Event) => searchOfficial('action', (e.target as HTMLInputElement).value)"
+                                                />
+                                                <div
+                                                    v-if="searchType === 'action' && searchResults.length"
+                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                                >
+                                                    <button
+                                                        v-for="r in searchResults"
+                                                        :key="r.id"
+                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                        @click="pickAction(r)"
+                                                    >
                                                         <span class="font-medium">{{ r.name }}</span>
                                                         <Badge class="ml-2 text-[9px]">{{ r.type }}</Badge>
                                                     </button>
                                                 </div>
                                             </div>
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAction"><Plus class="mr-1 size-3" /> Custom</Button>
+                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAction"
+                                                ><Plus class="mr-1 size-3" /> Custom</Button
+                                            >
                                         </div>
 
                                         <div v-for="(action, idx) in actions" :key="'action-' + idx" class="space-y-3 rounded-lg border p-3">
@@ -939,11 +1061,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <Badge class="text-[9px]">{{ action.type }}</Badge>
                                                         <Badge variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
                                                     </div>
-                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAction(idx)"><Trash2 class="size-3.5" /></button>
+                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                                                        <Trash2 class="size-3.5" />
+                                                    </button>
                                                 </div>
                                                 <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                                                     <span v-if="action.range != null">Rg {{ formatRange(action.range) }}</span>
-                                                    <span v-if="action.stat != null">Stat {{ action.stat }}{{ action.stat_suits ? ' ' + action.stat_suits : '' }}</span>
+                                                    <span v-if="action.stat != null"
+                                                        >Stat {{ action.stat }}{{ action.stat_suits ? ' ' + action.stat_suits : '' }}</span
+                                                    >
                                                     <span v-if="action.resisted_by">vs {{ action.resisted_by }}</span>
                                                     <span v-if="action.damage">Dmg {{ action.damage }}</span>
                                                 </div>
@@ -952,7 +1078,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <template v-else>
                                                 <div class="flex items-center justify-between">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAction(idx)"><Trash2 class="size-3.5" /></button>
+                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                                                        <Trash2 class="size-3.5" />
+                                                    </button>
                                                 </div>
                                                 <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
                                                     <div>
@@ -960,13 +1088,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <Select v-model="action.type">
                                                             <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
+                                                                <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
+                                                                    t.name
+                                                                }}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Range</label>
-                                                        <Input v-model="action.range" placeholder='e.g. 2, *, X' class="h-7 text-xs" />
+                                                        <Input v-model="action.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Range Type</label>
@@ -974,13 +1104,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                             <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="none">None</SelectItem>
-                                                                <SelectItem v-for="r in enums.range_types" :key="r.value" :value="r.value">{{ r.name }}</SelectItem>
+                                                                <SelectItem v-for="r in enums.range_types" :key="r.value" :value="r.value">{{
+                                                                    r.name
+                                                                }}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                        <Input v-model="action.stat" placeholder='e.g. 5, X' class="h-7 text-xs" />
+                                                        <Input v-model="action.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
                                                         <label class="text-[10px] text-muted-foreground">Resisted By</label>
@@ -998,18 +1130,36 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <div class="space-y-2 border-t pt-2">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[11px] font-medium text-muted-foreground">Triggers</span>
-                                                    <Button variant="ghost" size="sm" class="h-5 px-1.5 text-[10px]" @click="addTrigger(action)"><Plus class="mr-0.5 size-2.5" /> Add</Button>
+                                                    <Button variant="ghost" size="sm" class="h-5 px-1.5 text-[10px]" @click="addTrigger(action)"
+                                                        ><Plus class="mr-0.5 size-2.5" /> Add</Button
+                                                    >
                                                 </div>
                                                 <div class="relative">
-                                                    <Input placeholder="Search official triggers..." class="h-7 text-xs" @input="(e: Event) => searchTriggers((e.target as HTMLInputElement).value, idx)" />
-                                                    <div v-if="searchType === 'trigger' && searchTargetIndex === idx && searchResults.length" class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                                                        <button v-for="r in searchResults" :key="r.id" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" @click="pickTrigger(r)">
+                                                    <Input
+                                                        placeholder="Search official triggers..."
+                                                        class="h-7 text-xs"
+                                                        @input="(e: Event) => searchTriggers((e.target as HTMLInputElement).value, idx)"
+                                                    />
+                                                    <div
+                                                        v-if="searchType === 'trigger' && searchTargetIndex === idx && searchResults.length"
+                                                        class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                                                    >
+                                                        <button
+                                                            v-for="r in searchResults"
+                                                            :key="r.id"
+                                                            class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                                            @click="pickTrigger(r)"
+                                                        >
                                                             <span class="font-medium">{{ r.name }}</span>
                                                             <span v-if="r.suits" class="ml-1 text-xs text-muted-foreground">({{ r.suits }})</span>
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <div v-for="(trigger, tIdx) in action.triggers" :key="'trigger-' + tIdx" class="flex items-start gap-2 rounded border bg-muted/30 p-2">
+                                                <div
+                                                    v-for="(trigger, tIdx) in action.triggers"
+                                                    :key="'trigger-' + tIdx"
+                                                    class="flex items-start gap-2 rounded border bg-muted/30 p-2"
+                                                >
                                                     <template v-if="trigger.source_id">
                                                         <div class="flex-1 text-xs">
                                                             <span class="font-medium">{{ trigger.suits }} {{ trigger.name }}:</span>
@@ -1020,13 +1170,26 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     <template v-else>
                                                         <div class="flex-1 space-y-1">
                                                             <div class="flex items-center gap-2">
-                                                                <Input v-model="trigger.name" placeholder="Trigger name" class="h-6 text-xs font-medium" />
+                                                                <Input
+                                                                    v-model="trigger.name"
+                                                                    placeholder="Trigger name"
+                                                                    class="h-6 text-xs font-medium"
+                                                                />
                                                                 <Input v-model="trigger.suits" placeholder="Suits" class="h-6 w-24 text-xs" />
                                                             </div>
-                                                            <Input v-model="trigger.description" placeholder="Trigger description" class="h-6 text-xs" />
+                                                            <Input
+                                                                v-model="trigger.description"
+                                                                placeholder="Trigger description"
+                                                                class="h-6 text-xs"
+                                                            />
                                                         </div>
                                                     </template>
-                                                    <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeTrigger(action, tIdx)"><X class="size-3" /></button>
+                                                    <button
+                                                        class="mt-1 text-muted-foreground hover:text-destructive"
+                                                        @click="removeTrigger(action, tIdx)"
+                                                    >
+                                                        <X class="size-3" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1107,5 +1270,4 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
             </div>
         </div>
     </div>
-
 </template>

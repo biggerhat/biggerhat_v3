@@ -2,24 +2,58 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import StandingsTable from '@/components/Tournament/StandingsTable.vue';
-import { Combobox, ComboboxAnchor, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxList, ComboboxSeparator, ComboboxTrigger } from '@/components/ui/combobox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Combobox,
+    ComboboxAnchor,
+    ComboboxEmpty,
+    ComboboxGroup,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+    ComboboxSeparator,
+    ComboboxTrigger,
+} from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
-import { ArrowLeft, CalendarDays, Check, ChevronsUpDown, Copy, Dices, Eye, Link2, Link2Off, Loader2, LogOut, MapPin, Plus, QrCode, Shield, Star, Trophy, Users, X } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import {
+    ArrowLeft,
+    CalendarDays,
+    Check,
+    ChevronDown,
+    ChevronsUpDown,
+    Copy,
+    Dices,
+    Eye,
+    Link2,
+    Link2Off,
+    Loader2,
+    LogOut,
+    MapPin,
+    Plus,
+    QrCode,
+    Settings2,
+    Shield,
+    Star,
+    Trophy,
+    Users,
+    X,
+} from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface TournamentPlayer {
@@ -132,15 +166,25 @@ const props = defineProps<{
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
     encounter_types: { value: string; label: string }[];
-    masters: MasterOption[];
-    all_strategies: { id: number; name: string; slug: string; image_url: string | null }[];
-    all_schemes: { id: number; name: string; slug: string; image_url: string | null; prerequisite: string | null; reveal: string | null; scoring: string | null }[];
+    // `masters`, `all_strategies`, `all_schemes` are Inertia::defer() props —
+    // null on initial render, populated by the follow-up request.
+    masters: MasterOption[] | null;
+    all_strategies: { id: number; name: string; slug: string; image_url: string | null }[] | null;
+    all_schemes: {
+        id: number;
+        name: string;
+        slug: string;
+        image_url: string | null;
+        prerequisite: string | null;
+        reveal: string | null;
+        scoring: string | null;
+    }[] | null;
     all_deployments: { value: string; label: string; description: string | null; image_url: string | null }[];
 }>();
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
 const tournamentRef = computed(() => props.tournament);
-const { submitting, actionError, doAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
+const { submitting, actionError, showError, doAction, doModalAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
 const { statusColor, statusLabel } = useTournamentStatus();
 
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
@@ -156,8 +200,12 @@ const activeTab = ref(visibleTabs.value.includes(initialTab) ? initialTab : 'sta
 
 const encounterTypeLabel = computed(() => {
     const map: Record<string, string> = {
-        traditional: 'Traditional', enforcer_brawl: 'Enforcer Brawl', crossroads: 'Crossroads',
-        team_event: 'Team Event', double_rush: 'Double Rush', total_war: 'Total War',
+        traditional: 'Traditional',
+        enforcer_brawl: 'Enforcer Brawl',
+        crossroads: 'Crossroads',
+        team_event: 'Team Event',
+        double_rush: 'Double Rush',
+        total_war: 'Total War',
     };
     return map[props.tournament.encounter_type] ?? props.tournament.encounter_type;
 });
@@ -172,7 +220,9 @@ const copyPublicLink = async () => {
 };
 const qrOpen = ref(false);
 
-watch(activeTab, (tab) => { if (typeof window !== 'undefined') window.location.hash = tab; });
+watch(activeTab, (tab) => {
+    if (typeof window !== 'undefined') window.location.hash = tab;
+});
 
 // Reload Inertia props after a mutation while preserving local UI state.
 const reloadPage = () => reloadProps(['tournament', 'standings']);
@@ -185,27 +235,35 @@ useTournamentChannel(props.tournament.uuid, () => reloadPage());
 const rsvpPlayerFaction = ref<string | null>(null);
 const rsvpPlayerDialogOpen = ref(false);
 const rsvpPlayerTarget = ref<any>(null);
+const rsvpPlayerError = ref<string | null>(null);
 
 const openRsvpPlayerDialog = (rsvp: any) => {
     rsvpPlayerTarget.value = rsvp;
     rsvpPlayerFaction.value = null;
+    rsvpPlayerError.value = null;
     rsvpPlayerDialogOpen.value = true;
 };
 
 const confirmAddRsvpAsPlayer = async () => {
     const rsvp = rsvpPlayerTarget.value;
-    if (!rsvp || !rsvpPlayerFaction.value) return;
-    if (await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
+    if (!rsvp || !rsvpPlayerFaction.value) {
+        rsvpPlayerError.value = 'Choose a faction before adding this player.';
+        return;
+    }
+    rsvpPlayerError.value = null;
+    const { ok, error } = await doModalAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
         display_name: rsvp.user?.name ?? 'Unknown',
         user_id: rsvp.user_id,
         faction: rsvpPlayerFaction.value,
-    })) {
+    });
+    if (ok) {
         rsvpPlayerDialogOpen.value = false;
         rsvpPlayerTarget.value = null;
         reloadPage();
+    } else {
+        rsvpPlayerError.value = error;
     }
 };
-
 
 // ─── Players ───
 interface MetaOption {
@@ -255,29 +313,48 @@ const otherMetas = computed<MetaOption[]>(() => {
 const newMetaDialogOpen = ref(false);
 const newMetaName = ref('');
 const newMetaSubmitting = ref(false);
+const newMetaError = ref<string | null>(null);
 
-const openNewMetaDialog = () => {
-    newMetaName.value = '';
+const newPlayerMetaSearch = ref('');
+
+// Prefill from whatever the user has typed in the meta combobox — turns the
+// "type, don't see it, click +" flow into one click.
+const openNewMetaDialog = (seed?: string) => {
+    newMetaName.value = (seed ?? newPlayerMetaSearch.value ?? '').trim();
+    newMetaError.value = null;
     newMetaDialogOpen.value = true;
 };
 
 const submitNewMeta = async () => {
     const name = newMetaName.value.trim();
-    if (!name) return;
+    if (!name) {
+        newMetaError.value = 'Meta name is required.';
+        return;
+    }
     newMetaSubmitting.value = true;
+    newMetaError.value = null;
     try {
         const res = await fetch(route('metas.store'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '', Accept: 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                Accept: 'application/json',
+            },
             body: JSON.stringify({ name }),
         });
-        if (res.ok) {
-            const data = await res.json();
-            await refreshMetas();
-            // Auto-select the freshly created/found meta.
-            newPlayerMeta.value = data.meta;
-            newMetaDialogOpen.value = false;
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            newMetaError.value = err.error ?? err.message ?? 'Could not save meta — try a different name.';
+            return;
         }
+        const data = await res.json();
+        await refreshMetas();
+        // Auto-select the freshly created/found meta.
+        newPlayerMeta.value = data.meta;
+        newMetaDialogOpen.value = false;
+    } catch {
+        newMetaError.value = 'Network error. Please try again.';
     } finally {
         newMetaSubmitting.value = false;
     }
@@ -307,7 +384,11 @@ const removePlayer = async (playerId: number) => {
 };
 
 const toggleRinger = async (player: TournamentPlayer) => {
-    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', { is_ringer: !player.is_ringer })) {
+    if (
+        await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
+            is_ringer: !player.is_ringer,
+        })
+    ) {
         reloadPage();
     }
 };
@@ -315,12 +396,12 @@ const toggleRinger = async (player: TournamentPlayer) => {
 const toggleDrop = async (player: TournamentPlayer) => {
     // Use the highest completed round number, not total rounds created
     const completedRounds = props.tournament.rounds.filter((r: any) => r.status === 'completed');
-    const lastCompletedRound = completedRounds.length > 0
-        ? Math.max(...completedRounds.map((r: any) => r.round_number))
-        : 0;
-    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
-        dropped_after_round: player.dropped_after_round !== null ? null : lastCompletedRound,
-    })) {
+    const lastCompletedRound = completedRounds.length > 0 ? Math.max(...completedRounds.map((r: any) => r.round_number)) : 0;
+    if (
+        await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
+            dropped_after_round: player.dropped_after_round !== null ? null : lastCompletedRound,
+        })
+    ) {
         reloadPage();
     }
 };
@@ -334,11 +415,13 @@ const addOrganizerDialogOpen = ref(false);
 const addOrganizerQuery = ref('');
 const addOrganizerResults = ref<{ id: number; name: string }[]>([]);
 const addOrganizerSearching = ref(false);
+const addOrganizerError = ref<string | null>(null);
 let addOrganizerSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const openAddOrganizerDialog = () => {
     addOrganizerQuery.value = '';
     addOrganizerResults.value = [];
+    addOrganizerError.value = null;
     addOrganizerDialogOpen.value = true;
 };
 
@@ -366,9 +449,13 @@ watch(addOrganizerQuery, (q) => {
 });
 
 const addOrganizer = async (userId: number) => {
-    if (await doAction(route('tournaments.organizers.add', props.tournament.uuid), 'POST', { user_id: userId })) {
+    addOrganizerError.value = null;
+    const { ok, error } = await doModalAction(route('tournaments.organizers.add', props.tournament.uuid), 'POST', { user_id: userId });
+    if (ok) {
         addOrganizerDialogOpen.value = false;
         reloadPage();
+    } else {
+        addOrganizerError.value = error;
     }
 };
 
@@ -385,12 +472,14 @@ const linkUserTarget = ref<TournamentPlayer | null>(null);
 const linkUserQuery = ref('');
 const linkUserResults = ref<{ id: number; name: string }[]>([]);
 const linkUserSearching = ref(false);
+const linkUserError = ref<string | null>(null);
 let linkUserSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const openLinkUserDialog = (player: TournamentPlayer) => {
     linkUserTarget.value = player;
     linkUserQuery.value = '';
     linkUserResults.value = [];
+    linkUserError.value = null;
     linkUserDialogOpen.value = true;
 };
 
@@ -418,10 +507,18 @@ watch(linkUserQuery, (q) => {
 
 const linkUserToPlayer = async (userId: number) => {
     if (!linkUserTarget.value) return;
-    if (await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: linkUserTarget.value.id }), 'PUT', { user_id: userId })) {
+    linkUserError.value = null;
+    const { ok, error } = await doModalAction(
+        route('tournaments.players.update', { tournament: props.tournament.uuid, player: linkUserTarget.value.id }),
+        'PUT',
+        { user_id: userId },
+    );
+    if (ok) {
         linkUserDialogOpen.value = false;
         linkUserTarget.value = null;
         reloadPage();
+    } else {
+        linkUserError.value = error;
     }
 };
 
@@ -448,16 +545,26 @@ const deleteRound = async (roundId: number, roundNumber: number) => {
 // Forfeit dialog
 const forfeitDialogOpen = ref(false);
 const forfeitGame = ref<TournamentGame | null>(null);
+const forfeitError = ref<string | null>(null);
 const openForfeitDialog = (game: TournamentGame) => {
     forfeitGame.value = game;
+    forfeitError.value = null;
     forfeitDialogOpen.value = true;
 };
 const submitForfeit = async (loserPlayerId: number) => {
     if (!forfeitGame.value) return;
-    if (await doAction(route('tournaments.games.forfeit', { tournament: props.tournament.uuid, game: forfeitGame.value.id }), 'POST', { forfeit_player_id: loserPlayerId })) {
+    forfeitError.value = null;
+    const { ok, error } = await doModalAction(
+        route('tournaments.games.forfeit', { tournament: props.tournament.uuid, game: forfeitGame.value.id }),
+        'POST',
+        { forfeit_player_id: loserPlayerId },
+    );
+    if (ok) {
         forfeitDialogOpen.value = false;
         forfeitGame.value = null;
         reloadPage();
+    } else {
+        forfeitError.value = error;
     }
 };
 const removeForfeit = async (game: TournamentGame) => {
@@ -488,9 +595,7 @@ const canAutoPair = (round: TournamentRound): boolean => pairBlockReason(round) 
 const pairBlockReason = (round: TournamentRound): string | null => {
     if (round.status !== 'setup') return 'Round is not in setup';
     if (props.tournament.status !== 'active') {
-        return round.round_number === 1
-            ? 'Tournament must be started before Round 1 can be paired'
-            : 'Tournament must be active to pair rounds';
+        return round.round_number === 1 ? 'Tournament must be started before Round 1 can be paired' : 'Tournament must be active to pair rounds';
     }
     if (round.round_number > 1) {
         const prevRound = props.tournament.rounds.find((r: any) => r.round_number === round.round_number - 1);
@@ -571,12 +676,17 @@ const editP2SchemeVp = ref(0);
 // Optional: drop a player after submitting their score for this round.
 const editDropP1 = ref(false);
 const editDropP2 = ref(false);
+const scoreError = ref<string | null>(null);
 
 const editP1Vp = computed(() => editP1StrategyVp.value + editP1SchemeVp.value);
 const editP2Vp = computed(() => editP2StrategyVp.value + editP2SchemeVp.value);
 
-const editP1Faction = computed(() => editingGame.value?.player_one_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_one_id)?.faction ?? null);
-const editP2Faction = computed(() => editingGame.value?.player_two_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_two_id)?.faction ?? null);
+const editP1Faction = computed(
+    () => editingGame.value?.player_one_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_one_id)?.faction ?? null,
+);
+const editP2Faction = computed(
+    () => editingGame.value?.player_two_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_two_id)?.faction ?? null,
+);
 
 const openScoreEdit = (game: TournamentGame) => {
     editingGame.value = game;
@@ -590,6 +700,7 @@ const openScoreEdit = (game: TournamentGame) => {
     editP2SchemeVp.value = game.player_two_scheme_vp ?? 0;
     editDropP1.value = false;
     editDropP2.value = false;
+    scoreError.value = null;
 };
 
 // Round number this game belongs to — used when the TO checks "drop after this round".
@@ -604,19 +715,25 @@ const editingRoundNumber = computed(() => {
 const saveScore = async () => {
     if (!editingGame.value) return;
     submitting.value = true;
+    scoreError.value = null;
     // Total VP is recomputed server-side from strategy + scheme.
-    const ok = await doAction(route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }), 'PUT', {
-        player_one_master: editP1Master.value,
-        player_one_title: editP1Title.value,
-        player_one_strategy_vp: editP1StrategyVp.value,
-        player_one_scheme_vp: editP1SchemeVp.value,
-        player_two_master: editP2Master.value,
-        player_two_title: editP2Title.value,
-        player_two_strategy_vp: editP2StrategyVp.value,
-        player_two_scheme_vp: editP2SchemeVp.value,
-    });
-    if (!ok) {
+    const scoreResult = await doModalAction(
+        route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }),
+        'PUT',
+        {
+            player_one_master: editP1Master.value,
+            player_one_title: editP1Title.value,
+            player_one_strategy_vp: editP1StrategyVp.value,
+            player_one_scheme_vp: editP1SchemeVp.value,
+            player_two_master: editP2Master.value,
+            player_two_title: editP2Title.value,
+            player_two_strategy_vp: editP2StrategyVp.value,
+            player_two_scheme_vp: editP2SchemeVp.value,
+        },
+    );
+    if (!scoreResult.ok) {
         submitting.value = false;
+        scoreError.value = scoreResult.error;
         return;
     }
 
@@ -625,18 +742,28 @@ const saveScore = async () => {
     const dropAfter = editingRoundNumber.value;
     if (dropAfter !== null) {
         if (editDropP1.value && editingGame.value.player_one_id) {
-            await doAction(
+            const dropResult = await doModalAction(
                 route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_one_id }),
                 'PUT',
                 { dropped_after_round: dropAfter },
             );
+            if (!dropResult.ok) {
+                submitting.value = false;
+                scoreError.value = dropResult.error;
+                return;
+            }
         }
         if (editDropP2.value && editingGame.value.player_two_id) {
-            await doAction(
+            const dropResult = await doModalAction(
                 route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_two_id }),
                 'PUT',
                 { dropped_after_round: dropAfter },
             );
+            if (!dropResult.ok) {
+                submitting.value = false;
+                scoreError.value = dropResult.error;
+                return;
+            }
         }
     }
 
@@ -670,12 +797,17 @@ const toggleScenarioEdit = (round: TournamentRound) => {
     editSchemePool.value = round.scheme_pool ? round.scheme_pool.map(String) : [null, null, null];
     scenarioSaveState.value = 'idle';
     // Re-enable the watcher on the next tick so hydration assignments don't fire it.
-    setTimeout(() => { suppressScenarioSave = false; }, 0);
+    setTimeout(() => {
+        suppressScenarioSave = false;
+    }, 0);
 };
 
 const saveRoundScenario = async (roundId: number) => {
     scenarioSaveState.value = 'saving';
-    const ok = await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', {
+    // Use doModalAction so validation errors show local to the pane (we'll
+    // route them into the save-state indicator) rather than raising the
+    // page-level toast behind the open editor.
+    const { ok, error } = await doModalAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', {
         deployment: editDeployment.value,
         strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
         scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
@@ -683,24 +815,41 @@ const saveRoundScenario = async (roundId: number) => {
     if (ok) {
         scenarioSaveState.value = 'saved';
         if (savedFlashTimer) clearTimeout(savedFlashTimer);
-        savedFlashTimer = setTimeout(() => { scenarioSaveState.value = 'idle'; }, 1500);
-        reloadPage();
+        savedFlashTimer = setTimeout(() => {
+            scenarioSaveState.value = 'idle';
+        }, 1500);
+        // The server also broadcasts `round_updated`, which the tournament
+        // channel picks up and reloads props. No explicit reloadPage() here
+        // — the double reload was the likely culprit behind the "first save
+        // closes the pane" report and is redundant on the happy path.
     } else {
         scenarioSaveState.value = 'idle';
+        if (error) showError(error);
     }
 };
 
 // Auto-save: any change to the editor's fields triggers a debounced PUT.
-// Uses 400ms so multi-step interactions (e.g. picking 3 schemes) coalesce.
+// Uses 500ms so multi-step interactions (e.g. picking 3 schemes) coalesce,
+// and we only fire when the full scenario is actually valid — otherwise the
+// server returns 422 on every partial field change, which used to spam the
+// error toast and force redundant reloads.
+const scenarioIsComplete = (): boolean => {
+    if (!editDeployment.value) return false;
+    if (!editStrategy.value) return false;
+    const schemes = editSchemePool.value.filter(Boolean);
+    return schemes.length === 3;
+};
+
 watch(
     [editDeployment, editStrategy, editSchemePool],
     () => {
         if (suppressScenarioSave || expandedScenarioRoundId.value === null) return;
+        if (!scenarioIsComplete()) return;
         if (scenarioSaveTimer) clearTimeout(scenarioSaveTimer);
         scenarioSaveTimer = setTimeout(() => {
             const id = expandedScenarioRoundId.value;
             if (id !== null) saveRoundScenario(id);
-        }, 400);
+        }, 500);
     },
     { deep: true },
 );
@@ -767,6 +916,8 @@ const editRoundTimeLimit = ref(135);
 const editByeTp = ref(3);
 const editByeDiff = ref(4);
 const editByeVp = ref(6);
+const editAdvancedOpen = ref(false);
+const settingsError = ref<string | null>(null);
 // Live tiebreaker toggle on the standings tab — distinct from the Settings
 // edit form so TOs can flip it any time, even after the tournament starts.
 const liveTiebreaker = computed(() => props.tournament.tiebreaker_mode ?? 'diff_vp');
@@ -788,16 +939,19 @@ const openSettingsEdit = () => {
     editByeTp.value = props.tournament.bye_tp ?? 3;
     editByeDiff.value = props.tournament.bye_diff ?? 4;
     editByeVp.value = props.tournament.bye_vp ?? 6;
+    editAdvancedOpen.value = false;
+    settingsError.value = null;
     editingSettings.value = true;
 };
 
 const saveSettings = async () => {
     submitting.value = true;
-    const ok = await doAction(route('tournaments.update', props.tournament.uuid), 'PUT', {
-        name: editName.value,
-        description: editDescription.value || null,
+    settingsError.value = null;
+    const { ok, error } = await doModalAction(route('tournaments.update', props.tournament.uuid), 'PUT', {
+        name: editName.value.trim(),
+        description: editDescription.value.trim() || null,
         event_date: editEventDate.value,
-        location: editLocation.value || null,
+        location: editLocation.value.trim() || null,
         encounter_size: editEncounterSize.value,
         encounter_type: editEncounterType.value,
         planned_rounds: editPlannedRounds.value,
@@ -810,14 +964,17 @@ const saveSettings = async () => {
     if (ok) {
         editingSettings.value = false;
         reloadPage();
+    } else {
+        settingsError.value = error;
     }
 };
 
 // ─── Randomize Scenario ───
 const randomizeInDialog = () => {
-    // Randomize locally in the form fields
-    const strats = props.all_strategies;
-    const schemes = props.all_schemes;
+    // Randomize locally in the form fields. Deferred props may still be loading
+    // when the user clicks Random; silently skip fields whose data isn't in yet.
+    const strats = props.all_strategies ?? [];
+    const schemes = props.all_schemes ?? [];
     const deploys = props.all_deployments;
     if (deploys.length) editDeployment.value = deploys[Math.floor(Math.random() * deploys.length)].value;
     if (strats.length) editStrategy.value = String(strats[Math.floor(Math.random() * strats.length)].id);
@@ -848,22 +1005,28 @@ const viewDeployment = (value: string | null) => {
 
 const viewStrategy = (idStr: string | null) => {
     if (!idStr) return;
-    const s = props.all_strategies.find((x) => String(x.id) === idStr);
+    const s = props.all_strategies?.find((x) => String(x.id) === idStr);
     if (s) openViewDrawer(s.name, s.image_url);
 };
 
 const viewScheme = (idStr: string | null) => {
     if (!idStr) return;
-    const s = props.all_schemes.find((x) => String(x.id) === idStr);
+    const s = props.all_schemes?.find((x) => String(x.id) === idStr);
     if (s) {
-        const desc = [s.prerequisite ? `Prerequisite: ${s.prerequisite}` : '', s.reveal ? `Reveal: ${s.reveal}` : '', s.scoring ? `Scoring: ${s.scoring}` : ''].filter(Boolean).join('\n\n');
+        const desc = [
+            s.prerequisite ? `Prerequisite: ${s.prerequisite}` : '',
+            s.reveal ? `Reveal: ${s.reveal}` : '',
+            s.scoring ? `Scoring: ${s.scoring}` : '',
+        ]
+            .filter(Boolean)
+            .join('\n\n');
         openViewDrawer(s.name, s.image_url, desc || undefined);
     }
 };
 
 const activePlayers = computed(() => props.tournament.players.filter((p) => !p.is_disqualified && p.dropped_after_round === null));
 
-const latestRound = computed(() => props.tournament.rounds.length > 0 ? props.tournament.rounds[props.tournament.rounds.length - 1] : null);
+const latestRound = computed(() => (props.tournament.rounds.length > 0 ? props.tournament.rounds[props.tournament.rounds.length - 1] : null));
 
 const roundAllScored = (round: TournamentRound): boolean => {
     if (!round.games.length) return false;
@@ -890,21 +1053,20 @@ const formatDate = (d: string) => {
     const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
-const toDateInput = (d: string) => d ? d.split('T')[0] : '';
+const toDateInput = (d: string) => (d ? d.split('T')[0] : '');
 const isEditable = computed(() => !isLocked.value);
 
-// Masters filtered by faction
+// Masters filtered by faction. Returns [] while the deferred prop is still loading.
 const mastersForFaction = (faction: string | null) => {
-    if (!faction) return [];
+    if (!faction || !props.masters) return [];
     return props.masters.filter((m) => m.faction === faction || m.second_faction === faction);
 };
 
 const titlesForMaster = (masterName: string | null) => {
-    if (!masterName) return [];
+    if (!masterName || !props.masters) return [];
     const master = props.masters.find((m) => m.name === masterName);
     return master?.titles ?? [];
 };
-
 </script>
 
 <template>
@@ -917,7 +1079,9 @@ const titlesForMaster = (masterName: string | null) => {
 
         <!-- Action error banner -->
         <div v-if="actionError" class="container mx-auto mb-2 px-4">
-            <div class="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            <div
+                class="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            >
                 <span>{{ actionError }}</span>
                 <button class="ml-2 text-xs hover:underline" @click="actionError = null">Dismiss</button>
             </div>
@@ -926,7 +1090,9 @@ const titlesForMaster = (masterName: string | null) => {
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>
                 <div class="my-auto flex flex-wrap items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm">
-                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{ statusLabel(tournament.status) }}</Badge>
+                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{
+                        statusLabel(tournament.status)
+                    }}</Badge>
                     <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(tournament.event_date) }}</span>
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
                     <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
@@ -958,11 +1124,7 @@ const titlesForMaster = (masterName: string | null) => {
                     >
                         Back to Draft
                     </Button>
-                    <Button
-                        v-if="statusTransitions[tournament.status]"
-                        size="sm"
-                        @click="confirmStatusDialog = true"
-                    >
+                    <Button v-if="statusTransitions[tournament.status]" size="sm" @click="confirmStatusDialog = true">
                         {{ statusTransitions[tournament.status].label }}
                     </Button>
                 </div>
@@ -973,15 +1135,21 @@ const titlesForMaster = (masterName: string | null) => {
                     <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
                     <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
                         Players
-                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.players.length }}</Badge>
+                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                            tournament.players.length
+                        }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
                         RSVPs
-                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
+                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                            tournament.rsvps.length
+                        }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
                         Rounds
-                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rounds.length }}</Badge>
+                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                            tournament.rounds.length
+                        }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="settings" class="text-xs sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
@@ -1020,7 +1188,9 @@ const titlesForMaster = (masterName: string | null) => {
                                 <span class="text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
                                 <div class="flex items-center gap-1">
                                     <Button
-                                        v-if="tournament.status === 'registration' && !tournament.players.some((p: any) => p.user?.id === rsvp.user_id)"
+                                        v-if="
+                                            tournament.status === 'registration' && !tournament.players.some((p: any) => p.user?.id === rsvp.user_id)
+                                        "
                                         variant="outline"
                                         size="sm"
                                         class="h-6 gap-1 px-2 text-[10px]"
@@ -1028,7 +1198,12 @@ const titlesForMaster = (masterName: string | null) => {
                                     >
                                         <Plus class="size-2.5" /> Register
                                     </Button>
-                                    <Badge v-else-if="tournament.players.some((p: any) => p.user?.id === rsvp.user_id)" variant="outline" class="px-1 py-0 text-[9px]">Registered</Badge>
+                                    <Badge
+                                        v-else-if="tournament.players.some((p: any) => p.user?.id === rsvp.user_id)"
+                                        variant="outline"
+                                        class="px-1 py-0 text-[9px]"
+                                        >Registered</Badge
+                                    >
                                 </div>
                             </div>
                         </div>
@@ -1043,12 +1218,17 @@ const titlesForMaster = (masterName: string | null) => {
                             <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
                                 <div class="space-y-1">
                                     <Label class="text-xs">Player Name</Label>
-                                    <Input v-model="newPlayerName" placeholder="Enter player name..." class="h-9 text-sm" @keydown.enter="addPlayer" />
+                                    <Input
+                                        v-model="newPlayerName"
+                                        placeholder="Enter player name..."
+                                        class="h-9 text-sm"
+                                        @keydown.enter="addPlayer"
+                                    />
                                 </div>
                                 <div class="space-y-1">
                                     <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
                                     <div class="flex gap-1">
-                                        <Combobox v-model="newPlayerMeta" by="id" class="flex-1">
+                                        <Combobox v-model="newPlayerMeta" v-model:search-term="newPlayerMetaSearch" by="id" class="flex-1">
                                             <ComboboxAnchor as-child>
                                                 <ComboboxTrigger as-child>
                                                     <Button variant="outline" class="h-9 w-full justify-between text-xs font-normal">
@@ -1058,29 +1238,59 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </ComboboxTrigger>
                                             </ComboboxAnchor>
                                             <ComboboxList class="max-h-72 overflow-y-auto">
-                                                <ComboboxInput class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0" placeholder="Search metas..." />
-                                                <ComboboxEmpty>No matching meta — use + to add one.</ComboboxEmpty>
+                                                <ComboboxInput
+                                                    class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0"
+                                                    placeholder="Search or type a new meta..."
+                                                />
+                                                <ComboboxEmpty class="px-2 py-3 text-left">
+                                                    <button
+                                                        v-if="newPlayerMetaSearch.trim()"
+                                                        type="button"
+                                                        class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                                        @click="openNewMetaDialog(newPlayerMetaSearch)"
+                                                    >
+                                                        <Plus class="size-3.5" /> Add "<span class="font-medium">{{ newPlayerMetaSearch.trim() }}</span>"
+                                                    </button>
+                                                    <span v-else class="text-xs text-muted-foreground">Type to search or add a meta.</span>
+                                                </ComboboxEmpty>
                                                 <ComboboxGroup v-if="tournamentMetas.length">
-                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">In this tournament</div>
-                                                    <ComboboxItem v-for="m in tournamentMetas" :key="'t-'+m.id" :value="m">
+                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                        In this tournament
+                                                    </div>
+                                                    <ComboboxItem v-for="m in tournamentMetas" :key="'t-' + m.id" :value="m">
                                                         {{ m.name }}
                                                         <Check v-if="newPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
                                                     </ComboboxItem>
                                                 </ComboboxGroup>
                                                 <ComboboxSeparator v-if="tournamentMetas.length && otherMetas.length" />
                                                 <ComboboxGroup v-if="otherMetas.length">
-                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">All metas</div>
-                                                    <ComboboxItem v-for="m in otherMetas" :key="'o-'+m.id" :value="m">
+                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                        All metas
+                                                    </div>
+                                                    <ComboboxItem v-for="m in otherMetas" :key="'o-' + m.id" :value="m">
                                                         {{ m.name }}
                                                         <Check v-if="newPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
                                                     </ComboboxItem>
                                                 </ComboboxGroup>
                                             </ComboboxList>
                                         </Combobox>
-                                        <Button variant="outline" size="sm" class="h-9 shrink-0 px-2" title="Add a new meta" @click="openNewMetaDialog">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            class="h-9 shrink-0 px-2"
+                                            title="Add a new meta"
+                                            @click="openNewMetaDialog"
+                                        >
                                             <Plus class="size-3.5" />
                                         </Button>
-                                        <Button v-if="newPlayerMeta" variant="ghost" size="sm" class="h-9 shrink-0 px-2 text-muted-foreground" title="Clear" @click="newPlayerMeta = null">
+                                        <Button
+                                            v-if="newPlayerMeta"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-9 shrink-0 px-2 text-muted-foreground"
+                                            title="Clear"
+                                            @click="newPlayerMeta = null"
+                                        >
                                             <X class="size-3.5" />
                                         </Button>
                                     </div>
@@ -1088,15 +1298,22 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div class="space-y-1">
                                     <Label class="text-xs">Faction</Label>
                                     <Select v-model="newPlayerFaction">
-                                        <SelectTrigger class="h-9 w-full text-xs sm:w-40"><SelectValue placeholder="Select faction..." /></SelectTrigger>
+                                        <SelectTrigger class="h-9 w-full text-xs sm:w-40"
+                                            ><SelectValue placeholder="Select faction..."
+                                        /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="(f, key) in factions" :key="key" :value="(key as string)">
+                                            <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">
                                                 <span class="flex items-center gap-1.5"><img :src="f.logo" class="size-4" /> {{ f.name }}</span>
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <Button size="sm" class="h-9 shrink-0 gap-1" :disabled="!newPlayerName.trim() || !newPlayerFaction || submitting" @click="addPlayer">
+                                <Button
+                                    size="sm"
+                                    class="h-9 shrink-0 gap-1"
+                                    :disabled="!newPlayerName.trim() || !newPlayerFaction || submitting"
+                                    @click="addPlayer"
+                                >
                                     <Plus class="size-3.5" /> Add
                                 </Button>
                             </div>
@@ -1118,19 +1335,37 @@ const titlesForMaster = (masterName: string | null) => {
                             :class="[
                                 factionBackground(player.faction),
                                 player.faction ? 'text-white' : 'border',
-                                player.is_disqualified ? 'opacity-40 line-through' : player.dropped_after_round !== null ? 'opacity-60' : '',
+                                player.is_disqualified ? 'line-through opacity-40' : player.dropped_after_round !== null ? 'opacity-60' : '',
                             ]"
                             class="flex items-start justify-between gap-2 rounded-lg px-2 py-2 sm:px-3"
                         >
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5">
-                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                    <FactionLogo
+                                        v-if="player.faction"
+                                        :faction="player.faction"
+                                        class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                    />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ player.display_name }}</span>
-                                    <Badge v-if="player.is_ringer" variant="outline" class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">Ringer</Badge>
+                                    <Badge
+                                        v-if="player.is_ringer"
+                                        variant="outline"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        >Ringer</Badge
+                                    >
                                     <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
                                     <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
-                                    <Badge v-if="player.dropped_after_round !== null" class="shrink-0 bg-amber-700/80 px-1 py-0 text-[9px] font-semibold uppercase tracking-wide text-white">Dropped after R{{ player.dropped_after_round }}</Badge>
-                                    <Badge v-if="player.meta || player.user?.meta" variant="outline" class="hidden shrink-0 border-white/30 px-1 py-0 text-[9px] text-white/80 sm:inline-flex">{{ player.meta?.name || player.user?.meta?.name }}</Badge>
+                                    <Badge
+                                        v-if="player.dropped_after_round !== null"
+                                        class="shrink-0 bg-amber-700/80 px-1 py-0 text-[9px] font-semibold uppercase tracking-wide text-white"
+                                        >Dropped after R{{ player.dropped_after_round }}</Badge
+                                    >
+                                    <Badge
+                                        v-if="player.meta || player.user?.meta"
+                                        variant="outline"
+                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        >{{ player.meta?.name || player.user?.meta?.name }}</Badge
+                                    >
                                 </div>
                                 <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[9px] opacity-70">
                                     vs: {{ playerOpponents[player.id].join(' · ') }}
@@ -1153,7 +1388,12 @@ const titlesForMaster = (masterName: string | null) => {
                                 >
                                     <Link2Off class="size-3.5 text-emerald-300" />
                                 </button>
-                                <button v-if="tournament.status === 'active'" class="rounded p-1 hover:bg-white/20" :title="player.dropped_after_round !== null ? 'Undrop' : 'Drop'" @click="toggleDrop(player)">
+                                <button
+                                    v-if="tournament.status === 'active'"
+                                    class="rounded p-1 hover:bg-white/20"
+                                    :title="player.dropped_after_round !== null ? 'Undrop' : 'Drop'"
+                                    @click="toggleDrop(player)"
+                                >
                                     <LogOut class="size-3.5" :class="player.dropped_after_round !== null ? 'text-amber-300' : 'text-white/50'" />
                                 </button>
                                 <button class="rounded p-1 hover:bg-white/20" title="Toggle Ringer" @click="toggleRinger(player)">
@@ -1166,7 +1406,12 @@ const titlesForMaster = (masterName: string | null) => {
                                     cascade-delete-of-game-history footgun that previously made it
                                     look like opponents' scores had changed.
                                 -->
-                                <button v-if="tournament.status === 'draft' || tournament.status === 'registration'" class="rounded p-1 hover:bg-white/20" title="Remove" @click="removePlayer(player.id)">
+                                <button
+                                    v-if="tournament.status === 'draft' || tournament.status === 'registration'"
+                                    class="rounded p-1 hover:bg-white/20"
+                                    title="Remove"
+                                    @click="removePlayer(player.id)"
+                                >
                                     <X class="size-3.5 text-white/50" />
                                 </button>
                             </div>
@@ -1195,12 +1440,31 @@ const titlesForMaster = (masterName: string | null) => {
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h3>
                                         <Badge
-                                            :class="['border-0 text-[10px]', round.status === 'completed' ? 'bg-muted text-muted-foreground' : round.status === 'in_progress' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : round.games.length ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200']"
+                                            :class="[
+                                                'border-0 text-[10px]',
+                                                round.status === 'completed'
+                                                    ? 'bg-muted text-muted-foreground'
+                                                    : round.status === 'in_progress'
+                                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                      : round.games.length
+                                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                                                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                            ]"
                                             variant="outline"
                                         >
-                                            {{ round.status === 'in_progress' ? 'In Progress' : round.status === 'completed' ? 'Completed' : round.games.length ? 'Paired' : 'Setup' }}
+                                            {{
+                                                round.status === 'in_progress'
+                                                    ? 'In Progress'
+                                                    : round.status === 'completed'
+                                                      ? 'Completed'
+                                                      : round.games.length
+                                                        ? 'Paired'
+                                                        : 'Setup'
+                                            }}
                                         </Badge>
-                                        <span v-if="round.strategy" class="hidden text-xs text-muted-foreground sm:inline">{{ round.strategy.name }}</span>
+                                        <span v-if="round.strategy" class="hidden text-xs text-muted-foreground sm:inline">{{
+                                            round.strategy.name
+                                        }}</span>
                                         <button
                                             v-if="round.status !== 'in_progress'"
                                             class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -1211,48 +1475,54 @@ const titlesForMaster = (masterName: string | null) => {
                                         </button>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        class="h-7 px-2 text-[11px] sm:text-xs"
-                                        @click="toggleScenarioEdit(round)"
-                                    >
-                                        {{ expandedScenarioRoundId === round.id ? 'Hide Scenario' : round.strategy || round.deployment ? 'Scenario' : 'Set Scenario' }}
-                                    </Button>
-                                    <Button
-                                        v-if="round.status === 'setup'"
-                                        variant="outline"
-                                        size="sm"
-                                        class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
-                                        :disabled="submitting || !canAutoPair(round)"
-                                        :title="pairBlockReason(round) ?? 'Generate Swiss pairings'"
-                                        @click="generatePairings(round.id)"
-                                    >
-                                        <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                        {{ round.games.length ? 'Re-Pair' : 'Auto Pair' }}
-                                    </Button>
-                                    <Button
-                                        v-if="canStartRound(round)"
-                                        size="sm"
-                                        class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
-                                        :disabled="submitting"
-                                        @click="startRound(round.id)"
-                                    >
-                                        <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                        Start Round
-                                    </Button>
-                                    <Button
-                                        v-if="round.status === 'in_progress'"
-                                        size="sm"
-                                        class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
-                                        :class="canEndRound(round) ? '' : 'opacity-50'"
-                                        :disabled="submitting || !canEndRound(round)"
-                                        :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
-                                        @click="endRound(round.id)"
-                                    >
-                                        <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                        End Round
-                                    </Button>
+                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px] sm:text-xs" @click="toggleScenarioEdit(round)">
+                                            {{
+                                                expandedScenarioRoundId === round.id
+                                                    ? 'Hide Scenario'
+                                                    : round.strategy || round.deployment
+                                                      ? 'Scenario'
+                                                      : 'Set Scenario'
+                                            }}
+                                        </Button>
+                                        <Button
+                                            v-if="round.status === 'setup'"
+                                            variant="outline"
+                                            size="sm"
+                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            :disabled="submitting || !canAutoPair(round)"
+                                            :title="
+                                                pairBlockReason(round) ??
+                                                (round.games.length
+                                                    ? 'Regenerate Swiss pairings (preserves manual pairings)'
+                                                    : 'Generate Swiss pairings')
+                                            "
+                                            @click="generatePairings(round.id)"
+                                        >
+                                            <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                            Auto Pair
+                                        </Button>
+                                        <Button
+                                            v-if="canStartRound(round)"
+                                            size="sm"
+                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            :disabled="submitting"
+                                            @click="startRound(round.id)"
+                                        >
+                                            <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                            Start Round
+                                        </Button>
+                                        <Button
+                                            v-if="round.status === 'in_progress'"
+                                            size="sm"
+                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            :class="canEndRound(round) ? '' : 'opacity-50'"
+                                            :disabled="submitting || !canEndRound(round)"
+                                            :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
+                                            @click="endRound(round.id)"
+                                        >
+                                            <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                            End Round
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -1269,53 +1539,89 @@ const titlesForMaster = (masterName: string | null) => {
                                             <Select v-model="editDeployment">
                                                 <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Deployment..." /></SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem>
+                                                    <SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{
+                                                        d.label
+                                                    }}</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <button v-if="editDeployment" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="viewDeployment(editDeployment)">
+                                            <button
+                                                v-if="editDeployment"
+                                                class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                @click="viewDeployment(editDeployment)"
+                                            >
                                                 <Eye class="size-3" />
                                             </button>
                                         </div>
                                         <div class="flex gap-1">
                                             <Select v-model="editStrategy">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Strategy..." /></SelectTrigger>
+                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue :placeholder="all_strategies ? 'Strategy...' : 'Loading…'" /></SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem v-for="s in all_strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
+                                                    <SelectItem v-for="s in all_strategies ?? []" :key="s.id" :value="String(s.id)">{{
+                                                        s.name
+                                                    }}</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <button v-if="editStrategy" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="viewStrategy(editStrategy)">
+                                            <button
+                                                v-if="editStrategy"
+                                                class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                @click="viewStrategy(editStrategy)"
+                                            >
                                                 <Eye class="size-3" />
                                             </button>
                                         </div>
                                         <div v-for="(_, idx) in editSchemePool" :key="'rs-' + idx" class="flex gap-1">
-                                            <Select :model-value="editSchemePool[idx] ?? undefined" @update:model-value="(v) => editSchemePool[idx] = v ?? null">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue :placeholder="'Scheme ' + (idx + 1)" /></SelectTrigger>
+                                            <Select
+                                                :model-value="editSchemePool[idx] ?? undefined"
+                                                @update:model-value="(v) => (editSchemePool[idx] = v ?? null)"
+                                            >
+                                                <SelectTrigger class="h-8 flex-1 text-xs"
+                                                    ><SelectValue :placeholder="all_schemes ? 'Scheme ' + (idx + 1) : 'Loading…'"
+                                                /></SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem v-for="s in all_schemes" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
+                                                    <SelectItem v-for="s in all_schemes ?? []" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <button v-if="editSchemePool[idx]" class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="viewScheme(editSchemePool[idx])">
+                                            <button
+                                                v-if="editSchemePool[idx]"
+                                                class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                @click="viewScheme(editSchemePool[idx])"
+                                            >
                                                 <Eye class="size-3" />
                                             </button>
                                         </div>
                                     </div>
                                     <div class="flex items-center justify-between text-[11px]">
                                         <span class="text-muted-foreground">
-                                            <span v-if="scenarioSaveState === 'saving'" class="inline-flex items-center gap-1"><Loader2 class="size-3 animate-spin" /> Saving…</span>
-                                            <span v-else-if="scenarioSaveState === 'saved'" class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check class="size-3" /> Saved</span>
+                                            <span v-if="scenarioSaveState === 'saving'" class="inline-flex items-center gap-1"
+                                                ><Loader2 class="size-3 animate-spin" /> Saving…</span
+                                            >
+                                            <span
+                                                v-else-if="scenarioSaveState === 'saved'"
+                                                class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"
+                                                ><Check class="size-3" /> Saved</span
+                                            >
                                             <span v-else>Auto-saves as you change fields.</span>
                                         </span>
-                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" @click="expandedScenarioRoundId = null">Done</Button>
+                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" @click="expandedScenarioRoundId = null"
+                                            >Done</Button
+                                        >
                                     </div>
                                 </div>
                                 <!-- Scenario summary (when not editing) -->
-                                <div v-else-if="round.strategy || round.deployment" class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                                <div
+                                    v-else-if="round.strategy || round.deployment"
+                                    class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground"
+                                >
                                     <span v-if="round.deployment">{{ all_deployments.find((d) => d.value === round.deployment)?.label }}</span>
                                     <span v-if="round.strategy">{{ round.strategy.name }}</span>
-                                    <span v-if="round.scheme_pool?.length">{{ round.scheme_pool.map((id: number) => all_schemes.find((s) => s.id === id)?.name ?? id).join(' / ') }}</span>
+                                    <span v-if="round.scheme_pool?.length">{{
+                                        round.scheme_pool.map((id: number) => all_schemes?.find((s) => s.id === id)?.name ?? id).join(' / ')
+                                    }}</span>
                                 </div>
 
-                                <div v-if="!round.games.length" class="py-4 text-center text-xs text-muted-foreground">No games in this round yet. Generate pairings or add them manually.</div>
+                                <div v-if="!round.games.length" class="py-4 text-center text-xs text-muted-foreground">
+                                    No games in this round yet. Generate pairings or add them manually.
+                                </div>
 
                                 <div v-else class="space-y-1.5">
                                     <div
@@ -1326,16 +1632,28 @@ const titlesForMaster = (masterName: string | null) => {
                                     >
                                         <div class="flex items-center justify-between gap-1">
                                             <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                                <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground">T{{ game.table_number }}</span>
-                                                <FactionLogo v-if="game.player_one_faction || playerFaction(game.player_one_id)" :faction="(game.player_one_faction || playerFaction(game.player_one_id))!" class-name="size-3.5 shrink-0" />
+                                                <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground"
+                                                    >T{{ game.table_number }}</span
+                                                >
+                                                <FactionLogo
+                                                    v-if="game.player_one_faction || playerFaction(game.player_one_id)"
+                                                    :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
+                                                    class-name="size-3.5 shrink-0"
+                                                />
                                                 <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_one_id) }}</span>
                                                 <template v-if="!game.is_bye">
                                                     <span class="shrink-0 text-[10px] text-muted-foreground">vs</span>
-                                                    <FactionLogo v-if="game.player_two_faction || playerFaction(game.player_two_id)" :faction="(game.player_two_faction || playerFaction(game.player_two_id))!" class-name="size-3.5 shrink-0" />
+                                                    <FactionLogo
+                                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
+                                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                                        class-name="size-3.5 shrink-0"
+                                                    />
                                                     <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_two_id) }}</span>
                                                 </template>
                                                 <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">BYE</Badge>
-                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
+                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]"
+                                                    >Forfeit</Badge
+                                                >
                                             </div>
                                             <div class="flex shrink-0 items-center gap-1 sm:gap-2">
                                                 <template v-if="game.result === 'completed' || game.result === 'forfeited'">
@@ -1343,16 +1661,38 @@ const titlesForMaster = (masterName: string | null) => {
                                                     <span class="text-[10px] text-muted-foreground">-</span>
                                                     <span class="text-xs font-bold sm:text-sm">{{ game.player_two_vp ?? '-' }}</span>
                                                 </template>
-                                                <Button v-if="!game.is_bye && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="openScoreEdit(game)">
+                                                <Button
+                                                    v-if="!game.is_bye && round.status === 'in_progress'"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs"
+                                                    @click="openScoreEdit(game)"
+                                                >
                                                     {{ game.result === 'pending' ? 'Score' : 'Edit' }}
                                                 </Button>
-                                                <Button v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs" @click="openForfeitDialog(game)">
+                                                <Button
+                                                    v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status === 'in_progress'"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs"
+                                                    @click="openForfeitDialog(game)"
+                                                >
                                                     Forfeit
                                                 </Button>
-                                                <Button v-if="game.is_forfeit && round.status === 'in_progress'" variant="ghost" size="sm" class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs" @click="removeForfeit(game)">
+                                                <Button
+                                                    v-if="game.is_forfeit && round.status === 'in_progress'"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs"
+                                                    @click="removeForfeit(game)"
+                                                >
                                                     Undo
                                                 </Button>
-                                                <button v-if="round.status === 'setup'" class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" @click="removeGame(game.id)">
+                                                <button
+                                                    v-if="round.status === 'setup'"
+                                                    class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                    @click="removeGame(game.id)"
+                                                >
                                                     <X class="size-3" />
                                                 </button>
                                             </div>
@@ -1361,16 +1701,24 @@ const titlesForMaster = (masterName: string | null) => {
                                 </div>
 
                                 <!-- Pending scores indicator -->
-                                <div v-if="round.status === 'in_progress' && round.games.length > 0 && !roundAllScored(round)" class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <div
+                                    v-if="round.status === 'in_progress' && round.games.length > 0 && !roundAllScored(round)"
+                                    class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+                                >
                                     <Loader2 class="size-3 animate-spin" />
                                     {{ round.games.filter((g: any) => g.result === 'pending').length }} game(s) pending scores
                                 </div>
 
                                 <!-- Manual Pairing -->
-                                <div v-if="round.status === 'setup' && unpairedPlayers(round.id).length" class="mt-3 rounded-md border border-dashed p-2 sm:p-3">
+                                <div
+                                    v-if="round.status === 'setup' && unpairedPlayers(round.id).length"
+                                    class="mt-3 rounded-md border border-dashed p-2 sm:p-3"
+                                >
                                     <div class="mb-2 flex items-center justify-between gap-2">
                                         <span class="text-xs font-medium text-muted-foreground">Manual Pairing</span>
-                                        <span v-if="pairBlockReason(round)" class="text-[10px] italic text-amber-600 dark:text-amber-400">{{ pairBlockReason(round) }}</span>
+                                        <span v-if="pairBlockReason(round)" class="text-[10px] italic text-amber-600 dark:text-amber-400">{{
+                                            pairBlockReason(round)
+                                        }}</span>
                                     </div>
                                     <fieldset :disabled="!canAutoPair(round)" :class="!canAutoPair(round) ? 'cursor-not-allowed opacity-50' : ''">
                                         <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -1379,7 +1727,9 @@ const titlesForMaster = (masterName: string | null) => {
                                                 <Select v-model="getManualPair(round.id).p1">
                                                     <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select player..." /></SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem v-for="p in unpairedPlayers(round.id)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
+                                                        <SelectItem v-for="p in unpairedPlayers(round.id)" :key="p.id" :value="String(p.id)">{{
+                                                            p.display_name
+                                                        }}</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1389,7 +1739,14 @@ const titlesForMaster = (masterName: string | null) => {
                                                     <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="BYE" /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="bye">BYE</SelectItem>
-                                                        <SelectItem v-for="p in unpairedPlayers(round.id).filter((p) => String(p.id) !== getManualPair(round.id).p1)" :key="p.id" :value="String(p.id)">{{ p.display_name }}</SelectItem>
+                                                        <SelectItem
+                                                            v-for="p in unpairedPlayers(round.id).filter(
+                                                                (p) => String(p.id) !== getManualPair(round.id).p1,
+                                                            )"
+                                                            :key="p.id"
+                                                            :value="String(p.id)"
+                                                            >{{ p.display_name }}</SelectItem
+                                                        >
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1405,7 +1762,12 @@ const titlesForMaster = (masterName: string | null) => {
                                         </div>
                                     </fieldset>
                                     <div v-if="unpairedPlayers(round.id).length" class="mt-2 text-[10px] text-muted-foreground">
-                                        {{ unpairedPlayers(round.id).length }} unpaired: {{ unpairedPlayers(round.id).map((p) => p.display_name).join(', ') }}
+                                        {{ unpairedPlayers(round.id).length }} unpaired:
+                                        {{
+                                            unpairedPlayers(round.id)
+                                                .map((p) => p.display_name)
+                                                .join(', ')
+                                        }}
                                     </div>
                                 </div>
                             </CardContent>
@@ -1424,27 +1786,39 @@ const titlesForMaster = (masterName: string | null) => {
                 <TabsContent value="settings">
                     <!-- Edit Mode -->
                     <Card v-if="editingSettings" class="mb-4">
-                        <CardContent class="space-y-4 p-4">
-                            <h3 class="font-semibold">Edit Tournament</h3>
-                            <div class="space-y-3">
+                        <CardContent class="space-y-6 p-4 sm:p-6">
+                            <!-- Event Info -->
+                            <section class="space-y-3">
+                                <header>
+                                    <h3 class="font-semibold">Event Info</h3>
+                                    <p class="text-xs text-muted-foreground">The basics — what, when, where.</p>
+                                </header>
                                 <div class="space-y-1">
-                                    <Label class="text-xs">Name</Label>
-                                    <Input v-model="editName" class="h-9 text-sm" />
+                                    <Label class="text-xs" for="settings-name">Name</Label>
+                                    <Input id="settings-name" v-model="editName" class="h-9 text-sm" />
                                 </div>
                                 <div class="space-y-1">
-                                    <Label class="text-xs">Description</Label>
-                                    <Input v-model="editDescription" class="h-9 text-sm" placeholder="Optional" />
+                                    <Label class="text-xs" for="settings-description">Description</Label>
+                                    <Textarea id="settings-description" v-model="editDescription" rows="3" class="text-sm" placeholder="Optional" />
                                 </div>
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <div class="space-y-1">
-                                        <Label class="text-xs">Event Date</Label>
-                                        <Input v-model="editEventDate" type="date" class="h-9 text-sm" />
+                                        <Label class="text-xs" for="settings-date">Event Date</Label>
+                                        <Input id="settings-date" v-model="editEventDate" type="date" class="h-9 text-sm" />
                                     </div>
                                     <div class="space-y-1">
-                                        <Label class="text-xs">Location</Label>
-                                        <Input v-model="editLocation" class="h-9 text-sm" placeholder="Optional" />
+                                        <Label class="text-xs" for="settings-location">Location</Label>
+                                        <Input id="settings-location" v-model="editLocation" class="h-9 text-sm" placeholder="Optional" />
                                     </div>
                                 </div>
+                            </section>
+
+                            <!-- Format -->
+                            <section class="space-y-3 border-t pt-5">
+                                <header>
+                                    <h3 class="font-semibold">Format</h3>
+                                    <p class="text-xs text-muted-foreground">Game size, rounds, and encounter type.</p>
+                                </header>
                                 <div class="grid gap-3 sm:grid-cols-3">
                                     <div class="space-y-1">
                                         <Label class="text-xs">Encounter Size</Label>
@@ -1455,7 +1829,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <div class="space-y-1">
                                         <Label class="text-xs">Encounter Type</Label>
                                         <Select v-model="editEncounterType">
-                                            <SelectTrigger class="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectTrigger class="h-9 text-xs"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
                                             </SelectContent>
@@ -1467,43 +1841,67 @@ const titlesForMaster = (masterName: string | null) => {
                                             <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
                                         </NumberField>
                                     </div>
-                                    <div class="space-y-1">
-                                        <Label class="text-xs">Time Limit (min)</Label>
-                                        <NumberField v-model="editRoundTimeLimit" :min="30" :max="300" :step="5">
-                                            <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
-                                        </NumberField>
-                                    </div>
                                 </div>
+                                <div class="space-y-1">
+                                    <Label class="text-xs">Round Time Limit (minutes)</Label>
+                                    <NumberField v-model="editRoundTimeLimit" :min="30" :max="300" :step="5">
+                                        <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                    </NumberField>
+                                </div>
+                            </section>
 
-                                <div class="space-y-2 rounded-md border border-dashed p-3">
-                                    <Label class="text-xs uppercase tracking-wide text-muted-foreground">Bye Scoring</Label>
-                                    <div class="grid gap-2 sm:grid-cols-3">
-                                        <div class="space-y-1">
-                                            <Label class="text-[10px]">TP</Label>
-                                            <NumberField v-model="editByeTp" :min="0" :max="5">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
-                                            </NumberField>
-                                        </div>
-                                        <div class="space-y-1">
-                                            <Label class="text-[10px]">Differential</Label>
-                                            <NumberField v-model="editByeDiff" :min="0" :max="20">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
-                                            </NumberField>
-                                        </div>
-                                        <div class="space-y-1">
-                                            <Label class="text-[10px]">VP</Label>
-                                            <NumberField v-model="editByeVp" :min="0" :max="20">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
-                                            </NumberField>
+                            <!-- Advanced Scoring (collapsed by default) -->
+                            <Collapsible v-model:open="editAdvancedOpen" class="border-t pt-4">
+                                <CollapsibleTrigger as-child>
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded-md py-1 text-left hover:bg-accent/40"
+                                    >
+                                        <span class="flex items-center gap-2 text-sm font-medium">
+                                            <Settings2 class="size-4 text-muted-foreground" />
+                                            Advanced Scoring
+                                            <span class="text-xs font-normal text-muted-foreground">Bye scoring</span>
+                                        </span>
+                                        <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform" :class="editAdvancedOpen ? 'rotate-180' : ''" />
+                                    </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent class="space-y-3 pt-3">
+                                    <div class="space-y-2 rounded-md border border-dashed p-3">
+                                        <Label class="text-xs uppercase tracking-wide text-muted-foreground">
+                                            Bye Scoring <span class="ml-1 text-[10px] normal-case opacity-60">(awarded to whoever sits out)</span>
+                                        </Label>
+                                        <div class="grid gap-2 sm:grid-cols-3">
+                                            <div class="space-y-1">
+                                                <Label class="text-[10px]">TP</Label>
+                                                <NumberField v-model="editByeTp" :min="0" :max="5">
+                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                </NumberField>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <Label class="text-[10px]">Differential</Label>
+                                                <NumberField v-model="editByeDiff" :min="0" :max="20">
+                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                </NumberField>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <Label class="text-[10px]">VP</Label>
+                                                <NumberField v-model="editByeVp" :min="0" :max="20">
+                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                </NumberField>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                    <p class="text-[11px] text-muted-foreground">
+                                        Tiebreaker mode toggle lives on the Standings tab so you can flip it any time, even mid-tournament.
+                                    </p>
+                                </CollapsibleContent>
+                            </Collapsible>
 
-                                <!-- Tiebreaker mode lives on the Standings tab toggle — single source of truth. -->
-                            </div>
+                            <p v-if="settingsError" class="text-xs text-destructive">{{ settingsError }}</p>
+
                             <div class="flex gap-2">
-                                <Button variant="outline" class="flex-1" @click="editingSettings = false">Cancel</Button>
-                                <Button class="flex-1" :disabled="!editName || !editEventDate || submitting" @click="saveSettings">
+                                <Button variant="outline" class="flex-1" :disabled="submitting" @click="editingSettings = false">Cancel</Button>
+                                <Button class="flex-1" :disabled="!editName.trim() || !editEventDate || submitting" @click="saveSettings">
                                     <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                     Save Changes
                                 </Button>
@@ -1523,7 +1921,9 @@ const titlesForMaster = (masterName: string | null) => {
                             <div class="space-y-3 text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Status</span>
-                                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{ statusLabel(tournament.status) }}</Badge>
+                                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{
+                                        statusLabel(tournament.status)
+                                    }}</Badge>
                                 </div>
                                 <div v-if="tournament.description" class="flex justify-between">
                                     <span class="text-muted-foreground">Description</span>
@@ -1553,27 +1953,31 @@ const titlesForMaster = (masterName: string | null) => {
                                     <span class="text-muted-foreground">Season</span>
                                     <span>{{ tournament.season_label }}</span>
                                 </div>
+                                <div class="flex justify-between">
+                                    <span class="text-muted-foreground">Bye Scoring</span>
+                                    <span class="tabular-nums">{{ tournament.bye_tp ?? 3 }} TP / {{ tournament.bye_diff ?? 4 }} DIFF / {{ tournament.bye_vp ?? 6 }} VP</span>
+                                </div>
                             </div>
 
                             <div class="border-t pt-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <h3 class="font-semibold">Organizers</h3>
-                                    <Button
-                                        v-if="isCreator"
-                                        variant="outline"
-                                        size="sm"
-                                        class="h-7 gap-1 text-xs"
-                                        @click="openAddOrganizerDialog"
-                                    >
+                                    <Button v-if="isCreator" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="openAddOrganizerDialog">
                                         <Plus class="size-3" /> Add TO
                                     </Button>
                                 </div>
                                 <div class="space-y-1">
-                                    <div v-for="org in tournament.organizers" :key="org.id" class="flex items-center justify-between gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent/50">
+                                    <div
+                                        v-for="org in tournament.organizers"
+                                        :key="org.id"
+                                        class="flex items-center justify-between gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent/50"
+                                    >
                                         <div class="flex items-center gap-2">
                                             <Shield class="size-3.5 text-muted-foreground" />
                                             <span>{{ org.name }}</span>
-                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[9px]">Creator</Badge>
+                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[9px]"
+                                                >Creator</Badge
+                                            >
                                         </div>
                                         <button
                                             v-if="isCreator && org.id !== tournament.creator_id"
@@ -1588,14 +1992,20 @@ const titlesForMaster = (masterName: string | null) => {
                             </div>
                         </CardContent>
                     </Card>
-
                 </TabsContent>
             </Tabs>
         </div>
     </div>
 
     <!-- Score Entry Dialog -->
-    <Dialog :open="!!editingGame" @update:open="(v) => { if (!v) editingGame = null; }">
+    <Dialog
+        :open="!!editingGame"
+        @update:open="
+            (v) => {
+                if (!v) editingGame = null;
+            }
+        "
+    >
         <DialogContent class="max-w-md">
             <DialogHeader>
                 <DialogTitle>Game Score</DialogTitle>
@@ -1622,7 +2032,9 @@ const titlesForMaster = (masterName: string | null) => {
                             <Select v-model="editP1Title" :disabled="!editP1Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem v-for="t in titlesForMaster(editP1Master)" :key="t.id" :value="t.display_name">{{ t.title || t.display_name }}</SelectItem>
+                                    <SelectItem v-for="t in titlesForMaster(editP1Master)" :key="t.id" :value="t.display_name">{{
+                                        t.title || t.display_name
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1630,14 +2042,30 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
-                            <Input v-model.number="editP1StrategyVp" type="number" min="0" max="5" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
+                            <Input
+                                v-model.number="editP1StrategyVp"
+                                type="number"
+                                min="0"
+                                max="5"
+                                class="h-8 text-center text-sm font-bold"
+                                @focus="($event.target as HTMLInputElement).select()"
+                            />
                         </div>
                         <div class="space-y-1">
                             <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
-                            <Input v-model.number="editP1SchemeVp" type="number" min="0" max="6" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
+                            <Input
+                                v-model.number="editP1SchemeVp"
+                                type="number"
+                                min="0"
+                                max="6"
+                                class="h-8 text-center text-sm font-bold"
+                                @focus="($event.target as HTMLInputElement).select()"
+                            />
                         </div>
                     </div>
-                    <div class="text-right text-xs text-muted-foreground">Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP</div>
+                    <div class="text-right text-xs text-muted-foreground">
+                        Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP
+                    </div>
                     <label class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
                         <input v-model="editDropP1" type="checkbox" class="size-3.5" />
                         Drop {{ playerName(editingGame.player_one_id) }} after this round
@@ -1662,7 +2090,9 @@ const titlesForMaster = (masterName: string | null) => {
                             <Select v-model="editP2Title" :disabled="!editP2Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem v-for="t in titlesForMaster(editP2Master)" :key="t.id" :value="t.display_name">{{ t.title || t.display_name }}</SelectItem>
+                                    <SelectItem v-for="t in titlesForMaster(editP2Master)" :key="t.id" :value="t.display_name">{{
+                                        t.title || t.display_name
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1670,14 +2100,30 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
-                            <Input v-model.number="editP2StrategyVp" type="number" min="0" max="5" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
+                            <Input
+                                v-model.number="editP2StrategyVp"
+                                type="number"
+                                min="0"
+                                max="5"
+                                class="h-8 text-center text-sm font-bold"
+                                @focus="($event.target as HTMLInputElement).select()"
+                            />
                         </div>
                         <div class="space-y-1">
                             <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
-                            <Input v-model.number="editP2SchemeVp" type="number" min="0" max="6" class="h-8 text-center text-sm font-bold" @focus="($event.target as HTMLInputElement).select()" />
+                            <Input
+                                v-model.number="editP2SchemeVp"
+                                type="number"
+                                min="0"
+                                max="6"
+                                class="h-8 text-center text-sm font-bold"
+                                @focus="($event.target as HTMLInputElement).select()"
+                            />
                         </div>
                     </div>
-                    <div class="text-right text-xs text-muted-foreground">Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP</div>
+                    <div class="text-right text-xs text-muted-foreground">
+                        Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP
+                    </div>
                     <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
                         <input v-model="editDropP2" type="checkbox" class="size-3.5" />
                         Drop {{ playerName(editingGame.player_two_id) }} after this round
@@ -1691,6 +2137,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <span>{{ editP2Vp }}</span>
                 </div>
             </div>
+            <p v-if="scoreError" class="text-xs text-destructive">{{ scoreError }}</p>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="editingGame = null">Cancel</Button>
                 <Button :disabled="submitting" @click="saveScore">
@@ -1735,9 +2182,7 @@ const titlesForMaster = (masterName: string | null) => {
             </DialogHeader>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="confirmFinalizeDialog = false">Cancel</Button>
-                <Button @click="finalizeTournament">
-                    <Trophy class="mr-2 size-4" /> Complete Tournament
-                </Button>
+                <Button @click="finalizeTournament"> <Trophy class="mr-2 size-4" /> Complete Tournament </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -1768,7 +2213,11 @@ const titlesForMaster = (masterName: string | null) => {
                     class="flex w-full items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-destructive/5"
                     @click="submitForfeit(forfeitGame!.player_one_id)"
                 >
-                    <FactionLogo v-if="forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id)" :faction="(forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id))!" class-name="size-4 shrink-0" />
+                    <FactionLogo
+                        v-if="forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id)"
+                        :faction="(forfeitGame.player_one_faction || playerFaction(forfeitGame.player_one_id))!"
+                        class-name="size-4 shrink-0"
+                    />
                     <span class="font-medium">{{ playerName(forfeitGame.player_one_id) }}</span>
                     <span class="ml-auto text-xs text-muted-foreground">conceded</span>
                 </button>
@@ -1777,11 +2226,16 @@ const titlesForMaster = (masterName: string | null) => {
                     class="flex w-full items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-destructive/5"
                     @click="submitForfeit(forfeitGame!.player_two_id!)"
                 >
-                    <FactionLogo v-if="forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id)" :faction="(forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id))!" class-name="size-4 shrink-0" />
+                    <FactionLogo
+                        v-if="forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id)"
+                        :faction="(forfeitGame.player_two_faction || playerFaction(forfeitGame.player_two_id))!"
+                        class-name="size-4 shrink-0"
+                    />
                     <span class="font-medium">{{ playerName(forfeitGame.player_two_id) }}</span>
                     <span class="ml-auto text-xs text-muted-foreground">conceded</span>
                 </button>
             </div>
+            <p v-if="forfeitError" class="text-xs text-destructive">{{ forfeitError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="forfeitDialogOpen = false">Cancel</Button>
             </DialogFooter>
@@ -1801,6 +2255,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <SelectItem v-for="(f, slug) in factions" :key="slug" :value="slug">{{ f.name }}</SelectItem>
                 </SelectContent>
             </Select>
+            <p v-if="rsvpPlayerError" class="text-xs text-destructive">{{ rsvpPlayerError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="rsvpPlayerDialogOpen = false">Cancel</Button>
                 <Button :disabled="!rsvpPlayerFaction || submitting" @click="confirmAddRsvpAsPlayer">Register</Button>
@@ -1816,6 +2271,7 @@ const titlesForMaster = (masterName: string | null) => {
                 <DialogDescription>Metas group players by community / region (e.g. "Boston", "PNW Online").</DialogDescription>
             </DialogHeader>
             <Input v-model="newMetaName" placeholder="Meta name..." class="text-sm" @keydown.enter="submitNewMeta" />
+            <p v-if="newMetaError" class="text-xs text-destructive">{{ newMetaError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="newMetaDialogOpen = false">Cancel</Button>
                 <Button :disabled="!newMetaName.trim() || newMetaSubmitting" @click="submitNewMeta">
@@ -1836,7 +2292,12 @@ const titlesForMaster = (masterName: string | null) => {
             <Input v-model="addOrganizerQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
             <div class="max-h-64 overflow-y-auto">
                 <div v-if="addOrganizerSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>
-                <div v-else-if="addOrganizerQuery.trim().length >= 2 && !addOrganizerResults.length" class="py-2 text-center text-xs text-muted-foreground">No users match (or already organizers).</div>
+                <div
+                    v-else-if="addOrganizerQuery.trim().length >= 2 && !addOrganizerResults.length"
+                    class="py-2 text-center text-xs text-muted-foreground"
+                >
+                    No users match (or already organizers).
+                </div>
                 <button
                     v-for="u in addOrganizerResults"
                     :key="u.id"
@@ -1847,6 +2308,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <Plus class="size-3.5 text-muted-foreground" />
                 </button>
             </div>
+            <p v-if="addOrganizerError" class="text-xs text-destructive">{{ addOrganizerError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="addOrganizerDialogOpen = false">Cancel</Button>
             </DialogFooter>
@@ -1863,7 +2325,9 @@ const titlesForMaster = (masterName: string | null) => {
             <Input v-model="linkUserQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
             <div class="max-h-64 overflow-y-auto">
                 <div v-if="linkUserSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>
-                <div v-else-if="linkUserQuery.trim().length >= 2 && !linkUserResults.length" class="py-2 text-center text-xs text-muted-foreground">No users match.</div>
+                <div v-else-if="linkUserQuery.trim().length >= 2 && !linkUserResults.length" class="py-2 text-center text-xs text-muted-foreground">
+                    No users match.
+                </div>
                 <button
                     v-for="u in linkUserResults"
                     :key="u.id"
@@ -1874,6 +2338,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <Link2 class="size-3.5 text-muted-foreground" />
                 </button>
             </div>
+            <p v-if="linkUserError" class="text-xs text-destructive">{{ linkUserError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="linkUserDialogOpen = false">Cancel</Button>
             </DialogFooter>

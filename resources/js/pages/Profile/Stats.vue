@@ -89,7 +89,16 @@ defineProps<{
 }>();
 
 const badgeIcon = (icon: string) => {
-    const map: Record<string, any> = { swords: Swords, trophy: Trophy, package: Package, paintbrush: Paintbrush, hammer: Hammer, crown: Crown, medal: Medal, share: Share2 };
+    const map: Record<string, any> = {
+        swords: Swords,
+        trophy: Trophy,
+        package: Package,
+        paintbrush: Paintbrush,
+        hammer: Hammer,
+        crown: Crown,
+        medal: Medal,
+        share: Share2,
+    };
     return map[icon] ?? Trophy;
 };
 
@@ -175,7 +184,16 @@ const winRateColor = (rate: number) => {
                         <div class="text-[10px] uppercase text-muted-foreground">Tournaments</div>
                         <div class="text-sm font-bold">{{ profile.tournaments_played }}</div>
                         <div v-if="profile.best_tournament_finish" class="mt-1 text-[10px] text-muted-foreground">
-                            Best: {{ profile.best_tournament_finish === 1 ? '1st' : profile.best_tournament_finish === 2 ? '2nd' : profile.best_tournament_finish === 3 ? '3rd' : profile.best_tournament_finish + 'th' }}
+                            Best:
+                            {{
+                                profile.best_tournament_finish === 1
+                                    ? '1st'
+                                    : profile.best_tournament_finish === 2
+                                      ? '2nd'
+                                      : profile.best_tournament_finish === 3
+                                        ? '3rd'
+                                        : profile.best_tournament_finish + 'th'
+                            }}
                         </div>
                     </CardContent>
                 </Card>
@@ -281,7 +299,7 @@ const winRateColor = (rate: number) => {
                             <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold"><Crown class="size-4" /> Masters</h3>
                             <div class="space-y-1.5">
                                 <div
-                                    v-for="m in (showAllMasters ? stats.master_stats : stats.master_stats.slice(0, 8))"
+                                    v-for="m in showAllMasters ? stats.master_stats : stats.master_stats.slice(0, 8)"
                                     :key="m.master_name"
                                     class="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
                                 >
@@ -336,16 +354,26 @@ const winRateColor = (rate: number) => {
                             <table class="w-full border-collapse text-xs">
                                 <thead>
                                     <tr class="border-b">
-                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Your Keyword</th>
-                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">vs</th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Games</th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Record</th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Win %</th>
+                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            Your Keyword
+                                        </th>
+                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            vs
+                                        </th>
+                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            Games
+                                        </th>
+                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            Record
+                                        </th>
+                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            Win %
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-for="(m, idx) in (showAllMatchups ? stats.matchups : stats.matchups.slice(0, 15))"
+                                        v-for="(m, idx) in showAllMatchups ? stats.matchups : stats.matchups.slice(0, 15)"
                                         :key="idx"
                                         class="border-b border-border/50 last:border-b-0"
                                     >

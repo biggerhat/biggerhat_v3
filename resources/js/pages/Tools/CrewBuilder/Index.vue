@@ -8,14 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Textarea } from '@/components/ui/textarea';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { type SharedData } from '@/types';
@@ -718,10 +718,8 @@ const canHire = (character: CharacterData): { allowed: boolean; reason?: string 
     if (hiredCountOf(character.id) >= character.count) return { allowed: false, reason: `Max ${character.count}` };
     // Title restriction: two versions of the same character (same name, different title) cannot coexist.
     // Models with no title are treated as a different title than models with a title.
-    const conflicting = crew.value.find((m) =>
-        m.character.name === character.name
-        && m.character.id !== character.id
-        && (character.title || m.character.title) // At least one must have a title for the rule to apply
+    const conflicting = crew.value.find(
+        (m) => m.character.name === character.name && m.character.id !== character.id && (character.title || m.character.title), // At least one must have a title for the rule to apply
     );
     if (conflicting) {
         return { allowed: false, reason: `Title conflict (${conflicting.character.title || conflicting.character.name} hired)` };
@@ -954,9 +952,7 @@ const augmentedPool = computed((): PoolEntry[] =>
 );
 
 const poolFilterCounts = computed(() => {
-    const pool = ownedOnly.value && ownedSet.value.size > 0
-        ? hiringPool.value.filter((c) => ownedSet.value.has(c.id))
-        : hiringPool.value;
+    const pool = ownedOnly.value && ownedSet.value.size > 0 ? hiringPool.value.filter((c) => ownedSet.value.has(c.id)) : hiringPool.value;
     return {
         'in-keyword': pool.filter((c) => getHiringCategory(c) === 'in-keyword').length,
         versatile: pool.filter((c) => getHiringCategory(c) === 'versatile').length,
@@ -1599,7 +1595,9 @@ const exportAsText = () => {
     const leader = crew.value.find((m) => m.hiringCategory === 'leader');
     const activeUpgrade = leader?.character.crew_upgrades?.find((u: any) => u.id === activeCrewUpgradeId.value);
     const lines: string[] = [];
-    lines.push(`${selectedMasterTitle.value.display_name} (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
+    lines.push(
+        `${selectedMasterTitle.value.display_name} (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`,
+    );
     if (activeUpgrade) lines.push(`Crew Card: ${activeUpgrade.name}`);
     lines.push('');
     const categories = [
@@ -1627,7 +1625,9 @@ const exportAsMarkdown = () => {
     const activeUpgrade = leader?.character.crew_upgrades?.find((u: any) => u.id === activeCrewUpgradeId.value);
     const baseUrl = window.location.origin;
     const lines: string[] = [];
-    lines.push(`**${selectedMasterTitle.value.display_name}** (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`);
+    lines.push(
+        `**${selectedMasterTitle.value.display_name}** (${Object.values(props.factions).find((f) => f.slug === selectedFaction.value)?.name ?? selectedFaction.value})`,
+    );
     if (activeUpgrade) lines.push(`*Crew Card: ${activeUpgrade.name}*`);
     lines.push('');
     const categories = [
@@ -1660,27 +1660,45 @@ const importError = ref('');
 const parseAndImportCrew = () => {
     importError.value = '';
     const text = importText.value.trim();
-    if (!text) { importError.value = 'Paste a crew list to import.'; return; }
+    if (!text) {
+        importError.value = 'Paste a crew list to import.';
+        return;
+    }
 
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (lines.length < 2) { importError.value = 'Not enough lines to parse.'; return; }
+    const lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+    if (lines.length < 2) {
+        importError.value = 'Not enough lines to parse.';
+        return;
+    }
 
     // First line: "Master Name, Title (Faction)"
     const headerMatch = lines[0].match(/^(.+?)\s*\((.+?)\)\s*$/);
-    if (!headerMatch) { importError.value = 'First line should be: Master Name, Title (Faction)'; return; }
+    if (!headerMatch) {
+        importError.value = 'First line should be: Master Name, Title (Faction)';
+        return;
+    }
     const masterTitle = headerMatch[1].trim();
     const factionName = headerMatch[2].trim();
 
     // Find the faction (normalize by stripping apostrophes/special chars for comparison)
     const normalizeName = (s: string) => s.toLowerCase().replace(/['']/g, '').replace(/\s+/g, ' ').trim();
     const faction = Object.values(props.factions).find((f) => normalizeName(f.name) === normalizeName(factionName));
-    if (!faction) { importError.value = `Unknown faction: ${factionName}`; return; }
+    if (!faction) {
+        importError.value = `Unknown faction: ${factionName}`;
+        return;
+    }
     const factionSlug = faction.slug;
 
     // Find the master by display_name match
     const allChars = props.characters;
     const masterChar = allChars.find((c) => c.display_name?.toLowerCase() === masterTitle.toLowerCase() && c.station === 'master');
-    if (!masterChar) { importError.value = `Master not found: ${masterTitle}`; return; }
+    if (!masterChar) {
+        importError.value = `Master not found: ${masterTitle}`;
+        return;
+    }
 
     // Get totem name(s) to skip (auto-added with master)
     const totemId = masterChar.has_totem_id;
@@ -1691,8 +1709,14 @@ const parseAndImportCrew = () => {
     let inTotemSection = false;
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
-        if (line.match(/^(Leader|Hires|Versatile|Out of Keyword):?\s*$/i)) { inTotemSection = false; continue; }
-        if (line.match(/^Totem\(?s?\)?:?\s*$/i)) { inTotemSection = true; continue; }
+        if (line.match(/^(Leader|Hires|Versatile|Out of Keyword):?\s*$/i)) {
+            inTotemSection = false;
+            continue;
+        }
+        if (line.match(/^Totem\(?s?\)?:?\s*$/i)) {
+            inTotemSection = true;
+            continue;
+        }
         if (line.match(/^Crew Card:/i)) continue;
         // Skip the master itself (leader, added automatically)
         if (line.toLowerCase() === masterTitle.toLowerCase()) continue;
@@ -1890,7 +1914,12 @@ onUnmounted(() => {
                             <Card v-for="build in activeBuilds" :key="build.id" class="group transition-colors hover:bg-accent/30">
                                 <CardContent class="p-4">
                                     <div class="flex items-start gap-3">
-                                        <img v-if="factions[build.faction]" :src="factions[build.faction].logo" :alt="factions[build.faction].name + ' logo'" class="mt-0.5 size-8 shrink-0" />
+                                        <img
+                                            v-if="factions[build.faction]"
+                                            :src="factions[build.faction].logo"
+                                            :alt="factions[build.faction].name + ' logo'"
+                                            class="mt-0.5 size-8 shrink-0"
+                                        />
                                         <div class="min-w-0 flex-1">
                                             <div class="truncate font-semibold">{{ build.name }}</div>
                                             <div class="text-xs text-muted-foreground">
@@ -2307,7 +2336,11 @@ onUnmounted(() => {
                                         <DropdownMenuItem :disabled="crew.length === 0" class="cursor-pointer text-xs" @click="printCrewPDF">
                                             <Printer class="mr-2 size-3.5" /> Export PDF (with References)
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem :disabled="!currentShareCode" class="cursor-pointer text-xs" @click="currentShareCode && openQuickRef()">
+                                        <DropdownMenuItem
+                                            :disabled="!currentShareCode"
+                                            class="cursor-pointer text-xs"
+                                            @click="currentShareCode && openQuickRef()"
+                                        >
                                             <Printer class="mr-2 size-3.5" /> Quick Reference Sheet
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -2583,26 +2616,28 @@ onUnmounted(() => {
                                                 </div>
                                             </div>
                                         </div>
-                                    <!-- Custom Characters Section (Mobile) -->
-                                    <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
-                                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Your Custom Characters</div>
-                                        <div class="space-y-1">
-                                            <div
-                                                v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
-                                                :key="'cc-mob-' + cc.id"
-                                                class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
-                                            >
-                                                <div class="flex min-w-0 items-center gap-2">
-                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
-                                                    <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                    <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                        <!-- Custom Characters Section (Mobile) -->
+                                        <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
+                                            <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                Your Custom Characters
+                                            </div>
+                                            <div class="space-y-1">
+                                                <div
+                                                    v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
+                                                    :key="'cc-mob-' + cc.id"
+                                                    class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
+                                                >
+                                                    <div class="flex min-w-0 items-center gap-2">
+                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                        <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
+                                                        <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                        <UserPlus class="size-4" />
+                                                    </Button>
                                                 </div>
-                                                <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
-                                                    <UserPlus class="size-4" />
-                                                </Button>
                                             </div>
                                         </div>
-                                    </div>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -2650,9 +2685,7 @@ onUnmounted(() => {
                                                 <button
                                                     v-if="!hasSingleCrewUpgrade"
                                                     class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
-                                                    :title="
-                                                        activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'
-                                                    "
+                                                    :title="activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'"
                                                     @click.stop="toggleCrewUpgradeActive(upgrade)"
                                                 >
                                                     <Star
@@ -2723,7 +2756,11 @@ onUnmounted(() => {
                                                             <span class="truncate">{{
                                                                 member.miniature?.display_name || member.character.display_name
                                                             }}</span>
-                                                            <Badge v-if="member.isCustom" class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                            <Badge
+                                                                v-if="member.isCustom"
+                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                                >Custom</Badge
+                                                            >
                                                         </div>
                                                         <div class="flex items-center gap-1.5 text-xs text-white/70">
                                                             <span
@@ -2789,7 +2826,12 @@ onUnmounted(() => {
                                         </div>
 
                                         <!-- References -->
-                                        <CrewBuilderReferences :references="references" :loading="referencesLoading" editable @add-reference="addCustomReference" />
+                                        <CrewBuilderReferences
+                                            :references="references"
+                                            :loading="referencesLoading"
+                                            editable
+                                            @add-reference="addCustomReference"
+                                        />
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -2963,26 +3005,28 @@ onUnmounted(() => {
                                             </div>
                                         </div>
                                     </div>
-                                <!-- Custom Characters Section (Desktop) -->
-                                <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
-                                    <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Your Custom Characters</div>
-                                    <div class="space-y-1">
-                                        <div
-                                            v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
-                                            :key="'cc-desk-' + cc.id"
-                                            class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
-                                        >
-                                            <div class="flex min-w-0 items-center gap-2">
-                                                <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
-                                                <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                    <!-- Custom Characters Section (Desktop) -->
+                                    <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
+                                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Your Custom Characters
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div
+                                                v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
+                                                :key="'cc-desk-' + cc.id"
+                                                class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
+                                            >
+                                                <div class="flex min-w-0 items-center gap-2">
+                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                    <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
+                                                    <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                </div>
+                                                <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                    <UserPlus class="size-4" />
+                                                </Button>
                                             </div>
-                                            <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
-                                                <UserPlus class="size-4" />
-                                            </Button>
                                         </div>
                                     </div>
-                                </div>
                                 </CardContent>
                             </Card>
                         </div>
@@ -3113,9 +3157,7 @@ onUnmounted(() => {
                                             <button
                                                 v-if="!hasSingleCrewUpgrade"
                                                 class="shrink-0 rounded p-0.5 transition-colors hover:bg-accent"
-                                                :title="
-                                                    activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'
-                                                "
+                                                :title="activeCrewUpgradeId === upgrade.id ? 'Deselect crew card' : 'Select as active crew card'"
                                                 @click.stop="toggleCrewUpgradeActive(upgrade)"
                                             >
                                                 <Star
@@ -3130,9 +3172,7 @@ onUnmounted(() => {
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                                 <div class="text-[10px] text-muted-foreground">
                                                     {{
-                                                        activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
-                                                            ? 'Active Crew Card'
-                                                            : 'Crew Card'
+                                                        activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade ? 'Active Crew Card' : 'Crew Card'
                                                     }}
                                                 </div>
                                             </div>
@@ -3184,7 +3224,11 @@ onUnmounted(() => {
                                                         <span class="truncate">{{
                                                             member.miniature?.display_name || member.character.display_name
                                                         }}</span>
-                                                        <Badge v-if="member.isCustom" class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                        <Badge
+                                                            v-if="member.isCustom"
+                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                            >Custom</Badge
+                                                        >
                                                     </div>
                                                     <div class="flex items-center gap-1.5 text-xs text-white/70">
                                                         <span
@@ -3249,7 +3293,12 @@ onUnmounted(() => {
                                     </div>
 
                                     <!-- References -->
-                                    <CrewBuilderReferences :references="references" :loading="referencesLoading" editable @add-reference="addCustomReference" />
+                                    <CrewBuilderReferences
+                                        :references="references"
+                                        :loading="referencesLoading"
+                                        editable
+                                        @add-reference="addCustomReference"
+                                    />
                                 </CardContent>
                             </Card>
                         </div>
@@ -3520,7 +3569,10 @@ onUnmounted(() => {
                 <DialogTitle>Import Crew from Text</DialogTitle>
                 <DialogDescription>Paste a crew list exported from BiggerHat or in the standard format.</DialogDescription>
             </DialogHeader>
-            <Textarea v-model="importText" rows="12" placeholder="Lucas McCabe, Tomb Delver (Explorer's Society)
+            <Textarea
+                v-model="importText"
+                rows="12"
+                placeholder="Lucas McCabe, Tomb Delver (Explorer's Society)
 Leader:
   Lucas McCabe, Tomb Delver
 Totem(s):
@@ -3528,12 +3580,25 @@ Totem(s):
 Hires:
   Rough Rider
   Rough Rider
-  ..." class="font-mono text-xs" />
-            <div v-if="importError" class="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+  ..."
+                class="font-mono text-xs"
+            />
+            <div
+                v-if="importError"
+                class="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400"
+            >
                 {{ importError }}
             </div>
             <DialogFooter class="gap-2 sm:gap-0">
-                <Button variant="outline" @click="importDialogOpen = false; importText = ''; importError = '';">Cancel</Button>
+                <Button
+                    variant="outline"
+                    @click="
+                        importDialogOpen = false;
+                        importText = '';
+                        importError = '';
+                    "
+                    >Cancel</Button
+                >
                 <Button @click="parseAndImportCrew">Import Crew</Button>
             </DialogFooter>
         </DialogContent>

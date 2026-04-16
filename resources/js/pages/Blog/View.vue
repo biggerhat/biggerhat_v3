@@ -87,7 +87,7 @@ const factionCssVar = (faction: string): string => {
                     :alt="post.title"
                     loading="lazy"
                     decoding="async"
-                    class="w-full max-h-64 object-cover sm:max-h-80 lg:max-h-[420px]"
+                    class="max-h-64 w-full object-cover sm:max-h-80 lg:max-h-[420px]"
                 />
             </div>
 
@@ -125,9 +125,15 @@ const factionCssVar = (faction: string): string => {
                             <Link
                                 v-for="character in post.characters"
                                 :key="`c-${character.slug}`"
-                                :href="character.miniatures?.length
-                                    ? route('characters.view', { character: character.slug, miniature: character.miniatures[0].id, slug: character.miniatures[0].slug })
-                                    : `/characters/${character.slug}`"
+                                :href="
+                                    character.miniatures?.length
+                                        ? route('characters.view', {
+                                              character: character.slug,
+                                              miniature: character.miniatures[0].id,
+                                              slug: character.miniatures[0].slug,
+                                          })
+                                        : `/characters/${character.slug}`
+                                "
                             >
                                 <Badge
                                     class="cursor-pointer border-0 text-white transition-opacity hover:opacity-80"

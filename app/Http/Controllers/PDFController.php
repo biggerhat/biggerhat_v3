@@ -19,16 +19,16 @@ class PDFController extends Controller
 {
     public function index(Request $request)
     {
-        $characters = Character::with(['standardMiniatures', 'keywords', 'crewUpgrades', 'totem', 'isTotemFor'])
+        $characters = Character::standard()->with(['standardMiniatures', 'keywords', 'crewUpgrades', 'totem', 'isTotemFor'])
             ->whereHas('standardMiniatures')
             ->orderBy('station_sort_order', 'ASC')
             ->orderBy('name', 'ASC');
 
-        $upgrades = Upgrade::with('masters')->forCharacters()->orderBy('name', 'ASC');
+        $upgrades = Upgrade::standard()->with('masters')->forCharacters()->orderBy('name', 'ASC');
 
         return inertia('PDF/Index', [
             'factions' => fn () => FactionEnum::buildDetails(),
-            'keywords' => fn () => Keyword::orderBy('name', 'ASC')->get(),
+            'keywords' => fn () => Keyword::standard()->orderBy('name', 'ASC')->get(),
             'characters' => fn () => CharacterPDFResource::collection($characters->get())->toArray($request),
             'upgrades' => fn () => UpgradePDFResource::collection($upgrades->get())->toArray($request),
         ]);

@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Str;
 
@@ -31,6 +32,7 @@ class CharacterFactory extends Factory
         $slug = Str::slug($displayName);
 
         return [
+            'game_mode_type' => GameModeTypeEnum::Standard,
             'name' => $name,
             'title' => $title,
             'display_name' => $displayName,

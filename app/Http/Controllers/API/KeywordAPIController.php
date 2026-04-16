@@ -12,7 +12,7 @@ class KeywordAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Keyword::with('characters.standardMiniatures')
+        return Keyword::standard()->with('characters.standardMiniatures')
             ->where('name', 'LIKE', "%{$name}%")
             ->get();
     }

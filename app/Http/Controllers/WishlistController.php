@@ -136,8 +136,8 @@ class WishlistController extends Controller
             'keyword_id' => 'required|exists:keywords,id',
         ]);
 
-        $keyword = Keyword::with(['characters' => function ($q) {
-            $q->where('is_hidden', false)
+        $keyword = Keyword::standard()->with(['characters' => function ($q) {
+            $q->standard()->where('is_hidden', false)
                 ->with('packages');
         }])->findOrFail($validated['keyword_id']);
 
@@ -252,9 +252,9 @@ class WishlistController extends Controller
                 'is_public' => $wishlist->is_public,
             ],
             'items' => $grouped,
-            'keywords' => Keyword::orderBy('name')->get(['id', 'name', 'slug']),
+            'keywords' => Keyword::standard()->orderBy('name')->get(['id', 'name', 'slug']),
             'searchable' => [
-                'characters' => Character::where('is_hidden', false)
+                'characters' => Character::standard()->where('is_hidden', false)
                     ->orderBy('display_name')
                     ->get(['id', 'display_name', 'slug', 'faction'])
                     ->map(fn (Character $c) => [

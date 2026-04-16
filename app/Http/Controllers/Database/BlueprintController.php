@@ -46,7 +46,7 @@ class BlueprintController extends Controller
             'blueprints' => $blueprints,
             'result_count' => $blueprints->total(),
             'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
-            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'characters' => fn () => Character::standard()->toSelectOptions('display_name', 'slug'),
         ]);
     }
 }

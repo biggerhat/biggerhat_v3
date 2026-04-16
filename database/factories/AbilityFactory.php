@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\DefensiveAbilityTypeEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,6 +20,7 @@ class AbilityFactory extends Factory
     public function definition(): array
     {
         return [
+            'game_mode_type' => GameModeTypeEnum::Standard,
             'name' => $this->faker->unique()->words(random_int(1, 3), true),
             'suits' => $this->faker->optional(0.3)->randomElement(SuitEnum::cases()),
             'defensive_ability_type' => $this->faker->optional(0.3)->randomElement(DefensiveAbilityTypeEnum::cases()),

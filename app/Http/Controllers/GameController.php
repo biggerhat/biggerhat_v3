@@ -277,7 +277,7 @@ class GameController extends Controller
                 return [];
             }
 
-            $characters = Character::where('station', 'master')
+            $characters = Character::standard()->where('station', 'master')
                 ->where('is_hidden', false)
                 ->with('miniatures')
                 ->orderBy('name')
@@ -285,7 +285,7 @@ class GameController extends Controller
                 ->get();
 
             // Include alternate leaders from crew upgrades (e.g., Wrath via On Tour)
-            $alternateLeaderIds = \App\Models\Upgrade::forCrews()
+            $alternateLeaderIds = \App\Models\Upgrade::standard()->forCrews()
                 ->whereNotNull('hiring_rules')
                 ->pluck('hiring_rules')
                 ->map(fn ($rules) => $rules['alternate_leader_id'] ?? null)
@@ -293,7 +293,7 @@ class GameController extends Controller
                 ->unique();
 
             if ($alternateLeaderIds->isNotEmpty()) {
-                $altLeaders = Character::whereIn('id', $alternateLeaderIds)
+                $altLeaders = Character::standard()->whereIn('id', $alternateLeaderIds)
                     ->where('is_hidden', false)
                     ->with('miniatures')
                     ->get();
@@ -454,7 +454,7 @@ class GameController extends Controller
                 ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
                 : [],
             'character_upgrades' => fn () => $game->status === GameStatusEnum::InProgress
-                ? \App\Models\Upgrade::forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
+                ? \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
                 : [],
             'current_schemes' => function () use ($game) {
                 if ($game->status === GameStatusEnum::Completed) {

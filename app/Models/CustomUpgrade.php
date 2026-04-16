@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
- * @mixin IdeHelperCustomUpgrade
- *
  * @property FactionEnum|null $faction
+ *
+ * @mixin IdeHelperCustomUpgrade
  */
 #[ObservedBy(CustomUpgradeObserver::class)]
 class CustomUpgrade extends Model

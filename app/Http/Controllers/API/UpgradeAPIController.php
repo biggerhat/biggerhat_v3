@@ -15,14 +15,14 @@ class UpgradeAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Upgrade::where('name', 'LIKE', "%{$name}%")->get();
+        return Upgrade::standard()->where('name', 'LIKE', "%{$name}%")->get();
     }
 
     public function crew(Request $request)
     {
         $name = $request->get('name');
 
-        $upgrades = Upgrade::forCrews()
+        $upgrades = Upgrade::standard()->forCrews()
             ->where(function ($query) use ($name) {
                 $query->whereHas('masters', function (Builder $query2) use ($name) {
                     $query2->where('station', CharacterStationEnum::Master->value)

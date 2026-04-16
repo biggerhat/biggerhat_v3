@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\GameModeTypeEnum;
+use App\Traits\HasGameModeType;
 use App\Traits\UsesCharacters;
 use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
@@ -21,12 +23,20 @@ class Keyword extends Model
     /** @use HasFactory<\Database\Factories\KeywordFactory> */
     use HasFactory;
 
+    use HasGameModeType;
     use UsesCharacters;
     use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesSlugName;
 
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'game_mode_type' => GameModeTypeEnum::class,
+        ];
+    }
 
     public function masters(): MorphToMany
     {

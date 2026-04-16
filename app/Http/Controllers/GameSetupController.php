@@ -75,7 +75,7 @@ class GameSetupController extends Controller
         ]);
 
         // Find master character by display_name or name + faction
-        $master = Character::where('station', CharacterStationEnum::Master->value)
+        $master = Character::standard()->where('station', CharacterStationEnum::Master->value)
             ->where(function ($q) use ($player) {
                 $q->where('faction', $player->faction)
                     ->orWhere('second_faction', $player->faction);

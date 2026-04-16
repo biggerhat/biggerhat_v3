@@ -12,7 +12,7 @@ class AbilityController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ability::withCount('characters')
+        $query = Ability::standard()->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')->with('standardMiniatures:id,slug,character_id')->limit(2)])
             ->with(['upgrades' => fn ($q) => $q->select('upgrades.id', 'upgrades.name', 'upgrades.slug')->limit(3)]);
 
@@ -50,7 +50,7 @@ class AbilityController extends Controller
         return inertia('Abilities/Index', [
             'abilities' => $abilities,
             'result_count' => $abilities->total(),
-            'ability_names' => fn () => Ability::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'ability_names' => fn () => Ability::standard()->select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
             'suits' => fn () => SuitEnum::toSelectOptions(),
             'defensive_ability_types' => fn () => DefensiveAbilityTypeEnum::toSelectOptions(),
         ]);

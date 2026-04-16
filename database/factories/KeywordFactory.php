@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\GameModeTypeEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,6 +18,7 @@ class KeywordFactory extends Factory
     public function definition(): array
     {
         return [
+            'game_mode_type' => GameModeTypeEnum::Standard,
             'name' => $this->faker->unique()->word(),
         ];
     }

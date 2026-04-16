@@ -82,7 +82,7 @@ class PackageController extends Controller
             'factions' => fn () => FactionEnum::buildDetails(),
             'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
             'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
-            'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'characters' => fn () => Character::standard()->toSelectOptions('display_name', 'slug'),
         ]);
     }
 

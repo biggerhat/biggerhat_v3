@@ -9,6 +9,7 @@ use App\Enums\CharacterSortOptionsEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\ModifierTypeEnum;
 use App\Enums\PageViewOptionsEnum;
 use App\Enums\ResistanceTypeEnum;
@@ -39,6 +40,7 @@ class SearchController extends Controller
 
         $query = Character::with($eagerLoads)
             ->whereHas('standardMiniatures');
+        $this->applyGameModeScope($query, $request);
 
         // Collect active filter keys for action/ability checks (avoid creating collections repeatedly)
         $actionFilterKeys = [
@@ -260,6 +262,7 @@ class SearchController extends Controller
         $upgradeResults = collect();
         if ($hasUpgradeFilter) {
             $upgradeQuery = Upgrade::whereNotNull('front_image');
+            $this->applyGameModeScope($upgradeQuery, $request);
 
             if ($request->filled('name')) {
                 $upgradeQuery->where('name', 'LIKE', '%'.$request->get('name').'%');
@@ -369,14 +372,15 @@ class SearchController extends Controller
             'results' => $results,
             'result_count' => $totalResults,
             'result_breakdown' => ['characters' => $characterCount, 'upgrades' => $upgradeCount],
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
             'factions' => fn () => FactionEnum::toSelectOptions(),
             'stations' => fn () => CharacterStationEnum::toSelectOptions(),
             'suits' => fn () => SuitEnum::toSelectOptions(),
             'base_sizes' => fn () => BaseSizeEnum::toSelectOptions(),
-            'keywords' => fn () => Keyword::orderBy('name', 'ASC')->get(),
+            'keywords' => fn () => Keyword::standard()->orderBy('name', 'ASC')->get(),
             'characteristics' => fn () => Characteristic::orderBy('name', 'ASC')->get(),
-            'actions' => fn () => Action::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
-            'abilities' => fn () => Ability::select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'actions' => fn () => Action::standard()->select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
+            'abilities' => fn () => Ability::standard()->select('name')->distinct()->orderBy('name', 'ASC')->get()->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
             'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
             'action_range_types' => fn () => ActionRangeTypeEnum::toSelectOptions(),
             'stat_modifiers' => fn () => ModifierTypeEnum::toSelectOptions(),
@@ -397,6 +401,7 @@ class SearchController extends Controller
     public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         $query = Character::with(['keywords', 'characteristics'])->whereHas('standardMiniatures');
+        $this->applyGameModeScope($query, $request);
         $this->applyCharacterFilters($query, $request);
         $characters = $query->orderBy('display_name')->limit(1000)->get();
 
@@ -589,6 +594,29 @@ class SearchController extends Controller
         }
 
         return false;
+    }
+
+    private function applyGameModeScope($query, Request $request): void
+    {
+        $validValues = array_column(GameModeTypeEnum::cases(), 'value');
+
+        if ($request->filled('game_mode_type')) {
+            $modes = array_intersect(array_filter(explode(',', $request->get('game_mode_type'))), $validValues);
+            if ($modes) {
+                $query->whereIn('game_mode_type', $modes);
+            } else {
+                $query->standard();
+            }
+        } else {
+            $query->standard();
+        }
+
+        if ($request->filled('game_mode_type_exclude')) {
+            $excluded = array_intersect(array_filter(explode(',', $request->get('game_mode_type_exclude'))), $validValues);
+            if ($excluded) {
+                $query->whereNotIn('game_mode_type', $excluded);
+            }
+        }
     }
 
     private function characterSortKey(Character $c, string $sort): string

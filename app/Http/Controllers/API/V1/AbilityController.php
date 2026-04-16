@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\API\V1\AbilityResource;
 use App\Models\Ability;
@@ -19,11 +20,14 @@ class AbilityController extends Controller
      * Returns a paginated list of abilities, optionally filtered by name.
      *
      * @queryParam search string Filter abilities by name. Example: Hard to Kill
+     * @queryParam game_mode_type string Filter by game mode type (standard, campaign, cooperative). Defaults to standard. Example: standard
      * @queryParam per_page int Number of results per page (max 100). Example: 15
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $abilities = Ability::query()
+        $gameMode = GameModeTypeEnum::tryFrom($request->query('game_mode_type', 'standard')) ?? GameModeTypeEnum::Standard;
+
+        $abilities = Ability::forGameMode($gameMode)
             ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
             ->orderBy('name')
             ->paginate(min((int) $request->query('per_page', 15), 100));

@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
+use App\Traits\HasGameModeType;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +24,7 @@ class Upgrade extends Model
     /** @use HasFactory<\Database\Factories\UpgradeFactory> */
     use HasFactory;
 
+    use HasGameModeType;
     use UsesSelectOptionsScope;
     use UsesSlugName;
 
@@ -30,6 +33,7 @@ class Upgrade extends Model
     public function casts(): array
     {
         return [
+            'game_mode_type' => GameModeTypeEnum::class,
             'domain' => UpgradeDomainTypeEnum::class,
             'faction' => FactionEnum::class,
             'type' => UpgradeTypeEnum::class,

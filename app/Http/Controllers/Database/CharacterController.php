@@ -30,7 +30,7 @@ class CharacterController extends Controller
             'character' => $character,
             'miniature' => $miniature,
             /** @phpstan-ignore return.type */
-            'related_characters' => fn () => Character::query()
+            'related_characters' => fn () => Character::standard()
                 ->where('id', '!=', $character->id)
                 ->where('is_hidden', false)
                 ->whereHas('keywords', fn ($q) => $q->whereIn('keywords.id', $character->keywords->pluck('id')))
@@ -50,7 +50,7 @@ class CharacterController extends Controller
 
     public function random(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $character = Character::with('miniatures')->whereHas('miniatures')->inRandomOrder()->first();
+        $character = Character::standard()->with('miniatures')->whereHas('miniatures')->inRandomOrder()->first();
 
         if (! $character || $character->miniatures->isEmpty()) {
             return redirect()->route('home');

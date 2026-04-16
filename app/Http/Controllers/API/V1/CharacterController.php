@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\API\V1\CharacterResource;
 use App\Models\Character;
@@ -22,13 +23,15 @@ class CharacterController extends Controller
      * @queryParam search string Filter characters by name, display name, or nicknames. Example: Rasputina
      * @queryParam faction string Filter by faction enum value. Example: arcanists
      * @queryParam station string Filter by station enum value. Example: master
+     * @queryParam game_mode_type string Filter by game mode type (standard, campaign, cooperative). Defaults to standard. Example: standard
      * @queryParam per_page int Number of results per page (max 100). Example: 15
      */
     public function index(Request $request): AnonymousResourceCollection
     {
         $search = $request->query('search');
+        $gameMode = GameModeTypeEnum::tryFrom($request->query('game_mode_type', 'standard')) ?? GameModeTypeEnum::Standard;
 
-        $query = Character::query()
+        $query = Character::forGameMode($gameMode)
             ->where('is_hidden', false)
             ->with(['miniatures', 'keywords', 'characteristics', 'totem'])
             ->when($request->query('faction'), fn ($q, $faction) => $q->where('faction', $faction))

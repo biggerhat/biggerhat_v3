@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
 use App\Observers\CharacterObserver;
+use App\Traits\HasGameModeType;
 use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;
@@ -29,6 +31,7 @@ class Character extends Model
     /** @use HasFactory<\Database\Factories\CharacterFactory> */
     use HasFactory;
 
+    use HasGameModeType;
     use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesUpgrades;
@@ -41,6 +44,7 @@ class Character extends Model
     public function casts(): array
     {
         return [
+            'game_mode_type' => GameModeTypeEnum::class,
             'faction' => FactionEnum::class,
             'second_faction' => FactionEnum::class,
             'station' => CharacterStationEnum::class,

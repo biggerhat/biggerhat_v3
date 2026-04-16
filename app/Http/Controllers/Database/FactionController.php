@@ -21,9 +21,9 @@ class FactionController extends Controller
 {
     public function view(Request $request, FactionEnum $factionEnum)
     {
-        $query = Character::with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
+        $query = Character::standard()->with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
 
-        $keywords = Keyword::whereHas('characters', function ($query) use ($factionEnum) {
+        $keywords = Keyword::standard()->whereHas('characters', function ($query) use ($factionEnum) {
             $query->where('faction', $factionEnum->value);
         })->orderBy('name', 'ASC')->get();
 

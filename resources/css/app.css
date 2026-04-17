@@ -115,6 +115,133 @@ html {
     }
 }
 
+/* ─── Per-faction themes ──────────────────────────────────────────────────────
+ * Applied via `<html data-theme="...">` (set by useAppearance.updateAccentTheme
+ * and inlined from the `theme` cookie by app.blade.php for no-flicker SSR).
+ *
+ * Two layers:
+ *   1. Per-faction block: sets --primary, --ring, and a --theme-h hue token.
+ *      Seven factions use white primary-foreground; Outcasts (L=49% yellow)
+ *      needs black for contrast.
+ *   2. Shared surface blocks: key off --theme-h so adding/tuning a faction is
+ *      one line. Light rules live on `[data-theme]`, dark rules on
+ *      `.dark[data-theme]` (higher specificity so they beat .dark defaults).
+ *
+ * Foregrounds (--foreground, --card-foreground, --muted-foreground, etc.)
+ * stay fully neutral so body text keeps its sharp black-on-near-white and
+ * near-white-on-black contrast regardless of faction.
+ * ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+    /* Per-faction accent + hue token */
+    [data-theme='arcanists'] {
+        --theme-h: 218;
+        --primary: var(--arcanists);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--arcanists);
+        --sidebar-ring: var(--arcanists);
+    }
+    [data-theme='bayou'] {
+        --theme-h: 46;
+        --primary: var(--bayou);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--bayou);
+        --sidebar-ring: var(--bayou);
+    }
+    [data-theme='explorerssociety'] {
+        --theme-h: 176;
+        --primary: var(--explorerssociety);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--explorerssociety);
+        --sidebar-ring: var(--explorerssociety);
+    }
+    [data-theme='guild'] {
+        --theme-h: 0;
+        --primary: var(--guild);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--guild);
+        --sidebar-ring: var(--guild);
+    }
+    [data-theme='neverborn'] {
+        --theme-h: 289;
+        --primary: var(--neverborn);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--neverborn);
+        --sidebar-ring: var(--neverborn);
+    }
+    [data-theme='outcasts'] {
+        --theme-h: 50;
+        --primary: var(--outcasts);
+        --primary-foreground: 0 0% 9%;
+        --ring: var(--outcasts);
+        --sidebar-ring: var(--outcasts);
+    }
+    [data-theme='resurrectionists'] {
+        --theme-h: 124;
+        --primary: var(--resurrectionists);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--resurrectionists);
+        --sidebar-ring: var(--resurrectionists);
+    }
+    [data-theme='tenthunders'] {
+        --theme-h: 30;
+        --primary: var(--tenthunders);
+        --primary-foreground: 0 0% 98%;
+        --ring: var(--tenthunders);
+        --sidebar-ring: var(--tenthunders);
+    }
+
+    /* Shared tinted surfaces — light mode.
+     * Tuned for "moderate" intensity: clearly themed but still legible on
+     * content-dense pages. Sidebar gets ~1.5× saturation so it reads as a
+     * distinct faction "home base". Tweak the numbers here to adjust
+     * intensity globally across all 8 factions. */
+    [data-theme] {
+        --background: var(--theme-h) 15% 99%;
+        --card: var(--theme-h) 12% 99%;
+        --card-foreground: 0 0% 3.9%;
+        --popover: var(--theme-h) 12% 99%;
+        --popover-foreground: 0 0% 3.9%;
+        --muted: var(--theme-h) 28% 93%;
+        --muted-foreground: 0 0% 45.1%;
+        --secondary: var(--theme-h) 28% 93%;
+        --secondary-foreground: 0 0% 9%;
+        --accent: var(--theme-h) 28% 93%;
+        --accent-foreground: 0 0% 9%;
+        --border: var(--theme-h) 20% 88%;
+        --input: var(--theme-h) 20% 88%;
+        --sidebar-background: var(--theme-h) 23% 97%;
+        --sidebar-foreground: 240 5.3% 26.1%;
+        --sidebar-accent: var(--theme-h) 40% 92%;
+        --sidebar-accent-foreground: 0 0% 30%;
+        --sidebar-border: var(--theme-h) 30% 87%;
+    }
+
+    /* Shared tinted surfaces — dark mode. Mirrors the light block but anchors
+     * on the dark L values from the base `.dark` selector. Specificity
+     * (0,2,0) beats both `.dark` and plain `[data-theme]` so this wins in
+     * dark + themed combinations. */
+    .dark[data-theme] {
+        --background: var(--theme-h) 22% 5%;
+        --card: var(--theme-h) 26% 7%;
+        --card-foreground: 0 0% 98%;
+        --popover: var(--theme-h) 26% 7%;
+        --popover-foreground: 0 0% 98%;
+        --muted: var(--theme-h) 26% 16%;
+        --muted-foreground: 0 0% 63.9%;
+        --secondary: var(--theme-h) 26% 16%;
+        --secondary-foreground: 0 0% 98%;
+        --accent: var(--theme-h) 26% 16%;
+        --accent-foreground: 0 0% 98%;
+        --border: var(--theme-h) 26% 17%;
+        --input: var(--theme-h) 26% 17%;
+        --sidebar-background: var(--theme-h) 33% 7%;
+        --sidebar-foreground: 0 0% 95.9%;
+        --sidebar-accent: var(--theme-h) 40% 14%;
+        --sidebar-accent-foreground: 240 4.8% 95.9%;
+        --sidebar-border: var(--theme-h) 40% 16%;
+    }
+}
+
 /* TipTap editor typography */
 .tiptap h1 {
     @apply text-2xl font-bold;

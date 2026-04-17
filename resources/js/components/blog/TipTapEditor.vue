@@ -4,6 +4,7 @@ import EntitySearchDialog from '@/components/blog/EntitySearchDialog.vue';
 import EntityEmbed from '@/extensions/EntityEmbed';
 import EntityReference from '@/extensions/EntityReference';
 import GameIconNode from '@/extensions/GameIconNode';
+import { csrfToken } from '@/lib/utils';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
@@ -87,7 +88,7 @@ const onImageFileSelected = async (e: Event) => {
     try {
         const res = await fetch(route('admin.blog.posts.upload-image'), {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            headers: { 'X-CSRF-TOKEN': csrfToken() },
             body: formData,
         });
         const data = await res.json();

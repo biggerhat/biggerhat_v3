@@ -49,6 +49,7 @@ interface SearchResult {
 
 const characters = ref<CompareCharacter[]>([]);
 const loading = ref(false);
+const loadError = ref<string | null>(null);
 const searchQuery = ref('');
 const searchResults = ref<SearchResult[]>([]);
 const searchLoading = ref(false);
@@ -56,6 +57,9 @@ const showResults = ref(false);
 const highlightIndex = ref(-1);
 const linkCopied = ref(false);
 let debounceTimer: ReturnType<typeof setTimeout>;
+// Track the active search request so a later keystroke can cancel an in-flight
+// fetch — otherwise the slower response can overwrite fresher results.
+let searchAbort: AbortController | null = null;
 
 const slugs = computed(() => characters.value.map((c) => c.slug));
 const canAdd = computed(() => characters.value.length < 4);
@@ -99,14 +103,16 @@ const updateUrl = () => {
 const fetchCharacters = async (slugList: string[]) => {
     if (!slugList.length) return;
     loading.value = true;
+    loadError.value = null;
     try {
         const res = await fetch(`/api/characters/compare?slugs=${slugList.join(',')}`);
-        if (res.ok) {
-            const data = await res.json();
-            characters.value = data;
+        if (!res.ok) {
+            loadError.value = 'Could not load comparison. Please try again.';
+            return;
         }
-    } catch (e) {
-        console.error('Compare fetch error:', e);
+        characters.value = await res.json();
+    } catch {
+        loadError.value = 'Network error. Please check your connection and try again.';
     } finally {
         loading.value = false;
     }
@@ -118,14 +124,17 @@ const addCharacter = async (slug: string) => {
     searchQuery.value = '';
     searchResults.value = [];
     loading.value = true;
+    loadError.value = null;
     try {
         const res = await fetch(`/api/characters/compare?slugs=${[...slugs.value, slug].join(',')}`);
-        if (res.ok) {
-            characters.value = await res.json();
-            updateUrl();
+        if (!res.ok) {
+            loadError.value = 'Could not add character. Please try again.';
+            return;
         }
-    } catch (e) {
-        console.error('Add character error:', e);
+        characters.value = await res.json();
+        updateUrl();
+    } catch {
+        loadError.value = 'Network error while adding character.';
     } finally {
         loading.value = false;
     }
@@ -144,6 +153,8 @@ const copyLink = async () => {
 
 watch(searchQuery, (q) => {
     clearTimeout(debounceTimer);
+    // Cancel any in-flight search — a later keystroke supersedes the earlier one.
+    searchAbort?.abort();
     if (q.length < 2) {
         searchResults.value = [];
         showResults.value = false;
@@ -151,16 +162,20 @@ watch(searchQuery, (q) => {
     }
     searchLoading.value = true;
     debounceTimer = setTimeout(async () => {
+        searchAbort = new AbortController();
         try {
-            const res = await fetch(`/api/characters/search?q=${encodeURIComponent(q)}`);
+            const res = await fetch(`/api/characters/search?q=${encodeURIComponent(q)}`, { signal: searchAbort.signal });
             if (res.ok) {
                 const data = await res.json();
                 searchResults.value = (data.data ?? data).filter((r: any) => !slugs.value.includes(r.slug)).slice(0, 8);
                 showResults.value = searchResults.value.length > 0;
                 highlightIndex.value = -1;
             }
-        } catch {
-            searchResults.value = [];
+        } catch (e) {
+            // Aborted fetches reject with a DOMException — ignore those; they're expected.
+            if (!(e instanceof DOMException && e.name === 'AbortError')) {
+                searchResults.value = [];
+            }
         } finally {
             searchLoading.value = false;
         }
@@ -256,6 +271,14 @@ const factionColor = (faction: string) => {
                     <Copy class="size-3.5" />
                     {{ linkCopied ? 'Copied!' : 'Share' }}
                 </Button>
+            </div>
+
+            <!-- Error banner -->
+            <div v-if="loadError" class="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div class="flex items-start justify-between gap-2">
+                    <span>{{ loadError }}</span>
+                    <button class="shrink-0 text-xs hover:underline" @click="loadError = null">Dismiss</button>
+                </div>
             </div>
 
             <!-- Loading -->

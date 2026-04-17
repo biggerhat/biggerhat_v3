@@ -33,4 +33,5 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Channel = 'channel';
     case PodLink = 'pod_link';
     case Tournament = 'tournament';
+    case Feedback = 'feedback';
 }

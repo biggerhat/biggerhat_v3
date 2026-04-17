@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Check, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -70,7 +71,7 @@ const performDelete = async () => {
             : route('tools.card_creator.upgrades.destroy', deleteTarget.value.id);
     await fetch(deleteRoute, {
         method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+        headers: { 'X-CSRF-TOKEN': csrfToken() },
     });
     deleting.value = false;
     deleteDialogOpen.value = false;

@@ -10,7 +10,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { factionBackground } from '@/composables/useFactionColor';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Check, ChevronDown, Copy, ExternalLink, Globe, Loader2, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-vue-next';
@@ -124,8 +126,6 @@ watch(
 const expandedCrewId = ref<number | null>(null);
 const crewDetailsCache = ref<Record<number, CrewDetails>>({});
 const loadingCrewId = ref<number | null>(null);
-
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const toggleExpand = async (crew: CrewCard) => {
     if (expandedCrewId.value === crew.id) {

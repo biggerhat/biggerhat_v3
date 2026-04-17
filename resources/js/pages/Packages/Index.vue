@@ -15,9 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useListFiltering } from '@/composables/useListFiltering';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { BookMarked, Heart, Plus } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
     packages: any;
@@ -69,19 +69,33 @@ const isLoggedIn = computed(() => !!page.props.auth?.user);
 const isCollected = (pkgId: number) => collectionPackageIds.value.has(pkgId);
 const isWishlisted = (pkgId: number) => wishlistPackageIds.value.has(pkgId);
 
-const addPackageToCollection = async (packageId: number) => {
-    // Optimistically update shared auth data
-    const pkgIds = page.props.auth.collection_package_ids;
-    if (!pkgIds.includes(packageId)) pkgIds.push(packageId);
+// Track per-package in-flight state so we can disable the row's Add button
+// while the request is pending — prevents double-clicks creating dupes.
+const addingPackageIds = ref<Set<number>>(new Set());
 
-    await fetch(route('collection.add_package'), {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+const addPackageToCollection = (packageId: number) => {
+    if (addingPackageIds.value.has(packageId)) return;
+
+    // Optimistic update with rollback on failure.
+    const pkgIds = page.props.auth.collection_package_ids;
+    const wasAbsent = !pkgIds.includes(packageId);
+    if (wasAbsent) pkgIds.push(packageId);
+
+    router.post(
+        route('collection.add_package'),
+        { package_id: packageId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => addingPackageIds.value.add(packageId),
+            onError: () => {
+                if (wasAbsent) {
+                    page.props.auth.collection_package_ids = pkgIds.filter((id) => id !== packageId);
+                }
+            },
+            onFinish: () => addingPackageIds.value.delete(packageId),
         },
-        body: JSON.stringify({ package_id: packageId }),
-    });
+    );
 };
 
 const formatPrice = (cents: number | null) => {
@@ -230,8 +244,9 @@ const formatPrice = (cents: number | null) => {
                                                 />
                                                 <button
                                                     v-else-if="isLoggedIn"
-                                                    class="inline-flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                                    class="inline-flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-wait disabled:opacity-50"
                                                     title="Add to Collection"
+                                                    :disabled="addingPackageIds.has(pkg.id)"
                                                     @click="addPackageToCollection(pkg.id)"
                                                 >
                                                     <Plus class="size-3.5" />
@@ -324,7 +339,8 @@ const formatPrice = (cents: number | null) => {
                                             </div>
                                             <button
                                                 v-if="isLoggedIn && !isCollected(pkg.id)"
-                                                class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                                                class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                                                :disabled="addingPackageIds.has(pkg.id)"
                                                 @click.prevent="addPackageToCollection(pkg.id)"
                                             >
                                                 <Plus class="size-3" />

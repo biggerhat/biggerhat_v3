@@ -5,28 +5,52 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
-import { Dice6, Search } from 'lucide-vue-next';
+import { Dice6, Loader2, Search } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 defineProps<{
     breadcrumbs?: BreadcrumbItemType[];
 }>();
 
-const open = ref(false);
-const commandSearch = ref({});
+interface CommandEntry {
+    name: string;
+    route: string;
+}
+interface CommandSearchResults {
+    factions?: CommandEntry[];
+    keywords?: CommandEntry[];
+    characters?: CommandEntry[];
+    upgrades?: CommandEntry[];
+    miniatures?: CommandEntry[];
+    packages?: CommandEntry[];
+}
 
-const commandRoute = (route) => {
+const open = ref(false);
+const commandSearch = ref<CommandSearchResults | null>(null);
+const loading = ref(false);
+const loadError = ref<string | null>(null);
+
+const commandRoute = (route: string) => {
     router.get(route);
     open.value = false;
 };
 
-function toggleDialog() {
-    if (!commandSearch.value.length) {
-        axios.get(route('command')).then(function (response) {
-            commandSearch.value = response.data;
-        });
-    }
+async function toggleDialog() {
     open.value = true;
+    // Only fetch the catalog once per session. A null sentinel distinguishes
+    // "never fetched" from "fetched but empty"; without it the old `.length`
+    // check misfired against `{}` and refetched on every open.
+    if (commandSearch.value !== null) return;
+    loading.value = true;
+    loadError.value = null;
+    try {
+        const response = await axios.get(route('command'));
+        commandSearch.value = response.data ?? {};
+    } catch {
+        loadError.value = 'Could not load search. Please try again.';
+    } finally {
+        loading.value = false;
+    }
 }
 </script>
 
@@ -54,10 +78,17 @@ function toggleDialog() {
         <CommandDialog v-model:open="open">
             <CommandInput placeholder="Search for a topic..." />
             <CommandList>
+                <div v-if="loading" class="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                    <Loader2 class="mr-2 size-4 animate-spin" /> Loading…
+                </div>
+                <div v-else-if="loadError" class="px-4 py-6 text-center text-xs text-destructive">
+                    {{ loadError }}
+                    <button class="ml-2 underline" @click="toggleDialog">Retry</button>
+                </div>
                 <CommandEmpty>No results found.</CommandEmpty>
                 <CommandGroup heading="Factions">
                     <CommandItem
-                        v-for="faction in commandSearch.factions"
+                        v-for="faction in commandSearch?.factions ?? []"
                         v-bind:key="faction.name"
                         @select="commandRoute(faction.route)"
                         value="faction.name"
@@ -68,7 +99,7 @@ function toggleDialog() {
                 <CommandSeparator />
                 <CommandGroup heading="Keywords">
                     <CommandItem
-                        v-for="keyword in commandSearch.keywords"
+                        v-for="keyword in commandSearch?.keywords ?? []"
                         v-bind:key="keyword.name"
                         @select="commandRoute(keyword.route)"
                         value="keyword.name"
@@ -79,7 +110,7 @@ function toggleDialog() {
                 <CommandSeparator />
                 <CommandGroup heading="Characters">
                     <CommandItem
-                        v-for="character in commandSearch.characters"
+                        v-for="character in commandSearch?.characters ?? []"
                         v-bind:key="character.name"
                         @select="commandRoute(character.route)"
                         value="character.name"
@@ -90,7 +121,7 @@ function toggleDialog() {
                 <CommandSeparator />
                 <CommandGroup heading="Upgrades">
                     <CommandItem
-                        v-for="upgrade in commandSearch.upgrades"
+                        v-for="upgrade in commandSearch?.upgrades ?? []"
                         v-bind:key="upgrade.name"
                         @select="commandRoute(upgrade.route)"
                         value="upgrade.name"
@@ -101,7 +132,7 @@ function toggleDialog() {
                 <CommandSeparator />
                 <CommandGroup heading="Miniatures">
                     <CommandItem
-                        v-for="mini in commandSearch.miniatures"
+                        v-for="mini in commandSearch?.miniatures ?? []"
                         v-bind:key="mini.name"
                         @select="commandRoute(mini.route)"
                         :value="mini.name"
@@ -111,7 +142,7 @@ function toggleDialog() {
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup heading="Packages">
-                    <CommandItem v-for="pkg in commandSearch.packages" v-bind:key="pkg.name" @select="commandRoute(pkg.route)" :value="pkg.name">
+                    <CommandItem v-for="pkg in commandSearch?.packages ?? []" v-bind:key="pkg.name" @select="commandRoute(pkg.route)" :value="pkg.name">
                         {{ pkg.name }}
                     </CommandItem>
                 </CommandGroup>

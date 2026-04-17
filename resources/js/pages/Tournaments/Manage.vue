@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
+import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import {
@@ -338,7 +339,7 @@ const submitNewMeta = async () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                'X-CSRF-TOKEN': csrfToken(),
                 Accept: 'application/json',
             },
             body: JSON.stringify({ name }),

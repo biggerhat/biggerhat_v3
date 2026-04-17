@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
+import { factionBackground } from '@/composables/useFactionColor';
+import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useVirtualizer } from '@tanstack/vue-virtual';
@@ -289,8 +291,6 @@ const characterById = computed(() => {
 const activeBuilds = computed(() => savedBuilds.value.filter((b) => !b.is_archived));
 const archivedBuilds = computed(() => savedBuilds.value.filter((b) => b.is_archived));
 
-// ─── CSRF helper ───
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 // ─── Faction selection ───
 const selectFaction = (factionSlug: string) => {

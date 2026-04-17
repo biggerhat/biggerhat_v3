@@ -7,6 +7,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, Copy, Loader2, Printer, Star } from 'lucide-vue-next';
@@ -261,7 +262,6 @@ const getSelectedMiniature = (character: CharacterData): MiniatureData | null =>
 // ─── Copy to My Builds ───
 const isCopying = ref(false);
 const copySuccess = ref(false);
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const copyToMyBuilds = async () => {
     if (!isAuthenticated.value || isCopying.value) return;

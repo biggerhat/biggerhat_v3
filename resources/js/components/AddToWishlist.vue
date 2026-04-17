@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
 import { Check, Heart, Plus } from 'lucide-vue-next';
@@ -103,7 +104,7 @@ async function addToWishlist() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                'X-CSRF-TOKEN': csrfToken(),
             },
             body: JSON.stringify({ type: addType, id: addId }),
         });

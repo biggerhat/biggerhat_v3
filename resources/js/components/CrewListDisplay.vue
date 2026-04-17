@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
+import { factionBackground } from '@/composables/useFactionColor';
 import { Maximize2, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
@@ -32,18 +33,6 @@ defineProps<{
     crewUpgrades?: CrewUpgradeDisplay[];
     compact?: boolean;
 }>();
-
-const factionBackground = (faction: string): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${faction}`;
-    }
-};
 
 const categoryLabel = (cat: string): string =>
     ({

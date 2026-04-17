@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from '@/components/ui/button/Button.vue';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { BookMarked, Heart, Maximize2, Plus } from 'lucide-vue-next';
@@ -87,7 +88,7 @@ const addToCollection = async () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                'X-CSRF-TOKEN': csrfToken(),
             },
             body: JSON.stringify({ character_id: characterId }),
         });

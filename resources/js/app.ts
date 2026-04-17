@@ -7,7 +7,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h, type DefineComponent } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';
-import { initializeTheme } from './composables/useAppearance';
+import { initializeAccent, initializeTheme } from './composables/useAppearance';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -23,20 +23,6 @@ declare module 'vite/client' {
 }
 
 const appName = import.meta.env.VITE_APP_NAME || 'BiggerHat';
-
-// TODO: Make an enum
-const factionBackground = (factionName: string): string => {
-    if (!factionName) return '';
-
-    switch (factionName.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${factionName}`;
-    }
-};
 
 createInertiaApp({
     title: (title) => {
@@ -57,11 +43,6 @@ createInertiaApp({
             .use(ZiggyVue)
             .component('Link', Link)
             .component('Head', Head)
-            .mixin({
-                methods: {
-                    factionBackground: factionBackground,
-                },
-            })
             .mount(el);
     },
     progress: {
@@ -71,6 +52,8 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
+// Apply the saved per-faction accent (no-op if user hasn't picked one).
+initializeAccent();
 
 // Register PWA service worker
 if ('serviceWorker' in navigator) {

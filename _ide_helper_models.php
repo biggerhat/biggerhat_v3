@@ -655,6 +655,46 @@ namespace App\Models{
 /**
  * 
  *
+ * @property int $id
+ * @property int|null $user_id
+ * @property string|null $name
+ * @property string|null $email
+ * @property \App\Enums\FeedbackCategoryEnum $category
+ * @property string|null $subject
+ * @property string $message
+ * @property string|null $url
+ * @property \App\Enums\FeedbackStatusEnum $status
+ * @property string|null $admin_notes
+ * @property string|null $submitter_ip
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User|null $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereAdminNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereCategory($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereMessage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereSubject($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereSubmitterIp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Feedback whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperFeedback {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
  * @property GameStatusEnum $status
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
@@ -1498,8 +1538,6 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayer> $activePlayers
- * @property-read int|null $active_players_count
  * @property-read \App\Models\User $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $games
  * @property-read int|null $games_count

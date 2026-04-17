@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronDown, Copy, Download, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
@@ -236,8 +237,6 @@ const saving = ref(false);
 const errors = ref<Record<string, string>>({});
 const cardRendererRef = ref<InstanceType<typeof CardRenderer> | null>(null);
 const exporting = ref(false);
-
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const exportImages = async () => {
     if (!cardRendererRef.value) return;

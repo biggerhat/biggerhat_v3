@@ -3256,7 +3256,11 @@ onUnmounted(() => {
                     <div v-else-if="filterParams.page_view === 'full'">
                         <template v-if="props.results?.data?.length">
                             <template v-for="item in props.results.data" :key="`${item.result_type}-${item.id}`">
-                                <CharacterView v-if="item.result_type === 'character'" :character="item" :miniature="item.standard_miniatures[0]" />
+                                <CharacterView
+                                    v-if="item.result_type === 'character' && item.standard_miniatures?.[0]"
+                                    :character="item"
+                                    :miniature="item.standard_miniatures[0]"
+                                />
                                 <div v-else class="mx-auto mb-6 max-w-xs text-center">
                                     <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
                                     <UpgradeFlipCard
@@ -3323,7 +3327,7 @@ onUnmounted(() => {
                                         </div>
                                     </div>
                                 </div>
-                                <template v-else>
+                                <template v-else-if="item.standard_miniatures?.[0]">
                                     <div class="animate-fade-in-up opacity-0" :style="delays[idx]">
                                         <CharacterCardView :miniature="item.standard_miniatures[0]" :character-slug="item.slug" />
                                         <div class="mt-1 flex flex-wrap gap-1">

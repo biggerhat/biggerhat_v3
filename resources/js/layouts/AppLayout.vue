@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
 import type { BreadcrumbItemType } from '@/types';
+import { Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 interface Props {
@@ -20,77 +21,14 @@ withDefaults(defineProps<Props>(), {
             <slot />
         </div>
         <footer class="p-toolbar p-component mt-6 !block !rounded-none !border-b-0 !border-l-0 !border-r-0 border-t border-dashed py-3">
-            <!--        <div class="container grid grid-cols-1 gap-3 mx-auto mt-3 lg:grid-cols-10 auto-cols-auto">-->
-            <!--            <div class="w-full mx-auto">-->
-            <!--                <div-->
-            <!--                    class="w-32 mx-auto font-semibold text-center border-b lg:text-left text-md lg:w-full">-->
-            <!--                    Characters</div>-->
-            <!--                <ul class="font-sans text-center list-none lg:text-left">-->
-            <!--                    <li class="text-sm">Advanced Search</li>-->
-            <!--                    <li class="text-sm">Random Character</li>-->
-            <!--                    <li class="text-sm">Masters</li>-->
-            <!--                    <li class="text-sm">Upgrades</li>-->
-            <!--                </ul>-->
-            <!--            </div>-->
-            <!--            <div class="w-full mx-auto">-->
-            <!--                <div-->
-            <!--                    class="w-32 mx-auto font-semibold text-center border-b lg:text-left text-md lg:w-full">-->
-            <!--                    Characters</div>-->
-            <!--                <ul class="font-sans text-center list-none lg:text-left">-->
-            <!--                    <li class="text-sm">Advanced Search</li>-->
-            <!--                    <li class="text-sm">Random Character</li>-->
-            <!--                    <li class="text-sm">Masters</li>-->
-            <!--                    <li class="text-sm">Upgrades</li>-->
-            <!--                </ul>-->
-            <!--            </div>-->
-            <!--            <div class="w-full mx-auto">-->
-            <!--                <div-->
-            <!--                    class="w-32 mx-auto font-semibold text-center border-b lg:text-left text-md lg:w-full">-->
-            <!--                    Characters</div>-->
-            <!--                <ul class="font-sans text-center list-none lg:text-left">-->
-            <!--                    <li class="text-sm">Advanced Search</li>-->
-            <!--                    <li class="text-sm">Random Character</li>-->
-            <!--                    <li class="text-sm">Masters</li>-->
-            <!--                    <li class="text-sm">Upgrades</li>-->
-            <!--                </ul>-->
-            <!--            </div>-->
-            <!--            <div class="w-full mx-auto">-->
-            <!--                <div-->
-            <!--                    class="w-32 mx-auto font-semibold text-center border-b lg:text-left text-md lg:w-auto">-->
-            <!--                    Account</div>-->
-            <!--                <ul class="font-sans text-center list-none lg:text-left">-->
-            <!--                    <li class="text-sm"><a href="/login" class="hover:underline">Login</a></li>-->
-            <!--                    <li class="text-sm"><a href="/register" class="hover:underline">Register</a></li>-->
-            <!--                    <li class="text-sm"><a href="/user/profile" class="hover:underline">Profile</a></li>-->
-            <!--                    <li class="text-sm"><a href="/user/logout" class="hover:underline">Logout</a></li>-->
-            <!--                </ul>-->
-            <!--            </div>-->
-            <!--            <div class="w-full mx-auto">-->
-            <!--                <div-->
-            <!--                    class="mx-auto font-semibold text-center border-b lg:text-left text-md w-28 lg:w-auto">-->
-            <!--                    Contact Us</div>-->
-            <!--                <ul class="font-sans text-center list-none lg:text-left">-->
-            <!--                    <li class="text-sm"><a href="{{ route('about') }}" class="hover:underline">About</a>-->
-            <!--                    </li>-->
-            <!--                    <li class="text-sm"><a href="https://ko-fi.com/biggerhat" target="_kofi"-->
-            <!--                                           class="hover:underline">Donate with Ko-fi</a></li>-->
-            <!--                    <li class="text-sm"><a href="https://discord.gg/25cNcmZd9H" class="hover:underline"-->
-            <!--                                           target="discord">Discord Server</a></li>-->
-            <!--                    <li class="text-sm"><a href="https://www.youtube.com/channel/UC095wgLOM_nojBIdzVUtfWg"-->
-            <!--                                           class="hover:underline" target="youtube">YouTube</a></li>-->
-            <!--                    <li class="text-sm"><a href="https://www.facebook.com/biggerhat/"-->
-            <!--                                           class="hover:underline" target="facebook">Facebook</a></li>-->
-            <!--                    <li class="text-sm"><a href="https://www.reddit.com/user/Biggerhat"-->
-            <!--                                           class="hover:underline" target="reddit">Reddit</a></li>-->
-            <!--                </ul>-->
-            <!--            </div>-->
-            <!--        </div>-->
             <div class="container mx-auto sm:px-4">
                 <div class="my-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-xs lg:px-0">
                     <a href="https://discord.gg/veGzyuTvGW" target="_blank" class="inline-flex items-center gap-1 hover:underline">
                         Join Our Discord
                     </a>
                     <a href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline"> Donate on Ko-fi </a>
+                    <Link :href="route('feedback.show')" class="inline-flex items-center gap-1 hover:underline">Feedback</Link>
+                    <Link :href="route('privacy')" class="inline-flex items-center gap-1 hover:underline">Privacy</Link>
                 </div>
                 <div class="my-2 block px-2 text-xs lg:px-0">
                     Portions of the materials used are copyrighted works of

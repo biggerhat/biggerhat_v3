@@ -19,6 +19,7 @@ import {
     Heart,
     KeyRound,
     Library,
+    MessageSquareText,
     Newspaper,
     Package,
     Puzzle,
@@ -390,6 +391,12 @@ const allAdminNavItems: NavItem[] = [
         href: route('admin.pod_links.index'),
         icon: ExternalLink,
         permission: 'view_pod_link',
+    },
+    {
+        title: 'Feedback',
+        href: route('admin.feedback.index'),
+        icon: MessageSquareText,
+        permission: 'view_feedback',
     },
     {
         title: 'Users',

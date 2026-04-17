@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
+import { factionBackground } from '@/composables/useFactionColor';
 import { ArrowUpCircle, Loader2, MapPin, Plus, Puzzle, Users } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -98,18 +99,6 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 };
 
 const activeTab = ref('characters');
-
-const factionBackground = (faction: string): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${faction}`;
-    }
-};
 
 // ─── Add Item Dialog ───
 const addDialogOpen = ref(false);

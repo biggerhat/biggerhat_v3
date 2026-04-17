@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
+use App\Http\Controllers\Admin\FeedbackAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\LoreAdminController;
 use App\Http\Controllers\Admin\LoreMediaAdminController;
@@ -236,6 +237,13 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
             Route::post('/delete/{blogPost}', 'delete')->name('delete')->middleware('permission:delete_posts');
             Route::post('/upload-image', 'uploadImage')->name('upload-image');
         });
+    });
+
+    // Feedback inbox
+    Route::controller(FeedbackAdminController::class)->prefix('feedback')->name('feedback.')->group(function () {
+        Route::get('/', 'index')->name('index')->middleware('permission:view_feedback');
+        Route::post('/update/{feedback}', 'update')->name('update')->middleware('permission:manage_feedback');
+        Route::post('/delete/{feedback}', 'destroy')->name('delete')->middleware('permission:manage_feedback');
     });
 
     // POD Links

@@ -173,6 +173,11 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Tournament)]
     case ManageTournaments = 'manage_tournaments';
 
+    #[PermissionGroup(PermissionGroupEnum::Feedback)]
+    case ViewFeedback = 'view_feedback';
+    #[PermissionGroup(PermissionGroupEnum::Feedback)]
+    case ManageFeedback = 'manage_feedback';
+
     /**
      * @return list<array{name: string, value: string}>
      */

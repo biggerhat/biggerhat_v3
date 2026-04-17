@@ -15,6 +15,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
+import { csrfToken } from '@/lib/utils';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
@@ -146,8 +147,6 @@ const allStandardInCollection = computed(() => {
     if (standardMiniatures.value.length === 0) return false;
     return standardMiniatures.value.every((m: any) => collectionIds.value.includes(m.id));
 });
-
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const collectionProcessing = ref(false);
 const toggleMiniature = async () => {

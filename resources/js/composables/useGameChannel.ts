@@ -145,6 +145,5 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     return {
         onlineMembers,
         opponentOnline,
-        channel,
     };
 }

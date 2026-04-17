@@ -24,12 +24,14 @@ use App\Http\Controllers\Database\StrategyController;
 use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GamePlayController;
 use App\Http\Controllers\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
+use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\Tournament\TournamentGameController;
@@ -117,6 +119,13 @@ Route::get('/', function () {
 })->name('index');
 
 Route::get('/command', CommandController::class)->name('command');
+
+Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy');
+
+Route::get('/feedback', [FeedbackController::class, 'show'])->name('feedback.show');
+// 5 submissions per hour per IP keeps the inbox useful while still letting
+// a motivated user follow up on a bug or file multiple reports in a session.
+Route::post('/feedback', [FeedbackController::class, 'store'])->middleware('throttle:5,60')->name('feedback.store');
 
 Route::get('/advanced', [SearchController::class, 'view'])->name('search.view');
 Route::post('/advanced/save', [SearchController::class, 'saveSearch'])->name('search.save')->middleware('auth');

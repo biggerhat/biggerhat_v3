@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
+import { factionBackground } from '@/composables/useFactionColor';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { refDebounced } from '@vueuse/core';
 import { ArrowUpFromLine, Check, ChevronsUpDown, CircleX, EllipsisVertical, Search, SquareMinus, SquarePlus, UserPlus } from 'lucide-vue-next';

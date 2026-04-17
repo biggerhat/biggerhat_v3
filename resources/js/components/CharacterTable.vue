@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { valueUpdater } from '@/lib/utils';
+import { csrfToken, valueUpdater } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
@@ -44,7 +44,7 @@ const addToCollection = async (character: any) => {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            'X-CSRF-TOKEN': csrfToken(),
         },
         body: JSON.stringify({ character_id: character.id }),
     });

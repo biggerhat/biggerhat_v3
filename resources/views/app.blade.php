@@ -1,22 +1,32 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'dark') == 'dark']) @if(! empty($theme)) data-theme="{{ $theme }}"@endif>
     <head>
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-257R6ZLK1S"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
+        {{-- Google Analytics only loads once the user has explicitly accepted the
+             cookie banner (cookie_consent=accepted, set via useCookieConsent
+             composable). `null`/`declined` → script stays out of the document so
+             GA never fires a request. Matches GDPR/ePrivacy "opt-in for
+             non-essential cookies" requirements. --}}
+        @if (($consent ?? null) === 'accepted')
+            <!-- Google tag (gtag.js) -->
+            <script async src="https://www.googletagmanager.com/gtag/js?id=G-257R6ZLK1S"></script>
+            <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
 
-            gtag('config', 'G-257R6ZLK1S');
-        </script>
+                gtag('config', 'G-257R6ZLK1S');
+            </script>
+        @endif
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+        {{-- Inline script to detect system dark-mode preference and apply it immediately.
+             The `dark` fallback matches the server-side default in HandleAppearance — the
+             blade template already adds the .dark class for 'dark', so the `system` branch
+             is the only remaining case this script handles. --}}
         <script>
             (function() {
-                const appearance = '{{ $appearance ?? "system" }}';
+                const appearance = '{{ $appearance ?? "dark" }}';
 
                 if (appearance === 'system') {
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

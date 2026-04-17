@@ -1,3 +1,4 @@
+import { factionBackground } from '@/composables/useFactionColor';
 import { csrfToken } from '@/lib/utils';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, type ComputedRef } from 'vue';
@@ -112,19 +113,6 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
     const playerFaction = (id: number | null | undefined): string | null => {
         if (!id) return null;
         return playerMap.value.get(id)?.faction ?? null;
-    };
-
-    /** Tailwind class for the faction background tile. */
-    const factionBackground = (faction: string | null): string => {
-        if (!faction) return '';
-        switch (faction.toLowerCase()) {
-            case 'explorers_society':
-                return 'bg-explorerssociety';
-            case 'ten_thunders':
-                return 'bg-tenthunders';
-            default:
-                return `bg-${faction}`;
-        }
     };
 
     return {

@@ -168,31 +168,38 @@ const uncollectedCharacters = computed(() => {
 });
 
 const addingAll = ref(false);
-const addAllToCollection = async () => {
+const addAllToCollection = () => {
     const chars = uncollectedCharacters.value;
     if (!chars.length) return;
-    addingAll.value = true;
 
-    // Optimistically update shared auth data
+    // Optimistic update so the UI feels instant. Snapshot the additions so we
+    // can roll back on failure.
     const ids = page.props.auth.collection_miniature_ids;
+    const added: number[] = [];
     for (const c of chars) {
         for (const m of c.standard_miniatures ?? []) {
-            if (!ids.includes(m.id)) ids.push(m.id);
+            if (!ids.includes(m.id)) {
+                ids.push(m.id);
+                added.push(m.id);
+            }
         }
     }
 
-    try {
-        await fetch(route('collection.add_characters'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+    router.post(
+        route('collection.add_characters'),
+        { character_ids: chars.map((c: any) => c.id) },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (addingAll.value = true),
+            onError: () => {
+                // Roll back the optimistic additions.
+                const rollback = new Set(added);
+                page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));
             },
-            body: JSON.stringify({ character_ids: chars.map((c: any) => c.id) }),
-        });
-    } finally {
-        addingAll.value = false;
-    }
+            onFinish: () => (addingAll.value = false),
+        },
+    );
 };
 
 const characterCount = computed(() => props.characters?.length ?? 0);

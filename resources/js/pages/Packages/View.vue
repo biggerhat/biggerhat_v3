@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
+import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
@@ -74,8 +75,6 @@ const page = usePage<SharedData>();
 const isAuthenticated = computed(() => !!page.props.auth.user);
 const collectionPackageIds = computed(() => page.props.auth.collection_package_ids ?? []);
 const packageInCollection = computed(() => collectionPackageIds.value.includes(props.package.id));
-
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
 const collectionProcessing = ref(false);
 const addPackageToCollection = async () => {

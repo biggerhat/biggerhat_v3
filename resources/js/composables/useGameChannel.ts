@@ -1,3 +1,4 @@
+import { BROADCAST_RELOAD_DEBOUNCE_MS } from '@/pages/Games/constants';
 import { router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 
@@ -21,7 +22,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
             router.reload({ only: [...pendingOnly], preserveScroll: true });
             pendingOnly = new Set();
             reloadTimer = null;
-        }, 150);
+        }, BROADCAST_RELOAD_DEBOUNCE_MS);
     };
 
     const addListeners = (ch: any) => {

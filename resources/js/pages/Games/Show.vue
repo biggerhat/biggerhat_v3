@@ -2,19 +2,32 @@
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import GameAbandonDialog from '@/components/Game/GameAbandonDialog.vue';
+import GameAttachedUpgradeDrawer from '@/components/Game/GameAttachedUpgradeDrawer.vue';
+import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
+import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
+import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
+import GameEditScenarioDrawer from '@/components/Game/GameEditScenarioDrawer.vue';
+import GameLeaveDialog from '@/components/Game/GameLeaveDialog.vue';
+import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog.vue';
+import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
+import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
+import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
+import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
+import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
+import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
-import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
+import { MAX_SCHEME_POOL, MAX_SCHEME_PER_TURN, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
@@ -32,7 +45,6 @@ import {
     Heart,
     Layers,
     Loader2,
-    Maximize2,
     Minus,
     PanelLeftClose,
     PanelLeftOpen,
@@ -369,7 +381,10 @@ const selectPendingScheme = (schemeId: number) => {
 };
 const confirmPendingScheme = async () => {
     if (!pendingSchemeId.value) return;
-    // Save scheme notes first if there are requirements
+    // Scheme + its notes save atomically in one setup-endpoint call. The
+    // standalone scheme-notes endpoint is in_progress-gated and can't be
+    // used pregame, so folding the notes into the scheme submit avoids a
+    // silent 422 that previously dropped the user's selections.
     const notes: Record<string, string | null> = {
         note: null,
         selected_model: pendingSchemeModel.value || null,
@@ -377,16 +392,11 @@ const confirmPendingScheme = async () => {
         terrain_note: pendingSchemeTerrainNote.value || null,
     };
     const hasNotes = notes.selected_model || notes.selected_marker || notes.terrain_note;
-    if (hasNotes) {
-        await fetch(route('games.play.scheme-notes', props.game.uuid), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify({ scheme_notes: notes }),
-        });
-    }
+
     await postSetup(route('games.setup.scheme', props.game.uuid), {
         scheme_id: pendingSchemeId.value,
         ...(isSolo.value ? { slot: 1 } : {}),
+        ...(hasNotes ? { scheme_notes: notes } : {}),
     });
     pendingSchemeId.value = null;
 };
@@ -811,7 +821,7 @@ watch(
             lastSeenTurn.value = turn;
             turnBanner.value = true;
             if (turnBannerTimer) clearTimeout(turnBannerTimer);
-            turnBannerTimer = setTimeout(() => (turnBanner.value = false), 4000);
+            turnBannerTimer = setTimeout(() => (turnBanner.value = false), TURN_BANNER_VISIBLE_MS);
         }
     },
 );
@@ -1007,13 +1017,24 @@ const setupLeaveGuard = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     inertiaBeforeRemover = router.on('before', (event) => {
         if (!isGameInProgress.value) return;
-        const targetUrl = event.detail.visit.url.toString();
-        // Allow same-page reloads / partial Inertia reloads (real-time updates).
-        if (targetUrl === window.location.href || targetUrl === window.location.pathname) return;
+
+        const visit = event.detail.visit;
+
+        // Partial reloads (`only` / `except` keys set) are real-time game state
+        // refreshes — summon, kill, token add, broadcast-triggered sync, etc.
+        // They never navigate away; always let them through regardless of URL.
+        if ((visit.only?.length ?? 0) > 0 || (visit.except?.length ?? 0) > 0) return;
+
+        // Same-page navigation — e.g. a Link click pointing at this exact game
+        // page, or an Inertia-driven query-string update. Pathname-only compare
+        // so hash fragments and trailing slashes don't falsely trigger the guard.
+        const targetUrl = new URL(visit.url.toString(), window.location.origin);
+        if (targetUrl.pathname === window.location.pathname) return;
+
         event.preventDefault();
         pendingNavigation.value = () => {
             teardownLeaveGuard();
-            router.visit(targetUrl, { method: event.detail.visit.method });
+            router.visit(targetUrl.toString(), { method: visit.method });
         };
         confirmLeaveOpen.value = true;
     });
@@ -1061,9 +1082,51 @@ onUnmounted(() => {
 });
 
 // ─── Gameplay ───
-const gameplayTab = ref<'scenario' | 'my-crew' | 'opponent'>('my-crew');
+// Three-tier responsive gameplay layout:
+//   • Mobile (< md): 3 single tabs (scenario / my-crew / opponent)
+//   • Tablet (md → xl-1): 2 tabs (Game / Crews-both-side-by-side) — 3 cols too
+//     cramped at 1024–1279px, 1 col wastes a lot of horizontal space.
+//   • Desktop (xl+): 3 columns, no tabs.
+//
+// Single source of truth is `gameplayTab`; the mobile and tablet selectors
+// read/write through computed proxies so the active state stays consistent
+// across breakpoint changes (e.g. rotating a tablet to portrait).
+type GameplayTab = 'scenario' | 'my-crew' | 'opponent' | 'crews';
+const gameplayTab = ref<GameplayTab>('my-crew');
 const scenarioCollapsed = ref(false);
 const schemeHidden = ref(false);
+
+/** Mobile selector: 'crews' has no mobile representation → fall back to 'my-crew'. */
+const mobileGameplayTab = computed<'scenario' | 'my-crew' | 'opponent'>({
+    get: () => (gameplayTab.value === 'crews' ? 'my-crew' : gameplayTab.value),
+    set: (v) => {
+        gameplayTab.value = v;
+    },
+});
+
+/** Tablet selector: anything that isn't 'scenario' is treated as the merged 'crews' tab. */
+const tabletGameplayTab = computed<'scenario' | 'crews'>({
+    get: () => (gameplayTab.value === 'scenario' ? 'scenario' : 'crews'),
+    set: (v) => {
+        gameplayTab.value = v;
+    },
+});
+
+/**
+ * Visibility class for a gameplay column. At xl+ every column is always
+ * visible; below xl we follow the active tab. 'crews' mode shows both crew
+ * columns at tablet+ (md) but neither at mobile — mobile's own selector
+ * handles the per-column split.
+ */
+const gameplayColumnClass = (column: 'scenario' | 'my-crew' | 'opponent'): string => {
+    if (column === 'scenario') {
+        return gameplayTab.value === 'scenario' ? '' : 'hidden xl:block';
+    }
+    // crew columns
+    if (gameplayTab.value === column) return '';
+    if (gameplayTab.value === 'crews') return 'hidden md:block';
+    return 'hidden xl:block';
+};
 
 // Scheme notes
 const schemeNote = ref(myPlayer.value?.scheme_notes?.note ?? '');
@@ -1562,11 +1625,11 @@ const myStrategyBonusUsed = computed(() => {
 });
 const maxStrategyThisTurn = computed(() => (myStrategyBonusUsed.value ? 1 : 2));
 
-// Scheme: max 2/turn, max 6 total across game
+// Scheme: max MAX_SCHEME_PER_TURN per turn, max MAX_SCHEME_POOL across game.
 const myTotalSchemeScored = computed(() => {
     return (myPlayer.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
 });
-const maxSchemeThisTurn = computed(() => Math.min(2, 6 - myTotalSchemeScored.value));
+const maxSchemeThisTurn = computed(() => Math.min(MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL - myTotalSchemeScored.value));
 
 // Opponent scoring limits (solo)
 const opponentStrategyBonusUsed = computed(() => {
@@ -1576,7 +1639,7 @@ const opponentMaxStrategyThisTurn = computed(() => (opponentStrategyBonusUsed.va
 const opponentTotalSchemeScored = computed(() => {
     return (opponent.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
 });
-const opponentMaxSchemeThisTurn = computed(() => Math.min(2, 6 - opponentTotalSchemeScored.value));
+const opponentMaxSchemeThisTurn = computed(() => Math.min(MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL - opponentTotalSchemeScored.value));
 
 const submitTurnScore = async () => {
     scoringTurn.value = true;
@@ -1687,21 +1750,31 @@ const searchSummon = (q: string) => {
     }, 300);
 };
 
-// Sculpt picker (shared between summon and replace)
-const sculptPickerOpen = ref(false);
-const sculptPickerMiniatures = ref<any[]>([]);
-const sculptPickerAction = ref<'summon' | 'replace'>('summon');
-const sculptPickerCharacterId = ref<number>(0);
-
+// Summon flow: always use the character's base sculpt (first miniature). The user
+// can swap to a different sculpt from the crew-member drawer that pops open right
+// after summon — much less friction than a separate picker modal, and the drawer
+// is already the established sculpt-change surface.
 const selectCharacterForSummon = (char: any) => {
     const minis = char.miniatures ?? [];
-    if (minis.length > 1) {
-        sculptPickerCharacterId.value = char.id;
-        sculptPickerMiniatures.value = minis;
-        sculptPickerAction.value = 'summon';
-        sculptPickerOpen.value = true;
-    } else {
-        summonCharacter(char.id, minis[0]?.id ?? null);
+    summonCharacter(char.id, minis[0]?.id ?? null);
+};
+
+/**
+ * Snapshot current crew-member IDs, post the summon/replace, then on reload
+ * auto-open the drawer for whichever member is newly present. Works the same
+ * way for both flows since `replaceCharacter` also produces a new member row.
+ */
+const collectAllMemberIds = () =>
+    new Set<number>([
+        ...(myPlayer.value?.crew_members ?? []).map((m: any) => m.id),
+        ...(opponent.value?.crew_members ?? []).map((m: any) => m.id),
+    ]);
+
+const openNewMemberDrawerAfterReload = (beforeIds: Set<number>) => {
+    const after = [...(myPlayer.value?.crew_members ?? []), ...(opponent.value?.crew_members ?? [])];
+    const newMember = after.find((m: any) => !beforeIds.has(m.id));
+    if (newMember && (newMember.front_image || newMember.back_image)) {
+        openMemberPreview(newMember);
     }
 };
 
@@ -1709,16 +1782,23 @@ const summonCharacter = async (characterId: number, miniatureId: number | null =
     const body: Record<string, unknown> = { character_id: characterId };
     if (miniatureId) body.miniature_id = miniatureId;
     if (isSolo.value) body.slot = summonForSlot.value;
+
+    const beforeIds = collectAllMemberIds();
+
     await fetch(route('games.play.crew.summon', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify(body),
     });
     summonDialogOpen.value = false;
-    sculptPickerOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
-    router.reload({ only: ['game'], preserveScroll: true });
+
+    router.reload({
+        only: ['game'],
+        preserveScroll: true,
+        onSuccess: () => openNewMemberDrawerAfterReload(beforeIds),
+    });
 };
 
 // Replace crew member
@@ -1753,41 +1833,35 @@ const searchReplace = (q: string) => {
     }, 300);
 };
 
+// Replace flow follows the same simplification as summon: use the base sculpt,
+// then auto-open the crew-member drawer so the user can swap sculpts if they want.
 const selectCharacterForReplace = (char: any) => {
     const minis = char.miniatures ?? [];
-    if (minis.length > 1) {
-        sculptPickerCharacterId.value = char.id;
-        sculptPickerMiniatures.value = minis;
-        sculptPickerAction.value = 'replace';
-        sculptPickerOpen.value = true;
-    } else {
-        replaceCharacter(char.id, minis[0]?.id ?? null);
-    }
+    replaceCharacter(char.id, minis[0]?.id ?? null);
 };
 
 const replaceCharacter = async (characterId: number, miniatureId: number | null = null) => {
     if (!replaceMember.value) return;
     const body: Record<string, unknown> = { character_id: characterId };
     if (miniatureId) body.miniature_id = miniatureId;
+
+    const beforeIds = collectAllMemberIds();
+
     await fetch(route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: replaceMember.value.id }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify(body),
     });
     replaceDialogOpen.value = false;
-    sculptPickerOpen.value = false;
     replaceSearch.value = '';
     replaceResults.value = [];
     replaceMember.value = null;
-    router.reload({ only: ['game'], preserveScroll: true });
-};
 
-const confirmSculptSelection = (miniatureId: number) => {
-    if (sculptPickerAction.value === 'summon') {
-        summonCharacter(sculptPickerCharacterId.value, miniatureId);
-    } else {
-        replaceCharacter(sculptPickerCharacterId.value, miniatureId);
-    }
+    router.reload({
+        only: ['game'],
+        preserveScroll: true,
+        onSuccess: () => openNewMemberDrawerAfterReload(beforeIds),
+    });
 };
 
 // Sculpt dropdown in member preview drawer
@@ -1905,10 +1979,6 @@ const referenceTokenIds = computed(() => {
     return ids;
 });
 
-const memberHasToken = (tokenId: number) => {
-    return (tokenMember.value?.attached_tokens ?? []).some((t: any) => t.id === tokenId);
-};
-
 const toggleToken = async (tokenId: number, tokenName: string) => {
     if (!tokenMember.value) return;
     const current = tokenMember.value.attached_tokens ?? [];
@@ -1948,10 +2018,6 @@ const openUpgradeDialog = (member: any) => {
     upgradeSearch.value = '';
 };
 
-const memberHasUpgrade = (upgradeId: number) => {
-    return (upgradeMember.value?.attached_upgrades ?? []).some((u: any) => u.id === upgradeId);
-};
-
 // Reference upgrades for this member (from the references data if loaded)
 const memberReferenceUpgradeIds = computed(() => {
     const refs = upgradeMember.value?.__refUpgradeIds;
@@ -1972,13 +2038,6 @@ const upgradeUsageCount = (upgradeId: number) => {
     return allMembers.filter(
         (m: any) => m.game_player_id === playerId && m.id !== memberId && (m.attached_upgrades ?? []).some((u: any) => u.id === upgradeId),
     ).length;
-};
-
-const isUpgradeAtLimit = (upgradeId: number, plentiful: number | null) => {
-    const limit = plentiful ?? 1;
-    const used = upgradeUsageCount(upgradeId);
-    const selfHas = memberHasUpgrade(upgradeId) ? 1 : 0;
-    return used + selfHas >= limit;
 };
 
 const filteredUpgrades = computed(() => {
@@ -2072,7 +2131,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pt-6">
+        <!-- Gameplay is horizontally dense (tabs, 2/3 columns, etc.). Tailwind's
+             `container` utility caps width at each breakpoint (e.g. 768px at md),
+             which leaves wasted margin in the 900–1279px tablet range. Use an
+             explicit 2xl cap so the layout fills the available width through
+             tablet and only starts centering on very wide monitors. -->
+        <div class="mx-auto w-full max-w-screen-2xl px-3 pb-8 pt-4 sm:px-4 lg:pt-6">
             <Link
                 :href="route('games.index')"
                 class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -3048,13 +3112,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ IN PROGRESS ═══ -->
             <template v-if="game.status === 'in_progress'">
-                <!-- Mobile: Tab switcher -->
-                <div class="mb-4 xl:hidden">
-                    <Tabs v-model="gameplayTab">
+                <!-- Mobile: 3-tab switcher (scenario / my crew / opponent) -->
+                <div class="mb-4 md:hidden">
+                    <Tabs v-model="mobileGameplayTab">
                         <TabsList class="grid w-full grid-cols-3">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
                             <TabsTrigger value="my-crew">{{ isObserver ? playerName(myPlayer) : 'My Crew' }}</TabsTrigger>
                             <TabsTrigger value="opponent">{{ playerName(opponent) }}</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+
+                <!-- Tablet: 2-tab switcher (game / both crews side-by-side) -->
+                <div class="mb-4 hidden md:block xl:hidden">
+                    <Tabs v-model="tabletGameplayTab">
+                        <TabsList class="grid w-full grid-cols-2">
+                            <TabsTrigger value="scenario">Game</TabsTrigger>
+                            <TabsTrigger value="crews">Crews</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -3085,10 +3159,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </Transition>
 
-                <!-- Desktop: 3-column grid / Mobile: tab content -->
-                <div class="grid gap-4" :class="scenarioCollapsed ? 'xl:grid-cols-[auto_1fr_1fr]' : 'xl:grid-cols-3'">
+                <!-- Responsive grid:
+                     • < md: 1 col, active tab visible (mobile).
+                     • md → xl-1: 1 col for Game tab, 2 cols when Crews tab is active (tablet).
+                     • xl+: 3 cols always.
+                     Individual column visibility is handled by gameplayColumnClass(). -->
+                <div
+                    class="grid grid-cols-1 gap-4"
+                    :class="[
+                        gameplayTab === 'crews' ? 'md:grid-cols-2' : '',
+                        scenarioCollapsed ? 'xl:grid-cols-[auto_1fr_1fr]' : 'xl:grid-cols-3',
+                    ]"
+                >
                     <!-- Column 1: Scenario Info -->
-                    <div :class="gameplayTab !== 'scenario' ? 'hidden xl:block' : ''">
+                    <div :class="gameplayColumnClass('scenario')">
                         <!-- Collapsed: thin vertical strip with expand button -->
                         <div v-if="scenarioCollapsed" class="hidden h-full xl:flex xl:flex-col xl:items-center xl:gap-2 xl:py-2">
                             <button
@@ -3728,7 +3812,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
 
                     <!-- Column 2: My Crew (editable) -->
-                    <div :class="gameplayTab !== 'my-crew' ? 'hidden xl:block' : ''">
+                    <div :class="gameplayColumnClass('my-crew')">
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
                                 <h3 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h3>
@@ -4074,7 +4158,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
 
                     <!-- Column 3: Opponent Crew -->
-                    <div :class="gameplayTab !== 'opponent' ? 'hidden xl:block' : ''">
+                    <div :class="gameplayColumnClass('opponent')">
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
                                 <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>
@@ -4943,71 +5027,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </div>
 
     <!-- Edit Scenario Drawer -->
-    <Drawer v-model:open="editScenarioOpen">
-        <DrawerContent>
-            <button
-                class="absolute right-3 top-3 z-10 rounded-full bg-muted p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-                @click="editScenarioOpen = false"
-            >
-                <X class="size-4" />
-            </button>
-            <div class="mx-auto w-full max-w-md">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">Edit Scenario</DrawerTitle>
-                </DrawerHeader>
-                <div class="space-y-4 px-4 pb-4">
-                    <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Deployment</label>
-                        <Select v-model="editDeployment">
-                            <SelectTrigger><SelectValue placeholder="Select Deployment" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="d in all_deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Strategy</label>
-                        <Select v-model="editStrategy">
-                            <SelectTrigger><SelectValue placeholder="Select Strategy" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="s in all_strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Scheme Pool</label>
-                        <div class="space-y-2">
-                            <Select
-                                v-for="(_, idx) in editSchemePool"
-                                :key="'es-' + idx"
-                                :model-value="editSchemePool[idx] ?? undefined"
-                                @update:model-value="(v) => (editSchemePool[idx] = v ?? null)"
-                            >
-                                <SelectTrigger><SelectValue :placeholder="'Scheme ' + (idx + 1)" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="s in availableSchemes(idx)" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
-                <DrawerFooter class="flex-row gap-2 pt-2">
-                    <Button
-                        variant="outline"
-                        class="flex-1 gap-1"
-                        @click="
-                            regenerateScenario();
-                            editScenarioOpen = false;
-                        "
-                    >
-                        <Dices class="size-3.5" /> Randomize
-                    </Button>
-                    <Button class="flex-1" @click="saveScenarioFromDrawer">Save</Button>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
+    <GameEditScenarioDrawer
+        :open="editScenarioOpen"
+        :deployments="all_deployments"
+        :strategies="all_strategies"
+        :edit-deployment="editDeployment"
+        :edit-strategy="editStrategy"
+        :edit-scheme-pool="editSchemePool"
+        :available-schemes="availableSchemes"
+        @update:open="editScenarioOpen = $event"
+        @update:edit-deployment="editDeployment = $event"
+        @update:edit-strategy="editStrategy = $event"
+        @update:edit-scheme-pool-at="(idx, v) => (editSchemePool[idx] = v)"
+        @regenerate="
+            regenerateScenario();
+            editScenarioOpen = false;
+        "
+        @save="saveScenarioFromDrawer"
+    />
 
     <!-- Strategy Drawer -->
     <Drawer v-model:open="strategyDrawerOpen">
@@ -5138,603 +5175,100 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     </Drawer>
 
     <!-- Crew Member Card Preview Drawer -->
-    <Drawer v-model:open="crewMemberDrawerOpen">
-        <DrawerContent>
-            <button
-                class="absolute right-3 top-3 z-10 rounded-full bg-muted p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-                @click="crewMemberDrawerOpen = false"
-            >
-                <X class="size-4" />
-            </button>
-            <div v-if="previewMember" class="mx-auto w-full max-w-md sm:max-w-3xl">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewMember.display_name }}</DrawerTitle>
-                    <div
-                        v-if="
-                            !isObserver &&
-                            memberMiniatures.length > 1 &&
-                            (isSolo || myPlayer?.crew_members?.some((m: any) => m.id === previewMember.id))
-                        "
-                        class="mt-2 flex justify-center"
-                    >
-                        <Select
-                            :model-value="
-                                String(
-                                    memberMiniatures.find((m: any) => m.front_image === previewMember.front_image)?.id ??
-                                        memberMiniatures[0]?.id ??
-                                        '',
-                                )
-                            "
-                            @update:model-value="onSculptChange"
-                        >
-                            <SelectTrigger class="w-auto gap-2 text-xs">
-                                <SelectValue placeholder="Select sculpt" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="mini in memberMiniatures" :key="mini.id" :value="String(mini.id)">
-                                    {{ mini.display_name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </DrawerHeader>
-                <div v-if="previewMember.front_image" class="px-4 pb-2">
-                    <!-- Desktop: side-by-side combo view -->
-                    <div class="hidden items-start justify-center gap-2 sm:flex">
-                        <div class="relative">
-                            <img
-                                :src="'/storage/' + previewMember.front_image"
-                                :alt="previewMember.display_name + ' front'"
-                                class="max-h-[65dvh] w-auto rounded-lg object-contain"
-                            />
-                            <button
-                                class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
-                                title="View fullscreen"
-                                @click="openCardFullscreen('/storage/' + previewMember.front_image)"
-                            >
-                                <Maximize2 class="size-3.5" />
-                            </button>
-                        </div>
-                        <div v-if="previewMember.back_image" class="relative">
-                            <img
-                                :src="'/storage/' + previewMember.back_image"
-                                :alt="previewMember.display_name + ' back'"
-                                class="max-h-[65dvh] w-auto rounded-lg object-contain"
-                            />
-                            <button
-                                class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
-                                title="View fullscreen"
-                                @click="openCardFullscreen('/storage/' + previewMember.back_image)"
-                            >
-                                <Maximize2 class="size-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Mobile: flip card -->
-                    <div class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
-                        <CharacterCardView
-                            :key="previewMember.front_image"
-                            :miniature="{
-                                id: previewMember.id,
-                                display_name: previewMember.display_name,
-                                slug: '',
-                                front_image: previewMember.front_image,
-                                back_image: previewMember.back_image,
-                            }"
-                            :show-link="false"
-                            :show-collection="false"
-                        />
-                    </div>
-                </div>
-                <div v-else class="px-4 py-8 pb-2 text-center text-sm text-muted-foreground">No card image available</div>
-                <DrawerFooter class="shrink-0 pt-2">
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
+    <GameCrewMemberDrawer
+        :open="crewMemberDrawerOpen"
+        :member="previewMember"
+        :miniatures="memberMiniatures"
+        :can-change-sculpt="!isObserver && (isSolo || !!myPlayer?.crew_members?.some((m: any) => m.id === previewMember?.id))"
+        @update:open="crewMemberDrawerOpen = $event"
+        @sculpt-change="onSculptChange"
+        @open-fullscreen="openCardFullscreen"
+    />
 
     <!-- Crew Card Preview Drawer -->
-    <Drawer v-model:open="upgradeDrawerOpen">
-        <DrawerContent>
-            <button
-                class="absolute right-3 top-3 z-10 rounded-full bg-muted p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-                @click="upgradeDrawerOpen = false"
-            >
-                <X class="size-4" />
-            </button>
-            <div v-if="previewUpgrade" class="mx-auto w-full max-w-md">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Crew Card</div>
-                </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
-                    <UpgradeFlipCard
-                        :front-image="previewUpgrade.front_image"
-                        :back-image="previewUpgrade.back_image"
-                        :alt-text="previewUpgrade.name"
-                        :show-link="false"
-                    />
-                </div>
-                <DrawerFooter class="shrink-0 pt-2">
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
+    <GameAttachedUpgradeDrawer :open="upgradeDrawerOpen" :upgrade="previewUpgrade" @update:open="upgradeDrawerOpen = $event" />
 
     <!-- Token Info Drawer -->
-    <Drawer v-model:open="tokenInfoDrawerOpen">
-        <DrawerContent>
-            <div v-if="tokenInfoData" class="mx-auto w-full max-w-sm">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ tokenInfoData.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Token</div>
-                </DrawerHeader>
-                <div class="px-4 pb-4">
-                    <p v-if="tokenInfoData.description" class="text-sm leading-relaxed text-muted-foreground">{{ tokenInfoData.description }}</p>
-                    <p v-else class="text-center text-sm text-muted-foreground">No description available.</p>
-                </div>
-                <DrawerFooter class="gap-2 pt-2">
-                    <Button v-if="tokenInfoMember && !isObserver" variant="destructive" size="sm" @click="removeTokenFromInfo">
-                        <Minus class="mr-1.5 size-3.5" />
-                        Remove from {{ tokenInfoMember.display_name }}
-                    </Button>
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
+    <GameTokenInfoDrawer
+        :open="tokenInfoDrawerOpen"
+        :token="tokenInfoData"
+        :member="tokenInfoMember"
+        :can-remove="!isObserver"
+        @update:open="tokenInfoDrawerOpen = $event"
+        @remove="removeTokenFromInfo"
+    />
 
-    <!-- Opponent Scheme Dialog (Solo) — Multi-step -->
-    <Dialog
+    <!-- Opponent Scheme Dialog (Solo) — Multi-step (scored / discard / end-of-game) -->
+    <GameOpponentSchemeDialog
         v-if="isSolo && !isObserver"
         :open="oppDialogOpen"
-        @update:open="
-            (v) => {
-                if (!v) oppCancelDialog();
-            }
-        "
-    >
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>
-                    <template v-if="oppDialogMode === 'scored'">Opponent Scored Scheme VP</template>
-                    <template v-else-if="oppDialogMode === 'end-of-game'">Opponent's Final Scheme</template>
-                    <template v-else>Opponent's Scheme</template>
-                </DialogTitle>
-                <DialogDescription>
-                    <template v-if="oppDialogMode === 'scored'"
-                        >Which scheme did they score on? Their next pool will derive from this scheme.</template
-                    >
-                    <template v-else-if="oppDialogMode === 'end-of-game'">Identify the opponent's scheme for final scoring, or keep hidden.</template>
-                    <template v-else
-                        >Hold scheme hidden, or select which scheme they're discarding. Their next pool will derive from the discarded
-                        scheme.</template
-                    >
-                </DialogDescription>
-            </DialogHeader>
-            <div class="space-y-1">
-                <!-- Hold hidden (discard + end-of-game only) -->
-                <button
-                    v-if="oppDialogMode === 'discard' || oppDialogMode === 'end-of-game'"
-                    class="flex w-full items-center justify-between rounded-md bg-primary/10 px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/20"
-                    @click="oppKeepHidden"
-                >
-                    Hold Scheme (Hidden)
-                </button>
-                <div
-                    v-if="(oppDialogMode === 'discard' || oppDialogMode === 'end-of-game') && opponentSchemePool.length"
-                    class="py-1 text-center text-[10px] text-muted-foreground"
-                >
-                    — or {{ oppDialogMode === 'discard' ? 'discard' : 'reveal' }} —
-                </div>
-                <!-- Scheme options from current pool -->
-                <button
-                    v-for="scheme in opponentSchemePool"
-                    :key="'opp-id-' + scheme.id"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    @click="oppSelectScheme(scheme.id)"
-                >
-                    {{ scheme.name }}
-                </button>
-            </div>
-        </DialogContent>
-    </Dialog>
+        :mode="oppDialogMode"
+        :scheme-pool="opponentSchemePool"
+        @update:open="oppDialogOpen = $event"
+        @select="oppSelectScheme"
+        @keep-hidden="oppKeepHidden"
+        @cancel="oppCancelDialog"
+    />
 
     <!-- Summon Dialog -->
-    <Dialog
-        v-model:open="summonDialogOpen"
-        @update:open="
-            (open) => {
-                if (!open) {
-                    summonSearch = '';
-                    summonResults = [];
-                }
-            }
-        "
-    >
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Summon Character</DialogTitle>
-                <DialogDescription>Select a reference character or search for any character.</DialogDescription>
-            </DialogHeader>
-            <!-- Reference characters -->
-            <div v-if="referenceCharacters.length">
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Characters</div>
-                <div class="max-h-40 space-y-0.5 overflow-y-auto">
-                    <button
-                        v-for="char in referenceCharacters"
-                        :key="'ref-sum-' + char.id"
-                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
-                        :class="summonCrewCount(char.id) >= (char.count ?? 99) ? 'cursor-not-allowed opacity-40' : 'hover:bg-accent'"
-                        :disabled="summonCrewCount(char.id) >= (char.count ?? 99)"
-                        @click="selectCharacterForSummon(char)"
-                    >
-                        <img
-                            v-if="char.front_image"
-                            :src="'/storage/' + char.front_image"
-                            :alt="char.display_name"
-                            class="size-8 rounded object-cover"
-                        />
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
-                        </div>
-                        <span v-if="summonCrewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
-                            {{ summonCrewCount(char.id) }}
-                        </span>
-                    </button>
-                </div>
-            </div>
-            <!-- Search all characters -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-                    Search All Characters
-                </summary>
-                <div class="border-t px-1 pb-1 pt-1">
-                    <Input :model-value="summonSearch" placeholder="Search..." class="mb-1" @update:model-value="searchSummon($event as string)" />
-                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
-                        <div v-if="summonLoading" class="flex justify-center py-3">
-                            <Loader2 class="size-4 animate-spin text-muted-foreground" />
-                        </div>
-                        <template v-else-if="summonResults.length">
-                            <button
-                                v-for="char in summonResults"
-                                :key="char.id"
-                                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
-                                :class="summonCrewCount(char.id) >= (char.count ?? 1) ? 'cursor-not-allowed opacity-40' : 'hover:bg-accent'"
-                                :disabled="summonCrewCount(char.id) >= (char.count ?? 1)"
-                                @click="selectCharacterForSummon(char)"
-                            >
-                                <img
-                                    v-if="char.front_image"
-                                    :src="char.front_image"
-                                    :alt="char.display_name ?? char.name"
-                                    class="size-8 rounded object-cover"
-                                />
-                                <div class="min-w-0 flex-1">
-                                    <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
-                                    <div v-if="char.station" class="text-xs capitalize text-muted-foreground">{{ char.station }}</div>
-                                </div>
-                                <span v-if="summonCrewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
-                                    {{ summonCrewCount(char.id) }}/{{ char.count ?? 1 }}
-                                </span>
-                            </button>
-                        </template>
-                        <div v-else-if="summonSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No characters found</div>
-                    </div>
-                </div>
-            </details>
-        </DialogContent>
-    </Dialog>
+    <GameSummonDialog
+        :open="summonDialogOpen"
+        :reference-characters="referenceCharacters"
+        :results="summonResults"
+        :search="summonSearch"
+        :loading="summonLoading"
+        :crew-count="summonCrewCount"
+        @update:open="summonDialogOpen = $event"
+        @update:search="searchSummon"
+        @select="selectCharacterForSummon"
+    />
 
     <!-- Replace Crew Member Dialog -->
-    <Dialog
-        v-model:open="replaceDialogOpen"
-        @update:open="
-            (open) => {
-                if (!open) {
-                    replaceSearch = '';
-                    replaceResults = [];
-                    replaceMember = null;
-                }
-            }
-        "
-    >
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Replace Crew Member</DialogTitle>
-                <DialogDescription v-if="replaceMember">
-                    Replacing <strong>{{ replaceMember.display_name }}</strong> ({{ replaceMember.current_health }}/{{ replaceMember.max_health }} HP)
-                </DialogDescription>
-            </DialogHeader>
-            <!-- Reference characters -->
-            <div v-if="referenceCharacters.length">
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Characters</div>
-                <div class="max-h-40 space-y-0.5 overflow-y-auto">
-                    <button
-                        v-for="char in referenceCharacters"
-                        :key="'ref-rep-' + char.id"
-                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-                        @click="selectCharacterForReplace(char)"
-                    >
-                        <img
-                            v-if="char.front_image"
-                            :src="'/storage/' + char.front_image"
-                            :alt="char.display_name"
-                            class="size-8 rounded object-cover"
-                        />
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
-                        </div>
-                    </button>
-                </div>
-            </div>
-            <!-- Search all characters -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-                    Search All Characters
-                </summary>
-                <div class="border-t px-1 pb-1 pt-1">
-                    <Input :model-value="replaceSearch" placeholder="Search..." class="mb-1" @update:model-value="searchReplace($event as string)" />
-                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
-                        <div v-if="replaceLoading" class="flex justify-center py-3">
-                            <Loader2 class="size-4 animate-spin text-muted-foreground" />
-                        </div>
-                        <template v-else-if="replaceResults.length">
-                            <button
-                                v-for="char in replaceResults"
-                                :key="char.id"
-                                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-                                @click="selectCharacterForReplace(char)"
-                            >
-                                <img
-                                    v-if="char.front_image"
-                                    :src="char.front_image"
-                                    :alt="char.display_name ?? char.name"
-                                    class="size-8 rounded object-cover"
-                                />
-                                <div class="min-w-0 flex-1">
-                                    <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
-                                    <div v-if="char.station" class="text-xs capitalize text-muted-foreground">{{ char.station }}</div>
-                                </div>
-                            </button>
-                        </template>
-                        <div v-else-if="replaceSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No characters found</div>
-                    </div>
-                </div>
-            </details>
-            <DialogFooter>
-                <Button variant="outline" class="w-full" @click="replaceDialogOpen = false">Cancel</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameReplaceDialog
+        :open="replaceDialogOpen"
+        :member="replaceMember"
+        :reference-characters="referenceCharacters"
+        :results="replaceResults"
+        :search="replaceSearch"
+        :loading="replaceLoading"
+        @update:open="replaceDialogOpen = $event"
+        @update:search="searchReplace"
+        @select="selectCharacterForReplace"
+    />
 
-    <!-- Sculpt Picker Dialog -->
-    <Dialog v-model:open="sculptPickerOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Choose Sculpt</DialogTitle>
-                <DialogDescription>Select which version to use.</DialogDescription>
-            </DialogHeader>
-            <div class="grid grid-cols-2 gap-2">
-                <button
-                    v-for="mini in sculptPickerMiniatures"
-                    :key="mini.id"
-                    class="overflow-hidden rounded-lg border-2 border-transparent transition-all hover:border-primary hover:shadow-md"
-                    @click="confirmSculptSelection(mini.id)"
-                >
-                    <img
-                        v-if="mini.front_image"
-                        :src="'/storage/' + mini.front_image"
-                        :alt="mini.display_name"
-                        class="aspect-[550/950] w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                    />
-                    <div class="bg-muted/50 px-2 py-1 text-center text-[10px] font-medium">{{ mini.display_name }}</div>
-                </button>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" class="w-full" @click="sculptPickerOpen = false">Cancel</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
 
     <!-- Upgrade Dialog -->
-    <Dialog v-model:open="upgradeDialogOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Manage Upgrades</DialogTitle>
-                <DialogDescription v-if="upgradeMember">{{ upgradeMember.display_name }}</DialogDescription>
-            </DialogHeader>
-            <!-- Current upgrades -->
-            <div v-if="upgradeMember?.attached_upgrades?.length" class="space-y-1">
-                <div class="text-xs font-medium text-muted-foreground">Active Upgrades</div>
-                <div class="space-y-0.5">
-                    <div
-                        v-for="upgrade in upgradeMember.attached_upgrades"
-                        :key="'cu-' + upgrade.id"
-                        class="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-xs"
-                    >
-                        <div class="flex items-center gap-1.5">
-                            <ArrowUpCircle class="size-3 shrink-0 text-amber-500" />
-                            <span class="font-medium">{{ upgrade.name }}</span>
-                        </div>
-                        <button class="rounded p-0.5 text-red-400 hover:bg-red-500/10" @click="toggleUpgrade(upgrade)">
-                            <Minus class="size-3" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <!-- Reference upgrades -->
-            <div v-if="filteredUpgrades.filter((u) => memberReferenceUpgradeIds.has(u.id)).length">
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Upgrades</div>
-                <div class="max-h-32 space-y-0.5 overflow-y-auto">
-                    <button
-                        v-for="upgrade in filteredUpgrades.filter((u) => memberReferenceUpgradeIds.has(u.id))"
-                        :key="'ref-' + upgrade.id"
-                        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
-                        :class="[
-                            memberHasUpgrade(upgrade.id) ? 'bg-amber-500/10 font-medium' : '',
-                            !memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful)
-                                ? 'cursor-not-allowed opacity-40'
-                                : 'hover:bg-accent',
-                        ]"
-                        :disabled="!memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful)"
-                        @click="toggleUpgrade(upgrade)"
-                    >
-                        <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
-                        <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
-                        <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                        <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground"
-                            >{{ upgradeUsageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}</span
-                        >
-                    </button>
-                </div>
-            </div>
-            <!-- All upgrades -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Upgrades</summary>
-                <div class="border-t px-1 pb-1 pt-1">
-                    <Input v-model="upgradeSearch" placeholder="Filter..." class="mb-1" />
-                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
-                        <button
-                            v-for="upgrade in filteredUpgrades"
-                            :key="upgrade.id"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
-                            :class="[
-                                memberHasUpgrade(upgrade.id) ? 'bg-amber-500/10 font-medium' : '',
-                                !memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful)
-                                    ? 'cursor-not-allowed opacity-40'
-                                    : 'hover:bg-accent',
-                            ]"
-                            :disabled="!memberHasUpgrade(upgrade.id) && isUpgradeAtLimit(upgrade.id, upgrade.plentiful)"
-                            @click="toggleUpgrade(upgrade)"
-                        >
-                            <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
-                            <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
-                            <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground"
-                                >{{ upgradeUsageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}</span
-                            >
-                        </button>
-                    </div>
-                </div>
-            </details>
-            <DialogFooter>
-                <Button variant="outline" class="w-full" @click="upgradeDialogOpen = false">Close</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameUpgradeDialog
+        :open="upgradeDialogOpen"
+        :member="upgradeMember"
+        :options="filteredUpgrades"
+        :reference-ids="memberReferenceUpgradeIds"
+        :search="upgradeSearch"
+        :usage-count="upgradeUsageCount"
+        @update:open="upgradeDialogOpen = $event"
+        @update:search="upgradeSearch = $event"
+        @toggle="toggleUpgrade"
+    />
 
     <!-- Attached Upgrade Preview Drawer -->
-    <Drawer v-model:open="attachedUpgradeDrawerOpen">
-        <DrawerContent>
-            <button
-                class="absolute right-3 top-3 z-10 rounded-full bg-muted p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-                @click="attachedUpgradeDrawerOpen = false"
-            >
-                <X class="size-4" />
-            </button>
-            <div v-if="previewAttachedUpgrade" class="mx-auto w-full max-w-md">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ previewAttachedUpgrade.name }}</DrawerTitle>
-                    <div class="mt-1 text-center text-xs text-muted-foreground">Upgrade</div>
-                </DrawerHeader>
-                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
-                    <UpgradeFlipCard
-                        :front-image="previewAttachedUpgrade.front_image"
-                        :back-image="previewAttachedUpgrade.back_image"
-                        :alt-text="previewAttachedUpgrade.name"
-                        :show-link="false"
-                    />
-                </div>
-                <DrawerFooter class="shrink-0 pt-2">
-                    <DrawerClose as-child>
-                        <Button variant="outline">Close</Button>
-                    </DrawerClose>
-                </DrawerFooter>
-            </div>
-        </DrawerContent>
-    </Drawer>
+    <GameAttachedUpgradeDrawer
+        :open="attachedUpgradeDrawerOpen"
+        :upgrade="previewAttachedUpgrade"
+        @update:open="attachedUpgradeDrawerOpen = $event"
+    />
 
     <!-- Token Dialog -->
-    <Dialog v-model:open="tokenDialogOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Manage Tokens</DialogTitle>
-                <DialogDescription v-if="tokenMember">{{ tokenMember.display_name }}</DialogDescription>
-            </DialogHeader>
-            <!-- Current tokens -->
-            <div v-if="tokenMember?.attached_tokens?.length" class="space-y-1">
-                <div class="text-xs font-medium text-muted-foreground">Active Tokens</div>
-                <div class="flex flex-wrap gap-1">
-                    <Badge
-                        v-for="token in tokenMember.attached_tokens"
-                        :key="'current-' + token.id"
-                        variant="secondary"
-                        class="cursor-pointer gap-1 pr-1"
-                        @click="removeToken(token.id)"
-                    >
-                        {{ token.name }}
-                        <Minus class="size-3 text-red-400" />
-                    </Badge>
-                </div>
-            </div>
-            <!-- Reference tokens -->
-            <div v-if="props.tokens.filter((t) => referenceTokenIds.has(t.id)).length">
-                <div class="mb-1 text-xs font-medium text-muted-foreground">Reference Tokens</div>
-                <div class="max-h-32 space-y-0.5 overflow-y-auto">
-                    <button
-                        v-for="token in props.tokens.filter((t) => referenceTokenIds.has(t.id))"
-                        :key="'ref-' + token.id"
-                        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
-                        :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
-                        @click="toggleToken(token.id, token.name)"
-                    >
-                        <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
-                        <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
-                        {{ token.name }}
-                    </button>
-                </div>
-            </div>
-            <!-- All tokens -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Tokens</summary>
-                <div class="border-t px-1 pb-1 pt-1">
-                    <Input v-model="tokenSearch" placeholder="Filter..." class="mb-1" />
-                    <div class="max-h-36 space-y-0.5 overflow-y-auto">
-                        <button
-                            v-for="token in props.tokens.filter((t) => !tokenSearch || t.name.toLowerCase().includes(tokenSearch.toLowerCase()))"
-                            :key="token.id"
-                            class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
-                            :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
-                            @click="toggleToken(token.id, token.name)"
-                        >
-                            <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
-                            <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
-                            {{ token.name }}
-                        </button>
-                    </div>
-                </div>
-            </details>
-            <DialogFooter>
-                <Button variant="outline" class="w-full" @click="tokenDialogOpen = false">Close</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameTokenDialog
+        :open="tokenDialogOpen"
+        :member="tokenMember"
+        :tokens="props.tokens"
+        :reference-token-ids="referenceTokenIds"
+        :search="tokenSearch"
+        @update:open="tokenDialogOpen = $event"
+        @update:search="tokenSearch = $event"
+        @toggle="toggleToken"
+        @remove="removeToken"
+    />
 
     <!-- Complete Game Confirmation Dialog -->
     <!-- Game Settings Dialog -->
@@ -5835,130 +5369,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         </DialogContent>
     </Dialog>
 
-    <Dialog v-model:open="completeDialogOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Complete Game</DialogTitle>
-                <DialogDescription>
-                    Are you sure you want to mark this game as complete? Final scores will be calculated and the game will end.
-                </DialogDescription>
-            </DialogHeader>
-            <DialogFooter class="gap-2 sm:gap-0">
-                <Button variant="outline" @click="completeDialogOpen = false">Cancel</Button>
-                <Button
-                    @click="
-                        completeDialogOpen = false;
-                        markGameComplete();
-                    "
-                    >Complete Game</Button
-                >
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameCompleteDialog
+        :open="completeDialogOpen"
+        @update:open="completeDialogOpen = $event"
+        @confirm="
+            completeDialogOpen = false;
+            markGameComplete();
+        "
+    />
 
-    <!-- Abandon Confirmation Dialog -->
-    <Dialog v-model:open="abandonDialogOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Abandon Game</DialogTitle>
-                <DialogDescription>
-                    Are you sure you want to abandon this game? The game will be marked as abandoned and cannot be resumed.
-                </DialogDescription>
-            </DialogHeader>
-            <DialogFooter class="gap-2 sm:gap-0">
-                <Button variant="outline" @click="abandonDialogOpen = false">Cancel</Button>
-                <Button variant="destructive" @click="executeAbandon">Abandon</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameAbandonDialog :open="abandonDialogOpen" @update:open="abandonDialogOpen = $event" @confirm="executeAbandon" />
 
     <!-- Replace on Death Dialog -->
-    <Dialog v-model:open="replaceOnDeathDialogOpen">
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Replace on Death</DialogTitle>
-                <DialogDescription>
-                    {{
-                        replaceOnDeathReplacements.length > 1
-                            ? 'Select which models to add to the crew.'
-                            : 'This model replaces into the following when killed.'
-                    }}
-                </DialogDescription>
-            </DialogHeader>
-            <div class="space-y-1.5">
-                <button
-                    v-for="replacement in replaceOnDeathReplacements"
-                    :key="replacement.id"
-                    class="flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors"
-                    :class="replacement.selected ? 'border-primary bg-primary/5' : 'opacity-50'"
-                    @click="replacement.selected = !replacement.selected"
-                >
-                    <div
-                        class="flex size-5 shrink-0 items-center justify-center rounded border"
-                        :class="replacement.selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'"
-                    >
-                        <Check v-if="replacement.selected" class="size-3" />
-                    </div>
-                    <img
-                        v-if="replacement.front_image"
-                        :src="replacement.front_image"
-                        :alt="replacement.display_name"
-                        class="size-10 shrink-0 rounded object-cover"
-                    />
-                    <div class="min-w-0 flex-1">
-                        <div class="text-sm font-medium">{{ replacement.display_name }}</div>
-                        <div v-if="replacement.count > 1" class="text-xs text-muted-foreground">&times;{{ replacement.count }}</div>
-                    </div>
-                </button>
-            </div>
-            <div v-if="replaceOnDeathWarnings.length" class="space-y-1">
-                <div
-                    v-for="(warn, i) in replaceOnDeathWarnings"
-                    :key="i"
-                    class="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400"
-                >
-                    {{ warn }}
-                </div>
-                <p class="text-xs text-muted-foreground">Select a different option and try again, or close.</p>
-            </div>
-            <DialogFooter class="gap-2 sm:gap-0">
-                <Button variant="outline" @click="dismissReplaceOnDeath">{{ replaceOnDeathWarnings.length ? 'Close' : 'Skip All' }}</Button>
-                <Button :disabled="!hasSelectedReplacements" @click="confirmReplaceOnDeath"> Add Selected </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameReplaceOnDeathDialog
+        :open="replaceOnDeathDialogOpen"
+        :replacements="replaceOnDeathReplacements"
+        :warnings="replaceOnDeathWarnings"
+        :has-selected="hasSelectedReplacements"
+        @update:open="replaceOnDeathDialogOpen = $event"
+        @toggle="(id) => { const r = replaceOnDeathReplacements.find((x) => x.id === id); if (r) r.selected = !r.selected; }"
+        @confirm="confirmReplaceOnDeath"
+        @dismiss="dismissReplaceOnDeath"
+    />
 
     <!-- QR Code Dialog -->
     <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
 
     <!-- Card Fullscreen Dialog -->
-    <Dialog v-model:open="cardFullscreenOpen">
-        <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
-            <DialogTitle class="sr-only">Card Preview</DialogTitle>
-            <div class="flex items-center justify-center">
-                <img :src="cardFullscreenSrc" alt="Card" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
-            </div>
-        </DialogContent>
-    </Dialog>
+    <GameCardFullscreenDialog :open="cardFullscreenOpen" :src="cardFullscreenSrc" @update:open="cardFullscreenOpen = $event" />
 
     <!-- Leave confirmation for in-progress games -->
-    <Dialog
-        :open="confirmLeaveOpen"
-        @update:open="
-            (open) => {
-                if (!open) cancelLeave();
-            }
-        "
-    >
-        <DialogContent class="max-w-sm">
-            <DialogHeader>
-                <DialogTitle>Leave game?</DialogTitle>
-                <DialogDescription> Your game is still in progress. If you leave, you can come back to it later from My Games. </DialogDescription>
-            </DialogHeader>
-            <DialogFooter class="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="outline" @click="cancelLeave">Stay</Button>
-                <Button variant="destructive" @click="confirmLeave">Leave</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <GameLeaveDialog :open="confirmLeaveOpen" @stay="cancelLeave" @leave="confirmLeave" />
 </template>

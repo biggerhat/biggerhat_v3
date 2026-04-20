@@ -239,6 +239,15 @@ class GameSetupController extends Controller
         $validated = $request->validate([
             'scheme_id' => ['required', 'integer'],
             'slot' => ['sometimes', 'integer', 'in:1,2'],
+            // Scheme requirements (model / marker / terrain) are submitted in
+            // the same payload so the scheme + its notes save atomically. The
+            // separate scheme-notes endpoint is in_progress-gated and can't
+            // be used during the scheme_select phase.
+            'scheme_notes' => ['sometimes', 'nullable', 'array'],
+            'scheme_notes.note' => ['nullable', 'string', 'max:500'],
+            'scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
+            'scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
+            'scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Verify scheme is in the pool or in the next schemes chain
@@ -268,10 +277,16 @@ class GameSetupController extends Controller
             $chosenScheme->next_scheme_three_id,
         ])) : [];
 
-        $player->update([
+        $playerUpdate = [
             'current_scheme_id' => $validated['scheme_id'],
             'scheme_pool' => ! empty($newPool) ? $newPool : ($game->scheme_pool ?? []),
-        ]);
+        ];
+        // Persist scheme requirements only when at least one field has content
+        // — a blank object would wipe previously-saved notes on re-submit.
+        if (! empty($validated['scheme_notes']) && array_filter($validated['scheme_notes'])) {
+            $playerUpdate['scheme_notes'] = $validated['scheme_notes'];
+        }
+        $player->update($playerUpdate);
 
         // Only advance status during scheme_select phase
         if ($game->status === GameStatusEnum::SchemeSelect) {

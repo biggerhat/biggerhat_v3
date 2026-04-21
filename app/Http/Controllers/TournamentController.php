@@ -221,10 +221,11 @@ class TournamentController extends Controller
             'rsvps.user:id,name',
             'rounds.games.playerOne:id,display_name,faction,user_id',
             'rounds.games.playerTwo:id,display_name,faction,user_id',
-            // Tracker state the TO needs in the score dialog — status to warn
-            // about in-progress games, uuid to link across, current/max_turns
-            // for a quick progress indicator.
-            'rounds.games.trackerGame:id,uuid,status,is_solo,current_turn,max_turns,winner_id,is_tie',
+            // Don't column-restrict trackerGame — Game appends `season_label`,
+            // whose accessor reads `$this->season`. A restricted select that
+            // omits `season` crashes under strict-attribute mode the moment
+            // Inertia serializes the model. Same comment as `view()`.
+            'rounds.games.trackerGame',
             'rounds.strategy:id,name',
             'organizers:id,name',
         ]);

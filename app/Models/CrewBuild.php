@@ -19,7 +19,7 @@ class CrewBuild extends Model
     /**
      * Bump this when the references schema changes to invalidate cached references.
      */
-    public const REFERENCES_VERSION = 3;
+    public const REFERENCES_VERSION = 4;
 
     protected $guarded = ['id'];
 
@@ -128,6 +128,11 @@ class CrewBuild extends Model
             $linkedChars->push([
                 ...$s->only('id', 'display_name', 'slug', 'faction'),
                 'type' => $type,
+                // Station + STN surface in the Summon dialog so players can eyeball
+                // what kind of model they're bringing in before committing.
+                'station' => $s->station?->value,
+                'summon_target_number' => $s->summon_target_number,
+                'count' => $s->count ?? 1,
                 'front_image' => $s->miniatures->first()?->front_image,
                 'back_image' => $s->miniatures->first()?->back_image,
                 'miniatures' => $s->miniatures->map(fn ($m) => [

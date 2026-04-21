@@ -631,27 +631,26 @@ const startEditOpponentName = () => {
     editingOpponentName.value = true;
 };
 
-const saveOpponentName = async () => {
+const saveOpponentName = () => {
     const name = opponentNameInput.value.trim();
     if (!name) {
         editingOpponentName.value = false;
         return;
     }
-    await fetch(route('games.setup.opponent_name', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ opponent_name: name }),
-    });
     editingOpponentName.value = false;
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.post(
+        route('games.setup.opponent_name', props.game.uuid),
+        { opponent_name: name },
+        { only: ['game'], preserveScroll: true, preserveState: true },
+    );
 };
 
-const swapRoles = async () => {
-    await fetch(route('games.setup.swap_roles', props.game.uuid), {
-        method: 'POST',
-        headers: { ...csrfHeaders() },
-    });
-    router.reload({ only: ['game'], preserveScroll: true });
+const swapRoles = () => {
+    router.post(
+        route('games.setup.swap_roles', props.game.uuid),
+        {},
+        { only: ['game'], preserveScroll: true, preserveState: true },
+    );
 };
 
 // Solo gameplay: opponent scoring
@@ -882,14 +881,14 @@ const generateSpectateQR = async () => {
     }
 };
 
-const syncSpectateToggle = async (value: boolean) => {
+const syncSpectateToggle = (value: boolean) => {
     spectateOn.value = value;
-    await fetch(route('games.toggle_observable', props.game.uuid), {
-        method: 'POST',
-        headers: { ...csrfHeaders() },
-    });
     if (value) generateSpectateQR();
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.post(
+        route('games.toggle_observable', props.game.uuid),
+        {},
+        { only: ['game'], preserveScroll: true, preserveState: true },
+    );
 };
 
 // Soulstone award banner
@@ -913,13 +912,12 @@ watch(
         autoSoulstoneOnKill.value = s?.auto_soulstone_on_kill !== false;
     },
 );
-const saveGameSetting = async (key: string, value: any) => {
-    await fetch(route('games.settings.update', props.game.uuid), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ settings: { [key]: value } }),
-    });
-    router.reload({ only: ['game'], preserveScroll: true });
+const saveGameSetting = (key: string, value: any) => {
+    router.patch(
+        route('games.settings.update', props.game.uuid),
+        { settings: { [key]: value } },
+        { only: ['game'], preserveScroll: true, preserveState: true },
+    );
 };
 
 // QR generation on settings open is registered after gameSettingsOpen ref (below)
@@ -1716,12 +1714,12 @@ const markGameComplete = async () => {
     }
 };
 
-const cancelGameComplete = async () => {
-    await fetch(route('games.play.cancel_complete', props.game.uuid), {
-        method: 'POST',
-        headers: { ...csrfHeaders() },
-    });
-    router.reload({ only: ['game'], preserveScroll: true });
+const cancelGameComplete = () => {
+    router.post(
+        route('games.play.cancel_complete', props.game.uuid),
+        {},
+        { only: ['game'], preserveScroll: true, preserveState: true },
+    );
 };
 
 // Summon modal
@@ -1750,55 +1748,87 @@ const searchSummon = (q: string) => {
     }, 300);
 };
 
-// Summon flow: always use the character's base sculpt (first miniature). The user
-// can swap to a different sculpt from the crew-member drawer that pops open right
-// after summon — much less friction than a separate picker modal, and the drawer
-// is already the established sculpt-change surface.
+// Summon flow: always use the character's base sculpt (first miniature). After
+// the server confirms, a transient banner appears in the receiving crew column
+// ("X summoned — tap to change sculpt") that opens the member drawer on click.
+// We pass the character display_name through so the banner doesn't have to
+// wait for the Inertia reload to resolve the new member.
 const selectCharacterForSummon = (char: any) => {
     const minis = char.miniatures ?? [];
-    summonCharacter(char.id, minis[0]?.id ?? null);
+    summonCharacter(char.id, minis[0]?.id ?? null, char.display_name ?? char.name ?? 'Model');
 };
 
 /**
- * Snapshot current crew-member IDs, post the summon/replace, then on reload
- * auto-open the drawer for whichever member is newly present. Works the same
- * way for both flows since `replaceCharacter` also produces a new member row.
+ * Transient "X summoned — tap to change sculpt" banner shown in the relevant
+ * crew column after a successful summon/replace. Replaces the previous
+ * auto-open-drawer behaviour, which was racey in production (reload
+ * sometimes hadn't propagated the new member into the reactive state by
+ * the time onSuccess fired, so the drawer never opened).
+ *
+ * The banner is set immediately after the POST resolves — no dependency on
+ * the subsequent reload completing — and stays for BANNER_DURATION_MS or
+ * until the user taps it / summons something else.
  */
-const collectAllMemberIds = () =>
-    new Set<number>([
-        ...(myPlayer.value?.crew_members ?? []).map((m: any) => m.id),
-        ...(opponent.value?.crew_members ?? []).map((m: any) => m.id),
-    ]);
+interface SummonBannerState {
+    memberId: number | null; // server's returned member id (null if response didn't include it)
+    name: string; // character display_name, captured from the picker selection
+    slot: number; // game_player slot the new member lives on, so the banner renders in the right column
+}
+const summonBanner = ref<SummonBannerState | null>(null);
+let summonBannerTimer: ReturnType<typeof setTimeout> | undefined;
+const BANNER_DURATION_MS = 6000;
 
-const openNewMemberDrawerAfterReload = (beforeIds: Set<number>) => {
-    const after = [...(myPlayer.value?.crew_members ?? []), ...(opponent.value?.crew_members ?? [])];
-    const newMember = after.find((m: any) => !beforeIds.has(m.id));
-    if (newMember && (newMember.front_image || newMember.back_image)) {
-        openMemberPreview(newMember);
-    }
+const dismissSummonBanner = () => {
+    summonBanner.value = null;
+    if (summonBannerTimer) clearTimeout(summonBannerTimer);
 };
 
-const summonCharacter = async (characterId: number, miniatureId: number | null = null) => {
+const showSummonBanner = (state: SummonBannerState) => {
+    summonBanner.value = state;
+    if (summonBannerTimer) clearTimeout(summonBannerTimer);
+    summonBannerTimer = setTimeout(() => {
+        summonBanner.value = null;
+    }, BANNER_DURATION_MS);
+};
+
+const clickSummonBanner = () => {
+    if (!summonBanner.value) return;
+    const memberId = summonBanner.value.memberId;
+    if (memberId !== null) {
+        const allMembers = [...(myPlayer.value?.crew_members ?? []), ...(opponent.value?.crew_members ?? [])];
+        const member = allMembers.find((m: any) => m.id === memberId);
+        if (member) openMemberPreview(member);
+    }
+    dismissSummonBanner();
+};
+
+const summonCharacter = async (characterId: number, miniatureId: number | null = null, displayName = 'Model') => {
     const body: Record<string, unknown> = { character_id: characterId };
     if (miniatureId) body.miniature_id = miniatureId;
     if (isSolo.value) body.slot = summonForSlot.value;
 
-    const beforeIds = collectAllMemberIds();
-
-    await fetch(route('games.play.crew.summon', props.game.uuid), {
+    const res = await fetch(route('games.play.crew.summon', props.game.uuid), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify(body),
     });
+    const data = await res.json().catch(() => ({} as Record<string, unknown>));
     summonDialogOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
 
-    router.reload({
-        only: ['game'],
-        preserveScroll: true,
-        onSuccess: () => openNewMemberDrawerAfterReload(beforeIds),
-    });
+    // Show the banner regardless of whether the reload has landed yet — we already
+    // know the new member's id (server returns it) and which crew column it goes in.
+    if (res.ok) {
+        const targetSlot = isSolo.value ? summonForSlot.value : (myPlayer.value?.slot ?? 1);
+        showSummonBanner({
+            memberId: typeof data.member_id === 'number' ? data.member_id : null,
+            name: displayName,
+            slot: targetSlot,
+        });
+    }
+
+    router.reload({ only: ['game'], preserveScroll: true });
 };
 
 // Replace crew member
@@ -1833,34 +1863,39 @@ const searchReplace = (q: string) => {
     }, 300);
 };
 
-// Replace flow follows the same simplification as summon: use the base sculpt,
-// then auto-open the crew-member drawer so the user can swap sculpts if they want.
+// Replace flow follows the same simplification as summon: base sculpt, banner.
 const selectCharacterForReplace = (char: any) => {
     const minis = char.miniatures ?? [];
-    replaceCharacter(char.id, minis[0]?.id ?? null);
+    replaceCharacter(char.id, minis[0]?.id ?? null, char.display_name ?? char.name ?? 'Model');
 };
 
-const replaceCharacter = async (characterId: number, miniatureId: number | null = null) => {
+const replaceCharacter = async (characterId: number, miniatureId: number | null = null, displayName = 'Model') => {
     if (!replaceMember.value) return;
     const body: Record<string, unknown> = { character_id: characterId };
     if (miniatureId) body.miniature_id = miniatureId;
 
-    const beforeIds = collectAllMemberIds();
+    // Replace updates the existing crew row in place (same id). The member's
+    // slot is derived from its game_player_id → players[] lookup.
+    const replacedMemberId = replaceMember.value.id;
+    const targetPlayer = props.game.players.find((p) => p.id === replaceMember.value?.game_player_id);
+    const targetSlot = targetPlayer?.slot ?? myPlayer.value?.slot ?? 1;
 
-    await fetch(route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: replaceMember.value.id }), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify(body),
-    });
     replaceDialogOpen.value = false;
     replaceSearch.value = '';
     replaceResults.value = [];
     replaceMember.value = null;
 
-    router.reload({
+    router.post(route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: replacedMemberId }), body, {
         only: ['game'],
         preserveScroll: true,
-        onSuccess: () => openNewMemberDrawerAfterReload(beforeIds),
+        preserveState: true,
+        onSuccess: () => {
+            showSummonBanner({
+                memberId: replacedMemberId,
+                name: displayName,
+                slot: targetSlot,
+            });
+        },
     });
 };
 
@@ -1890,17 +1925,36 @@ const onSculptChange = async (miniatureId: string) => {
     if (!previewMember.value) return;
     const mini = memberMiniatures.value.find((m: any) => m.id === Number(miniatureId));
     if (!mini) return;
-    // Update preview immediately
+
+    // Snapshot prior values so we can roll back if the server rejects.
+    const prev = {
+        front_image: previewMember.value.front_image,
+        back_image: previewMember.value.back_image,
+        display_name: previewMember.value.display_name,
+    };
+
+    // Optimistic local update — the drawer + crew list re-render instantly.
     previewMember.value.front_image = mini.front_image;
     previewMember.value.back_image = mini.back_image;
     previewMember.value.display_name = mini.display_name;
-    // Persist to server
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
+
+    // Persist. A sculpt change only affects the three fields we just set locally,
+    // so we deliberately DO NOT call router.reload() — the previous reload round-trip
+    // was triggering an Inertia visit that the leave-guard / beforeunload machinery
+    // could flag while a dialog was in the teardown path. Broadcast (GameCrewMemberUpdated)
+    // still fires for the other player in 2P; they get updated via useGameChannel.
+    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify({ display_name: mini.display_name, front_image: mini.front_image, back_image: mini.back_image }),
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+
+    if (!res.ok && previewMember.value) {
+        // Roll back optimistic state on failure.
+        previewMember.value.front_image = prev.front_image;
+        previewMember.value.back_image = prev.back_image;
+        previewMember.value.display_name = prev.display_name;
+    }
 };
 
 // Token management (1 of each kind max)
@@ -3813,6 +3867,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                     <!-- Column 2: My Crew (editable) -->
                     <div :class="gameplayColumnClass('my-crew')">
+                        <!-- Transient summon/replace banner for this crew column -->
+                        <Transition
+                            enter-active-class="transition-all duration-200 ease-out"
+                            leave-active-class="transition-all duration-200 ease-in"
+                            enter-from-class="opacity-0 -translate-y-1"
+                            leave-to-class="opacity-0 -translate-y-1"
+                        >
+                            <button
+                                v-if="summonBanner && summonBanner.slot === (myPlayer?.slot ?? 1)"
+                                type="button"
+                                class="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-left text-xs transition-colors hover:bg-primary/15"
+                                @click="clickSummonBanner"
+                            >
+                                <span><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span>
+                                <X class="size-3.5 shrink-0 text-muted-foreground" @click.stop="dismissSummonBanner" />
+                            </button>
+                        </Transition>
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
                                 <h3 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h3>
@@ -4159,6 +4230,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                     <!-- Column 3: Opponent Crew -->
                     <div :class="gameplayColumnClass('opponent')">
+                        <!-- Transient summon/replace banner for the opponent column (solo mode summoning to slot 2) -->
+                        <Transition
+                            enter-active-class="transition-all duration-200 ease-out"
+                            leave-active-class="transition-all duration-200 ease-in"
+                            enter-from-class="opacity-0 -translate-y-1"
+                            leave-to-class="opacity-0 -translate-y-1"
+                        >
+                            <button
+                                v-if="summonBanner && summonBanner.slot === (opponent?.slot ?? 2)"
+                                type="button"
+                                class="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-left text-xs transition-colors hover:bg-primary/15"
+                                @click="clickSummonBanner"
+                            >
+                                <span><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span>
+                                <X class="size-3.5 shrink-0 text-muted-foreground" @click.stop="dismissSummonBanner" />
+                            </button>
+                        </Transition>
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
                                 <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>

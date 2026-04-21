@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import GameSculptVisualPickerDialog from '@/components/Game/GameSculptVisualPickerDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Maximize2, X } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Images, Maximize2, X } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface PreviewMember {
     id: number;
@@ -40,6 +41,15 @@ const currentSculptId = computed(() => {
     const match = props.miniatures.find((m) => m.front_image === props.member?.front_image);
     return String(match?.id ?? props.miniatures[0]?.id ?? '');
 });
+
+// Visual sculpt picker: dropdown is fast for keyboard users and power-users,
+// but picking by name alone is hard when half the sculpts share one. The
+// visual picker surfaces the card fronts in a scrollable grid.
+const visualPickerOpen = ref(false);
+const handleVisualPick = (miniatureId: number) => {
+    emit('sculpt-change', String(miniatureId));
+    visualPickerOpen.value = false;
+};
 </script>
 
 <template>
@@ -55,7 +65,7 @@ const currentSculptId = computed(() => {
             <div v-if="member" class="mx-auto w-full max-w-md sm:max-w-3xl">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ member.display_name }}</DrawerTitle>
-                    <div v-if="canChangeSculpt && miniatures.length > 1" class="mt-2 flex justify-center">
+                    <div v-if="canChangeSculpt && miniatures.length > 1" class="mt-2 flex items-center justify-center gap-1.5">
                         <Select :model-value="currentSculptId" @update:model-value="(v) => emit('sculpt-change', v as string)">
                             <SelectTrigger class="w-auto gap-2 text-xs">
                                 <SelectValue placeholder="Select sculpt" />
@@ -66,6 +76,17 @@ const currentSculptId = computed(() => {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            class="size-9 shrink-0"
+                            title="Browse sculpts with card art"
+                            aria-label="Browse sculpts with card art"
+                            @click="visualPickerOpen = true"
+                        >
+                            <Images class="size-4" />
+                        </Button>
                     </div>
                 </DrawerHeader>
                 <div v-if="member.front_image" class="px-4 pb-2">
@@ -127,4 +148,13 @@ const currentSculptId = computed(() => {
             </div>
         </DrawerContent>
     </Drawer>
+
+    <!-- Visual sculpt browser — opened from the card-art icon button next to the sculpt select -->
+    <GameSculptVisualPickerDialog
+        :open="visualPickerOpen"
+        :miniatures="miniatures"
+        :selected-id="currentSculptId"
+        @update:open="visualPickerOpen = $event"
+        @select="handleVisualPick"
+    />
 </template>

@@ -52,6 +52,7 @@ class CharacterAPIController extends Controller
             'faction' => $c->getRawOriginal('faction'),
             'station' => $c->station?->value,
             'count' => $c->count ?? 1,
+            'summon_target_number' => $c->summon_target_number,
             'front_image' => ($firstMini = $c->miniatures->first())?->front_image
                 ? '/storage/'.$firstMini->front_image
                 : null,

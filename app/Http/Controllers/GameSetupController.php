@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CharacterStationEnum;
-use App\Enums\FactionEnum;
 use App\Enums\GameStatusEnum;
 use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
+use App\Http\Requests\Games\SubmitCrewRequest;
+use App\Http\Requests\Games\SubmitFactionRequest;
+use App\Http\Requests\Games\SubmitMasterRequest;
+use App\Http\Requests\Games\SubmitSchemeRequest;
+use App\Http\Requests\Games\UpdateOpponentNameRequest;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
@@ -14,15 +18,14 @@ use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Scheme;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class GameSetupController extends Controller
 {
-    public function submitFaction(Request $request, Game $game): JsonResponse
+    public function submitFaction(SubmitFactionRequest $request, Game $game): JsonResponse
     {
         $player = $this->getPlayer($game, $request->integer('slot'));
 
@@ -30,10 +33,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-        ]);
+        $validated = $request->validated();
 
         $player->update(['faction' => $validated['faction']]);
 
@@ -60,7 +60,7 @@ class GameSetupController extends Controller
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
 
-    public function submitMaster(Request $request, Game $game): JsonResponse
+    public function submitMaster(SubmitMasterRequest $request, Game $game): JsonResponse
     {
         $player = $this->getPlayer($game, $request->integer('slot'));
 
@@ -69,10 +69,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            'master_name' => ['required', 'string', 'max:255'],
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-        ]);
+        $validated = $request->validated();
 
         // Find master character by display_name or name + faction
         $master = Character::standard()->where('station', CharacterStationEnum::Master->value)
@@ -114,7 +111,7 @@ class GameSetupController extends Controller
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
 
-    public function submitCrew(Request $request, Game $game): JsonResponse
+    public function submitCrew(SubmitCrewRequest $request, Game $game): JsonResponse
     {
         $player = $this->getPlayer($game, $request->integer('slot'));
 
@@ -122,10 +119,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            'crew_build_id' => ['required', 'exists:crew_builds,id'],
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-        ]);
+        $validated = $request->validated();
 
         $crewBuild = CrewBuild::findOrFail($validated['crew_build_id']);
 
@@ -189,7 +183,7 @@ class GameSetupController extends Controller
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
 
-    public function skipCrew(Request $request, Game $game): JsonResponse
+    public function skipCrew(Game $game): JsonResponse
     {
         if (! $game->is_solo) {
             return response()->json(['error' => 'Only available in solo mode'], 403);
@@ -222,7 +216,7 @@ class GameSetupController extends Controller
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
 
-    public function submitScheme(Request $request, Game $game): JsonResponse
+    public function submitScheme(SubmitSchemeRequest $request, Game $game): JsonResponse
     {
         $player = $this->getPlayer($game, $request->integer('slot'));
 
@@ -236,19 +230,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            'scheme_id' => ['required', 'integer'],
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-            // Scheme requirements (model / marker / terrain) are submitted in
-            // the same payload so the scheme + its notes save atomically. The
-            // separate scheme-notes endpoint is in_progress-gated and can't
-            // be used during the scheme_select phase.
-            'scheme_notes' => ['sometimes', 'nullable', 'array'],
-            'scheme_notes.note' => ['nullable', 'string', 'max:500'],
-            'scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
-            'scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
-            'scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         // Verify scheme is in the pool or in the next schemes chain
         $validSchemeIds = $game->scheme_pool ?? [];
@@ -296,10 +278,10 @@ class GameSetupController extends Controller
                     'status' => GameStatusEnum::InProgress,
                     'current_turn' => 1,
                 ]);
-                // Initialize opponent's scheme pool to the game pool
-                $game->players()->where('slot', 2)->update([
-                    'scheme_pool' => json_encode($game->scheme_pool ?? []),
-                ]);
+                // Initialize opponent's scheme pool to the game pool. Using model
+                // update() (vs query builder) so the 'array' cast handles encoding.
+                $opponent = $game->players()->where('slot', 2)->first();
+                $opponent?->update(['scheme_pool' => $game->scheme_pool ?? []]);
             } else {
                 $bothDone = DB::transaction(function () use ($game) {
                     /** @var Game $locked */
@@ -324,25 +306,19 @@ class GameSetupController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function updateOpponentName(Request $request, Game $game): JsonResponse
+    public function updateOpponentName(UpdateOpponentNameRequest $request, Game $game): RedirectResponse
     {
-        if (! $game->is_solo || $game->creator_id !== Auth::id()) {
-            return response()->json(['error' => 'Only available in solo mode'], 403);
-        }
-
-        $validated = $request->validate([
-            'opponent_name' => ['required', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $game->players()->where('slot', 2)->update(['opponent_name' => $validated['opponent_name']]);
 
-        return response()->json(['success' => true]);
+        return back();
     }
 
-    public function swapRoles(Game $game): JsonResponse
+    public function swapRoles(Game $game): RedirectResponse
     {
         if (! $game->is_solo || $game->creator_id !== Auth::id()) {
-            return response()->json(['error' => 'Only available in solo mode'], 403);
+            abort(403, 'Only available in solo mode');
         }
 
         /** @var GamePlayer|null $p1 */
@@ -356,7 +332,7 @@ class GameSetupController extends Controller
             $p2->update(['role' => $r1]);
         }
 
-        return response()->json(['success' => true]);
+        return back();
     }
 
     private function getPlayer(Game $game, ?int $slot = null): GamePlayer

@@ -6,6 +6,13 @@ use App\Enums\GameStatusEnum;
 use App\Events\GameCrewMemberUpdated;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
+use App\Http\Requests\Games\ReplaceCrewMemberRequest;
+use App\Http\Requests\Games\SubmitTurnRequest;
+use App\Http\Requests\Games\SummonCrewMemberRequest;
+use App\Http\Requests\Games\SwapCrewUpgradeRequest;
+use App\Http\Requests\Games\UpdateCrewMemberRequest;
+use App\Http\Requests\Games\UpdateSchemeNotesRequest;
+use App\Http\Requests\Games\UpdateSoulstonePoolRequest;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameCrewMember;
@@ -13,7 +20,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -26,27 +33,11 @@ class GamePlayController extends Controller
         }
     }
 
-    public function updateCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
+    public function updateCrewMember(UpdateCrewMemberRequest $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
         $this->assertInProgress($game);
-        $player = $this->getMyPlayer($game);
-        if (! $game->is_solo) {
-            $this->assertOwnsCrewMember($player, $gameCrewMember);
-        } elseif ($gameCrewMember->game_id !== $game->id) {
-            abort(403);
-        }
 
-        $validated = $request->validate([
-            'current_health' => ['sometimes', 'integer', 'min:0', 'max:'.$gameCrewMember->max_health],
-            'is_activated' => ['sometimes', 'boolean'],
-            'attached_tokens' => ['sometimes', 'array'],
-            'attached_markers' => ['sometimes', 'array'],
-            'attached_upgrades' => ['sometimes', 'array'],
-            'display_name' => ['sometimes', 'string', 'max:255'],
-            'front_image' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'back_image' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         // Validate upgrade plentiful limits
         if (isset($validated['attached_upgrades']) && ! empty($validated['attached_upgrades'])) {
@@ -87,10 +78,7 @@ class GamePlayController extends Controller
     public function killCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
         $this->assertInProgress($game);
-        $this->getMyPlayer($game);
-        if ($gameCrewMember->game_id !== $game->id) {
-            abort(403);
-        }
+        $this->authorize('updateCrewMember', [$game, $gameCrewMember]);
 
         // Idempotent: if already killed, skip DB write + broadcast but
         // still return replacements so the UI can handle the state.
@@ -137,10 +125,7 @@ class GamePlayController extends Controller
     public function reviveCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
     {
         $this->assertInProgress($game);
-        $this->getMyPlayer($game);
-        if ($gameCrewMember->game_id !== $game->id) {
-            abort(403);
-        }
+        $this->authorize('updateCrewMember', [$game, $gameCrewMember]);
 
         // Idempotent: skip if already alive.
         if (! $gameCrewMember->is_killed) {
@@ -156,57 +141,22 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function summonCrewMember(Request $request, Game $game): JsonResponse
+    public function summonCrewMember(SummonCrewMemberRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
 
-        $validated = $request->validate([
-            'character_id' => ['required', 'exists:characters,id'],
-            'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
-            'is_replacement' => ['sometimes', 'boolean'],
-            'replacement_health' => ['nullable', 'integer', 'min:1'],
-            'inherited_tokens' => ['nullable', 'array'],
-            'inherited_upgrades' => ['nullable', 'array'],
-            'is_activated' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
         $isReplacement = ! empty($validated['is_replacement']);
+        $maxCount = $character->count ?? 1;
 
         // Use selected miniature or fall back to first
         $miniature = isset($validated['miniature_id'])
             ? $character->miniatures->firstWhere('id', $validated['miniature_id']) ?? $character->miniatures->first()
             : $character->miniatures->first();
-
-        // Enforce character count limit. Lock the player's crew rows to prevent
-        // two concurrent summon requests from both passing the count check.
-        $maxCount = $character->count ?? 1;
-        $overLimit = DB::transaction(function () use ($game, $player, $character, $maxCount) {
-            // Lock the player's rows so a concurrent summon blocks until we finish.
-            GameCrewMember::where('game_id', $game->id)
-                ->where('game_player_id', $player->id)
-                ->lockForUpdate()
-                ->get();
-
-            return GameCrewMember::where('game_id', $game->id)
-                ->where('game_player_id', $player->id)
-                ->where('character_id', $character->id)
-                ->where('is_killed', false)
-                ->count() >= $maxCount;
-        });
-
-        if ($overLimit) {
-            return response()->json([
-                'error' => "{$character->display_name} is at its limit ({$maxCount})",
-                'at_limit' => true,
-            ], 422);
-        }
-
-        $maxSort = GameCrewMember::where('game_id', $game->id)
-            ->where('game_player_id', $player->id)
-            ->max('sort_order') ?? 0;
 
         // Determine tokens and upgrades: replacements inherit from killed member, summons get summon/slow
         $attachedTokens = [];
@@ -229,30 +179,65 @@ class GamePlayController extends Controller
             ? ($validated['replacement_health'] ?? 1)
             : $character->health;
 
-        $member = GameCrewMember::create([
-            'game_id' => $game->id,
-            'game_player_id' => $player->id,
-            'character_id' => $character->id,
-            'display_name' => $miniature ? $miniature->display_name : $character->display_name,
-            'faction' => $character->getRawOriginal('faction'),
-            'current_health' => $health,
-            'max_health' => $character->health,
-            'defense' => $character->defense,
-            'willpower' => $character->willpower,
-            'speed' => $character->speed,
-            'size' => $character->size,
-            'cost' => $character->cost ?? 0,
-            'station' => $character->station?->value,
-            'hiring_category' => $isReplacement ? 'replaced' : 'summoned',
-            'front_image' => $miniature?->front_image,
-            'back_image' => $miniature?->back_image,
-            'is_summoned' => true,
-            'is_activated' => ! empty($validated['is_activated']),
-            'attached_upgrades' => $attachedUpgrades,
-            'attached_tokens' => $attachedTokens,
-            'attached_markers' => [],
-            'sort_order' => $maxSort + 1,
-        ]);
+        // Enforce character count limit and create the member atomically. The
+        // lockForUpdate + count check + create must share one transaction so
+        // two concurrent summons can't both pass the count check.
+        $result = DB::transaction(function () use ($game, $player, $character, $miniature, $maxCount, $isReplacement, $health, $attachedTokens, $attachedUpgrades, $validated) {
+            GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->lockForUpdate()
+                ->get();
+
+            $liveCount = GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->where('character_id', $character->id)
+                ->where('is_killed', false)
+                ->count();
+
+            if ($liveCount >= $maxCount) {
+                return ['at_limit' => true];
+            }
+
+            $maxSort = GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->max('sort_order') ?? 0;
+
+            $member = GameCrewMember::create([
+                'game_id' => $game->id,
+                'game_player_id' => $player->id,
+                'character_id' => $character->id,
+                'display_name' => $miniature ? $miniature->display_name : $character->display_name,
+                'faction' => $character->getRawOriginal('faction'),
+                'current_health' => $health,
+                'max_health' => $character->health,
+                'defense' => $character->defense,
+                'willpower' => $character->willpower,
+                'speed' => $character->speed,
+                'size' => $character->size,
+                'cost' => $character->cost ?? 0,
+                'station' => $character->station?->value,
+                'hiring_category' => $isReplacement ? 'replaced' : 'summoned',
+                'front_image' => $miniature?->front_image,
+                'back_image' => $miniature?->back_image,
+                'is_summoned' => true,
+                'is_activated' => ! empty($validated['is_activated']),
+                'attached_upgrades' => $attachedUpgrades,
+                'attached_tokens' => $attachedTokens,
+                'attached_markers' => [],
+                'sort_order' => $maxSort + 1,
+            ]);
+
+            return ['member' => $member];
+        });
+
+        if (! empty($result['at_limit'])) {
+            return response()->json([
+                'error' => "{$character->display_name} is at its limit ({$maxCount})",
+                'at_limit' => true,
+            ], 422);
+        }
+
+        $member = $result['member'];
 
         if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameCrewMemberUpdated($game, 'summoned'))->toOthers();
@@ -261,23 +246,11 @@ class GamePlayController extends Controller
         return response()->json(['success' => true, 'member_id' => $member->id]);
     }
 
-    public function replaceCrewMember(Request $request, Game $game, GameCrewMember $gameCrewMember): JsonResponse
+    public function replaceCrewMember(ReplaceCrewMemberRequest $request, Game $game, GameCrewMember $gameCrewMember): RedirectResponse
     {
         $this->assertInProgress($game);
-        $player = $this->getMyPlayer($game);
-        if ($gameCrewMember->game_id !== $game->id) {
-            abort(403);
-        }
-        // Replacements only apply to your own crew — you can't replace
-        // an opponent's killed model with something from your card pool.
-        if (! $game->is_solo) {
-            $this->assertOwnsCrewMember($player, $gameCrewMember);
-        }
 
-        $validated = $request->validate([
-            'character_id' => ['required', 'exists:characters,id'],
-            'miniature_id' => ['nullable', 'integer', 'exists:miniatures,id'],
-        ]);
+        $validated = $request->validated();
 
         $character = Character::with('miniatures')->findOrFail($validated['character_id']);
 
@@ -313,37 +286,29 @@ class GamePlayController extends Controller
             broadcast(new GameCrewMemberUpdated($game, 'replaced'))->toOthers();
         }
 
-        return response()->json(['success' => true]);
+        return back();
     }
 
-    public function updateSchemeNotes(Request $request, Game $game): JsonResponse
+    public function updateSchemeNotes(UpdateSchemeNotesRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
 
-        $validated = $request->validate([
-            'scheme_notes' => ['required', 'array'],
-            'scheme_notes.note' => ['nullable', 'string', 'max:500'],
-            'scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
-            'scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
-            'scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $player->update(['scheme_notes' => $validated['scheme_notes']]);
 
         return response()->json(['success' => true]);
     }
 
-    public function swapCrewUpgrade(Request $request, Game $game): JsonResponse
+    public function swapCrewUpgrade(SwapCrewUpgradeRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
 
-        $validated = $request->validate([
-            'active_crew_upgrade_id' => ['required', 'integer', 'exists:upgrades,id'],
-        ]);
+        $validated = $request->validated();
 
         // Verify the upgrade belongs to the player's master's crew upgrades
         $master = $player->master;
@@ -365,12 +330,12 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function updateSoulstonePool(Request $request, Game $game): JsonResponse
+    public function updateSoulstonePool(UpdateSoulstonePoolRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
-        $validated = $request->validate(['soulstone_pool' => ['required', 'integer', 'min:0']]);
+        $validated = $request->validated();
         $player->update(['soulstone_pool' => $validated['soulstone_pool']]);
 
         if (! $game->is_solo || $game->is_observable) {
@@ -380,7 +345,7 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function submitTurnScore(Request $request, Game $game): JsonResponse
+    public function submitTurnScore(SubmitTurnRequest $request, Game $game): JsonResponse
     {
         $slot = $request->integer('slot');
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
@@ -389,19 +354,7 @@ class GamePlayController extends Controller
             return response()->json(['error' => 'Game not in progress'], 422);
         }
 
-        $validated = $request->validate([
-            'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
-            'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
-            'scheme_action' => ['required', 'string', 'in:scored,held,discarded'],
-            'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
-            'next_scheme_notes' => ['nullable', 'array'],
-            'next_scheme_notes.note' => ['nullable', 'string', 'max:500'],
-            'next_scheme_notes.selected_model' => ['nullable', 'string', 'max:255'],
-            'next_scheme_notes.selected_marker' => ['nullable', 'string', 'max:255'],
-            'next_scheme_notes.terrain_note' => ['nullable', 'string', 'max:255'],
-            // Solo: identify opponent's scheme this turn (scored or discarded)
-            'identified_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],
-        ]);
+        $validated = $request->validated();
 
         // ── Validate scoring rules ──
         $previousTurns = GameTurn::where('game_id', $game->id)
@@ -465,59 +418,63 @@ class GamePlayController extends Controller
         $totalTurnPoints = $validated['strategy_points'] + $validated['scheme_points'];
         $crewSnapshot = $this->buildCrewSnapshot($game->id, $player->id);
 
-        // ── Record the turn ──
         // For solo opponent held turns, scheme stays hidden — don't record the scheme_id
         $turnSchemeId = ($game->is_solo && $slot === 2 && $schemeAction === 'held')
             ? null
             : $player->current_scheme_id;
 
-        GameTurn::updateOrCreate(
-            [
-                'game_id' => $game->id,
-                'turn_number' => $game->current_turn,
-                'game_player_id' => $player->id,
-            ],
-            [
-                'scheme_id' => $turnSchemeId,
-                'scheme_action' => $schemeAction,
-                'scheme_notes' => $player->scheme_notes,
-                'next_scheme_id' => $nextSchemeId,
-                'strategy_points' => $validated['strategy_points'],
-                'scheme_points' => $validated['scheme_points'],
-                'points_scored' => $totalTurnPoints,
-                'crew_snapshot' => $crewSnapshot,
-            ]
-        );
-
-        $player->increment('total_points', $totalTurnPoints);
-
-        // ── Update player scheme state for next turn ──
-        if ($nextSchemeId) {
-            // Player is switching: new scheme becomes current, derive new pool from it
-            $nextScheme = Scheme::find($nextSchemeId);
-            $newPool = $nextScheme ? array_values(array_filter([
-                $nextScheme->next_scheme_one_id,
-                $nextScheme->next_scheme_two_id,
-                $nextScheme->next_scheme_three_id,
-            ])) : [];
-
-            $player->update([
-                'current_scheme_id' => $nextSchemeId,
-                'next_scheme_id' => null,
-                'scheme_pool' => ! empty($newPool) ? $newPool : ($player->scheme_pool ?? $game->scheme_pool ?? []),
-                'scheme_notes' => $validated['next_scheme_notes'] ?? null, // Set notes for new scheme
-            ]);
-        } elseif ($schemeAction === 'held') {
-            // Held: scheme_pool stays the same, no changes needed
-        }
-        // For scored/discarded without next_scheme_id (last turn), no pool update needed
-
-        // ── Turn completion + advancement ──
-        // Pessimistic lock: prevents two concurrent turn submissions from
-        // both seeing "2 of 2 done" and double-advancing the turn counter.
-        $result = DB::transaction(function () use ($game, $player) {
+        // All writes below run in one transaction with a game-row lock so that
+        // a double-submit can't double-advance the turn counter or inflate
+        // total_points. GameTurn::updateOrCreate + recompute-from-sum keeps
+        // the scoring side idempotent on retry.
+        $result = DB::transaction(function () use ($game, $player, $turnSchemeId, $schemeAction, $validated, $nextSchemeId, $totalTurnPoints, $crewSnapshot) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
+
+            if ($locked->status !== GameStatusEnum::InProgress) {
+                return ['already_finalized' => true];
+            }
+
+            GameTurn::updateOrCreate(
+                [
+                    'game_id' => $locked->id,
+                    'turn_number' => $locked->current_turn,
+                    'game_player_id' => $player->id,
+                ],
+                [
+                    'scheme_id' => $turnSchemeId,
+                    'scheme_action' => $schemeAction,
+                    'scheme_notes' => $player->scheme_notes,
+                    'next_scheme_id' => $nextSchemeId,
+                    'strategy_points' => $validated['strategy_points'],
+                    'scheme_points' => $validated['scheme_points'],
+                    'points_scored' => $totalTurnPoints,
+                    'crew_snapshot' => $crewSnapshot,
+                ]
+            );
+
+            $player->update([
+                'total_points' => GameTurn::where('game_id', $locked->id)
+                    ->where('game_player_id', $player->id)
+                    ->sum('points_scored'),
+            ]);
+
+            if ($nextSchemeId) {
+                $nextScheme = Scheme::find($nextSchemeId);
+                $newPool = $nextScheme ? array_values(array_filter([
+                    $nextScheme->next_scheme_one_id,
+                    $nextScheme->next_scheme_two_id,
+                    $nextScheme->next_scheme_three_id,
+                ])) : [];
+
+                $player->update([
+                    'current_scheme_id' => $nextSchemeId,
+                    'next_scheme_id' => null,
+                    'scheme_pool' => ! empty($newPool) ? $newPool : ($player->scheme_pool ?? $locked->scheme_pool ?? []),
+                    'scheme_notes' => $validated['next_scheme_notes'] ?? null,
+                ]);
+            }
+
             $player->update(['is_turn_complete' => true]);
 
             GameCrewMember::where('game_id', $locked->id)
@@ -539,6 +496,10 @@ class GamePlayController extends Controller
 
             return ['both_done' => $bothDone, 'game_complete' => false];
         });
+
+        if (! empty($result['already_finalized'])) {
+            return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
+        }
 
         if ($result['game_complete']) {
             return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
@@ -583,18 +544,18 @@ class GamePlayController extends Controller
         return response()->json(['success' => true, 'game_complete' => $bothDone]);
     }
 
-    public function cancelComplete(Game $game): JsonResponse
+    public function cancelComplete(Game $game): RedirectResponse
     {
         $player = $this->getMyPlayer($game);
 
         if ($game->status !== GameStatusEnum::InProgress) {
-            return response()->json(['error' => 'Game is not in progress'], 422);
+            abort(422, 'Game is not in progress');
         }
 
         // Can only cancel if the game hasn't been finalized yet (both haven't agreed)
         $bothDone = $game->players()->where('is_game_complete', true)->count() === 2;
         if ($bothDone) {
-            return response()->json(['error' => 'Game already finalized'], 422);
+            abort(422, 'Game already finalized');
         }
 
         $player->update(['is_game_complete' => false]);
@@ -603,7 +564,7 @@ class GamePlayController extends Controller
             broadcast(new GameCrewMemberUpdated($game, 'cancel_complete'))->toOthers();
         }
 
-        return response()->json(['success' => true]);
+        return back();
     }
 
     private function finalizeGame(Game $game): void
@@ -714,12 +675,5 @@ class GamePlayController extends Controller
         $player = $game->players()->where('slot', $slot)->firstOrFail();
 
         return $player;
-    }
-
-    private function assertOwnsCrewMember(GamePlayer $player, GameCrewMember $member): void
-    {
-        if ($member->game_player_id !== $player->id) {
-            abort(403, 'Not your crew member');
-        }
     }
 }

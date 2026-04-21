@@ -9,6 +9,9 @@ use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Events\GamePlayerJoined;
 use App\Events\GameStatusChanged;
+use App\Http\Requests\Games\StoreGameRequest;
+use App\Http\Requests\Games\UpdateGameSettingsRequest;
+use App\Http\Requests\Games\UpdateScenarioRequest;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
@@ -17,7 +20,6 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -28,49 +30,37 @@ class GameController extends Controller
     {
         $userId = Auth::id();
 
-        $activeGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
-            ->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name'])
-            ->latest()
-            ->get();
-
-        $recentGames = Game::whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'))
-            ->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value])
-            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
-            ->latest('completed_at')
-            ->take(20)
-            ->get();
-
-        $observableGames = Game::where('is_observable', true)
-            ->where('updated_at', '>=', now()->subDay())
-            ->where('status', '!=', GameStatusEnum::Abandoned->value)
-            ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
-            ->latest('updated_at')
-            ->take(10)
-            ->get();
-
         return inertia('Games/Index', [
-            'active_games' => $activeGames,
-            'recent_games' => $recentGames,
-            'observable_games' => $observableGames,
+            'active_games' => Game::forUser($userId)->active()
+                ->with(['players.user:id,name', 'strategy:id,name'])
+                ->latest()
+                ->get(),
+            'recent_games' => Game::forUser($userId)->completed()
+                ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
+                ->latest('completed_at')
+                ->take(20)
+                ->get(),
+            'observable_games' => $this->observableGamesList(),
         ]);
     }
 
     public function publicIndex(): Response|ResponseFactory
     {
-        $observableGames = Game::where('is_observable', true)
-            ->where('updated_at', '>=', now()->subDay())
-            ->where('status', '!=', GameStatusEnum::Abandoned->value)
+        return inertia('Games/Index', [
+            'active_games' => [],
+            'recent_games' => [],
+            'observable_games' => $this->observableGamesList(),
+        ]);
+    }
+
+    /** Shared list of recently-active public games (index + publicIndex). */
+    private function observableGamesList()
+    {
+        return Game::observable()
             ->with(['players.user:id,name', 'strategy:id,name', 'winner:id,name'])
             ->latest('updated_at')
             ->take(10)
             ->get();
-
-        return inertia('Games/Index', [
-            'active_games' => [],
-            'recent_games' => [],
-            'observable_games' => $observableGames,
-        ]);
     }
 
     public function create(): Response|ResponseFactory
@@ -86,14 +76,9 @@ class GameController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreGameRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'encounter_size' => ['required', 'integer', 'min:20', 'max:100'],
-            'season' => ['required', 'string'],
-            'is_solo' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $seasonEnum = PoolSeasonEnum::from($validated['season']);
 
@@ -150,15 +135,8 @@ class GameController extends Controller
 
     public function show(Game $game): Response|ResponseFactory
     {
+        $this->authorize('view', $game);
         $userId = Auth::id();
-
-        // Must be creator or player
-        $isParticipant = $game->creator_id === $userId
-            || $game->players()->where('user_id', $userId)->exists();
-
-        if (! $isParticipant) {
-            abort(403);
-        }
 
         $eagerLoads = [
             'players.user:id,name',
@@ -242,19 +220,15 @@ class GameController extends Controller
         $schemes = $poolSchemes
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => self::formatScheme($s));
+            ->map(fn (Scheme $s) => $s->toTrackerArray());
 
         // All reachable schemes (pool + follow-up chains) for lookups
         $allReachableSchemes = $schemeCache->filter(fn (Scheme $s) => $reachableIds->contains($s->id))
             ->values()
-            ->map(fn (Scheme $s) => self::formatScheme($s));
+            ->map(fn (Scheme $s) => $s->toTrackerArray());
 
         // Scenario editor data (available before gameplay starts, for creator)
-        $canEditScenario = fn () => $game->creator_id === Auth::id()
-            && in_array($game->status, [
-                GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
-                GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
-            ]);
+        $canEditScenario = fn () => Auth::user()?->can('updateScenario', $game) ?? false;
         $allStrategies = fn () => $canEditScenario()
             ? Strategy::forSeason($game->season)->orderBy('name')->get()->map(fn (Strategy $s) => ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url])
             : [];
@@ -264,167 +238,6 @@ class GameController extends Controller
         $allDeployments = fn () => $canEditScenario()
             ? collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'image_url' => $d->imageUrl()])
             : [];
-
-        // Data for setup steps (lazy-loaded based on current status)
-        $factions = fn () => FactionEnum::buildDetails();
-        $masters = function () use ($game) {
-            $masterStatuses = [GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect];
-            // Solo mode needs masters during faction_select too (for opponent setup after own faction)
-            if ($game->is_solo) {
-                $masterStatuses[] = GameStatusEnum::FactionSelect;
-            }
-            if (! in_array($game->status, $masterStatuses)) {
-                return [];
-            }
-
-            $characters = Character::standard()->where('station', 'master')
-                ->where('is_hidden', false)
-                ->with('miniatures')
-                ->orderBy('name')
-                ->orderBy('title')
-                ->get();
-
-            // Include alternate leaders from crew upgrades (e.g., Wrath via On Tour)
-            $alternateLeaderIds = \App\Models\Upgrade::standard()->forCrews()
-                ->whereNotNull('hiring_rules')
-                ->pluck('hiring_rules')
-                ->map(fn ($rules) => $rules['alternate_leader_id'] ?? null)
-                ->filter()
-                ->unique();
-
-            if ($alternateLeaderIds->isNotEmpty()) {
-                $altLeaders = Character::standard()->whereIn('id', $alternateLeaderIds)
-                    ->where('is_hidden', false)
-                    ->with('miniatures')
-                    ->get();
-
-                foreach ($altLeaders as $alt) {
-                    if (! $characters->contains('id', $alt->id)) {
-                        $characters->push($alt);
-                    }
-                }
-            }
-
-            $characters = $characters->sortBy('name')->sortBy('title');
-
-            $grouped = [];
-            foreach ($characters->groupBy('name') as $name => $group) {
-                /** @var Character $first */
-                $first = $group->first();
-                $grouped[] = [
-                    'name' => $name,
-                    'faction' => $first->getRawOriginal('faction'),
-                    'second_faction' => $first->getRawOriginal('second_faction'),
-                    'front_image' => $first->miniatures->first()?->front_image,
-                    'is_alternate_leader' => $alternateLeaderIds->contains($first->id),
-                    'titles' => $group->map(fn (Character $c) => [
-                        'id' => $c->id,
-                        'display_name' => $c->display_name,
-                        'title' => $c->title,
-                    ])->values(),
-                ];
-            }
-
-            return $grouped; // @phpstan-ignore return.type
-        };
-        $myCrews = function () use ($game) {
-            if (! in_array($game->status, [GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect]) || ! Auth::check()) {
-                return [];
-            }
-
-            $builds = CrewBuild::where('user_id', Auth::id())
-                ->where('is_archived', false)
-                ->with('master.keywords')
-                ->orderBy('updated_at', 'desc')
-                ->get();
-
-            // Include totem IDs alongside crew members to avoid N+1 queries
-            $totemIds = $builds->map(fn (CrewBuild $b) => $b->master?->has_totem_id)->filter()->unique(); // @phpstan-ignore nullsafe.neverNull
-            $allCharIds = $builds->flatMap(fn (CrewBuild $b) => $b->crew_data ?? [])->unique()->merge($totemIds)->unique();
-            $characters = Character::with('keywords', 'characteristics')
-                ->whereIn('id', $allCharIds)->get()->keyBy('id');
-
-            $result = [];
-            foreach ($builds as $b) {
-                $master = $b->master;
-                if (! $master) {
-                    continue;
-                }
-
-                $leaderKeywords = $master->keywords->pluck('slug')->toArray();
-                $members = [];
-                $totalSpent = 0;
-                $ookCount = 0;
-
-                // Leader
-                $members[] = [
-                    'display_name' => $master->display_name,
-                    'faction' => $master->getRawOriginal('faction'),
-                    'cost' => 0,
-                    'effective_cost' => 0,
-                    'category' => 'leader',
-                ];
-
-                // Totem
-                if ($master->has_totem_id) {
-                    $totem = $characters->get($master->has_totem_id) ?? Character::find($master->has_totem_id);
-                    if ($totem) {
-                        $totemCount = max(1, $totem->count ?? 1);
-                        for ($i = 0; $i < $totemCount; $i++) {
-                            $members[] = [
-                                'display_name' => $totem->display_name,
-                                'faction' => $totem->getRawOriginal('faction'),
-                                'cost' => 0,
-                                'effective_cost' => 0,
-                                'category' => 'totem',
-                            ];
-                        }
-                    }
-                }
-
-                foreach ($b->crew_data ?? [] as $id) {
-                    $char = $characters->get($id);
-                    if (! $char) {
-                        continue;
-                    }
-
-                    $sharesKeyword = $char->keywords->pluck('slug')->intersect($leaderKeywords)->isNotEmpty();
-                    $isVersatile = $char->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
-                    $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
-                    $effectiveCost = $category === 'ook' ? ($char->cost + 1) : $char->cost;
-                    $totalSpent += $effectiveCost;
-                    if ($category === 'ook') {
-                        $ookCount++;
-                    }
-
-                    $members[] = [
-                        'display_name' => $char->display_name,
-                        'faction' => $char->getRawOriginal('faction'),
-                        'cost' => $char->cost,
-                        'effective_cost' => $effectiveCost,
-                        'category' => $category,
-                    ];
-                }
-
-                $remaining = $b->encounter_size - $totalSpent;
-                $result[] = [
-                    'id' => $b->id,
-                    'name' => $b->name,
-                    'share_code' => $b->share_code,
-                    'faction' => $b->getRawOriginal('faction'),
-                    'master_name' => $master->display_name,
-                    'encounter_size' => $b->encounter_size,
-                    'crew_count' => count($b->crew_data ?? []) + 1,
-                    'total_spent' => $totalSpent,
-                    'soulstone_pool' => $remaining > 6 ? 6 : max(0, $remaining),
-                    'ook_count' => $ookCount,
-                    'is_over_budget' => $totalSpent > $game->encounter_size,
-                    'members' => $members,
-                ];
-            }
-
-            return $result;
-        };
 
         return inertia('Games/Show', [
             'game' => $game,
@@ -441,9 +254,9 @@ class GameController extends Controller
                     'image_url' => $d->imageUrl(),
                 ];
             })() : null,
-            'factions' => $factions,
-            'masters' => $masters,
-            'my_crews' => $myCrews,
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'masters' => fn () => $this->buildMastersProp($game),
+            'my_crews' => fn () => $this->buildMyCrewsProp($game),
             'all_strategies' => $allStrategies,
             'all_schemes' => $allSchemes,
             'all_deployments' => $allDeployments,
@@ -456,150 +269,30 @@ class GameController extends Controller
             'character_upgrades' => fn () => $game->status === GameStatusEnum::InProgress
                 ? \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
                 : [],
-            'current_schemes' => function () use ($game) {
-                if ($game->status === GameStatusEnum::Completed) {
-                    // Include all schemes used across all turns (may not be in the pool)
-                    $turnSchemeIds = GameTurn::where('game_id', $game->id)
-                        ->whereNotNull('scheme_id')
-                        ->pluck('scheme_id')
-                        ->unique()
-                        ->values();
-                    $playerSchemeIds = $game->players->pluck('current_scheme_id')->filter();
-                    $allIds = $turnSchemeIds->merge($playerSchemeIds)->unique()->values();
-
-                    return Scheme::whereIn('id', $allIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
-                }
-
-                if ($game->status !== GameStatusEnum::InProgress) {
-                    return [];
-                }
-                $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
-
-                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
-            },
-            'opponent_scheme_intel' => function () use ($game, $schemeCache) {
-                if ($game->status !== GameStatusEnum::InProgress) {
-                    return null;
-                }
-
-                $userId = Auth::id();
-                /** @var GamePlayer|null $opponent */
-                $opponent = $game->is_solo
-                    ? $game->players->firstWhere('slot', 2)
-                    : $game->players->first(fn ($p) => $p->user_id !== $userId);
-
-                if (! $opponent) {
-                    return null;
-                }
-
-                // Possible schemes: derived from the opponent's LAST REVEALED
-                // scheme (scored/discarded), not their current scheme_pool — that
-                // pool reflects their next-scheme pick, which is still hidden.
-                //
-                // Before any reveal: show the game's initial pool (shared knowledge).
-                // After a reveal: compute follow-ups of the most recently revealed scheme.
-                $lastRevealedTurn = $opponent->turns
-                    ->sortByDesc('turn_number')
-                    ->first(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded']));
-
-                if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
-                    $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
-                    $poolIds = $revealedScheme
-                        ? array_values(array_filter([
-                            $revealedScheme->next_scheme_one_id,
-                            $revealedScheme->next_scheme_two_id,
-                            $revealedScheme->next_scheme_three_id,
-                        ]))
-                        : ($game->scheme_pool ?? []);
-                    // If the revealed scheme has no follow-ups, fall back to game pool.
-                    if (empty($poolIds)) {
-                        $poolIds = $game->scheme_pool ?? [];
-                    }
-                } else {
-                    // No reveals yet — show the game's initial shared pool.
-                    $poolIds = $game->scheme_pool ?? [];
-                }
-
-                $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
-                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
-
-                // Scheme history — build in two passes:
-                //
-                // 1. Walk turns in order, collecting held turns into a buffer.
-                // 2. When a scored/discarded turn arrives, it "reveals" all the
-                //    preceding held turns (they were all the same scheme). Flush
-                //    the buffer with the revealed scheme's name + id.
-                //
-                // Any trailing held turns (scheme not yet revealed) are omitted
-                // entirely — the opponent hasn't shown their hand yet.
-                $schemeHistory = [];
-                $heldBuffer = [];
-                foreach ($opponent->turns->sortBy('turn_number') as $t) {
-                    /** @var GameTurn $t */
-                    if ($t->scheme_action === null) {
-                        continue;
-                    }
-
-                    if ($t->scheme_action === 'held') {
-                        $heldBuffer[] = $t->turn_number;
-
-                        continue;
-                    }
-
-                    // scored or discarded — flush held buffer with this scheme's info
-                    $scheme = $t->scheme_id ? $schemeCache->get($t->scheme_id) : null;
-                    $schemeName = $scheme->name ?? 'Unknown';
-                    foreach ($heldBuffer as $heldTurn) {
-                        $schemeHistory[] = [
-                            'turn_number' => $heldTurn,
-                            'scheme_id' => $t->scheme_id,
-                            'scheme_name' => $schemeName,
-                            'scheme_action' => 'held',
-                        ];
-                    }
-                    $heldBuffer = [];
-
-                    $schemeHistory[] = [
-                        'turn_number' => $t->turn_number,
-                        'scheme_id' => $t->scheme_id,
-                        'scheme_name' => $schemeName,
-                        'scheme_action' => $t->scheme_action,
-                    ];
-                }
-                // Trailing held turns are intentionally NOT flushed — the scheme
-                // hasn't been revealed yet, so we don't show them.
-
-                // Last revealed = most recent scored/discarded turn (not held)
-                $lastRevealed = collect($schemeHistory)
-                    ->last(fn ($h) => in_array($h['scheme_action'], ['scored', 'discarded']));
-
-                return [
-                    'last_revealed' => $lastRevealed,
-                    'possible_schemes' => $possible,
-                    'scheme_history' => $schemeHistory,
-                ];
-            },
-            // next_schemes and opponent_next_schemes now read directly from stored scheme_pool
+            'current_schemes' => fn () => $this->buildCurrentSchemesProp($game),
+            'opponent_scheme_intel' => fn () => $this->buildOpponentSchemeIntel($game, $schemeCache),
+            // next_schemes and opponent_next_schemes read directly from stored scheme_pool
             'next_schemes' => function () use ($game, $schemeCache) {
-                $userId = Auth::id();
-                $myPlayer = $game->players->first(fn ($p) => $p->user_id === $userId);
-                if (! $myPlayer || $game->status !== GameStatusEnum::InProgress) {
+                if ($game->status !== GameStatusEnum::InProgress) {
                     return [];
                 }
-                $poolIds = $myPlayer->scheme_pool ?? [];
+                $myPlayer = $game->players->first(fn ($p) => $p->user_id === Auth::id());
+                if (! $myPlayer) {
+                    return [];
+                }
 
-                return $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
-                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
+                return self::schemesFromCache($schemeCache, $myPlayer->scheme_pool ?? []);
             },
             'opponent_next_schemes' => function () use ($game, $schemeCache) {
                 if (! $game->is_solo || $game->status !== GameStatusEnum::InProgress) {
                     return [];
                 }
                 $opponent = $game->players->firstWhere('slot', 2);
-                $poolIds = $opponent->scheme_pool ?? [];
+                if (! $opponent) {
+                    return [];
+                }
 
-                return $schemeCache->filter(fn ($s) => in_array($s->id, $poolIds))
-                    ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
+                return self::schemesFromCache($schemeCache, $opponent->scheme_pool ?? []);
             },
             'observer_scheme_intel' => fn () => null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
@@ -664,26 +357,9 @@ class GameController extends Controller
         return redirect()->route('games.show', $game->uuid);
     }
 
-    public function updateScenario(Request $request, Game $game)
+    public function updateScenario(UpdateScenarioRequest $request, Game $game)
     {
-        // Only creator can edit, only before gameplay starts
-        if ($game->creator_id !== Auth::id()) {
-            abort(403);
-        }
-        $editableStatuses = [
-            GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
-            GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
-        ];
-        if (! in_array($game->status, $editableStatuses)) {
-            return response()->json(['error' => 'Game already started'], 422);
-        }
-
-        $validated = $request->validate([
-            'strategy_id' => ['nullable', 'exists:strategies,id'],
-            'deployment' => ['nullable', 'string'],
-            'scheme_pool' => ['required', 'array', 'min:3', 'max:3'],
-            'scheme_pool.*' => ['integer', 'exists:schemes,id'],
-        ]);
+        $validated = $request->validated();
 
         $game->update([
             'strategy_id' => $validated['strategy_id'],
@@ -696,16 +372,7 @@ class GameController extends Controller
 
     public function regenerateScenario(Game $game)
     {
-        if ($game->creator_id !== Auth::id()) {
-            abort(403);
-        }
-        $editableStatuses = [
-            GameStatusEnum::Setup, GameStatusEnum::FactionSelect,
-            GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect, GameStatusEnum::SchemeSelect,
-        ];
-        if (! in_array($game->status, $editableStatuses)) {
-            return response()->json(['error' => 'Game already started'], 422);
-        }
+        $this->authorize('updateScenario', $game);
 
         $seasonEnum = $game->season;
         $strategies = Strategy::forSeason($seasonEnum)->get();
@@ -725,13 +392,9 @@ class GameController extends Controller
 
     public function destroy(Game $game)
     {
+        $this->authorize('view', $game);
         $userId = Auth::id();
-
-        // Must be a participant
         $player = $game->players()->where('user_id', $userId)->first();
-        if (! $player && $game->creator_id !== $userId) {
-            abort(403);
-        }
 
         // Solo games or games still in setup (no opponent yet): hard delete
         if ($game->is_solo || $game->players()->count() <= 1) {
@@ -801,7 +464,7 @@ class GameController extends Controller
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => self::formatScheme($s));
+            ->map(fn (Scheme $s) => $s->toTrackerArray());
 
         return inertia('Games/Show', [
             'game' => $game,
@@ -837,54 +500,12 @@ class GameController extends Controller
                     $schemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
                 }
 
-                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
+                return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
             },
             'opponent_scheme_intel' => fn () => null,
             'next_schemes' => fn () => [],
             'opponent_next_schemes' => fn () => [],
-            'observer_scheme_intel' => function () use ($game) {
-                if ($game->status !== GameStatusEnum::InProgress) {
-                    return null;
-                }
-
-                $schemeCache = Scheme::forSeason($game->season)->get()->keyBy('id');
-                $result = [];
-
-                foreach ($game->players as $player) {
-                    // For observers: show what schemes the player COULD currently be holding.
-                    // That's the follow-ups of their last scored/discarded scheme (what they picked from).
-                    // If no scheme has been scored/discarded yet, use the game pool.
-                    $lastRevealedTurn = $player->turns
-                        ->sortByDesc('turn_number')
-                        ->first(fn ($t) => in_array($t->scheme_action, ['scored', 'discarded']));
-
-                    if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
-                        $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
-                        $possibleIds = $revealedScheme ? array_values(array_filter([
-                            $revealedScheme->next_scheme_one_id,
-                            $revealedScheme->next_scheme_two_id,
-                            $revealedScheme->next_scheme_three_id,
-                        ])) : [];
-                    } else {
-                        $possibleIds = $game->scheme_pool ?? [];
-                    }
-
-                    $possible = $schemeCache->filter(fn ($s) => in_array($s->id, $possibleIds))
-                        ->map(fn (Scheme $s) => self::formatScheme($s))->values()->toArray();
-
-                    // Only reveal if scheme_action is 'scored' on the current turn
-                    $currentTurnRecord = $player->turns->firstWhere('turn_number', $game->current_turn);
-                    $revealedThisTurn = $currentTurnRecord && $currentTurnRecord->scheme_action === 'scored';
-
-                    $result[$player->slot] = [
-                        'possible_schemes' => $possible,
-                        'revealed_scheme_id' => $revealedThisTurn ? $currentTurnRecord->scheme_id : null,
-                        'last_scored_turn' => $revealedThisTurn ? $currentTurnRecord->turn_number : null,
-                    ];
-                }
-
-                return $result;
-            },
+            'observer_scheme_intel' => fn () => $this->buildObserverSchemeIntel($game),
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => true,
         ]);
@@ -913,7 +534,7 @@ class GameController extends Controller
         $schemes = Scheme::whereIn('id', $schemePoolOrder)->get()
             ->sortBy(fn (Scheme $s) => array_search($s->id, $schemePoolOrder))
             ->values()
-            ->map(fn (Scheme $s) => self::formatScheme($s));
+            ->map(fn (Scheme $s) => $s->toTrackerArray());
 
         $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
         $turnSchemeIds = GameTurn::where('game_id', $game->id)
@@ -921,7 +542,7 @@ class GameController extends Controller
             ->pluck('scheme_id')
             ->unique();
         $allSchemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
-        $currentSchemes = Scheme::whereIn('id', $allSchemeIds)->get()->map(fn (Scheme $s) => self::formatScheme($s))->toArray();
+        $currentSchemes = Scheme::whereIn('id', $allSchemeIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
 
         return inertia('Games/Show', [
             'game' => $game,
@@ -954,28 +575,20 @@ class GameController extends Controller
 
     public function toggleObservable(Game $game)
     {
-        if ($game->creator_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $game);
 
         $game->update(['is_observable' => ! $game->is_observable]);
 
-        return response()->json(['success' => true, 'is_observable' => $game->is_observable]);
+        return back();
     }
 
-    public function updateSettings(Request $request, Game $game)
+    public function updateSettings(UpdateGameSettingsRequest $request, Game $game)
     {
-        if ($game->creator_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'settings' => ['required', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $game->update(['settings' => array_merge($game->settings ?? [], $validated['settings'])]);
 
-        return response()->json(['success' => true, 'settings' => $game->settings]);
+        return back();
     }
 
     private function getStartingCrews(Game $game): array
@@ -1026,14 +639,7 @@ class GameController extends Controller
 
     public function abandon(Game $game)
     {
-        $userId = Auth::id();
-
-        $isParticipant = $game->creator_id === $userId
-            || $game->players()->where('user_id', $userId)->exists();
-
-        if (! $isParticipant) {
-            abort(403);
-        }
+        $this->authorize('view', $game);
 
         if ($game->status->isFinished()) {
             return redirect()->route('games.show', $game->uuid);
@@ -1056,20 +662,346 @@ class GameController extends Controller
             ->withMessage('Game abandoned.');
     }
 
-    private static function formatScheme(Scheme $s): array
+    /**
+     * Master characters (plus alternate leaders granted by crew upgrades)
+     * grouped by name with their titles, for the MasterSelect UI.
+     */
+    private function buildMastersProp(Game $game): array
     {
+        $masterStatuses = [GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect];
+        // Solo mode needs masters during faction_select too (for opponent setup after own faction).
+        if ($game->is_solo) {
+            $masterStatuses[] = GameStatusEnum::FactionSelect;
+        }
+        if (! in_array($game->status, $masterStatuses)) {
+            return [];
+        }
+
+        $characters = Character::standard()->where('station', 'master')
+            ->where('is_hidden', false)
+            ->with('miniatures')
+            ->orderBy('name')
+            ->orderBy('title')
+            ->get();
+
+        // Include alternate leaders granted by crew upgrades (e.g., Wrath via On Tour).
+        $alternateLeaderIds = \App\Models\Upgrade::standard()->forCrews()
+            ->whereNotNull('hiring_rules')
+            ->pluck('hiring_rules')
+            ->map(fn ($rules) => $rules['alternate_leader_id'] ?? null)
+            ->filter()
+            ->unique();
+
+        if ($alternateLeaderIds->isNotEmpty()) {
+            $altLeaders = Character::standard()->whereIn('id', $alternateLeaderIds)
+                ->where('is_hidden', false)
+                ->with('miniatures')
+                ->get();
+
+            foreach ($altLeaders as $alt) {
+                if (! $characters->contains('id', $alt->id)) {
+                    $characters->push($alt);
+                }
+            }
+        }
+
+        $characters = $characters->sortBy('name')->sortBy('title');
+
+        $grouped = [];
+        foreach ($characters->groupBy('name') as $name => $group) {
+            /** @var Character $first */
+            $first = $group->first();
+            $grouped[] = [
+                'name' => $name,
+                'faction' => $first->getRawOriginal('faction'),
+                'second_faction' => $first->getRawOriginal('second_faction'),
+                'front_image' => $first->miniatures->first()?->front_image,
+                'is_alternate_leader' => $alternateLeaderIds->contains($first->id),
+                'titles' => $group->map(fn (Character $c) => [
+                    'id' => $c->id,
+                    'display_name' => $c->display_name,
+                    'title' => $c->title,
+                ])->values(),
+            ];
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Current user's saved CrewBuilds shaped for the CrewSelect list — each
+     * preview carries a summary of members and computed soulstone pool so the
+     * UI can render without drilling into relations.
+     */
+    private function buildMyCrewsProp(Game $game): array
+    {
+        if (! in_array($game->status, [GameStatusEnum::MasterSelect, GameStatusEnum::CrewSelect]) || ! Auth::check()) {
+            return [];
+        }
+
+        $builds = CrewBuild::where('user_id', Auth::id())
+            ->where('is_archived', false)
+            ->with('master.keywords')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // One big character load — avoids N+1 per-build when shaping members below.
+        $totemIds = $builds->map(fn (CrewBuild $b) => $b->master?->has_totem_id)->filter()->unique(); // @phpstan-ignore nullsafe.neverNull
+        $allCharIds = $builds->flatMap(fn (CrewBuild $b) => $b->crew_data ?? [])->unique()->merge($totemIds)->unique();
+        $characters = Character::with('keywords', 'characteristics')
+            ->whereIn('id', $allCharIds)->get()->keyBy('id');
+
+        $result = [];
+        foreach ($builds as $b) {
+            $master = $b->master;
+            if (! $master) {
+                continue;
+            }
+
+            $leaderKeywords = $master->keywords->pluck('slug')->toArray();
+            $members = [];
+            $totalSpent = 0;
+            $ookCount = 0;
+
+            $members[] = [
+                'display_name' => $master->display_name,
+                'faction' => $master->getRawOriginal('faction'),
+                'cost' => 0,
+                'effective_cost' => 0,
+                'category' => 'leader',
+            ];
+
+            if ($master->has_totem_id) {
+                $totem = $characters->get($master->has_totem_id) ?? Character::find($master->has_totem_id);
+                if ($totem) {
+                    $totemCount = max(1, $totem->count ?? 1);
+                    for ($i = 0; $i < $totemCount; $i++) {
+                        $members[] = [
+                            'display_name' => $totem->display_name,
+                            'faction' => $totem->getRawOriginal('faction'),
+                            'cost' => 0,
+                            'effective_cost' => 0,
+                            'category' => 'totem',
+                        ];
+                    }
+                }
+            }
+
+            foreach ($b->crew_data ?? [] as $id) {
+                $char = $characters->get($id);
+                if (! $char) {
+                    continue;
+                }
+
+                $sharesKeyword = $char->keywords->pluck('slug')->intersect($leaderKeywords)->isNotEmpty();
+                $isVersatile = $char->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+                $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+                $effectiveCost = $category === 'ook' ? ($char->cost + 1) : $char->cost;
+                $totalSpent += $effectiveCost;
+                if ($category === 'ook') {
+                    $ookCount++;
+                }
+
+                $members[] = [
+                    'display_name' => $char->display_name,
+                    'faction' => $char->getRawOriginal('faction'),
+                    'cost' => $char->cost,
+                    'effective_cost' => $effectiveCost,
+                    'category' => $category,
+                ];
+            }
+
+            $remaining = $b->encounter_size - $totalSpent;
+            $result[] = [
+                'id' => $b->id,
+                'name' => $b->name,
+                'share_code' => $b->share_code,
+                'faction' => $b->getRawOriginal('faction'),
+                'master_name' => $master->display_name,
+                'encounter_size' => $b->encounter_size,
+                'crew_count' => count($b->crew_data ?? []) + 1,
+                'total_spent' => $totalSpent,
+                'soulstone_pool' => $remaining > 6 ? 6 : max(0, $remaining),
+                'ook_count' => $ookCount,
+                'is_over_budget' => $totalSpent > $game->encounter_size,
+                'members' => $members,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * What the current user can infer about the opponent's scheme state:
+     * the last revealed scheme (scored/discarded), a possible-schemes pool
+     * derived from follow-ups of that reveal, and a turn-by-turn history
+     * with held turns attributed retroactively once the scheme reveals.
+     */
+    private function buildOpponentSchemeIntel(Game $game, \Illuminate\Support\Collection $schemeCache): ?array
+    {
+        if ($game->status !== GameStatusEnum::InProgress) {
+            return null;
+        }
+
+        $userId = Auth::id();
+        /** @var GamePlayer|null $opponent */
+        $opponent = $game->is_solo
+            ? $game->players->firstWhere('slot', 2)
+            : $game->players->first(fn ($p) => $p->user_id !== $userId);
+
+        if (! $opponent) {
+            return null;
+        }
+
+        // Possible schemes come from the opponent's LAST REVEALED scheme's
+        // follow-ups — NOT their stored scheme_pool, which reflects an
+        // as-yet-hidden next-scheme pick. Before any reveal: the shared game pool.
+        $lastRevealedTurn = $opponent->turns
+            ->sortByDesc('turn_number')
+            ->first(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded']));
+
+        if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
+            $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
+            $poolIds = $revealedScheme
+                ? array_values(array_filter([
+                    $revealedScheme->next_scheme_one_id,
+                    $revealedScheme->next_scheme_two_id,
+                    $revealedScheme->next_scheme_three_id,
+                ]))
+                : ($game->scheme_pool ?? []);
+            if (empty($poolIds)) {
+                $poolIds = $game->scheme_pool ?? [];
+            }
+        } else {
+            $poolIds = $game->scheme_pool ?? [];
+        }
+
+        $possible = self::schemesFromCache($schemeCache, $poolIds);
+
+        // Scheme history: walk turns in order, buffering held turns. When a
+        // scored/discarded turn arrives it retroactively reveals the scheme
+        // the buffered held turns belonged to. Trailing held turns stay hidden.
+        $schemeHistory = [];
+        $heldBuffer = [];
+        foreach ($opponent->turns->sortBy('turn_number') as $t) {
+            /** @var GameTurn $t */
+            if ($t->scheme_action === null) {
+                continue;
+            }
+
+            if ($t->scheme_action === 'held') {
+                $heldBuffer[] = $t->turn_number;
+
+                continue;
+            }
+
+            $scheme = $t->scheme_id ? $schemeCache->get($t->scheme_id) : null;
+            $schemeName = $scheme->name ?? 'Unknown';
+            foreach ($heldBuffer as $heldTurn) {
+                $schemeHistory[] = [
+                    'turn_number' => $heldTurn,
+                    'scheme_id' => $t->scheme_id,
+                    'scheme_name' => $schemeName,
+                    'scheme_action' => 'held',
+                ];
+            }
+            $heldBuffer = [];
+
+            $schemeHistory[] = [
+                'turn_number' => $t->turn_number,
+                'scheme_id' => $t->scheme_id,
+                'scheme_name' => $schemeName,
+                'scheme_action' => $t->scheme_action,
+            ];
+        }
+
+        $lastRevealed = collect($schemeHistory)
+            ->last(fn ($h) => in_array($h['scheme_action'], ['scored', 'discarded']));
+
         return [
-            'id' => $s->id,
-            'name' => $s->name,
-            'slug' => $s->slug,
-            'image_url' => $s->image_url,
-            'prerequisite' => $s->prerequisite,
-            'reveal' => $s->reveal,
-            'scoring' => $s->scoring,
-            'requirements' => $s->requirements ?? [],
-            'next_scheme_one_id' => $s->next_scheme_one_id,
-            'next_scheme_two_id' => $s->next_scheme_two_id,
-            'next_scheme_three_id' => $s->next_scheme_three_id,
+            'last_revealed' => $lastRevealed,
+            'possible_schemes' => $possible,
+            'scheme_history' => $schemeHistory,
         ];
+    }
+
+    /**
+     * Schemes scored by each player this game plus any currently-held scheme.
+     * Completed games include every scheme referenced across all turns, even
+     * ones that left the pool via follow-up chains.
+     */
+    private function buildCurrentSchemesProp(Game $game): array
+    {
+        if ($game->status === GameStatusEnum::Completed) {
+            $turnSchemeIds = GameTurn::where('game_id', $game->id)
+                ->whereNotNull('scheme_id')
+                ->pluck('scheme_id')
+                ->unique()
+                ->values();
+            $playerSchemeIds = $game->players->pluck('current_scheme_id')->filter();
+            $allIds = $turnSchemeIds->merge($playerSchemeIds)->unique()->values();
+
+            return Scheme::whereIn('id', $allIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
+        }
+
+        if ($game->status !== GameStatusEnum::InProgress) {
+            return [];
+        }
+
+        $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+
+        return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
+    }
+
+    /** Filter a keyed scheme cache by id list and shape each for the tracker. */
+    private static function schemesFromCache(\Illuminate\Support\Collection $schemeCache, array $ids): array
+    {
+        return $schemeCache->filter(fn (Scheme $s) => in_array($s->id, $ids))
+            ->map(fn (Scheme $s) => $s->toTrackerArray())
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Per-player possible-schemes hints for public observers: each slot gets
+     * the follow-ups of their last revealed scheme, plus whether they scored
+     * (revealing the held scheme) on the current turn.
+     */
+    private function buildObserverSchemeIntel(Game $game): ?array
+    {
+        if ($game->status !== GameStatusEnum::InProgress) {
+            return null;
+        }
+
+        $schemeCache = Scheme::forSeason($game->season)->get()->keyBy('id');
+        $result = [];
+
+        foreach ($game->players as $player) {
+            $lastRevealedTurn = $player->turns
+                ->sortByDesc('turn_number')
+                ->first(fn ($t) => in_array($t->scheme_action, ['scored', 'discarded']));
+
+            if ($lastRevealedTurn && $lastRevealedTurn->scheme_id) {
+                $revealedScheme = $schemeCache->get($lastRevealedTurn->scheme_id);
+                $possibleIds = $revealedScheme ? array_values(array_filter([
+                    $revealedScheme->next_scheme_one_id,
+                    $revealedScheme->next_scheme_two_id,
+                    $revealedScheme->next_scheme_three_id,
+                ])) : [];
+            } else {
+                $possibleIds = $game->scheme_pool ?? [];
+            }
+
+            $currentTurnRecord = $player->turns->firstWhere('turn_number', $game->current_turn);
+            $revealedThisTurn = $currentTurnRecord && $currentTurnRecord->scheme_action === 'scored';
+
+            $result[$player->slot] = [
+                'possible_schemes' => self::schemesFromCache($schemeCache, $possibleIds),
+                'revealed_scheme_id' => $revealedThisTurn ? $currentTurnRecord->scheme_id : null,
+                'last_scored_turn' => $revealedThisTurn ? $currentTurnRecord->turn_number : null,
+            ];
+        }
+
+        return $result;
     }
 }

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ExternalLink } from 'lucide-vue-next';
@@ -82,9 +83,7 @@ const getFactionLabel = (slug: string) => factionInfo.value[slug]?.name ?? slug;
 const getFactionLogo = (slug: string) => factionInfo.value[slug]?.logo ?? '';
 const getFactionColor = (slug: string) => factionInfo.value[slug]?.color ?? '';
 const formatContentType = (value: string) => value.replace(/_/g, ' ');
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-};
+const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric', month: 'short', day: 'numeric' });
 </script>
 
 <template>

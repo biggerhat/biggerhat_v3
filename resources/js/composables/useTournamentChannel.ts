@@ -13,6 +13,14 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const reload = (event: any) => {
+        // Tournament deletion: the current page would 404 on reload — bounce
+        // to the listing page instead. Skip the debounce so co-organizers
+        // leave immediately.
+        if (event?.action === 'tournament_deleted') {
+            router.visit(route('tournaments.index'));
+            return;
+        }
+
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
             if (onUpdate) {

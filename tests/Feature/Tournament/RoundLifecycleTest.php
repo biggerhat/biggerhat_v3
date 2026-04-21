@@ -1,7 +1,10 @@
 <?php
 
 use App\Enums\PermissionEnum;
+use App\Enums\TournamentRoundStatusEnum;
+use App\Models\Game;
 use App\Models\Tournament;
+use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -174,4 +177,85 @@ it('refuses to delete a player who has played games', function () {
         ->deleteJson(route('tournaments.players.remove', [$this->tournament->uuid, $a]))
         ->assertStatus(422)
         ->assertJsonFragment(['error' => 'This player has played games — drop them instead so their match history stays intact.']);
+});
+
+// ─── Tracker game creation timing ───
+
+it('does not create tracker games when auto-pairing a Setup round', function () {
+    $opponent = User::factory()->create();
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $this->creator->id]);
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $opponent->id]);
+
+    // Scenario must be set before pairing (state machine guard).
+    $strategy = \App\Models\Strategy::factory()->create();
+    $schemes = \App\Models\Scheme::factory()->count(3)->create();
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->toArray(),
+    ]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
+        ->assertOk();
+
+    // Pair created TournamentGame rows, but tracker Game rows shouldn't exist
+    // yet — they get materialized when the round is Started.
+    expect($round->fresh()->games()->whereNotNull('game_id')->count())->toBe(0);
+    expect(Game::count())->toBe(0);
+});
+
+it('blocks auto-pair when the round scenario is not configured', function () {
+    $opponent = User::factory()->create();
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $this->creator->id]);
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $opponent->id]);
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => null,
+        'deployment' => null,
+        'scheme_pool' => null,
+    ]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
+        ->assertStatus(422)
+        ->assertJsonFragment(['error' => 'Set the round scenario before pairing (missing: strategy, deployment, scheme pool)']);
+
+    expect($round->fresh()->games()->count())->toBe(0);
+});
+
+it('creates tracker games when the round transitions to InProgress', function () {
+    $opponent = User::factory()->create();
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $this->creator->id]);
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $opponent->id]);
+
+    // State machine requires a fully configured scenario before the round can Start.
+    $strategy = \App\Models\Strategy::factory()->create();
+    $schemes = \App\Models\Scheme::factory()->count(3)->create();
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->toArray(),
+    ]);
+
+    // Pair first — no tracker games yet.
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
+        ->assertOk();
+    expect(Game::count())->toBe(0);
+
+    // Start the round — tracker games materialize now.
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), [
+            'status' => TournamentRoundStatusEnum::InProgress->value,
+        ])
+        ->assertOk();
+
+    expect($round->fresh()->games()->whereNotNull('game_id')->count())->toBe(1);
+    expect(Game::count())->toBe(1);
 });

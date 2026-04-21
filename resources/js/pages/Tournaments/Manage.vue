@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
-import { csrfToken } from '@/lib/utils';
+import { csrfToken, formatDateOnly } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import {
@@ -617,6 +617,7 @@ const playerOpponents = computed(() => {
 const canAutoPair = (round: TournamentRound): boolean => pairBlockReason(round) === null;
 
 // Returns null if pairing is allowed, otherwise a human-readable reason.
+// Mirrors backend TournamentStateMachine::canPairRound — keep in sync.
 const pairBlockReason = (round: TournamentRound): string | null => {
     if (round.status !== 'setup') return 'Round is not in setup';
     if (props.tournament.status !== 'active') {
@@ -628,6 +629,11 @@ const pairBlockReason = (round: TournamentRound): string | null => {
             return `Round ${round.round_number - 1} must be completed first`;
         }
     }
+    const missing: string[] = [];
+    if (!round.strategy) missing.push('strategy');
+    if (!round.deployment) missing.push('deployment');
+    if (!round.scheme_pool || round.scheme_pool.length < 3) missing.push('scheme pool');
+    if (missing.length) return `Set the round scenario before pairing (missing: ${missing.join(', ')})`;
     return null;
 };
 
@@ -1086,10 +1092,7 @@ const canFinalize = computed(() => {
     if (!latestRound.value) return false;
     return latestRound.value.status === 'completed';
 });
-const formatDate = (d: string) => {
-    const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-};
+const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
 const toDateInput = (d: string) => (d ? d.split('T')[0] : '');
 const isEditable = computed(() => !isLocked.value);
 

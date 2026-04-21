@@ -16,7 +16,7 @@ use App\Models\TournamentRound;
 class PlayerStatsCalculator
 {
     /**
-     * @param  \Illuminate\Support\Collection<int, TournamentGame>  $allGames
+     * @param  iterable<TournamentGame>  $allGames  any traversable of games involving the player
      * @param  array{tp: int, diff: int, vp: int}  $byeScoring
      * @param  array<int, TournamentRound>  $completedRounds
      * @param  array<int, int>  $completedRoundNumbers  round_id => round_number lookup
@@ -24,7 +24,7 @@ class PlayerStatsCalculator
      */
     public function compute(
         TournamentPlayer $player,
-        $allGames,
+        iterable $allGames,
         array $byeScoring,
         array $completedRounds,
         array $completedRoundNumbers,

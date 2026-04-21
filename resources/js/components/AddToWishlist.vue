@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
@@ -27,6 +28,7 @@ const props = withDefaults(
 );
 
 const page = usePage<SharedData>();
+const toast = useToast();
 const wishlists = computed(() => page.props.auth.wishlists ?? []);
 const wishlistItems = computed(() => page.props.auth.wishlist_items ?? {});
 const isAuthenticated = computed(() => !!page.props.auth.user);
@@ -100,7 +102,7 @@ async function addToWishlist() {
     }
 
     try {
-        await fetch(route('wishlists.items.add', selectedWishlist.value), {
+        const res = await fetch(route('wishlists.items.add', selectedWishlist.value), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -108,8 +110,19 @@ async function addToWishlist() {
             },
             body: JSON.stringify({ type: addType, id: addId }),
         });
+        if (!res.ok) throw new Error(`status ${res.status}`);
         added.value = true;
         setTimeout(() => (added.value = false), 2000);
+        const wishlistName = wishlists.value.find((w) => w.id === wid)?.name ?? 'wishlist';
+        toast.success(`Added to ${wishlistName}`);
+    } catch {
+        // Roll back the optimistic update.
+        const bucket = items[wid];
+        if (bucket) {
+            const idx = bucket[key].indexOf(addId);
+            if (idx !== -1) bucket[key].splice(idx, 1);
+        }
+        toast.error('Could not add to wishlist', { description: 'Try again in a moment.' });
     } finally {
         processing.value = false;
     }

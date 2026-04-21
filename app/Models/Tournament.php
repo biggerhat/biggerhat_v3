@@ -6,6 +6,7 @@ use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -131,5 +132,12 @@ class Tournament extends Model
         $user = User::find($userId);
 
         return $user !== null && $user->can(PermissionEnum::ManageTournaments->value);
+    }
+
+    /** Tournaments the user owns or is an invited organizer on. */
+    public function scopeForOrganizer(Builder $query, int $userId): Builder
+    {
+        return $query->where(fn ($q) => $q->where('creator_id', $userId)
+            ->orWhereHas('organizers', fn ($o) => $o->where('user_id', $userId)));
     }
 }

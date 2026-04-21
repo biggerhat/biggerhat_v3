@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,8 +63,12 @@ const formatDate = (dateStr: string) => {
 
         <div class="container mx-auto sm:px-4">
             <!-- Create Tournament CTA -->
-            <Link v-if="canCreateTournaments" :href="route('tournaments.create')" class="group mb-6 block">
-                <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <Link
+                v-if="canCreateTournaments"
+                :href="route('tournaments.create')"
+                class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+                <Card class="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div
                             class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
@@ -82,14 +87,19 @@ const formatDate = (dateStr: string) => {
             <div v-if="isLoggedIn && my_tournaments.length" class="mb-8">
                 <h2 class="mb-3 font-semibold">My Tournaments</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <Link v-for="t in my_tournaments" :key="t.id" :href="route('tournaments.manage', t.uuid)">
-                        <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                    <Link
+                        v-for="t in my_tournaments"
+                        :key="t.id"
+                        :href="route('tournaments.manage', t.uuid)"
+                        class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
                                         statusLabel(t.status)
                                     }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground"
+                                    <span class="text-[11px] tabular-nums text-muted-foreground"
                                         >{{ t.encounter_size }}ss
                                         {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
                                     >
@@ -99,10 +109,10 @@ const formatDate = (dateStr: string) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
-                                    <span class="flex items-center gap-1"><Users class="size-3" /> {{ t.players_count }} players</span>
-                                    <span>{{ t.planned_rounds }} rounds</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
+                                    <span class="tabular-nums">{{ t.planned_rounds }} rounds</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -114,14 +124,19 @@ const formatDate = (dateStr: string) => {
             <div v-if="public_tournaments.length">
                 <h2 class="mb-3 font-semibold">Public Tournaments</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <Link v-for="t in public_tournaments" :key="'pub-' + t.id" :href="route('tournaments.view', t.uuid)">
-                        <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                    <Link
+                        v-for="t in public_tournaments"
+                        :key="'pub-' + t.id"
+                        :href="route('tournaments.view', t.uuid)"
+                        class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
                                         statusLabel(t.status)
                                     }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground"
+                                    <span class="text-[11px] tabular-nums text-muted-foreground"
                                         >{{ t.encounter_size }}ss
                                         {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
                                     >
@@ -131,9 +146,9 @@ const formatDate = (dateStr: string) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
-                                    <span class="flex items-center gap-1"><Users class="size-3" /> {{ t.players_count }} players</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
                                     <span>by {{ t.creator.name }}</span>
                                 </div>
                             </CardContent>
@@ -143,17 +158,20 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Empty state -->
-            <div v-if="!my_tournaments.length && !public_tournaments.length" class="py-12 text-center">
-                <Trophy class="mx-auto mb-4 size-12 text-muted-foreground/30" />
-                <p class="mb-2 text-lg font-semibold">No tournaments yet</p>
-                <p class="mb-4 text-sm text-muted-foreground">Create your first tournament to get started</p>
-                <Link v-if="canCreateTournaments" :href="route('tournaments.create')">
-                    <Button><Plus class="mr-2 size-4" /> Create Tournament</Button>
-                </Link>
-                <p v-else-if="isLoggedIn" class="text-xs italic text-muted-foreground">
-                    Tournament creation is restricted. Ask an admin for the Tournament Organizer role.
-                </p>
-            </div>
+            <EmptyState
+                v-if="!my_tournaments.length && !public_tournaments.length"
+                :icon="Trophy"
+                title="No tournaments yet"
+                :description="canCreateTournaments
+                    ? 'Create your first Gaining Grounds event to get started.'
+                    : 'Tournament creation is restricted. Ask an admin for the Tournament Organizer role.'"
+            >
+                <template v-if="canCreateTournaments" #action>
+                    <Link :href="route('tournaments.create')">
+                        <Button><Plus class="mr-2 size-4" /> Create Tournament</Button>
+                    </Link>
+                </template>
+            </EmptyState>
         </div>
     </div>
 </template>

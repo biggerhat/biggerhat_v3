@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
+import EmptyState from '@/components/EmptyState.vue';
 import { BarChart3, Copy, Crown, Hammer, Medal, Package, Paintbrush, Share2, Shield, Swords, TrendingUp, Trophy } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -225,39 +226,40 @@ const winRateColor = (rate: number) => {
             </Card>
 
             <!-- No games -->
-            <div v-if="stats.total_games === 0" class="py-16 text-center">
-                <Trophy class="mx-auto mb-4 size-12 text-muted-foreground/30" />
-                <p class="text-lg font-medium text-muted-foreground">No completed games yet</p>
-                <p class="mt-1 text-sm text-muted-foreground">Stats will appear after completing games in the Game Tracker.</p>
-            </div>
+            <EmptyState
+                v-if="stats.total_games === 0"
+                :icon="Trophy"
+                title="No completed games yet"
+                description="Stats will appear after completing games in the Game Tracker."
+            />
 
             <template v-else>
                 <!-- Overview -->
                 <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardContent class="p-4 text-center">
-                            <div class="text-3xl font-bold">{{ stats.total_games }}</div>
+                            <div class="text-3xl font-bold tabular-nums">{{ stats.total_games }}</div>
                             <div class="text-xs text-muted-foreground">Games Played</div>
-                            <div class="mt-1 text-[10px] text-muted-foreground">{{ stats.duel_games }} duel · {{ stats.solo_games }} solo</div>
+                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">{{ stats.duel_games }} duel · {{ stats.solo_games }} solo</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent class="p-4 text-center">
-                            <div class="text-3xl font-bold" :class="winRateColor(stats.win_rate)">{{ stats.win_rate }}%</div>
+                            <div class="text-3xl font-bold tabular-nums" :class="winRateColor(stats.win_rate)">{{ stats.win_rate }}%</div>
                             <div class="text-xs text-muted-foreground">Win Rate</div>
-                            <div class="mt-1 text-[10px] text-muted-foreground">{{ stats.wins }}W · {{ stats.losses }}L · {{ stats.ties }}T</div>
+                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">{{ stats.wins }}W · {{ stats.losses }}L · {{ stats.ties }}T</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent class="p-4 text-center">
-                            <div class="text-3xl font-bold">{{ stats.avg_vp }}</div>
+                            <div class="text-3xl font-bold tabular-nums">{{ stats.avg_vp }}</div>
                             <div class="text-xs text-muted-foreground">Avg VP / Game</div>
-                            <div class="mt-1 text-[10px] text-muted-foreground">{{ stats.total_vp }} total VP</div>
+                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">{{ stats.total_vp }} total VP</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent class="p-4 text-center">
-                            <div class="flex items-center justify-center gap-3 text-lg font-bold">
+                            <div class="flex items-center justify-center gap-3 text-lg font-bold tabular-nums">
                                 <span>{{ stats.avg_strategy_vp }}</span>
                                 <span class="text-xs font-normal text-muted-foreground">/</span>
                                 <span>{{ stats.avg_scheme_vp }}</span>

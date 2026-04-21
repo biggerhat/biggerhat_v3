@@ -9,6 +9,7 @@ use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Events\GamePlayerJoined;
 use App\Events\GameStatusChanged;
+use App\Events\TournamentUpdated;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;
@@ -652,6 +653,13 @@ class GameController extends Controller
 
         if (! $game->is_solo) {
             broadcast(new GameStatusChanged($game))->toOthers();
+        }
+
+        // Surface abandon to a linked tournament — the TO's badge flips to
+        // "abandoned" in real time so they can intervene (forfeit, re-enter score).
+        $tg = \App\Models\TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
+        if ($tg && $tg->round && $tg->round->tournament) {
+            broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers();
         }
 
         if (request()->wantsJson()) {

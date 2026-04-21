@@ -56,11 +56,24 @@ class TournamentStandingsService
             $completedRoundNumbers[$cr->id] = $cr->round_number;
         }
 
+        // Pre-index games by player so per-player stats computation is O(games_for_player)
+        // instead of O(all_games). Matters on large fields (64p × 5r ≈ 160 games).
+        $gamesByPlayer = [];
+        foreach ($allGames as $g) {
+            if ($g->player_one_id !== null) {
+                $gamesByPlayer[$g->player_one_id][] = $g;
+            }
+            if ($g->player_two_id !== null) {
+                $gamesByPlayer[$g->player_two_id][] = $g;
+            }
+        }
+
         // Pass 1: per-player base stats + opponent map.
         $standings = [];
         $opponentsByPlayer = [];
         foreach ($players as $player) {
-            $stats = $this->stats->compute($player, $allGames, $byeScoring, $completedRounds, $completedRoundNumbers);
+            $playerGames = $gamesByPlayer[$player->id] ?? [];
+            $stats = $this->stats->compute($player, $playerGames, $byeScoring, $completedRounds, $completedRoundNumbers);
             $standings[] = [
                 'player_id' => $player->id,
                 'display_name' => $player->display_name,

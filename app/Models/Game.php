@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -98,6 +99,12 @@ class Game extends Model
     public function winner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'winner_id');
+    }
+
+    /** TournamentGame this tracker game was created for, if any. */
+    public function tournamentGame(): HasOne
+    {
+        return $this->hasOne(TournamentGame::class);
     }
 
     public function playerOne(): ?GamePlayer

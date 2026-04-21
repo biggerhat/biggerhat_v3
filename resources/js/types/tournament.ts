@@ -45,12 +45,33 @@ export interface TournamentGame {
     result: 'pending' | 'completed' | 'agreed' | 'forfeited';
     table_number: number | null;
     is_manual?: boolean;
+    tracker_game?: {
+        id: number;
+        uuid: string;
+        status: 'setup' | 'faction_select' | 'master_select' | 'crew_select' | 'scheme_select' | 'in_progress' | 'completed' | 'abandoned';
+        is_solo: boolean;
+        current_turn: number | null;
+        max_turns: number | null;
+        winner_id: number | null;
+        is_tie: boolean;
+    } | null;
+}
+
+export interface Deployment {
+    value: string;
+    label: string;
+    description: string;
+    image_url: string | null;
 }
 
 export interface TournamentRound {
     id: number;
     round_number: number;
-    deployment: string | null;
+    /**
+     * Raw enum value on Manage; hydrated object on the public View endpoint.
+     * Consumers should narrow at point-of-use.
+     */
+    deployment: string | Deployment | null;
     strategy: { id: number; name: string } | null;
     scheme_pool: number[] | null;
     status: 'setup' | 'in_progress' | 'completed';

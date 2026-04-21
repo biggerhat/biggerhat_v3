@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GameStatusEnum;
+use App\Enums\TournamentGameResultEnum;
 use App\Events\GameCrewMemberUpdated;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
+use App\Events\TournamentUpdated;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -19,6 +21,7 @@ use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
+use App\Models\TournamentGame;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -501,6 +504,11 @@ class GamePlayController extends Controller
             return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
         }
 
+        // Push the fresh per-player VP to a linked TournamentGame (if any). Runs
+        // after the transaction so a rollback can't leave the tournament ahead
+        // of the tracker.
+        $this->syncToTournamentGame($game->fresh()->load('players.master'));
+
         if ($result['game_complete']) {
             return response()->json(['success' => true, 'both_done' => true, 'game_complete' => true]);
         }
@@ -522,6 +530,7 @@ class GamePlayController extends Controller
             // Solo: complete both players at once
             $game->players()->update(['is_game_complete' => true]);
             $this->finalizeGame($game);
+            $this->syncToTournamentGame($game->fresh()->load('players.master'));
 
             return response()->json(['success' => true, 'game_complete' => true]);
         }
@@ -537,6 +546,10 @@ class GamePlayController extends Controller
 
             return $done;
         });
+
+        if ($bothDone) {
+            $this->syncToTournamentGame($game->fresh()->load('players.master'));
+        }
 
         // Solo games already returned above — this is always multiplayer.
         broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
@@ -675,5 +688,67 @@ class GamePlayController extends Controller
         $player = $game->players()->where('slot', $slot)->firstOrFail();
 
         return $player;
+    }
+
+    /**
+     * Flow current per-player VP from a tracker game into its linked TournamentGame.
+     *
+     * Keeps the tournament's recorded score in sync with the live tracker state —
+     * the TO still confirms the final result (TournamentGame.result stays Pending
+     * here), but they see the actual score as it develops rather than having to
+     * re-enter it at the end.
+     *
+     * Skips if the TournamentGame is already Completed or Forfeited — the TO has
+     * confirmed / intervened and we don't want to clobber that.
+     */
+    private function syncToTournamentGame(Game $game): void
+    {
+        /** @var TournamentGame|null $tg */
+        $tg = TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
+        if (! $tg) {
+            return;
+        }
+        if (in_array($tg->result, [TournamentGameResultEnum::Completed, TournamentGameResultEnum::Forfeited])) {
+            return;
+        }
+
+        /** @var GamePlayer|null $p1 */
+        $p1 = $game->players->firstWhere('slot', 1) ?? $game->players()->where('slot', 1)->first();
+        /** @var GamePlayer|null $p2 */
+        $p2 = $game->players->firstWhere('slot', 2) ?? $game->players()->where('slot', 2)->first();
+        if (! $p1 || ! $p2) {
+            return;
+        }
+
+        $turns = GameTurn::where('game_id', $game->id)
+            ->whereIn('game_player_id', [$p1->id, $p2->id])
+            ->get()
+            ->groupBy('game_player_id');
+        $p1Turns = $turns->get($p1->id, collect());
+        $p2Turns = $turns->get($p2->id, collect());
+
+        $tg->update([
+            'player_one_strategy_vp' => (int) $p1Turns->sum('strategy_points'),
+            'player_one_scheme_vp' => (int) $p1Turns->sum('scheme_points'),
+            'player_one_vp' => (int) $p1->total_points,
+            'player_two_strategy_vp' => (int) $p2Turns->sum('strategy_points'),
+            'player_two_scheme_vp' => (int) $p2Turns->sum('scheme_points'),
+            'player_two_vp' => (int) $p2->total_points,
+            // Only back-fill master/title/faction when the TO hasn't entered them —
+            // preserves manual corrections (typo fixes, alt title pick, etc.).
+            'player_one_master' => $tg->player_one_master ?: $p1->master?->name,
+            'player_one_title' => $tg->player_one_title ?: $p1->master?->title,
+            'player_one_faction' => $tg->player_one_faction ?: $p1->getRawOriginal('faction'),
+            'player_two_master' => $tg->player_two_master ?: $p2->master?->name,
+            'player_two_title' => $tg->player_two_title ?: $p2->master?->title,
+            'player_two_faction' => $tg->player_two_faction ?: $p2->getRawOriginal('faction'),
+            'player_one_crew_build_id' => $tg->player_one_crew_build_id ?: $p1->crew_build_id,
+            'player_two_crew_build_id' => $tg->player_two_crew_build_id ?: $p2->crew_build_id,
+        ]);
+
+        // Broadcast so any open Manage/View page refreshes live.
+        if ($tg->round && $tg->round->tournament) {
+            broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_synced'))->toOthers();
+        }
     }
 }

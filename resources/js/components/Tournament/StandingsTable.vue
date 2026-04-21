@@ -24,14 +24,14 @@ const props = defineProps<{
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b text-left text-xs text-muted-foreground">
-                            <th class="px-2 py-2 font-medium sm:px-3">#</th>
-                            <th class="px-2 py-2 font-medium sm:px-3">Player</th>
-                            <th class="px-1 py-2 text-center font-medium sm:px-3">TP</th>
-                            <th class="px-1 py-2 text-center font-medium sm:px-3" title="Strength of Schedule (sum of opponents' TP)">SoS</th>
-                            <th class="px-1 py-2 text-center font-medium sm:px-3">DIFF</th>
-                            <th class="px-1 py-2 text-center font-medium sm:px-3">VP</th>
-                            <th class="hidden px-3 py-2 text-center font-medium sm:table-cell">Played</th>
+                        <tr class="border-b bg-muted/40 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <th class="px-2 py-2.5 font-semibold sm:px-3">#</th>
+                            <th class="px-2 py-2.5 font-semibold sm:px-3">Player</th>
+                            <th class="px-1 py-2.5 text-center font-semibold sm:px-3">TP</th>
+                            <th class="px-1 py-2.5 text-center font-semibold sm:px-3" title="Strength of Schedule (sum of opponents' TP)">SoS</th>
+                            <th class="px-1 py-2.5 text-center font-semibold sm:px-3">Diff</th>
+                            <th class="px-1 py-2.5 text-center font-semibold sm:px-3">VP</th>
+                            <th class="hidden px-3 py-2.5 text-center font-semibold sm:table-cell">Played</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -48,7 +48,7 @@ const props = defineProps<{
                                 props.highlightPlayerId && entry.player_id === props.highlightPlayerId ? 'ring-2 ring-inset ring-primary/60' : '',
                             ]"
                         >
-                            <td class="px-2 py-2 font-bold sm:px-3">{{ entry.rank ?? '-' }}</td>
+                            <td class="px-2 py-2 font-bold tabular-nums sm:px-3">{{ entry.rank ?? '-' }}</td>
                             <td class="px-2 py-2 sm:px-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo
@@ -75,11 +75,11 @@ const props = defineProps<{
                                     >
                                 </div>
                             </td>
-                            <td class="px-1 py-2 text-center font-bold sm:px-3">{{ entry.total_tp }}</td>
-                            <td class="px-1 py-2 text-center font-medium sm:px-3">{{ entry.total_sos }}</td>
-                            <td class="px-1 py-2 text-center font-medium sm:px-3">{{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}</td>
-                            <td class="px-1 py-2 text-center sm:px-3">{{ entry.total_vp }}</td>
-                            <td class="hidden px-3 py-2 text-center opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
+                            <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
+                            <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>
+                            <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}</td>
+                            <td class="px-1 py-2 text-center tabular-nums sm:px-3">{{ entry.total_vp }}</td>
+                            <td class="hidden px-3 py-2 text-center tabular-nums opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
                         </tr>
                     </tbody>
                 </table>

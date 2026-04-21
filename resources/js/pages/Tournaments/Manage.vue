@@ -91,6 +91,16 @@ interface TournamentGame {
     forfeit_player_id: number | null;
     result: string;
     table_number: number | null;
+    tracker_game?: {
+        id: number;
+        uuid: string;
+        status: string;
+        is_solo: boolean;
+        current_turn: number | null;
+        max_turns: number | null;
+        winner_id: number | null;
+        is_tie: boolean;
+    } | null;
 }
 
 interface TournamentRound {
@@ -185,7 +195,7 @@ const props = defineProps<{
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
 const tournamentRef = computed(() => props.tournament);
-const { submitting, actionError, showError, doAction, doModalAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
+const { submitting, showError, doAction, doModalAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
 const { statusColor, statusLabel } = useTournamentStatus();
 
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
@@ -574,6 +584,20 @@ const removeForfeit = async (game: TournamentGame) => {
     }
 };
 
+// Id-keyed lookup maps for deferred enum data. Without these, templates hit
+// .find() per-render on every scheme-pool cell, which is O(pool × catalog)
+// per re-render — cheap per call, but fires a lot during broadcast churn.
+const schemeById = computed<Record<number, NonNullable<typeof props.all_schemes>[number]>>(() => {
+    const map: Record<number, NonNullable<typeof props.all_schemes>[number]> = {};
+    for (const s of props.all_schemes ?? []) map[s.id] = s;
+    return map;
+});
+const deploymentByValue = computed<Record<string, (typeof props.all_deployments)[number]>>(() => {
+    const map: Record<string, (typeof props.all_deployments)[number]> = {};
+    for (const d of props.all_deployments) map[d.value] = d;
+    return map;
+});
+
 // Previous opponents lookup
 const playerOpponents = computed(() => {
     const map: Record<number, string[]> = {};
@@ -713,6 +737,13 @@ const editingRoundNumber = computed(() => {
     return null;
 });
 
+// Tracker surface: is the linked tracker game still being played? Drives a
+// warning banner in the score dialog + an auto-included override flag so the
+// TO's confirm lands through the backend's InProgress guard in one round-trip.
+const trackerInProgress = computed(() => editingGame.value?.tracker_game?.status === 'in_progress');
+const trackerComplete = computed(() => editingGame.value?.tracker_game?.status === 'completed');
+const trackerAbandoned = computed(() => editingGame.value?.tracker_game?.status === 'abandoned');
+
 const saveScore = async () => {
     if (!editingGame.value) return;
     submitting.value = true;
@@ -730,11 +761,16 @@ const saveScore = async () => {
             player_two_title: editP2Title.value,
             player_two_strategy_vp: editP2StrategyVp.value,
             player_two_scheme_vp: editP2SchemeVp.value,
+            // Pre-acknowledge the "tracker still InProgress" guard — the banner
+            // above the save button has already warned the TO.
+            ...(trackerInProgress.value ? { confirm_override: true } : {}),
         },
     );
     if (!scoreResult.ok) {
         submitting.value = false;
-        scoreError.value = scoreResult.error;
+        scoreError.value = scoreResult.error === 'tracker_in_progress'
+            ? 'The tracker game is still in progress. Refresh and try again to confirm.'
+            : scoreResult.error;
         return;
     }
 
@@ -1012,7 +1048,7 @@ const viewStrategy = (idStr: string | null) => {
 
 const viewScheme = (idStr: string | null) => {
     if (!idStr) return;
-    const s = props.all_schemes?.find((x) => String(x.id) === idStr);
+    const s = schemeById.value[Number(idStr)];
     if (s) {
         const desc = [
             s.prerequisite ? `Prerequisite: ${s.prerequisite}` : '',
@@ -1077,16 +1113,6 @@ const titlesForMaster = (masterName: string | null) => {
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
-
-        <!-- Action error banner -->
-        <div v-if="actionError" class="container mx-auto mb-2 px-4">
-            <div
-                class="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
-            >
-                <span>{{ actionError }}</span>
-                <button class="ml-2 text-xs hover:underline" @click="actionError = null">Dismiss</button>
-            </div>
-        </div>
 
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>
@@ -1613,10 +1639,10 @@ const titlesForMaster = (masterName: string | null) => {
                                     v-else-if="round.strategy || round.deployment"
                                     class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground"
                                 >
-                                    <span v-if="round.deployment">{{ all_deployments.find((d) => d.value === round.deployment)?.label }}</span>
+                                    <span v-if="round.deployment">{{ deploymentByValue[round.deployment]?.label }}</span>
                                     <span v-if="round.strategy">{{ round.strategy.name }}</span>
                                     <span v-if="round.scheme_pool?.length">{{
-                                        round.scheme_pool.map((id: number) => all_schemes?.find((s) => s.id === id)?.name ?? id).join(' / ')
+                                        round.scheme_pool.map((id: number) => schemeById[id]?.name ?? id).join(' / ')
                                     }}</span>
                                 </div>
 
@@ -1655,6 +1681,29 @@ const titlesForMaster = (masterName: string | null) => {
                                                 <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]"
                                                     >Forfeit</Badge
                                                 >
+                                                <!-- Tracker state at a glance: amber in-progress, green done, red abandoned. -->
+                                                <Badge
+                                                    v-if="game.tracker_game && !game.is_bye"
+                                                    variant="outline"
+                                                    class="shrink-0 px-1 py-0 text-[9px]"
+                                                    :class="
+                                                        game.tracker_game.status === 'in_progress'
+                                                            ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
+                                                            : game.tracker_game.status === 'completed'
+                                                              ? 'border-emerald-400 text-emerald-700 dark:border-emerald-500/70 dark:text-emerald-300'
+                                                              : game.tracker_game.status === 'abandoned'
+                                                                ? 'border-destructive/60 text-destructive'
+                                                                : 'text-muted-foreground'
+                                                    "
+                                                    :title="'Tracker: ' + game.tracker_game.status.replace('_', ' ')"
+                                                >
+                                                    <span v-if="game.tracker_game.status === 'in_progress'">
+                                                        T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
+                                                    </span>
+                                                    <span v-else-if="game.tracker_game.status === 'completed'">✓ Tracker</span>
+                                                    <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
+                                                    <span v-else>Tracker</span>
+                                                </Badge>
                                             </div>
                                             <div class="flex shrink-0 items-center gap-1 sm:gap-2">
                                                 <template v-if="game.result === 'completed' || game.result === 'forfeited'">
@@ -2015,6 +2064,49 @@ const titlesForMaster = (masterName: string | null) => {
                 </DialogDescription>
             </DialogHeader>
             <div v-if="editingGame" class="space-y-4">
+                <!-- Tracker status — visible whenever this tournament game is linked to a live tracker game. -->
+                <div
+                    v-if="editingGame.tracker_game"
+                    class="flex items-start gap-2 rounded-md border p-2.5 text-xs"
+                    :class="
+                        trackerInProgress
+                            ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200'
+                            : trackerComplete
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-200'
+                              : trackerAbandoned
+                                ? 'border-destructive/40 bg-destructive/10 text-destructive dark:text-destructive'
+                                : 'border-muted-foreground/20 bg-muted/50 text-muted-foreground'
+                    "
+                >
+                    <div class="flex-1 space-y-0.5">
+                        <div class="font-semibold">
+                            <template v-if="trackerInProgress">
+                                Tracker game in progress (turn {{ editingGame.tracker_game.current_turn }} of {{ editingGame.tracker_game.max_turns ?? 5 }})
+                            </template>
+                            <template v-else-if="trackerComplete">Tracker game finalized</template>
+                            <template v-else-if="trackerAbandoned">Tracker game was abandoned</template>
+                            <template v-else>Tracker linked ({{ editingGame.tracker_game.status.replace('_', ' ') }})</template>
+                        </div>
+                        <div class="text-[11px] opacity-90">
+                            <template v-if="trackerInProgress">
+                                Scores below are the live tracker totals. Saving here locks this tournament record even if the tracker hasn't been marked complete.
+                            </template>
+                            <template v-else-if="trackerComplete">Scores below were pulled from the tracker.</template>
+                            <template v-else-if="trackerAbandoned">
+                                The players ended the tracker game early. Enter a final score below or mark a forfeit from the round list.
+                            </template>
+                            <template v-else>Scores below may be pre-filled from the linked tracker.</template>
+                        </div>
+                    </div>
+                    <a
+                        :href="route('games.show', editingGame.tracker_game.uuid)"
+                        target="_blank"
+                        rel="noopener"
+                        class="shrink-0 rounded border border-current/30 px-2 py-0.5 text-[10px] font-medium hover:bg-current/10"
+                    >
+                        Open tracker
+                    </a>
+                </div>
                 <!-- Player 1 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>

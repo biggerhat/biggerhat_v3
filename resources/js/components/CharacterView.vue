@@ -15,6 +15,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
+import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -148,13 +149,15 @@ const allStandardInCollection = computed(() => {
     return standardMiniatures.value.every((m: any) => collectionIds.value.includes(m.id));
 });
 
+const toast = useToast();
 const collectionProcessing = ref(false);
 const toggleMiniature = async () => {
     collectionProcessing.value = true;
     const ids = page.props.auth.collection_miniature_ids;
     const miniatureId = props.miniature.id;
+    const wasInCollection = currentMiniatureInCollection.value;
 
-    if (currentMiniatureInCollection.value) {
+    if (wasInCollection) {
         const idx = ids.indexOf(miniatureId);
         if (idx !== -1) ids.splice(idx, 1);
     } else {
@@ -162,11 +165,21 @@ const toggleMiniature = async () => {
     }
 
     try {
-        await fetch(route('collection.toggle'), {
+        const res = await fetch(route('collection.toggle'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
             body: JSON.stringify({ miniature_id: miniatureId }),
         });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+    } catch {
+        // Roll back the optimistic update so the UI matches server state.
+        if (wasInCollection) {
+            if (!ids.includes(miniatureId)) ids.push(miniatureId);
+        } else {
+            const idx = ids.indexOf(miniatureId);
+            if (idx !== -1) ids.splice(idx, 1);
+        }
+        toast.error('Could not update collection', { description: 'Try again in a moment.' });
     } finally {
         collectionProcessing.value = false;
     }
@@ -175,16 +188,33 @@ const toggleMiniature = async () => {
 const addAllStandard = async () => {
     collectionProcessing.value = true;
     const ids = page.props.auth.collection_miniature_ids;
+    const added: number[] = [];
     for (const m of standardMiniatures.value) {
-        if (!ids.includes(m.id)) ids.push(m.id);
+        if (!ids.includes(m.id)) {
+            ids.push(m.id);
+            added.push(m.id);
+        }
     }
 
     try {
-        await fetch(route('collection.add_character'), {
+        const res = await fetch(route('collection.add_character'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
             body: JSON.stringify({ character_id: props.character.id }),
         });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        toast.success(
+            added.length
+                ? `Added ${added.length} miniature${added.length === 1 ? '' : 's'} to your collection`
+                : 'Already in your collection',
+        );
+    } catch {
+        // Roll back the miniatures we just added.
+        for (const id of added) {
+            const idx = ids.indexOf(id);
+            if (idx !== -1) ids.splice(idx, 1);
+        }
+        toast.error('Could not update collection', { description: 'Try again in a moment.' });
     } finally {
         collectionProcessing.value = false;
     }

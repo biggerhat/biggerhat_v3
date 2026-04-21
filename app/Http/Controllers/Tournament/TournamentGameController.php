@@ -56,7 +56,11 @@ class TournamentGameController extends Controller
             'player_two_faction' => $playerTwo?->getRawOriginal('faction'),
         ]);
 
-        if (! $isBye) {
+        // Only create the tracker Game row if the round is already Started —
+        // otherwise the round-start transition handles creation for every
+        // paired game at once. Adding games to a round that's still in Setup
+        // used to pre-create tracker games before play even began.
+        if (! $isBye && $round->status === TournamentRoundStatusEnum::InProgress) {
             $this->trackerGames->createForRound($tournament, $round);
         }
 

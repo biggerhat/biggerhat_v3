@@ -163,15 +163,20 @@ class TournamentRoundController extends Controller
 
         $round->update($userFields);
 
-        // When the round transitions into InProgress, mark every bye game as
-        // Completed. Byes are scoreless so there's nothing to enter — but we
-        // intentionally hold them at Pending until the TO clicks Start so
-        // the bye player's points don't show up on the standings prematurely.
+        // When the round transitions into InProgress:
+        //  - Mark every bye game as Completed (byes are scoreless; held at
+        //    Pending until Start so bye points don't hit standings early).
+        //  - Create the tracker Game rows for every non-bye paired game.
+        //    Tracker games only exist for rounds that have actually started,
+        //    so pair/re-pair during Setup doesn't churn Game rows and the
+        //    tournament page doesn't advertise observable games before play.
         if (isset($newStatus) && $newStatus === TournamentRoundStatusEnum::InProgress) {
             $round->games()
                 ->where('is_bye', true)
                 ->where('result', \App\Enums\TournamentGameResultEnum::Pending)
                 ->update(['result' => \App\Enums\TournamentGameResultEnum::Completed]);
+
+            $this->trackerGames->createForRound($tournament, $round->fresh());
         }
 
         // If the scenario changed, push it down to any tracker games already
@@ -219,16 +224,16 @@ class TournamentRoundController extends Controller
             return response()->json(['error' => $error], 422);
         }
 
-        // Wipe auto-paired games + tracker games, regenerate, recreate trackers,
-        // then sync scenario down (handled inside createForRound).
+        // Wipe auto-paired games (+ any stray tracker games from a prior
+        // InProgress→Setup revert), then regenerate pairings. Tracker Game
+        // rows are now created by `update()` when the round transitions to
+        // InProgress — not here — so repeatedly re-pairing during Setup
+        // doesn't spin up tracker games that never get played.
         $pairingsCount = DB::transaction(function () use ($tournament, $round): int {
             $this->trackerGames->destroyForRound($round, autoOnly: true);
             $round->games()->where('is_manual', false)->delete();
 
-            $count = $this->pairing->regeneratePairings($tournament, $round);
-            $this->trackerGames->createForRound($tournament, $round);
-
-            return $count;
+            return $this->pairing->regeneratePairings($tournament, $round);
         });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');

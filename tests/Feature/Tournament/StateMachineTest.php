@@ -211,8 +211,30 @@ describe('pairing guards', function () {
     it('allows Round 2 pairing once Round 1 is completed', function () {
         $t = Tournament::factory()->active()->create();
         TournamentRound::factory()->for($t)->completed()->create(['round_number' => 1]);
-        $r2 = TournamentRound::factory()->for($t)->create(['round_number' => 2]);
+        // Round 2 needs a scenario set before pairing is allowed (guard added
+        // to match canStartRound — avoids pairing before scenario fields exist).
+        $strategy = \App\Models\Strategy::factory()->create();
+        $schemes = \App\Models\Scheme::factory()->count(3)->create();
+        $r2 = TournamentRound::factory()->for($t)->create([
+            'round_number' => 2,
+            'strategy_id' => $strategy->id,
+            'deployment' => 'standard',
+            'scheme_pool' => $schemes->pluck('id')->toArray(),
+        ]);
 
         expect($this->sm->canPairRound($t, $r2))->toBeNull();
+    });
+
+    it('blocks pairing when the round scenario is missing', function () {
+        $t = Tournament::factory()->active()->create();
+        $r = TournamentRound::factory()->for($t)->create([
+            'round_number' => 1,
+            'strategy_id' => null,
+            'deployment' => null,
+            'scheme_pool' => null,
+        ]);
+
+        expect($this->sm->canPairRound($t, $r))
+            ->toBe('Set the round scenario before pairing (missing: strategy, deployment, scheme pool)');
     });
 });

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
+import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { BarChart3, CalendarDays, MapPin, Trophy, UserPlus } from 'lucide-vue-next';
@@ -164,10 +165,7 @@ const cancelRsvp = () => {
     });
 };
 
-const formatDate = (d: string) => {
-    const date = d.includes('T') ? new Date(d) : new Date(d + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
+const formatDate = (d: string) => formatDateOnly(d);
 
 const playerName = (id: number | null): string => {
     if (!id) return 'BYE';

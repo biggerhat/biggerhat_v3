@@ -736,11 +736,16 @@ class GamePlayController extends Controller
             'player_two_vp' => (int) $p2->total_points,
             // Only back-fill master/title/faction when the TO hasn't entered them —
             // preserves manual corrections (typo fixes, alt title pick, etc.).
+            //
+            // The TO score dialog persists `title` as the full display_name
+            // (e.g. "Nellie with a Past") so it round-trips through the Select
+            // options keyed on display_name. Writing just Character.title
+            // (the bare suffix) here left the Title dropdown blank on reopen.
             'player_one_master' => $tg->player_one_master ?: $p1->master?->name,
-            'player_one_title' => $tg->player_one_title ?: $p1->master?->title,
+            'player_one_title' => $tg->player_one_title ?: $p1->master?->display_name,
             'player_one_faction' => $tg->player_one_faction ?: $p1->getRawOriginal('faction'),
             'player_two_master' => $tg->player_two_master ?: $p2->master?->name,
-            'player_two_title' => $tg->player_two_title ?: $p2->master?->title,
+            'player_two_title' => $tg->player_two_title ?: $p2->master?->display_name,
             'player_two_faction' => $tg->player_two_faction ?: $p2->getRawOriginal('faction'),
             'player_one_crew_build_id' => $tg->player_one_crew_build_id ?: $p1->crew_build_id,
             'player_two_crew_build_id' => $tg->player_two_crew_build_id ?: $p2->crew_build_id,

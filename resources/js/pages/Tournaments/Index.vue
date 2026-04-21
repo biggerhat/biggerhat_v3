@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
+import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { CalendarDays, MapPin, Plus, Trophy, Users } from 'lucide-vue-next';
@@ -35,11 +36,6 @@ const isLoggedIn = computed(() => !!page.props.auth.user);
 const canCreateTournaments = computed(() => (page.props.auth.permissions ?? []).includes('create_tournaments'));
 
 const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
-
-const formatDate = (dateStr: string) => {
-    const d = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
 </script>
 
 <template>
@@ -109,7 +105,7 @@ const formatDate = (dateStr: string) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span>
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
                                     <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
                                     <span class="tabular-nums">{{ t.planned_rounds }} rounds</span>
@@ -146,7 +142,7 @@ const formatDate = (dateStr: string) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDate(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span>
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
                                     <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
                                     <span>by {{ t.creator.name }}</span>

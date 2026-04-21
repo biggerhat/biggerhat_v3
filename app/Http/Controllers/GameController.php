@@ -397,9 +397,21 @@ class GameController extends Controller
         $userId = Auth::id();
         $player = $game->players()->where('user_id', $userId)->first();
 
+        // If this game is linked to a TournamentGame, capture the parent
+        // tournament before any mutation so we can still broadcast after the
+        // row is gone. Hard-delete clears the relation; TournamentGame.game_id
+        // will dangle until the TO or destroyForGame handles it.
+        $trackerLinkedTournament = \App\Models\TournamentGame::with('round.tournament')
+            ->where('game_id', $game->id)
+            ->first()?->round?->tournament;
+
         // Solo games or games still in setup (no opponent yet): hard delete
         if ($game->is_solo || $game->players()->count() <= 1) {
             $game->delete();
+
+            if ($trackerLinkedTournament) {
+                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+            }
 
             return redirect()->route('games.index')
                 ->withMessage('Game deleted.');
@@ -414,6 +426,10 @@ class GameController extends Controller
         $allHidden = $game->players()->whereNull('hidden_at')->count() === 0;
         if ($allHidden) {
             $game->delete();
+
+            if ($trackerLinkedTournament) {
+                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+            }
         }
 
         return redirect()->route('games.index')

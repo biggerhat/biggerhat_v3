@@ -106,7 +106,35 @@ class TournamentStateMachine
             }
         }
 
+        // Scenario must be fully configured before pairings are generated —
+        // the scenario drives tracker-game creation when the round starts,
+        // and TOs expect to see the matchup scenario at pair time.
+        if ($missing = $this->missingScenarioFields($round)) {
+            return 'Set the round scenario before pairing (missing: '.$missing.')';
+        }
+
         return null;
+    }
+
+    /**
+     * Comma-separated list of missing scenario fields (strategy / deployment /
+     * scheme pool), or null when the scenario is fully configured. Shared by
+     * canPairRound + guardStartRound.
+     */
+    private function missingScenarioFields(TournamentRound $round): ?string
+    {
+        $missing = [];
+        if (! $round->strategy_id) {
+            $missing[] = 'strategy';
+        }
+        if (! $round->deployment) {
+            $missing[] = 'deployment';
+        }
+        if (empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3) {
+            $missing[] = 'scheme pool';
+        }
+
+        return empty($missing) ? null : implode(', ', $missing);
     }
 
     private function guardStartTournament(Tournament $tournament): ?string
@@ -151,18 +179,8 @@ class TournamentStateMachine
 
         // Scenario must be fully configured before the round starts — otherwise
         // the per-pairing Game tracker games are missing strategy/deployment/schemes.
-        $missing = [];
-        if (! $round->strategy_id) {
-            $missing[] = 'strategy';
-        }
-        if (! $round->deployment) {
-            $missing[] = 'deployment';
-        }
-        if (empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3) {
-            $missing[] = 'scheme pool';
-        }
-        if (! empty($missing)) {
-            return 'Set the round scenario before starting (missing: '.implode(', ', $missing).')';
+        if ($missing = $this->missingScenarioFields($round)) {
+            return 'Set the round scenario before starting (missing: '.$missing.')';
         }
 
         // Every active player (non-DQ, not dropped before this round) must be in a pairing.

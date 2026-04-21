@@ -356,6 +356,12 @@ class TournamentController extends Controller
             return response()->json(['error' => 'Only draft tournaments can be deleted'], 422);
         }
 
+        // Broadcast BEFORE deletion so any co-organizer viewing the Manage or
+        // public View page gets bounced to the index rather than 404ing on
+        // their next partial reload. Payload captures the uuid for the channel
+        // even after the tournament row is gone.
+        $this->broadcastUpdate($tournament, 'tournament_deleted');
+
         $tournament->delete();
 
         return redirect()->route('tournaments.index');

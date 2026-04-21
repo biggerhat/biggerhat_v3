@@ -58,4 +58,26 @@ class Scheme extends Model
     {
         return $this->belongsTo(Scheme::class, 'next_scheme_three_id');
     }
+
+    /**
+     * Shape a scheme for the Game tracker frontend — includes requirements and
+     * follow-up scheme ids so the client can chain selections without another
+     * round-trip.
+     */
+    public function toTrackerArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'image_url' => $this->image_url,
+            'prerequisite' => $this->prerequisite,
+            'reveal' => $this->reveal,
+            'scoring' => $this->scoring,
+            'requirements' => $this->requirements ?? [],
+            'next_scheme_one_id' => $this->next_scheme_one_id,
+            'next_scheme_two_id' => $this->next_scheme_two_id,
+            'next_scheme_three_id' => $this->next_scheme_three_id,
+        ];
+    }
 }

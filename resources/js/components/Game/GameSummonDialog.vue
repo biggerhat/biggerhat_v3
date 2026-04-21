@@ -11,7 +11,19 @@ interface CharacterOption {
     station?: string | null;
     type?: string | null;
     count?: number | null;
+    summon_target_number?: number | null;
 }
+
+// Small helper for the metadata row under the character name. Shows either the
+// station (minion / peon / master / …) or the `type` label (for linked-character
+// reference rows like "Summons") followed by the Summon Target Number if set.
+const metaParts = (char: CharacterOption): string[] => {
+    const parts: string[] = [];
+    if (char.station) parts.push(char.station);
+    else if (char.type) parts.push(char.type);
+    if (char.summon_target_number) parts.push(`STN: ${char.summon_target_number}`);
+    return parts;
+};
 
 defineProps<{
     open: boolean;
@@ -62,7 +74,12 @@ const emit = defineEmits<{
                         <img v-if="char.front_image" :src="'/storage/' + char.front_image" :alt="char.display_name" class="size-8 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
+                            <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-[10px] capitalize text-muted-foreground">
+                                <template v-for="(part, i) in metaParts(char)" :key="i">
+                                    <span v-if="i > 0" class="text-muted-foreground/40">·</span>
+                                    <span>{{ part }}</span>
+                                </template>
+                            </div>
                         </div>
                         <span v-if="crewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
                             {{ crewCount(char.id) }}
@@ -97,7 +114,12 @@ const emit = defineEmits<{
                                 <img v-if="char.front_image" :src="char.front_image" :alt="char.display_name ?? char.name" class="size-8 rounded object-cover" />
                                 <div class="min-w-0 flex-1">
                                     <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
-                                    <div v-if="char.station" class="text-xs capitalize text-muted-foreground">{{ char.station }}</div>
+                                    <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-xs capitalize text-muted-foreground">
+                                        <template v-for="(part, i) in metaParts(char)" :key="i">
+                                            <span v-if="i > 0" class="text-muted-foreground/40">·</span>
+                                            <span>{{ part }}</span>
+                                        </template>
+                                    </div>
                                 </div>
                                 <span v-if="crewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
                                     {{ crewCount(char.id) }}/{{ char.count ?? 1 }}

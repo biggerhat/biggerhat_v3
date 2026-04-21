@@ -271,7 +271,7 @@ it('allows canceling game completion before both agree', function () {
     $this->player1->refresh();
     expect($this->player1->is_game_complete)->toBeTrue();
 
-    $this->actingAs($this->user1)->postJson(route('games.play.cancel_complete', $this->game->uuid))->assertOk();
+    $this->actingAs($this->user1)->post(route('games.play.cancel_complete', $this->game->uuid))->assertRedirect();
 
     $this->player1->refresh();
     expect($this->player1->is_game_complete)->toBeFalse();

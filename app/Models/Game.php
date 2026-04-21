@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\DeploymentEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -127,5 +128,31 @@ class Game extends Model
     public function schemes()
     {
         return Scheme::whereIn('id', $this->scheme_pool ?? [])->get();
+    }
+
+    /** Games the user participates in (slot 1 or 2) and hasn't hidden. */
+    public function scopeForUser(Builder $query, int $userId): Builder
+    {
+        return $query->whereHas('players', fn ($q) => $q->where('user_id', $userId)->whereNull('hidden_at'));
+    }
+
+    /** Games still being played (setup through in_progress). */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value]);
+    }
+
+    /** Games that have finished (completed or abandoned). */
+    public function scopeCompleted(Builder $query): Builder
+    {
+        return $query->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value]);
+    }
+
+    /** Recently-active games opted into public observation, excluding abandoned. */
+    public function scopeObservable(Builder $query): Builder
+    {
+        return $query->where('is_observable', true)
+            ->where('updated_at', '>=', now()->subDay())
+            ->where('status', '!=', GameStatusEnum::Abandoned->value);
     }
 }

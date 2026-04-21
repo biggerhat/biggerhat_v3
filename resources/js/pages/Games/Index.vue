@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -119,8 +120,12 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Create Game CTA -->
-            <Link v-if="isLoggedIn" :href="route('games.create')" class="group mb-6 block">
-                <Card class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <Link
+                v-if="isLoggedIn"
+                :href="route('games.create')"
+                class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+                <Card class="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div
                             class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
@@ -140,21 +145,21 @@ const formatDate = (dateStr: string) => {
                 <h2 class="mb-3 font-semibold">Active Games</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div v-for="game in active_games" :key="game.id" class="group relative">
-                        <Link :href="route('games.show', game.uuid)">
-                            <Card class="h-full transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
+                        <Link :href="route('games.show', game.uuid)" class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <Card class="h-full transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-md">
                                 <CardContent class="p-4">
                                     <div class="mb-2 flex items-center justify-between">
                                         <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
                                             {{ statusLabel(game.status, game.is_solo) }}
                                         </Badge>
-                                        <span class="text-[11px] text-muted-foreground">{{ formatDate(game.created_at) }}</span>
+                                        <span class="text-[11px] tabular-nums text-muted-foreground">{{ formatDate(game.created_at) }}</span>
                                     </div>
                                     <div class="mb-2 flex items-center gap-2">
                                         <Swords class="size-4 text-muted-foreground" />
                                         <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
                                         <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
                                     </div>
-                                    <div v-if="game.status === 'in_progress'" class="mb-2 text-xs text-muted-foreground">
+                                    <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">
                                         Turn {{ game.current_turn }}
                                     </div>
                                     <div class="flex items-center gap-3">
@@ -190,7 +195,7 @@ const formatDate = (dateStr: string) => {
                     <div v-for="game in recent_games" :key="game.id" class="group relative">
                         <Link
                             :href="route('games.show', game.uuid)"
-                            class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 hover:border-primary/30 hover:bg-muted/50"
+                            class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 ease-out hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                             <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-500" />
                             <Swords v-else class="size-4 shrink-0 text-muted-foreground" />
@@ -201,12 +206,12 @@ const formatDate = (dateStr: string) => {
                                         <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{
                                             player.user?.name ?? player.opponent_name ?? 'Opponent'
                                         }}</span>
-                                        <span class="text-muted-foreground">({{ player.total_points }})</span>
+                                        <span class="tabular-nums text-muted-foreground">({{ player.total_points }})</span>
                                     </span>
                                     <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                    <span>{{ game.encounter_size }}ss</span>
+                                    <span class="tabular-nums">{{ game.encounter_size }}ss</span>
                                     <span v-if="game.strategy">&middot; {{ game.strategy.name }}</span>
                                     <span v-if="game.completed_at">&middot; {{ formatDate(game.completed_at) }}</span>
                                 </div>
@@ -234,8 +239,13 @@ const formatDate = (dateStr: string) => {
                 </h2>
                 <p class="mb-3 text-xs text-muted-foreground">Games with spectating enabled from the last 24 hours</p>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <Link v-for="game in observable_games" :key="game.id" :href="route('games.observe', game.uuid)">
-                        <Card class="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                    <Link
+                        v-for="game in observable_games"
+                        :key="game.id"
+                        :href="route('games.observe', game.uuid)"
+                        class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
@@ -255,7 +265,7 @@ const formatDate = (dateStr: string) => {
                                     <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
                                     <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
                                 </div>
-                                <div v-if="game.status === 'in_progress'" class="mb-2 text-xs text-muted-foreground">
+                                <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">
                                     Turn {{ game.current_turn }}
                                 </div>
                                 <div
@@ -272,7 +282,7 @@ const formatDate = (dateStr: string) => {
                                         }}</span>
                                         <span
                                             v-if="game.status === 'in_progress' || game.status === 'completed'"
-                                            class="text-xs font-bold text-muted-foreground"
+                                            class="text-xs font-bold tabular-nums text-muted-foreground"
                                             >({{ player.total_points }})</span
                                         >
                                     </div>
@@ -285,17 +295,21 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Empty state -->
-            <div v-if="isLoggedIn && !active_games.length && !recent_games.length" class="py-12 text-center">
-                <Swords class="mx-auto mb-4 size-12 text-muted-foreground/30" />
-                <p class="mb-2 text-lg font-semibold">No games yet</p>
-                <p class="mb-4 text-sm text-muted-foreground">Create your first game to get started</p>
-                <Link :href="route('games.create')">
-                    <Button>
-                        <Plus class="mr-2 size-4" />
-                        Create Game
-                    </Button>
-                </Link>
-            </div>
+            <EmptyState
+                v-if="isLoggedIn && !active_games.length && !recent_games.length"
+                :icon="Swords"
+                title="No games yet"
+                description="Create your first game to start tracking a match in real time."
+            >
+                <template #action>
+                    <Link :href="route('games.create')">
+                        <Button>
+                            <Plus class="mr-2 size-4" />
+                            Create Game
+                        </Button>
+                    </Link>
+                </template>
+            </EmptyState>
         </div>
     </div>
 

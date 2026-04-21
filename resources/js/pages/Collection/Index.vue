@@ -394,11 +394,12 @@ const topFactions = computed(() =>
                         description="Try adjusting your search or faction filter."
                     />
 
-                    <div v-else-if="filteredCollection.length === 0" class="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                        <Library class="mb-3 size-12 opacity-30" />
-                        <p class="text-sm font-medium">{{ is_owner ? 'Your collection is empty' : 'This collection is empty' }}</p>
-                        <p v-if="is_owner" class="mt-1 text-xs">Add miniatures from character or package pages to get started.</p>
-                    </div>
+                    <EmptyState
+                        v-else-if="filteredCollection.length === 0"
+                        :icon="Library"
+                        :title="is_owner ? 'Your collection is empty' : 'This collection is empty'"
+                        :description="is_owner ? 'Add miniatures from character or package pages to get started.' : ''"
+                    />
 
                     <div v-else class="space-y-2">
                         <div
@@ -505,11 +506,12 @@ const topFactions = computed(() =>
 
                 <!-- Packages Tab -->
                 <TabsContent value="packages">
-                    <div v-if="owned_packages.length === 0" class="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                        <Package class="mb-3 size-12 opacity-30" />
-                        <p class="text-sm font-medium">{{ is_owner ? 'No packages tracked yet' : 'No packages in this collection' }}</p>
-                        <p v-if="is_owner" class="mt-1 text-xs">Add packages from the package pages to get started.</p>
-                    </div>
+                    <EmptyState
+                        v-if="owned_packages.length === 0"
+                        :icon="Package"
+                        :title="is_owner ? 'No packages tracked yet' : 'No packages in this collection'"
+                        :description="is_owner ? 'Add packages from the package pages to get started.' : ''"
+                    />
                     <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Card
                             v-for="(pkg, index) in owned_packages"

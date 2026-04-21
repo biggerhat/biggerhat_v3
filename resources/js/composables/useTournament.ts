@@ -1,4 +1,5 @@
 import { factionBackground } from '@/composables/useFactionColor';
+import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, type ComputedRef } from 'vue';
@@ -25,14 +26,19 @@ interface Tournament {
  * failures consistently. Memoizes the player ID → player lookup.
  */
 export function useTournament<T extends Tournament>(tournament: ComputedRef<T> | { value: T }) {
+    const toast = useToast();
     const submitting = ref(false);
-    const actionError = ref<string | null>(null);
-    let errorTimer: ReturnType<typeof setTimeout> | undefined;
 
+    /**
+     * Surface a user-facing action error. Now renders via the global toast
+     * system so it's visible regardless of which tab/dialog is open. The
+     * exported `actionError` ref is kept for backward compat with any page
+     * still rendering an inline banner, but is no longer the primary channel.
+     */
+    const actionError = ref<string | null>(null);
     const showError = (msg: string) => {
         actionError.value = msg;
-        clearTimeout(errorTimer);
-        errorTimer = setTimeout(() => (actionError.value = null), 5000);
+        toast.error(msg);
     };
 
     /**

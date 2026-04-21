@@ -8,7 +8,7 @@ import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncre
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Head, router } from '@inertiajs/vue3';
-import { ArrowLeft, Swords, User } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Swords, User } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Season {
@@ -25,14 +25,21 @@ const gameName = ref('');
 const encounterSize = ref(50);
 const season = ref('core');
 const isSolo = ref(false);
+const submitting = ref(false);
 
 const submit = () => {
-    router.post(route('games.store'), {
-        name: gameName.value || null,
-        encounter_size: encounterSize.value,
-        season: season.value,
-        is_solo: isSolo.value,
-    });
+    if (submitting.value) return;
+    submitting.value = true;
+    router.post(
+        route('games.store'),
+        {
+            name: gameName.value || null,
+            encounter_size: encounterSize.value,
+            season: season.value,
+            is_solo: isSolo.value,
+        },
+        { onFinish: () => (submitting.value = false) },
+    );
 };
 </script>
 
@@ -122,9 +129,10 @@ const submit = () => {
                         </template>
                     </div>
 
-                    <Button class="w-full" @click="submit">
-                        <Swords class="mr-2 size-4" />
-                        Create Game
+                    <Button class="w-full" :disabled="submitting" @click="submit">
+                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                        <Swords v-else class="mr-2 size-4" />
+                        {{ submitting ? 'Creating…' : 'Create Game' }}
                     </Button>
                 </CardContent>
             </Card>

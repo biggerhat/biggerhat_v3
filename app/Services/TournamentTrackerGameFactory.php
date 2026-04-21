@@ -132,19 +132,19 @@ class TournamentTrackerGameFactory
 
         $schemePool = $round->scheme_pool ?? [];
 
-        // Iterate so Eloquent casts apply (scheme_pool is a JSON array cast).
-        Game::whereIn('id', $linkedGameIds)->get()->each(function ($g) use ($round, $schemePool) {
-            $g->update([
-                'strategy_id' => $round->strategy_id,
-                'deployment' => $round->deployment?->value,
-                'scheme_pool' => $schemePool,
-            ]);
-        });
+        // One UPDATE per table regardless of round size. JSON columns on both
+        // MySQL and SQLite accept the encoded string on mass-update; the 'array'
+        // cast on read still decodes it correctly.
+        Game::whereIn('id', $linkedGameIds)->update([
+            'strategy_id' => $round->strategy_id,
+            'deployment' => $round->deployment?->value,
+            'scheme_pool' => json_encode($schemePool),
+        ]);
 
         // GamePlayer.scheme_pool is a per-player snapshot — keep it in sync too.
-        GamePlayer::whereIn('game_id', $linkedGameIds)->get()->each(function ($p) use ($schemePool) {
-            $p->update(['scheme_pool' => $schemePool]);
-        });
+        GamePlayer::whereIn('game_id', $linkedGameIds)->update([
+            'scheme_pool' => json_encode($schemePool),
+        ]);
     }
 
     /**

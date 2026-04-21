@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Head, Link } from '@inertiajs/vue3';
+import EmptyState from '@/components/EmptyState.vue';
 import { Copy, Loader2, Search, Swords, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -287,13 +288,12 @@ const factionColor = (faction: string) => {
             </div>
 
             <!-- Empty state -->
-            <Card v-else-if="!characters.length" class="py-16 text-center">
-                <CardContent>
-                    <Swords class="mx-auto mb-4 size-12 text-muted-foreground/30" />
-                    <p class="mb-2 text-lg font-semibold">No characters selected</p>
-                    <p class="text-sm text-muted-foreground">Search above to add characters for comparison</p>
-                </CardContent>
-            </Card>
+            <EmptyState
+                v-else-if="!characters.length"
+                :icon="Swords"
+                title="No characters selected"
+                description="Search above to add characters for comparison."
+            />
 
             <!-- Comparison grid -->
             <div v-else>

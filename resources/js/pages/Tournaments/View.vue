@@ -42,7 +42,14 @@ interface ViewGame {
     result: string;
     table_number: number | null;
     game_id: number | null;
-    tracker_game: { id: number; uuid: string } | null;
+    tracker_game: {
+        id: number;
+        uuid: string;
+        status?: string;
+        is_solo?: boolean;
+        current_turn?: number | null;
+        max_turns?: number | null;
+    } | null;
 }
 
 interface ViewRound {
@@ -76,6 +83,12 @@ interface FactionInfo {
     logo: string;
 }
 
+interface Rsvp {
+    id: number;
+    user_id: number;
+    user?: { id: number; name: string } | null;
+}
+
 const props = defineProps<{
     tournament: {
         uuid: string;
@@ -91,6 +104,7 @@ const props = defineProps<{
         round_time_limit: number;
         players: TournamentPlayer[];
         organizers: { id: number; name: string }[];
+        rsvps?: Rsvp[];
     };
     rounds: ViewRound[];
     standings: StandingEntry[];
@@ -118,7 +132,7 @@ const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const currentUserId = computed(() => page.props.auth.user?.id);
 const isRegistered = computed(() => props.tournament.players.some((p) => p.user?.id === currentUserId.value));
-const hasRsvped = computed(() => (props.tournament as any).rsvps?.some((r: any) => r.user_id === currentUserId.value) ?? false);
+const hasRsvped = computed(() => props.tournament.rsvps?.some((r) => r.user_id === currentUserId.value) ?? false);
 const canRsvp = computed(
     () =>
         isLoggedIn.value &&
@@ -268,8 +282,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
                     <span>{{ tournament.players.length }} players</span>
-                    <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && (tournament as any).rsvps?.length"
-                        >{{ (tournament as any).rsvps.length }} RSVPs</span
+                    <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && tournament.rsvps?.length"
+                        >{{ tournament.rsvps.length }} RSVPs</span
                     >
                 </div>
             </template>
@@ -327,9 +341,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <TabsTrigger value="standings" class="text-xs sm:text-sm">
                         {{ isCompleted ? 'Final Standings' : 'Standings' }}
                     </TabsTrigger>
-                    <TabsTrigger v-if="(tournament as any).rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
+                    <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
                         RSVPs
-                        <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ (tournament as any).rsvps.length }}</Badge>
+                        <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm"> <BarChart3 class="mr-1 size-3" /> Stats </TabsTrigger>
                 </TabsList>
@@ -451,6 +465,25 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                                 <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
 
+                                <Badge
+                                    v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
+                                    variant="outline"
+                                    class="shrink-0 px-1 py-0 text-[9px]"
+                                    :class="
+                                        game.tracker_game.status === 'in_progress'
+                                            ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
+                                            : game.tracker_game.status === 'abandoned'
+                                              ? 'border-destructive/60 text-destructive'
+                                              : 'text-muted-foreground'
+                                    "
+                                >
+                                    <span v-if="game.tracker_game.status === 'in_progress'">
+                                        T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
+                                    </span>
+                                    <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
+                                    <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
+                                </Badge>
+
                                 <a
                                     v-if="game.tracker_game?.uuid"
                                     :href="route('games.observe', game.tracker_game.uuid)"
@@ -480,11 +513,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <Card>
                         <CardContent class="p-4">
                             <h2 class="mb-3 flex items-center gap-2 font-semibold">
-                                <UserPlus class="size-4" /> {{ (tournament as any).rsvps?.length ?? 0 }} RSVPs
+                                <UserPlus class="size-4" /> {{ tournament.rsvps?.length ?? 0 }} RSVPs
                             </h2>
                             <div class="space-y-1.5">
                                 <div
-                                    v-for="rsvp in (tournament as any).rsvps ?? []"
+                                    v-for="rsvp in tournament.rsvps ?? []"
                                     :key="rsvp.id"
                                     class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
                                 >

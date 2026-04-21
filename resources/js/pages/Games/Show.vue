@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGameChannel } from '@/composables/useGameChannel';
+import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_POOL, MAX_SCHEME_PER_TURN, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -296,21 +297,41 @@ const saveScenarioFromDrawer = async () => {
         deployment: editDeployment.value || null,
         scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
     };
+    const savePromise = fetch(route('games.scenario.update', props.game.uuid), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify(body),
+    }).then((res) => {
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        return res;
+    });
+
+    toast.promise(savePromise, {
+        loading: 'Saving scenario…',
+        success: 'Scenario saved',
+        error: 'Could not save scenario',
+    });
+
     try {
-        await fetch(route('games.scenario.update', props.game.uuid), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify(body),
-        });
+        await savePromise;
         editScenarioOpen.value = false;
         router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
-    } catch (e) {
-        console.error('Scenario update error:', e);
+    } catch {
+        // Toast already surfaced via toast.promise.
     }
 };
 
 const regenerateScenario = () => {
-    router.post(route('games.scenario.regenerate', props.game.uuid));
+    toast.loading('Regenerating scenario…', { id: 'game-scenario-regen' });
+    router.post(
+        route('games.scenario.regenerate', props.game.uuid),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => toast.success('New scenario generated', { id: 'game-scenario-regen' }),
+            onError: () => toast.error('Could not regenerate scenario', { id: 'game-scenario-regen' }),
+        },
+    );
 };
 
 // Scenario drawers
@@ -1292,13 +1313,8 @@ const allOpponentCardsExpanded = computed(() => {
     return ids.length > 0 && ids.every((id: number) => expandedOpponentCards.value.has(id));
 });
 
-const actionError = ref<string | null>(null);
-let errorTimer: ReturnType<typeof setTimeout>;
-const showError = (msg: string) => {
-    actionError.value = msg;
-    clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => (actionError.value = null), 5000);
-};
+const toast = useToast();
+const showError = (msg: string) => toast.error(msg);
 
 const postPlay = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
     try {
@@ -1740,9 +1756,11 @@ const searchSummon = (q: string) => {
     summonDebounce = setTimeout(async () => {
         try {
             const res = await fetch(route('api.characters.search') + '?q=' + encodeURIComponent(q));
+            if (!res.ok) throw new Error(`status ${res.status}`);
             summonResults.value = await res.json();
         } catch {
             summonResults.value = [];
+            toast.error('Character search failed', { description: 'Try again in a moment.' });
         }
         summonLoading.value = false;
     }, 300);
@@ -1855,9 +1873,11 @@ const searchReplace = (q: string) => {
     replaceDebounce = setTimeout(async () => {
         try {
             const res = await fetch(route('api.characters.search') + '?q=' + encodeURIComponent(q));
+            if (!res.ok) throw new Error(`status ${res.status}`);
             replaceResults.value = await res.json();
         } catch {
             replaceResults.value = [];
+            toast.error('Character search failed', { description: 'Try again in a moment.' });
         }
         replaceLoading.value = false;
     }, 300);
@@ -3185,15 +3205,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <TabsTrigger value="crews">Crews</TabsTrigger>
                         </TabsList>
                     </Tabs>
-                </div>
-
-                <!-- Action error banner -->
-                <div
-                    v-if="actionError"
-                    class="mb-4 flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
-                >
-                    <span>{{ actionError }}</span>
-                    <button class="ml-2 text-xs hover:underline" @click="actionError = null">Dismiss</button>
                 </div>
 
                 <!-- Turn change banner (full width) -->

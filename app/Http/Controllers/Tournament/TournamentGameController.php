@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Tournament;
 
-use App\Enums\FactionEnum;
+use App\Enums\GameStatusEnum;
 use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\ScoreTournamentGameRequest;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
@@ -13,7 +14,6 @@ use App\Models\TournamentRound;
 use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class TournamentGameController extends Controller
 {
@@ -65,10 +65,8 @@ class TournamentGameController extends Controller
         return response()->json(['success' => true, 'game' => $game]);
     }
 
-    public function updateScore(Request $request, Tournament $tournament, TournamentGame $game): JsonResponse
+    public function updateScore(ScoreTournamentGameRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
-        $this->authorize('manage', $tournament);
-
         if ($game->round->status !== TournamentRoundStatusEnum::InProgress) {
             return response()->json([
                 'error' => $game->round->status === TournamentRoundStatusEnum::Completed
@@ -77,23 +75,22 @@ class TournamentGameController extends Controller
             ], 422);
         }
 
-        // Total VP is always derived from strategy_vp + scheme_vp — single source of truth.
-        $validFactions = collect(FactionEnum::cases())->pluck('value')->all();
-        $validated = $request->validate([
-            'player_one_faction' => ['nullable', 'string', Rule::in($validFactions)],
-            'player_one_master' => ['nullable', 'string', 'max:255'],
-            'player_one_title' => ['nullable', 'string', 'max:255'],
-            'player_one_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_one_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_one_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
-            'player_two_faction' => ['nullable', 'string', Rule::in($validFactions)],
-            'player_two_master' => ['nullable', 'string', 'max:255'],
-            'player_two_title' => ['nullable', 'string', 'max:255'],
-            'player_two_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_two_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_two_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
-        ]);
+        $validated = $request->validated();
 
+        // Guard: if a tracker game is attached and still running, make the TO
+        // acknowledge they're finalizing ahead of the tracker. Tracker VP will
+        // keep syncing into the record until the TO locks it in (Completed).
+        $trackerGame = $game->trackerGame;
+        if ($trackerGame
+            && $trackerGame->status === GameStatusEnum::InProgress
+            && empty($validated['confirm_override'])) {
+            return response()->json([
+                'error' => 'tracker_in_progress',
+                'message' => 'The linked tracker game is still in progress. Confirm to finalize anyway.',
+            ], 422);
+        }
+
+        unset($validated['confirm_override']);
         $validated['player_one_vp'] = $validated['player_one_strategy_vp'] + $validated['player_one_scheme_vp'];
         $validated['player_two_vp'] = $validated['player_two_strategy_vp'] + $validated['player_two_scheme_vp'];
 

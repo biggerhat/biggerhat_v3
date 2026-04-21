@@ -48,10 +48,21 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
      */
     const runAction = async (url: string, method: string, body?: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> => {
         try {
-            const opts: RequestInit = {
-                method,
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            // Include the Echo socket id so `broadcast(...)->toOthers()` can
+            // exclude this client from its own TournamentUpdated event. Without
+            // it, every mutation bounces back through useTournamentChannel as
+            // a router.reload — the "phantom auto-refresh" users see after
+            // saving scenarios, scoring, pairing, etc.
+            const echo = (window as unknown as { Echo?: { socketId?: () => string | undefined } }).Echo;
+            const socketId = echo?.socketId?.();
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                Accept: 'application/json',
             };
+            if (socketId) headers['X-Socket-Id'] = socketId;
+
+            const opts: RequestInit = { method, headers };
             if (body) opts.body = JSON.stringify(body);
             const res = await fetch(url, opts);
             if (!res.ok) {

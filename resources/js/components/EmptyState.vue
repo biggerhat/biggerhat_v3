@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SearchX } from 'lucide-vue-next';
-import type { Component } from 'vue';
+import { markRaw, type Component } from 'vue';
 
 interface Props {
     /** Icon displayed above the title. Defaults to a gentle "no results" glyph. */
@@ -11,8 +11,12 @@ interface Props {
     compact?: boolean;
 }
 
+// `withDefaults` treats a bare function default as a factory and invokes it —
+// passing the lucide icon directly calls the functional component without a
+// setup context and crashes ("Cannot destructure property 'slots' of undefined").
+// Wrap in a factory and markRaw to keep the component identity intact.
 withDefaults(defineProps<Props>(), {
-    icon: SearchX,
+    icon: () => markRaw(SearchX),
     title: 'No results found',
     description: 'Try adjusting your search or filter criteria.',
     compact: false,

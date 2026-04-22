@@ -271,7 +271,8 @@ class SearchController extends Controller
             if ($request->filled('description')) {
                 $desc = $request->get('description');
                 $upgradeQuery->where(function ($q) use ($desc) {
-                    $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
+                    $q->where('description', 'LIKE', "%{$desc}%")
+                        ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
                         ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
                         ->orWhereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%"));
                 });

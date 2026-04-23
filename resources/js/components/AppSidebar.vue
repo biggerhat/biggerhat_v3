@@ -3,23 +3,19 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
-import NavSuperAdmin from '@/components/ui/NavSuperAdmin.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    ArrowUpCircle,
-    BookOpen,
     Bot,
+    BookOpen,
     Calendar,
     CircleDollarSign,
     Dice6,
-    ExternalLink,
     FileImage,
     Heart,
     KeyRound,
     Library,
-    MessageSquareText,
     Newspaper,
     Package,
     Puzzle,
@@ -30,14 +26,14 @@ import {
     ShieldCheck,
     Swords,
     TextSearch,
-    Users,
+    ArrowUpCircle,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
 const page = usePage<SharedData>();
-const permissions = computed(() => page.props.auth.permissions ?? []);
 const isAuthenticated = computed(() => !!page.props.auth.user);
+const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
 
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
@@ -74,7 +70,7 @@ const myHatNavItems = computed(() => {
     ];
 });
 
-const mainNavItems: NavItem[] = [
+const mainNavItems = computed<NavItem[]>(() => [
     {
         items: [
             {
@@ -103,6 +99,15 @@ const mainNavItems: NavItem[] = [
                 href: route('channels.index'),
                 icon: Radio,
             },
+            ...(canAccessAdmin.value
+                ? [
+                      {
+                          title: 'Admin',
+                          href: route('admin.dashboard'),
+                          icon: ShieldCheck,
+                      },
+                  ]
+                : []),
         ],
     },
     {
@@ -257,175 +262,7 @@ const mainNavItems: NavItem[] = [
             },
         ],
     },
-];
-
-const allAdminNavItems: NavItem[] = [
-    {
-        title: 'Characters',
-        href: route('admin.characters.index'),
-        icon: BookOpen,
-        permission: 'view_character',
-    },
-    {
-        title: 'Miniatures',
-        href: route('admin.miniatures.index'),
-        icon: BookOpen,
-        permission: 'view_miniature',
-    },
-    {
-        title: 'Actions',
-        href: route('admin.actions.index'),
-        icon: BookOpen,
-        permission: 'view_action',
-    },
-    {
-        title: 'Triggers',
-        href: route('admin.triggers.index'),
-        icon: BookOpen,
-        permission: 'view_trigger',
-    },
-    {
-        title: 'Abilities',
-        href: route('admin.abilities.index'),
-        icon: BookOpen,
-        permission: 'view_ability',
-    },
-    {
-        title: 'Keywords',
-        href: route('admin.keywords.index'),
-        icon: BookOpen,
-        permission: 'view_keyword',
-    },
-    {
-        title: 'Characteristics',
-        href: route('admin.characteristics.index'),
-        icon: BookOpen,
-        permission: 'view_characteristic',
-    },
-    {
-        title: 'Upgrades',
-        href: route('admin.upgrades.index'),
-        icon: BookOpen,
-        permission: 'view_upgrade',
-    },
-    {
-        title: 'Crew Cards',
-        href: route('admin.crews.index'),
-        icon: BookOpen,
-        permission: 'view_crew',
-    },
-    {
-        title: 'Tokens',
-        href: route('admin.tokens.index'),
-        icon: BookOpen,
-        permission: 'view_token',
-    },
-    {
-        title: 'Markers',
-        href: route('admin.markers.index'),
-        icon: BookOpen,
-        permission: 'view_marker',
-    },
-    {
-        title: 'Schemes',
-        href: route('admin.schemes.index'),
-        icon: BookOpen,
-        permission: 'view_scheme',
-    },
-    {
-        title: 'Strategies',
-        href: route('admin.strategies.index'),
-        icon: BookOpen,
-        permission: 'view_strategy',
-    },
-    {
-        title: 'Articles',
-        href: route('admin.blog.posts.index'),
-        icon: Newspaper,
-        permission: 'create_posts|edit_posts',
-    },
-    {
-        title: 'Article Categories',
-        href: route('admin.blog.categories.index'),
-        icon: Newspaper,
-        permission: 'create_posts|edit_posts',
-    },
-    {
-        title: 'Packages',
-        href: route('admin.packages.index'),
-        icon: Package,
-        permission: 'view_package',
-    },
-    {
-        title: 'Lore',
-        href: route('admin.lores.index'),
-        icon: BookOpen,
-        permission: 'view_lore',
-    },
-    {
-        title: 'Lore Media',
-        href: route('admin.lore_media.index'),
-        icon: BookOpen,
-        permission: 'view_lore',
-    },
-    {
-        title: 'Blueprints',
-        href: route('admin.blueprints.index'),
-        icon: FileImage,
-        permission: 'view_blueprint',
-    },
-    {
-        title: 'Channels',
-        href: route('admin.channels.index'),
-        icon: Radio,
-        permission: 'view_channel',
-    },
-    {
-        title: 'Transmissions',
-        href: route('admin.transmissions.index'),
-        icon: Radio,
-        permission: 'view_channel',
-    },
-    {
-        title: 'POD Links',
-        href: route('admin.pod_links.index'),
-        icon: ExternalLink,
-        permission: 'view_pod_link',
-    },
-    {
-        title: 'Feedback',
-        href: route('admin.feedback.index'),
-        icon: MessageSquareText,
-        permission: 'view_feedback',
-    },
-    {
-        title: 'Users',
-        href: route('admin.users.index'),
-        icon: Users,
-        permission: 'view_user',
-    },
-    {
-        title: 'Roles',
-        href: route('admin.roles.index'),
-        icon: ShieldCheck,
-        permission: 'view_role',
-    },
-];
-
-const hasPermission = (permission: string) => permission.split('|').some((p) => permissions.value.includes(p));
-
-const filteredAdminNavItems = computed(() => {
-    const visibleItems = allAdminNavItems.filter((item) => item.permission && hasPermission(item.permission));
-    if (visibleItems.length === 0) return [];
-    return [
-        {
-            title: 'Admin',
-            collapsible: true,
-            collapsed: true,
-            items: visibleItems,
-        },
-    ];
-});
+]);
 
 const footerNavItems: NavItem[] = [
     {
@@ -453,7 +290,6 @@ const footerNavItems: NavItem[] = [
         <SidebarContent>
             <NavMain :items="mainNavItems" />
             <NavMain v-if="myHatNavItems.length > 0" :items="myHatNavItems" />
-            <NavSuperAdmin v-if="filteredAdminNavItems.length > 0" :items="filteredAdminNavItems" />
         </SidebarContent>
 
         <SidebarFooter>

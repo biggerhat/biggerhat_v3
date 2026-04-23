@@ -51,6 +51,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ?? null,
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
+                'can_access_admin' => $this->canAccessAdmin($request),
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
@@ -62,6 +63,20 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
         ];
+    }
+
+    private function canAccessAdmin(Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        return $user->hasAnyPermission(EnsureHasAdminPermission::adminEntryPermissions());
     }
 
     /**

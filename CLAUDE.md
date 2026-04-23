@@ -47,7 +47,7 @@ npm run build
 - **Frontend**: Vue 3 + TypeScript, Inertia.js, Tailwind CSS 3, Vite
 - **Testing**: Pest PHP (in-memory SQLite)
 - **PDF**: DomPDF via `barryvdh/laravel-dompdf`
-- **Permissions**: Spatie Permission (role: `super_admin` for admin access)
+- **Permissions**: Spatie Permission. `super_admin` role grants all permissions. Admin area (`/admin`) is accessible to any user with at least one admin permission (enforced by `EnsureHasAdminPermission` middleware, aliased as `admin.any`).
 - **Routing helpers**: Ziggy (provides typed Laravel route helpers in JS)
 - **UI primitives**: Radix Vue, Reka UI, Lucide icons
 
@@ -62,7 +62,7 @@ Inertia.js bridges Laravel controllers and Vue pages. Controllers return `Inerti
 Routes are split across files in `routes/`:
 - `web.php` — Public pages (characters, factions, keywords, tools/pdf)
 - `api.php` — JSON API endpoints under `/api` (used by external bot and PDF tool)
-- `admin.php` — Admin CRUD under `/admin`, protected by `auth`, `verified`, and `role:super_admin` middleware
+- `admin.php` — Admin CRUD under `/admin`, protected by `auth`, `verified`, and `admin.any` middleware. Individual routes further gate by specific `permission:*` checks. The admin area uses its own Inertia layout (`AppAdminLayout`) selected automatically by `app.ts` based on page path (`Admin/*`), and has a dedicated sidebar (`AppAdminSidebar`) with sections grouped into Game Data / Content / Community / Access.
 - `auth.php` — Authentication flows
 - `settings.php` — User settings
 

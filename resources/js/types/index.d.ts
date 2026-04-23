@@ -6,6 +6,7 @@ export interface Auth {
     user: User;
     permissions: string[];
     can_publish_posts: boolean;
+    can_access_admin: boolean;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
     wishlists: Array<{ id: number; name: string }>;

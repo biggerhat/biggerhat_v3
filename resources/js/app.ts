@@ -1,6 +1,7 @@
 import '../css/app.css';
 import './echo';
 
+import AppAdminLayout from '@/layouts/AppAdminLayout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { createInertiaApp, Head, Link } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -34,7 +35,7 @@ createInertiaApp({
     },
     resolve: async (name) => {
         const page = await resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));
-        page.default.layout = page.default.layout || AppLayout;
+        page.default.layout = page.default.layout || (name.startsWith('Admin/') ? AppAdminLayout : AppLayout);
         return page;
     },
     setup({ el, App, props, plugin }) {

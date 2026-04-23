@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AddToWishlist from '@/components/AddToWishlist.vue';
+import AdminEditLink from '@/components/AdminEditLink.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
@@ -264,7 +265,12 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardHeader class="pb-3">
                         <div class="flex items-center gap-2.5">
                             <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
-                            <CardTitle class="text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
+                            <CardTitle class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
+                            <AdminEditLink
+                                :href="route('admin.characters.edit', character.slug ?? character.id)"
+                                permission="edit_character"
+                                label="Edit character in admin"
+                            />
                         </div>
                         <div class="flex flex-wrap gap-1.5">
                             <Badge v-if="stationLabel" variant="secondary">{{ stationLabel }}</Badge>

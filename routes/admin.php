@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
+use App\Http\Controllers\Admin\DashboardAdminController;
 use App\Http\Controllers\Admin\FeedbackAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\LoreAdminController;
@@ -27,7 +28,9 @@ use App\Http\Controllers\Admin\UpgradeAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
+    Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
+
     Route::controller(KeywordAdminController::class)->prefix('keywords')->name('keywords.')->group(function () {
         Route::get('/', 'index')->name('index')->middleware('permission:view_keyword');
         Route::get('/edit/{keyword}', 'edit')->name('edit')->middleware('permission:view_keyword');

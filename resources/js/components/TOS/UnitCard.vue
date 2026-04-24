@@ -47,6 +47,7 @@ interface Side {
 
 interface SpecialRule {
     id: number;
+    slug?: string | null;
     name: string;
     pivot: { parameters: Record<string, unknown> | null };
 }
@@ -80,12 +81,59 @@ const flipped = ref(false);
 const activeSide = computed(() => (flipped.value ? glorySide.value : standardSide.value));
 const primaryAllegianceSlug = computed(() => props.unit.allegiances[0]?.slug ?? null);
 
-const fmtParams = (params: Record<string, unknown> | null): string => {
-    if (!params) return '';
-    return Object.entries(params)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(' · ');
-};
+// Commanders don't COST scrip — they provide the Company's starting scrip
+// budget (rulebook p. 9). The `scrip` column stores the magnitude either way;
+// display flips based on the Commander Special Unit Rule.
+const isCommander = computed(() =>
+    (props.unit.special_unit_rules ?? []).some((r) => r.slug === 'commander'),
+);
+
+/**
+ * Per-rule parameter formatter. Maps the JSON shape stored on each
+ * `tos_unit_special_rule.parameters` pivot to a human-friendly suffix
+ * shown in the rule badge (rulebook p. 10–11):
+ *   Fireteam      { base_mm, models_per_team, model_size_mm }
+ *   Squad         { fireteam_count }
+ *   Reserves      { x }
+ *   Adjunct       { size_mm }
+ *   Combined Arms child lives on tos_units.combined_arms_child_id, not here.
+ * Unknown rules fall back to key:value pairs so new rule shapes still render.
+ */
+function ruleBadge(rule: SpecialRule): string {
+    const p = rule.pivot?.parameters ?? null;
+    if (!p) return rule.name;
+
+    switch (rule.slug) {
+        case 'fireteam': {
+            const models = p.models_per_team;
+            const baseSize = p.base_mm;
+            const modelSize = p.model_size_mm;
+            const parts: string[] = [];
+            if (models != null) parts.push(`${models} × ${modelSize ?? '?'}mm`);
+            if (baseSize != null) parts.push(`${baseSize}mm base`);
+            return parts.length ? `${rule.name} (${parts.join(', ')})` : rule.name;
+        }
+        case 'squad': {
+            const count = p.fireteam_count;
+            return count != null ? `${rule.name} of ${count}` : rule.name;
+        }
+        case 'reserves': {
+            const x = p.x;
+            return x != null ? `${rule.name} (${x})` : rule.name;
+        }
+        case 'adjunct': {
+            const size = p.size_mm;
+            return size != null ? `${rule.name} (${size}mm)` : rule.name;
+        }
+        default: {
+            const tail = Object.entries(p)
+                .filter(([, v]) => v !== null && v !== undefined && v !== '')
+                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+                .join(' · ');
+            return tail ? `${rule.name} (${tail})` : rule.name;
+        }
+    }
+}
 </script>
 
 <template>
@@ -126,14 +174,15 @@ const fmtParams = (params: Record<string, unknown> | null): string => {
                             <span v-if="unit.title" class="text-sm font-normal text-muted-foreground">— {{ unit.title }}</span>
                         </h2>
                         <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span class="tabular-nums">{{ unit.scrip }} Scrip</span>
+                            <span v-if="isCommander" class="tabular-nums font-medium text-emerald-700 dark:text-emerald-400">+{{ unit.scrip }} Scrip budget</span>
+                            <span v-else class="tabular-nums">{{ unit.scrip }} Scrip</span>
                             <span v-if="unit.tactics" class="tabular-nums">· Tactics {{ unit.tactics }}</span>
                         </div>
                     </div>
                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <Badge v-for="a in unit.allegiances" :key="a.id" variant="outline" class="text-[10px]">{{ a.name }}</Badge>
                         <Badge v-for="r in unit.special_unit_rules" :key="r.id" class="bg-secondary text-[10px] text-secondary-foreground">
-                            {{ r.name }}<span v-if="r.pivot?.parameters" class="ml-1 opacity-70">({{ fmtParams(r.pivot.parameters) }})</span>
+                            {{ ruleBadge(r) }}
                         </Badge>
                     </div>
                 </div>

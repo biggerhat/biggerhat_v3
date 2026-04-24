@@ -24,7 +24,7 @@ it('renders the public allegiances index', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('TOS/Allegiances/Index')
-            ->has('allegiances', 3)
+            ->has('allegiances.data', 3)
         );
 });
 

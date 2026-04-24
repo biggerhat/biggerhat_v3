@@ -2,11 +2,14 @@
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import TableSkeleton from '@/components/TableSkeleton.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { Head, Link } from '@inertiajs/vue3';
 import { Shield } from 'lucide-vue-next';
@@ -23,14 +26,33 @@ interface Allegiance {
     color_slug: string | null;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    first_page_url: string;
+    last_page_url: string;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path: string;
+    from: number | null;
+    to: number | null;
+}
+
 const props = defineProps<{
-    allegiances: Allegiance[];
+    allegiances: Paginator<Allegiance>;
     name_search: string | null;
+    page_view: string;
 }>();
 
-const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, isLoading } = useListFiltering(
-    { name_search: props.name_search as string | null },
-    { routeName: 'tos.allegiances.index', filterKeys: [], only: ['allegiances', 'name_search'] },
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
+    {
+        name_search: props.name_search as string | null,
+        page_view: props.page_view as string | null,
+    },
+    { routeName: 'tos.allegiances.index', filterKeys: [], only: ['allegiances', 'name_search', 'page_view'] },
 );
 </script>
 
@@ -52,8 +74,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
         <ListSearchBar
             v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
             :active-filter-count="activeFilterCount"
             placeholder="Search allegiances by name..."
+            @update:page-view="handleViewChange"
             @name-keydown="handleNameKeydown"
             @clear-search="clearNameSearch"
             @filter="filter"
@@ -61,34 +85,75 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
         />
 
         <div class="container mx-auto sm:px-4">
-            <div v-if="isLoading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
+                <TableSkeleton :rows="8" :cols="4" />
+            </div>
+            <div v-else-if="isLoading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <CardSkeleton v-for="n in 6" :key="`skeleton-${n}`" />
             </div>
-            <div v-else-if="allegiances.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+            <div v-else-if="filterParams.page_view === 'table' && allegiances.data.length" class="overflow-auto rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead class="w-12"></TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Description</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow v-for="a in allegiances.data" :key="a.id">
+                            <TableCell>
+                                <Link :href="route('tos.allegiances.view', a.slug)">
+                                    <AllegianceLogo :allegiance="a.slug" class-name="size-8" />
+                                </Link>
+                            </TableCell>
+                            <TableCell class="font-medium">
+                                <Link :href="route('tos.allegiances.view', a.slug)" class="hover:underline">{{ a.name }}</Link>
+                                <Badge v-if="a.is_syndicate" variant="outline" class="ml-2 text-[10px]">Syndicate</Badge>
+                            </TableCell>
+                            <TableCell class="text-xs capitalize">{{ a.type }}</TableCell>
+                            <TableCell class="max-w-md text-xs text-muted-foreground line-clamp-2">
+                                <TosText v-if="a.description" :text="a.description" />
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div v-else-if="allegiances.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
-                    v-for="a in allegiances"
+                    v-for="a in allegiances.data"
                     :key="a.id"
                     :href="route('tos.allegiances.view', a.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                    <Card class="group/card h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                         <div :class="['h-1 w-full', a.color_slug ? `bg-${a.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
-                            <div class="mb-2 flex items-start justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <AllegianceLogo :allegiance="a.slug" class-name="size-5 text-muted-foreground" />
-                                    <span class="text-sm font-semibold">{{ a.name }}</span>
+                            <div class="mb-3 flex items-start gap-3">
+                                <AllegianceLogo
+                                    :allegiance="a.slug"
+                                    class-name="size-14 shrink-0 transition-transform group-hover/card:scale-105 sm:size-16"
+                                />
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <span class="text-base font-semibold leading-tight">{{ a.name }}</span>
+                                        <Badge v-if="a.is_syndicate" variant="outline" class="shrink-0 text-[10px]">Syndicate</Badge>
+                                    </div>
+                                    <p class="mt-0.5 text-[11px] capitalize text-muted-foreground">{{ a.type }}</p>
                                 </div>
-                                <Badge v-if="a.is_syndicate" variant="outline" class="text-[10px]">Syndicate</Badge>
                             </div>
-                            <p class="text-[11px] capitalize text-muted-foreground">{{ a.type }}</p>
-                            <p v-if="a.description" class="mt-2 line-clamp-3 text-xs text-muted-foreground"><TosText :text="a.description" /></p>
+                            <p v-if="a.description" class="line-clamp-3 text-xs text-muted-foreground"><TosText :text="a.description" /></p>
                         </CardContent>
                     </Card>
                 </Link>
             </div>
 
             <EmptyState v-else :icon="Shield" title="No allegiances yet" description="Check back once data has been seeded." />
+
+            <InertiaPagination v-if="!isLoading" :paginator="allegiances" :only="['allegiances', 'name_search', 'page_view']" />
         </div>
     </div>
 </template>

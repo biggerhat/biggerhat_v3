@@ -25,7 +25,6 @@ class TriggerFactory extends Factory
             'margin_cost' => null,
             'timing' => TriggerTimingEnum::Default,
             'body' => $this->faker->sentence(),
-            'sort_order' => 0,
         ];
     }
 
@@ -37,5 +36,18 @@ class TriggerFactory extends Factory
     public function marginCost(int $cost): static
     {
         return $this->state(fn () => ['margin_cost' => $cost, 'suits' => null]);
+    }
+
+    /**
+     * Attach this trigger to one or more Actions via the pivot.
+     * Useful in tests that need "trigger on action X".
+     */
+    public function forActions(\App\Models\TOS\Action ...$actions): static
+    {
+        return $this->afterCreating(function (\App\Models\TOS\Trigger $trigger) use ($actions) {
+            foreach ($actions as $i => $action) {
+                $trigger->actions()->attach($action->id, ['sort_order' => $i]);
+            }
+        });
     }
 }

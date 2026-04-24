@@ -81,5 +81,9 @@ const table = useVueTable({
                 </TableBody>
             </Table>
         </div>
+        <div class="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()">Previous</Button>
+            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
+        </div>
     </div>
 </template>

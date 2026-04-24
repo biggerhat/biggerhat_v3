@@ -11,6 +11,8 @@ class AllegianceCardController extends Controller
     public function index(Request $request)
     {
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
 
         $query = AllegianceCard::with('allegiance:id,name,slug,color_slug,type', 'abilities')->orderBy('name');
         if ($nameSearch) {
@@ -18,8 +20,9 @@ class AllegianceCardController extends Controller
         }
 
         return inertia('TOS/AllegianceCards/Index', [
-            'cards' => $query->get(),
+            'cards' => $query->paginate($perPage)->withQueryString(),
             'name_search' => $nameSearch,
+            'page_view' => $pageView,
         ]);
     }
 

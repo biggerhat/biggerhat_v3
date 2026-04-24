@@ -18,13 +18,15 @@ class UnitController extends Controller
         // partial-reload without changing URL segments).
         $rule = $rule ?? ($request->filled('rule') ? (string) $request->get('rule') : null);
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
 
-        // Exclude Combined Arms embedded child cards (rulebook p. 11): those
-        // come into play automatically with their parent unit and aren't
-        // hired as standalone rows, so they'd mislead in a top-level browse.
+        // Browse surfaces every unit — Combined Arms child cards (rulebook
+        // p. 11) ARE browseable in the database (users need to read Komainu's
+        // card even though it's hired via Lien). The "only-parent" filter
+        // belongs in the crew builder, not the reference library.
         $query = Unit::query()
             ->with(['sides', 'allegiances', 'specialUnitRules', 'sculpts'])
-            ->whereDoesntHave('combinedArmsParent')
             ->orderBy('name');
 
         if ($rule !== null && $rule !== '') {
@@ -39,9 +41,10 @@ class UnitController extends Controller
         }
 
         return inertia('TOS/Units/Index', [
-            'units' => $query->get(),
+            'units' => $query->paginate($perPage)->withQueryString(),
             'rule_filter' => $rule,
             'name_search' => $nameSearch,
+            'page_view' => $pageView,
             'special_rules' => SpecialUnitRuleEnum::toSelectOptions(),
         ]);
     }

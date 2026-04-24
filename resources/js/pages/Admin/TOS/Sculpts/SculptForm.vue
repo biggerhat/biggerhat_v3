@@ -12,7 +12,7 @@ interface SculptRow {
     id: number;
     slug: string;
     unit_id: number;
-    name: string;
+    name: string | null;
     front_image: string | null;
     back_image: string | null;
     combination_image: string | null;
@@ -28,7 +28,7 @@ const props = defineProps<{
 
 const formInfo = ref({
     unit_id: null as string | null,
-    name: '' as string,
+    name: null as string | null,
     front_image: null as File | null,
     back_image: null as File | null,
     release_date: null as string | null,
@@ -82,8 +82,8 @@ onMounted(() => {
                         <InputError :message="usePage().props.errors.unit_id" />
                     </div>
                     <div>
-                        <Label for="name">Name</Label>
-                        <Input id="name" v-model="formInfo.name" />
+                        <Label for="name">Name <span class="ml-1 text-[10px] font-normal text-muted-foreground">(optional)</span></Label>
+                        <Input id="name" v-model="formInfo.name" placeholder="Leave blank to inherit the unit's name" />
                         <InputError :message="usePage().props.errors.name" />
                     </div>
                 </div>

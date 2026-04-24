@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import TableSkeleton from '@/components/TableSkeleton.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { Head, Link } from '@inertiajs/vue3';
 import { BookOpen } from 'lucide-vue-next';
@@ -28,14 +31,33 @@ interface AllegianceCard {
     abilities: Ability[];
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    first_page_url: string;
+    last_page_url: string;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path: string;
+    from: number | null;
+    to: number | null;
+}
+
 const props = defineProps<{
-    cards: AllegianceCard[];
+    cards: Paginator<AllegianceCard>;
     name_search: string | null;
+    page_view: string;
 }>();
 
-const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, isLoading } = useListFiltering(
-    { name_search: props.name_search as string | null },
-    { routeName: 'tos.allegiance_cards.index', filterKeys: [], only: ['cards', 'name_search'] },
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
+    {
+        name_search: props.name_search as string | null,
+        page_view: props.page_view as string | null,
+    },
+    { routeName: 'tos.allegiance_cards.index', filterKeys: [], only: ['cards', 'name_search', 'page_view'] },
 );
 </script>
 
@@ -52,8 +74,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
         <ListSearchBar
             v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
             :active-filter-count="activeFilterCount"
             placeholder="Search allegiance cards..."
+            @update:page-view="handleViewChange"
             @name-keydown="handleNameKeydown"
             @clear-search="clearNameSearch"
             @filter="filter"
@@ -61,12 +85,41 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
         />
 
         <div class="container mx-auto sm:px-4">
-            <div v-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
+                <TableSkeleton :rows="8" :cols="4" />
+            </div>
+            <div v-else-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
-            <div v-else-if="cards.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+
+            <div v-else-if="filterParams.page_view === 'table' && cards.data.length" class="overflow-auto rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Allegiance</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Body</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow v-for="c in cards.data" :key="c.id">
+                            <TableCell class="font-medium">
+                                <Link :href="route('tos.allegiance_cards.view', c.slug)" class="hover:underline">{{ c.name }}</Link>
+                            </TableCell>
+                            <TableCell class="text-xs">{{ c.allegiance.name }}</TableCell>
+                            <TableCell class="text-xs capitalize">{{ c.type }}</TableCell>
+                            <TableCell class="max-w-md text-xs text-muted-foreground line-clamp-2">
+                                <TosText v-if="c.body" :text="c.body" />
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div v-else-if="cards.data.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <Link
-                    v-for="c in cards"
+                    v-for="c in cards.data"
                     :key="c.id"
                     :href="route('tos.allegiance_cards.view', c.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -94,6 +147,8 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                 </Link>
             </div>
             <EmptyState v-else :icon="BookOpen" title="No allegiance cards yet" />
+
+            <InertiaPagination v-if="!isLoading" :paginator="cards" :only="['cards', 'name_search', 'page_view']" />
         </div>
     </div>
 </template>

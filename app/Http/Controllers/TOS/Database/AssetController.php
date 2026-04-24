@@ -11,6 +11,8 @@ class AssetController extends Controller
     public function index(Request $request)
     {
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
 
         $query = Asset::with('allegiances:id,name', 'limits', 'abilities:id,name', 'actions:id,name')->orderBy('name');
         if ($nameSearch) {
@@ -18,8 +20,9 @@ class AssetController extends Controller
         }
 
         return inertia('TOS/Assets/Index', [
-            'assets' => $query->get(),
+            'assets' => $query->paginate($perPage)->withQueryString(),
             'name_search' => $nameSearch,
+            'page_view' => $pageView,
         ]);
     }
 

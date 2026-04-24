@@ -14,12 +14,10 @@ interface Ability {
     slug: string;
     name: string;
     is_general: boolean;
-    allegiance: { id: number; name: string } | null;
 }
 
 const columns: ColumnDef<Ability>[] = [
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
-    { id: 'scope', header: () => h('div', {}, 'Scope'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.is_general ? 'General' : (row.original.allegiance?.name ?? 'Allegiance — none')) },
     {
         id: 'actions',
         enableHiding: false,
@@ -73,6 +71,10 @@ const table = useVueTable({
                     <template v-else><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template>
                 </TableBody>
             </Table>
+        </div>
+        <div class="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()">Previous</Button>
+            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
         </div>
     </div>
 </template>

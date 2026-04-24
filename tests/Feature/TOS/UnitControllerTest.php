@@ -11,7 +11,7 @@ it('renders the units index with all units', function () {
 
     $this->get(route('tos.units.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('TOS/Units/Index')->has('units', 3));
+        ->assertInertia(fn ($p) => $p->component('TOS/Units/Index')->has('units.data', 3));
 });
 
 it('filters the units index by special-rule slug via friendly URL', function () {
@@ -20,7 +20,7 @@ it('filters the units index by special-rule slug via friendly URL', function () 
 
     $this->get(route('tos.units.commander'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->where('rule_filter', SpecialUnitRuleEnum::Commander->value)->has('units', 2));
+        ->assertInertia(fn ($p) => $p->where('rule_filter', SpecialUnitRuleEnum::Commander->value)->has('units.data', 2));
 });
 
 it('filters via the titan friendly URL', function () {
@@ -28,7 +28,7 @@ it('filters via the titan friendly URL', function () {
     Unit::factory()->withSides()->titan()->create();
 
     $this->get(route('tos.units.titan'))
-        ->assertInertia(fn ($p) => $p->where('rule_filter', SpecialUnitRuleEnum::Titan->value)->has('units', 1));
+        ->assertInertia(fn ($p) => $p->where('rule_filter', SpecialUnitRuleEnum::Titan->value)->has('units.data', 1));
 });
 
 it('view resolves a unit by sculpt slug', function () {

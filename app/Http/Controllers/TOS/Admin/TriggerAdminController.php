@@ -15,9 +15,9 @@ class TriggerAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/Triggers/Index', [
-            'triggers' => Trigger::with('action:id,name')
+            'triggers' => Trigger::with('actions:id,name')
                 ->orderBy('name')
-                ->get(['id', 'slug', 'name', 'action_id', 'suits', 'margin_cost', 'timing', 'sort_order']),
+                ->get(['id', 'slug', 'name', 'suits', 'margin_cost', 'timing']),
         ]);
     }
 
@@ -31,6 +31,8 @@ class TriggerAdminController extends Controller
 
     public function edit(Request $request, Trigger $trigger)
     {
+        $trigger->load('actions:id');
+
         return inertia('Admin/TOS/Triggers/TriggerForm', [
             'trigger' => $trigger,
             'actions' => fn () => Action::orderBy('name')->get(['id', 'name']),
@@ -40,14 +42,24 @@ class TriggerAdminController extends Controller
 
     public function store(StoreTriggerRequest $request)
     {
-        $trigger = Trigger::create($request->validated());
+        $data = $request->validated();
+        $actionIds = $data['action_ids'] ?? [];
+        unset($data['action_ids']);
+
+        $trigger = Trigger::create($data);
+        $trigger->actions()->sync($this->withSortOrder($actionIds));
 
         return redirect()->route('admin.tos.triggers.index')->withMessage("{$trigger->name} created.");
     }
 
     public function update(UpdateTriggerRequest $request, Trigger $trigger)
     {
-        $trigger->update($request->validated());
+        $data = $request->validated();
+        $actionIds = $data['action_ids'] ?? [];
+        unset($data['action_ids']);
+
+        $trigger->update($data);
+        $trigger->actions()->sync($this->withSortOrder($actionIds));
 
         return redirect()->route('admin.tos.triggers.index')->withMessage("{$trigger->name} updated.");
     }
@@ -58,5 +70,19 @@ class TriggerAdminController extends Controller
         $trigger->delete();
 
         return redirect()->route('admin.tos.triggers.index')->withMessage("{$name} deleted.");
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     * @return array<int, array{sort_order: int}>
+     */
+    private function withSortOrder(array $ids): array
+    {
+        $out = [];
+        foreach (array_values($ids) as $i => $id) {
+            $out[$id] = ['sort_order' => $i];
+        }
+
+        return $out;
     }
 }

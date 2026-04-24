@@ -139,6 +139,39 @@ it('syncs VP for a solo tracker game where slot 2 has no user', function () {
     expect($this->tgame->player_one_vp)->toBe(3);
 });
 
+// Regression: tournament playerOne is the unlinked side, the user is tournament
+// playerTwo. The factory now puts the BiggerHat user in tracker slot 1 (so the
+// solo "you vs opponent" UX works), which means tracker slot 1 maps to
+// tournament player_two_vp — sync-back must respect that user_id-based mapping
+// instead of the old positional one.
+it('syncs solo VP into player_two when the user is the tournament P2', function () {
+    // Tournament P1 = unlinked (Jane Doe), Tournament P2 = the user (creator).
+    $this->tp1->update(['user_id' => null, 'display_name' => 'Jane Doe']);
+    $this->tp2->update(['user_id' => $this->creator->id]);
+
+    // Tracker game built by the factory: user lives in slot 1 even though
+    // they're tournament player_two_id.
+    $this->trackerGame->update(['is_solo' => true]);
+    $this->gp1->update(['user_id' => $this->creator->id]);
+    $this->gp2->update(['user_id' => null, 'opponent_name' => 'Jane Doe']);
+
+    $this->actingAs($this->creator)->postJson(route('games.play.turns.store', $this->trackerGame->uuid), [
+        'strategy_points' => 2,
+        'scheme_points' => 1,
+        'scheme_action' => 'scored',
+        'next_scheme_id' => $this->schemes[2]->id,
+    ])->assertOk();
+
+    $this->tgame->refresh();
+    // The user's points landed in tournament player_two_vp (because they're TP2),
+    // not player_one_vp — even though tracker-side they were slot 1.
+    expect($this->tgame->player_two_strategy_vp)->toBe(2);
+    expect($this->tgame->player_two_scheme_vp)->toBe(1);
+    expect($this->tgame->player_two_vp)->toBe(3);
+    // Untouched tournament P1 (the unlinked Jane) stays at zero.
+    expect($this->tgame->player_one_strategy_vp)->toBe(0);
+});
+
 // ─── Completed / forfeited tournament games are never overwritten ───
 
 it('does not overwrite a tournament game whose TO has already confirmed', function () {

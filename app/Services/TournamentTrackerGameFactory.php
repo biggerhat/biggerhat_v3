@@ -73,6 +73,25 @@ class TournamentTrackerGameFactory
         $isSolo = ! $hasUserOne || ! $hasUserTwo;
         $creatorUserId = $hasUserOne ? $playerOne->user_id : $playerTwo->user_id;
 
+        // In solo mode the BiggerHat user always lands in tracker slot 1 —
+        // Show.vue's "you vs opponent" UX hangs off slot 1 = me. Map the
+        // tournament's P1/P2 ordering onto tracker slots by which side has
+        // the account; positional mapping (P1→slot1) breaks here when the
+        // tournament's P1 is the unlinked side.
+        //
+        // For dual games we keep the tournament ordering — both sides are
+        // real users and either can drive their own slot.
+        if ($isSolo) {
+            $slotOneSource = $hasUserOne ? $playerOne : $playerTwo;
+            $slotTwoSource = $hasUserOne ? $playerTwo : $playerOne;
+        } else {
+            $slotOneSource = $playerOne;
+            $slotTwoSource = $playerTwo;
+        }
+
+        $slotOneHasUser = (bool) $slotOneSource->user_id;
+        $slotTwoHasUser = (bool) $slotTwoSource->user_id;
+
         // Factions are already known from tournament registration, so start at MasterSelect
         $trackerGame = Game::create([
             'name' => "{$tournament->name} R{$round->round_number} T{$tournamentGame->table_number}",
@@ -92,21 +111,21 @@ class TournamentTrackerGameFactory
 
         GamePlayer::create([
             'game_id' => $trackerGame->id,
-            'user_id' => $playerOne->user_id,
+            'user_id' => $slotOneSource->user_id,
             'slot' => 1,
             'role' => $roles[0],
-            'faction' => $playerOne->getRawOriginal('faction'),
-            'opponent_name' => ! $hasUserOne ? $playerOne->display_name : null,
+            'faction' => $slotOneSource->getRawOriginal('faction'),
+            'opponent_name' => ! $slotOneHasUser ? $slotOneSource->display_name : null,
             'scheme_pool' => $trackerGame->scheme_pool,
         ]);
 
         GamePlayer::create([
             'game_id' => $trackerGame->id,
-            'user_id' => $playerTwo->user_id,
+            'user_id' => $slotTwoSource->user_id,
             'slot' => 2,
             'role' => $roles[1],
-            'faction' => $playerTwo->getRawOriginal('faction'),
-            'opponent_name' => ! $hasUserTwo ? $playerTwo->display_name : null,
+            'faction' => $slotTwoSource->getRawOriginal('faction'),
+            'opponent_name' => ! $slotTwoHasUser ? $slotTwoSource->display_name : null,
             'scheme_pool' => $trackerGame->scheme_pool,
         ]);
 

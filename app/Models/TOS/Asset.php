@@ -1,0 +1,112 @@
+<?php
+
+namespace App\Models\TOS;
+
+use App\Enums\TOS\AssetLimitTypeEnum;
+use App\Traits\TOS\GeneratesTosSlug;
+use Database\Factories\TOS\AssetFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * @mixin IdeHelperAsset
+ */
+class Asset extends Model
+{
+    /** @use HasFactory<AssetFactory> */
+    use GeneratesTosSlug, HasFactory;
+
+    protected $table = 'tos_assets';
+
+    protected $guarded = ['id'];
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    protected static function newFactory(): AssetFactory
+    {
+        return AssetFactory::new();
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (self $asset) {
+            $asset->limits()->delete();
+            $asset->allegiances()->detach();
+            $asset->abilities()->detach();
+            $asset->actions()->detach();
+        });
+    }
+
+    public function allegiances(): BelongsToMany
+    {
+        return $this->belongsToMany(Allegiance::class, 'tos_allegiance_asset', 'asset_id', 'allegiance_id');
+    }
+
+    public function abilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Ability::class, 'tos_asset_ability', 'asset_id', 'ability_id')
+            ->withPivot('sort_order')
+            ->orderBy('tos_asset_ability.sort_order');
+    }
+
+    public function actions(): BelongsToMany
+    {
+        return $this->belongsToMany(Action::class, 'tos_asset_action', 'asset_id', 'action_id')
+            ->withPivot('sort_order')
+            ->orderBy('tos_asset_action.sort_order');
+    }
+
+    public function limits(): HasMany
+    {
+        return $this->hasMany(AssetLimit::class, 'asset_id');
+    }
+
+    /**
+     * Whether this asset can attach to the given unit. Combines:
+     *   • the rulebook p. 12 baseline rule — "Assets may only be attached to
+     *     units that they share an Allegiance with." If the Asset lists any
+     *     Allegiances at all, the target Unit must share at least one.
+     *   • every unit-derivable Limit row (Restricted by name / type /
+     *     allegiance, Adjunct by size).
+     *
+     * Slot collisions are per-unit rules but require knowledge of which other
+     * Assets are already attached — that's a Company-build concern (Phase 2+).
+     * Unique is per-Company — also deferred. Both skip this per-unit check.
+     */
+    public function canAttachTo(Unit $unit): bool
+    {
+        $this->loadMissing(['allegiances', 'limits']);
+        $unit->loadMissing(['specialUnitRules', 'allegiances']);
+
+        // Baseline allegiance match (rulebook p. 12). Only enforced when the
+        // Asset declares at least one Allegiance — universal-Allegiance Assets
+        // (rare but legal in expansions) remain unrestricted by this check.
+        if ($this->allegiances->isNotEmpty()) {
+            $sharedAllegiance = $this->allegiances
+                ->pluck('id')
+                ->intersect($unit->allegiances->pluck('id'))
+                ->isNotEmpty();
+
+            if (! $sharedAllegiance) {
+                return false;
+            }
+        }
+
+        foreach ($this->limits as $limit) {
+            if ($limit->limit_type === AssetLimitTypeEnum::Unique || $limit->limit_type === AssetLimitTypeEnum::Slot) {
+                continue;
+            }
+
+            if (! $limit->matchesUnit($unit)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

@@ -30,12 +30,49 @@ import {
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
+import GameSystemSwitcher from './GameSystemSwitcher.vue';
 
 const page = usePage<SharedData>();
 const isAuthenticated = computed(() => !!page.props.auth.user);
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
 
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
+
+const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
+
+const tosNavItems = computed<NavItem[]>(() => [
+    {
+        items: [
+            { title: 'TOS Home', href: route('tos.index'), icon: Shield },
+            ...(canAccessAdmin.value
+                ? [
+                      {
+                          title: 'Admin',
+                          href: route('admin.dashboard'),
+                          icon: ShieldCheck,
+                      },
+                  ]
+                : []),
+        ],
+    },
+    {
+        title: 'The Other Side',
+        collapsible: true,
+        collapsed: false,
+        items: [
+            { title: 'Allegiances', href: route('tos.allegiances.index'), icon: Shield },
+            { title: 'Units', href: route('tos.units.index'), icon: Swords },
+            { title: 'Special Rules', href: route('tos.special_rules.index'), icon: BookOpen },
+            { title: 'Abilities', href: route('tos.abilities.index'), icon: Shield },
+            { title: 'Actions', href: route('tos.actions.index'), icon: Swords },
+            { title: 'Triggers', href: route('tos.triggers.index'), icon: Swords },
+            { title: 'Allegiance Cards', href: route('tos.allegiance_cards.index'), icon: BookOpen },
+            { title: 'Envoys', href: route('tos.envoys.index'), icon: Bot },
+            { title: 'Assets', href: route('tos.assets.index'), icon: Package },
+            { title: 'Stratagems', href: route('tos.stratagems.index'), icon: Newspaper },
+        ],
+    },
+]);
 
 const myHatNavItems = computed(() => {
     if (!isAuthenticated.value) return [];
@@ -285,11 +322,19 @@ const footerNavItems: NavItem[] = [
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
+            <div class="px-2 pb-1 sm:hidden">
+                <GameSystemSwitcher />
+            </div>
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
-            <NavMain v-if="myHatNavItems.length > 0" :items="myHatNavItems" />
+            <template v-if="isTos">
+                <NavMain :items="tosNavItems" />
+            </template>
+            <template v-else>
+                <NavMain :items="mainNavItems" />
+                <NavMain v-if="myHatNavItems.length > 0" :items="myHatNavItems" />
+            </template>
         </SidebarContent>
 
         <SidebarFooter>

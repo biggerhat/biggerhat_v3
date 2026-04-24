@@ -18,6 +18,11 @@ export default {
         'bg-outcasts',
         'bg-resurrectionists',
         'bg-tenthunders',
+        'bg-kingsempire',
+        'bg-abyssinia',
+        'bg-cult',
+        'bg-hordes',
+        'bg-courtoftwo',
     ],
     theme: {
     	extend: {
@@ -81,6 +86,26 @@ export default {
                 },
                 tenthunders: {
                     DEFAULT: 'hsl(var(--tenthunders))',
+                    foreground: 'hsl(var(--primary-foreground))'
+                },
+                kingsempire: {
+                    DEFAULT: 'hsl(var(--kingsempire))',
+                    foreground: 'hsl(var(--primary-foreground))'
+                },
+                abyssinia: {
+                    DEFAULT: 'hsl(var(--abyssinia))',
+                    foreground: 'hsl(var(--primary-foreground))'
+                },
+                cult: {
+                    DEFAULT: 'hsl(var(--cult))',
+                    foreground: 'hsl(var(--primary-foreground))'
+                },
+                hordes: {
+                    DEFAULT: 'hsl(var(--hordes))',
+                    foreground: 'hsl(var(--primary-foreground))'
+                },
+                courtoftwo: {
+                    DEFAULT: 'hsl(var(--courtoftwo))',
                     foreground: 'hsl(var(--primary-foreground))'
                 },
     			muted: {

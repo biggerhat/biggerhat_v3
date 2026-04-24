@@ -9,6 +9,10 @@ use App\Models\Character;
 use App\Models\Feedback;
 use App\Models\Keyword;
 use App\Models\Miniature;
+use App\Models\TOS\Allegiance as TosAllegiance;
+use App\Models\TOS\Asset as TosAsset;
+use App\Models\TOS\Stratagem as TosStratagem;
+use App\Models\TOS\Unit as TosUnit;
 use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -83,6 +87,16 @@ class DashboardAdminController extends Controller
                 'items' => [
                     ['label' => 'Users', 'permission' => 'view_user', 'href' => route('admin.users.index'), 'count' => fn () => User::count()],
                     ['label' => 'Roles', 'permission' => 'view_role', 'href' => route('admin.roles.index'), 'count' => null],
+                ],
+            ],
+            [
+                'title' => 'The Other Side',
+                'description' => 'Allegiances, units, cards, envoys, assets, and stratagems.',
+                'items' => [
+                    ['label' => 'Allegiances', 'permission' => 'view_tos_allegiance', 'href' => route('admin.tos.allegiances.index'), 'count' => fn () => TosAllegiance::count()],
+                    ['label' => 'Units', 'permission' => 'view_tos_unit', 'href' => route('admin.tos.units.index'), 'count' => fn () => TosUnit::count()],
+                    ['label' => 'Assets', 'permission' => 'view_tos_asset', 'href' => route('admin.tos.assets.index'), 'count' => fn () => TosAsset::count()],
+                    ['label' => 'Stratagems', 'permission' => 'view_tos_stratagem', 'href' => route('admin.tos.stratagems.index'), 'count' => fn () => TosStratagem::count()],
                 ],
             ],
         ];

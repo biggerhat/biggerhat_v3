@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import CommandPaletteCatalog from '@/components/CommandPaletteCatalog.vue';
+import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType, SharedData } from '@/types';
@@ -38,6 +39,10 @@ interface CommandSearchResults {
     upgrades?: CommandEntry[];
     miniatures?: CommandEntry[];
     packages?: CommandEntry[];
+    tos_allegiances?: CommandEntry[];
+    tos_units?: CommandEntry[];
+    tos_envoys?: CommandEntry[];
+    tos_stratagems?: CommandEntry[];
 }
 
 interface QuickAction {
@@ -136,6 +141,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
     >
         <div class="flex items-center gap-2">
             <SidebarTrigger class="-ml-1" />
+            <GameSystemSwitcher class="hidden sm:inline-flex" />
             <template v-if="breadcrumbs.length > 0">
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </template>

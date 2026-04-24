@@ -7,6 +7,7 @@ export interface Auth {
     permissions: string[];
     can_publish_posts: boolean;
     can_access_admin: boolean;
+    is_super_admin: boolean;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
     wishlists: Array<{ id: number; name: string }>;
@@ -35,11 +36,30 @@ export interface FactionInfo {
     logo: string;
 }
 
+export interface AllegianceInfo {
+    slug: string;
+    name: string;
+    short_name: string | null;
+    type: string;
+    is_syndicate: boolean;
+    color: string;
+    logo: string;
+}
+
+export interface CurrentGameSystem {
+    slug: 'malifaux' | 'tos';
+    label: string;
+    home_route: string;
+    switch_to: { slug: 'malifaux' | 'tos'; label: string; home_route: string };
+}
+
 export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
     faction_info: Record<string, FactionInfo>;
+    tos_allegiance_info: Record<string, AllegianceInfo>;
+    currentGameSystem: CurrentGameSystem;
     ziggy: Config & { location: string };
 }
 

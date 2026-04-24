@@ -22,8 +22,21 @@ enum FactionEnum: string implements HasDefaultEnumMethods
     case Resurrectionists = 'resurrectionists';
     case TenThunders = 'ten_thunders';
 
+    /**
+     * Memoize per-process — buildDetails is called via the Inertia shared
+     * data on every request and is a pure function of static enum data.
+     * Enums can't carry class-level properties, so we memoize via a static
+     * local instead.
+     *
+     * @return array<string, array<string, mixed>>
+     */
     public static function buildDetails(): array
     {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+
         $details = [];
         foreach (self::cases() as $case) {
             $details[$case->value] = [
@@ -34,7 +47,7 @@ enum FactionEnum: string implements HasDefaultEnumMethods
             ];
         }
 
-        return $details;
+        return $cache = $details;
     }
 
     public function color(): string

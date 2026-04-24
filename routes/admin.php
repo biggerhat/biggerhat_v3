@@ -26,6 +26,17 @@ use App\Http\Controllers\Admin\TransmissionAdminController;
 use App\Http\Controllers\Admin\TriggerAdminController;
 use App\Http\Controllers\Admin\UpgradeAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
+use App\Http\Controllers\TOS\Admin\AbilityAdminController as TosAbilityAdminController;
+use App\Http\Controllers\TOS\Admin\ActionAdminController as TosActionAdminController;
+use App\Http\Controllers\TOS\Admin\AllegianceAdminController as TosAllegianceAdminController;
+use App\Http\Controllers\TOS\Admin\AllegianceCardAdminController as TosAllegianceCardAdminController;
+use App\Http\Controllers\TOS\Admin\AssetAdminController as TosAssetAdminController;
+use App\Http\Controllers\TOS\Admin\EnvoyAdminController as TosEnvoyAdminController;
+use App\Http\Controllers\TOS\Admin\SculptAdminController as TosSculptAdminController;
+use App\Http\Controllers\TOS\Admin\SpecialUnitRuleAdminController as TosSpecialUnitRuleAdminController;
+use App\Http\Controllers\TOS\Admin\StratagemAdminController as TosStratagemAdminController;
+use App\Http\Controllers\TOS\Admin\TriggerAdminController as TosTriggerAdminController;
+use App\Http\Controllers\TOS\Admin\UnitAdminController as TosUnitAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
@@ -257,5 +268,107 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         Route::post('/store', 'store')->name('store')->middleware('permission:edit_pod_link');
         Route::post('/update/{podLink}', 'update')->name('update')->middleware('permission:edit_pod_link');
         Route::post('/delete/{podLink}', 'delete')->name('delete')->middleware('permission:delete_pod_link');
+    });
+
+    // The Other Side (TOS)
+    Route::prefix('tos')->name('tos.')->group(function () {
+        Route::controller(TosAllegianceAdminController::class)->prefix('allegiances')->name('allegiances.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_allegiance');
+            Route::get('/edit/{allegiance}', 'edit')->name('edit')->middleware('permission:view_tos_allegiance');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_allegiance');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_allegiance');
+            Route::post('/update/{allegiance}', 'update')->name('update')->middleware('permission:edit_tos_allegiance');
+            Route::post('/delete/{allegiance}', 'delete')->name('delete')->middleware('permission:delete_tos_allegiance');
+        });
+
+        Route::controller(TosUnitAdminController::class)->prefix('units')->name('units.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_unit');
+            Route::get('/edit/{unit}', 'edit')->name('edit')->middleware('permission:view_tos_unit');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_unit');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_unit');
+            Route::post('/update/{unit}', 'update')->name('update')->middleware('permission:edit_tos_unit');
+            Route::post('/delete/{unit}', 'delete')->name('delete')->middleware('permission:delete_tos_unit');
+        });
+
+        Route::controller(TosSculptAdminController::class)->prefix('sculpts')->name('sculpts.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_sculpt');
+            Route::get('/edit/{sculpt}', 'edit')->name('edit')->middleware('permission:view_tos_sculpt');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_sculpt');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_sculpt');
+            Route::post('/update/{sculpt}', 'update')->name('update')->middleware('permission:edit_tos_sculpt');
+            Route::post('/delete/{sculpt}', 'delete')->name('delete')->middleware('permission:delete_tos_sculpt');
+        });
+
+        Route::controller(TosAbilityAdminController::class)->prefix('abilities')->name('abilities.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_ability');
+            Route::get('/edit/{ability}', 'edit')->name('edit')->middleware('permission:view_tos_ability');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_ability');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_ability');
+            Route::post('/update/{ability}', 'update')->name('update')->middleware('permission:edit_tos_ability');
+            Route::post('/delete/{ability}', 'delete')->name('delete')->middleware('permission:delete_tos_ability');
+        });
+
+        Route::controller(TosActionAdminController::class)->prefix('actions')->name('actions.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_action');
+            Route::get('/edit/{action}', 'edit')->name('edit')->middleware('permission:view_tos_action');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_action');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_action');
+            Route::post('/update/{action}', 'update')->name('update')->middleware('permission:edit_tos_action');
+            Route::post('/delete/{action}', 'delete')->name('delete')->middleware('permission:delete_tos_action');
+        });
+
+        Route::controller(TosTriggerAdminController::class)->prefix('triggers')->name('triggers.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_trigger');
+            Route::get('/edit/{trigger}', 'edit')->name('edit')->middleware('permission:view_tos_trigger');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_trigger');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_trigger');
+            Route::post('/update/{trigger}', 'update')->name('update')->middleware('permission:edit_tos_trigger');
+            Route::post('/delete/{trigger}', 'delete')->name('delete')->middleware('permission:delete_tos_trigger');
+        });
+
+        Route::controller(TosSpecialUnitRuleAdminController::class)->prefix('special-rules')->name('special_rules.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_special_unit_rule');
+            Route::get('/edit/{rule}', 'edit')->name('edit')->middleware('permission:view_tos_special_unit_rule');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_special_unit_rule');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_special_unit_rule');
+            Route::post('/update/{rule}', 'update')->name('update')->middleware('permission:edit_tos_special_unit_rule');
+            Route::post('/delete/{rule}', 'delete')->name('delete')->middleware('permission:delete_tos_special_unit_rule');
+        });
+
+        Route::controller(TosAllegianceCardAdminController::class)->prefix('allegiance-cards')->name('allegiance_cards.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_allegiance_card');
+            Route::get('/edit/{card}', 'edit')->name('edit')->middleware('permission:view_tos_allegiance_card');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_allegiance_card');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_allegiance_card');
+            Route::post('/update/{card}', 'update')->name('update')->middleware('permission:edit_tos_allegiance_card');
+            Route::post('/delete/{card}', 'delete')->name('delete')->middleware('permission:delete_tos_allegiance_card');
+        });
+
+        Route::controller(TosEnvoyAdminController::class)->prefix('envoys')->name('envoys.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_envoy');
+            Route::get('/edit/{envoy}', 'edit')->name('edit')->middleware('permission:view_tos_envoy');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_envoy');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_envoy');
+            Route::post('/update/{envoy}', 'update')->name('update')->middleware('permission:edit_tos_envoy');
+            Route::post('/delete/{envoy}', 'delete')->name('delete')->middleware('permission:delete_tos_envoy');
+        });
+
+        Route::controller(TosAssetAdminController::class)->prefix('assets')->name('assets.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_asset');
+            Route::get('/edit/{asset}', 'edit')->name('edit')->middleware('permission:view_tos_asset');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_asset');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_asset');
+            Route::post('/update/{asset}', 'update')->name('update')->middleware('permission:edit_tos_asset');
+            Route::post('/delete/{asset}', 'delete')->name('delete')->middleware('permission:delete_tos_asset');
+        });
+
+        Route::controller(TosStratagemAdminController::class)->prefix('stratagems')->name('stratagems.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_stratagem');
+            Route::get('/edit/{stratagem}', 'edit')->name('edit')->middleware('permission:view_tos_stratagem');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_stratagem');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_stratagem');
+            Route::post('/update/{stratagem}', 'update')->name('update')->middleware('permission:edit_tos_stratagem');
+            Route::post('/delete/{stratagem}', 'delete')->name('delete')->middleware('permission:delete_tos_stratagem');
+        });
     });
 });

@@ -8,6 +8,7 @@ use Database\Factories\TOS\AllegianceFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @mixin IdeHelperAllegiance
@@ -59,5 +60,10 @@ class Allegiance extends Model
         $value = $type instanceof AllegianceTypeEnum ? $type->value : $type;
 
         return $query->where('type', $value);
+    }
+
+    public function units(): BelongsToMany
+    {
+        return $this->belongsToMany(Unit::class, 'tos_allegiance_unit', 'allegiance_id', 'unit_id');
     }
 }

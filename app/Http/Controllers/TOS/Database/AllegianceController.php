@@ -33,10 +33,11 @@ class AllegianceController extends Controller
 
     public function view(Allegiance $allegiance)
     {
-        // Unit::hireableInto returns units directly attached to this Allegiance
-        // PLUS Neutral units with a matching `restriction` type (rulebook
-        // "Neutral Earth" / "Neutral Malifaux" pool).
-        $units = \App\Models\TOS\Unit::hireableInto($allegiance)
+        // Allegiance page lists only units directly attached via the
+        // tos_allegiance_unit pivot — the cross-type Neutral pool stays
+        // out of the per-allegiance roster (browse it via the Units index
+        // or surface it in the crew builder).
+        $units = $allegiance->units()
             ->with(['sides:id,unit_id,side,speed,defense,willpower,armor', 'sculpts', 'specialUnitRules:id,name,slug', 'allegiances:id,slug'])
             ->orderBy('scrip')
             ->orderBy('name')

@@ -704,7 +704,7 @@ class GamePlayController extends Controller
     private function syncToTournamentGame(Game $game): void
     {
         /** @var TournamentGame|null $tg */
-        $tg = TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
+        $tg = TournamentGame::with(['round.tournament', 'playerOne', 'playerTwo'])->where('game_id', $game->id)->first();
         if (! $tg) {
             return;
         }
@@ -712,28 +712,42 @@ class GamePlayController extends Controller
             return;
         }
 
-        /** @var GamePlayer|null $p1 */
-        $p1 = $game->players->firstWhere('slot', 1) ?? $game->players()->where('slot', 1)->first();
-        /** @var GamePlayer|null $p2 */
-        $p2 = $game->players->firstWhere('slot', 2) ?? $game->players()->where('slot', 2)->first();
-        if (! $p1 || ! $p2) {
+        /** @var GamePlayer|null $slot1 */
+        $slot1 = $game->players->firstWhere('slot', 1) ?? $game->players()->where('slot', 1)->first();
+        /** @var GamePlayer|null $slot2 */
+        $slot2 = $game->players->firstWhere('slot', 2) ?? $game->players()->where('slot', 2)->first();
+        if (! $slot1 || ! $slot2) {
             return;
         }
 
+        // Map tracker slots back to the tournament's playerOne / playerTwo by
+        // user_id. TournamentTrackerGameFactory always puts the BiggerHat user
+        // in tracker slot 1 for solo games — that means tracker slot 1 doesn't
+        // necessarily correspond to TournamentGame.playerOne. Resolving by
+        // user_id keeps VP flowing into the correct tournament-side column.
+        $tpOneUserId = $tg->playerOne->user_id;
+        $slot1MapsToTournamentOne = match (true) {
+            $tpOneUserId !== null && $slot1->user_id === $tpOneUserId => true,
+            $tpOneUserId === null && $slot1->user_id === null => true,
+            default => false,
+        };
+
+        [$pOne, $pTwo] = $slot1MapsToTournamentOne ? [$slot1, $slot2] : [$slot2, $slot1];
+
         $turns = GameTurn::where('game_id', $game->id)
-            ->whereIn('game_player_id', [$p1->id, $p2->id])
+            ->whereIn('game_player_id', [$pOne->id, $pTwo->id])
             ->get()
             ->groupBy('game_player_id');
-        $p1Turns = $turns->get($p1->id, collect());
-        $p2Turns = $turns->get($p2->id, collect());
+        $pOneTurns = $turns->get($pOne->id, collect());
+        $pTwoTurns = $turns->get($pTwo->id, collect());
 
         $tg->update([
-            'player_one_strategy_vp' => (int) $p1Turns->sum('strategy_points'),
-            'player_one_scheme_vp' => (int) $p1Turns->sum('scheme_points'),
-            'player_one_vp' => (int) $p1->total_points,
-            'player_two_strategy_vp' => (int) $p2Turns->sum('strategy_points'),
-            'player_two_scheme_vp' => (int) $p2Turns->sum('scheme_points'),
-            'player_two_vp' => (int) $p2->total_points,
+            'player_one_strategy_vp' => (int) $pOneTurns->sum('strategy_points'),
+            'player_one_scheme_vp' => (int) $pOneTurns->sum('scheme_points'),
+            'player_one_vp' => (int) $pOne->total_points,
+            'player_two_strategy_vp' => (int) $pTwoTurns->sum('strategy_points'),
+            'player_two_scheme_vp' => (int) $pTwoTurns->sum('scheme_points'),
+            'player_two_vp' => (int) $pTwo->total_points,
             // Only back-fill master/title/faction when the TO hasn't entered them —
             // preserves manual corrections (typo fixes, alt title pick, etc.).
             //
@@ -741,14 +755,14 @@ class GamePlayController extends Controller
             // (e.g. "Nellie with a Past") so it round-trips through the Select
             // options keyed on display_name. Writing just Character.title
             // (the bare suffix) here left the Title dropdown blank on reopen.
-            'player_one_master' => $tg->player_one_master ?: $p1->master?->name,
-            'player_one_title' => $tg->player_one_title ?: $p1->master?->display_name,
-            'player_one_faction' => $tg->player_one_faction ?: $p1->getRawOriginal('faction'),
-            'player_two_master' => $tg->player_two_master ?: $p2->master?->name,
-            'player_two_title' => $tg->player_two_title ?: $p2->master?->display_name,
-            'player_two_faction' => $tg->player_two_faction ?: $p2->getRawOriginal('faction'),
-            'player_one_crew_build_id' => $tg->player_one_crew_build_id ?: $p1->crew_build_id,
-            'player_two_crew_build_id' => $tg->player_two_crew_build_id ?: $p2->crew_build_id,
+            'player_one_master' => $tg->player_one_master ?: $pOne->master?->name,
+            'player_one_title' => $tg->player_one_title ?: $pOne->master?->display_name,
+            'player_one_faction' => $tg->player_one_faction ?: $pOne->getRawOriginal('faction'),
+            'player_two_master' => $tg->player_two_master ?: $pTwo->master?->name,
+            'player_two_title' => $tg->player_two_title ?: $pTwo->master?->display_name,
+            'player_two_faction' => $tg->player_two_faction ?: $pTwo->getRawOriginal('faction'),
+            'player_one_crew_build_id' => $tg->player_one_crew_build_id ?: $pOne->crew_build_id,
+            'player_two_crew_build_id' => $tg->player_two_crew_build_id ?: $pTwo->crew_build_id,
         ]);
 
         // Broadcast so any open Manage/View page refreshes live.

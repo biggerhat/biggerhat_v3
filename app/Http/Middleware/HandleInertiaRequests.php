@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\FactionEnum;
+use App\Enums\TOS\AllegianceEnum;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -47,11 +48,14 @@ class HandleInertiaRequests extends Middleware
                 'reset_link' => fn () => $request->session()->get('reset_link'),
             ],
             'faction_info' => FactionEnum::buildDetails(),
+            'tos_allegiance_info' => AllegianceEnum::buildDetails(),
+            'currentGameSystem' => $this->resolveGameSystem($request),
             'auth' => [
                 'user' => $request->user() ?? null,
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
+                'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
@@ -63,6 +67,80 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
         ];
+    }
+
+    /**
+     * Resolve which game-system the user is currently looking at. URL is the
+     * source of truth (anything under /tos or /admin/tos counts as TOS); on
+     * game-agnostic routes (auth/profile/settings) we fall back to the
+     * `preferred_game_system` cookie so a returning user lands back where they
+     * left off.
+     *
+     * @return array{slug: string, label: string, home_route: string, switch_to: array{slug: string, label: string, home_route: string}}
+     */
+    private function resolveGameSystem(Request $request): array
+    {
+        $isTosUrl = $request->is('tos', 'tos/*', 'admin/tos/*');
+
+        $slug = 'malifaux';
+        if ($isTosUrl) {
+            $slug = 'tos';
+        } elseif (! $this->urlSpecifiesGameSystem($request) && $request->cookie('preferred_game_system') === 'tos') {
+            $slug = 'tos';
+        }
+
+        $isTos = $slug === 'tos';
+
+        return [
+            'slug' => $slug,
+            'label' => $isTos ? 'The Other Side' : 'Malifaux',
+            'home_route' => $isTos ? route('tos.index') : route('index'),
+            'switch_to' => $isTos
+                ? ['slug' => 'malifaux', 'label' => 'Malifaux', 'home_route' => route('index')]
+                : ['slug' => 'tos', 'label' => 'The Other Side', 'home_route' => route('tos.index')],
+        ];
+    }
+
+    /**
+     * Whether the current URL explicitly belongs to a game system (Malifaux or
+     * TOS). Game-agnostic surfaces (auth, profile, settings) return false so
+     * the cookie fallback can apply.
+     */
+    private function urlSpecifiesGameSystem(Request $request): bool
+    {
+        // TOS URLs already short-circuit higher up; everything we list here is
+        // unambiguously Malifaux scaffolding.
+        $malifauxPrefixes = [
+            'characters', 'characters/*',
+            'keywords', 'keywords/*',
+            'markers', 'markers/*',
+            'tokens', 'tokens/*',
+            'actions', 'actions/*',
+            'triggers', 'triggers/*',
+            'abilities', 'abilities/*',
+            'factions', 'factions/*',
+            'upgrades/*',
+            'packages', 'packages/*',
+            'blueprints', 'blueprints/*',
+            'lore', 'lore/*',
+            'schemes/*', 'strategies/*', 'seasons', 'seasons/*',
+            'advanced', 'advanced/*',
+            'games', 'games/*',
+            'tournaments', 'tournaments/*',
+            'collection', 'collection/*',
+            'wishlists', 'wishlists/*',
+            'tools/*',
+        ];
+
+        if ($request->is(...$malifauxPrefixes)) {
+            return true;
+        }
+
+        if ($request->is('tos', 'tos/*', 'admin/tos/*')) {
+            return true;
+        }
+
+        return false;
     }
 
     private function canAccessAdmin(Request $request): bool

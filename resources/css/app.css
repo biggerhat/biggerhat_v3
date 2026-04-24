@@ -10,6 +10,14 @@
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'TOS-Symbols';
+    src: url('/font/1E-TOS-Symbols.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 body,
 html {
     --font-sans:
@@ -26,6 +34,11 @@ html {
         --outcasts: 50 61% 49%;
         --resurrectionists: 124 54% 38%;
         --tenthunders: 30 100% 35%;
+        --kingsempire: 215 65% 35%;
+        --abyssinia: 35 90% 45%;
+        --cult: 12 80% 45%;
+        --hordes: 150 55% 30%;
+        --courtoftwo: 285 60% 35%;
         --background: 0 0% 100%;
         --foreground: 0 0% 3.9%;
         --card: 0 0% 100%;
@@ -70,6 +83,11 @@ html {
         --outcasts: 50 61% 49%;
         --resurrectionists: 124 54% 38%;
         --tenthunders: 30 100% 35%;
+        --kingsempire: 215 65% 35%;
+        --abyssinia: 35 90% 45%;
+        --cult: 12 80% 45%;
+        --hordes: 150 55% 30%;
+        --courtoftwo: 285 60% 35%;
         --background: 0 0% 3.9%;
         --foreground: 0 0% 98%;
         --card: 0 0% 3.9%;

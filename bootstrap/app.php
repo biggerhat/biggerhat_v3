@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->encryptCookies(except: ['appearance']);
+        $middleware->encryptCookies(except: ['appearance', 'preferred_game_system']);
 
         $middleware->web(append: [
             HandleAppearance::class,

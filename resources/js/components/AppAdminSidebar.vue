@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogo from '@/components/AppLogo.vue';
+import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
@@ -85,6 +86,27 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Roles', href: route('admin.roles.index'), icon: ShieldCheck, permission: 'view_role' },
         ],
     },
+    {
+        title: 'TOS — Units',
+        items: [
+            { title: 'Units', href: route('admin.tos.units.index'), icon: Swords, permission: 'view_tos_unit' },
+            { title: 'Sculpts', href: route('admin.tos.sculpts.index'), icon: FileImage, permission: 'view_tos_sculpt' },
+            { title: 'Special Rules', href: route('admin.tos.special_rules.index'), icon: BookOpen, permission: 'view_tos_special_unit_rule' },
+            { title: 'Abilities', href: route('admin.tos.abilities.index'), icon: Shield, permission: 'view_tos_ability' },
+            { title: 'Actions', href: route('admin.tos.actions.index'), icon: Swords, permission: 'view_tos_action' },
+            { title: 'Triggers', href: route('admin.tos.triggers.index'), icon: Swords, permission: 'view_tos_trigger' },
+        ],
+    },
+    {
+        title: 'TOS — Cards',
+        items: [
+            { title: 'Allegiances', href: route('admin.tos.allegiances.index'), icon: Shield, permission: 'view_tos_allegiance' },
+            { title: 'Allegiance Cards', href: route('admin.tos.allegiance_cards.index'), icon: BookOpen, permission: 'view_tos_allegiance_card' },
+            { title: 'Envoys', href: route('admin.tos.envoys.index'), icon: Shield, permission: 'view_tos_envoy' },
+            { title: 'Assets', href: route('admin.tos.assets.index'), icon: Package, permission: 'view_tos_asset' },
+            { title: 'Stratagems', href: route('admin.tos.stratagems.index'), icon: Newspaper, permission: 'view_tos_stratagem' },
+        ],
+    },
 ];
 
 const dashboardNav = computed<NavItem[]>(() => [
@@ -120,6 +142,9 @@ const filteredAdminNav = computed(() => {
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
+            <div class="px-2 pb-1 sm:hidden">
+                <GameSystemSwitcher />
+            </div>
         </SidebarHeader>
 
         <SidebarContent>

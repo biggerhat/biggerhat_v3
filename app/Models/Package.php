@@ -53,6 +53,12 @@ class Package extends Model
         return $this->morphedByMany(Blueprint::class, 'packageable');
     }
 
+    /** @return MorphToMany<\App\Models\TOS\Unit, $this> */
+    public function tosUnits(): MorphToMany
+    {
+        return $this->morphedByMany(\App\Models\TOS\Unit::class, 'packageable')->withPivot('quantity');
+    }
+
     /** @return HasMany<PackageStoreLink, $this> */
     public function storeLinks(): HasMany
     {

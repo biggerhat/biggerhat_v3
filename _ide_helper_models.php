@@ -727,12 +727,17 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GamePlayer> $players
  * @property-read int|null $players_count
  * @property-read \App\Models\Strategy|null $strategy
+ * @property-read \App\Models\TournamentGame|null $tournamentGame
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameTurn> $turns
  * @property-read int|null $turns_count
  * @property-read \App\Models\User|null $winner
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game completed()
  * @method static \Database\Factories\GameFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game forUser(int $userId)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game observable()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game onlyTrashed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereCompletedAt($value)
@@ -1451,6 +1456,575 @@ namespace App\Models{
 	class IdeHelperStrategy {}
 }
 
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $body
+ * @property \App\Enums\TOS\UsageLimitEnum|null $usage_limit
+ * @property bool $is_general
+ * @property int|null $allegiance_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSide> $unitSides
+ * @property-read int|null $unit_sides_count
+ * @method static \Database\Factories\TOS\AbilityFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability general()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereIsGeneral($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereUsageLimit($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAbility {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property int|null $av
+ * @property string|null $av_target
+ * @property string|null $av_suits
+ * @property int|null $tn
+ * @property string|null $range
+ * @property int|null $strength
+ * @property bool $is_piercing
+ * @property bool $is_accurate
+ * @property bool $is_area
+ * @property \App\Enums\TOS\UsageLimitEnum|null $usage_limit
+ * @property string|null $body
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Support\Collection<int, ActionTypeEnum> $types
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Trigger> $triggers
+ * @property-read int|null $triggers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\ActionTypeLink> $typeLinks
+ * @property-read int|null $type_links_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSide> $unitSides
+ * @property-read int|null $unit_sides_count
+ * @method static \Database\Factories\TOS\ActionFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereAv($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereAvSuits($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereAvTarget($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereIsAccurate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereIsArea($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereIsPiercing($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereRange($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereStrength($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereTn($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereUsageLimit($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAction {}
+}
+
+namespace App\Models\TOS{
+/**
+ * Junction row for tos_action_types. One row per (Action, ActionTypeEnum)
+ * pair — supports rulebook p. 22's "some Actions are a combination of
+ * several different Action Types."
+ *
+ * @property int $id
+ * @property int $action_id
+ * @property \App\Enums\TOS\ActionTypeEnum $type
+ * @property int $sort_order
+ * @property-read \App\Models\TOS\Action $action
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink whereActionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActionTypeLink whereType($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperActionTypeLink {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $short_name
+ * @property \App\Enums\TOS\AllegianceTypeEnum $type
+ * @property bool $is_syndicate
+ * @property string|null $description
+ * @property string|null $logo_path
+ * @property string|null $color_slug
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\TOS\AllegianceFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance mainAllegiances()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance ofType(\App\Enums\TOS\AllegianceTypeEnum|string $type)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance syndicates()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereColorSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereIsSyndicate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereLogoPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereShortName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAllegiance {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $allegiance_id
+ * @property string $slug
+ * @property string $name
+ * @property \App\Enums\TOS\AllegianceTypeEnum $type
+ * @property string|null $body
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \App\Models\TOS\Allegiance $allegiance
+ * @method static \Database\Factories\TOS\AllegianceCardFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAllegianceCard {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property int $scrip_cost
+ * @property int|null $disable_count
+ * @property int|null $scrap_count
+ * @property string|null $body
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Action> $actions
+ * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Allegiance> $allegiances
+ * @property-read int|null $allegiances_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\AssetLimit> $limits
+ * @property-read int|null $limits_count
+ * @method static \Database\Factories\TOS\AssetFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereDisableCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereScrapCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereScripCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAsset {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $asset_id
+ * @property \App\Enums\TOS\AssetLimitTypeEnum $limit_type
+ * @property \App\Enums\TOS\AssetLimitParameterTypeEnum|null $parameter_type
+ * @property string|null $parameter_value
+ * @property int|null $parameter_unit_id
+ * @property int|null $parameter_allegiance_id
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Asset $asset
+ * @property-read \App\Models\TOS\Allegiance|null $parameterAllegiance
+ * @property-read \App\Models\TOS\Unit|null $parameterUnit
+ * @method static \Database\Factories\TOS\AssetLimitFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereAssetId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereLimitType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereParameterAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereParameterType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereParameterUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereParameterValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AssetLimit whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAssetLimit {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $allegiance_id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $keyword
+ * @property \App\Enums\TOS\EnvoyRestrictionEnum $restriction
+ * @property string|null $body
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \App\Models\TOS\Allegiance $allegiance
+ * @method static \Database\Factories\TOS\EnvoyFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy hireableInto(\App\Models\TOS\Allegiance $target)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereKeyword($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereRestriction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperEnvoy {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $description
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\UnitSpecialRulePivot|null $pivot
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $units
+ * @property-read int|null $units_count
+ * @method static \Database\Factories\TOS\SpecialUnitRuleFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SpecialUnitRule whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperSpecialUnitRule {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property int|null $allegiance_id
+ * @property \App\Enums\TOS\AllegianceTypeEnum|null $allegiance_type
+ * @property int $tactical_cost
+ * @property string|null $effect
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem availableTo(\App\Models\TOS\Allegiance $target)
+ * @method static \Database\Factories\TOS\StratagemFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereAllegianceType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereEffect($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereTacticalCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Stratagem whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperStratagem {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $action_id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $suits
+ * @property int|null $margin_cost
+ * @property \App\Enums\TOS\TriggerTimingEnum $timing
+ * @property string|null $body
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Action $action
+ * @method static \Database\Factories\TOS\TriggerFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereActionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereMarginCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSuits($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereTiming($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTrigger {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $title
+ * @property int $scrip
+ * @property string|null $tactics
+ * @property string|null $description
+ * @property string|null $lore_text
+ * @property int|null $combined_arms_child_id
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Allegiance> $allegiances
+ * @property-read int|null $allegiances_count
+ * @property-read Unit|null $combinedArmsChild
+ * @property-read Unit|null $combinedArmsParent
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSculpt> $sculpts
+ * @property-read int|null $sculpts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSide> $sides
+ * @property-read int|null $sides_count
+ * @property-read \App\Models\TOS\UnitSpecialRulePivot|null $pivot
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\SpecialUnitRule> $specialUnitRules
+ * @property-read int|null $special_unit_rules_count
+ * @method static \Database\Factories\TOS\UnitFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCombinedArmsChildId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereLoreText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereScrip($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereTactics($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperUnit {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $unit_id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $front_image
+ * @property string|null $back_image
+ * @property string|null $combination_image
+ * @property \Illuminate\Support\Carbon|null $release_date
+ * @property string|null $box_reference
+ * @property string|null $store_link
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Unit $unit
+ * @method static \Database\Factories\TOS\UnitSculptFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereBackImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereBoxReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereCombinationImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereFrontImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereReleaseDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereStoreLink($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperUnitSculpt {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $unit_id
+ * @property \App\Enums\TOS\UnitSideEnum $side
+ * @property int $speed
+ * @property int $defense
+ * @property int $willpower
+ * @property int $armor
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Action> $actions
+ * @property-read int|null $actions_count
+ * @property-read \App\Models\TOS\Unit $unit
+ * @method static \Database\Factories\TOS\UnitSideFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereArmor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereDefense($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereSide($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereSpeed($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSide whereWillpower($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperUnitSide {}
+}
+
+namespace App\Models\TOS{
+/**
+ * Pivot for tos_unit_special_rule. Custom because the `parameters` JSON column
+ * needs casting on both reads AND writes (`withCasts` on the relation only
+ * handles reads, so sync/attach calls would otherwise hit "Array to string
+ * conversion" when persisting).
+ *
+ * @property int $id
+ * @property int $unit_id
+ * @property int $special_unit_rule_id
+ * @property array<array-key, mixed>|null $parameters
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot whereParameters($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot whereSpecialUnitRuleId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSpecialRulePivot whereUnitId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperUnitSpecialRulePivot {}
+}
+
 namespace App\Models{
 /**
  * 
@@ -1551,6 +2125,7 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRsvp> $rsvps
  * @property-read int|null $rsvps_count
  * @method static \Database\Factories\TournamentFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament forOrganizer(int $userId)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament onlyTrashed()

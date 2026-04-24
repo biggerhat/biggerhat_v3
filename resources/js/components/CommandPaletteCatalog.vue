@@ -12,7 +12,7 @@
  * `<CommandInput>`'s model.
  */
 import { CommandGroup, CommandItem, CommandSeparator, useCommand } from '@/components/ui/command';
-import { Layers, Package, Shield, Sparkles, Tags, Users } from 'lucide-vue-next';
+import { Bot, Layers, Newspaper, Package, Shield, Sparkles, Swords, Tags, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface CommandEntry {
@@ -26,6 +26,10 @@ interface CommandSearchResults {
     upgrades?: CommandEntry[];
     miniatures?: CommandEntry[];
     packages?: CommandEntry[];
+    tos_allegiances?: CommandEntry[];
+    tos_units?: CommandEntry[];
+    tos_envoys?: CommandEntry[];
+    tos_stratagems?: CommandEntry[];
 }
 
 defineProps<{
@@ -116,6 +120,54 @@ const hasQuery = computed(() => (filterState.search ?? '').trim().length > 0);
             >
                 <Package class="mr-2 size-4 text-muted-foreground" />
                 {{ pkg.name }}
+            </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup v-if="catalog?.tos_allegiances?.length" heading="TOS — Allegiances">
+            <CommandItem
+                v-for="a in catalog.tos_allegiances"
+                :key="`tos-alle-${a.route}`"
+                :value="`tos-allegiance:${a.name}`"
+                @select="emit('select', a.route)"
+            >
+                <Shield class="mr-2 size-4 text-muted-foreground" />
+                {{ a.name }}
+            </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup v-if="catalog?.tos_units?.length" heading="TOS — Units">
+            <CommandItem
+                v-for="u in catalog.tos_units"
+                :key="`tos-unit-${u.route}`"
+                :value="`tos-unit:${u.name}`"
+                @select="emit('select', u.route)"
+            >
+                <Swords class="mr-2 size-4 text-muted-foreground" />
+                {{ u.name }}
+            </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup v-if="catalog?.tos_envoys?.length" heading="TOS — Envoys">
+            <CommandItem
+                v-for="e in catalog.tos_envoys"
+                :key="`tos-envoy-${e.route}`"
+                :value="`tos-envoy:${e.name}`"
+                @select="emit('select', e.route)"
+            >
+                <Bot class="mr-2 size-4 text-muted-foreground" />
+                {{ e.name }}
+            </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup v-if="catalog?.tos_stratagems?.length" heading="TOS — Stratagems">
+            <CommandItem
+                v-for="s in catalog.tos_stratagems"
+                :key="`tos-strat-${s.route}`"
+                :value="`tos-stratagem:${s.name}`"
+                @select="emit('select', s.route)"
+            >
+                <Newspaper class="mr-2 size-4 text-muted-foreground" />
+                {{ s.name }}
             </CommandItem>
         </CommandGroup>
     </template>

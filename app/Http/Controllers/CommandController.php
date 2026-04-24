@@ -8,6 +8,10 @@ use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
+use App\Models\TOS\Allegiance as TosAllegiance;
+use App\Models\TOS\Envoy as TosEnvoy;
+use App\Models\TOS\Stratagem as TosStratagem;
+use App\Models\TOS\Unit as TosUnit;
 use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,6 +73,43 @@ class CommandController extends Controller
                 ];
             });
 
+        $tosAllegiances = TosAllegiance::orderBy('name', 'ASC')->get()->map(function (TosAllegiance $a) {
+            return [
+                'name' => $a->name,
+                'route' => route('tos.allegiances.view', ['allegiance' => $a->slug]),
+            ];
+        });
+
+        // Units view by first sculpt slug (rulebook cards are indexed on the
+        // Unit but the public URL opens a specific sculpt). Skip any Unit
+        // without a sculpt — those have no browseable page yet.
+        $tosUnits = TosUnit::with(['sculpts' => fn ($q) => $q->orderBy('sort_order')])
+            ->notCombinedArmsChild()
+            ->orderBy('name', 'ASC')
+            ->get()
+            ->filter(fn (TosUnit $u) => $u->sculpts->isNotEmpty())
+            ->map(function (TosUnit $u) {
+                return [
+                    'name' => $u->name.($u->title ? ", {$u->title}" : ''),
+                    'route' => route('tos.units.view', ['sculpt' => $u->sculpts->first()->slug]),
+                ];
+            })
+            ->values();
+
+        $tosEnvoys = TosEnvoy::orderBy('name', 'ASC')->get()->map(function (TosEnvoy $e) {
+            return [
+                'name' => $e->name,
+                'route' => route('tos.envoys.view', ['envoy' => $e->slug]),
+            ];
+        });
+
+        $tosStratagems = TosStratagem::orderBy('name', 'ASC')->get()->map(function (TosStratagem $s) {
+            return [
+                'name' => $s->name,
+                'route' => route('tos.stratagems.view', ['stratagem' => $s->slug]),
+            ];
+        });
+
         return response()->json([
             'factions' => $factions,
             'keywords' => $keywords,
@@ -76,6 +117,10 @@ class CommandController extends Controller
             'miniatures' => $promoMiniatures,
             'upgrades' => $upgrades,
             'packages' => $packages,
+            'tos_allegiances' => $tosAllegiances,
+            'tos_units' => $tosUnits,
+            'tos_envoys' => $tosEnvoys,
+            'tos_stratagems' => $tosStratagems,
         ]);
     }
 }

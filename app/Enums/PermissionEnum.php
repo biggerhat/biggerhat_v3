@@ -178,6 +178,83 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Feedback)]
     case ManageFeedback = 'manage_feedback';
 
+    #[PermissionGroup(PermissionGroupEnum::TosAllegiance)]
+    case ViewTosAllegiance = 'view_tos_allegiance';
+    #[PermissionGroup(PermissionGroupEnum::TosAllegiance)]
+    case EditTosAllegiance = 'edit_tos_allegiance';
+    #[PermissionGroup(PermissionGroupEnum::TosAllegiance)]
+    case DeleteTosAllegiance = 'delete_tos_allegiance';
+
+    #[PermissionGroup(PermissionGroupEnum::TosAllegianceCard)]
+    case ViewTosAllegianceCard = 'view_tos_allegiance_card';
+    #[PermissionGroup(PermissionGroupEnum::TosAllegianceCard)]
+    case EditTosAllegianceCard = 'edit_tos_allegiance_card';
+    #[PermissionGroup(PermissionGroupEnum::TosAllegianceCard)]
+    case DeleteTosAllegianceCard = 'delete_tos_allegiance_card';
+
+    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
+    case ViewTosEnvoy = 'view_tos_envoy';
+    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
+    case EditTosEnvoy = 'edit_tos_envoy';
+    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
+    case DeleteTosEnvoy = 'delete_tos_envoy';
+
+    #[PermissionGroup(PermissionGroupEnum::TosUnit)]
+    case ViewTosUnit = 'view_tos_unit';
+    #[PermissionGroup(PermissionGroupEnum::TosUnit)]
+    case EditTosUnit = 'edit_tos_unit';
+    #[PermissionGroup(PermissionGroupEnum::TosUnit)]
+    case DeleteTosUnit = 'delete_tos_unit';
+
+    #[PermissionGroup(PermissionGroupEnum::TosSculpt)]
+    case ViewTosSculpt = 'view_tos_sculpt';
+    #[PermissionGroup(PermissionGroupEnum::TosSculpt)]
+    case EditTosSculpt = 'edit_tos_sculpt';
+    #[PermissionGroup(PermissionGroupEnum::TosSculpt)]
+    case DeleteTosSculpt = 'delete_tos_sculpt';
+
+    #[PermissionGroup(PermissionGroupEnum::TosSpecialUnitRule)]
+    case ViewTosSpecialUnitRule = 'view_tos_special_unit_rule';
+    #[PermissionGroup(PermissionGroupEnum::TosSpecialUnitRule)]
+    case EditTosSpecialUnitRule = 'edit_tos_special_unit_rule';
+    #[PermissionGroup(PermissionGroupEnum::TosSpecialUnitRule)]
+    case DeleteTosSpecialUnitRule = 'delete_tos_special_unit_rule';
+
+    #[PermissionGroup(PermissionGroupEnum::TosAbility)]
+    case ViewTosAbility = 'view_tos_ability';
+    #[PermissionGroup(PermissionGroupEnum::TosAbility)]
+    case EditTosAbility = 'edit_tos_ability';
+    #[PermissionGroup(PermissionGroupEnum::TosAbility)]
+    case DeleteTosAbility = 'delete_tos_ability';
+
+    #[PermissionGroup(PermissionGroupEnum::TosAction)]
+    case ViewTosAction = 'view_tos_action';
+    #[PermissionGroup(PermissionGroupEnum::TosAction)]
+    case EditTosAction = 'edit_tos_action';
+    #[PermissionGroup(PermissionGroupEnum::TosAction)]
+    case DeleteTosAction = 'delete_tos_action';
+
+    #[PermissionGroup(PermissionGroupEnum::TosTrigger)]
+    case ViewTosTrigger = 'view_tos_trigger';
+    #[PermissionGroup(PermissionGroupEnum::TosTrigger)]
+    case EditTosTrigger = 'edit_tos_trigger';
+    #[PermissionGroup(PermissionGroupEnum::TosTrigger)]
+    case DeleteTosTrigger = 'delete_tos_trigger';
+
+    #[PermissionGroup(PermissionGroupEnum::TosAsset)]
+    case ViewTosAsset = 'view_tos_asset';
+    #[PermissionGroup(PermissionGroupEnum::TosAsset)]
+    case EditTosAsset = 'edit_tos_asset';
+    #[PermissionGroup(PermissionGroupEnum::TosAsset)]
+    case DeleteTosAsset = 'delete_tos_asset';
+
+    #[PermissionGroup(PermissionGroupEnum::TosStratagem)]
+    case ViewTosStratagem = 'view_tos_stratagem';
+    #[PermissionGroup(PermissionGroupEnum::TosStratagem)]
+    case EditTosStratagem = 'edit_tos_stratagem';
+    #[PermissionGroup(PermissionGroupEnum::TosStratagem)]
+    case DeleteTosStratagem = 'delete_tos_stratagem';
+
     /**
      * @return list<array{name: string, value: string}>
      */

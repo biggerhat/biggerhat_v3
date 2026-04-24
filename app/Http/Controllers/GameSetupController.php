@@ -192,7 +192,15 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Not the solo game owner'], 403);
         }
 
-        $player = $this->getPlayer($game, 2);
+        // The solo opponent is the null-user player — could be slot 1 or 2
+        // depending on how the game was created (tournament-created tracker
+        // games put the registered user in whichever tournament slot they
+        // occupied, so the opponent isn't always slot 2).
+        /** @var GamePlayer|null $player */
+        $player = $game->players()->whereNull('user_id')->first();
+        if (! $player) {
+            return response()->json(['error' => 'Opponent slot not found'], 422);
+        }
 
         if ($game->status !== GameStatusEnum::CrewSelect) {
             return response()->json(['error' => 'Invalid game state'], 422);

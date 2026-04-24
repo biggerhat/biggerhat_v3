@@ -113,7 +113,9 @@ const dashboardNav = computed<NavItem[]>(() => [
     {
         items: [
             { title: 'Dashboard', href: route('admin.dashboard'), icon: Gauge },
-            { title: '← Back to site', href: route('index'), icon: ArrowLeft },
+            // Return to whichever game system the user is currently on (TOS vs Malifaux).
+            // home_route is a resolved URL, not a route name.
+            { title: '← Back to site', href: page.props.currentGameSystem?.home_route ?? route('index'), icon: ArrowLeft },
         ],
     },
 ]);

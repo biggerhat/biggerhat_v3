@@ -46,15 +46,25 @@ class Action extends Model
     protected static function booted(): void
     {
         static::deleting(function (self $action) {
-            $action->triggers()->delete();
+            // Triggers are now many-to-many — deleting an action only
+            // detaches the pivot rows; shared triggers remain for other
+            // actions. TypeLinks and unit-side pivot get cleaned as before.
+            $action->triggers()->detach();
             $action->typeLinks()->delete();
             $action->unitSides()->detach();
         });
     }
 
-    public function triggers(): HasMany
+    /**
+     * Many-to-many — a Trigger (e.g. "Critical") may be shared across
+     * multiple Actions. `sort_order` on the pivot controls per-action
+     * trigger display order.
+     */
+    public function triggers(): BelongsToMany
     {
-        return $this->hasMany(Trigger::class, 'action_id')->orderBy('sort_order');
+        return $this->belongsToMany(Trigger::class, 'tos_action_trigger', 'action_id', 'trigger_id')
+            ->withPivot('sort_order')
+            ->orderBy('tos_action_trigger.sort_order');
     }
 
     public function unitSides(): BelongsToMany

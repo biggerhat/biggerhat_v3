@@ -11,6 +11,8 @@ class StratagemController extends Controller
     public function index(Request $request)
     {
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
 
         $query = Stratagem::with('allegiance:id,name,slug')->orderBy('name');
         if ($nameSearch) {
@@ -18,8 +20,9 @@ class StratagemController extends Controller
         }
 
         return inertia('TOS/Stratagems/Index', [
-            'stratagems' => $query->get(),
+            'stratagems' => $query->paginate($perPage)->withQueryString(),
             'name_search' => $nameSearch,
+            'page_view' => $pageView,
         ]);
     }
 

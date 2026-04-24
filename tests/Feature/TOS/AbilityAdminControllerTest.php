@@ -1,9 +1,7 @@
 <?php
 
 use App\Enums\PermissionEnum;
-use App\Enums\TOS\UsageLimitEnum;
 use App\Models\TOS\Ability;
-use App\Models\TOS\Allegiance;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -37,19 +35,14 @@ it('store creates a general Ability with a generated slug', function () {
         ->and($a->allegiance_id)->toBeNull();
 });
 
-it('store creates an allegiance-scoped Ability', function () {
-    $ke = Allegiance::factory()->earth()->create();
-
+it('store creates a non-general Ability (is_general = false)', function () {
     $this->actingAs($this->admin)->post(route('admin.tos.abilities.store'), [
         'name' => 'Disciplined',
         'is_general' => false,
-        'allegiance_id' => $ke->id,
-        'usage_limit' => UsageLimitEnum::OncePerTurn->value,
     ])->assertRedirect();
 
     $a = Ability::where('name', 'Disciplined')->first();
-    expect($a->allegiance_id)->toBe($ke->id)
-        ->and($a->usage_limit)->toBe(UsageLimitEnum::OncePerTurn);
+    expect($a)->not->toBeNull()->and($a->is_general)->toBeFalse();
 });
 
 it('rejects missing name', function () {

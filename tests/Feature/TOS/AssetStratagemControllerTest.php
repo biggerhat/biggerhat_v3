@@ -9,7 +9,7 @@ it('renders the assets index with allegiances and limits eager-loaded', function
 
     $this->get(route('tos.assets.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('TOS/Assets/Index')->has('assets', 2));
+        ->assertInertia(fn ($p) => $p->component('TOS/Assets/Index')->has('assets.data', 2));
 });
 
 it('renders a single asset by slug with limits and pivots', function () {
@@ -32,7 +32,7 @@ it('renders the stratagems index', function () {
 
     $this->get(route('tos.stratagems.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('TOS/Stratagems/Index')->has('stratagems', 3));
+        ->assertInertia(fn ($p) => $p->component('TOS/Stratagems/Index')->has('stratagems.data', 3));
 });
 
 it('renders a single stratagem by slug', function () {

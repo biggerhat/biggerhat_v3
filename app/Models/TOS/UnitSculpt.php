@@ -32,6 +32,24 @@ class UnitSculpt extends Model
         ];
     }
 
+    /**
+     * Sculpts don't require a name — a Unit's default sculpt is often
+     * anonymous. When no name is set, pre-populate slug from the parent
+     * Unit's name so GeneratesTosSlug's `if ($model->slug) return` check
+     * short-circuits, leaving `name` null as the admin intended.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $sculpt) {
+            if (empty($sculpt->slug) && empty($sculpt->name) && $sculpt->unit_id) {
+                $parentName = Unit::whereKey($sculpt->unit_id)->value('name');
+                if ($parentName) {
+                    $sculpt->slug = \Illuminate\Support\Str::slug($parentName).'-'.\Illuminate\Support\Str::random(4);
+                }
+            }
+        });
+    }
+
     protected static function newFactory(): UnitSculptFactory
     {
         return UnitSculptFactory::new();

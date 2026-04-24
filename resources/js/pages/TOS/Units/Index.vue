@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import CardImage from '@/components/TOS/CardImage.vue';
+import TableSkeleton from '@/components/TableSkeleton.vue';
+import FlipCard from '@/components/TOS/FlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { Head, Link } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
@@ -17,6 +20,7 @@ interface SelectOption {
 
 interface SpecialRule {
     id: number;
+    slug?: string;
     name: string;
 }
 
@@ -50,22 +54,39 @@ interface Unit {
     sculpts: Sculpt[];
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    first_page_url: string;
+    last_page_url: string;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path: string;
+    from: number | null;
+    to: number | null;
+}
+
 const props = defineProps<{
-    units: Unit[];
+    units: Paginator<Unit>;
     rule_filter: string | null;
     name_search: string | null;
+    page_view: string;
     special_rules: SelectOption[];
 }>();
 
-const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, isLoading } = useListFiltering(
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
     {
         rule: props.rule_filter as string | null,
         name_search: props.name_search as string | null,
+        page_view: props.page_view as string | null,
     },
     {
         routeName: 'tos.units.index',
         filterKeys: ['rule'],
-        only: ['units', 'rule_filter', 'name_search'],
+        only: ['units', 'rule_filter', 'name_search', 'page_view'],
     },
 );
 
@@ -85,15 +106,17 @@ function setRule(slug: string | null) {
         <PageBanner :title="rule_filter ? `${rule_filter[0].toUpperCase()}${rule_filter.slice(1).replace('_', ' ')}s` : 'Units'" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    {{ units.length }} {{ units.length === 1 ? 'unit' : 'units' }} found
+                    {{ units.total }} {{ units.total === 1 ? 'unit' : 'units' }} found
                 </div>
             </template>
         </PageBanner>
 
         <ListSearchBar
             v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
             :active-filter-count="activeFilterCount"
             placeholder="Search units by name or title..."
+            @update:page-view="handleViewChange"
             @name-keydown="handleNameKeydown"
             @clear-search="clearNameSearch"
             @filter="filter"
@@ -120,28 +143,87 @@ function setRule(slug: string | null) {
                 </button>
             </div>
 
-            <div v-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
+                <TableSkeleton :rows="8" :cols="5" />
+            </div>
+            <div v-else-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
-            <div v-else-if="units.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+
+            <div v-else-if="filterParams.page_view === 'table' && units.data.length" class="overflow-auto rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Scrip</TableHead>
+                            <TableHead>Allegiances</TableHead>
+                            <TableHead>Rules</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow v-for="u in units.data" :key="u.id">
+                            <TableCell class="font-medium">
+                                <Link
+                                    v-if="u.sculpts[0]"
+                                    :href="route('tos.units.view', u.sculpts[0].slug)"
+                                    class="hover:underline"
+                                >
+                                    {{ u.name }}
+                                </Link>
+                                <span v-else>{{ u.name }}</span>
+                            </TableCell>
+                            <TableCell class="text-xs italic text-muted-foreground">{{ u.title ?? '—' }}</TableCell>
+                            <TableCell class="text-xs">
+                                <span
+                                    v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
+                                    class="tabular-nums font-medium text-emerald-700 dark:text-emerald-400"
+                                    title="Provides starting Scrip budget"
+                                >+{{ u.scrip }}</span>
+                                <span v-else class="tabular-nums text-muted-foreground">{{ u.scrip }}</span>
+                            </TableCell>
+                            <TableCell class="text-xs text-muted-foreground">
+                                {{ u.allegiances.map((a) => a.name).join(', ') || '—' }}
+                            </TableCell>
+                            <TableCell class="text-xs">
+                                <span v-for="r in u.special_unit_rules" :key="r.id" class="mr-1">{{ r.name }}</span>
+                                <span v-if="!u.special_unit_rules.length" class="text-muted-foreground">—</span>
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div v-else-if="units.data.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <Link
-                    v-for="u in units"
+                    v-for="u in units.data"
                     :key="u.id"
                     :href="u.sculpts[0] ? route('tos.units.view', u.sculpts[0].slug) : '#'"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                     <Card class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10">
-                        <CardImage
-                            :src="u.sculpts[0]?.combination_image ?? u.sculpts[0]?.front_image"
-                            :alt="u.name"
-                            :allegiance-slug="u.allegiances[0]?.slug ?? null"
-                            :placeholder-icon="Swords"
-                            rounded-class=""
-                        />
+                        <!-- Stop propagation so clicking the card image flips instead of
+                             bubbling up to the parent Link and navigating away. -->
+                        <div @click.stop @keydown.stop>
+                            <FlipCard
+                                :front-image="u.sculpts[0]?.front_image"
+                                :back-image="u.sculpts[0]?.back_image"
+                                :front-alt="`${u.name} (standard)`"
+                                :back-alt="`${u.name} (glory)`"
+                                :allegiance-slug="u.allegiances[0]?.slug ?? null"
+                                :placeholder-icon="Swords"
+                                :single-side="!u.sculpts[0]?.back_image"
+                            />
+                        </div>
                         <CardContent class="space-y-1.5 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ u.name }}</span>
-                                <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}</span>
+                                <span
+                                    v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
+                                    class="shrink-0 text-[11px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400"
+                                    title="Provides starting Scrip budget"
+                                >+{{ u.scrip }}</span>
+                                <span v-else class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}</span>
                             </div>
                             <p v-if="u.title" class="truncate text-[11px] italic text-muted-foreground">{{ u.title }}</p>
                             <div class="flex flex-wrap gap-1">
@@ -152,6 +234,8 @@ function setRule(slug: string | null) {
                 </Link>
             </div>
             <EmptyState v-else :icon="Swords" title="No units yet" description="Try clearing filters, or check back once units have been seeded." />
+
+            <InertiaPagination v-if="!isLoading" :paginator="units" :only="['units', 'rule_filter', 'name_search', 'page_view']" />
         </div>
     </div>
 </template>

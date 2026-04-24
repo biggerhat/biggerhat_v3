@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import FlipCard from '@/components/TOS/FlipCard.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { ArrowLeft, Swords } from 'lucide-vue-next';
 
 interface Allegiance {
     id: number;
@@ -19,8 +21,36 @@ interface Allegiance {
     color_slug: string | null;
 }
 
+interface Sculpt {
+    id: number;
+    slug: string;
+    name: string | null;
+    front_image: string | null;
+    back_image: string | null;
+    combination_image: string | null;
+}
+
+interface SpecialRule {
+    id: number;
+    slug: string;
+    name: string;
+}
+
+interface Unit {
+    id: number;
+    slug: string;
+    name: string;
+    title: string | null;
+    scrip: number;
+    restriction: string | null;
+    sculpts: Sculpt[];
+    special_unit_rules: SpecialRule[];
+    allegiances: Array<{ id: number; slug: string }>;
+}
+
 defineProps<{
     allegiance: Allegiance;
+    units: Unit[];
 }>();
 </script>
 
@@ -68,8 +98,53 @@ defineProps<{
                 </CardContent>
             </Card>
 
-            <div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Allegiance Cards, Commanders, and Units for this allegiance land in upcoming releases.
+            <div>
+                <div class="mb-2 flex items-baseline justify-between gap-2">
+                    <h3 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Units</h3>
+                    <span class="text-[11px] tabular-nums text-muted-foreground">
+                        {{ units.length }} {{ units.length === 1 ? 'unit' : 'units' }}
+                    </span>
+                </div>
+
+                <div v-if="units.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    <Link
+                        v-for="u in units"
+                        :key="u.id"
+                        :href="u.sculpts[0] ? route('tos.units.view', u.sculpts[0].slug) : '#'"
+                        class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        <Card class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10">
+                            <div @click.stop @keydown.stop>
+                                <FlipCard
+                                    :front-image="u.sculpts[0]?.front_image"
+                                    :back-image="u.sculpts[0]?.back_image"
+                                    :front-alt="`${u.name} (standard)`"
+                                    :back-alt="`${u.name} (glory)`"
+                                    :allegiance-slug="allegiance.slug"
+                                    :placeholder-icon="Swords"
+                                    :single-side="!u.sculpts[0]?.back_image"
+                                />
+                            </div>
+                            <CardContent class="space-y-1.5 p-3">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="truncate text-sm font-semibold">{{ u.name }}</span>
+                                    <span
+                                        v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
+                                        class="shrink-0 text-[11px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400"
+                                        title="Provides starting Scrip budget"
+                                    >+{{ u.scrip }}</span>
+                                    <span v-else class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}</span>
+                                </div>
+                                <p v-if="u.title" class="truncate text-[11px] italic text-muted-foreground">{{ u.title }}</p>
+                                <div class="flex flex-wrap gap-1">
+                                    <Badge v-if="u.restriction" variant="outline" class="text-[10px] capitalize">Neutral</Badge>
+                                    <Badge v-for="r in u.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                </div>
+                <EmptyState v-else :icon="Swords" title="No units attached yet" description="Units will appear here once they're seeded or assigned to this allegiance." />
             </div>
         </div>
     </div>

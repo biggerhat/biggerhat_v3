@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import TableSkeleton from '@/components/TableSkeleton.vue';
 import TosMarginCost from '@/components/TosMarginCost.vue';
 import TosSuits from '@/components/TosSuits.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { Head } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
@@ -39,14 +42,33 @@ interface Action {
     triggers: Trigger[];
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    first_page_url: string;
+    last_page_url: string;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path: string;
+    from: number | null;
+    to: number | null;
+}
+
 const props = defineProps<{
-    actions: Action[];
+    actions: Paginator<Action>;
     name_search: string | null;
+    page_view: string;
 }>();
 
-const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, isLoading } = useListFiltering(
-    { name_search: props.name_search as string | null },
-    { routeName: 'tos.actions.index', filterKeys: [], only: ['actions', 'name_search'] },
+const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
+    {
+        name_search: props.name_search as string | null,
+        page_view: props.page_view as string | null,
+    },
+    { routeName: 'tos.actions.index', filterKeys: [], only: ['actions', 'name_search', 'page_view'] },
 );
 </script>
 
@@ -63,8 +85,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
         <ListSearchBar
             v-model:name-search="filterParams.name_search"
+            :page-view="filterParams.page_view"
             :active-filter-count="activeFilterCount"
             placeholder="Search actions by name..."
+            @update:page-view="handleViewChange"
             @name-keydown="handleNameKeydown"
             @clear-search="clearNameSearch"
             @filter="filter"
@@ -72,11 +96,45 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
         />
 
         <div class="container mx-auto sm:px-4">
-            <div v-if="isLoading" class="grid gap-3 sm:grid-cols-2">
+            <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
+                <TableSkeleton :rows="8" :cols="6" />
+            </div>
+            <div v-else-if="isLoading" class="grid gap-3 sm:grid-cols-2">
                 <CardSkeleton v-for="n in 6" :key="`skeleton-${n}`" />
             </div>
-            <div v-else-if="actions.length" class="grid gap-3 sm:grid-cols-2">
-                <Card v-for="a in actions" :key="a.id">
+
+            <div v-else-if="filterParams.page_view === 'table' && actions.data.length" class="overflow-auto rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Types</TableHead>
+                            <TableHead>AV</TableHead>
+                            <TableHead>Range</TableHead>
+                            <TableHead>Strength</TableHead>
+                            <TableHead>Body</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow v-for="a in actions.data" :key="a.id">
+                            <TableCell class="font-medium">{{ a.name }}</TableCell>
+                            <TableCell class="text-xs capitalize">{{ a.type_links.map((l) => l.type).join(', ') }}</TableCell>
+                            <TableCell class="text-xs">
+                                <template v-if="a.av != null">{{ a.av }}<TosSuits v-if="a.av_suits" :suits="a.av_suits" /></template>
+                                <span v-else class="text-muted-foreground">—</span>
+                            </TableCell>
+                            <TableCell class="text-xs">{{ a.range ?? '—' }}</TableCell>
+                            <TableCell class="text-xs tabular-nums">{{ a.strength ?? '—' }}</TableCell>
+                            <TableCell class="max-w-md text-xs text-muted-foreground">
+                                <TosText v-if="a.body" :text="a.body" />
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div v-else-if="actions.data.length" class="grid gap-3 sm:grid-cols-2">
+                <Card v-for="a in actions.data" :key="a.id">
                     <CardContent class="p-4">
                         <div class="mb-1.5 flex items-center justify-between gap-2">
                             <span class="text-sm font-semibold">{{ a.name }}</span>
@@ -109,6 +167,8 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                 </Card>
             </div>
             <EmptyState v-else :icon="Swords" title="No actions yet" />
+
+            <InertiaPagination v-if="!isLoading" :paginator="actions" :only="['actions', 'name_search', 'page_view']" />
         </div>
     </div>
 </template>

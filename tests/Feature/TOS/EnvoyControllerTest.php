@@ -7,7 +7,7 @@ it('renders the envoys index', function () {
 
     $this->get(route('tos.envoys.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('TOS/Envoys/Index')->has('envoys', 2));
+        ->assertInertia(fn ($p) => $p->component('TOS/Envoys/Index')->has('envoys.data', 2));
 });
 
 it('renders a single envoy by slug', function () {

@@ -7,7 +7,7 @@ it('renders the allegiance cards index', function () {
 
     $this->get(route('tos.allegiance_cards.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('TOS/AllegianceCards/Index')->has('cards', 3));
+        ->assertInertia(fn ($p) => $p->component('TOS/AllegianceCards/Index')->has('cards.data', 3));
 });
 
 it('renders a single allegiance card by slug', function () {

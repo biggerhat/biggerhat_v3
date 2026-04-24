@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
-import SearchableSelect from '@/components/SearchableSelect.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,13 +12,12 @@ import { onMounted, ref } from 'vue';
 
 interface TriggerRow {
     id: number;
-    action_id: number;
     name: string;
     suits: string | null;
     margin_cost: number | null;
     timing: string;
     body: string | null;
-    sort_order: number;
+    actions: Array<{ id: number }>;
 }
 
 const props = defineProps<{
@@ -32,13 +31,12 @@ type CostType = 'suits' | 'margin' | 'none';
 const costType = ref<CostType>('suits');
 
 const formInfo = ref({
-    action_id: null as string | null,
+    action_ids: [] as string[],
     name: '' as string,
     suits: null as string | null,
     margin_cost: null as number | null,
     timing: 'default' as string,
     body: null as string | null,
-    sort_order: 0 as number,
 });
 
 function setCostType(next: CostType) {
@@ -50,7 +48,7 @@ function setCostType(next: CostType) {
 const submit = () => {
     const payload = {
         ...formInfo.value,
-        action_id: formInfo.value.action_id !== null ? Number.parseInt(formInfo.value.action_id, 10) : null,
+        action_ids: formInfo.value.action_ids.map((v) => Number.parseInt(v, 10)),
     };
     if (props.trigger) router.post(route('admin.tos.triggers.update', props.trigger.id), payload);
     else router.post(route('admin.tos.triggers.store'), payload);
@@ -59,13 +57,12 @@ const submit = () => {
 onMounted(() => {
     if (!props.trigger) return;
     Object.assign(formInfo.value, {
-        action_id: String(props.trigger.action_id),
+        action_ids: (props.trigger.actions ?? []).map((a) => String(a.id)),
         name: props.trigger.name,
         suits: props.trigger.suits,
         margin_cost: props.trigger.margin_cost,
         timing: props.trigger.timing,
         body: props.trigger.body,
-        sort_order: props.trigger.sort_order,
     });
     if (props.trigger.suits) costType.value = 'suits';
     else if (props.trigger.margin_cost !== null) costType.value = 'margin';
@@ -80,14 +77,14 @@ onMounted(() => {
             <CardHeader><CardTitle>{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader>
             <CardContent class="space-y-3">
                 <div>
-                    <Label for="action_id">Action</Label>
-                    <SearchableSelect
-                        v-model="formInfo.action_id"
+                    <Label for="action_ids">Actions <span class="ml-1 text-[10px] font-normal text-muted-foreground">(triggers may attach to multiple actions)</span></Label>
+                    <SearchableMultiselect
+                        v-model="formInfo.action_ids"
                         placeholder="Search actions…"
                         :options="actions"
                         option-value="id"
                     />
-                    <InputError :message="usePage().props.errors.action_id" />
+                    <InputError :message="usePage().props.errors.action_ids" />
                 </div>
                 <div>
                     <Label for="name">Name</Label>
@@ -153,10 +150,6 @@ onMounted(() => {
                 <div>
                     <Label for="body">Body</Label>
                     <Textarea id="body" v-model="formInfo.body" />
-                </div>
-                <div>
-                    <Label for="sort_order">Sort Order</Label>
-                    <Input id="sort_order" v-model.number="formInfo.sort_order" type="number" min="0" />
                 </div>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">

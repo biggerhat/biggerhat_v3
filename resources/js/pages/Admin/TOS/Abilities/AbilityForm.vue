@@ -5,7 +5,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
@@ -16,22 +15,16 @@ interface AbilityRow {
     name: string;
     body: string | null;
     is_general: boolean;
-    allegiance_id: number | null;
-    usage_limit: string | null;
 }
 
 const props = defineProps<{
     ability?: AbilityRow | null;
-    allegiances: Array<{ id: number; name: string }>;
-    usage_limits: Array<{ name: string; value: string }>;
 }>();
 
 const formInfo = ref({
     name: '' as string,
     body: null as string | null,
-    is_general: false as boolean,
-    allegiance_id: null as number | null,
-    usage_limit: null as string | null,
+    is_general: true as boolean,
 });
 
 const submit = () => {
@@ -47,8 +40,6 @@ onMounted(() => {
     formInfo.value.name = props.ability.name;
     formInfo.value.body = props.ability.body;
     formInfo.value.is_general = props.ability.is_general;
-    formInfo.value.allegiance_id = props.ability.allegiance_id;
-    formInfo.value.usage_limit = props.ability.usage_limit;
 });
 </script>
 
@@ -70,24 +61,6 @@ onMounted(() => {
                 <div class="flex items-center gap-2">
                     <Checkbox id="is_general" v-model:checked="formInfo.is_general" />
                     <Label for="is_general">General (shared across allegiances)</Label>
-                </div>
-                <div v-if="!formInfo.is_general">
-                    <Label for="allegiance_id">Allegiance</Label>
-                    <Select v-model.number="formInfo.allegiance_id">
-                        <SelectTrigger><SelectValue placeholder="Allegiance" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem v-for="a in allegiances" :key="a.id" :value="a.id">{{ a.name }}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div>
-                    <Label for="usage_limit">Usage Limit</Label>
-                    <Select v-model="formInfo.usage_limit">
-                        <SelectTrigger><SelectValue placeholder="No limit" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem v-for="u in usage_limits" :key="u.value" :value="u.value">{{ u.name }}</SelectItem>
-                        </SelectContent>
-                    </Select>
                 </div>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">

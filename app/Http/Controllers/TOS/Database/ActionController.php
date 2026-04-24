@@ -12,6 +12,8 @@ class ActionController extends Controller
     public function index(Request $request)
     {
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
+        $pageView = $request->get('page_view', 'cards');
+        $perPage = $pageView === 'table' ? 50 : 24;
 
         $query = Action::with('triggers', 'typeLinks')->orderBy('name');
         if ($nameSearch) {
@@ -19,8 +21,9 @@ class ActionController extends Controller
         }
 
         return inertia('TOS/Actions/Index', [
-            'actions' => $query->get(),
+            'actions' => $query->paginate($perPage)->withQueryString(),
             'name_search' => $nameSearch,
+            'page_view' => $pageView,
             'action_types' => ActionTypeEnum::toSelectOptions(),
         ]);
     }

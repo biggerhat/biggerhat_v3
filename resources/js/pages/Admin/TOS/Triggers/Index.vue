@@ -13,12 +13,22 @@ interface Trigger {
     id: number;
     name: string;
     suits: string | null;
-    action: { id: number; name: string };
+    actions: Array<{ id: number; name: string }>;
 }
 
 const columns: ColumnDef<Trigger>[] = [
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
-    { id: 'action', accessorFn: (r) => r.action.name, header: () => h('div', {}, 'Action'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.action.name) },
+    {
+        id: 'actions_list',
+        accessorFn: (r) => r.actions.map((a) => a.name).join(', '),
+        header: () => h('div', {}, 'Attached to'),
+        cell: ({ row }) =>
+            h(
+                'div',
+                { class: 'text-[11px]' },
+                row.original.actions.length ? row.original.actions.map((a) => a.name).join(', ') : '—',
+            ),
+    },
     { accessorKey: 'suits', header: () => h('div', {}, 'Suits'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.suits ?? '—') },
     {
         id: 'actions',
@@ -73,6 +83,10 @@ const table = useVueTable({
                     <template v-else><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template>
                 </TableBody>
             </Table>
+        </div>
+        <div class="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()">Previous</Button>
+            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
         </div>
     </div>
 </template>

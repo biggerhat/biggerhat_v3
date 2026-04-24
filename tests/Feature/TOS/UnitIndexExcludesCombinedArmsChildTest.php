@@ -2,19 +2,20 @@
 
 use App\Models\TOS\Unit;
 
-it('unit index excludes units that are Combined Arms children of another unit', function () {
+it('unit index includes Combined Arms children so the database stays browseable', function () {
     $parent = Unit::factory()->withSides()->create(['name' => 'Parent Unit']);
     $child = Unit::factory()->withSides()->create(['name' => 'Embedded Child Unit']);
     $parent->update(['combined_arms_child_id' => $child->id]);
 
-    $standalone = Unit::factory()->withSides()->create(['name' => 'Standalone Unit']);
+    Unit::factory()->withSides()->create(['name' => 'Standalone Unit']);
 
+    // All three units are visible in the browse — users can read the child
+    // card even though it's hired through its parent in the crew builder.
     $this->get(route('tos.units.index'))
         ->assertOk()
         ->assertInertia(fn ($p) => $p
             ->component('TOS/Units/Index')
-            ->has('units', 2)
-            ->where('units.0.name', fn ($v) => in_array($v, ['Parent Unit', 'Standalone Unit']))
+            ->has('units.data', 3)
         );
 });
 

@@ -15,7 +15,7 @@ class UpdateSculptRequest extends FormRequest
     {
         return [
             'unit_id' => ['required', 'integer', 'exists:tos_units,id'],
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'release_date' => ['nullable', 'date'],

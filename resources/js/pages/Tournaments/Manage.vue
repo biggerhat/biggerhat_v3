@@ -861,10 +861,12 @@ const saveRoundScenario = async (roundId: number) => {
         savedFlashTimer = setTimeout(() => {
             scenarioSaveState.value = 'idle';
         }, 1500);
-        // The server also broadcasts `round_updated`, which the tournament
-        // channel picks up and reloads props. No explicit reloadPage() here
-        // — the double reload was the likely culprit behind the "first save
-        // closes the pane" report and is redundant on the happy path.
+        // The server broadcasts `round_updated` to OTHER clients via
+        // toOthers(), so the saver is excluded and doesn't auto-refresh.
+        // Reload locally so the edited values are visible once the user
+        // closes the pane. preserveState keeps the editor open and preserves
+        // the in-progress scenarioSaveState flash.
+        reloadPage();
     } else {
         scenarioSaveState.value = 'idle';
         if (error) showError(error);

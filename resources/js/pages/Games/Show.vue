@@ -265,6 +265,12 @@ const opponent = computed(() => {
 
 const isSolo = computed(() => props.game.is_solo);
 const isObserver = computed(() => props.is_observer);
+// Resolve the actual slot numbers rather than hardcoding 1/2 — solo games
+// created from a tournament round can place the registered user in slot 2
+// (see TournamentTrackerGameFactory::createForGame), which breaks anything
+// that assumes the creator is always slot 1.
+const mySlot = computed(() => myPlayer.value?.slot ?? 1);
+const opponentSlot = computed(() => opponent.value?.slot ?? 2);
 const { onlineMembers } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
@@ -416,7 +422,7 @@ const confirmPendingScheme = async () => {
 
     await postSetup(route('games.setup.scheme', props.game.uuid), {
         scheme_id: pendingSchemeId.value,
-        ...(isSolo.value ? { slot: 1 } : {}),
+        ...(isSolo.value ? { slot: mySlot.value } : {}),
         ...(hasNotes ? { scheme_notes: notes } : {}),
     });
     pendingSchemeId.value = null;
@@ -485,7 +491,7 @@ const selectedMasterName = ref<string | null>(null);
 const confirmMasterSelection = () => {
     if (!selectedMasterName.value) return;
     const body: Record<string, unknown> = { master_name: selectedMasterName.value };
-    if (isSolo.value) body.slot = 1;
+    if (isSolo.value) body.slot = mySlot.value;
     postSetup(route('games.setup.master', props.game.uuid), body);
 };
 
@@ -617,12 +623,12 @@ const opponentStepDone = (step: string) => {
 
 const selectOpponentFaction = () => {
     if (!selectedOpponentFaction.value) return;
-    postSetup(route('games.setup.faction', props.game.uuid), { faction: selectedOpponentFaction.value, slot: 2 });
+    postSetup(route('games.setup.faction', props.game.uuid), { faction: selectedOpponentFaction.value, slot: opponentSlot.value });
 };
 
 const confirmOpponentMasterSelection = () => {
     if (!selectedOpponentMasterName.value) return;
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: selectedOpponentMasterName.value, slot: 2 });
+    postSetup(route('games.setup.master', props.game.uuid), { master_name: selectedOpponentMasterName.value, slot: opponentSlot.value });
 };
 
 const selectedOpponentTitleForSkip = ref<number | null>(null);
@@ -636,7 +642,7 @@ const skipOpponentCrew = async () => {
             await fetch(route('games.setup.master', props.game.uuid), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-                body: JSON.stringify({ master_name: title.display_name, slot: 2 }),
+                body: JSON.stringify({ master_name: title.display_name, slot: opponentSlot.value }),
             });
         }
     }
@@ -721,7 +727,7 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
             strategy_points: opponentStrategyPoints.value,
             scheme_points: opponentSchemePoints.value,
             scheme_action: schemeAction,
-            slot: 2,
+            slot: opponentSlot.value,
         };
         if (identifiedSchemeId) {
             payload.identified_scheme_id = identifiedSchemeId;
@@ -781,7 +787,7 @@ const submitOpponentTurnScore = async () => {
 const updateOpponentSoulstonePool = (delta: number) => {
     const current = opponentPlayer.value?.soulstone_pool ?? 0;
     const newVal = Math.max(0, current + delta);
-    postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal, slot: 2 });
+    postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal, slot: opponentSlot.value });
 };
 
 // Solo: opponent possible scheme pool (read from stored scheme_pool via opponent_next_schemes)
@@ -1437,7 +1443,7 @@ const killMember = async (member: any) => {
 
     if (data.replacements?.length) {
         const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
-        replaceOnDeathSlot.value = isMyMember ? 1 : 2;
+        replaceOnDeathSlot.value = isMyMember ? mySlot.value : opponentSlot.value;
         replaceOnDeathInheritedTokens.value = killedTokens;
         replaceOnDeathInheritedUpgrades.value = killedUpgrades;
         replaceOnDeathWasActivated.value = wasActivated;
@@ -1450,11 +1456,11 @@ const killMember = async (member: any) => {
             const hasSummonToken = (member.attached_tokens ?? []).some((t: any) => t.name?.toLowerCase() === 'summon');
             if (!hasSummonToken) {
                 const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
-                const slot = isMyMember ? 1 : 2;
+                const slot = isMyMember ? mySlot.value : opponentSlot.value;
                 const player = isMyMember ? myPlayer.value : opponent.value;
                 const current = player?.soulstone_pool ?? 0;
                 const payload: Record<string, any> = { soulstone_pool: current + 1 };
-                if (!isMyMember) payload.slot = 2;
+                if (!isMyMember) payload.slot = opponentSlot.value;
                 showSoulstoneAward(slot, member.display_name);
                 postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', payload);
                 return; // postPlay handles the reload
@@ -1523,11 +1529,11 @@ const dismissReplaceOnDeath = () => {
         const hasSummonToken = (member.attached_tokens ?? []).some((t: any) => t.name?.toLowerCase() === 'summon');
         if (!hasSummonToken) {
             const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
-            const slot = isMyMember ? 1 : 2;
+            const slot = isMyMember ? mySlot.value : opponentSlot.value;
             const player = isMyMember ? myPlayer.value : opponent.value;
             const current = player?.soulstone_pool ?? 0;
             const payload: Record<string, any> = { soulstone_pool: current + 1 };
-            if (!isMyMember) payload.slot = 2;
+            if (!isMyMember) payload.slot = opponentSlot.value;
             showSoulstoneAward(slot, member.display_name);
             postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', payload);
         }
@@ -1713,7 +1719,7 @@ const markGameComplete = async () => {
             await fetch(route('games.setup.scheme', props.game.uuid), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-                body: JSON.stringify({ scheme_id: oppIdentifiedSchemeId.value, slot: 2 }),
+                body: JSON.stringify({ scheme_id: oppIdentifiedSchemeId.value, slot: opponentSlot.value }),
             });
         }
     }
@@ -2528,7 +2534,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div v-if="selectedFaction" class="mt-4 flex justify-center">
                                 <Button
                                     :disabled="submitting"
-                                    @click="postSetup(route('games.setup.faction', game.uuid), { faction: selectedFaction, slot: 1 })"
+                                    @click="postSetup(route('games.setup.faction', game.uuid), { faction: selectedFaction, slot: mySlot })"
                                 >
                                     <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                     Confirm Faction
@@ -2858,7 +2864,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 @click="
                                                     postSetup(route('games.setup.crew', game.uuid), {
                                                         crew_build_id: crew.id,
-                                                        ...(isSolo ? { slot: 1 } : {}),
+                                                        ...(isSolo ? { slot: mySlot } : {}),
                                                     })
                                                 "
                                             >
@@ -2998,7 +3004,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 class="w-full"
                                                 size="sm"
                                                 :disabled="submitting || crew.is_over_budget"
-                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: 2 })"
+                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: opponentSlot })"
                                             >
                                                 <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                                 {{ crew.is_over_budget ? 'Over Budget' : 'Select This Crew' }}

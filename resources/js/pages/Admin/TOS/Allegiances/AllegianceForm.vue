@@ -52,10 +52,14 @@ const existingLogo = computed<string | null>(() => {
 });
 
 const submit = () => {
+    // forceFormData is required because logo_path is a File. Without it Inertia
+    // JSON-encodes the payload and the file silently becomes a string, so the
+    // server's hasFile() check fails and the image update is skipped.
+    const options = { forceFormData: true };
     if (props.allegiance) {
-        router.post(route('admin.tos.allegiances.update', props.allegiance.slug), formInfo.value);
+        router.post(route('admin.tos.allegiances.update', props.allegiance.slug), formInfo.value, options);
     } else {
-        router.post(route('admin.tos.allegiances.store'), formInfo.value);
+        router.post(route('admin.tos.allegiances.store'), formInfo.value, options);
     }
 };
 

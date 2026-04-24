@@ -121,13 +121,9 @@ useTournamentChannel(props.tournament.uuid, () => {
 
 const isCompleted = computed(() => props.tournament.status === 'completed');
 
-// Default tab: completed → standings, active → latest round
-const defaultTab = computed(() => {
-    if (isCompleted.value) return 'standings';
-    if (props.rounds.length) return `r${props.rounds[props.rounds.length - 1].round_number}`;
-    return 'standings';
-});
-const activeTab = ref(defaultTab.value);
+// Default tab is always Standings — users want to see the leaderboard first,
+// not the latest round's pairings.
+const activeTab = ref('standings');
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
@@ -332,19 +328,24 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
             <!-- Main Tabs -->
             <Tabs v-model="activeTab">
-                <TabsList class="mb-4 flex w-full flex-wrap">
-                    <TabsTrigger v-for="round in rounds" :key="'tab-' + round.id" :value="'r' + round.round_number" class="text-xs sm:text-sm">
-                        R{{ round.round_number }}
-                    </TabsTrigger>
-                    <TabsTrigger value="standings" class="text-xs sm:text-sm">
-                        {{ isCompleted ? 'Final Standings' : 'Standings' }}
-                    </TabsTrigger>
-                    <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
-                        RSVPs
-                        <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm"> <BarChart3 class="mr-1 size-3" /> Stats </TabsTrigger>
-                </TabsList>
+                <!-- Horizontal scroll on mobile instead of wrapping — keeps a single tidy row
+                     even for tournaments with many rounds. Wraps normally on sm+. -->
+                <div class="-mx-2 mb-4 overflow-x-auto px-2 sm:mx-0 sm:overflow-visible sm:px-0">
+                    <TabsList class="inline-flex w-max min-w-full flex-nowrap gap-1 sm:w-full sm:flex-wrap">
+                        <TabsTrigger value="standings" class="text-xs sm:text-sm">
+                            <Trophy class="mr-1 size-3" />
+                            {{ isCompleted ? 'Final Standings' : 'Standings' }}
+                        </TabsTrigger>
+                        <TabsTrigger v-for="round in rounds" :key="'tab-' + round.id" :value="'r' + round.round_number" class="text-xs sm:text-sm">
+                            R{{ round.round_number }}
+                        </TabsTrigger>
+                        <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
+                            RSVPs
+                            <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
+                        </TabsTrigger>
+                        <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm"> <BarChart3 class="mr-1 size-3" /> Stats </TabsTrigger>
+                    </TabsList>
+                </div>
 
                 <!-- Round Tabs -->
                 <TabsContent v-for="round in rounds" :key="'rc-' + round.id" :value="'r' + round.round_number">
@@ -396,38 +397,61 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         Scenario not yet announced
                     </div>
 
-                    <!-- Pairings / Results -->
-                    <div v-if="round.games.length" class="space-y-1.5">
+                    <!-- Pairings / Results —
+                         On mobile, each pairing is a 2-line card: top = P1 line, bottom = P2 line,
+                         with the score centered between. Cleaner hierarchy, no truncation surprises.
+                         On sm+ screens we keep the original single-row layout for density. -->
+                    <div v-if="round.games.length" class="space-y-2 sm:space-y-1.5">
                         <div
                             v-for="game in round.games"
                             :key="game.id"
-                            class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs sm:text-sm"
+                            class="rounded-md border text-sm"
                             :class="isMyGame(game) ? 'border-primary/40 bg-primary/5' : ''"
                         >
-                            <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground">T{{ game.table_number }}</span>
+                            <!-- Mobile layout: stacked -->
+                            <div class="flex flex-col gap-1 p-2.5 sm:hidden">
+                                <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                    <span v-if="game.table_number">Table {{ game.table_number }}</span>
+                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-[9px]">BYE</Badge>
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-[9px]">Forfeit</Badge>
+                                    <Badge
+                                        v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
+                                        variant="outline"
+                                        class="ml-auto px-1 py-0 text-[9px]"
+                                        :class="
+                                            game.tracker_game.status === 'in_progress'
+                                                ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
+                                                : game.tracker_game.status === 'abandoned'
+                                                  ? 'border-destructive/60 text-destructive'
+                                                  : 'text-muted-foreground'
+                                        "
+                                    >
+                                        <span v-if="game.tracker_game.status === 'in_progress'">
+                                            T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
+                                        </span>
+                                        <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
+                                        <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
+                                    </Badge>
+                                </div>
 
-                            <!-- Player 1 -->
-                            <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                <FactionLogo
-                                    v-if="game.player_one_faction || playerFaction(game.player_one_id)"
-                                    :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
-                                    class-name="size-4 shrink-0"
-                                />
-                                <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
-                                    playerName(game.player_one_id)
-                                }}</span>
-                                <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground"
-                                    >· {{ game.player_one_title || game.player_one_master }}</span
-                                >
-                            </div>
-
-                            <template v-if="game.is_bye">
-                                <Badge variant="outline" class="shrink-0 text-[9px]">BYE</Badge>
-                            </template>
-                            <template v-else>
-                                <!-- Score -->
-                                <div class="flex shrink-0 items-center gap-1 font-mono text-xs">
+                                <!-- P1 line -->
+                                <div class="flex items-center gap-2">
+                                    <FactionLogo
+                                        v-if="game.player_one_faction || playerFaction(game.player_one_id)"
+                                        :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
+                                        class-name="size-5 shrink-0"
+                                    />
+                                    <div class="min-w-0 flex-1">
+                                        <div class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">
+                                            {{ playerName(game.player_one_id) }}
+                                        </div>
+                                        <div v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground">
+                                            {{ game.player_one_title || game.player_one_master }}
+                                        </div>
+                                    </div>
                                     <span
+                                        v-if="!game.is_bye"
+                                        class="shrink-0 font-mono text-base tabular-nums"
                                         :class="
                                             (game.player_one_vp ?? 0) > (game.player_two_vp ?? 0)
                                                 ? 'font-bold text-green-600 dark:text-green-400'
@@ -435,8 +459,25 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         "
                                         >{{ game.player_one_vp ?? '–' }}</span
                                     >
-                                    <span class="text-muted-foreground">-</span>
+                                </div>
+
+                                <!-- P2 line -->
+                                <div v-if="!game.is_bye" class="flex items-center gap-2">
+                                    <FactionLogo
+                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
+                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                        class-name="size-5 shrink-0"
+                                    />
+                                    <div class="min-w-0 flex-1">
+                                        <div class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">
+                                            {{ playerName(game.player_two_id) }}
+                                        </div>
+                                        <div v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground">
+                                            {{ game.player_two_title || game.player_two_master }}
+                                        </div>
+                                    </div>
                                     <span
+                                        class="shrink-0 font-mono text-base tabular-nums"
                                         :class="
                                             (game.player_two_vp ?? 0) > (game.player_one_vp ?? 0)
                                                 ? 'font-bold text-green-600 dark:text-green-400'
@@ -446,52 +487,105 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     >
                                 </div>
 
-                                <!-- Player 2 -->
-                                <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-                                    <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground"
-                                        >{{ game.player_two_title || game.player_two_master }} ·</span
-                                    >
-                                    <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
-                                        playerName(game.player_two_id)
-                                    }}</span>
-                                    <FactionLogo
-                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
-                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
-                                        class-name="size-4 shrink-0"
-                                    />
-                                </div>
-
-                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
-
-                                <Badge
-                                    v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
-                                    variant="outline"
-                                    class="shrink-0 px-1 py-0 text-[9px]"
-                                    :class="
-                                        game.tracker_game.status === 'in_progress'
-                                            ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
-                                            : game.tracker_game.status === 'abandoned'
-                                              ? 'border-destructive/60 text-destructive'
-                                              : 'text-muted-foreground'
-                                    "
-                                >
-                                    <span v-if="game.tracker_game.status === 'in_progress'">
-                                        T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
-                                    </span>
-                                    <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
-                                    <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
-                                </Badge>
-
                                 <a
                                     v-if="game.tracker_game?.uuid"
                                     :href="route('games.observe', game.tracker_game.uuid)"
                                     target="_blank"
                                     rel="noopener"
-                                    class="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                                    class="mt-1 self-end text-xs font-medium text-primary hover:underline"
                                 >
-                                    View
+                                    View game →
                                 </a>
-                            </template>
+                            </div>
+
+                            <!-- Desktop layout: single row -->
+                            <div class="hidden items-center gap-2 px-2 py-1.5 sm:flex">
+                                <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground">T{{ game.table_number }}</span>
+
+                                <div class="flex min-w-0 flex-1 items-center gap-1.5">
+                                    <FactionLogo
+                                        v-if="game.player_one_faction || playerFaction(game.player_one_id)"
+                                        :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
+                                        class-name="size-4 shrink-0"
+                                    />
+                                    <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
+                                        playerName(game.player_one_id)
+                                    }}</span>
+                                    <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground"
+                                        >· {{ game.player_one_title || game.player_one_master }}</span
+                                    >
+                                </div>
+
+                                <template v-if="game.is_bye">
+                                    <Badge variant="outline" class="shrink-0 text-[9px]">BYE</Badge>
+                                </template>
+                                <template v-else>
+                                    <div class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
+                                        <span
+                                            :class="
+                                                (game.player_one_vp ?? 0) > (game.player_two_vp ?? 0)
+                                                    ? 'font-bold text-green-600 dark:text-green-400'
+                                                    : ''
+                                            "
+                                            >{{ game.player_one_vp ?? '–' }}</span
+                                        >
+                                        <span class="text-muted-foreground">-</span>
+                                        <span
+                                            :class="
+                                                (game.player_two_vp ?? 0) > (game.player_one_vp ?? 0)
+                                                    ? 'font-bold text-green-600 dark:text-green-400'
+                                                    : ''
+                                            "
+                                            >{{ game.player_two_vp ?? '–' }}</span
+                                        >
+                                    </div>
+
+                                    <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+                                        <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground"
+                                            >{{ game.player_two_title || game.player_two_master }} ·</span
+                                        >
+                                        <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
+                                            playerName(game.player_two_id)
+                                        }}</span>
+                                        <FactionLogo
+                                            v-if="game.player_two_faction || playerFaction(game.player_two_id)"
+                                            :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                            class-name="size-4 shrink-0"
+                                        />
+                                    </div>
+
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
+
+                                    <Badge
+                                        v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
+                                        variant="outline"
+                                        class="shrink-0 px-1 py-0 text-[9px]"
+                                        :class="
+                                            game.tracker_game.status === 'in_progress'
+                                                ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
+                                                : game.tracker_game.status === 'abandoned'
+                                                  ? 'border-destructive/60 text-destructive'
+                                                  : 'text-muted-foreground'
+                                        "
+                                    >
+                                        <span v-if="game.tracker_game.status === 'in_progress'">
+                                            T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
+                                        </span>
+                                        <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
+                                        <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
+                                    </Badge>
+
+                                    <a
+                                        v-if="game.tracker_game?.uuid"
+                                        :href="route('games.observe', game.tracker_game.uuid)"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                                    >
+                                        View
+                                    </a>
+                                </template>
+                            </div>
                         </div>
                     </div>
                     <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>

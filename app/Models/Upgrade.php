@@ -9,6 +9,7 @@ use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Traits\HasGameModeType;
+use App\Traits\LogsAdminActivity;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,7 @@ class Upgrade extends Model
     use HasFactory;
 
     use HasGameModeType;
+    use LogsAdminActivity;
     use UsesSelectOptionsScope;
     use UsesSlugName;
 

@@ -8,6 +8,7 @@ export interface Auth {
     can_publish_posts: boolean;
     can_access_admin: boolean;
     is_super_admin: boolean;
+    impersonating: { as: { id: number; name: string }; leave_url: string } | null;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
     wishlists: Array<{ id: number; name: string }>;
@@ -27,6 +28,12 @@ export interface NavItem {
     isActive?: boolean;
     permission?: string;
     badge?: string;
+    /**
+     * Set to true for links that point at non-Inertia pages (Telescope,
+     * Log Viewer, etc.) so the sidebar renders a plain `<a>` and the browser
+     * does a full page navigation instead of an Inertia XHR.
+     */
+    external?: boolean;
 }
 
 export interface FactionInfo {
@@ -53,6 +60,15 @@ export interface CurrentGameSystem {
     switch_to: { slug: 'malifaux' | 'tos'; label: string; home_route: string };
 }
 
+export interface AnnouncementBannerData {
+    id: number;
+    message: string;
+    level: 'info' | 'warning' | 'success';
+    is_dismissable: boolean;
+    link_url: string | null;
+    link_label: string | null;
+}
+
 export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
@@ -60,6 +76,7 @@ export interface SharedData extends PageProps {
     faction_info: Record<string, FactionInfo>;
     tos_allegiance_info: Record<string, AllegianceInfo>;
     currentGameSystem: CurrentGameSystem;
+    announcements: AnnouncementBannerData[];
     ziggy: Config & { location: string };
 }
 

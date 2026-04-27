@@ -10,6 +10,7 @@ use App\Enums\SculptVersionEnum;
 use App\Enums\SuitEnum;
 use App\Observers\CharacterObserver;
 use App\Traits\HasGameModeType;
+use App\Traits\LogsAdminActivity;
 use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesUpgrades;
@@ -32,6 +33,7 @@ class Character extends Model
     use HasFactory;
 
     use HasGameModeType;
+    use LogsAdminActivity;
     use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesUpgrades;

@@ -37,7 +37,16 @@ const page = usePage<SharedData>();
                     <SidebarMenu>
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
-                                <Link :href="item.href" @click="mobileCheck">
+                                <a v-if="item.external" :href="item.href" @click="mobileCheck">
+                                    <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
+                                    <span>{{ item.title }}</span>
+                                    <Badge
+                                        v-if="item.badge"
+                                        class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                        >{{ item.badge }}</Badge
+                                    >
+                                </a>
+                                <Link v-else :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
                                     <Badge
@@ -64,7 +73,16 @@ const page = usePage<SharedData>();
                     <SidebarMenu>
                         <SidebarMenuItem v-for="item in item.items" :key="item.title">
                             <SidebarMenuButton as-child :is-active="item.href === page.url">
-                                <Link :href="item.href" @click="mobileCheck">
+                                <a v-if="item.external" :href="item.href" @click="mobileCheck">
+                                    <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
+                                    <span>{{ item.title }}</span>
+                                    <Badge
+                                        v-if="item.badge"
+                                        class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                        >{{ item.badge }}</Badge
+                                    >
+                                </a>
+                                <Link v-else :href="item.href" @click="mobileCheck">
                                     <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                                     <span>{{ item.title }}</span>
                                     <Badge
@@ -84,7 +102,16 @@ const page = usePage<SharedData>();
             <SidebarMenu>
                 <SidebarMenuItem v-for="item in item.items" :key="item.title">
                     <SidebarMenuButton as-child :is-active="item.href === page.url">
-                        <Link :href="item.href" @click="mobileCheck">
+                        <a v-if="item.external" :href="item.href" @click="mobileCheck">
+                            <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
+                            <span>{{ item.title }}</span>
+                            <Badge
+                                v-if="item.badge"
+                                class="ml-auto border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                >{{ item.badge }}</Badge
+                            >
+                        </a>
+                        <Link v-else :href="item.href" @click="mobileCheck">
                             <component :is="item.icon" :className="item.icon_class ?? ''" v-bind="item.icon_props ?? {}" />
                             <span>{{ item.title }}</span>
                             <Badge

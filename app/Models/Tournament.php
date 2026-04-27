@@ -6,6 +6,7 @@ use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use App\Traits\LogsCreationActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Illuminate\Support\Str;
 class Tournament extends Model
 {
     use HasFactory;
+    use LogsCreationActivity;
     use SoftDeletes;
 
     protected $guarded = ['id'];

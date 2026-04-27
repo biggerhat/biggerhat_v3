@@ -21,6 +21,7 @@ use App\Models\Upgrade;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class SeedFromProdApi extends Command
 {
@@ -554,11 +555,15 @@ class SeedFromProdApi extends Command
 
     private function findOrCreateAction(array $data): Action
     {
-        // Actions have id-based slugs on update, so match by name for reliability
-        $action = Action::where('name', $data['name'])->first();
+        // Match by slug (the enforced unique key) — name lookups collide
+        // when two source rows differ only in punctuation that the slugger
+        // strips (e.g. `"Mighty" Jaws` vs `Mighty Jaws` both → mighty-jaws).
+        $slug = Str::slug($data['name']);
 
-        if ($action) {
-            $action->update([
+        return Action::updateOrCreate(
+            ['slug' => $slug],
+            [
+                'name' => $data['name'],
                 'type' => $data['type'] ?? 'attack',
                 'is_signature' => $data['is_signature'] ?? false,
                 'stone_cost' => $data['stone_cost'] ?? 0,
@@ -572,27 +577,8 @@ class SeedFromProdApi extends Command
                 'target_suits' => $data['target_suits'],
                 'description' => $data['description'],
                 'damage' => $data['damage'],
-            ]);
-
-            return $action;
-        }
-
-        return Action::create([
-            'name' => $data['name'],
-            'type' => $data['type'] ?? 'attack',
-            'is_signature' => $data['is_signature'] ?? false,
-            'stone_cost' => $data['stone_cost'] ?? 0,
-            'range' => $data['range'],
-            'range_type' => $data['range_type'],
-            'stat' => $data['stat'],
-            'stat_suits' => $data['stat_suits'],
-            'stat_modifier' => $data['stat_modifier'],
-            'resisted_by' => $data['resisted_by'],
-            'target_number' => $data['target_number'],
-            'target_suits' => $data['target_suits'],
-            'description' => $data['description'],
-            'damage' => $data['damage'],
-        ]);
+            ]
+        );
     }
 
     private function findOrCreateTrigger(array $data): Trigger

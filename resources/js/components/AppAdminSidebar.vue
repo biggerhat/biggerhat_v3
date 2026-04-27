@@ -7,31 +7,48 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Activity,
+    AlertTriangle,
     ArrowLeft,
     ArrowUpCircle,
     BookOpen,
+    Clock,
+    Eraser,
     ExternalLink,
     FileImage,
+    FileText,
+    Flag,
     Gauge,
+    ImageOff,
+    Key,
     KeyRound,
+    Megaphone,
     MessageSquareText,
+    MonitorSmartphone,
     Newspaper,
     Package,
     Puzzle,
     Radio,
     Radius,
+    ServerCrash,
     Shield,
+    ShieldAlert,
     ShieldCheck,
     Swords,
+    Telescope as TelescopeIcon,
+    Trash2,
+    Trophy,
     Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 const page = usePage<SharedData>();
 const permissions = computed(() => page.props.auth.permissions ?? []);
+const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
 
 const hasPermission = (permission?: string) => {
     if (!permission) return true;
+    if (permission === 'super_admin') return isSuperAdmin.value;
     return permission.split('|').some((p) => permissions.value.includes(p));
 };
 
@@ -105,6 +122,32 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Envoys', href: route('admin.tos.envoys.index'), icon: Shield, permission: 'view_tos_envoy' },
             { title: 'Assets', href: route('admin.tos.assets.index'), icon: Package, permission: 'view_tos_asset' },
             { title: 'Stratagems', href: route('admin.tos.stratagems.index'), icon: Newspaper, permission: 'view_tos_stratagem' },
+        ],
+    },
+    {
+        // Super-admin-only diagnostics + tooling. Items use `permission: 'super_admin'`
+        // as a sentinel that the hasPermission helper resolves through the role check.
+        title: 'Super Admin',
+        items: [
+            { title: 'Activity Log', href: route('admin.activity.index'), icon: Activity, permission: 'super_admin' },
+            { title: 'Announcements', href: route('admin.announcements.index'), icon: Megaphone, permission: 'super_admin' },
+            { title: 'Maintenance', href: route('admin.maintenance.index'), icon: ServerCrash, permission: 'super_admin' },
+            { title: 'Cache Controls', href: route('admin.cache.index'), icon: Eraser, permission: 'super_admin' },
+            { title: 'Schedule', href: route('admin.schedule.index'), icon: Clock, permission: 'super_admin' },
+            { title: 'Trash', href: route('admin.trash.index'), icon: Trash2, permission: 'super_admin' },
+            { title: 'Failed Jobs', href: route('admin.failed_jobs.index'), icon: AlertTriangle, permission: 'super_admin' },
+            { title: 'Feature Flags', href: route('admin.features.index'), icon: Flag, permission: 'super_admin' },
+            { title: 'API Tokens', href: route('admin.api_tokens.index'), icon: Key, permission: 'super_admin' },
+            { title: 'Sessions', href: route('admin.sessions.index'), icon: MonitorSmartphone, permission: 'super_admin' },
+            { title: 'Custom Cards', href: route('admin.custom_cards.index'), icon: ShieldAlert, permission: 'super_admin' },
+            { title: 'Image Health', href: route('admin.image_health.index'), icon: ImageOff, permission: 'super_admin' },
+            { title: 'Tournament Override', href: route('admin.tournaments.index'), icon: Trophy, permission: 'super_admin' },
+            // Log Viewer + Telescope are separate Blade-rendered apps. external=true
+            // makes the sidebar use a plain <a> so the browser does a full page nav
+            // — Inertia's XHR-then-fallback path leaves the prior URL in place,
+            // which breaks Log Viewer's relative API calls.
+            { title: 'Logs', href: '/log-viewer', icon: FileText, permission: 'super_admin', external: true },
+            { title: 'Telescope', href: '/telescope', icon: TelescopeIcon, permission: 'super_admin', external: true },
         ],
     },
 ];

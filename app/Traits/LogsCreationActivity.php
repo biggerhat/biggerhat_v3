@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * Activity-log variant for high-volume / user-driven models where we only
@@ -30,7 +30,7 @@ trait LogsCreationActivity
         return LogOptions::defaults()
             ->logAll()
             ->logExcept(['password', 'remember_token', 'updated_at', 'created_at'])
-            ->dontLogEmptyChanges()
+            ->dontSubmitEmptyLogs()
             ->useLogName(strtolower(class_basename(static::class)));
     }
 }

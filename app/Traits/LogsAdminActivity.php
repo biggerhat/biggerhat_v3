@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * Drop-in for any model an admin edits via the admin CRUD. Records create /
@@ -24,7 +24,7 @@ trait LogsAdminActivity
             ->logAll()
             ->logExcept(['password', 'remember_token', 'updated_at', 'created_at'])
             ->logOnlyDirty()
-            ->dontLogEmptyChanges()
+            ->dontSubmitEmptyLogs()
             ->useLogName(strtolower(class_basename(static::class)));
     }
 }

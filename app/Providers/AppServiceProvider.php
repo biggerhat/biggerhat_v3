@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
-use Spatie\Activitylog\Support\ActivityLogStatus;
+use Spatie\Activitylog\ActivityLogStatus;
 use Throwable;
 
 class AppServiceProvider extends ServiceProvider

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Head, Link } from '@inertiajs/vue3';
-import { AlertCircle, MessageSquareText } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { AlertCircle, MessageSquareText, RefreshCw } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface GroupItem {
     label: string;
@@ -30,10 +31,12 @@ interface ChartPoint {
 }
 
 interface Analytics {
-    summary: { visitors: number; pageViews: number } | null;
+    summary: { visitors: number; totalUsers: number; pageViews: number; sessions: number } | null;
+    today: { visitors: number; pageViews: number } | null;
     topPages: TopPage[] | null;
     chart: ChartPoint[] | null;
     error: string | null;
+    fetched_at: string | null;
 }
 
 const props = defineProps<{
@@ -68,6 +71,34 @@ const chartAreaPath = computed(() => {
 const chartMax = computed(() => {
     const points = props.analytics?.chart ?? [];
     return points.length ? Math.max(...points.map((p) => p.visitors), 0) : 0;
+});
+
+const refreshing = ref(false);
+
+const refreshAnalytics = () => {
+    refreshing.value = true;
+    router.post(route('admin.refresh_analytics'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            refreshing.value = false;
+        },
+    });
+};
+
+// Best-effort "x ago" formatter — keeps the timestamp human-readable without
+// pulling a date library. GA4 itself has data-freshness lag of several hours,
+// so the meaningful precision is "minutes" / "hours", not seconds.
+const fetchedAgo = computed(() => {
+    const iso = props.analytics?.fetched_at;
+    if (!iso) return null;
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const minutes = Math.round(diffMs / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    return `${days}d ago`;
 });
 </script>
 
@@ -117,9 +148,19 @@ const chartMax = computed(() => {
 
             <!-- Analytics (super_admin only) -->
             <div v-if="analytics" class="space-y-4">
-                <div>
-                    <h2 class="text-xl font-semibold tracking-tight">Site analytics</h2>
-                    <p class="text-sm text-muted-foreground">From Google Analytics. Cached for 24 hours.</p>
+                <div class="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <h2 class="text-xl font-semibold tracking-tight">Site analytics</h2>
+                        <p class="text-sm text-muted-foreground">
+                            From Google Analytics.
+                            <span v-if="fetchedAgo">Updated {{ fetchedAgo }}.</span>
+                            <span class="ml-1 text-xs text-muted-foreground/80">GA4 itself can lag several hours, so very recent traffic may not be reflected.</span>
+                        </p>
+                    </div>
+                    <Button variant="outline" size="sm" :disabled="refreshing" @click="refreshAnalytics">
+                        <RefreshCw class="mr-1.5 size-3.5" :class="refreshing ? 'animate-spin' : ''" />
+                        {{ refreshing ? 'Refreshing…' : 'Refresh' }}
+                    </Button>
                 </div>
 
                 <div v-if="analytics.error" class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
@@ -134,21 +175,37 @@ const chartMax = computed(() => {
                     <div class="grid gap-4 md:grid-cols-2">
                         <Card>
                             <CardHeader class="pb-2">
-                                <CardTitle class="text-sm font-medium">Visitors (last 7 days)</CardTitle>
+                                <CardTitle class="text-sm font-medium">Active users (7 days)</CardTitle>
+                                <CardDescription class="text-[10px]">Engaged users — matches GA4's "Users" tile</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div class="text-2xl font-bold">{{ analytics.summary?.visitors ?? 0 }}</div>
+                                <div v-if="analytics.summary?.totalUsers" class="text-[10px] text-muted-foreground">
+                                    {{ analytics.summary.totalUsers }} total users
+                                </div>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardHeader class="pb-2">
-                                <CardTitle class="text-sm font-medium">Page views (last 7 days)</CardTitle>
+                                <CardTitle class="text-sm font-medium">Page views (7 days)</CardTitle>
+                                <CardDescription class="text-[10px]">{{ analytics.summary?.sessions ?? 0 }} sessions</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div class="text-2xl font-bold">{{ analytics.summary?.pageViews ?? 0 }}</div>
                             </CardContent>
                         </Card>
                     </div>
+
+                    <!-- Today canary — verifies GA4 is firing live. -->
+                    <Card v-if="analytics.today" class="bg-muted/40">
+                        <CardContent class="flex items-center justify-between gap-4 p-3">
+                            <div class="text-xs text-muted-foreground">
+                                Today so far: <span class="font-semibold text-foreground">{{ analytics.today.visitors }}</span> users ·
+                                <span class="font-semibold text-foreground">{{ analytics.today.pageViews }}</span> page views
+                            </div>
+                            <div class="text-[10px] text-muted-foreground">GA4 has up to a few hours of processing lag</div>
+                        </CardContent>
+                    </Card>
 
                     <Card v-if="analytics.chart && analytics.chart.length > 0">
                         <CardHeader>

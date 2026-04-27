@@ -1651,6 +1651,11 @@ const myTotalSchemeScored = computed(() => {
 });
 const maxSchemeThisTurn = computed(() => Math.min(MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL - myTotalSchemeScored.value));
 
+// Once the player has scored the full scheme cap (6 VP), no future scheme can
+// score additional points, so the "pick a next scheme" requirement is moot.
+// Used to relax the Submit Turn button gating below.
+const mySchemeCapReached = computed(() => myTotalSchemeScored.value + schemePoints.value >= MAX_SCHEME_POOL);
+
 // Opponent scoring limits (solo)
 const opponentStrategyBonusUsed = computed(() => {
     return (opponent.value?.turns ?? []).some((t: any) => t.strategy_points > 1);
@@ -1981,6 +1986,24 @@ const onSculptChange = async (miniatureId: string) => {
         previewMember.value.back_image = prev.back_image;
         previewMember.value.display_name = prev.display_name;
     }
+};
+
+// Crew member + upgrade notes — both players see the result via the existing
+// GameCrewMemberUpdated broadcast; the drawer debounces edits to avoid hammering
+// the endpoint on every keystroke.
+const onCrewMemberNotesChange = async (payload: { notes: string | null; attached_upgrades: { id: number; name: string; notes?: string | null }[] }) => {
+    if (! previewMember.value) return;
+    // Optimistic local update so the next debounce cycle has the latest.
+    previewMember.value.notes = payload.notes;
+    previewMember.value.attached_upgrades = payload.attached_upgrades;
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({
+            notes: payload.notes,
+            attached_upgrades: payload.attached_upgrades,
+        }),
+    });
 };
 
 // Token management (1 of each kind max)
@@ -3763,7 +3786,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             size="sm"
                                             :disabled="
                                                 scoringTurn ||
-                                                (!isLastTurn && (currentSchemeScored || nextSchemeId) && !nextSchemeId && next_schemes.length > 0)
+                                                (!isLastTurn &&
+                                                    !mySchemeCapReached &&
+                                                    (currentSchemeScored || nextSchemeId) &&
+                                                    !nextSchemeId &&
+                                                    next_schemes.length > 0)
                                             "
                                             @click="submitTurnScore"
                                         >
@@ -5285,9 +5312,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         :member="previewMember"
         :miniatures="memberMiniatures"
         :can-change-sculpt="!isObserver && (isSolo || !!myPlayer?.crew_members?.some((m: any) => m.id === previewMember?.id))"
+        :can-edit-notes="!isObserver && (isSolo || !!myPlayer?.crew_members?.some((m: any) => m.id === previewMember?.id))"
         @update:open="crewMemberDrawerOpen = $event"
         @sculpt-change="onSculptChange"
         @open-fullscreen="openCardFullscreen"
+        @notes-change="onCrewMemberNotesChange"
     />
 
     <!-- Crew Card Preview Drawer -->

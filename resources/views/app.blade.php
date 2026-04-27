@@ -56,7 +56,23 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
         <link rel="manifest" href="/build/manifest.webmanifest">
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name', 'BiggerHat') }}</title>
+
+        {{-- Default SEO tags. Pages override via the <SeoHead> Vue component
+             which uses Inertia's <Head> head-deduping. Anything not overridden
+             falls through to these site-wide defaults. --}}
+        <meta name="description" content="BiggerHat is the comprehensive Malifaux database — characters, upgrades, keywords, lore, build tools, tournament tracker, and more. The fastest way to find anything Malifaux." inertia="description">
+        <link rel="canonical" href="{{ url()->current() }}" inertia="canonical">
+        <meta property="og:type" content="website" inertia="og:type">
+        <meta property="og:site_name" content="BiggerHat" inertia="og:site_name">
+        <meta property="og:title" content="{{ config('app.name', 'BiggerHat') }}" inertia="og:title">
+        <meta property="og:description" content="The comprehensive Malifaux database — characters, upgrades, keywords, lore, and tools." inertia="og:description">
+        <meta property="og:url" content="{{ url()->current() }}" inertia="og:url">
+        <meta property="og:image" content="{{ url('/images/biggerhat-og.png') }}" inertia="og:image">
+        <meta name="twitter:card" content="summary_large_image" inertia="twitter:card">
+        <meta name="twitter:title" content="{{ config('app.name', 'BiggerHat') }}" inertia="twitter:title">
+        <meta name="twitter:description" content="The comprehensive Malifaux database — characters, upgrades, keywords, lore, and tools." inertia="twitter:description">
+        <meta name="twitter:image" content="{{ url('/images/biggerhat-og.png') }}" inertia="twitter:image">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

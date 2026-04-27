@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\LoreMedia;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -14,7 +13,6 @@ class LoreFactory extends Factory
     {
         return [
             'name' => $this->faker->unique()->sentence(4),
-            'lore_media_id' => LoreMedia::factory(),
         ];
     }
 }

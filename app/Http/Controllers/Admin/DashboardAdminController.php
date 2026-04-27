@@ -9,14 +9,19 @@ use App\Models\Character;
 use App\Models\Feedback;
 use App\Models\Keyword;
 use App\Models\Miniature;
+use App\Models\TOS\Ability as TosAbility;
 use App\Models\TOS\Allegiance as TosAllegiance;
+use App\Models\TOS\AllegianceCard as TosAllegianceCard;
 use App\Models\TOS\Asset as TosAsset;
+use App\Models\TOS\Envoy as TosEnvoy;
+use App\Models\TOS\SpecialUnitRule as TosSpecialUnitRule;
 use App\Models\TOS\Stratagem as TosStratagem;
 use App\Models\TOS\Unit as TosUnit;
 use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Spatie\Analytics\Facades\Analytics;
@@ -25,6 +30,10 @@ use Throwable;
 
 class DashboardAdminController extends Controller
 {
+    private const ANALYTICS_CACHE_KEY = 'admin:dashboard:analytics:v1';
+
+    private const ANALYTICS_CACHE_MINUTES = 30;
+
     public function index(Request $request): Response|ResponseFactory|RedirectResponse
     {
         $user = $request->user();
@@ -94,7 +103,11 @@ class DashboardAdminController extends Controller
                 'description' => 'Allegiances, units, cards, envoys, assets, and stratagems.',
                 'items' => [
                     ['label' => 'Allegiances', 'permission' => 'view_tos_allegiance', 'href' => route('admin.tos.allegiances.index'), 'count' => fn () => TosAllegiance::count()],
+                    ['label' => 'Allegiance Cards', 'permission' => 'view_tos_allegiance_card', 'href' => route('admin.tos.allegiance_cards.index'), 'count' => fn () => TosAllegianceCard::count()],
+                    ['label' => 'Envoys', 'permission' => 'view_tos_envoy', 'href' => route('admin.tos.envoys.index'), 'count' => fn () => TosEnvoy::count()],
                     ['label' => 'Units', 'permission' => 'view_tos_unit', 'href' => route('admin.tos.units.index'), 'count' => fn () => TosUnit::count()],
+                    ['label' => 'Special Rules', 'permission' => 'view_tos_special_unit_rule', 'href' => route('admin.tos.special_rules.index'), 'count' => fn () => TosSpecialUnitRule::count()],
+                    ['label' => 'Abilities', 'permission' => 'view_tos_ability', 'href' => route('admin.tos.abilities.index'), 'count' => fn () => TosAbility::count()],
                     ['label' => 'Assets', 'permission' => 'view_tos_asset', 'href' => route('admin.tos.assets.index'), 'count' => fn () => TosAsset::count()],
                     ['label' => 'Stratagems', 'permission' => 'view_tos_stratagem', 'href' => route('admin.tos.stratagems.index'), 'count' => fn () => TosStratagem::count()],
                 ],
@@ -139,26 +152,85 @@ class DashboardAdminController extends Controller
     }
 
     /**
-     * @return array{summary: array{visitors: int, pageViews: int}|null, topPages: array<int, array{pageTitle: string, pagePath: string, screenPageViews: int}>|null, chart: array<int, array{date: string, visitors: int, pageViews: int}>|null, error: string|null}
+     * Cache wrapper for the GA4 fetches. Spatie's own cache is configured to
+     * 0 minutes (delegated to us) so we can attach a fetched_at stamp and
+     * support a manual refresh button. 30-minute TTL is a balance between
+     * "Saturday traffic visible by Sunday morning" and "don't hammer GA4".
+     *
+     * @return array{summary: array{visitors: int, totalUsers: int, pageViews: int, sessions: int}|null, today: array{visitors: int, pageViews: int}|null, topPages: array<int, array{pageTitle: string, pagePath: string, screenPageViews: int}>|null, chart: array<int, array{date: string, visitors: int, pageViews: int}>|null, error: string|null, fetched_at: string|null}
      */
     private function analytics(): array
     {
+        return Cache::remember(self::ANALYTICS_CACHE_KEY, now()->addMinutes(self::ANALYTICS_CACHE_MINUTES), fn () => $this->fetchAnalyticsFresh());
+    }
+
+    /**
+     * Manually clear the analytics cache + redirect back to the dashboard, so
+     * the next render re-fetches from GA4. Used by the "Refresh" button.
+     */
+    public function refreshAnalytics(Request $request): RedirectResponse
+    {
+        Cache::forget(self::ANALYTICS_CACHE_KEY);
+
+        return redirect()->route('admin.dashboard')->withMessage('Analytics refreshed from Google Analytics.');
+    }
+
+    /**
+     * @return array{summary: array{visitors: int, totalUsers: int, pageViews: int, sessions: int}|null, today: array{visitors: int, pageViews: int}|null, topPages: array<int, array{pageTitle: string, pagePath: string, screenPageViews: int}>|null, chart: array<int, array{date: string, visitors: int, pageViews: int}>|null, error: string|null, fetched_at: string|null}
+     */
+    private function fetchAnalyticsFresh(): array
+    {
         if (! config('analytics.property_id')) {
-            return ['summary' => null, 'topPages' => null, 'chart' => null, 'error' => 'Analytics not configured.'];
+            return ['summary' => null, 'today' => null, 'topPages' => null, 'chart' => null, 'error' => 'Analytics not configured.', 'fetched_at' => null];
         }
 
         try {
-            // 30 days of daily totals, oldest-first for the chart.
-            $dailyTotals = Analytics::fetchTotalVisitorsAndPageViews(Period::days(30), 30)
+            // 7-day totals via a *single* direct query with no date dimension —
+            // this matches what GA4's UI shows for the same period (deduped
+            // active users, total users, sessions, page views). Summing the
+            // per-day series double-counts users who visit on multiple days,
+            // and was also dropping days that GA4 returned no rows for.
+            $summaryRow = Analytics::get(
+                period: Period::days(7),
+                metrics: ['activeUsers', 'totalUsers', 'screenPageViews', 'sessions'],
+                dimensions: [],
+                maxResults: 1,
+            )->first();
+
+            $summary = [
+                'visitors' => (int) ($summaryRow['activeUsers'] ?? 0),
+                'totalUsers' => (int) ($summaryRow['totalUsers'] ?? 0),
+                'pageViews' => (int) ($summaryRow['screenPageViews'] ?? 0),
+                'sessions' => (int) ($summaryRow['sessions'] ?? 0),
+            ];
+
+            // "Today" is its own widget so the admin can quickly see whether
+            // GA4 is processing live traffic. GA4 has a few-hour data delay
+            // for standard reports, so this is the canary.
+            $todayRow = Analytics::get(
+                period: Period::days(1),
+                metrics: ['activeUsers', 'screenPageViews'],
+                dimensions: [],
+                maxResults: 1,
+            )->first();
+
+            $today = [
+                'visitors' => (int) ($todayRow['activeUsers'] ?? 0),
+                'pageViews' => (int) ($todayRow['screenPageViews'] ?? 0),
+            ];
+
+            // 30-day daily series for the sparkline. keepEmptyRows so days
+            // with zero traffic still produce a row → no horizontal compression
+            // when low-traffic days exist.
+            $dailyTotals = Analytics::get(
+                period: Period::days(30),
+                metrics: ['activeUsers', 'screenPageViews'],
+                dimensions: ['date'],
+                maxResults: 31,
+                keepEmptyRows: true,
+            )
                 ->sortBy(fn ($row) => $row['date']->format('Y-m-d'))
                 ->values();
-
-            // Last 7 days = last 7 entries of the daily series.
-            $last7 = $dailyTotals->slice(-7);
-            $summary = [
-                'visitors' => (int) $last7->sum('activeUsers'),
-                'pageViews' => (int) $last7->sum('screenPageViews'),
-            ];
 
             $chart = $dailyTotals
                 ->map(fn ($row) => [
@@ -178,9 +250,23 @@ class DashboardAdminController extends Controller
                 ->values()
                 ->all();
 
-            return ['summary' => $summary, 'topPages' => $topPages, 'chart' => $chart, 'error' => null];
+            return [
+                'summary' => $summary,
+                'today' => $today,
+                'topPages' => $topPages,
+                'chart' => $chart,
+                'error' => null,
+                'fetched_at' => now()->toIso8601String(),
+            ];
         } catch (Throwable $e) {
-            return ['summary' => null, 'topPages' => null, 'chart' => null, 'error' => $e->getMessage()];
+            return [
+                'summary' => null,
+                'today' => null,
+                'topPages' => null,
+                'chart' => null,
+                'error' => $e->getMessage(),
+                'fetched_at' => now()->toIso8601String(),
+            ];
         }
     }
 

@@ -6,7 +6,11 @@ use App\Http\Controllers\TOS\Database\ActionController;
 use App\Http\Controllers\TOS\Database\AllegianceCardController;
 use App\Http\Controllers\TOS\Database\AllegianceController;
 use App\Http\Controllers\TOS\Database\AssetController;
+use App\Http\Controllers\TOS\Database\CompareController;
+use App\Http\Controllers\TOS\Database\CrewController;
 use App\Http\Controllers\TOS\Database\EnvoyController;
+use App\Http\Controllers\TOS\Database\PdfController as TosPdfController;
+use App\Http\Controllers\TOS\Database\SearchController as TosSearchController;
 use App\Http\Controllers\TOS\Database\SpecialUnitRuleController;
 use App\Http\Controllers\TOS\Database\StratagemController;
 use App\Http\Controllers\TOS\Database\TriggerController;
@@ -17,6 +21,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('tos')->name('tos.')->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('index');
 
+    Route::get('/compare', [CompareController::class, 'index'])->name('compare');
+    Route::get('/search', [TosSearchController::class, 'index'])->name('search');
+
     Route::controller(AllegianceController::class)->prefix('allegiances')->name('allegiances.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{allegiance}', 'view')->name('view');
@@ -25,6 +32,7 @@ Route::prefix('tos')->name('tos.')->group(function () {
     // Units. Per-type friendly URLs (commanders/titans/fireteams/squads/champions)
     // are aliases backed by one UnitController scoping by Special Unit Rule slug.
     Route::get('/units', [UnitController::class, 'index'])->name('units.index');
+    Route::get('/units/{sculpt}/pdf', [TosPdfController::class, 'download'])->name('units.pdf');
     Route::get('/units/{sculpt}', [UnitController::class, 'view'])->name('units.view');
 
     foreach (['commanders' => 'commander', 'titans' => 'titan', 'fireteams' => 'fireteam', 'squads' => 'squad', 'champions' => 'champion'] as $segment => $rule) {
@@ -54,6 +62,21 @@ Route::prefix('tos')->name('tos.')->group(function () {
     Route::controller(StratagemController::class)->prefix('stratagems')->name('stratagems.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{stratagem}', 'view')->name('view');
+    });
+
+    // Crew Builder — auth-gated. Each crew belongs to one user; rule
+    // enforcement (hireability, asset limits) lives in CrewController.
+    Route::middleware('auth')->controller(CrewController::class)->prefix('crews')->name('crews.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{crew}', 'view')->name('view');
+        Route::post('/{crew}', 'update')->name('update');
+        Route::post('/{crew}/delete', 'delete')->name('delete');
+        Route::post('/{crew}/units', 'addUnit')->name('units.add');
+        Route::post('/{crew}/units/{crewUnit}/delete', 'removeUnit')->name('units.remove');
+        Route::post('/{crew}/units/{crewUnit}/assets', 'attachAsset')->name('assets.attach');
+        Route::post('/{crew}/units/{crewUnit}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
     });
 });
 

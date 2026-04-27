@@ -124,6 +124,41 @@ class TournamentGameController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Force-close the linked tracker game from the TO side. Use when players
+     * walked away mid-game (the tracker is stuck in_progress / partial-setup
+     * forever) and the TO has already entered final scores on the tournament
+     * side. Just flips the tracker status to Completed + completed_at —
+     * doesn't fabricate a winner since tournament scoring is the source of
+     * truth and the per-player turn snapshots are out of scope here.
+     */
+    public function completeTrackerGame(Request $request, Tournament $tournament, TournamentGame $game): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        if ($game->tournament_round_id && $game->round && $game->round->tournament_id !== $tournament->id) {
+            return response()->json(['error' => 'Game does not belong to this tournament'], 403);
+        }
+
+        $trackerGame = $game->trackerGame;
+        if (! $trackerGame) {
+            return response()->json(['error' => 'No tracker game linked'], 422);
+        }
+
+        if ($trackerGame->status === GameStatusEnum::Completed) {
+            return response()->json(['error' => 'Tracker game is already completed'], 422);
+        }
+
+        $trackerGame->update([
+            'status' => GameStatusEnum::Completed,
+            'completed_at' => now(),
+        ]);
+
+        $this->broadcastUpdate($tournament, 'tracker_completed');
+
+        return response()->json(['success' => true]);
+    }
+
     public function toggleForfeit(Request $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
         $this->authorize('manage', $tournament);

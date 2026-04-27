@@ -110,6 +110,7 @@ const props = defineProps<{
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
+    scheme_stats: { most_scored: { id: number; name: string; total_points: number; scoring_turns: number } } | null;
 }>();
 
 // Live updates via websocket
@@ -213,7 +214,12 @@ const tournamentStats = computed(() => {
     const winner = props.standings.find((s) => s.rank === 1 && !s.is_ringer);
     const topVp = [...props.standings].sort((a, b) => b.total_vp - a.total_vp)[0];
     const topDiff = [...props.standings].sort((a, b) => b.total_diff - a.total_diff)[0];
-    const spoon = [...props.standings].filter((s) => !s.is_ringer).sort((a, b) => a.total_tp - b.total_tp || a.total_diff - b.total_diff)[0];
+    // Wooden Spoon should reflect the lowest finisher who actually played the
+    // whole event — exclude ringers AND anyone who dropped, since neither
+    // played a full slate of rounds.
+    const spoon = [...props.standings]
+        .filter((s) => !s.is_ringer && !s.is_dropped)
+        .sort((a, b) => a.total_tp - b.total_tp || a.total_diff - b.total_diff)[0];
 
     // Best in faction
     const bestInFaction: Record<string, StandingEntry> = {};
@@ -688,6 +694,15 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 <CardContent class="p-4">
                                     <div class="text-[10px] uppercase text-muted-foreground">Wooden Spoon</div>
                                     <div class="mt-1 text-sm font-medium">{{ tournamentStats.spoon.display_name }}</div>
+                                </CardContent>
+                            </Card>
+                            <Card v-if="scheme_stats?.most_scored">
+                                <CardContent class="p-4">
+                                    <div class="text-[10px] uppercase text-muted-foreground">Most Scored Scheme</div>
+                                    <div class="mt-1 text-sm font-medium">{{ scheme_stats.most_scored.name }}</div>
+                                    <div class="text-[10px] text-muted-foreground">
+                                        {{ scheme_stats.most_scored.total_points }} VP across {{ scheme_stats.most_scored.scoring_turns }} turns
+                                    </div>
                                 </CardContent>
                             </Card>
                         </div>

@@ -53,7 +53,14 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::shouldBeStrict();
 
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // 30 req/min per IP keeps bots polite. In the test environment we
+        // disable the limit entirely — Pest workers fire many API hits in
+        // quick succession (card-creator search tests, character API tests),
+        // tripping 429s on the 31st call and producing a flaky failure where
+        // the response body is the rate-limit error page instead of JSON.
+        RateLimiter::for('api', fn (Request $request) => $this->app->environment('testing')
+            ? Limit::none()
+            : Limit::perMinute(30)->by($request->ip()));
 
         // opcodesio/log-viewer authorization gate. Same super_admin bar as
         // Telescope — these are both diagnostics surfaces, not for content
@@ -65,12 +72,18 @@ class AppServiceProvider extends ServiceProvider
         // model save with LogsAdminActivity tries to insert into a missing
         // table and crashes the request. Wrapped in try/catch so the boot
         // path never blocks startup if Schema::hasTable itself fails.
-        try {
-            if (! Schema::hasTable('activity_log')) {
-                $this->app->make(ActivityLogStatus::class)->disable();
+        //
+        // Skipped under `php artisan` and tests: console boots before migrations
+        // run (RefreshDatabase, `migrate:fresh`), so the boot-time check would
+        // permanently disable logging for the whole test/CLI session.
+        if (! $this->app->runningInConsole()) {
+            try {
+                if (! Schema::hasTable('activity_log')) {
+                    $this->app->make(ActivityLogStatus::class)->disable();
+                }
+            } catch (Throwable) {
+                // DB unreachable — leave logger in default state.
             }
-        } catch (Throwable) {
-            // DB unreachable — nothing to do here, leave logger in default state.
         }
     }
 }

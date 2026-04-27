@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import JsonLd from '@/components/JsonLd.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowRight,
     BookMarked,
@@ -61,7 +63,40 @@ const stationUrl = (value: string) => route('search.view') + '?station=' + value
 </script>
 
 <template>
-    <Head title="Home" />
+    <SeoHead
+        title="BiggerHat — Malifaux database"
+        description="The comprehensive Malifaux database. Browse every character, upgrade, keyword, faction, and lore entry. Build crews, run tournaments, and find anything Malifaux."
+        type="website"
+    />
+    <!-- WebSite + sitelinks search box. Tells Google to expose a search box
+         underneath the result when users query "biggerhat". -->
+    <JsonLd
+        head-key="website"
+        :data="{
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'BiggerHat',
+            url: 'https://biggerhat.net/',
+            potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                    '@type': 'EntryPoint',
+                    urlTemplate: 'https://biggerhat.net/advanced?q={search_term_string}',
+                },
+                'query-input': 'required name=search_term_string',
+            },
+        }"
+    />
+    <JsonLd
+        head-key="organization"
+        :data="{
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'BiggerHat',
+            url: 'https://biggerhat.net/',
+            logo: 'https://biggerhat.net/images/biggerhat-og.png',
+        }"
+    />
     <div class="relative w-full max-w-full overflow-x-hidden">
         <!-- Background gradient -->
         <div

@@ -188,7 +188,23 @@ function ruleBadge(rule: SpecialRule): string {
                 </div>
 
                 <CardContent v-if="activeSide" class="space-y-3 px-0 pb-0">
-                    <UnitStatBlock :side="activeSide" :label="flipped ? 'Glory AVs' : 'Standard AVs'" />
+                    <!-- Both AV blocks always render — the active side stays highlighted
+                         while the other dims out. Lets readers compare Standard vs Glory
+                         AVs at a glance instead of having to flip back and forth. -->
+                    <div :class="['grid gap-2', standardSide && glorySide ? 'sm:grid-cols-2' : '']">
+                        <UnitStatBlock
+                            v-if="standardSide"
+                            :side="standardSide"
+                            label="Standard AVs"
+                            :active="!flipped"
+                        />
+                        <UnitStatBlock
+                            v-if="glorySide"
+                            :side="glorySide"
+                            label="Glory AVs"
+                            :active="flipped"
+                        />
+                    </div>
 
                     <div v-if="activeSide.abilities.length">
                         <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>

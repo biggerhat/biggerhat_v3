@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import BlogContent from '@/components/blog/BlogContent.vue';
+import JsonLd from '@/components/JsonLd.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getInitials } from '@/composables/useInitials';
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface BlogPost {
     id: number;
@@ -42,10 +45,48 @@ const factionCssVar = (faction: string): string => {
     const map: Record<string, string> = { explorers_society: 'explorerssociety', ten_thunders: 'tenthunders' };
     return map[faction] ?? faction;
 };
+
+const seoDescription = computed(() => {
+    if (props.post.excerpt) return props.post.excerpt;
+    // Fallback: pull plain text out of the rich content tree.
+    const collectText = (node: unknown): string => {
+        if (typeof node !== 'object' || node === null) return '';
+        const n = node as { text?: string; content?: unknown[] };
+        if (typeof n.text === 'string') return n.text;
+        if (Array.isArray(n.content)) return n.content.map(collectText).join(' ');
+        return '';
+    };
+    return collectText(props.post.content).replace(/\s+/g, ' ').trim().slice(0, 280);
+});
 </script>
 
 <template>
-    <Head :title="isPreview ? `Preview: ${post.title}` : post.title" />
+    <SeoHead
+        :title="isPreview ? `Preview: ${post.title}` : post.title"
+        :description="seoDescription"
+        :image="post.featured_image"
+        type="article"
+    />
+    <JsonLd
+        v-if="!isPreview && post.published_at"
+        head-key="blog-article"
+        :data="{
+            '@context': 'https://schema.org',
+            '@type': 'BlogPosting',
+            headline: post.title,
+            description: seoDescription,
+            image: post.featured_image
+                ? (post.featured_image.startsWith('http') ? post.featured_image : `https://biggerhat.net/storage/${post.featured_image}`)
+                : undefined,
+            datePublished: post.published_at,
+            author: { '@type': 'Person', name: post.author?.name ?? 'BiggerHat' },
+            publisher: {
+                '@type': 'Organization',
+                name: 'BiggerHat',
+                logo: { '@type': 'ImageObject', url: 'https://biggerhat.net/images/biggerhat-og.png' },
+            },
+        }"
+    />
 
     <!-- Preview banner -->
     <div v-if="isPreview" class="border-b border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950">

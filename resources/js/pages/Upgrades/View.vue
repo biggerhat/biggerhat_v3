@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -61,7 +62,11 @@ const hasRelatedContent = computed(
 </script>
 
 <template>
-    <Head :title="upgrade.name" />
+    <SeoHead
+        :title="upgrade.name"
+        :description="`${upgrade.name} — ${upgrade.domain_label} ${upgrade.type_label ? upgrade.type_label + ' ' : ''}upgrade${upgrade.faction_label ? ' for ' + upgrade.faction_label : ''} in Malifaux. ${upgrade.limitations_label ?? ''}`.trim()"
+        :image="upgrade.front_image"
+    />
 
     <div class="relative h-full w-full">
         <!-- Faction gradient accent -->

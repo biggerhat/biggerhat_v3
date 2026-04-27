@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { BookOpen, ChevronDown, Grid2x2, LayoutGrid, Library, List, Plus } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
@@ -272,7 +273,11 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head :title="faction.name" />
+    <SeoHead
+        :title="faction.name"
+        :description="`${faction.name} faction for Malifaux — ${statistics.characters} characters, ${statistics.miniatures} miniatures, ${statistics.keywords} keywords. Browse the full ${faction.name} roster, stats, and keyword breakdown.`"
+        :image="faction.logo"
+    />
     <div class="relative">
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"

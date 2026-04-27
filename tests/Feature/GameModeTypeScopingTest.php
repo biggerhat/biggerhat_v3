@@ -20,9 +20,14 @@ use App\Models\Wishlist;
 
 function standardCharacter(array $attrs = []): Character
 {
+    // CharacterObserver::creating rebuilds display_name as "{name}, {title}"
+    // when title is non-null — and the factory's faker emits a title 5% of
+    // the time. Force title to null by default so display_name == name and
+    // the assertions in this test stay deterministic in parallel runs.
     return Character::factory()->create(array_merge([
         'game_mode_type' => GameModeTypeEnum::Standard,
         'is_hidden' => false,
+        'title' => null,
     ], $attrs));
 }
 
@@ -31,6 +36,7 @@ function campaignCharacter(array $attrs = []): Character
     return Character::factory()->create(array_merge([
         'game_mode_type' => GameModeTypeEnum::Campaign,
         'is_hidden' => false,
+        'title' => null,
     ], $attrs));
 }
 

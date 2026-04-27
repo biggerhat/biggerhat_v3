@@ -2415,6 +2415,33 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
+         * Log a user into the application without firing the Login event.
+         *
+         * @param \Illuminate\Contracts\Auth\Authenticatable $user
+         * @return void 
+         * @static 
+         */
+        public static function quietLogin($user)
+        {
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
+            $instance->quietLogin($user);
+        }
+
+        /**
+         * Logout the user without updating remember_token
+         * and without firing the Logout event.
+         *
+         * @param void
+         * @return void 
+         * @static 
+         */
+        public static function quietLogout()
+        {
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
+            $instance->quietLogout();
+        }
+
+        /**
          * Get the currently authenticated user.
          *
          * @return \App\Models\User|null 
@@ -2422,7 +2449,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function user()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->user();
         }
 
@@ -2434,7 +2462,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function id()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->id();
         }
 
@@ -2447,7 +2476,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function once($credentials = [])
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->once($credentials);
         }
 
@@ -2460,7 +2490,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function onceUsingId($id)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->onceUsingId($id);
         }
 
@@ -2473,7 +2504,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function validate($credentials = [])
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->validate($credentials);
         }
 
@@ -2488,7 +2520,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function basic($field = 'email', $extraConditions = [])
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->basic($field, $extraConditions);
         }
 
@@ -2503,7 +2536,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function onceBasic($field = 'email', $extraConditions = [])
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->onceBasic($field, $extraConditions);
         }
 
@@ -2517,7 +2551,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function attempt($credentials = [], $remember = false)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->attempt($credentials, $remember);
         }
 
@@ -2532,7 +2567,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function attemptWhen($credentials = [], $callbacks = null, $remember = false)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->attemptWhen($credentials, $callbacks, $remember);
         }
 
@@ -2546,7 +2582,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function loginUsingId($id, $remember = false)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->loginUsingId($id, $remember);
         }
 
@@ -2560,7 +2597,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function login($user, $remember = false)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->login($user, $remember);
         }
 
@@ -2572,7 +2610,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function logout()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->logout();
         }
 
@@ -2586,7 +2625,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function logoutCurrentDevice()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->logoutCurrentDevice();
         }
 
@@ -2602,7 +2642,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function logoutOtherDevices($password)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->logoutOtherDevices($password);
         }
 
@@ -2615,7 +2656,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function attempting($callback)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->attempting($callback);
         }
 
@@ -2627,7 +2669,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getLastAttempted()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getLastAttempted();
         }
 
@@ -2639,7 +2682,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getName()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getName();
         }
 
@@ -2651,7 +2695,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getRecallerName()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getRecallerName();
         }
 
@@ -2663,7 +2708,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function viaRemember()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->viaRemember();
         }
 
@@ -2671,12 +2717,13 @@ namespace Illuminate\Support\Facades {
          * Set the number of minutes the remember me cookie should be valid for.
          *
          * @param int $minutes
-         * @return \Illuminate\Auth\SessionGuard 
+         * @return \Lab404\Impersonate\Guard\SessionGuard 
          * @static 
          */
         public static function setRememberDuration($minutes)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->setRememberDuration($minutes);
         }
 
@@ -2689,7 +2736,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getCookieJar()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getCookieJar();
         }
 
@@ -2702,7 +2750,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function setCookieJar($cookie)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->setCookieJar($cookie);
         }
 
@@ -2714,7 +2763,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getDispatcher()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getDispatcher();
         }
 
@@ -2727,7 +2777,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function setDispatcher($events)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->setDispatcher($events);
         }
 
@@ -2739,7 +2790,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getSession()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getSession();
         }
 
@@ -2751,7 +2803,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getUser()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getUser();
         }
 
@@ -2759,12 +2812,13 @@ namespace Illuminate\Support\Facades {
          * Set the current user.
          *
          * @param \Illuminate\Contracts\Auth\Authenticatable $user
-         * @return \Illuminate\Auth\SessionGuard 
+         * @return \Lab404\Impersonate\Guard\SessionGuard 
          * @static 
          */
         public static function setUser($user)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->setUser($user);
         }
 
@@ -2776,7 +2830,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getRequest()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getRequest();
         }
 
@@ -2784,12 +2839,13 @@ namespace Illuminate\Support\Facades {
          * Set the current request instance.
          *
          * @param \Symfony\Component\HttpFoundation\Request $request
-         * @return \Illuminate\Auth\SessionGuard 
+         * @return \Lab404\Impersonate\Guard\SessionGuard 
          * @static 
          */
         public static function setRequest($request)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->setRequest($request);
         }
 
@@ -2801,7 +2857,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getTimebox()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getTimebox();
         }
 
@@ -2814,7 +2871,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function authenticate()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->authenticate();
         }
 
@@ -2826,7 +2884,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function hasUser()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->hasUser();
         }
 
@@ -2838,7 +2897,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function check()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->check();
         }
 
@@ -2850,19 +2910,21 @@ namespace Illuminate\Support\Facades {
          */
         public static function guest()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->guest();
         }
 
         /**
          * Forget the current user.
          *
-         * @return \Illuminate\Auth\SessionGuard 
+         * @return \Lab404\Impersonate\Guard\SessionGuard 
          * @static 
          */
         public static function forgetUser()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->forgetUser();
         }
 
@@ -2874,7 +2936,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getProvider()
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             return $instance->getProvider();
         }
 
@@ -2887,7 +2950,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function setProvider($provider)
         {
-            /** @var \Illuminate\Auth\SessionGuard $instance */
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            /** @var \Lab404\Impersonate\Guard\SessionGuard $instance */
             $instance->setProvider($provider);
         }
 
@@ -2902,7 +2966,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function macro($name, $macro)
         {
-            \Illuminate\Auth\SessionGuard::macro($name, $macro);
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            \Lab404\Impersonate\Guard\SessionGuard::macro($name, $macro);
         }
 
         /**
@@ -2916,7 +2981,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function mixin($mixin, $replace = true)
         {
-            \Illuminate\Auth\SessionGuard::mixin($mixin, $replace);
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            \Lab404\Impersonate\Guard\SessionGuard::mixin($mixin, $replace);
         }
 
         /**
@@ -2928,7 +2994,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function hasMacro($name)
         {
-            return \Illuminate\Auth\SessionGuard::hasMacro($name);
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            return \Lab404\Impersonate\Guard\SessionGuard::hasMacro($name);
         }
 
         /**
@@ -2939,7 +3006,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function flushMacros()
         {
-            \Illuminate\Auth\SessionGuard::flushMacros();
+            //Method inherited from \Illuminate\Auth\SessionGuard 
+            \Lab404\Impersonate\Guard\SessionGuard::flushMacros();
         }
 
             }
@@ -23024,6 +23092,596 @@ namespace Barryvdh\DomPDF\Facade {
             }
     }
 
+namespace Laravel\Pennant {
+    /**
+     * 
+     *
+     * @method static void discover(string $namespace = 'App\\Features', string|null $path = null)
+     * @method static void define(string $feature, mixed $resolver = null)
+     * @method static bool isResolverValidForScope(callable|string $resolver, mixed $scope)
+     * @method static array defined()
+     * @method static array stored()
+     * @method static void activateForEveryone(string|array $feature, mixed $value = true)
+     * @method static void deactivateForEveryone(string|array $feature)
+     * @method static void purge(string|array|null $features = null)
+     * @method static string name(string $feature)
+     * @method static array nameMap()
+     * @method static mixed instance(string $name)
+     * @method static mixed getDriver()
+     * @method static void macro(string $name, object|callable $macro)
+     * @method static void mixin(object $mixin, bool $replace = true)
+     * @method static bool hasMacro(string $name)
+     * @method static void flushMacros()
+     * @method static mixed macroCall(string $method, array $parameters)
+     * @method static \Laravel\Pennant\PendingScopedFeatureInteraction for(mixed $scope)
+     * @method static array load(string|array $features)
+     * @method static array loadMissing(string|array $features)
+     * @method static array loadAll()
+     * @method static mixed value(string $feature)
+     * @method static array values(array $features)
+     * @method static array all()
+     * @method static bool active(string $feature)
+     * @method static bool allAreActive(array $features)
+     * @method static bool someAreActive(array $features)
+     * @method static bool inactive(string $feature)
+     * @method static bool allAreInactive(array $features)
+     * @method static bool someAreInactive(array $features)
+     * @method static mixed when(string $feature, \Closure $whenActive, \Closure|null $whenInactive = null)
+     * @method static mixed unless(string $feature, \Closure $whenInactive, \Closure|null $whenActive = null)
+     * @method static void activate(string|array $feature, mixed $value = true)
+     * @method static void deactivate(string|array $feature)
+     * @method static void forget(string|array $features)
+     * @see FeatureManager
+     */
+    class Feature {
+        /**
+         * Get a Pennant store instance.
+         *
+         * @param string|null $store
+         * @return \Laravel\Pennant\Drivers\Decorator 
+         * @throws InvalidArgumentException
+         * @static 
+         */
+        public static function store($store = null)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->store($store);
+        }
+
+        /**
+         * Get a Pennant store instance by name.
+         *
+         * @param string|null $name
+         * @return \Laravel\Pennant\Drivers\Decorator 
+         * @throws InvalidArgumentException
+         * @static 
+         */
+        public static function driver($name = null)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->driver($name);
+        }
+
+        /**
+         * Create an instance of the array driver.
+         *
+         * @return \Laravel\Pennant\Drivers\ArrayDriver 
+         * @static 
+         */
+        public static function createArrayDriver()
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->createArrayDriver();
+        }
+
+        /**
+         * Create an instance of the database driver.
+         *
+         * @return \Laravel\Pennant\Drivers\DatabaseDriver 
+         * @static 
+         */
+        public static function createDatabaseDriver($config, $name)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->createDatabaseDriver($config, $name);
+        }
+
+        /**
+         * Serialize the given scope for storage.
+         *
+         * @param mixed $scope
+         * @return string 
+         * @static 
+         */
+        public static function serializeScope($scope)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->serializeScope($scope);
+        }
+
+        /**
+         * Specify that the Eloquent morph map should be used when serializing.
+         *
+         * @param bool $value
+         * @return \Laravel\Pennant\FeatureManager 
+         * @static 
+         */
+        public static function useMorphMap($value = true)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->useMorphMap($value);
+        }
+
+        /**
+         * Flush the driver caches.
+         *
+         * @return void 
+         * @static 
+         */
+        public static function flushCache()
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            $instance->flushCache();
+        }
+
+        /**
+         * Set the default scope resolver.
+         *
+         * @param (callable(string): mixed) $resolver
+         * @return void 
+         * @static 
+         */
+        public static function resolveScopeUsing($resolver)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            $instance->resolveScopeUsing($resolver);
+        }
+
+        /**
+         * Get the default store name.
+         *
+         * @return string 
+         * @static 
+         */
+        public static function getDefaultDriver()
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->getDefaultDriver();
+        }
+
+        /**
+         * Set the default store name.
+         *
+         * @param string $name
+         * @return void 
+         * @static 
+         */
+        public static function setDefaultDriver($name)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            $instance->setDefaultDriver($name);
+        }
+
+        /**
+         * Unset the given store instances.
+         *
+         * @param array|string|null $name
+         * @return \Laravel\Pennant\FeatureManager 
+         * @static 
+         */
+        public static function forgetDriver($name = null)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->forgetDriver($name);
+        }
+
+        /**
+         * Forget all of the resolved store instances.
+         *
+         * @return \Laravel\Pennant\FeatureManager 
+         * @static 
+         */
+        public static function forgetDrivers()
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->forgetDrivers();
+        }
+
+        /**
+         * Register a custom driver creator Closure.
+         *
+         * @param string $driver
+         * @return \Laravel\Pennant\FeatureManager 
+         * @static 
+         */
+        public static function extend($driver, $callback)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->extend($driver, $callback);
+        }
+
+        /**
+         * Set the container instance used by the manager.
+         *
+         * @param \Illuminate\Container\Container $container
+         * @return \Laravel\Pennant\FeatureManager 
+         * @static 
+         */
+        public static function setContainer($container)
+        {
+            /** @var \Laravel\Pennant\FeatureManager $instance */
+            return $instance->setContainer($container);
+        }
+
+            }
+    }
+
+namespace Opcodes\LogViewer\Facades {
+    /**
+     * 
+     *
+     * @see LogViewerService
+     */
+    class LogViewer {
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function timezone()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->timezone();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function basePathForLogs()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->basePathForLogs();
+        }
+
+        /**
+         * 
+         *
+         * @return \Opcodes\LogViewer\LogFileCollection|\Opcodes\LogViewer\LogFile[] 
+         * @static 
+         */
+        public static function getFiles()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getFiles();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getFilesGroupedByFolder()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getFilesGroupedByFolder();
+        }
+
+        /**
+         * Find the file with the given identifier or file name.
+         *
+         * @static 
+         */
+        public static function getFile($fileIdentifier)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getFile($fileIdentifier);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getFolder($folderIdentifier)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getFolder($folderIdentifier);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function supportsHostsFeature()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->supportsHostsFeature();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function resolveHostsUsing($callback)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->resolveHostsUsing($callback);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getHosts()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getHosts();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getHost($hostIdentifier)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getHost($hostIdentifier);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function clearFileCache()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->clearFileCache();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getRouteDomain()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getRouteDomain();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getRoutePrefix()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getRoutePrefix();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getRouteMiddleware()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getRouteMiddleware();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function auth($callback = null)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->auth($callback);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function hasAuthCallback()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->hasAuthCallback();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function lazyScanChunkSize()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->lazyScanChunkSize();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function lazyScanTimeout()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->lazyScanTimeout();
+        }
+
+        /**
+         * Get the maximum number of bytes of the log that we should display.
+         *
+         * @static 
+         */
+        public static function maxLogSize()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->maxLogSize();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function setMaxLogSize($bytes)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->setMaxLogSize($bytes);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function extend($type, $class)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->extend($type, $class);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function useLogFileClass($class)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->useLogFileClass($class);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function useLogReaderClass($class)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->useLogReaderClass($class);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function logReaderClass()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->logReaderClass();
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function setViewLayout($layout)
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->setViewLayout($layout);
+        }
+
+        /**
+         * 
+         *
+         * @static 
+         */
+        public static function getViewLayout()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->getViewLayout();
+        }
+
+        /**
+         * Get the CSS for the Log Viewer dashboard.
+         *
+         * @static 
+         */
+        public static function css()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->css();
+        }
+
+        /**
+         * Get the JS for the Log Viewer dashboard.
+         *
+         * @static 
+         */
+        public static function js()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->js();
+        }
+
+        /**
+         * Get the favicon for the Log Viewer dashboard as a base64 data URI.
+         *
+         * @static 
+         */
+        public static function favicon()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->favicon();
+        }
+
+        /**
+         * Determine if Log Viewer's assets have been published.
+         *
+         * @static 
+         */
+        public static function assetsArePublished()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->assetsArePublished();
+        }
+
+        /**
+         * Determine if Log Viewer's published assets are up-to-date.
+         *
+         * @throws \RuntimeException
+         * @deprecated Publishing assets is no longer required. Assets are now served directly from the vendor directory.
+         *             This method will be removed in the next major version.
+         * @static 
+         */
+        public static function assetsAreCurrent()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->assetsAreCurrent();
+        }
+
+        /**
+         * Get the current version of the Log Viewer
+         *
+         * @static 
+         */
+        public static function version()
+        {
+            /** @var \Opcodes\LogViewer\LogViewerService $instance */
+            return $instance->version();
+        }
+
+            }
+    }
+
 namespace Spatie\Analytics\Facades {
     /**
      * 
@@ -23394,6 +24052,17 @@ namespace Illuminate\Routing {
         public static function inertia($uri, $component, $props = [])
         {
             return \Illuminate\Routing\Router::inertia($uri, $component, $props);
+        }
+
+        /**
+         * 
+         *
+         * @see \Lab404\Impersonate\ImpersonateServiceProvider::registerRoutesMacro()
+         * @static 
+         */
+        public static function impersonate()
+        {
+            return \Illuminate\Routing\Router::impersonate();
         }
 
             }
@@ -28264,6 +28933,8 @@ namespace  {
     class Vite extends \Illuminate\Support\Facades\Vite {}
     class PDF extends \Barryvdh\DomPDF\Facade\Pdf {}
     class Pdf extends \Barryvdh\DomPDF\Facade\Pdf {}
+    class Feature extends \Laravel\Pennant\Feature {}
+    class LogViewer extends \Opcodes\LogViewer\Facades\LogViewer {}
     class Analytics extends \Spatie\Analytics\Facades\Analytics {}
 }
 

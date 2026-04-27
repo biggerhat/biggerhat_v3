@@ -103,11 +103,11 @@ class Unit extends Model
     }
 
     /**
-     * Reverse self-relation used to filter Combined Arms child cards out of
-     * top-level unit listings — rulebook p. 11: the embedded Fireteam comes
-     * into play automatically when its parent unit is hired, so browsing it
-     * as a standalone row would mislead. Top-level index queries should apply
-     * `->whereDoesntHave('combinedArmsParent')`.
+     * Reverse self-relation pointing back at the parent unit that embeds this
+     * one as its Combined Arms child (rulebook p. 11). The public unit index
+     * intentionally surfaces children too so users can read every card; this
+     * relation backs the `notCombinedArmsChild()` scope used by the command
+     * palette + crew builder, where only the parent should appear.
      */
     public function combinedArmsParent(): HasOne
     {

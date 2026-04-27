@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePrompt } from '@/composables/usePrompt';
 import type { Editor } from '@tiptap/vue-3';
 import {
     AlignCenter,
@@ -45,6 +46,8 @@ import {
 const props = defineProps<{
     editor: Editor;
 }>();
+
+const prompt = usePrompt();
 
 const emit = defineEmits<{
     (e: 'openEntitySearch'): void;
@@ -101,9 +104,15 @@ const addImage = () => {
     emit('uploadImage');
 };
 
-const addLink = () => {
-    const previousUrl = props.editor.getAttributes('link').href;
-    const url = window.prompt('Link URL', previousUrl);
+const addLink = async () => {
+    const previousUrl = props.editor.getAttributes('link').href ?? '';
+    const url = await prompt({
+        title: previousUrl ? 'Edit link' : 'Add link',
+        message: 'Paste or type the URL. Leave blank to remove the link.',
+        defaultValue: previousUrl,
+        placeholder: 'https://…',
+        confirmLabel: 'Save',
+    });
     if (url === null) return;
     if (url === '') {
         props.editor.chain().focus().unsetLink().run();

@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import SeoHead from '@/components/SeoHead.vue';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { BookOpen, Grid2x2, LayoutGrid, Library, List, Plus } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
@@ -247,7 +248,10 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head :title="keyword.name" />
+    <SeoHead
+        :title="keyword.name"
+        :description="`${keyword.name} keyword for Malifaux. Browse every character with the ${keyword.name} keyword across all factions, plus related upgrades and lore.`"
+    />
     <div class="relative">
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"

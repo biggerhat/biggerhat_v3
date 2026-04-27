@@ -3,7 +3,6 @@
 namespace Database\Seeders\TOS;
 
 use App\Enums\TOS\AllegianceTypeEnum;
-use App\Models\TOS\Ability;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use Illuminate\Database\Seeder;
@@ -45,14 +44,11 @@ class AllegianceCardSeeder extends Seeder
             ],
         ];
 
-        $fast = Ability::firstWhere('slug', 'fast');
-        $tough = Ability::firstWhere('slug', 'tough');
-
         foreach ($rows as $row) {
             if (! $row['allegiance']) {
                 continue;
             }
-            $card = AllegianceCard::updateOrCreate(
+            AllegianceCard::updateOrCreate(
                 ['slug' => $row['slug']],
                 [
                     'allegiance_id' => $row['allegiance']->id,
@@ -61,12 +57,6 @@ class AllegianceCardSeeder extends Seeder
                     'body' => $row['body'],
                 ],
             );
-            if ($fast && $tough) {
-                $card->abilities()->sync([
-                    $fast->id => ['sort_order' => 0],
-                    $tough->id => ['sort_order' => 1],
-                ]);
-            }
         }
     }
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Paginator, TosSelectOption } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -13,11 +14,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useListFiltering } from '@/composables/useListFiltering';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
-
-interface SelectOption {
-    name: string;
-    value: string;
-}
 
 interface SpecialRule {
     id: number;
@@ -55,27 +51,12 @@ interface Unit {
     sculpts: Sculpt[];
 }
 
-interface Paginator<T> {
-    data: T[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    first_page_url: string;
-    last_page_url: string;
-    next_page_url: string | null;
-    prev_page_url: string | null;
-    path: string;
-    from: number | null;
-    to: number | null;
-}
-
 const props = defineProps<{
     units: Paginator<Unit>;
     rule_filter: string | null;
     name_search: string | null;
     page_view: string;
-    special_rules: SelectOption[];
+    special_rules: TosSelectOption[];
 }>();
 
 const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(

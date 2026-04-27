@@ -54,6 +54,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
+    Route::post('/refresh-analytics', [DashboardAdminController::class, 'refreshAnalytics'])->name('refresh_analytics')->middleware('role:super_admin');
 
     // Super-admin-only diagnostics + tooling.
     Route::middleware('role:super_admin')->group(function () {

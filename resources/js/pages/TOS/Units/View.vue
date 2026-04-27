@@ -2,9 +2,10 @@
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import UnitCard from '@/components/TOS/UnitCard.vue';
+import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Swords } from 'lucide-vue-next';
+import { ArrowLeft, Download, Swords } from 'lucide-vue-next';
 
 interface Sculpt {
     id: number;
@@ -54,12 +55,26 @@ defineProps<{
         </PageBanner>
 
         <div class="container mx-auto space-y-4 sm:px-4">
-            <Link
-                :href="route('tos.units.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-                <ArrowLeft class="size-3" /> All units
-            </Link>
+            <div class="flex items-center justify-between gap-2">
+                <Link
+                    :href="route('tos.units.index')"
+                    class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                    <ArrowLeft class="size-3" /> All units
+                </Link>
+                <Button
+                    v-if="active_sculpt.combination_image || active_sculpt.front_image"
+                    variant="outline"
+                    size="sm"
+                    as="a"
+                    :href="route('tos.units.pdf', active_sculpt.slug)"
+                    target="_blank"
+                    rel="noopener"
+                    class="gap-1 text-xs"
+                >
+                    <Download class="size-3" /> Download PDF
+                </Button>
+            </div>
 
             <UnitCard :unit="unit" :active-sculpt="active_sculpt" />
 

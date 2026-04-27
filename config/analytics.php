@@ -17,8 +17,13 @@ return [
     /*
      * The amount of minutes the Google API responses will be cached.
      * If you set this to zero, the responses won't be cached at all.
+     *
+     * 0 here delegates caching to our own application layer (see
+     * DashboardAdminController::analytics()), which lets us show a
+     * "last updated" timestamp and provide a manual refresh button
+     * without round-tripping Spatie's cache key conventions.
      */
-    'cache_lifetime_in_minutes' => 60 * 24,
+    'cache_lifetime_in_minutes' => 0,
 
     /*
      * Here you may configure the "store" that the underlying Google_Client will

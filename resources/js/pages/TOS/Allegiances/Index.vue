@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Paginator } from '@/types/tos';
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -24,21 +25,6 @@ interface Allegiance {
     description: string | null;
     logo_path: string | null;
     color_slug: string | null;
-}
-
-interface Paginator<T> {
-    data: T[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    first_page_url: string;
-    last_page_url: string;
-    next_page_url: string | null;
-    prev_page_url: string | null;
-    path: string;
-    from: number | null;
-    to: number | null;
 }
 
 const props = defineProps<{

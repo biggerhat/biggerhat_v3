@@ -4,14 +4,23 @@ import GameSculptVisualPickerDialog from '@/components/Game/GameSculptVisualPick
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Images, Maximize2, X } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+
+interface AttachedUpgrade {
+    id: number;
+    name: string;
+    notes?: string | null;
+}
 
 interface PreviewMember {
     id: number;
     display_name: string;
     front_image: string | null;
     back_image: string | null;
+    notes?: string | null;
+    attached_upgrades?: AttachedUpgrade[];
 }
 
 interface Miniature {
@@ -26,13 +35,49 @@ const props = defineProps<{
     miniatures: Miniature[];
     /** Whether to show the sculpt selector. Parent computes this from isSolo / isObserver / ownership. */
     canChangeSculpt: boolean;
+    /** Whether the viewer can edit notes — owner & solo creator yes, opponents/observers read-only. */
+    canEditNotes?: boolean;
 }>();
 
 const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
     (e: 'sculpt-change', miniatureId: string): void;
     (e: 'open-fullscreen', src: string): void;
+    /** Persist a note edit. Parent handles the API + broadcast. */
+    (e: 'notes-change', payload: { notes: string | null; attached_upgrades: AttachedUpgrade[] }): void;
 }>();
+
+// Local copies so the textareas stay responsive while debounced saves fly
+// upstream. Mirror member props on open and on every prop change.
+const memberNotes = ref('');
+const upgradeNotes = ref<Record<number, string>>({});
+
+watch(
+    () => props.member,
+    (m) => {
+        memberNotes.value = m?.notes ?? '';
+        upgradeNotes.value = Object.fromEntries((m?.attached_upgrades ?? []).map((u) => [u.id, u.notes ?? '']));
+    },
+    { immediate: true },
+);
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const queueSave = () => {
+    if (! props.member || ! props.canEditNotes) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        const member = props.member;
+        if (! member) return;
+        const upgrades = (member.attached_upgrades ?? []).map((u) => ({
+            ...u,
+            notes: upgradeNotes.value[u.id] ?? '',
+        }));
+        emit('notes-change', {
+            notes: memberNotes.value.trim() === '' ? null : memberNotes.value,
+            attached_upgrades: upgrades,
+        });
+    }, 600);
+};
 
 // Current sculpt is the miniature whose front_image matches the member's
 // current front_image. Fall back to the first miniature if no match.
@@ -140,6 +185,41 @@ const handleVisualPick = (miniatureId: number) => {
                     </div>
                 </div>
                 <div v-else class="px-4 py-8 pb-2 text-center text-sm text-muted-foreground">No card image available</div>
+
+                <!-- Misc notes — visible to both players, editable by the owner. -->
+                <div class="space-y-3 px-4 pt-2">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
+                        <Textarea
+                            v-model="memberNotes"
+                            :placeholder="canEditNotes ? 'Anything to remember about this model…' : 'No notes'"
+                            :readonly="!canEditNotes"
+                            :disabled="!canEditNotes && !memberNotes"
+                            rows="2"
+                            class="text-sm"
+                            @input="queueSave"
+                        />
+                    </div>
+
+                    <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Upgrade notes</div>
+                        <div class="space-y-1.5">
+                            <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
+                                <div class="text-xs font-medium">{{ upgrade.name }}</div>
+                                <Textarea
+                                    v-model="upgradeNotes[upgrade.id]"
+                                    :placeholder="canEditNotes ? 'Notes for this upgrade…' : 'No notes'"
+                                    :readonly="!canEditNotes"
+                                    :disabled="!canEditNotes && !upgradeNotes[upgrade.id]"
+                                    rows="1"
+                                    class="mt-1 text-xs"
+                                    @input="queueSave"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>

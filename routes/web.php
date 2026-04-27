@@ -33,6 +33,7 @@ use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\ScenarioGeneratorController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
@@ -60,6 +61,8 @@ Broadcast::routes(['middleware' => ['web', 'auth']]);
 Route::middleware(['auth'])->group(function () {
     Route::impersonate();
 });
+
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 Route::get('/', function () {
     return Inertia::render('Index', [
@@ -391,6 +394,8 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
+    Route::post('/{tournament}/games/{game}/complete-tracker', [TournamentGameController::class, 'completeTrackerGame'])->name('games.complete_tracker');
+    Route::get('/{tournament}/export.csv', [\App\Http\Controllers\TournamentController::class, 'exportCsv'])->name('export_csv');
 });
 
 Route::prefix('collection')->name('collection.')->group(function () {

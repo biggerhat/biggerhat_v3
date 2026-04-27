@@ -28,6 +28,7 @@ const props = defineProps<{
                             <th class="px-2 py-2.5 font-semibold sm:px-3">#</th>
                             <th class="px-2 py-2.5 font-semibold sm:px-3">Player</th>
                             <th class="px-1 py-2.5 text-center font-semibold sm:px-3">TP</th>
+                            <th class="hidden px-1 py-2.5 text-center font-semibold sm:table-cell sm:px-3" title="Wins-Losses-Ties (bye counts as a win)">W-L-T</th>
                             <th class="px-1 py-2.5 text-center font-semibold sm:px-3" title="Strength of Schedule (sum of opponents' TP)">SoS</th>
                             <th class="px-1 py-2.5 text-center font-semibold sm:px-3">Diff</th>
                             <th class="px-1 py-2.5 text-center font-semibold sm:px-3">VP</th>
@@ -36,7 +37,7 @@ const props = defineProps<{
                     </thead>
                     <tbody>
                         <tr v-if="!props.standings.length">
-                            <td colspan="7" class="px-3 py-8 text-center text-muted-foreground">No results yet</td>
+                            <td colspan="8" class="px-3 py-8 text-center text-muted-foreground">No results yet</td>
                         </tr>
                         <tr
                             v-for="entry in props.standings"
@@ -76,6 +77,9 @@ const props = defineProps<{
                                 </div>
                             </td>
                             <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
+                            <td class="hidden px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
+                                {{ entry.wins ?? 0 }}-{{ entry.losses ?? 0 }}-{{ entry.ties ?? 0 }}
+                            </td>
                             <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>
                             <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}</td>
                             <td class="px-1 py-2 text-center tabular-nums sm:px-3">{{ entry.total_vp }}</td>

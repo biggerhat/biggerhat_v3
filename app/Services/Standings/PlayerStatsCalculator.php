@@ -20,7 +20,7 @@ class PlayerStatsCalculator
      * @param  array{tp: int, diff: int, vp: int}  $byeScoring
      * @param  array<int, TournamentRound>  $completedRounds
      * @param  array<int, int>  $completedRoundNumbers  round_id => round_number lookup
-     * @return array{tp: int, diff: int, vp: int, rounds: int, has_bye: bool, opponents: int[]}
+     * @return array{tp: int, diff: int, vp: int, rounds: int, has_bye: bool, wins: int, losses: int, ties: int, opponents: int[]}
      */
     public function compute(
         TournamentPlayer $player,
@@ -35,6 +35,9 @@ class PlayerStatsCalculator
         $vp = 0;
         $rounds = 0;
         $hasBye = false;
+        $wins = 0;
+        $losses = 0;
+        $ties = 0;
         $opponents = [];
         $roundsWithGame = [];
         $playedRoundNumbers = [];
@@ -59,6 +62,13 @@ class PlayerStatsCalculator
                 $diff += $byeScoring['diff'];
                 $vp += $byeScoring['vp'];
                 $hasBye = true;
+                // A bye scores 3 TP — count it as a win for the W column.
+                // NOTE: a player who took a bye in round N then dropped in
+                // round N+1 will show wins=1 in standings. This is per
+                // current product spec (the bye W still "counts"). If product
+                // decides bye-then-drop should clear the W, gate this on
+                // `! $isDropped` here.
+                $wins++;
 
                 continue;
             }
@@ -72,10 +82,12 @@ class PlayerStatsCalculator
             if ($game->is_forfeit && $game->forfeit_player_id) {
                 if ($game->forfeit_player_id === $playerId) {
                     $diff -= 11;
+                    $losses++;
                 } else {
                     $tp += 3;
                     $diff += 11;
                     $vp += 11;
+                    $wins++;
                 }
 
                 continue;
@@ -90,8 +102,12 @@ class PlayerStatsCalculator
 
             if ($myVp > $oppVp) {
                 $tp += 3;
+                $wins++;
             } elseif ($myVp === $oppVp) {
                 $tp += 1;
+                $ties++;
+            } else {
+                $losses++;
             }
         }
 
@@ -123,6 +139,9 @@ class PlayerStatsCalculator
             'vp' => $vp,
             'rounds' => $rounds,
             'has_bye' => $hasBye,
+            'wins' => $wins,
+            'losses' => $losses,
+            'ties' => $ties,
             'opponents' => $opponents,
         ];
     }

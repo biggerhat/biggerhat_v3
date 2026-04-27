@@ -142,6 +142,49 @@ class TournamentController extends Controller
             ];
         }
 
+        // Most-scored scheme across all tracker-linked games. Tournament-side
+        // scoring records strategy/scheme as a sum, not per-pick — so the only
+        // place the scheme breakdown lives is in GameTurn rows on the linked
+        // tracker games. Coverage is partial (games where neither player has a
+        // BiggerHat account aren't tracked), but it's enough to surface the
+        // most-popular scheme of the event.
+        $trackerGameIds = collect($roundsData)
+            ->flatMap(fn ($r) => collect($r['games'])->pluck('game_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $schemeStats = null;
+        if ($trackerGameIds && $schemesById->isNotEmpty()) {
+            // Use the table query builder (not Eloquent) so PHPStan doesn't try
+            // to map the SUM/COUNT projections back onto GameTurn properties.
+            $top = \DB::table('game_turns')
+                ->whereIn('game_id', $trackerGameIds)
+                ->where('scheme_action', 'scored')
+                ->where('scheme_points', '>', 0)
+                ->whereNotNull('scheme_id')
+                ->selectRaw('scheme_id, SUM(scheme_points) as total_points, COUNT(*) as scoring_turns')
+                ->groupBy('scheme_id')
+                ->orderByDesc('total_points')
+                ->first();
+
+            if ($top) {
+                /** @var Scheme|null $scheme */
+                $scheme = $schemesById->get($top->scheme_id);
+                if ($scheme) {
+                    $schemeStats = [
+                        'most_scored' => [
+                            'id' => $scheme->id,
+                            'name' => $scheme->name,
+                            'total_points' => (int) $top->total_points,
+                            'scoring_turns' => (int) $top->scoring_turns,
+                        ],
+                    ];
+                }
+            }
+        }
+
         // Unset loaded rounds to avoid double-serializing alongside roundsData.
         $tournament->unsetRelation('rounds');
 
@@ -150,6 +193,7 @@ class TournamentController extends Controller
             'rounds' => $roundsData,
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
+            'scheme_stats' => $schemeStats,
         ]);
     }
 
@@ -302,6 +346,79 @@ class TournamentController extends Controller
             'all_strategies' => $strategiesDeferred,
             'all_schemes' => $schemesDeferred,
             'masters' => $mastersDeferred,
+        ]);
+    }
+
+    /**
+     * CSV dump of every non-bye game in the tournament — TOs use this to
+     * manually transcribe results into Longshanks (no public API exists), or
+     * just as an event archive. Round-major sort, one row per pairing.
+     */
+    public function exportCsv(Tournament $tournament): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        $tournament->load([
+            'rounds.games.playerOne:id,display_name,faction',
+            'rounds.games.playerTwo:id,display_name,faction',
+        ]);
+
+        $filename = 'tournament-'.$tournament->uuid.'-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($tournament) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'round',
+                'table',
+                'player_one',
+                'player_one_faction',
+                'player_one_master',
+                'player_one_vp',
+                'player_one_strategy_vp',
+                'player_one_scheme_vp',
+                'player_two',
+                'player_two_faction',
+                'player_two_master',
+                'player_two_vp',
+                'player_two_strategy_vp',
+                'player_two_scheme_vp',
+                'result',
+                'is_bye',
+                'is_forfeit',
+            ]);
+
+            /** @var TournamentRound $round */
+            foreach ($tournament->rounds->sortBy('round_number') as $round) {
+                foreach ($round->games as $game) {
+                    // playerTwo is nullable on byes; playerOne is required by
+                    // schema. Reach via the relation only when present.
+                    $p1 = $game->playerOne;
+                    $p2 = $game->playerTwo;
+                    fputcsv($out, [
+                        $round->round_number,
+                        $game->table_number,
+                        $p1 ? $p1->display_name : null,
+                        $game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null),
+                        $game->player_one_title ?: $game->player_one_master,
+                        $game->player_one_vp,
+                        $game->player_one_strategy_vp,
+                        $game->player_one_scheme_vp,
+                        $p2 ? $p2->display_name : null,
+                        $game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null),
+                        $game->player_two_title ?: $game->player_two_master,
+                        $game->player_two_vp,
+                        $game->player_two_strategy_vp,
+                        $game->player_two_scheme_vp,
+                        $game->result->value,
+                        $game->is_bye ? 'true' : 'false',
+                        $game->is_forfeit ? 'true' : 'false',
+                    ]);
+                }
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
         ]);
     }
 

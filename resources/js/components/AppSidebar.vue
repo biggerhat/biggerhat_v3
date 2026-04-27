@@ -26,6 +26,7 @@ import {
     ShieldCheck,
     Swords,
     TextSearch,
+    Users,
     ArrowUpCircle,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -62,6 +63,9 @@ const tosNavItems = computed<NavItem[]>(() => [
         items: [
             { title: 'Allegiances', href: route('tos.allegiances.index'), icon: Shield },
             { title: 'Units', href: route('tos.units.index'), icon: Swords },
+            { title: 'Search', href: route('tos.search'), icon: TextSearch },
+            { title: 'Compare Units', href: route('tos.compare'), icon: Scale },
+            ...(isAuthenticated.value ? [{ title: 'My Crews', href: route('tos.crews.index'), icon: Users }] : []),
             { title: 'Special Rules', href: route('tos.special_rules.index'), icon: BookOpen },
             { title: 'Abilities', href: route('tos.abilities.index'), icon: Shield },
             { title: 'Actions', href: route('tos.actions.index'), icon: Swords },

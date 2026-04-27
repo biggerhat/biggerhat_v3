@@ -90,6 +90,10 @@ export interface StandingEntry {
     total_vp: number;
     total_sos: number;
     rounds_played: number;
+    has_bye?: boolean;
+    wins?: number;
+    losses?: number;
+    ties?: number;
 }
 
 export interface MasterOption {

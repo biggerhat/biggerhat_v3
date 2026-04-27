@@ -132,6 +132,47 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property string $message
+ * @property string $level
+ * @property string $audience
+ * @property \Illuminate\Support\Carbon|null $starts_at
+ * @property \Illuminate\Support\Carbon|null $ends_at
+ * @property bool $is_dismissable
+ * @property string|null $link_url
+ * @property string|null $link_label
+ * @property int|null $created_by_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
+ * @property-read \App\Models\User|null $createdBy
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereAudience($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereCreatedById($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereEndsAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereIsDismissable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereLevel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereLinkLabel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereLinkUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereMessage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereStartsAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Announcement whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAnnouncement {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property string $name
  * @property string $slug
  * @property string|null $description
@@ -173,6 +214,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \App\Models\User $author
  * @property-read \App\Models\BlogCategory|null $category
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -328,6 +371,8 @@ namespace App\Models{
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
  * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Blueprint> $blueprints
@@ -519,7 +564,7 @@ namespace App\Models{
  * @property string $slug
  * @property \App\Enums\FactionEnum $faction
  * @property \App\Enums\FactionEnum|null $second_faction
- * @property \App\Enums\CharacterStationEnum $station
+ * @property \App\Enums\CharacterStationEnum|null $station
  * @property int|null $cost
  * @property int $health
  * @property int|null $size
@@ -718,6 +763,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \App\Models\User $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameCrewMember> $crewMembers
  * @property-read int|null $crew_members_count
@@ -1242,6 +1289,8 @@ namespace App\Models{
  * @property-read int|null $miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PackageStoreLink> $storeLinks
  * @property-read int|null $store_links_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $tosUnits
+ * @property-read int|null $tos_units_count
  * @method static \Database\Factories\PackageFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newQuery()
@@ -1473,6 +1522,7 @@ namespace App\Models\TOS{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSide> $unitSides
  * @property-read int|null $unit_sides_count
  * @method static \Database\Factories\TOS\AbilityFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability forAllegiance(\App\Models\TOS\Allegiance|int $allegiance)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability general()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability newQuery()
@@ -1585,6 +1635,8 @@ namespace App\Models\TOS{
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $units
+ * @property-read int|null $units_count
  * @method static \Database\Factories\TOS\AllegianceFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance mainAllegiances()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance newModelQuery()
@@ -1733,6 +1785,73 @@ namespace App\Models\TOS{
  * 
  *
  * @property int $id
+ * @property int $user_id
+ * @property int $allegiance_id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance $allegiance
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CrewUnit> $commanderUnit
+ * @property-read int|null $commander_unit_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CrewUnit> $crewUnits
+ * @property-read int|null $crew_units_count
+ * @property-read \App\Models\User $user
+ * @method static \Database\Factories\TOS\CrewFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCrew {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $crew_id
+ * @property int $unit_id
+ * @property bool $is_commander
+ * @property int $position
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Asset> $assets
+ * @property-read int|null $assets_count
+ * @property-read \App\Models\TOS\Crew $crew
+ * @property-read \App\Models\TOS\Unit $unit
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereIsCommander($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit wherePosition($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCrewUnit {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
  * @property int $allegiance_id
  * @property string $slug
  * @property string $name
@@ -1842,29 +1961,26 @@ namespace App\Models\TOS{
  * 
  *
  * @property int $id
- * @property int $action_id
  * @property string $slug
  * @property string $name
  * @property string|null $suits
  * @property int|null $margin_cost
  * @property \App\Enums\TOS\TriggerTimingEnum $timing
  * @property string|null $body
- * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\TOS\Action $action
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Action> $actions
+ * @property-read int|null $actions_count
  * @method static \Database\Factories\TOS\TriggerFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereActionId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereBody($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereMarginCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSlug($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSortOrder($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereSuits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereTiming($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereUpdatedAt($value)
@@ -1886,6 +2002,7 @@ namespace App\Models\TOS{
  * @property string|null $tactics
  * @property string|null $description
  * @property string|null $lore_text
+ * @property \App\Enums\TOS\AllegianceTypeEnum|null $restriction
  * @property int|null $combined_arms_child_id
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -1894,6 +2011,8 @@ namespace App\Models\TOS{
  * @property-read int|null $allegiances_count
  * @property-read Unit|null $combinedArmsChild
  * @property-read Unit|null $combinedArmsParent
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
+ * @property-read int|null $packages_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSculpt> $sculpts
  * @property-read int|null $sculpts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSide> $sides
@@ -1902,8 +2021,10 @@ namespace App\Models\TOS{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\SpecialUnitRule> $specialUnitRules
  * @property-read int|null $special_unit_rules_count
  * @method static \Database\Factories\TOS\UnitFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit hireableInto(\App\Models\TOS\Allegiance $allegiance)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit notCombinedArmsChild()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCombinedArmsChildId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCreatedAt($value)
@@ -1911,6 +2032,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereLoreText($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereRestriction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereScrip($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereSortOrder($value)
@@ -1930,13 +2052,12 @@ namespace App\Models\TOS{
  * @property int $id
  * @property int $unit_id
  * @property string $slug
- * @property string $name
+ * @property string|null $name
  * @property string|null $front_image
  * @property string|null $back_image
  * @property string|null $combination_image
  * @property \Illuminate\Support\Carbon|null $release_date
  * @property string|null $box_reference
- * @property string|null $store_link
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -1955,7 +2076,6 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereReleaseDate($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereSortOrder($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereStoreLink($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereUnitId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|UnitSculpt whereUpdatedAt($value)
  * @mixin \Eloquent
@@ -2112,6 +2232,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \App\Models\User $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $games
  * @property-read int|null $games_count
@@ -2249,6 +2371,8 @@ namespace App\Models{
  * @property int|null $dropped_after_round
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne
  * @property-read int|null $games_as_player_one_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerTwo
@@ -2293,6 +2417,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $completed_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $games
  * @property-read int|null $games_count
  * @property-read \App\Models\Strategy|null $strategy
@@ -2448,6 +2574,8 @@ namespace App\Models{
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Keyword> $keywords
@@ -2511,6 +2639,8 @@ namespace App\Models{
  * @property int $collection_is_public
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
+ * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
  * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Channel> $channels
@@ -2534,6 +2664,8 @@ namespace App\Models{
  * @property-read int|null $roles_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\SavedSearch> $savedSearches
  * @property-read int|null $saved_searches_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
+ * @property-read int|null $tokens_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Tournament> $tournaments
  * @property-read int|null $tournaments_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Wishlist> $wishlists

@@ -86,6 +86,9 @@ class TournamentStandingsService
                 'total_vp' => $stats['vp'],
                 'rounds_played' => $stats['rounds'],
                 'has_bye' => $stats['has_bye'],
+                'wins' => $stats['wins'],
+                'losses' => $stats['losses'],
+                'ties' => $stats['ties'],
             ];
             $opponentsByPlayer[$player->id] = $stats['opponents'];
         }

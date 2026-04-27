@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Paginator } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -40,21 +41,6 @@ interface Action {
     usage_limit: string | null;
     body: string | null;
     triggers: Trigger[];
-}
-
-interface Paginator<T> {
-    data: T[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    first_page_url: string;
-    last_page_url: string;
-    next_page_url: string | null;
-    prev_page_url: string | null;
-    path: string;
-    from: number | null;
-    to: number | null;
 }
 
 const props = defineProps<{

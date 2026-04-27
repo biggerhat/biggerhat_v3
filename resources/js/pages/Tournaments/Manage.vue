@@ -41,12 +41,14 @@ import {
     ChevronsUpDown,
     Copy,
     Dices,
+    Download,
     Eye,
     Link2,
     Link2Off,
     Loader2,
     LogOut,
     MapPin,
+    Pencil,
     Plus,
     QrCode,
     Settings2,
@@ -288,6 +290,55 @@ interface MetaOption {
 const newPlayerName = ref('');
 const newPlayerFaction = ref<string | null>(null);
 const newPlayerMeta = ref<MetaOption | null>(null);
+
+// ── Edit player dialog ──
+// TOs need to fix typos / change faction / re-assign meta after a player has
+// been added — there's no per-row inline edit, so we surface a dialog.
+const editPlayerDialogOpen = ref(false);
+const editingPlayer = ref<TournamentPlayer | null>(null);
+const editPlayerName = ref('');
+const editPlayerFaction = ref<string | null>(null);
+const editPlayerMeta = ref<MetaOption | null>(null);
+const editPlayerMetaSearch = ref('');
+const editPlayerSubmitting = ref(false);
+const editPlayerError = ref<string | null>(null);
+
+const openEditPlayerDialog = (player: TournamentPlayer) => {
+    editingPlayer.value = player;
+    editPlayerName.value = player.display_name;
+    editPlayerFaction.value = player.faction ?? null;
+    // The player's meta lives either directly on the TournamentPlayer or on
+    // the linked User account. Edit overrides via the player record only.
+    editPlayerMeta.value = (player.meta ?? player.user?.meta ?? null) as MetaOption | null;
+    editPlayerMetaSearch.value = '';
+    editPlayerError.value = null;
+    editPlayerDialogOpen.value = true;
+};
+
+const submitEditPlayer = async () => {
+    if (! editingPlayer.value || ! editPlayerName.value.trim() || ! editPlayerFaction.value) return;
+    editPlayerSubmitting.value = true;
+    editPlayerError.value = null;
+
+    const { ok, error } = await doModalAction(
+        route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingPlayer.value.id }),
+        'PUT',
+        {
+            display_name: editPlayerName.value.trim(),
+            faction: editPlayerFaction.value,
+            meta_id: editPlayerMeta.value?.id ?? null,
+        },
+    );
+
+    editPlayerSubmitting.value = false;
+    if (ok) {
+        editPlayerDialogOpen.value = false;
+        editingPlayer.value = null;
+        reloadPage();
+    } else {
+        editPlayerError.value = error;
+    }
+};
 
 // All known metas, fetched once at mount. We refetch after creating one so the
 // new meta shows up in the list (and is selected) immediately.
@@ -756,6 +807,24 @@ const editingRoundNumber = computed(() => {
 const trackerInProgress = computed(() => editingGame.value?.tracker_game?.status === 'in_progress');
 const trackerComplete = computed(() => editingGame.value?.tracker_game?.status === 'completed');
 const trackerAbandoned = computed(() => editingGame.value?.tracker_game?.status === 'abandoned');
+
+// Force-complete a stuck tracker game from the TO side. Used when players
+// walked away mid-game and never marked the tracker complete, leaving it
+// blocking on their dashboards forever.
+const completingTracker = ref(false);
+const completeTrackerGame = async () => {
+    if (! editingGame.value) return;
+    if (! (await confirm({
+        title: 'Force complete tracker game?',
+        message: 'Marks the tracker game as Completed without recording a winner. The tournament score below is the source of truth — use this to clean up games players left in progress.',
+        confirmLabel: 'Complete',
+    }))) return;
+    completingTracker.value = true;
+    if (await doAction(route('tournaments.games.complete_tracker', { tournament: props.tournament.uuid, game: editingGame.value.id }), 'POST')) {
+        reloadPage();
+    }
+    completingTracker.value = false;
+};
 
 const saveScore = async () => {
     if (!editingGame.value) return;
@@ -1342,7 +1411,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">
-                                                <span class="flex items-center gap-1.5"><img :src="f.logo" class="size-4" /> {{ f.name }}</span>
+                                                <span class="flex items-center gap-1.5"><img :src="f.logo" :alt="f.name" class="size-4" /> {{ f.name }}</span>
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1434,6 +1503,9 @@ const titlesForMaster = (masterName: string | null) => {
                                     @click="toggleDrop(player)"
                                 >
                                     <LogOut class="size-3.5" :class="player.dropped_after_round !== null ? 'text-amber-300' : 'text-white/50'" />
+                                </button>
+                                <button class="rounded p-1 hover:bg-white/20" title="Edit player" @click="openEditPlayerDialog(player)">
+                                    <Pencil class="size-3.5 text-white/50" />
                                 </button>
                                 <button class="rounded p-1 hover:bg-white/20" title="Toggle Ringer" @click="toggleRinger(player)">
                                     <Star class="size-3.5" :class="player.is_ringer ? 'fill-amber-300 text-amber-300' : 'text-white/50'" />
@@ -1846,6 +1918,27 @@ const titlesForMaster = (masterName: string | null) => {
 
                 <!-- ═══ SETTINGS ═══ -->
                 <TabsContent value="settings">
+                    <!-- Quick exports — useful even before the tournament finishes for sharing
+                         a snapshot, transcribing into Longshanks, etc. -->
+                    <Card class="mb-4">
+                        <CardContent class="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+                            <div>
+                                <div class="text-sm font-semibold">Export results</div>
+                                <p class="text-xs text-muted-foreground">
+                                    CSV with one row per pairing — players, factions, masters, scores, result. Use it as a tournament archive or to
+                                    transcribe into Longshanks.
+                                </p>
+                            </div>
+                            <a
+                                :href="route('tournaments.export_csv', tournament.uuid)"
+                                class="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                            >
+                                <Download class="size-3.5" />
+                                Download CSV
+                            </a>
+                        </CardContent>
+                    </Card>
+
                     <!-- Edit Mode -->
                     <Card v-if="editingSettings" class="mb-4">
                         <CardContent class="space-y-6 p-4 sm:p-6">
@@ -2110,14 +2203,25 @@ const titlesForMaster = (masterName: string | null) => {
                             <template v-else>Scores below may be pre-filled from the linked tracker.</template>
                         </div>
                     </div>
-                    <a
-                        :href="route('games.show', editingGame.tracker_game.uuid)"
-                        target="_blank"
-                        rel="noopener"
-                        class="shrink-0 rounded border border-current/30 px-2 py-0.5 text-[10px] font-medium hover:bg-current/10"
-                    >
-                        Open tracker
-                    </a>
+                    <div class="flex shrink-0 flex-col gap-1.5">
+                        <a
+                            :href="route('games.show', editingGame.tracker_game.uuid)"
+                            target="_blank"
+                            rel="noopener"
+                            class="rounded border border-current/30 px-2 py-0.5 text-center text-[10px] font-medium hover:bg-current/10"
+                        >
+                            Open tracker
+                        </a>
+                        <button
+                            v-if="trackerInProgress"
+                            type="button"
+                            class="rounded border border-current/30 px-2 py-0.5 text-[10px] font-medium hover:bg-current/10"
+                            :disabled="completingTracker"
+                            @click="completeTrackerGame"
+                        >
+                            {{ completingTracker ? 'Closing…' : 'Force complete' }}
+                        </button>
+                    </div>
                 </div>
                 <!-- Player 1 -->
                 <div class="space-y-2 rounded-lg border p-3">
@@ -2382,6 +2486,88 @@ const titlesForMaster = (masterName: string | null) => {
                 <Button :disabled="!newMetaName.trim() || newMetaSubmitting" @click="submitNewMeta">
                     <Loader2 v-if="newMetaSubmitting" class="mr-1.5 size-3 animate-spin" />
                     Add Meta
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Edit Player Dialog -->
+    <Dialog v-model:open="editPlayerDialogOpen">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Edit Player</DialogTitle>
+                <DialogDescription>Fix typos, change faction, or reassign their meta.</DialogDescription>
+            </DialogHeader>
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <Label class="text-xs">Player Name</Label>
+                    <Input v-model="editPlayerName" placeholder="Enter player name..." class="h-9 text-sm" />
+                </div>
+                <div class="space-y-1">
+                    <Label class="text-xs">Faction</Label>
+                    <Select v-model="editPlayerFaction">
+                        <SelectTrigger class="h-9 w-full text-xs"><SelectValue placeholder="Select faction..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">{{ f.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div class="space-y-1">
+                    <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
+                    <div class="flex gap-1">
+                        <Combobox v-model="editPlayerMeta" v-model:search-term="editPlayerMetaSearch" by="id" class="flex-1">
+                            <ComboboxAnchor as-child>
+                                <ComboboxTrigger as-child>
+                                    <Button variant="outline" class="h-9 w-full justify-between text-xs font-normal">
+                                        <span class="truncate">{{ editPlayerMeta?.name ?? 'Select meta...' }}</span>
+                                        <ChevronsUpDown class="ml-2 size-3.5 shrink-0 opacity-50" />
+                                    </Button>
+                                </ComboboxTrigger>
+                            </ComboboxAnchor>
+                            <ComboboxList class="max-h-72 overflow-y-auto">
+                                <ComboboxInput class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0" placeholder="Search metas..." />
+                                <ComboboxEmpty class="px-2 py-3 text-left">
+                                    <span class="text-xs text-muted-foreground">No matches.</span>
+                                </ComboboxEmpty>
+                                <ComboboxGroup v-if="tournamentMetas.length">
+                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">In this tournament</div>
+                                    <ComboboxItem v-for="m in tournamentMetas" :key="'et-' + m.id" :value="m">
+                                        {{ m.name }}
+                                        <Check v-if="editPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
+                                    </ComboboxItem>
+                                </ComboboxGroup>
+                                <ComboboxSeparator v-if="tournamentMetas.length && otherMetas.length" />
+                                <ComboboxGroup v-if="otherMetas.length">
+                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">All metas</div>
+                                    <ComboboxItem v-for="m in otherMetas" :key="'eo-' + m.id" :value="m">
+                                        {{ m.name }}
+                                        <Check v-if="editPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
+                                    </ComboboxItem>
+                                </ComboboxGroup>
+                            </ComboboxList>
+                        </Combobox>
+                        <Button
+                            v-if="editPlayerMeta"
+                            variant="ghost"
+                            size="sm"
+                            class="h-9 shrink-0 px-2 text-muted-foreground"
+                            title="Clear"
+                            @click="editPlayerMeta = null"
+                        >
+                            <X class="size-3.5" />
+                        </Button>
+                    </div>
+                </div>
+                <p v-if="editPlayerError" class="text-xs text-destructive">{{ editPlayerError }}</p>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="editPlayerDialogOpen = false">Cancel</Button>
+                <Button
+                    :disabled="!editPlayerName.trim() || !editPlayerFaction || editPlayerSubmitting"
+                    @click="submitEditPlayer"
+                >
+                    <Loader2 v-if="editPlayerSubmitting" class="mr-1.5 size-3 animate-spin" />
+                    Save
                 </Button>
             </DialogFooter>
         </DialogContent>

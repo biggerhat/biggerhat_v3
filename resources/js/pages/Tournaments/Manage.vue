@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/composables/useConfirm';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
@@ -197,6 +198,7 @@ const props = defineProps<{
 const tournamentRef = computed(() => props.tournament);
 const { submitting, showError, doAction, doModalAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
 const { statusColor, statusLabel } = useTournamentStatus();
+const confirm = useConfirm();
 
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
 const visibleTabs = computed(() => {
@@ -547,7 +549,12 @@ const createRound = async () => {
 };
 
 const deleteRound = async (roundId: number, roundNumber: number) => {
-    if (!window.confirm(`Delete Round ${roundNumber}? This will remove the round and any pairings/games it contains.`)) return;
+    if (!(await confirm({
+        title: `Delete Round ${roundNumber}?`,
+        message: 'This will remove the round and any pairings/games it contains.',
+        confirmLabel: 'Delete round',
+        destructive: true,
+    }))) return;
     if (await doAction(route('tournaments.rounds.delete', { tournament: props.tournament.uuid, round: roundId }), 'DELETE')) {
         reloadPage();
     }

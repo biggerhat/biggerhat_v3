@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\DeploymentEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
+use App\Traits\LogsCreationActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +24,7 @@ use Illuminate\Support\Str;
  */
 class Game extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, LogsCreationActivity, SoftDeletes;
 
     protected $guarded = ['id'];
 

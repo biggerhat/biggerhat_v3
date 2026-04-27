@@ -3,12 +3,15 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\LogsAdminActivity;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Lab404\Impersonate\Models\Impersonate;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -16,11 +19,29 @@ use Spatie\Permission\Traits\HasRoles;
  */
 class User extends Authenticatable
 {
+    use HasApiTokens;
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     use HasRoles;
+    use Impersonate;
+    use LogsAdminActivity;
     use UsesSlugName;
+
+    /**
+     * Only super_admin can impersonate. Anyone can be impersonated except
+     * other super_admins (avoids accidental privilege confusion).
+     */
+    public function canImpersonate(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    public function canBeImpersonated(): bool
+    {
+        return ! $this->hasRole('super_admin');
+    }
 
     /**
      * The attributes that are mass assignable.

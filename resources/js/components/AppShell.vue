@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
+import ImpersonationBanner from '@/components/ImpersonationBanner.vue';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { onMounted, ref } from 'vue';
 
@@ -21,6 +24,9 @@ const handleSidebarChange = (open: boolean) => {
 </script>
 
 <template>
+    <ImpersonationBanner />
+    <AnnouncementBanner />
+    <ConfirmDialog />
     <div v-if="variant === 'header'" class="flex min-h-screen w-full flex-col">
         <slot />
     </div>

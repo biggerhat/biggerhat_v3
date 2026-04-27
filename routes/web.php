@@ -54,6 +54,13 @@ use Inertia\Inertia;
 
 Broadcast::routes(['middleware' => ['web', 'auth']]);
 
+// Impersonation routes (lab404/laravel-impersonate). The package-side guard
+// honors User::canImpersonate() / User::canBeImpersonated() — only super_admins
+// can take, and they can't take other super_admins.
+Route::middleware(['auth'])->group(function () {
+    Route::impersonate();
+});
+
 Route::get('/', function () {
     return Inertia::render('Index', [
         'featured_character' => fn () => Character::with(['standardMiniatures' => fn ($q) => $q->limit(1), 'keywords:id,name,slug'])

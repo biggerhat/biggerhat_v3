@@ -4,10 +4,26 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Head } from '@inertiajs/vue3';
+import { useConfirm } from '@/composables/useConfirm';
+import { type SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/vue3';
 import type { ColumnDef } from '@tanstack/vue-table';
 import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
-import { h, ref } from 'vue';
+import { UserCog } from 'lucide-vue-next';
+import { computed, h, ref } from 'vue';
+
+const page = usePage<SharedData>();
+const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
+const confirm = useConfirm();
+
+const startImpersonation = async (user: { id: number; name: string }) => {
+    if (!(await confirm({
+        title: `Impersonate ${user.name}?`,
+        message: `You'll be logged in as ${user.name} until you click "Leave Impersonation" in the banner at the top of the page.`,
+        confirmLabel: 'Impersonate',
+    }))) return;
+    window.location.href = `/impersonate/take/${user.id}`;
+};
 
 const columns: ColumnDef<any>[] = [
     {
@@ -45,16 +61,28 @@ const columns: ColumnDef<any>[] = [
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => {
             const user = row.original;
+            const userIsSuperAdmin = (user.roles ?? []).some((r: any) => r.name === 'super_admin');
 
-            return h(
-                'div',
-                { class: 'relative' },
+            return h('div', { class: 'flex items-center gap-2' }, [
+                // Impersonate button — super_admin only, can't take other super_admins.
+                isSuperAdmin.value && !userIsSuperAdmin
+                    ? h(
+                          Button,
+                          {
+                              variant: 'outline',
+                              size: 'sm',
+                              title: `Impersonate ${user.name}`,
+                              onClick: () => startImpersonation(user),
+                          },
+                          () => [h(UserCog, { class: 'size-4' })],
+                      )
+                    : null,
                 h(AdminActions, {
                     name: user.name,
                     editRoute: route('admin.users.edit', user.slug),
                     deleteRoute: route('admin.users.delete', user.slug),
                 }),
-            );
+            ]);
         },
     },
 ];

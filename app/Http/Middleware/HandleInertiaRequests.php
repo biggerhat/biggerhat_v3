@@ -4,7 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Enums\FactionEnum;
 use App\Enums\TOS\AllegianceEnum;
+use App\Models\Announcement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -50,12 +52,19 @@ class HandleInertiaRequests extends Middleware
             'faction_info' => FactionEnum::buildDetails(),
             'tos_allegiance_info' => AllegianceEnum::buildDetails(),
             'currentGameSystem' => $this->resolveGameSystem($request),
+            'announcements' => fn () => $this->activeAnnouncements($request),
             'auth' => [
                 'user' => $request->user() ?? null,
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
                 'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
+                'impersonating' => $request->user() && app('impersonate')->isImpersonating()
+                    ? [
+                        'as' => ['id' => $request->user()->id, 'name' => $request->user()->name],
+                        'leave_url' => route('impersonate.leave'),
+                    ]
+                    : null,
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
@@ -141,6 +150,44 @@ class HandleInertiaRequests extends Middleware
         }
 
         return false;
+    }
+
+    /**
+     * @return array<int, array{id: int, message: string, level: string, is_dismissable: bool, link_url: string|null, link_label: string|null}>
+     */
+    private function activeAnnouncements(Request $request): array
+    {
+        // Guard against the table not existing yet (fresh checkout before
+        // migrations run). Without this, every page load would 500.
+        if (! Schema::hasTable('announcements')) {
+            return [];
+        }
+
+        $user = $request->user();
+        $isSuperAdmin = $user && $user->hasRole('super_admin');
+
+        return Announcement::active()
+            ->where(function ($q) use ($user, $isSuperAdmin) {
+                $q->where('audience', 'all');
+                if ($user) {
+                    $q->orWhere('audience', 'authenticated');
+                }
+                if ($isSuperAdmin) {
+                    $q->orWhere('audience', 'super_admin');
+                }
+            })
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn (Announcement $a) => [
+                'id' => $a->id,
+                'message' => $a->message,
+                'level' => $a->level,
+                'is_dismissable' => (bool) $a->is_dismissable,
+                'link_url' => $a->link_url,
+                'link_label' => $a->link_label,
+            ])
+            ->all();
     }
 
     private function canAccessAdmin(Request $request): bool

@@ -2,27 +2,40 @@
 
 use App\Http\Controllers\Admin\AbilityAdminController;
 use App\Http\Controllers\Admin\ActionAdminController;
+use App\Http\Controllers\Admin\ActivityAdminController;
+use App\Http\Controllers\Admin\AnnouncementsAdminController;
+use App\Http\Controllers\Admin\ApiTokensAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
+use App\Http\Controllers\Admin\CacheAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
+use App\Http\Controllers\Admin\CustomCardModerationAdminController;
 use App\Http\Controllers\Admin\DashboardAdminController;
+use App\Http\Controllers\Admin\FailedJobsAdminController;
+use App\Http\Controllers\Admin\FeatureFlagsAdminController;
 use App\Http\Controllers\Admin\FeedbackAdminController;
+use App\Http\Controllers\Admin\ImageHealthAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\LoreAdminController;
 use App\Http\Controllers\Admin\LoreMediaAdminController;
+use App\Http\Controllers\Admin\MaintenanceAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
 use App\Http\Controllers\Admin\PackageAdminController;
 use App\Http\Controllers\Admin\PodLinkAdminController;
 use App\Http\Controllers\Admin\RoleAdminController;
+use App\Http\Controllers\Admin\ScheduleAdminController;
 use App\Http\Controllers\Admin\SchemeAdminController;
+use App\Http\Controllers\Admin\SessionsAdminController;
 use App\Http\Controllers\Admin\StrategyAdminController;
 use App\Http\Controllers\Admin\TokenAdminController;
+use App\Http\Controllers\Admin\TournamentOverrideAdminController;
 use App\Http\Controllers\Admin\TransmissionAdminController;
+use App\Http\Controllers\Admin\TrashAdminController;
 use App\Http\Controllers\Admin\TriggerAdminController;
 use App\Http\Controllers\Admin\UpgradeAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
@@ -41,6 +54,83 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
+
+    // Super-admin-only diagnostics + tooling.
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('/activity', [ActivityAdminController::class, 'index'])->name('activity.index');
+
+        Route::controller(FailedJobsAdminController::class)->prefix('failed-jobs')->name('failed_jobs.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/retry-all', 'retryAll')->name('retry_all');
+            Route::post('/flush', 'flush')->name('flush');
+            Route::post('/{uuid}/retry', 'retry')->name('retry');
+            Route::post('/{uuid}/delete', 'destroy')->name('delete');
+        });
+
+        Route::controller(FeatureFlagsAdminController::class)->prefix('features')->name('features.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{name}', 'update')->name('update');
+        });
+
+        Route::controller(ApiTokensAdminController::class)->prefix('api-tokens')->name('api_tokens.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::post('/{id}/delete', 'destroy')->name('delete');
+        });
+
+        Route::controller(SessionsAdminController::class)->prefix('sessions')->name('sessions.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{id}/delete', 'destroy')->name('delete');
+            Route::post('/user/{userId}/delete-all', 'destroyAllForUser')->name('delete_all_for_user');
+        });
+
+        Route::controller(CustomCardModerationAdminController::class)->prefix('custom-cards')->name('custom_cards.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{kind}/{id}/unpublish', 'unpublish')->name('unpublish');
+            Route::post('/{kind}/{id}/delete', 'destroy')->name('delete');
+        });
+
+        Route::controller(ImageHealthAdminController::class)->prefix('image-health')->name('image_health.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/scan', 'scan')->name('scan');
+        });
+
+        Route::controller(TournamentOverrideAdminController::class)->prefix('tournaments')->name('tournaments.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/{tournament}', 'show')->name('show');
+            Route::post('/{tournament}/force-status', 'forceTournamentStatus')->name('force_status');
+            Route::post('/{tournament}/rounds/{round}/force-status', 'forceRoundStatus')->name('rounds.force_status');
+            Route::post('/{tournament}/delete', 'destroyTournament')->name('delete');
+        });
+
+        Route::controller(TrashAdminController::class)->prefix('trash')->name('trash.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{kind}/{id}/restore', 'restore')->name('restore');
+            Route::post('/{kind}/{id}/force-delete', 'forceDestroy')->name('force_delete');
+        });
+
+        Route::controller(MaintenanceAdminController::class)->prefix('maintenance')->name('maintenance.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/down', 'down')->name('down');
+            Route::post('/up', 'up')->name('up');
+        });
+
+        Route::controller(ScheduleAdminController::class)->prefix('schedule')->name('schedule.')->group(function () {
+            Route::get('/', 'index')->name('index');
+        });
+
+        Route::controller(CacheAdminController::class)->prefix('cache')->name('cache.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/{key}/clear', 'clear')->name('clear');
+        });
+
+        Route::controller(AnnouncementsAdminController::class)->prefix('announcements')->name('announcements.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::post('/{announcement}', 'update')->name('update');
+            Route::delete('/{announcement}', 'destroy')->name('delete');
+        });
+    });
 
     Route::controller(KeywordAdminController::class)->prefix('keywords')->name('keywords.')->group(function () {
         Route::get('/', 'index')->name('index')->middleware('permission:view_keyword');

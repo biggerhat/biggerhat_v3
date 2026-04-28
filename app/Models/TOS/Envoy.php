@@ -41,6 +41,16 @@ class Envoy extends Model
         return EnvoyFactory::new();
     }
 
+    /**
+     * Manual cascade for the SQLite test environment (no FK enforcement).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $envoy) {
+            $envoy->abilities()->detach();
+        });
+    }
+
     public function allegiance(): BelongsTo
     {
         return $this->belongsTo(Allegiance::class, 'allegiance_id');
@@ -61,11 +71,13 @@ class Envoy extends Model
      */
     public function scopeHireableInto(Builder $query, Allegiance $target): Builder
     {
-        $restriction = match ($target->type) {
+        // A hybrid Allegiance can hire Envoys keyed to either of its types,
+        // so the match runs across all of `Allegiance::types()`.
+        $restrictions = array_map(fn (AllegianceTypeEnum $t) => match ($t) {
             AllegianceTypeEnum::Earth => EnvoyRestrictionEnum::Earth->value,
             AllegianceTypeEnum::Malifaux => EnvoyRestrictionEnum::Malifaux->value,
-        };
+        }, $target->types());
 
-        return $query->where('restriction', $restriction);
+        return $query->whereIn('restriction', $restrictions);
     }
 }

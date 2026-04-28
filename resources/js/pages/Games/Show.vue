@@ -16,6 +16,7 @@ import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
+import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +89,7 @@ interface CrewMember {
     is_activated: boolean;
     is_custom: boolean;
     attached_tokens: { id: number; name: string }[];
-    attached_upgrades: { id: number; name: string }[];
+    attached_upgrades: { id: number; name: string; current_power_bar?: number | null }[];
     attached_markers: { id: number; name: string }[];
     notes: string | null;
     sort_order: number;
@@ -115,6 +116,7 @@ interface GamePlayer {
     master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
     crew_build: { id: number; crew_upgrade_id: number | null } | null;
     active_crew_upgrade_id: number | null;
+    crew_upgrade_power_bars: Record<string, number> | null;
     user: { id: number; name: string } | null;
 }
 
@@ -233,6 +235,7 @@ const props = defineProps<{
         back_image: string | null;
         type: string | null;
         plentiful: number | null;
+        power_bar_count: number | null;
     }[];
     all_markers: { id: number; name: string; slug: string }[];
     all_reachable_schemes: SchemeData[];
@@ -2158,13 +2161,21 @@ const filteredUpgrades = computed(() => {
     });
 });
 
-const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: string | null; back_image: string | null }) => {
+const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: string | null; back_image: string | null; power_bar_count?: number | null }) => {
     if (!upgradeMember.value) return;
     const current = upgradeMember.value.attached_upgrades ?? [];
     const has = current.some((u: any) => u.id === upgrade.id);
-    const updated = has
-        ? current.filter((u: any) => u.id !== upgrade.id)
-        : [...current, { id: upgrade.id, name: upgrade.name, front_image: upgrade.front_image, back_image: upgrade.back_image }];
+    // When attaching a power-bar upgrade, seed current_power_bar at the max so
+    // the player can decrement it from full as they spend tokens. We resolve
+    // power_bar_count from the catalog (character_upgrades) so callers from
+    // the dialog don't have to thread it through every prop.
+    const catalog = props.character_upgrades.find((u) => u.id === upgrade.id);
+    const powerMax = catalog?.power_bar_count ?? upgrade.power_bar_count ?? null;
+    const newRow: any = { id: upgrade.id, name: upgrade.name, front_image: upgrade.front_image, back_image: upgrade.back_image };
+    if (powerMax !== null && powerMax > 0) {
+        newRow.current_power_bar = powerMax;
+    }
+    const updated = has ? current.filter((u: any) => u.id !== upgrade.id) : [...current, newRow];
     upgradeMember.value = { ...upgradeMember.value, attached_upgrades: updated };
     await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: upgradeMember.value.id }), {
         method: 'PATCH',
@@ -2172,6 +2183,46 @@ const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: s
         body: JSON.stringify({ attached_upgrades: updated }),
     });
     router.reload({ only: ['game'], preserveScroll: true });
+};
+
+// Set the current_power_bar on an attached upgrade for a specific crew member.
+// We mutate the local JSON, then PATCH the whole attached_upgrades array using
+// the existing crew.update endpoint — same path toggleUpgrade uses.
+const setMemberUpgradePowerBar = async (member: any, upgradeId: number, value: number) => {
+    const list: any[] = (member.attached_upgrades ?? []).map((u: any) =>
+        u.id === upgradeId ? { ...u, current_power_bar: value } : u,
+    );
+    member.attached_upgrades = list;
+    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({ attached_upgrades: list }),
+    });
+};
+
+// Lookup max power bar for a character upgrade — the catalog row is the source
+// of truth; the per-game JSON only stores the current counter.
+const upgradePowerMax = (upgradeId: number): number => {
+    return props.character_upgrades.find((u) => u.id === upgradeId)?.power_bar_count ?? 0;
+};
+
+// Crew-level (master) upgrade power bars — keyed by upgrade id on GamePlayer.
+const setCrewUpgradePowerBar = async (player: any, upgradeId: number, value: number, slot?: number) => {
+    if (!player) return;
+    const map: Record<string, number> = { ...(player.crew_upgrade_power_bars ?? {}), [String(upgradeId)]: value };
+    player.crew_upgrade_power_bars = map;
+    const body: Record<string, any> = { upgrade_id: upgradeId, current_power_bar: value };
+    if (slot) body.slot = slot;
+    await fetch(route('games.play.crew-upgrade-power-bar', { game: props.game.uuid }), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify(body),
+    });
+};
+
+const crewUpgradePowerCurrent = (player: any, upgradeId: number, max: number): number => {
+    const stored = player?.crew_upgrade_power_bars?.[String(upgradeId)];
+    return stored == null ? max : Math.min(max, Math.max(0, Number(stored)));
 };
 
 const quickRemoveUpgrade = async (member: any, upgradeId: number) => {
@@ -3977,7 +4028,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="upgrade in myCrewUpgrades"
                                 :key="upgrade.id"
-                                class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm transition-colors"
+                                class="rounded-md border px-2 py-1.5 text-sm transition-colors"
                                 :class="[
                                     myActiveUpgradeId === upgrade.id
                                         ? 'border-amber-500/50 bg-amber-500/10'
@@ -3986,24 +4037,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
-                                <Star
-                                    class="size-3.5 shrink-0"
-                                    :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                                <div class="flex items-center gap-1.5">
+                                    <Star
+                                        class="size-3.5 shrink-0"
+                                        :class="myActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                                    />
+                                    <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                    <button
+                                        v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
+                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                        @click.stop="swapCrewUpgrade(upgrade.id)"
+                                    >
+                                        Activate
+                                    </button>
+                                    <Badge
+                                        v-if="myActiveUpgradeId === upgrade.id"
+                                        variant="outline"
+                                        class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400"
+                                        >Active</Badge
+                                    >
+                                </div>
+                                <PowerBarBubbles
+                                    v-if="(upgrade.power_bar_count ?? 0) > 0"
+                                    class="mt-1 pl-5"
+                                    :max="upgrade.power_bar_count"
+                                    :current="crewUpgradePowerCurrent(myPlayer, upgrade.id, upgrade.power_bar_count)"
+                                    :readonly="isObserver"
+                                    compact
+                                    @update="(v) => setCrewUpgradePowerBar(myPlayer, upgrade.id, v)"
                                 />
-                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
-                                <button
-                                    v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
-                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
-                                    @click.stop="swapCrewUpgrade(upgrade.id)"
-                                >
-                                    Activate
-                                </button>
-                                <Badge
-                                    v-if="myActiveUpgradeId === upgrade.id"
-                                    variant="outline"
-                                    class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400"
-                                    >Active</Badge
-                                >
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -4203,23 +4265,36 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'au-' + upgrade.id"
-                                        class="flex items-center gap-1.5 rounded bg-black/20 px-2 py-1 text-sm"
+                                        class="rounded bg-black/20 px-2 py-1 text-sm"
                                         :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
-                                        :role="upgrade.front_image ? 'button' : undefined"
-                                        :tabindex="upgrade.front_image ? 0 : undefined"
-                                        @click="openAttachedUpgradePreview(upgrade)"
-                                        @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                     >
-                                        <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                        <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                        <button
-                                            v-if="!isObserver"
-                                            class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                            aria-label="Remove upgrade"
-                                            @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                        <div
+                                            class="flex items-center gap-1.5"
+                                            :role="upgrade.front_image ? 'button' : undefined"
+                                            :tabindex="upgrade.front_image ? 0 : undefined"
+                                            @click="openAttachedUpgradePreview(upgrade)"
+                                            @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
-                                            <X class="size-3" />
-                                        </button>
+                                            <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                            <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
+                                            <button
+                                                v-if="!isObserver"
+                                                class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
+                                                aria-label="Remove upgrade"
+                                                @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                            >
+                                                <X class="size-3" />
+                                            </button>
+                                        </div>
+                                        <PowerBarBubbles
+                                            v-if="upgradePowerMax(upgrade.id) > 0"
+                                            class="mt-1 pl-5"
+                                            :max="upgradePowerMax(upgrade.id)"
+                                            :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
+                                            :readonly="isObserver"
+                                            compact
+                                            @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
+                                        />
                                     </div>
                                 </div>
                                 <!-- Inline card preview -->
@@ -4360,7 +4435,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="upgrade in opponentCrewUpgrades"
                                 :key="upgrade.id"
-                                class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm transition-colors"
+                                class="rounded-md border px-2 py-1.5 text-sm transition-colors"
                                 :class="[
                                     opponentActiveUpgradeId === upgrade.id
                                         ? 'border-amber-500/50 bg-amber-500/10'
@@ -4369,24 +4444,35 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
-                                <Star
-                                    class="size-3.5 shrink-0"
-                                    :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                                <div class="flex items-center gap-1.5">
+                                    <Star
+                                        class="size-3.5 shrink-0"
+                                        :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                                    />
+                                    <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
+                                    <button
+                                        v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
+                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                        @click.stop="swapCrewUpgrade(upgrade.id, 2)"
+                                    >
+                                        Activate
+                                    </button>
+                                    <Badge
+                                        v-if="opponentActiveUpgradeId === upgrade.id"
+                                        variant="outline"
+                                        class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400"
+                                        >Active</Badge
+                                    >
+                                </div>
+                                <PowerBarBubbles
+                                    v-if="(upgrade.power_bar_count ?? 0) > 0"
+                                    class="mt-1 pl-5"
+                                    :max="upgrade.power_bar_count"
+                                    :current="crewUpgradePowerCurrent(opponent, upgrade.id, upgrade.power_bar_count)"
+                                    :readonly="!isSolo || isObserver"
+                                    compact
+                                    @update="(v) => setCrewUpgradePowerBar(opponent, upgrade.id, v, 2)"
                                 />
-                                <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
-                                <button
-                                    v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
-                                    class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
-                                    @click.stop="swapCrewUpgrade(upgrade.id, 2)"
-                                >
-                                    Activate
-                                </button>
-                                <Badge
-                                    v-if="opponentActiveUpgradeId === upgrade.id"
-                                    variant="outline"
-                                    class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400"
-                                    >Active</Badge
-                                >
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -4579,23 +4665,36 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'oau-' + upgrade.id"
-                                        class="flex items-center gap-1.5 rounded bg-black/20 px-2 py-1 text-sm"
+                                        class="rounded bg-black/20 px-2 py-1 text-sm"
                                         :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
-                                        :role="upgrade.front_image ? 'button' : undefined"
-                                        :tabindex="upgrade.front_image ? 0 : undefined"
-                                        @click="openAttachedUpgradePreview(upgrade)"
-                                        @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                     >
-                                        <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                        <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                        <button
-                                            v-if="isSolo && !isObserver"
-                                            class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                            aria-label="Remove upgrade"
-                                            @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                        <div
+                                            class="flex items-center gap-1.5"
+                                            :role="upgrade.front_image ? 'button' : undefined"
+                                            :tabindex="upgrade.front_image ? 0 : undefined"
+                                            @click="openAttachedUpgradePreview(upgrade)"
+                                            @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
-                                            <X class="size-3" />
-                                        </button>
+                                            <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                            <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
+                                            <button
+                                                v-if="isSolo && !isObserver"
+                                                class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
+                                                aria-label="Remove upgrade"
+                                                @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                            >
+                                                <X class="size-3" />
+                                            </button>
+                                        </div>
+                                        <PowerBarBubbles
+                                            v-if="upgradePowerMax(upgrade.id) > 0"
+                                            class="mt-1 pl-5"
+                                            :max="upgradePowerMax(upgrade.id)"
+                                            :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
+                                            :readonly="!isSolo || isObserver"
+                                            compact
+                                            @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
+                                        />
                                     </div>
                                 </div>
                                 <!-- Inline card preview -->

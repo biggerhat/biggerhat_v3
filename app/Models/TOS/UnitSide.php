@@ -33,6 +33,18 @@ class UnitSide extends Model
         return UnitSideFactory::new();
     }
 
+    /**
+     * Manual cascade for the SQLite test environment — detaches both
+     * tier pivots when a side row is deleted.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $side) {
+            $side->abilities()->detach();
+            $side->actions()->detach();
+        });
+    }
+
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'unit_id');

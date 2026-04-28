@@ -13,7 +13,7 @@ it('renders the abilities index', function () {
         ->assertInertia(fn ($p) => $p->component('TOS/Abilities/Index')->has('abilities.data', 3));
 });
 
-it('renders the actions index with action types', function () {
+it('renders the actions index', function () {
     Action::factory()->magic()->count(2)->create();
     Action::factory()->melee()->create();
 
@@ -21,7 +21,6 @@ it('renders the actions index with action types', function () {
         ->assertOk()
         ->assertInertia(fn ($p) => $p->component('TOS/Actions/Index')
             ->has('actions.data', 3)
-            ->has('action_types', 4)
         );
 });
 

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
@@ -25,7 +26,7 @@ interface EnvoyRow {
 const props = defineProps<{
     envoy?: EnvoyRow | null;
     allegiances: Array<{ id: number; name: string; is_syndicate: boolean }>;
-    restrictions: Array<{ name: string; value: string }>;
+    restrictions: TosSelectOption[];
     abilities: Array<{ id: number; name: string }>;
 }>();
 

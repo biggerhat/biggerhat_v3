@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\TOS\Database;
 
-use App\Enums\TOS\ActionTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\TOS\Action;
 use Illuminate\Http\Request;
@@ -15,7 +14,7 @@ class ActionController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Action::with('triggers', 'typeLinks')->orderBy('name');
+        $query = Action::with('triggers:id,name,suits,margin_cost,timing,body', 'typeLinks')->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }
@@ -24,7 +23,6 @@ class ActionController extends Controller
             'actions' => $query->paginate($perPage)->withQueryString(),
             'name_search' => $nameSearch,
             'page_view' => $pageView,
-            'action_types' => ActionTypeEnum::toSelectOptions(),
         ]);
     }
 }

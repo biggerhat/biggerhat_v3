@@ -39,6 +39,27 @@ class Unit extends Model
         ];
     }
 
+    /**
+     * Glory-side Tactics value, falling back to the Standard `tactics`
+     * column when no Glory-specific override is set. Most Units have the
+     * same Tactics on both sides, so storing the override only when it
+     * differs keeps the data tight without forcing every row to duplicate.
+     */
+    public function effectiveGloryTactics(): ?string
+    {
+        return $this->glory_tactics ?? $this->tactics;
+    }
+
+    /**
+     * Whether the Unit's Glory Tactics value differs from its Standard one.
+     * Used by the UI to decide when to surface the Glory-side number
+     * separately (most Units don't need the dual badge).
+     */
+    public function hasDistinctGloryTactics(): bool
+    {
+        return $this->glory_tactics !== null && $this->glory_tactics !== $this->tactics;
+    }
+
     protected static function newFactory(): UnitFactory
     {
         return UnitFactory::new();
@@ -107,7 +128,7 @@ class Unit extends Model
      * one as its Combined Arms child (rulebook p. 11). The public unit index
      * intentionally surfaces children too so users can read every card; this
      * relation backs the `notCombinedArmsChild()` scope used by the command
-     * palette + crew builder, where only the parent should appear.
+     * palette + company builder, where only the parent should appear.
      */
     public function combinedArmsParent(): HasOne
     {
@@ -135,16 +156,17 @@ class Unit extends Model
     }
 
     /**
-     * Units that may be hired into the given Allegiance. A unit qualifies if
-     * it's attached to the Allegiance directly via the `tos_allegiance_unit`
-     * pivot, OR carries a Neutral `restriction` matching that Allegiance's
-     * type (the "Neutral (Earth)" / "Neutral (Malifaux)" pool).
+     * Units that may be hired into the given Allegiance. A unit qualifies
+     * if it's attached to the Allegiance directly via the
+     * `tos_allegiance_unit` pivot, OR carries a Neutral `restriction`
+     * matching ANY of the Allegiance's types (rulebook "Neutral (Earth)"
+     * / "Neutral (Malifaux)" pools — a hybrid Allegiance pulls in both).
      */
     public function scopeHireableInto(Builder $query, Allegiance $allegiance): Builder
     {
         return $query->where(function (Builder $q) use ($allegiance) {
             $q->whereHas('allegiances', fn (Builder $inner) => $inner->where('tos_allegiances.id', $allegiance->id))
-                ->orWhere('restriction', $allegiance->type->value);
+                ->orWhereIn('restriction', $allegiance->typeValues());
         });
     }
 }

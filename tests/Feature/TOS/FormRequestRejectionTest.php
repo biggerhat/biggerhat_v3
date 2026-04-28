@@ -127,7 +127,7 @@ it('UpdateTriggerRequest rejects setting both suits and margin_cost (prohibits)'
     $t = Trigger::factory()->create();
     $t->actions()->attach($action->id, ['sort_order' => 0]);
 
-    $this->actingAs($this->admin)->postJson(route('admin.tos.triggers.update', $t->id), [
+    $this->actingAs($this->admin)->postJson(route('admin.tos.triggers.update', $t->slug), [
         'action_ids' => [$action->id],
         'name' => 'Conflict',
         'suits' => 'R',

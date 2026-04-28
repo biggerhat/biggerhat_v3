@@ -35,6 +35,17 @@ class SpecialUnitRule extends Model
         return false;
     }
 
+    /**
+     * Manual cascade for the SQLite test environment — detaches the units
+     * pivot when a special rule is deleted.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $rule) {
+            $rule->units()->detach();
+        });
+    }
+
     public function units(): BelongsToMany
     {
         return $this->belongsToMany(Unit::class, 'tos_unit_special_rule', 'special_unit_rule_id', 'unit_id')

@@ -24,9 +24,16 @@ class UnitController extends Controller
         // Browse surfaces every unit — Combined Arms child cards (rulebook
         // p. 11) ARE browseable in the database (users need to read Komainu's
         // card even though it's hired via Lien). The "only-parent" filter
-        // belongs in the crew builder, not the reference library.
+        // belongs in the company builder, not the reference library.
         $query = Unit::query()
-            ->with(['sides', 'allegiances', 'specialUnitRules', 'sculpts'])
+            ->with([
+                'sides:id,unit_id,side,speed,defense,willpower,armor',
+                'allegiances:id,slug,name',
+                'specialUnitRules:id,slug,name',
+                // Sculpts keep their image columns — the index page renders
+                // FlipCard art via front_image/back_image.
+                'sculpts',
+            ])
             ->orderBy('name');
 
         if ($rule !== null && $rule !== '') {

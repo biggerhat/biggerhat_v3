@@ -59,12 +59,16 @@ it('store accepts a margin-driven trigger', function () {
     expect($t->margin_cost)->toBe(5)->and($t->suits)->toBeNull();
 });
 
-it('store rejects a trigger with no actions attached', function () {
+it('store accepts a trigger with no actions attached', function () {
     $this->actingAs($this->admin)->postJson(route('admin.tos.triggers.store'), [
         'action_ids' => [],
         'name' => 'Floater',
         'suits' => 'R',
-    ])->assertStatus(422)->assertJsonValidationErrors(['action_ids']);
+    ])->assertRedirect();
+
+    $t = Trigger::where('name', 'Floater')->first();
+    expect($t)->not->toBeNull()
+        ->and($t->actions()->count())->toBe(0);
 });
 
 it('store rejects a trigger that sets both suits and margin_cost', function () {
@@ -84,7 +88,7 @@ it('store rejects a trigger that sets both suits and margin_cost', function () {
 it('update rejects a trigger that sets both suits and margin_cost', function () {
     $t = Trigger::factory()->forActions(Action::factory()->create())->create(['suits' => 'M', 'margin_cost' => null]);
 
-    $this->actingAs($this->admin)->postJson(route('admin.tos.triggers.update', $t->id), [
+    $this->actingAs($this->admin)->postJson(route('admin.tos.triggers.update', $t->slug), [
         'action_ids' => $t->actions->pluck('id')->all(),
         'name' => $t->name,
         'suits' => 'M',
@@ -105,7 +109,7 @@ it('update modifies a Trigger and re-syncs its action pivots', function () {
     $second = Action::factory()->melee()->create();
     $t = Trigger::factory()->forActions($first)->create(['name' => 'Original', 'suits' => 'R']);
 
-    $this->actingAs($this->admin)->post(route('admin.tos.triggers.update', $t->id), [
+    $this->actingAs($this->admin)->post(route('admin.tos.triggers.update', $t->slug), [
         'action_ids' => [$second->id],
         'name' => 'Renamed',
         'suits' => 'M',
@@ -123,7 +127,7 @@ it('delete removes the Trigger and cleans up pivot rows', function () {
     $t = Trigger::factory()->forActions($action)->create();
     $id = $t->id;
 
-    $this->actingAs($this->admin)->post(route('admin.tos.triggers.delete', $t->id))->assertRedirect();
+    $this->actingAs($this->admin)->post(route('admin.tos.triggers.delete', $t->slug))->assertRedirect();
 
     expect(Trigger::find($id))->toBeNull()
         ->and(\DB::table('tos_action_trigger')->where('trigger_id', $id)->count())->toBe(0);
@@ -148,7 +152,7 @@ it('update denies users without edit_tos_trigger', function () {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(PermissionEnum::ViewTosTrigger->value);
 
-    $this->actingAs($viewer)->post(route('admin.tos.triggers.update', $t->id), [
+    $this->actingAs($viewer)->post(route('admin.tos.triggers.update', $t->slug), [
         'action_ids' => $t->actions->pluck('id')->all(),
         'name' => 'Hijacked',
         'suits' => 'R',
@@ -162,7 +166,7 @@ it('delete denies users without delete_tos_trigger', function () {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(PermissionEnum::ViewTosTrigger->value);
 
-    $this->actingAs($viewer)->post(route('admin.tos.triggers.delete', $t->id))->assertForbidden();
+    $this->actingAs($viewer)->post(route('admin.tos.triggers.delete', $t->slug))->assertForbidden();
 
     expect(Trigger::find($t->id))->not->toBeNull();
 });

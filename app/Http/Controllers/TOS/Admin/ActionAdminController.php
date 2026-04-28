@@ -18,7 +18,6 @@ class ActionAdminController extends Controller
             'actions' => Action::with('typeLinks:id,action_id,type')
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'av', 'av_target', 'av_suits', 'tn', 'range', 'usage_limit']),
-            'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
         ]);
     }
 

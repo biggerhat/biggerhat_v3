@@ -21,6 +21,7 @@ class StoreUnitRequest extends FormRequest
             'title' => ['nullable', 'string', 'max:255'],
             'scrip' => ['required', 'integer'],
             'tactics' => ['nullable', 'string', 'max:8'],
+            'glory_tactics' => ['nullable', 'string', 'max:8'],
             'description' => ['nullable', 'string'],
             'lore_text' => ['nullable', 'string'],
             'combined_arms_child_id' => ['nullable', 'integer', 'exists:tos_units,id'],

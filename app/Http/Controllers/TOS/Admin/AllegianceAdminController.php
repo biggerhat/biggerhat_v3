@@ -17,7 +17,8 @@ class AllegianceAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/Allegiances/Index', [
-            'allegiances' => Allegiance::orderBy('is_syndicate')->orderBy('sort_order')->orderBy('name')->get(),
+            'allegiances' => Allegiance::orderBy('is_syndicate')->orderBy('sort_order')->orderBy('name')
+                ->get(['id', 'slug', 'name', 'short_name', 'type', 'secondary_type', 'is_syndicate', 'sort_order', 'color_slug', 'logo_path']),
         ]);
     }
 

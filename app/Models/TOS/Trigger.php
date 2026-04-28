@@ -21,6 +21,17 @@ class Trigger extends Model
 
     protected $guarded = ['id'];
 
+    /**
+     * Trigger slugs were per-action-unique under the old single-action FK,
+     * which is why an id-binding was required. The 2026-04-27 M:M refactor
+     * moved the slug to a global unique index, so trigger now joins every
+     * other TOS entity in slug-binding admin/view URLs.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     public function casts(): array
     {
         return [

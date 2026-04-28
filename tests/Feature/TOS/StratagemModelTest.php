@@ -48,3 +48,26 @@ it('availableTo also returns Stratagems that match by allegiance_type', function
     expect(Stratagem::availableTo($cult)->pluck('name'))->toContain('Any Malifaux')
         ->and(Stratagem::availableTo($ke)->pluck('name'))->not->toContain('Any Malifaux');
 });
+
+it('hybrid Allegiance gets Stratagems keyed to either of its types', function () {
+    $hybrid = \App\Models\TOS\Allegiance::factory()->earth()->create();
+    $hybrid->update(['secondary_type' => \App\Enums\TOS\AllegianceTypeEnum::Malifaux->value]);
+    $hybrid->refresh();
+
+    \App\Models\TOS\Stratagem::factory()->create([
+        'name' => 'Earth-side Stratagem',
+        'allegiance_id' => null,
+        'allegiance_type' => 'earth',
+        'tactical_cost' => 1,
+    ]);
+    \App\Models\TOS\Stratagem::factory()->create([
+        'name' => 'Malifaux-side Stratagem',
+        'allegiance_id' => null,
+        'allegiance_type' => 'malifaux',
+        'tactical_cost' => 1,
+    ]);
+
+    $names = \App\Models\TOS\Stratagem::availableTo($hybrid)->pluck('name')->all();
+    expect($names)->toContain('Earth-side Stratagem')
+        ->and($names)->toContain('Malifaux-side Stratagem');
+});

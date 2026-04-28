@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { Plus, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
@@ -45,6 +46,7 @@ interface Unit {
     title: string | null;
     scrip: number;
     tactics: string | null;
+    glory_tactics: string | null;
     description: string | null;
     lore_text: string | null;
     restriction: string | null;
@@ -71,7 +73,7 @@ const props = defineProps<{
     abilities: AbilityOption[];
     actions: ActionOption[];
     units: SelectId[];
-    restrictions: Array<{ name: string; value: string }>;
+    restrictions: TosSelectOption[];
 }>();
 
 const allegianceOptions = computed(() =>
@@ -109,6 +111,7 @@ const formInfo = ref({
     title: null as string | null,
     scrip: 4 as number,
     tactics: null as string | null,
+    glory_tactics: null as string | null,
     description: null as string | null,
     lore_text: null as string | null,
     restriction: null as string | null,
@@ -183,6 +186,7 @@ onMounted(() => {
     formInfo.value.title = props.unit.title;
     formInfo.value.scrip = props.unit.scrip;
     formInfo.value.tactics = props.unit.tactics;
+    formInfo.value.glory_tactics = props.unit.glory_tactics ?? null;
     formInfo.value.description = props.unit.description;
     formInfo.value.lore_text = props.unit.lore_text;
     formInfo.value.restriction = props.unit.restriction;
@@ -236,8 +240,19 @@ onMounted(() => {
                         <InputError :message="usePage().props.errors.scrip" />
                     </div>
                     <div>
-                        <Label for="tactics">Tactics</Label>
+                        <Label for="tactics">Tactics (Standard)</Label>
                         <Input id="tactics" v-model="formInfo.tactics" placeholder="1, 2, X, *" />
+                    </div>
+                    <div>
+                        <Label for="glory_tactics">Tactics (Glory)</Label>
+                        <Input
+                            id="glory_tactics"
+                            v-model="formInfo.glory_tactics"
+                            placeholder="Leave blank if same as Standard"
+                        />
+                        <p class="mt-1 text-[11px] text-muted-foreground">
+                            Only fill this in when the Glory side prints a different Tactics value.
+                        </p>
                     </div>
                     <div class="md:col-span-2">
                         <Label for="description">Description</Label>

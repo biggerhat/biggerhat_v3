@@ -47,3 +47,21 @@ it('forAllegiance() derives restriction from the parent type', function () {
     expect($m->restriction)->toBe(EnvoyRestrictionEnum::Malifaux)
         ->and($e->restriction)->toBe(EnvoyRestrictionEnum::Earth);
 });
+
+it('hybrid Allegiance can hire Envoys keyed to either type', function () {
+    $hybrid = \App\Models\TOS\Allegiance::factory()->earth()->create();
+    $hybrid->update(['secondary_type' => \App\Enums\TOS\AllegianceTypeEnum::Malifaux->value]);
+    $hybrid->refresh();
+
+    $earthSyndicate = \App\Models\TOS\Allegiance::factory()->earth()->syndicate()->create();
+    $malifauxSyndicate = \App\Models\TOS\Allegiance::factory()->malifaux()->syndicate()->create();
+
+    $earthEnvoy = \App\Models\TOS\Envoy::factory()->forAllegiance($earthSyndicate)
+        ->create(['name' => 'Earth Envoy', 'restriction' => 'earth']);
+    $malifauxEnvoy = \App\Models\TOS\Envoy::factory()->forAllegiance($malifauxSyndicate)
+        ->create(['name' => 'Malifaux Envoy', 'restriction' => 'malifaux']);
+
+    $names = \App\Models\TOS\Envoy::hireableInto($hybrid)->pluck('name')->all();
+    expect($names)->toContain('Earth Envoy')
+        ->and($names)->toContain('Malifaux Envoy');
+});

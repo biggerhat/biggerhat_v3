@@ -16,7 +16,7 @@ class UpdateTriggerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'action_ids' => ['required', 'array', 'min:1'],
+            'action_ids' => ['nullable', 'array'],
             'action_ids.*' => ['integer', 'exists:tos_actions,id'],
             'name' => ['required', 'string', 'max:255'],
             'suits' => ['nullable', 'string', 'max:32', 'prohibits:margin_cost'],

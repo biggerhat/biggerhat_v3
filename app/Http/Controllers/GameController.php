@@ -268,7 +268,7 @@ class GameController extends Controller
                 ? \App\Models\Token::orderBy('name')->get(['id', 'name', 'slug', 'description'])
                 : [],
             'character_upgrades' => fn () => $game->status === GameStatusEnum::InProgress
-                ? \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful'])
+                ? \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count'])
                 : [],
             'current_schemes' => fn () => $this->buildCurrentSchemesProp($game),
             'opponent_scheme_intel' => fn () => $this->buildOpponentSchemeIntel($game, $schemeCache),

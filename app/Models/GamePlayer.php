@@ -31,6 +31,7 @@ class GamePlayer extends Model
             'hidden_at' => 'datetime',
             'scheme_notes' => 'array',
             'scheme_pool' => 'array',
+            'crew_upgrade_power_bars' => 'array',
         ];
     }
 

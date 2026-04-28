@@ -76,3 +76,35 @@ it('admin store rejects a unit with neither allegiance nor restriction', functio
     ])->assertStatus(422)
         ->assertJsonValidationErrors(['allegiance_ids', 'restriction']);
 });
+
+it('hireableInto pulls in Neutral units from both sides for a hybrid Allegiance', function () {
+    $hybrid = Allegiance::factory()->earth()->create([
+        'slug' => 'hybrid-co',
+        'name' => 'Hybrid Co',
+    ]);
+    $hybrid->update(['secondary_type' => \App\Enums\TOS\AllegianceTypeEnum::Malifaux->value]);
+    $hybrid->refresh();
+
+    expect($hybrid->types())->toHaveCount(2)
+        ->and($hybrid->typeValues())->toBe(['earth', 'malifaux']);
+
+    Unit::factory()->withSides()->neutralFor(\App\Enums\TOS\AllegianceTypeEnum::Earth)->create(['name' => 'Neutral Earth']);
+    Unit::factory()->withSides()->neutralFor(\App\Enums\TOS\AllegianceTypeEnum::Malifaux)->create(['name' => 'Neutral Malifaux']);
+    Unit::factory()->withSides()->create(['name' => 'No Restriction']); // not neutral
+
+    $names = Unit::hireableInto($hybrid)->pluck('name')->all();
+    expect($names)->toContain('Neutral Earth')
+        ->and($names)->toContain('Neutral Malifaux')
+        ->and($names)->not->toContain('No Restriction');
+});
+
+it('a hybrid Allegiance appears on both Earth and Malifaux type-pool pages', function () {
+    $hybrid = Allegiance::factory()->earth()->create();
+    $hybrid->update(['secondary_type' => \App\Enums\TOS\AllegianceTypeEnum::Malifaux->value]);
+
+    $earthIds = Allegiance::ofType(\App\Enums\TOS\AllegianceTypeEnum::Earth)->pluck('id')->all();
+    $malifauxIds = Allegiance::ofType(\App\Enums\TOS\AllegianceTypeEnum::Malifaux)->pluck('id')->all();
+
+    expect($earthIds)->toContain($hybrid->id)
+        ->and($malifauxIds)->toContain($hybrid->id);
+});

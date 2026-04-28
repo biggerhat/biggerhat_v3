@@ -39,7 +39,7 @@ const columns: ColumnDef<Action>[] = [
     },
 ];
 
-const props = defineProps<{ actions: Action[]; action_types: Array<{ name: string; value: string }> }>();
+const props = defineProps<{ actions: Action[] }>();
 const columnFilters = ref<ColumnFiltersState>([]);
 
 const table = useVueTable({

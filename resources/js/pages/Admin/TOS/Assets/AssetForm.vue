@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { Plus, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
@@ -41,8 +42,8 @@ const props = defineProps<{
     units: Array<{ id: number; name: string }>;
     abilities: Array<{ id: number; name: string }>;
     actions: Array<{ id: number; name: string; type_links: Array<{ id: number; type: string }> }>;
-    limit_types: Array<{ name: string; value: string }>;
-    parameter_types: Array<{ name: string; value: string }>;
+    limit_types: TosSelectOption[];
+    parameter_types: TosSelectOption[];
 }>();
 
 const blankLimit = (): LimitRow => ({

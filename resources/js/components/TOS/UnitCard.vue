@@ -59,6 +59,7 @@ interface Unit {
     title: string | null;
     scrip: number;
     tactics: string | null;
+    glory_tactics: string | null;
     description: string | null;
     sides: Side[];
     sculpts?: Sculpt[];
@@ -176,7 +177,9 @@ function ruleBadge(rule: SpecialRule): string {
                         <div class="flex items-center gap-2 text-xs text-muted-foreground">
                             <span v-if="isCommander" class="tabular-nums font-medium text-emerald-700 dark:text-emerald-400">+{{ unit.scrip }} Scrip budget</span>
                             <span v-else class="tabular-nums">{{ unit.scrip }} Scrip</span>
-                            <span v-if="unit.tactics" class="tabular-nums">· Tactics {{ unit.tactics }}</span>
+                            <span v-if="unit.tactics" class="tabular-nums">
+                                · Tactics {{ unit.tactics }}<template v-if="unit.glory_tactics && unit.glory_tactics !== unit.tactics"> / <span class="text-amber-600 dark:text-amber-400" title="Glory-side Tactics">{{ unit.glory_tactics }}</span> Glory</template>
+                            </span>
                         </div>
                     </div>
                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">

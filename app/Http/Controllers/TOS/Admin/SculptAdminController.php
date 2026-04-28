@@ -17,7 +17,9 @@ class SculptAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/Sculpts/Index', [
-            'sculpts' => UnitSculpt::with('unit:id,name')->orderBy('name')->get(),
+            'sculpts' => UnitSculpt::with('unit:id,name')
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'unit_id', 'front_image', 'back_image', 'combination_image', 'release_date', 'sort_order']),
         ]);
     }
 

@@ -75,6 +75,11 @@ export default defineConfig({
         },
     },
     build: {
+        // Disabling gzip-size reporting frees the deploy host's tightest
+        // memory phase: Rollup otherwise gzips every chunk in-memory after
+        // bundling just to print a size column. The Apr-28 prod deploy was
+        // SIGKILL'd by the kernel during this exact step.
+        reportCompressedSize: false,
         rollupOptions: {
             output: {
                 manualChunks: (id) => {

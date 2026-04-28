@@ -58,18 +58,21 @@ class UnitController extends Controller
 
     public function view(UnitSculpt $sculpt)
     {
-        $unit = $sculpt->unit()->with([
-            'sides.abilities',
-            'sides.actions.triggers',
-            'sides.actions.typeLinks',
-            'allegiances',
-            'specialUnitRules',
-            'sculpts',
-            'combinedArmsChild',
-        ])->firstOrFail();
+        // loadMissing on the route-bound parent avoids a second SELECT against
+        // tos_units — `$sculpt->unit` is the row Laravel would re-fetch with
+        // `unit()->firstOrFail()`.
+        $sculpt->loadMissing([
+            'unit.sides.abilities',
+            'unit.sides.actions.triggers',
+            'unit.sides.actions.typeLinks',
+            'unit.allegiances',
+            'unit.specialUnitRules',
+            'unit.sculpts',
+            'unit.combinedArmsChild',
+        ]);
 
         return inertia('TOS/Units/View', [
-            'unit' => $unit,
+            'unit' => $sculpt->unit,
             'active_sculpt' => $sculpt,
         ]);
     }

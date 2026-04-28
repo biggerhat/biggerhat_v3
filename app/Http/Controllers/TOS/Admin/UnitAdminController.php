@@ -29,29 +29,37 @@ class UnitAdminController extends Controller
 
     public function create(Request $request)
     {
-        return inertia('Admin/TOS/Units/UnitForm', [
-            'allegiances' => fn () => Allegiance::orderBy('name')->get(['id', 'name', 'is_syndicate']),
-            'special_rules' => fn () => SpecialUnitRule::orderBy('sort_order')->get(['id', 'name', 'slug']),
-            'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
-            'actions' => fn () => Action::with('typeLinks:id,action_id,type')->orderBy('name')->get(['id', 'name']),
-            'units' => fn () => Unit::orderBy('name')->get(['id', 'name']),
-            'restrictions' => fn () => AllegianceTypeEnum::toSelectOptions(),
-        ]);
+        return inertia('Admin/TOS/Units/UnitForm', $this->formPayload(null));
     }
 
     public function edit(Request $request, Unit $unit)
     {
         $unit->load(['allegiances:id', 'specialUnitRules', 'sides.abilities:id', 'sides.actions:id']);
 
-        return inertia('Admin/TOS/Units/UnitForm', [
-            'unit' => $unit,
+        return inertia('Admin/TOS/Units/UnitForm', ['unit' => $unit] + $this->formPayload($unit));
+    }
+
+    /**
+     * Shared admin form payload — every dropdown is wrapped in a closure for
+     * Inertia partial-reload friendliness. The Combined Arms picker excludes
+     * the unit being edited so a Unit can't designate itself as its own
+     * Combined Arms child.
+     *
+     * @return array<string, callable>
+     */
+    private function formPayload(?Unit $exclude): array
+    {
+        return [
             'allegiances' => fn () => Allegiance::orderBy('name')->get(['id', 'name', 'is_syndicate']),
             'special_rules' => fn () => SpecialUnitRule::orderBy('sort_order')->get(['id', 'name', 'slug']),
             'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
             'actions' => fn () => Action::with('typeLinks:id,action_id,type')->orderBy('name')->get(['id', 'name']),
-            'units' => fn () => Unit::where('id', '!=', $unit->id)->orderBy('name')->get(['id', 'name']),
+            'units' => fn () => Unit::query()
+                ->when($exclude, fn ($q) => $q->where('id', '!=', $exclude->id))
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'restrictions' => fn () => AllegianceTypeEnum::toSelectOptions(),
-        ]);
+        ];
     }
 
     public function store(StoreUnitRequest $request)

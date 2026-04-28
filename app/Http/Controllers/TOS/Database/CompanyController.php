@@ -29,7 +29,7 @@ class CompanyController extends Controller
     {
         $companies = Company::query()
             ->where('user_id', Auth::id())
-            ->with(['allegiance:id,slug,name,color_slug', 'companyUnits:id,company_id,unit_id,is_commander'])
+            ->with(['allegiance:id,slug,name,type,secondary_type,color_slug', 'companyUnits:id,company_id,unit_id,is_commander'])
             ->orderByDesc('updated_at')
             ->get();
 
@@ -68,7 +68,9 @@ class CompanyController extends Controller
         $this->authorizeCompany($company);
 
         $company->load([
-            'allegiance:id,slug,name,type,color_slug',
+            // secondary_type is required because Unit::hireableInto reads
+            // $allegiance->typeValues() which dereferences both type columns.
+            'allegiance:id,slug,name,type,secondary_type,color_slug',
             'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
             'companyUnits.unit.specialUnitRules:id,slug,name',
             // Sculpts only need id+slug for the linkable card art; full
@@ -161,6 +163,11 @@ class CompanyController extends Controller
         $unit = Unit::findOrFail($validated['unit_id']);
         $promotingCommander = ! empty($validated['is_commander']);
 
+        // Pre-load the relations both `scripBudget()` and `scripSpent()` walk
+        // so subsequent helper calls don't fall through to `loadedCompanyUnits()`'s
+        // implicit query — predictable cost regardless of which guard fires.
+        $company->load(['companyUnits.unit:id,scrip', 'companyUnits.assets:id,scrip_cost']);
+
         // Reject hires the rules wouldn't allow — keeps the saved company
         // valid.
         $isHireable = Unit::hireableInto($company->allegiance)->where('tos_units.id', $unit->id)->exists();
@@ -171,7 +178,6 @@ class CompanyController extends Controller
         // Scrip budget — Commanders provide budget so they're never rejected;
         // every other hire has to fit under the remaining scrip.
         if (! $promotingCommander) {
-            $company->load(['companyUnits.unit:id,scrip', 'companyUnits.assets:id,scrip_cost']);
             $cost = (int) ($unit->scrip ?? 0);
             if ($cost > $company->scripRemaining()) {
                 return back()->withErrors([

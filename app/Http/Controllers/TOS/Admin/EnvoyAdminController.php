@@ -19,7 +19,7 @@ class EnvoyAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/Envoys/Index', [
-            'envoys' => Envoy::with('allegiance:id,name,is_syndicate')
+            'envoys' => Envoy::with('allegiance:id,name,is_syndicate,type,secondary_type')
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'keyword', 'restriction', 'allegiance_id', 'sort_order']),
         ]);

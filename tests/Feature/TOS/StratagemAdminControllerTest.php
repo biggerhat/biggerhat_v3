@@ -27,10 +27,12 @@ it('index denies users without view_tos_stratagem', function () {
 it('store creates a Stratagem with a specific Allegiance', function () {
     $ke = Allegiance::factory()->earth()->create();
 
+    // Rulebook p. 13: a Stratagem keys to either a specific Allegiance OR a
+    // type-pool, never both — so allegiance_type stays null when allegiance_id
+    // is set (and vice versa).
     $this->actingAs($this->admin)->post(route('admin.tos.stratagems.store'), [
         'name' => 'Volley Fire',
         'allegiance_id' => $ke->id,
-        'allegiance_type' => AllegianceTypeEnum::Earth->value,
         'tactical_cost' => 1,
         'effect' => 'Fire!',
     ])->assertRedirect(route('admin.tos.stratagems.index'));
@@ -38,8 +40,22 @@ it('store creates a Stratagem with a specific Allegiance', function () {
     $s = Stratagem::where('name', 'Volley Fire')->first();
     expect($s)->not->toBeNull()
         ->and($s->allegiance_id)->toBe($ke->id)
-        ->and($s->allegiance_type)->toBe(AllegianceTypeEnum::Earth)
+        ->and($s->allegiance_type)->toBeNull()
         ->and($s->tactical_cost)->toBe(1);
+});
+
+it('store rejects setting both allegiance_id and allegiance_type', function () {
+    $ke = Allegiance::factory()->earth()->create();
+
+    $this->actingAs($this->admin)->postJson(route('admin.tos.stratagems.store'), [
+        'name' => 'Conflicted',
+        'allegiance_id' => $ke->id,
+        'allegiance_type' => AllegianceTypeEnum::Earth->value,
+        'tactical_cost' => 1,
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors(['allegiance_id', 'allegiance_type']);
+
+    expect(Stratagem::where('name', 'Conflicted')->exists())->toBeFalse();
 });
 
 it('store allows null allegiance_id with allegiance_type set', function () {

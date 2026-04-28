@@ -18,7 +18,7 @@ class StratagemAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/Stratagems/Index', [
-            'stratagems' => Stratagem::with('allegiance:id,name')
+            'stratagems' => Stratagem::with('allegiance:id,name,type,secondary_type')
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'allegiance_id', 'allegiance_type', 'tactical_cost', 'image_path', 'sort_order']),
         ]);

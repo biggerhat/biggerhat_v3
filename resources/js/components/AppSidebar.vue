@@ -68,8 +68,9 @@ const tosAllegianceItems = computed(() => {
 const tosNavItems = computed<NavItem[]>(() => [
     {
         items: [
-            { title: 'TOS Home', href: route('tos.index'), icon: Shield },
-            { title: 'Search', href: route('tos.search'), icon: TextSearch },
+            // No "Home" entry — the sidebar logo already routes to tos.index when
+            // the active game system is TOS, matching the Malifaux pattern.
+            { title: 'Advanced Search', href: route('tos.search'), icon: TextSearch },
             ...(isAuthenticated.value ? [{ title: 'Company Builder', href: route('tos.companies.index'), icon: Users }] : []),
             ...(canAccessAdmin.value
                 ? [
@@ -363,7 +364,10 @@ const footerNavItems: NavItem[] = [
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="route('index')">
+                        <!-- Logo routes to the active game system's home so TOS users
+                             stay in TOS when they tap it. Falls back to the Malifaux
+                             index if shared data is somehow missing. -->
+                        <Link :href="page.props.currentGameSystem?.home_route ?? route('index')">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>

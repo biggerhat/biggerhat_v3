@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Link } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const page = usePage<SharedData>();
+const homeHref = computed(() => page.props.currentGameSystem?.home_route ?? route('index'));
 
 defineProps<{
     title?: string;
@@ -12,7 +17,7 @@ defineProps<{
 <template>
     <div class="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
         <div class="flex w-full max-w-md flex-col gap-6">
-            <Link :href="route('index')" class="flex items-center gap-2 self-center font-medium">
+            <Link :href="homeHref" class="flex items-center gap-2 self-center font-medium">
                 <div class="flex h-9 w-9 items-center justify-center">
                     <AppLogoIcon class="size-9 fill-current text-black dark:text-white" />
                 </div>

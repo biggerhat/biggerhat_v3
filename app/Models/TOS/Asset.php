@@ -11,6 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * Rule-evaluation helpers (`canAttachTo`, `slotLocations`, `isUnique`,
+ * `hasSlotLimit`) all consult `$this->limits`. They each defensively call
+ * `loadMissing('limits')`, which is idempotent — but production callers
+ * (e.g. `CompanyController::attachAsset`) should still eager-load `limits`
+ * up front so the rule walk doesn't trigger N+1 across a large picker list.
+ *
  * @mixin IdeHelperAsset
  */
 class Asset extends Model

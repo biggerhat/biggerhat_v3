@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cleanObject } from '@/composables/CleanObject';
+import { useConfirm } from '@/composables/useConfirm';
 import type { SharedData } from '@/types';
 import type { Paginator, TosSelectOption } from '@/types/tos';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -57,7 +58,7 @@ interface SavedSearch {
     query_params: Record<string, string>;
 }
 
-const props = defineProps<{
+defineProps<{
     results: Paginator<ResultRow>;
     result_count: number;
     result_breakdown: { units: number; assets: number; stratagems: number };
@@ -196,8 +197,14 @@ const loadSavedSearch = (saved: SavedSearch) => {
     filter();
 };
 
-const deleteSavedSearch = (saved: SavedSearch) => {
-    if (!confirm(`Delete saved search "${saved.name}"?`)) return;
+const confirmDialog = useConfirm();
+const deleteSavedSearch = async (saved: SavedSearch) => {
+    if (!(await confirmDialog({
+        title: 'Delete saved search',
+        message: `Delete saved search "${saved.name}"?`,
+        confirmLabel: 'Delete',
+        destructive: true,
+    }))) return;
     router.post(route('tos.search.saved.delete', saved.id), {}, { preserveScroll: true });
 };
 

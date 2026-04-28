@@ -17,8 +17,8 @@ class UpdateStratagemRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'allegiance_id' => ['nullable', 'integer', 'exists:tos_allegiances,id'],
-            'allegiance_type' => ['nullable', 'string', Rule::enum(AllegianceTypeEnum::class)],
+            'allegiance_id' => ['nullable', 'integer', 'exists:tos_allegiances,id', 'prohibits:allegiance_type'],
+            'allegiance_type' => ['nullable', 'string', Rule::enum(AllegianceTypeEnum::class), 'prohibits:allegiance_id'],
             'tactical_cost' => ['required', 'integer', 'min:1'],
             'effect' => ['nullable', 'string'],
             'image_path' => ['nullable', 'file', 'image', 'max:30000'],

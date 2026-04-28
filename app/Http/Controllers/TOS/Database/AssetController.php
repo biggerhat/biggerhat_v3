@@ -14,7 +14,13 @@ class AssetController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Asset::with('allegiances:id,name', 'limits', 'abilities:id,name', 'actions:id,name')->orderBy('name');
+        // Asset Index card/table view consumes only name, scrip_cost, limits,
+        // and allegiances. Body + abilities + actions are loaded on the view
+        // page only — slim payload keeps the list responsive.
+        $query = Asset::query()
+            ->select(['id', 'slug', 'name', 'scrip_cost', 'image_path', 'sort_order'])
+            ->with('allegiances:id,slug,name', 'limits')
+            ->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

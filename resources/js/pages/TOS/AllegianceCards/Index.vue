@@ -26,6 +26,7 @@ interface AllegianceCard {
     slug: string;
     name: string;
     type: string;
+    secondary_type: string | null;
     body: string | null;
     image_path: string | null;
     allegiance: { id: number; slug: string; name: string; color_slug: string | null };
@@ -94,7 +95,9 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                                 <Link :href="route('tos.allegiance_cards.view', c.slug)" class="hover:underline">{{ c.name }}</Link>
                             </TableCell>
                             <TableCell class="text-xs">{{ c.allegiance.name }}</TableCell>
-                            <TableCell class="text-xs capitalize">{{ c.type }}</TableCell>
+                            <TableCell class="text-xs capitalize">
+                                {{ c.type }}<span v-if="c.secondary_type"> / {{ c.secondary_type }}</span>
+                            </TableCell>
                             <TableCell class="max-w-md text-xs text-muted-foreground line-clamp-2">
                                 <TosText v-if="c.body" :text="c.body" />
                             </TableCell>
@@ -121,7 +124,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         <CardContent class="space-y-1.5 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ c.name }}</span>
-                                <Badge variant="outline" class="shrink-0 text-[10px] capitalize">{{ c.type }}</Badge>
+                                <div class="flex shrink-0 gap-1">
+                                    <Badge variant="outline" class="text-[10px] capitalize">{{ c.type }}</Badge>
+                                    <Badge v-if="c.secondary_type" variant="outline" class="text-[10px] capitalize">{{ c.secondary_type }}</Badge>
+                                </div>
                             </div>
                             <p class="truncate text-[10px] text-muted-foreground">{{ c.allegiance.name }}</p>
                             <p v-if="c.body" class="line-clamp-2 text-xs text-muted-foreground"><TosText :text="c.body" /></p>

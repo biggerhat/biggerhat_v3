@@ -14,7 +14,11 @@ class EnvoyController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Envoy::with('allegiance:id,name,slug,is_syndicate,type', 'abilities')->orderBy('name');
+        // secondary_type included so any code path that calls
+        // Envoy::hireableInto($envoy->allegiance) (which reads types())
+        // doesn't trip strict-attribute mode. Same defensive pattern as
+        // CompanyController::view.
+        $query = Envoy::with('allegiance:id,name,slug,is_syndicate,type,secondary_type', 'abilities')->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

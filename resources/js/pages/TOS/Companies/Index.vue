@@ -13,29 +13,29 @@ interface Allegiance {
     color_slug: string | null;
 }
 
-interface CrewUnit {
+interface CompanyUnit {
     id: number;
     is_commander: boolean;
 }
 
-interface Crew {
+interface Company {
     id: number;
     slug: string;
     name: string;
     allegiance: Allegiance;
-    crew_units: CrewUnit[];
+    company_units: CompanyUnit[];
     updated_at: string;
 }
 
 defineProps<{
-    crews: Crew[];
+    companies: Company[];
 }>();
 </script>
 
 <template>
-    <Head title="My Crews — TOS" />
+    <Head title="My Companies — TOS" />
     <div class="relative">
-        <PageBanner title="My Crews" class="mb-2">
+        <PageBanner title="My Companies" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Build and save TOS Companies
@@ -45,16 +45,16 @@ defineProps<{
 
         <div class="container mx-auto space-y-4 sm:px-4">
             <div class="flex justify-end">
-                <Button as="a" :href="route('tos.crews.create')" size="sm" class="gap-1">
-                    <Plus class="size-4" /> New crew
+                <Button as="a" :href="route('tos.companies.create')" size="sm" class="gap-1">
+                    <Plus class="size-4" /> New Company
                 </Button>
             </div>
 
-            <div v-if="crews.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div v-if="companies.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
-                    v-for="c in crews"
+                    v-for="c in companies"
                     :key="c.id"
-                    :href="route('tos.crews.view', c.slug)"
+                    :href="route('tos.companies.view', c.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                     <Card class="h-full overflow-hidden transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
@@ -63,14 +63,14 @@ defineProps<{
                             <p class="text-sm font-semibold">{{ c.name }}</p>
                             <p class="text-[11px] text-muted-foreground">{{ c.allegiance.name }}</p>
                             <p class="text-[10px] text-muted-foreground">
-                                {{ c.crew_units.length }} {{ c.crew_units.length === 1 ? 'unit' : 'units' }}
-                                <span v-if="c.crew_units.some((u) => u.is_commander)"> · Commander set</span>
+                                {{ c.company_units.length }} {{ c.company_units.length === 1 ? 'unit' : 'units' }}
+                                <span v-if="c.company_units.some((u) => u.is_commander)"> · Commander set</span>
                             </p>
                         </CardContent>
                     </Card>
                 </Link>
             </div>
-            <EmptyState v-else :icon="Users" title="No crews yet" description="Create one to start drafting a TOS Company." />
+            <EmptyState v-else :icon="Users" title="No Companies yet" description="Create one to start drafting a TOS Company." />
         </div>
     </div>
 </template>

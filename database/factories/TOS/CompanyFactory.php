@@ -3,16 +3,16 @@
 namespace Database\Factories\TOS;
 
 use App\Models\TOS\Allegiance;
-use App\Models\TOS\Crew;
+use App\Models\TOS\Company;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Crew>
+ * @extends Factory<Company>
  */
-class CrewFactory extends Factory
+class CompanyFactory extends Factory
 {
-    protected $model = Crew::class;
+    protected $model = Company::class;
 
     public function definition(): array
     {

@@ -57,7 +57,10 @@ class Stratagem extends Model
         return $query->where(function ($q) use ($target) {
             $q->where('allegiance_id', $target->id)
                 ->orWhere(function ($qq) use ($target) {
-                    $qq->whereNull('allegiance_id')->where('allegiance_type', $target->type->value);
+                    // Type-restricted Stratagems match any of the
+                    // Allegiance's types (hybrid Allegiances qualify on
+                    // both sides).
+                    $qq->whereNull('allegiance_id')->whereIn('allegiance_type', $target->typeValues());
                 });
         });
     }

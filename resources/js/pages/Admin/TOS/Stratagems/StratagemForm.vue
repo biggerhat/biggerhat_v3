@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
@@ -23,7 +24,7 @@ interface StratagemRow {
 const props = defineProps<{
     stratagem?: StratagemRow | null;
     allegiances: Array<{ id: number; name: string }>;
-    allegiance_types: Array<{ name: string; value: string }>;
+    allegiance_types: TosSelectOption[];
 }>();
 
 const formInfo = ref({

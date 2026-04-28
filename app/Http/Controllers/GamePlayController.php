@@ -13,6 +13,7 @@ use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
 use App\Http\Requests\Games\SwapCrewUpgradeRequest;
 use App\Http\Requests\Games\UpdateCrewMemberRequest;
+use App\Http\Requests\Games\UpdateCrewUpgradePowerBarRequest;
 use App\Http\Requests\Games\UpdateSchemeNotesRequest;
 use App\Http\Requests\Games\UpdateSoulstonePoolRequest;
 use App\Models\Character;
@@ -331,6 +332,46 @@ class GamePlayController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Set the live counter for one of the master's crew-level upgrades that has
+     * a power_bar_count (e.g. token-pool style upgrades). Stored as a sparse
+     * map keyed by upgrade_id on the player; max comes from upgrades.power_bar_count
+     * — no need to duplicate it here.
+     */
+    public function updateCrewUpgradePowerBar(UpdateCrewUpgradePowerBarRequest $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        $validated = $request->validated();
+
+        $master = $player->master;
+        if (! $master) {
+            return response()->json(['error' => 'No master selected'], 422);
+        }
+
+        // Authorize: upgrade must belong to this master's crew upgrades
+        // AND have a non-null power_bar_count (otherwise it has no bar to track).
+        $upgrade = $master->crewUpgrades->firstWhere('id', $validated['upgrade_id']);
+        if (! $upgrade || $upgrade->power_bar_count === null) {
+            return response()->json(['error' => 'Upgrade does not have a power bar'], 422);
+        }
+
+        // Cap to the upgrade's max so we never persist a value > power_bar_count.
+        $clamped = min((int) $validated['current_power_bar'], (int) $upgrade->power_bar_count);
+
+        $bars = $player->crew_upgrade_power_bars ?? [];
+        $bars[(string) $upgrade->id] = $clamped;
+        $player->update(['crew_upgrade_power_bars' => $bars]);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'current_power_bar' => $clamped]);
     }
 
     public function updateSoulstonePool(UpdateSoulstonePoolRequest $request, Game $game): JsonResponse

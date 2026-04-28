@@ -341,6 +341,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/crew/{gameCrewMember}/replace', [GamePlayController::class, 'replaceCrewMember'])->name('crew.replace');
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
         Route::patch('/crew-upgrade', [GamePlayController::class, 'swapCrewUpgrade'])->name('crew-upgrade');
+        Route::patch('/crew-upgrade-power-bar', [GamePlayController::class, 'updateCrewUpgradePowerBar'])->name('crew-upgrade-power-bar');
         Route::patch('/scheme-notes', [GamePlayController::class, 'updateSchemeNotes'])->name('scheme-notes');
         Route::post('/turns', [GamePlayController::class, 'submitTurnScore'])->name('turns.store');
         Route::post('/complete', [GamePlayController::class, 'markComplete'])->name('complete');

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
@@ -23,7 +24,7 @@ interface TriggerRow {
 const props = defineProps<{
     trigger?: TriggerRow | null;
     actions: Array<{ id: number; name: string }>;
-    timings: Array<{ name: string; value: string }>;
+    timings: TosSelectOption[];
 }>();
 
 type CostType = 'suits' | 'margin' | 'none';
@@ -77,7 +78,7 @@ onMounted(() => {
             <CardHeader><CardTitle>{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader>
             <CardContent class="space-y-3">
                 <div>
-                    <Label for="action_ids">Actions <span class="ml-1 text-[10px] font-normal text-muted-foreground">(triggers may attach to multiple actions)</span></Label>
+                    <Label for="action_ids">Actions <span class="ml-1 text-[10px] font-normal text-muted-foreground">(optional — leave empty to save unattached, or pick one or more)</span></Label>
                     <SearchableMultiselect
                         v-model="formInfo.action_ids"
                         placeholder="Search actions…"

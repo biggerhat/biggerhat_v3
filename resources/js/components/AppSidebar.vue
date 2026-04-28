@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -27,6 +28,7 @@ import {
     Swords,
     TextSearch,
     Users,
+    Zap,
     ArrowUpCircle,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -41,10 +43,34 @@ const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
 const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
 
+// Allegiance entries from the shared `tos_allegiance_info` map — same source
+// of truth as the AllegianceLogo component, so admin-uploaded logos and
+// admin-created allegiances flow through automatically. Sorted main-then-
+// syndicate then alphabetically, matching the Allegiances index ordering.
+const tosAllegianceItems = computed(() => {
+    const info = page.props.tos_allegiance_info ?? {};
+    return Object.values(info)
+        .slice()
+        .sort((a, b) => {
+            const synd = Number(a.is_syndicate ?? false) - Number(b.is_syndicate ?? false);
+            if (synd !== 0) return synd;
+            return String(a.name).localeCompare(String(b.name));
+        })
+        .map((a) => ({
+            title: a.name as string,
+            href: route('tos.allegiances.view', a.slug as string),
+            icon: AllegianceLogo,
+            icon_class: 'w-8 h-8',
+            icon_props: { allegiance: a.slug as string },
+        }));
+});
+
 const tosNavItems = computed<NavItem[]>(() => [
     {
         items: [
             { title: 'TOS Home', href: route('tos.index'), icon: Shield },
+            { title: 'Search', href: route('tos.search'), icon: TextSearch },
+            ...(isAuthenticated.value ? [{ title: 'Company Builder', href: route('tos.companies.index'), icon: Users }] : []),
             ...(canAccessAdmin.value
                 ? [
                       {
@@ -57,17 +83,34 @@ const tosNavItems = computed<NavItem[]>(() => [
         ],
     },
     {
-        title: 'The Other Side',
+        title: 'Allegiances',
         collapsible: true,
         collapsed: false,
         items: [
-            { title: 'Allegiances', href: route('tos.allegiances.index'), icon: Shield },
+            { title: 'All Allegiances', href: route('tos.allegiances.index'), icon: Shield },
+            // Type-pooled rosters — pull every Earth- (or Malifaux-) typed
+            // unit plus the matching Neutral pool. Sit above the per-allegiance
+            // entries so users can pick "show me everything Earth" before
+            // narrowing to a specific Company.
+            { title: 'Earth Side', href: route('tos.allegiances.viewByType', 'earth'), icon: Shield },
+            { title: 'Malifaux Side', href: route('tos.allegiances.viewByType', 'malifaux'), icon: Shield },
+            ...tosAllegianceItems.value,
+        ],
+    },
+    {
+        title: 'Tools',
+        collapsible: true,
+        collapsed: false,
+        items: [{ title: 'Compare Units', href: route('tos.compare'), icon: Scale }],
+    },
+    {
+        title: 'References',
+        collapsible: true,
+        collapsed: false,
+        items: [
             { title: 'Units', href: route('tos.units.index'), icon: Swords },
-            { title: 'Search', href: route('tos.search'), icon: TextSearch },
-            { title: 'Compare Units', href: route('tos.compare'), icon: Scale },
-            ...(isAuthenticated.value ? [{ title: 'My Crews', href: route('tos.crews.index'), icon: Users }] : []),
             { title: 'Special Rules', href: route('tos.special_rules.index'), icon: BookOpen },
-            { title: 'Abilities', href: route('tos.abilities.index'), icon: Shield },
+            { title: 'Abilities', href: route('tos.abilities.index'), icon: Zap },
             { title: 'Actions', href: route('tos.actions.index'), icon: Swords },
             { title: 'Triggers', href: route('tos.triggers.index'), icon: Swords },
             { title: 'Allegiance Cards', href: route('tos.allegiance_cards.index'), icon: BookOpen },

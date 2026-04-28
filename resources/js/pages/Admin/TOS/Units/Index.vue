@@ -23,6 +23,7 @@ interface Unit {
     title: string | null;
     scrip: number;
     tactics: string | null;
+    glory_tactics: string | null;
     sides: Array<{ id: number; side: string }>;
     allegiances: Array<{ id: number; name: string }>;
     special_unit_rules: SpecialRule[];

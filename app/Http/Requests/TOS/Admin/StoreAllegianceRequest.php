@@ -19,6 +19,9 @@ class StoreAllegianceRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'short_name' => ['nullable', 'string', 'max:32'],
             'type' => ['required', 'string', Rule::enum(AllegianceTypeEnum::class)],
+            // Hybrid Allegiances list a second type. `different:type` keeps
+            // it from being a redundant duplicate of the primary.
+            'secondary_type' => ['nullable', 'string', Rule::enum(AllegianceTypeEnum::class), 'different:type'],
             'is_syndicate' => ['required', 'boolean'],
             'description' => ['nullable', 'string'],
             'logo_path' => ['nullable', 'file', 'image', 'max:30000'],

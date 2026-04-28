@@ -28,7 +28,13 @@ class AllegianceCardController extends Controller
 
     public function view(AllegianceCard $card)
     {
-        $card->load('allegiance', 'abilities');
+        // Eager-load both tiers — Standard and Primary each carry their own
+        // ability/action/trigger lists per the new card layout.
+        $card->load([
+            'allegiance',
+            'abilities', 'actions.triggers', 'actions.typeLinks', 'triggers',
+            'primaryAbilities', 'primaryActions.triggers', 'primaryActions.typeLinks', 'primaryTriggers',
+        ]);
 
         return inertia('TOS/AllegianceCards/View', [
             'card' => $card,

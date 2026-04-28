@@ -22,7 +22,13 @@ const json = computed(() => JSON.stringify(props.data));
 
 <template>
     <Head>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <script type="application/ld+json" :head-key="headKey ?? 'jsonld'" v-html="json" />
+        <!--
+            Vue's SFC template compiler refuses literal <script> tags in
+            templates (they're parsed as component script blocks). Rendering
+            via <component :is="'script'"> sidesteps that restriction while
+            still emitting a real <script> into Inertia's <Head>.
+        -->
+        <!-- eslint-disable-next-line vue/no-v-html, vue/no-v-text-v-html-on-component -->
+        <component :is="'script'" type="application/ld+json" :head-key="headKey ?? 'jsonld'" v-html="json" />
     </Head>
 </template>

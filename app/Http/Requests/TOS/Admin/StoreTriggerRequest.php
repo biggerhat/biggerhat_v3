@@ -16,9 +16,10 @@ class StoreTriggerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Triggers attach to one or more Actions — shared triggers (e.g.
-            // "Critical") appear on every Melee action without duplication.
-            'action_ids' => ['required', 'array', 'min:1'],
+            // Triggers attach to zero or more Actions — shared triggers (e.g.
+            // "Critical") appear on every Melee action without duplication, but
+            // a Trigger can also be saved unattached for later assignment.
+            'action_ids' => ['nullable', 'array'],
             'action_ids.*' => ['integer', 'exists:tos_actions,id'],
             'name' => ['required', 'string', 'max:255'],
             'suits' => ['nullable', 'string', 'max:32', 'prohibits:margin_cost'],

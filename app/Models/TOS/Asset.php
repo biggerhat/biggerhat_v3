@@ -109,4 +109,55 @@ class Asset extends Model
 
         return true;
     }
+
+    /**
+     * Slot locations occupied by this Asset. An Asset can list multiple Slot
+     * limits (rare but legal — e.g. an Asset that takes both an arm and a
+     * back slot); we return them all so the caller can check collisions
+     * against every existing attachment on the same unit.
+     *
+     * @return array<int, string>
+     */
+    public function slotLocations(): array
+    {
+        $this->loadMissing('limits');
+        $out = [];
+        foreach ($this->limits as $limit) {
+            if ($limit->limit_type !== AssetLimitTypeEnum::Slot) {
+                continue;
+            }
+            $value = $limit->parameter_value;
+            if ($value !== null && $value !== '') {
+                $out[] = mb_strtolower($value);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Whether the Asset prints a Slot limit at all. Used to gate slot-
+     * collision checks on the call site (`CompanyController::attachAsset`)
+     * without forcing the caller to walk the limits list itself.
+     */
+    public function hasSlotLimit(): bool
+    {
+        return ! empty($this->slotLocations());
+    }
+
+    /**
+     * Whether the Asset prints a Unique limit (rulebook p. 12 — "this Asset
+     * can only be taken once per Company").
+     */
+    public function isUnique(): bool
+    {
+        $this->loadMissing('limits');
+        foreach ($this->limits as $limit) {
+            if ($limit->limit_type === AssetLimitTypeEnum::Unique) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

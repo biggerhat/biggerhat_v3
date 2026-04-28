@@ -6,8 +6,8 @@ use App\Http\Controllers\TOS\Database\ActionController;
 use App\Http\Controllers\TOS\Database\AllegianceCardController;
 use App\Http\Controllers\TOS\Database\AllegianceController;
 use App\Http\Controllers\TOS\Database\AssetController;
+use App\Http\Controllers\TOS\Database\CompanyController;
 use App\Http\Controllers\TOS\Database\CompareController;
-use App\Http\Controllers\TOS\Database\CrewController;
 use App\Http\Controllers\TOS\Database\EnvoyController;
 use App\Http\Controllers\TOS\Database\PdfController as TosPdfController;
 use App\Http\Controllers\TOS\Database\SearchController as TosSearchController;
@@ -22,10 +22,21 @@ Route::prefix('tos')->name('tos.')->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('index');
 
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
-    Route::get('/search', [TosSearchController::class, 'index'])->name('search');
+
+    Route::controller(TosSearchController::class)->prefix('search')->name('search')->group(function () {
+        Route::get('/', 'view');
+        Route::get('/export', 'export')->name('.export');
+        Route::middleware('auth')->group(function () {
+            Route::post('/save', 'saveSearch')->name('.save');
+            Route::post('/saved/{savedSearch}/delete', 'deleteSavedSearch')->name('.saved.delete');
+        });
+    });
 
     Route::controller(AllegianceController::class)->prefix('allegiances')->name('allegiances.')->group(function () {
         Route::get('/', 'index')->name('index');
+        // Type-pooled rosters MUST come before the catch-all `view` route so
+        // they're not interpreted as an Allegiance slug binding.
+        Route::get('/type/{type}', 'viewByType')->name('viewByType')->whereIn('type', ['earth', 'malifaux']);
         Route::get('/{allegiance}', 'view')->name('view');
     });
 
@@ -64,19 +75,19 @@ Route::prefix('tos')->name('tos.')->group(function () {
         Route::get('/{stratagem}', 'view')->name('view');
     });
 
-    // Crew Builder — auth-gated. Each crew belongs to one user; rule
-    // enforcement (hireability, asset limits) lives in CrewController.
-    Route::middleware('auth')->controller(CrewController::class)->prefix('crews')->name('crews.')->group(function () {
+    // Company Builder — auth-gated. Each Company belongs to one user; rule
+    // enforcement (hireability, asset limits) lives in CompanyController.
+    Route::middleware('auth')->controller(CompanyController::class)->prefix('companies')->name('companies.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/create', 'create')->name('create');
         Route::post('/', 'store')->name('store');
-        Route::get('/{crew}', 'view')->name('view');
-        Route::post('/{crew}', 'update')->name('update');
-        Route::post('/{crew}/delete', 'delete')->name('delete');
-        Route::post('/{crew}/units', 'addUnit')->name('units.add');
-        Route::post('/{crew}/units/{crewUnit}/delete', 'removeUnit')->name('units.remove');
-        Route::post('/{crew}/units/{crewUnit}/assets', 'attachAsset')->name('assets.attach');
-        Route::post('/{crew}/units/{crewUnit}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
+        Route::get('/{company}', 'view')->name('view');
+        Route::post('/{company}', 'update')->name('update');
+        Route::post('/{company}/delete', 'delete')->name('delete');
+        Route::post('/{company}/units', 'addUnit')->name('units.add');
+        Route::post('/{company}/units/{companyUnit}/delete', 'removeUnit')->name('units.remove');
+        Route::post('/{company}/units/{companyUnit}/assets', 'attachAsset')->name('assets.attach');
+        Route::post('/{company}/units/{companyUnit}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
     });
 });
 

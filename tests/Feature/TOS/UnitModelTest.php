@@ -100,3 +100,23 @@ it('belongsToMany Action via the unit-side pivot', function () {
     expect($reloaded->glorySide()->actions->pluck('id'))->toContain($action->id)
         ->and($reloaded->standardSide()->actions->count())->toBe(0);
 });
+
+it('effectiveGloryTactics falls back to tactics when glory_tactics is null', function () {
+    $unit = Unit::factory()->create(['tactics' => '2', 'glory_tactics' => null]);
+
+    expect($unit->effectiveGloryTactics())->toBe('2')
+        ->and($unit->hasDistinctGloryTactics())->toBeFalse();
+});
+
+it('effectiveGloryTactics returns the override when glory_tactics is set', function () {
+    $unit = Unit::factory()->create(['tactics' => '2', 'glory_tactics' => '4']);
+
+    expect($unit->effectiveGloryTactics())->toBe('4')
+        ->and($unit->hasDistinctGloryTactics())->toBeTrue();
+});
+
+it('hasDistinctGloryTactics is false when override matches the standard tactics', function () {
+    $unit = Unit::factory()->create(['tactics' => '3', 'glory_tactics' => '3']);
+
+    expect($unit->hasDistinctGloryTactics())->toBeFalse();
+});

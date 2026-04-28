@@ -107,3 +107,36 @@ it('update denies users without edit_tos_allegiance_card', function () {
 
     expect($card->fresh()->name)->toBe('Original');
 });
+
+it('store syncs all six link types and primary_body across both tiers', function () {
+    $stdAbility = Ability::factory()->general()->create();
+    $stdAction = \App\Models\TOS\Action::factory()->create();
+    $stdTrigger = \App\Models\TOS\Trigger::factory()->create();
+    $primAbility = Ability::factory()->general()->create();
+    $primAction = \App\Models\TOS\Action::factory()->create();
+    $primTrigger = \App\Models\TOS\Trigger::factory()->create();
+
+    $this->actingAs($this->admin)->post(route('admin.tos.allegiance_cards.store'), [
+        'allegiance_id' => $this->allegiance->id,
+        'name' => 'Two Tier Card',
+        'type' => AllegianceTypeEnum::Earth->value,
+        'body' => 'standard body',
+        'primary_body' => 'primary body',
+        'ability_ids' => [$stdAbility->id],
+        'action_ids' => [$stdAction->id],
+        'trigger_ids' => [$stdTrigger->id],
+        'primary_ability_ids' => [$primAbility->id],
+        'primary_action_ids' => [$primAction->id],
+        'primary_trigger_ids' => [$primTrigger->id],
+    ])->assertRedirect();
+
+    $card = AllegianceCard::where('name', 'Two Tier Card')->first();
+    $card->load(['abilities', 'actions', 'triggers', 'primaryAbilities', 'primaryActions', 'primaryTriggers']);
+    expect($card->primary_body)->toBe('primary body')
+        ->and($card->abilities->pluck('id')->all())->toEqual([$stdAbility->id])
+        ->and($card->actions->pluck('id')->all())->toEqual([$stdAction->id])
+        ->and($card->triggers->pluck('id')->all())->toEqual([$stdTrigger->id])
+        ->and($card->primaryAbilities->pluck('id')->all())->toEqual([$primAbility->id])
+        ->and($card->primaryActions->pluck('id')->all())->toEqual([$primAction->id])
+        ->and($card->primaryTriggers->pluck('id')->all())->toEqual([$primTrigger->id]);
+});

@@ -45,6 +45,7 @@ interface Unit {
     title: string | null;
     scrip: number;
     tactics: string | null;
+    glory_tactics: string | null;
     sides: Side[];
     allegiances: Array<{ id: number; slug: string; name: string }>;
     special_unit_rules: SpecialRule[];

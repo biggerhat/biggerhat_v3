@@ -936,6 +936,7 @@ namespace App\Models{
  * @property int|null $master_id
  * @property int|null $crew_build_id
  * @property int|null $active_crew_upgrade_id
+ * @property array<array-key, mixed>|null $crew_upgrade_power_bars
  * @property bool $crew_skipped
  * @property \App\Enums\GameRoleEnum|null $role
  * @property int|null $current_scheme_id
@@ -965,6 +966,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCrewBuildId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCrewSkipped($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCrewUpgradePowerBars($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereCurrentSchemeId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GamePlayer whereGameId($value)
@@ -1388,6 +1390,7 @@ namespace App\Models{
  *
  * @property int $id
  * @property int $user_id
+ * @property string $game_system
  * @property string $name
  * @property array<array-key, mixed> $query_params
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -1397,6 +1400,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch whereGameSystem($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedSearch whereQueryParams($value)
@@ -1628,6 +1632,7 @@ namespace App\Models\TOS{
  * @property string $name
  * @property string|null $short_name
  * @property \App\Enums\TOS\AllegianceTypeEnum $type
+ * @property \App\Enums\TOS\AllegianceTypeEnum|null $secondary_type
  * @property bool $is_syndicate
  * @property string|null $description
  * @property string|null $logo_path
@@ -1651,6 +1656,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereIsSyndicate($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereLogoPath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereSecondaryType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereShortName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Allegiance whereSortOrder($value)
@@ -1672,13 +1678,24 @@ namespace App\Models\TOS{
  * @property string $name
  * @property \App\Enums\TOS\AllegianceTypeEnum $type
  * @property string|null $body
+ * @property string|null $primary_body
  * @property string|null $image_path
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
  * @property-read int|null $abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Action> $actions
+ * @property-read int|null $actions_count
  * @property-read \App\Models\TOS\Allegiance $allegiance
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $primaryAbilities
+ * @property-read int|null $primary_abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Action> $primaryActions
+ * @property-read int|null $primary_actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Trigger> $primaryTriggers
+ * @property-read int|null $primary_triggers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Trigger> $triggers
+ * @property-read int|null $triggers_count
  * @method static \Database\Factories\TOS\AllegianceCardFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard newQuery()
@@ -1689,6 +1706,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereImagePath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard wherePrimaryBody($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSortOrder($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereType($value)
@@ -1782,7 +1800,10 @@ namespace App\Models\TOS{
 
 namespace App\Models\TOS{
 /**
- * 
+ * A roster of Units hired around a single Allegiance — the rulebook calls
+ * this a "Company". The earlier Phase 1 scaffolding stood it up under the
+ * Malifaux-flavoured "Crew" name; tables, models, routes, and pages were
+ * renamed to "Company" once the rulebook nomenclature was confirmed.
  *
  * @property int $id
  * @property int $user_id
@@ -1793,27 +1814,27 @@ namespace App\Models\TOS{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\TOS\Allegiance $allegiance
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CrewUnit> $commanderUnit
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CompanyUnit> $commanderUnit
  * @property-read int|null $commander_unit_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CrewUnit> $crewUnits
- * @property-read int|null $crew_units_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CompanyUnit> $companyUnits
+ * @property-read int|null $company_units_count
  * @property-read \App\Models\User $user
- * @method static \Database\Factories\TOS\CrewFactory factory($count = null, $state = [])
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereAllegianceId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereNotes($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereSlug($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereUpdatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Crew whereUserId($value)
+ * @method static \Database\Factories\TOS\CompanyFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUserId($value)
  * @mixin \Eloquent
  */
 	#[\AllowDynamicProperties]
-	class IdeHelperCrew {}
+	class IdeHelperCompany {}
 }
 
 namespace App\Models\TOS{
@@ -1821,30 +1842,32 @@ namespace App\Models\TOS{
  * 
  *
  * @property int $id
- * @property int $crew_id
+ * @property int $company_id
  * @property int $unit_id
  * @property bool $is_commander
+ * @property bool $is_combined_arms_child
  * @property int $position
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Asset> $assets
  * @property-read int|null $assets_count
- * @property-read \App\Models\TOS\Crew $crew
+ * @property-read \App\Models\TOS\Company $company
  * @property-read \App\Models\TOS\Unit $unit
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereCrewId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereIsCommander($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit wherePosition($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereUnitId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CrewUnit whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereCompanyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereIsCombinedArmsChild($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereIsCommander($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit wherePosition($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereUpdatedAt($value)
  * @mixin \Eloquent
  */
 	#[\AllowDynamicProperties]
-	class IdeHelperCrewUnit {}
+	class IdeHelperCompanyUnit {}
 }
 
 namespace App\Models\TOS{
@@ -2000,6 +2023,7 @@ namespace App\Models\TOS{
  * @property string|null $title
  * @property int $scrip
  * @property string|null $tactics
+ * @property string|null $glory_tactics
  * @property string|null $description
  * @property string|null $lore_text
  * @property \App\Enums\TOS\AllegianceTypeEnum|null $restriction
@@ -2029,6 +2053,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCombinedArmsChildId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereGloryTactics($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereLoreText($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit whereName($value)

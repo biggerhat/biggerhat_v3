@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
@@ -16,6 +17,7 @@ interface Allegiance {
     name: string;
     short_name: string | null;
     type: string;
+    secondary_type: string | null;
     is_syndicate: boolean;
     description: string | null;
     logo_path: string | null;
@@ -23,20 +25,16 @@ interface Allegiance {
     sort_order: number;
 }
 
-interface SelectOption {
-    name: string;
-    value: string;
-}
-
 const props = defineProps<{
     allegiance?: Allegiance | null;
-    allegiance_types: SelectOption[];
+    allegiance_types: TosSelectOption[];
 }>();
 
 const formInfo = ref({
     name: '' as string,
     short_name: null as string | null,
     type: 'earth' as string,
+    secondary_type: null as string | null,
     is_syndicate: false as boolean,
     description: null as string | null,
     logo_path: null as File | null,
@@ -70,6 +68,7 @@ onMounted(() => {
     formInfo.value.name = props.allegiance.name;
     formInfo.value.short_name = props.allegiance.short_name;
     formInfo.value.type = props.allegiance.type;
+    formInfo.value.secondary_type = props.allegiance.secondary_type ?? null;
     formInfo.value.is_syndicate = props.allegiance.is_syndicate;
     formInfo.value.description = props.allegiance.description;
     formInfo.value.color_slug = props.allegiance.color_slug;
@@ -109,6 +108,23 @@ onMounted(() => {
                                 </SelectContent>
                             </Select>
                             <InputError :message="usePage().props.errors.type" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="secondary_type">Secondary Type (Hybrid only)</Label>
+                            <Select id="secondary_type" v-model="formInfo.secondary_type">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="None — single-type Allegiance" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="null">None</SelectItem>
+                                    <SelectItem v-for="t in props.allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p class="text-[11px] text-muted-foreground">
+                                Set only when an Allegiance lists both Earth and Malifaux on its card. Hybrid Allegiances pull
+                                Neutral hires, Envoys, and type-restricted Stratagems from both sides.
+                            </p>
+                            <InputError :message="usePage().props.errors.secondary_type" />
                         </div>
                         <div class="flex items-center gap-2">
                             <Checkbox id="is_syndicate" v-model:checked="formInfo.is_syndicate" />

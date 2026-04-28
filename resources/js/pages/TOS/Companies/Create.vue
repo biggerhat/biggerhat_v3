@@ -24,20 +24,20 @@ const form = useForm({
 });
 
 function submit() {
-    form.post(route('tos.crews.store'));
+    form.post(route('tos.companies.store'));
 }
 </script>
 
 <template>
-    <Head title="New Crew — TOS" />
+    <Head title="New Company — TOS" />
     <div class="relative">
-        <PageBanner title="New Crew" class="mb-2" />
+        <PageBanner title="New Company" class="mb-2" />
 
         <div class="container mx-auto max-w-2xl space-y-4 sm:px-4">
             <Card>
                 <CardContent class="space-y-4 p-4">
                     <div>
-                        <label class="mb-1 block text-xs font-medium">Crew name</label>
+                        <label class="mb-1 block text-xs font-medium">Company name</label>
                         <input
                             v-model="form.name"
                             type="text"
@@ -87,9 +87,9 @@ function submit() {
                     </div>
 
                     <div class="flex justify-end gap-2">
-                        <Button as="a" :href="route('tos.crews.index')" variant="ghost" size="sm">Cancel</Button>
+                        <Button as="a" :href="route('tos.companies.index')" variant="ghost" size="sm">Cancel</Button>
                         <Button :disabled="form.processing || !form.name || !form.allegiance_id" size="sm" @click="submit">
-                            Create crew
+                            Create Company
                         </Button>
                     </div>
                 </CardContent>

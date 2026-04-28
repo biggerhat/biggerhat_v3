@@ -19,6 +19,7 @@ class UpdateAllegianceRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'short_name' => ['nullable', 'string', 'max:32'],
             'type' => ['required', 'string', Rule::enum(AllegianceTypeEnum::class)],
+            'secondary_type' => ['nullable', 'string', Rule::enum(AllegianceTypeEnum::class), 'different:type'],
             'is_syndicate' => ['required', 'boolean'],
             'description' => ['nullable', 'string'],
             'logo_path' => ['nullable', 'file', 'image', 'max:30000'],

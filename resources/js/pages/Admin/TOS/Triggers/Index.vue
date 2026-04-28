@@ -11,6 +11,7 @@ import { h, ref } from 'vue';
 
 interface Trigger {
     id: number;
+    slug: string;
     name: string;
     suits: string | null;
     actions: Array<{ id: number; name: string }>;
@@ -36,8 +37,8 @@ const columns: ColumnDef<Trigger>[] = [
         header: () => h('div', {}, 'Actions'),
         cell: ({ row }) => h(AdminActions, {
             name: row.original.name,
-            editRoute: route('admin.tos.triggers.edit', row.original.id),
-            deleteRoute: route('admin.tos.triggers.delete', row.original.id),
+            editRoute: route('admin.tos.triggers.edit', row.original.slug),
+            deleteRoute: route('admin.tos.triggers.delete', row.original.slug),
         }),
     },
 ];

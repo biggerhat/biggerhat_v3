@@ -13,6 +13,7 @@ import { onMounted, ref } from 'vue';
 
 interface TriggerRow {
     id: number;
+    slug: string;
     name: string;
     suits: string | null;
     margin_cost: number | null;
@@ -51,7 +52,7 @@ const submit = () => {
         ...formInfo.value,
         action_ids: formInfo.value.action_ids.map((v) => Number.parseInt(v, 10)),
     };
-    if (props.trigger) router.post(route('admin.tos.triggers.update', props.trigger.id), payload);
+    if (props.trigger) router.post(route('admin.tos.triggers.update', props.trigger.slug), payload);
     else router.post(route('admin.tos.triggers.store'), payload);
 };
 

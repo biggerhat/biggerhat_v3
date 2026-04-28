@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import { Link } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const page = usePage<SharedData>();
+const homeHref = computed(() => page.props.currentGameSystem?.home_route ?? route('index'));
 
 defineProps<{
     title?: string;
@@ -13,7 +18,7 @@ defineProps<{
         <div class="w-full max-w-sm">
             <div class="flex flex-col gap-8">
                 <div class="flex flex-col items-center gap-4">
-                    <Link :href="route('index')" class="flex flex-col items-center gap-2 font-medium">
+                    <Link :href="homeHref" class="flex flex-col items-center gap-2 font-medium">
                         <div class="mb-1 flex h-9 w-9 items-center justify-center rounded-md">
                             <AppLogoIcon class="size-9 fill-current text-[var(--foreground)] dark:text-white" />
                         </div>

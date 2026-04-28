@@ -19,6 +19,9 @@ class StoreAllegianceCardRequest extends FormRequest
             'allegiance_id' => ['required', 'integer', 'exists:tos_allegiances,id'],
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::enum(AllegianceTypeEnum::class)],
+            // Hybrid Allegiance Cards list a second type. `different:type`
+            // keeps it from being a redundant duplicate of the primary.
+            'secondary_type' => ['nullable', 'string', Rule::enum(AllegianceTypeEnum::class), 'different:type'],
             'body' => ['nullable', 'string'],
             'primary_body' => ['nullable', 'string'],
             'image_path' => ['nullable', 'file', 'image', 'max:30000'],

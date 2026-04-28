@@ -17,6 +17,7 @@ interface AllegianceCardRow {
     name: string;
     slug: string;
     type: string;
+    secondary_type: string | null;
     body: string | null;
     primary_body: string | null;
     image_path: string | null;
@@ -42,6 +43,7 @@ const formInfo = ref({
     allegiance_id: null as number | null,
     name: '' as string,
     type: 'earth' as string,
+    secondary_type: null as string | null,
     body: null as string | null,
     primary_body: null as string | null,
     image_path: null as File | null,
@@ -83,6 +85,7 @@ onMounted(() => {
     formInfo.value.allegiance_id = props.card.allegiance_id;
     formInfo.value.name = props.card.name;
     formInfo.value.type = props.card.type;
+    formInfo.value.secondary_type = props.card.secondary_type ?? null;
     formInfo.value.body = props.card.body;
     formInfo.value.primary_body = props.card.primary_body ?? null;
     formInfo.value.sort_order = props.card.sort_order;
@@ -120,6 +123,24 @@ onMounted(() => {
                                 <SelectItem v-for="t in allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
                             </SelectContent>
                         </Select>
+                        <InputError :message="usePage().props.errors.type" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <Label for="secondary_type">Secondary Type (Hybrid only)</Label>
+                        <Select id="secondary_type" v-model="formInfo.secondary_type">
+                            <SelectTrigger>
+                                <SelectValue placeholder="None — single-type Allegiance Card" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="null">None</SelectItem>
+                                <SelectItem v-for="t in allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p class="text-[11px] text-muted-foreground">
+                            Set only when an Allegiance Card lists both Earth and Malifaux on its face. Hybrid cards apply to
+                            Allegiances of either type.
+                        </p>
+                        <InputError :message="usePage().props.errors.secondary_type" />
                     </div>
                     <div class="sm:col-span-2">
                         <Label for="name">Name</Label>

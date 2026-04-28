@@ -1640,6 +1640,12 @@ namespace App\Models\TOS{
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\AllegianceCard> $allegianceCards
+ * @property-read int|null $allegiance_cards_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Envoy> $envoys
+ * @property-read int|null $envoys_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Stratagem> $stratagems
+ * @property-read int|null $stratagems_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $units
  * @property-read int|null $units_count
  * @method static \Database\Factories\TOS\AllegianceFactory factory($count = null, $state = [])
@@ -1677,6 +1683,7 @@ namespace App\Models\TOS{
  * @property string $slug
  * @property string $name
  * @property \App\Enums\TOS\AllegianceTypeEnum $type
+ * @property \App\Enums\TOS\AllegianceTypeEnum|null $secondary_type
  * @property string|null $body
  * @property string|null $primary_body
  * @property string|null $image_path
@@ -1707,6 +1714,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereImagePath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard wherePrimaryBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSecondaryType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereSortOrder($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AllegianceCard whereType($value)
@@ -1719,7 +1727,11 @@ namespace App\Models\TOS{
 
 namespace App\Models\TOS{
 /**
- * 
+ * Rule-evaluation helpers (`canAttachTo`, `slotLocations`, `isUnique`,
+ * `hasSlotLimit`) all consult `$this->limits`. They each defensively call
+ * `loadMissing('limits')`, which is idempotent — but production callers
+ * (e.g. `CompanyController::attachAsset`) should still eager-load `limits`
+ * up front so the rule walk doesn't trigger N+1 across a large picker list.
  *
  * @property int $id
  * @property string $slug

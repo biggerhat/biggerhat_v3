@@ -17,6 +17,7 @@ use App\Models\TOS\Unit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * TOS Advanced Search — mirrors `App\Http\Controllers\Database\SearchController`
@@ -191,19 +192,22 @@ class SearchController extends Controller
                 'assets' => $assetCount,
                 'stratagems' => $stratagemCount,
             ],
-            'allegiances' => fn () => Allegiance::query()->orderBy('name')->get(['id', 'slug', 'name', 'is_syndicate'])
-                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->slug]),
-            'special_rules' => fn () => SpecialUnitRule::query()->orderBy('name')->get(['slug', 'name'])
-                ->map(fn ($r) => ['name' => $r->name, 'value' => $r->slug]),
+            // Filter dropdowns rarely change between requests — cache for 5
+            // minutes keyed by the parent table's max(updated_at) so admin
+            // edits invalidate naturally.
+            'allegiances' => fn () => $this->cachedSelect('tos.search.allegiances', Allegiance::class, fn () => Allegiance::query()->orderBy('name')->get(['id', 'slug', 'name', 'is_syndicate'])
+                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->slug])->all()),
+            'special_rules' => fn () => $this->cachedSelect('tos.search.special_rules', SpecialUnitRule::class, fn () => SpecialUnitRule::query()->orderBy('name')->get(['slug', 'name'])
+                ->map(fn ($r) => ['name' => $r->name, 'value' => $r->slug])->all()),
             'restriction_options' => fn () => AllegianceTypeEnum::toSelectOptions(),
             'action_types' => fn () => ActionTypeEnum::toSelectOptions(),
             'usage_limits' => fn () => UsageLimitEnum::toSelectOptions(),
-            'actions_list' => fn () => Action::query()->select('name')->distinct()->orderBy('name')->get()
-                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
-            'abilities_list' => fn () => Ability::query()->select('name')->distinct()->orderBy('name')->get()
-                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->name]),
-            'triggers_list' => fn () => Trigger::query()->select('name')->distinct()->orderBy('name')->get()
-                ->map(fn ($t) => ['name' => $t->name, 'value' => $t->name]),
+            'actions_list' => fn () => $this->cachedSelect('tos.search.actions', Action::class, fn () => Action::query()->select('name')->distinct()->orderBy('name')->get()
+                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->name])->all()),
+            'abilities_list' => fn () => $this->cachedSelect('tos.search.abilities', Ability::class, fn () => Ability::query()->select('name')->distinct()->orderBy('name')->get()
+                ->map(fn ($a) => ['name' => $a->name, 'value' => $a->name])->all()),
+            'triggers_list' => fn () => $this->cachedSelect('tos.search.triggers', Trigger::class, fn () => Trigger::query()->select('name')->distinct()->orderBy('name')->get()
+                ->map(fn ($t) => ['name' => $t->name, 'value' => $t->name])->all()),
             'sort_options' => [
                 ['name' => 'Name', 'value' => 'name'],
                 ['name' => 'Scrip', 'value' => 'scrip'],
@@ -227,6 +231,22 @@ class SearchController extends Controller
                     ->get(['id', 'name', 'query_params'])
                 : [],
         ]);
+    }
+
+    /**
+     * Cache a search-page filter dropdown for 5 minutes, keyed off the parent
+     * table's max(updated_at) so admin CRUD invalidates the entry transparently.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
+     * @param  callable(): array<int, array<string, string>>  $resolver
+     * @return array<int, array<string, string>>
+     */
+    private function cachedSelect(string $key, string $model, callable $resolver): array
+    {
+        $stamp = $model::query()->max('updated_at') ?? 'empty';
+        $cacheKey = "{$key}.{$stamp}";
+
+        return Cache::remember($cacheKey, 300, $resolver);
     }
 
     public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse

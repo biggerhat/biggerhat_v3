@@ -4,9 +4,12 @@ import SearchableSelect from '@/components/SearchableSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
+import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertTriangle, ArrowLeft, Crown, Lock, Plus, ShieldAlert, Trash2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+const confirm = useConfirm();
 
 interface Allegiance {
     id: number;
@@ -174,8 +177,13 @@ function detachAsset(cu: CompanyUnit, asset: AssetMin) {
     router.post(route('tos.companies.assets.detach', [props.company.slug, cu.id, asset.slug]), {}, { preserveScroll: true });
 }
 
-function deleteCompany() {
-    if (!confirm(`Delete "${props.company.name}"? This cannot be undone.`)) return;
+async function deleteCompany() {
+    if (!(await confirm({
+        title: 'Delete Company',
+        message: `Delete "${props.company.name}"? This cannot be undone.`,
+        confirmLabel: 'Delete',
+        destructive: true,
+    }))) return;
     router.post(route('tos.companies.delete', props.company.slug));
 }
 

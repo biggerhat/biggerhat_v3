@@ -31,7 +31,34 @@ class AllegianceCard extends Model
     {
         return [
             'type' => AllegianceTypeEnum::class,
+            'secondary_type' => AllegianceTypeEnum::class,
         ];
+    }
+
+    /**
+     * Every type this card counts as. Single-type cards return a one-element
+     * array; hybrid cards (those that print both Earth and Malifaux on the
+     * face) return both. Mirrors `Allegiance::types()` so any consumer can
+     * treat the card and its parent Allegiance with the same shape.
+     *
+     * @return array<int, AllegianceTypeEnum>
+     */
+    public function types(): array
+    {
+        $out = [$this->type];
+        if ($this->secondary_type !== null && $this->secondary_type !== $this->type) {
+            $out[] = $this->secondary_type;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function typeValues(): array
+    {
+        return array_map(fn (AllegianceTypeEnum $t) => $t->value, $this->types());
     }
 
     protected static function newFactory(): AllegianceCardFactory

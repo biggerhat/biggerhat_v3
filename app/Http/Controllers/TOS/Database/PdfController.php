@@ -25,31 +25,19 @@ class PdfController extends Controller
     public function download(Request $request, UnitSculpt $sculpt)
     {
         $separate = $request->boolean('separate_images');
+        $name = $sculpt->unit->name ?? 'TOS Unit';
         $images = [];
 
         if ($separate && $sculpt->front_image && $sculpt->back_image) {
             foreach (['front_image', 'back_image'] as $col) {
-                if (! Storage::disk('public')->exists($sculpt->{$col})) {
-                    continue;
+                if ($img = $this->imagePayload($sculpt->{$col}, PDFImageTypeEnum::Single, $name)) {
+                    $images[] = $img;
                 }
-                $images[] = [
-                    'url' => base64_encode((string) Storage::disk('public')->get($sculpt->{$col})),
-                    'type' => PDFImageTypeEnum::Single,
-                    'name' => $sculpt->unit->name ?? 'TOS Unit',
-                ];
             }
-        } elseif ($sculpt->combination_image && Storage::disk('public')->exists($sculpt->combination_image)) {
-            $images[] = [
-                'url' => base64_encode((string) Storage::disk('public')->get($sculpt->combination_image)),
-                'type' => PDFImageTypeEnum::Double,
-                'name' => $sculpt->unit->name ?? 'TOS Unit',
-            ];
-        } elseif ($sculpt->front_image && Storage::disk('public')->exists($sculpt->front_image)) {
-            $images[] = [
-                'url' => base64_encode((string) Storage::disk('public')->get($sculpt->front_image)),
-                'type' => PDFImageTypeEnum::Single,
-                'name' => $sculpt->unit->name ?? 'TOS Unit',
-            ];
+        } elseif ($img = $this->imagePayload($sculpt->combination_image, PDFImageTypeEnum::Double, $name)) {
+            $images[] = $img;
+        } elseif ($img = $this->imagePayload($sculpt->front_image, PDFImageTypeEnum::Single, $name)) {
+            $images[] = $img;
         }
 
         if (empty($images)) {
@@ -57,8 +45,29 @@ class PdfController extends Controller
         }
 
         $pdf = Pdf::loadView('PDF.CharacterImageBlank', ['images' => $images]);
-        $name = Str::slug(($sculpt->unit->name ?? 'tos-unit').'-'.$sculpt->slug);
+        $slug = Str::slug(($sculpt->unit->name ?? 'tos-unit').'-'.$sculpt->slug);
 
-        return $pdf->stream("{$name}.pdf");
+        return $pdf->stream("{$slug}.pdf");
+    }
+
+    /**
+     * Read a public-disk image and return the blade-template payload, or
+     * null if the path is missing/empty. Centralizes the
+     * `Storage::disk('public')->exists() → base64_encode(get())` dance that
+     * was duplicated across the three image branches.
+     *
+     * @return array{url: string, type: PDFImageTypeEnum, name: string}|null
+     */
+    private function imagePayload(?string $path, PDFImageTypeEnum $type, string $name): ?array
+    {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return [
+            'url' => base64_encode((string) Storage::disk('public')->get($path)),
+            'type' => $type,
+            'name' => $name,
+        ];
     }
 }

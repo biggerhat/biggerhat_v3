@@ -14,7 +14,7 @@ class StratagemController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Stratagem::with('allegiance:id,name,slug')->orderBy('name');
+        $query = Stratagem::with('allegiance:id,name,slug,type,secondary_type')->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

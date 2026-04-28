@@ -2,6 +2,7 @@
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
+import FlipCard from '@/components/TOS/FlipCard.vue';
 import UnitStatBlock from '@/components/TOS/UnitStatBlock.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import type { TosSelectOption } from '@/types/tos';
 import { Head, router } from '@inertiajs/vue3';
-import { Scale, X } from 'lucide-vue-next';
+import { Scale, Swords, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Side {
@@ -36,6 +37,9 @@ interface Sculpt {
     id: number;
     slug: string;
     name: string | null;
+    front_image: string | null;
+    back_image: string | null;
+    combination_image: string | null;
 }
 
 interface Unit {
@@ -92,6 +96,14 @@ function standardSide(u: Unit): Side | null {
 function glorySide(u: Unit): Side | null {
     return u.sides.find((s) => s.side === 'glory') ?? null;
 }
+
+// Pick the sculpt whose slug matches the URL — that's the variant the user
+// asked to compare. Fall back to the first sculpt if no match (legacy URLs
+// or unit-level slugs).
+function activeSculpt(u: Unit): Sculpt | null {
+    const matched = u.sculpts.find((s) => props.selected_slugs.includes(s.slug));
+    return matched ?? u.sculpts[0] ?? null;
+}
 </script>
 
 <template>
@@ -138,6 +150,19 @@ function glorySide(u: Unit): Side | null {
             >
                 <Card v-for="u in units" :key="u.id" class="overflow-hidden">
                     <CardContent class="space-y-3 p-4">
+                        <!-- Card art — flips Standard ↔ Glory on click, mirroring
+                             the unit detail page so the comparator feels like
+                             stacking the actual cards next to each other. -->
+                        <FlipCard
+                            v-if="activeSculpt(u)"
+                            :front-image="activeSculpt(u)!.front_image"
+                            :back-image="activeSculpt(u)!.back_image"
+                            :front-alt="`${u.name} (Standard)`"
+                            :back-alt="`${u.name} (Glory)`"
+                            :allegiance-slug="u.allegiances[0]?.slug ?? null"
+                            :placeholder-icon="Swords"
+                            :single-side="!activeSculpt(u)?.back_image"
+                        />
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <h3 class="truncate text-sm font-semibold">{{ u.name }}</h3>
@@ -147,7 +172,7 @@ function glorySide(u: Unit): Side | null {
                                 type="button"
                                 class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                 aria-label="Remove from comparison"
-                                @click="removeUnit(u.sculpts[0]?.slug ?? u.slug)"
+                                @click="removeUnit(activeSculpt(u)?.slug ?? u.slug)"
                             >
                                 <X class="size-3.5" />
                             </button>

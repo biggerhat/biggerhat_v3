@@ -39,6 +39,19 @@ class AllegianceCardFactory extends Factory
         ]);
     }
 
+    /**
+     * Hybrid card — prints both Earth and Malifaux on its face. Mirrors the
+     * Allegiance hybrid pattern so consumer code can call `types()` and get
+     * back two values.
+     */
+    public function hybrid(): static
+    {
+        return $this->state(fn () => [
+            'type' => AllegianceTypeEnum::Earth,
+            'secondary_type' => AllegianceTypeEnum::Malifaux,
+        ]);
+    }
+
     public function withAbilities(int $count = 2): static
     {
         return $this->afterCreating(function (AllegianceCard $card) use ($count) {

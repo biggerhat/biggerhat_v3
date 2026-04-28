@@ -21,9 +21,9 @@ class AllegianceCardAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/TOS/AllegianceCards/Index', [
-            'cards' => AllegianceCard::with('allegiance:id,name')
+            'cards' => AllegianceCard::with('allegiance:id,name,type,secondary_type')
                 ->orderBy('name')
-                ->get(['id', 'slug', 'name', 'type', 'allegiance_id', 'image_path', 'sort_order']),
+                ->get(['id', 'slug', 'name', 'type', 'secondary_type', 'allegiance_id', 'image_path', 'sort_order']),
         ]);
     }
 

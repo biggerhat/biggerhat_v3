@@ -43,3 +43,20 @@ it('forAllegiance() mirrors the allegiance type onto the card', function () {
 
     expect($card->type)->toBe(AllegianceTypeEnum::Malifaux);
 });
+
+it('hybrid card returns both Earth and Malifaux from types()', function () {
+    $card = AllegianceCard::factory()->hybrid()->create();
+
+    expect($card->fresh()->types())->toHaveCount(2)
+        ->and($card->typeValues())->toBe(['earth', 'malifaux']);
+});
+
+it('single-type card returns one entry from types()', function () {
+    $card = AllegianceCard::factory()->create([
+        'type' => AllegianceTypeEnum::Earth,
+        'secondary_type' => null,
+    ]);
+
+    expect($card->fresh()->types())->toHaveCount(1)
+        ->and($card->typeValues())->toBe(['earth']);
+});

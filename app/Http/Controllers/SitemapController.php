@@ -16,6 +16,12 @@ use App\Models\Package;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
+use App\Models\TOS\Allegiance;
+use App\Models\TOS\AllegianceCard;
+use App\Models\TOS\Asset;
+use App\Models\TOS\Envoy;
+use App\Models\TOS\Stratagem;
+use App\Models\TOS\UnitSculpt;
 use App\Models\Tournament;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Model;
@@ -175,6 +181,39 @@ class SitemapController extends Controller
                         ]);
                     }
                 });
+
+            // ─── The Other Side (TOS) ───
+            // Public landing pages — high-priority seeds for crawlers to find
+            // the per-entity walks below.
+            foreach ([
+                ['url' => route('tos.index'), 'priority' => '0.9', 'changefreq' => 'daily'],
+                ['url' => route('tos.allegiances.index'), 'priority' => '0.7', 'changefreq' => 'weekly'],
+                ['url' => route('tos.allegiances.viewByType', 'earth'), 'priority' => '0.7', 'changefreq' => 'weekly'],
+                ['url' => route('tos.allegiances.viewByType', 'malifaux'), 'priority' => '0.7', 'changefreq' => 'weekly'],
+                ['url' => route('tos.units.index'), 'priority' => '0.7', 'changefreq' => 'weekly'],
+                ['url' => route('tos.special_rules.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('tos.allegiance_cards.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('tos.envoys.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('tos.assets.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('tos.stratagems.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('tos.abilities.index'), 'priority' => '0.5', 'changefreq' => 'weekly'],
+                ['url' => route('tos.actions.index'), 'priority' => '0.5', 'changefreq' => 'weekly'],
+                ['url' => route('tos.triggers.index'), 'priority' => '0.5', 'changefreq' => 'weekly'],
+                ['url' => route('tos.search'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+                ['url' => route('tos.compare'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ] as $row) {
+                $urls->push($row);
+            }
+
+            // Per-entity walks. UnitSculpt drives the unit URL because the
+            // public unit route is /tos/units/{sculpt} (one URL per sculpt
+            // variant), mirroring Malifaux's character × first-miniature shape.
+            $this->collectByModel($urls, Allegiance::class, 'tos.allegiances.view', 'slug', priority: '0.8');
+            $this->collectByModel($urls, AllegianceCard::class, 'tos.allegiance_cards.view', 'slug', priority: '0.6');
+            $this->collectByModel($urls, Asset::class, 'tos.assets.view', 'slug', priority: '0.6');
+            $this->collectByModel($urls, Envoy::class, 'tos.envoys.view', 'slug', priority: '0.6');
+            $this->collectByModel($urls, Stratagem::class, 'tos.stratagems.view', 'slug', priority: '0.6');
+            $this->collectByModel($urls, UnitSculpt::class, 'tos.units.view', 'slug', priority: '0.7');
 
             echo '<?xml version="1.0" encoding="UTF-8"?>'.PHP_EOL;
             echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.PHP_EOL;

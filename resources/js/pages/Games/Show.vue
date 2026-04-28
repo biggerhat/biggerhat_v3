@@ -1350,10 +1350,13 @@ const healthAborts = new Map<number, AbortController>();
 // if an Inertia reload overwrites the local value before the PATCH lands.
 const pendingHealth = new Map<number, number>();
 
-const updateHealth = (member: CrewMember, delta: number) => {
-    const newHealth = Math.max(0, Math.min(member.max_health, member.current_health + delta));
+// Set health to an absolute target value (clamped to [0, max_health]). Used
+// by both the +/- buttons (via updateHealth delta wrapper) and click-to-set
+// HP bubbles. Reaching 0 routes through killMember so death-replacement and
+// soulstone-award flows fire correctly.
+const setHealth = (member: CrewMember, target: number) => {
+    const newHealth = Math.max(0, Math.min(member.max_health, target));
     if (newHealth === member.current_health) return;
-    // Optimistic update — instant UI feedback
     member.current_health = newHealth;
     pendingHealth.set(member.id, newHealth);
     if (newHealth === 0) {
@@ -1363,7 +1366,6 @@ const updateHealth = (member: CrewMember, delta: number) => {
         killMember(member);
         return;
     }
-    // Abort previous in-flight PATCH for this member
     healthAborts.get(member.id)?.abort();
     const controller = new AbortController();
     healthAborts.set(member.id, controller);
@@ -1392,6 +1394,23 @@ const updateHealth = (member: CrewMember, delta: number) => {
             }
             router.reload({ only: ['game'], preserveScroll: true });
         });
+};
+
+const updateHealth = (member: CrewMember, delta: number) => {
+    setHealth(member, member.current_health + delta);
+};
+
+// Click semantics on HP pips, mirroring PowerBarBubbles: tapping pip N sets
+// health to N, except tapping the already-active topmost pip (pip ===
+// current_health) decrements by 1. Readonly callers (observers, opponent
+// in non-solo) pass true to disable.
+const onHealthPipClick = (member: CrewMember, pip: number, readonly: boolean) => {
+    if (readonly) return;
+    if (pip === member.current_health) {
+        setHealth(member, pip - 1);
+    } else {
+        setHealth(member, pip);
+    }
 };
 
 const toggleActivated = async (member: any) => {
@@ -2165,15 +2184,16 @@ const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: s
     if (!upgradeMember.value) return;
     const current = upgradeMember.value.attached_upgrades ?? [];
     const has = current.some((u: any) => u.id === upgrade.id);
-    // When attaching a power-bar upgrade, seed current_power_bar at the max so
-    // the player can decrement it from full as they spend tokens. We resolve
-    // power_bar_count from the catalog (character_upgrades) so callers from
-    // the dialog don't have to thread it through every prop.
+    // When attaching a power-bar upgrade, seed current_power_bar at 0 — most
+    // power bars represent a counter that fills up from play (tokens earned,
+    // charges generated), not a battery that drains. Players click bubbles to
+    // increment as they accumulate. We resolve power_bar_count from the
+    // catalog (character_upgrades) so callers don't have to thread it through.
     const catalog = props.character_upgrades.find((u) => u.id === upgrade.id);
     const powerMax = catalog?.power_bar_count ?? upgrade.power_bar_count ?? null;
     const newRow: any = { id: upgrade.id, name: upgrade.name, front_image: upgrade.front_image, back_image: upgrade.back_image };
     if (powerMax !== null && powerMax > 0) {
-        newRow.current_power_bar = powerMax;
+        newRow.current_power_bar = 0;
     }
     const updated = has ? current.filter((u: any) => u.id !== upgrade.id) : [...current, newRow];
     upgradeMember.value = { ...upgradeMember.value, attached_upgrades: updated };
@@ -2221,8 +2241,10 @@ const setCrewUpgradePowerBar = async (player: any, upgradeId: number, value: num
 };
 
 const crewUpgradePowerCurrent = (player: any, upgradeId: number, max: number): number => {
+    // Default to empty (0) so the player fills the bar in as they accumulate
+    // tokens during the game. Stored value wins once they've clicked any bubble.
     const stored = player?.crew_upgrade_power_bars?.[String(upgradeId)];
-    return stored == null ? max : Math.min(max, Math.max(0, Number(stored)));
+    return stored == null ? 0 : Math.min(max, Math.max(0, Number(stored)));
 };
 
 const quickRemoveUpgrade = async (member: any, upgradeId: number) => {
@@ -4145,17 +4167,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
                                     <div class="mt-0.5 flex pl-8 sm:hidden">
                                         <div class="flex gap-0.5">
-                                            <div
+                                            <button
                                                 v-for="pip in member.max_health"
                                                 :key="'hp-m-' + pip"
-                                                class="size-2.5 rounded-sm"
-                                                :class="
+                                                type="button"
+                                                class="size-3.5 rounded-sm transition-colors"
+                                                :class="[
                                                     pip <= member.current_health
                                                         ? member.current_health <= Math.ceil(member.max_health / 2)
                                                             ? 'bg-red-400/90'
                                                             : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'
-                                                "
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
+                                                    isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
+                                                ]"
+                                                :disabled="isObserver"
+                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
+                                                @click.stop="onHealthPipClick(member, pip, isObserver)"
                                             />
                                         </div>
                                     </div>
@@ -4180,17 +4207,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Desktop: health pips inline -->
                                         <div class="hidden gap-0.5 sm:flex">
-                                            <div
+                                            <button
                                                 v-for="pip in member.max_health"
                                                 :key="'hp-' + pip"
-                                                class="size-2.5 rounded-sm"
-                                                :class="
+                                                type="button"
+                                                class="size-3 rounded-sm transition-colors"
+                                                :class="[
                                                     pip <= member.current_health
                                                         ? member.current_health <= Math.ceil(member.max_health / 2)
                                                             ? 'bg-red-400/90'
                                                             : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'
-                                                "
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
+                                                    isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
+                                                ]"
+                                                :disabled="isObserver"
+                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
+                                                @click.stop="onHealthPipClick(member, pip, isObserver)"
                                             />
                                         </div>
                                         <template v-if="!isObserver">
@@ -4545,17 +4577,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
                                     <div class="mt-0.5 flex sm:hidden" :class="isSolo ? 'pl-8' : 'pl-5'">
                                         <div class="flex gap-0.5">
-                                            <div
+                                            <button
                                                 v-for="pip in member.max_health"
                                                 :key="'ohp-m-' + pip"
-                                                class="size-2.5 rounded-sm"
-                                                :class="
+                                                type="button"
+                                                class="size-3.5 rounded-sm transition-colors"
+                                                :class="[
                                                     pip <= member.current_health
                                                         ? member.current_health <= Math.ceil(member.max_health / 2)
                                                             ? 'bg-red-400/90'
                                                             : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'
-                                                "
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
+                                                    !isSolo || isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
+                                                ]"
+                                                :disabled="!isSolo || isObserver"
+                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
+                                                @click.stop="onHealthPipClick(member, pip, !isSolo || isObserver)"
                                             />
                                         </div>
                                     </div>
@@ -4580,17 +4617,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                         <!-- Desktop: health pips inline -->
                                         <div class="hidden gap-0.5 sm:flex">
-                                            <div
+                                            <button
                                                 v-for="pip in member.max_health"
                                                 :key="'ohp-' + pip"
-                                                class="size-2.5 rounded-sm"
-                                                :class="
+                                                type="button"
+                                                class="size-3 rounded-sm transition-colors"
+                                                :class="[
                                                     pip <= member.current_health
                                                         ? member.current_health <= Math.ceil(member.max_health / 2)
                                                             ? 'bg-red-400/90'
                                                             : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10'
-                                                "
+                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
+                                                    !isSolo || isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
+                                                ]"
+                                                :disabled="!isSolo || isObserver"
+                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
+                                                @click.stop="onHealthPipClick(member, pip, !isSolo || isObserver)"
                                             />
                                         </div>
                                         <template v-if="isSolo && !isObserver">

@@ -42,6 +42,7 @@ interface Card_ {
     slug: string;
     name: string;
     type: string;
+    secondary_type: string | null;
     body: string | null;
     primary_body: string | null;
     image_path: string | null;
@@ -69,6 +70,7 @@ defineProps<{
                         {{ card.allegiance.name }}
                     </Link>
                     <Badge variant="outline" class="text-[10px] capitalize">{{ card.type }}</Badge>
+                    <Badge v-if="card.secondary_type" variant="outline" class="text-[10px] capitalize">{{ card.secondary_type }}</Badge>
                 </div>
             </template>
         </PageBanner>

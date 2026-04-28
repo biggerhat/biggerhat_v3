@@ -10,17 +10,25 @@ import { useMagicKeys, whenever } from '@vueuse/core';
 import axios from 'axios';
 import {
     BarChart3,
+    BookOpen,
+    Bot,
     Dice6,
     Hammer,
     Home,
     Library,
     Loader2,
+    Newspaper,
+    Package,
+    Scale,
     Search,
+    Shield,
     Sparkles,
     Swords,
     Tags,
     Trophy,
+    Users,
     Wand2,
+    Zap,
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, type Component } from 'vue';
 
@@ -54,6 +62,7 @@ interface QuickAction {
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
+const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
 
 const open = ref(false);
 const commandSearch = ref<CommandSearchResults | null>(null);
@@ -72,11 +81,15 @@ const goTo = (url: string) => {
  * `Command` re-invokes its default slot in a context where computed-returned
  * objects don't reliably unwrap, surfacing as `.label` / `.items` undefined
  * during mount.
+ *
+ * Two parallel arrays (one per game system) selected at template level via
+ * `v-if="isTos"` instead of one computed array — preserves the literal-array
+ * Reka requirement above.
  */
-const navigateItems: QuickAction[] = [
+const malifauxNavigateItems: QuickAction[] = [
     // Home hub doubles as the characters/factions landing — no standalone
     // index routes exist for those (only individual view pages + the home grid).
-    { name: 'Home / Browse', icon: Home, route: route('index'), keywords: 'home characters factions database browse' },
+    { name: 'Home / Browse', icon: Home, route: route('index'), keywords: 'home characters factions database browse malifaux' },
     { name: 'Keywords', icon: Tags, route: route('keywords.index'), keywords: 'keywords' },
     { name: 'Character Upgrades', icon: Sparkles, route: route('upgrades.character.index'), keywords: 'upgrades character' },
     { name: 'Crew Upgrades', icon: Sparkles, route: route('upgrades.crew.index'), keywords: 'upgrades crew' },
@@ -86,11 +99,31 @@ const navigateItems: QuickAction[] = [
     { name: 'Random Character', icon: Dice6, route: route('characters.random'), keywords: 'random dice surprise' },
 ];
 
-const myStuffItems: QuickAction[] = [
+const tosNavigateItems: QuickAction[] = [
+    // No Home entry — the sidebar logo handles routing back to tos.index.
+    { name: 'Allegiances', icon: Shield, route: route('tos.allegiances.index'), keywords: 'allegiances factions tos' },
+    { name: 'Units', icon: Swords, route: route('tos.units.index'), keywords: 'units tos models' },
+    { name: 'Special Rules', icon: BookOpen, route: route('tos.special_rules.index'), keywords: 'special rules tos commander titan fireteam squad' },
+    { name: 'Allegiance Cards', icon: BookOpen, route: route('tos.allegiance_cards.index'), keywords: 'allegiance cards tos' },
+    { name: 'Envoys', icon: Bot, route: route('tos.envoys.index'), keywords: 'envoys tos syndicates' },
+    { name: 'Assets', icon: Package, route: route('tos.assets.index'), keywords: 'assets tos vehicles gear' },
+    { name: 'Stratagems', icon: Newspaper, route: route('tos.stratagems.index'), keywords: 'stratagems tos' },
+    { name: 'Abilities', icon: Zap, route: route('tos.abilities.index'), keywords: 'abilities tos' },
+    { name: 'Actions', icon: Swords, route: route('tos.actions.index'), keywords: 'actions tos' },
+    { name: 'Triggers', icon: Swords, route: route('tos.triggers.index'), keywords: 'triggers tos' },
+    { name: 'Advanced Search', icon: Search, route: route('tos.search'), keywords: 'advanced search filter tos' },
+    { name: 'Compare Units', icon: Scale, route: route('tos.compare'), keywords: 'compare units tos' },
+];
+
+const malifauxMyStuffItems: QuickAction[] = [
     { name: 'My Games', icon: Swords, route: route('games.index'), keywords: 'games tracker my' },
     { name: 'My Tournaments', icon: Trophy, route: route('tournaments.index'), keywords: 'tournaments my' },
     { name: 'My Collection', icon: Library, route: route('collection.index'), keywords: 'collection miniatures owned' },
     { name: 'My Stats', icon: BarChart3, route: route('stats.my'), keywords: 'stats win rate record' },
+];
+
+const tosMyStuffItems: QuickAction[] = [
+    { name: 'Company Builder', icon: Users, route: route('tos.companies.index'), keywords: 'company builder tos build' },
 ];
 
 /** Lazy catalog load — kicked off on first idle after mount so first open is warm. */
@@ -180,9 +213,20 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
                  before the dynamic catalog has resolved. Static arrays + literal
                  heading strings so Reka's Command default-slot re-evaluation
                  doesn't trip on unwrapped computed refs. -->
-            <CommandGroup heading="Navigate">
+            <CommandGroup v-if="isTos" heading="Navigate (The Other Side)">
                 <CommandItem
-                    v-for="action in navigateItems"
+                    v-for="action in tosNavigateItems"
+                    :key="action.route"
+                    :value="`navigate:${action.name}:${action.keywords ?? ''}`"
+                    @select="goTo(action.route)"
+                >
+                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                    {{ action.name }}
+                </CommandItem>
+            </CommandGroup>
+            <CommandGroup v-else heading="Navigate">
+                <CommandItem
+                    v-for="action in malifauxNavigateItems"
                     :key="action.route"
                     :value="`navigate:${action.name}:${action.keywords ?? ''}`"
                     @select="goTo(action.route)"
@@ -193,9 +237,20 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             </CommandGroup>
 
             <CommandSeparator v-if="isLoggedIn" />
-            <CommandGroup v-if="isLoggedIn" heading="My Stuff">
+            <CommandGroup v-if="isLoggedIn && isTos" heading="My Stuff">
                 <CommandItem
-                    v-for="action in myStuffItems"
+                    v-for="action in tosMyStuffItems"
+                    :key="action.route"
+                    :value="`mine:${action.name}:${action.keywords ?? ''}`"
+                    @select="goTo(action.route)"
+                >
+                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                    {{ action.name }}
+                </CommandItem>
+            </CommandGroup>
+            <CommandGroup v-else-if="isLoggedIn" heading="My Stuff">
+                <CommandItem
+                    v-for="action in malifauxMyStuffItems"
                     :key="action.route"
                     :value="`mine:${action.name}:${action.keywords ?? ''}`"
                     @select="goTo(action.route)"

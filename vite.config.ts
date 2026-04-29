@@ -75,26 +75,14 @@ export default defineConfig({
         },
     },
     build: {
-        // Disabling gzip-size reporting frees the deploy host's tightest
-        // memory phase: Rollup otherwise gzips every chunk in-memory after
-        // bundling just to print a size column. The Apr-28 prod deploy was
-        // SIGKILL'd by the kernel during this exact step.
-        reportCompressedSize: false,
-        // Be explicit — Vite's default is `false` for production, but stating
-        // it ensures no plugin or env override flips it on. Sourcemaps roughly
-        // double the transform-phase memory pressure.
         sourcemap: false,
-        // Esbuild-based minification — significantly lower memory than terser.
-        minify: 'esbuild',
         // Target evergreen browsers (Edge 88+ / Chrome 87+ / Firefox 78+ /
-        // Safari 14+). Skipping older-browser polyfills shrinks the transform
-        // graph so esbuild emits less code per file and the working set is
-        // smaller during bundling.
+        // Safari 14+) so esbuild emits less downleveled code — smaller
+        // bundles for users.
         target: 'es2022',
         rollupOptions: {
-            // Tighter chunking to keep any single rollup task's working set
-            // smaller. TipTap and ProseMirror are split because together they
-            // were the biggest single chunk (~420 kB).
+            // Vendor splitting for runtime cache hit rate — frequent app
+            // changes don't bust the heavy TipTap/ProseMirror/UI chunks.
             output: {
                 manualChunks: (id) => {
                     if (id.includes('node_modules')) {

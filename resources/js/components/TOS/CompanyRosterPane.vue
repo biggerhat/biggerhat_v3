@@ -1,24 +1,17 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Crown, Lock, Package, Plus, Swords, UserMinus, Users, X } from 'lucide-vue-next';
+import { Crown, Lock, Package, Plus, UserMinus, Users, X } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface SpecialRule {
     id: number;
     slug: string;
     name: string;
-}
-
-interface Sculpt {
-    id: number;
-    slug: string;
-    name: string | null;
-    front_image: string | null;
-    back_image: string | null;
-    combination_image: string | null;
 }
 
 interface UnitMin {
@@ -30,7 +23,6 @@ interface UnitMin {
     restriction: string | null;
     combined_arms_child_id: number | null;
     special_unit_rules: SpecialRule[];
-    sculpts?: Sculpt[];
 }
 
 interface AssetLimit {
@@ -57,11 +49,13 @@ interface CompanyUnit {
     assets: AssetMin[];
 }
 
-defineProps<{
+const props = defineProps<{
     renderableUnits: CompanyUnit[];
     childByParent: Map<number, CompanyUnit>;
     /** Tailwind background class for the allegiance, e.g. `bg-kingsempire`. */
     allegianceBg: string;
+    allegianceSlug: string;
+    allegianceColorSlug: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -71,15 +65,9 @@ const emit = defineEmits<{
     (e: 'detach', cu: CompanyUnit, asset: AssetMin): void;
 }>();
 
-function activeSculpt(cu: CompanyUnit): Sculpt | null {
-    if (!cu.unit.sculpts?.length) return null;
-    return cu.unit.sculpts.find((s) => s.id === cu.sculpt_id) ?? cu.unit.sculpts[0] ?? null;
-}
-
-function thumbSrc(cu: CompanyUnit): string | null {
-    const s = activeSculpt(cu);
-    return s?.combination_image ?? s?.front_image ?? null;
-}
+const accentTintBg = computed(() =>
+    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60',
+);
 
 function slotLocations(asset: AssetMin): string[] {
     return (asset.limits ?? [])
@@ -124,17 +112,14 @@ function slotLocations(asset: AssetMin): string[] {
                     class="relative flex w-full items-center gap-2 px-3 py-2 text-left"
                     @click="emit('preview', cu)"
                 >
-                    <!-- Sculpt thumbnail or category icon -->
+                    <!-- Allegiance-tinted role marker -->
                     <div
-                        v-if="thumbSrc(cu)"
-                        class="relative size-12 shrink-0 overflow-hidden rounded-md ring-1 ring-border/60"
+                        :class="[
+                            'relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-border/60',
+                            accentTintBg,
+                        ]"
                     >
-                        <img
-                            :src="thumbSrc(cu) as string"
-                            :alt="cu.unit.name"
-                            class="h-full w-full object-cover"
-                            loading="lazy"
-                        />
+                        <AllegianceLogo :allegiance="allegianceSlug" class-name="size-7 opacity-70" />
                         <TooltipProvider v-if="cu.is_commander">
                             <Tooltip>
                                 <TooltipTrigger as-child>
@@ -147,16 +132,6 @@ function slotLocations(asset: AssetMin): string[] {
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                    </div>
-                    <div
-                        v-else
-                        :class="[
-                            'flex size-12 shrink-0 items-center justify-center rounded-md',
-                            cu.is_commander ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted/60 text-muted-foreground',
-                        ]"
-                    >
-                        <Crown v-if="cu.is_commander" class="size-5" />
-                        <Swords v-else class="size-5" />
                     </div>
 
                     <div class="min-w-0 flex-1">

@@ -206,6 +206,8 @@ const noop = () => {};
                 :renderable-units="renderableUnits"
                 :child-by-parent="childByParentUnitId"
                 :allegiance-bg="accentBg"
+                :allegiance-slug="company.allegiance.slug"
+                :allegiance-color-slug="company.allegiance.color_slug"
                 @preview="noop"
                 @remove="noop"
                 @attach="noop"

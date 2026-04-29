@@ -7,6 +7,7 @@ export interface Auth {
     permissions: string[];
     can_publish_posts: boolean;
     can_access_admin: boolean;
+    can_view_tos: boolean;
     is_super_admin: boolean;
     impersonating: { as: { id: number; name: string }; leave_url: string } | null;
     collection_miniature_ids: number[];

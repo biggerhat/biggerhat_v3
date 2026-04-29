@@ -1,26 +1,16 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
-import CardImage from '@/components/TOS/CardImage.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { CircleX, Crown, Search, Swords } from 'lucide-vue-next';
+import { CircleX, Crown, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface SpecialRule {
     id: number;
     slug: string;
     name: string;
-}
-
-interface Sculpt {
-    id: number;
-    slug: string;
-    name: string | null;
-    front_image: string | null;
-    back_image: string | null;
-    combination_image: string | null;
 }
 
 interface UnitMin {
@@ -31,7 +21,6 @@ interface UnitMin {
     scrip: number;
     restriction: string | null;
     special_unit_rules: SpecialRule[];
-    sculpts?: Sculpt[];
     hire_category?: 'direct' | 'neutral';
 }
 
@@ -59,6 +48,9 @@ const commanders = computed(() => {
 
 const accentBg = computed(() =>
     props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}` : 'bg-primary/40',
+);
+const accentTintBg = computed(() =>
+    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-primary/5',
 );
 </script>
 
@@ -106,14 +98,9 @@ const accentBg = computed(() =>
                     @click="emit('preview', c)"
                 >
                     <div :class="['h-1 w-full', accentBg]" />
-                    <CardImage
-                        :src="c.sculpts?.[0]?.combination_image ?? c.sculpts?.[0]?.front_image ?? null"
-                        :alt="c.name"
-                        :allegiance-slug="allegianceSlug"
-                        :placeholder-icon="Swords"
-                        rounded-class=""
-                        aspect-class="aspect-[5/4]"
-                    />
+                    <div :class="['flex aspect-[5/2] w-full items-center justify-center', accentTintBg]">
+                        <AllegianceLogo :allegiance="allegianceSlug" class-name="size-12 opacity-70 sm:size-14" />
+                    </div>
                     <div class="flex flex-1 flex-col gap-1.5 p-3">
                         <div class="flex items-baseline justify-between gap-2">
                             <span class="truncate text-sm font-semibold">{{ c.name }}</span>

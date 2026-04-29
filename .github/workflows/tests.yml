@@ -36,7 +36,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Node Dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader

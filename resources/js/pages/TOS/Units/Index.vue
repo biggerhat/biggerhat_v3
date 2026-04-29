@@ -107,23 +107,23 @@ function setRule(slug: string | null) {
         />
 
         <div class="container mx-auto sm:px-4">
-            <div class="mb-4 flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    :class="['rounded-md px-2.5 py-1 text-xs font-medium transition-colors', !filterParams.rule ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent']"
+            <!-- Special-rule filter chips — segmented control aligned with the rest of TOS -->
+            <div class="mb-4 flex flex-wrap items-center gap-1">
+                <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Rule:</span>
+                <Button
+                    :variant="!filterParams.rule ? 'default' : 'outline'"
+                    size="sm"
+                    class="h-6 px-2 text-[11px]"
                     @click="setRule(null)"
-                >
-                    All
-                </button>
-                <button
+                >All</Button>
+                <Button
                     v-for="r in special_rules"
                     :key="r.value"
-                    type="button"
-                    :class="['rounded-md px-2.5 py-1 text-xs font-medium transition-colors', filterParams.rule === r.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent']"
+                    :variant="filterParams.rule === r.value ? 'default' : 'outline'"
+                    size="sm"
+                    class="h-6 px-2 text-[11px]"
                     @click="setRule(r.value)"
-                >
-                    {{ r.name }}
-                </button>
+                >{{ r.name }}</Button>
             </div>
 
             <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">

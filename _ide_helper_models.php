@@ -1819,6 +1819,8 @@ namespace App\Models\TOS{
  * @property int $user_id
  * @property int $allegiance_id
  * @property string $slug
+ * @property string|null $share_code
+ * @property bool $is_public
  * @property string $name
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -1836,8 +1838,10 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereAllegianceId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereShareCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUserId($value)
@@ -1854,6 +1858,7 @@ namespace App\Models\TOS{
  * @property int $id
  * @property int $company_id
  * @property int $unit_id
+ * @property int|null $sculpt_id
  * @property bool $is_commander
  * @property bool $is_combined_arms_child
  * @property int $position
@@ -1862,6 +1867,7 @@ namespace App\Models\TOS{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Asset> $assets
  * @property-read int|null $assets_count
  * @property-read \App\Models\TOS\Company $company
+ * @property-read \App\Models\TOS\UnitSculpt|null $sculpt
  * @property-read \App\Models\TOS\Unit $unit
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit newQuery()
@@ -1872,6 +1878,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereIsCombinedArmsChild($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereIsCommander($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit wherePosition($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereSculptId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereUnitId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CompanyUnit whereUpdatedAt($value)
  * @mixin \Eloquent

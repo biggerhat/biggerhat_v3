@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TOS\Database;
 
 use App\Http\Controllers\Controller;
 use App\Models\TOS\AllegianceCard;
+use App\Models\TOS\Unit;
 use Illuminate\Http\Request;
 
 class AllegianceCardController extends Controller
@@ -40,8 +41,20 @@ class AllegianceCardController extends Controller
             'primaryAbilities', 'primaryActions.triggers', 'primaryActions.typeLinks', 'primaryTriggers',
         ]);
 
+        // Cross-reference: every Unit that hires into this card's parent
+        // Allegiance — gives the user a one-click bridge from card → roster.
+        // Mirrors the Malifaux Keyword-view "characters with this keyword"
+        // pattern. We slim hard because this is just a navigation surface.
+        $relatedUnits = Unit::query()
+            ->notCombinedArmsChild()
+            ->whereHas('allegiances', fn ($q) => $q->where('tos_allegiances.id', $card->allegiance_id))
+            ->with('sculpts:id,unit_id,slug,combination_image,front_image')
+            ->orderBy('name')
+            ->get(['id', 'slug', 'name', 'title', 'scrip']);
+
         return inertia('TOS/AllegianceCards/View', [
             'card' => $card,
+            'related_units' => $relatedUnits,
         ]);
     }
 }

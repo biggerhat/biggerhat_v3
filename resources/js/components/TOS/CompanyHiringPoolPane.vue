@@ -11,6 +11,15 @@ interface SpecialRule {
     name: string;
 }
 
+interface Sculpt {
+    id: number;
+    slug: string;
+    name: string | null;
+    front_image: string | null;
+    back_image: string | null;
+    combination_image: string | null;
+}
+
 interface UnitMin {
     id: number;
     slug: string;
@@ -20,6 +29,7 @@ interface UnitMin {
     restriction: string | null;
     combined_arms_child_id: number | null;
     special_unit_rules: SpecialRule[];
+    sculpts?: Sculpt[];
     hire_category?: 'direct' | 'neutral';
 }
 
@@ -40,6 +50,7 @@ const emit = defineEmits<{
     (e: 'update:filterText', v: string): void;
     (e: 'update:poolFilter', v: PoolFilter): void;
     (e: 'update:poolSort', v: PoolSort): void;
+    (e: 'preview', u: UnitMin): void;
     (e: 'hire', u: UnitMin, asCommander: boolean): void;
 }>();
 
@@ -60,6 +71,11 @@ function isCommanderEligible(u: UnitMin): boolean {
 
 function unaffordable(u: UnitMin): boolean {
     return u.scrip > props.scripRemaining;
+}
+
+function thumbSrc(u: UnitMin): string | null {
+    const s = u.sculpts?.[0];
+    return s?.combination_image ?? s?.front_image ?? null;
 }
 </script>
 
@@ -123,11 +139,29 @@ function unaffordable(u: UnitMin): boolean {
                     No matching units.
                 </div>
                 <div v-else class="space-y-1">
-                    <div
+                    <button
                         v-for="u in pool"
                         :key="u.id"
-                        class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-xs transition-colors hover:border-primary/40 hover:bg-accent/40"
+                        type="button"
+                        class="flex w-full items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-left text-xs transition-colors hover:border-primary/40 hover:bg-accent/40"
+                        @click="emit('preview', u)"
                     >
+                        <div
+                            v-if="thumbSrc(u)"
+                            class="size-9 shrink-0 overflow-hidden rounded ring-1 ring-border/60"
+                        >
+                            <img
+                                :src="thumbSrc(u) as string"
+                                :alt="u.name"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
+                            />
+                        </div>
+                        <div v-else class="flex size-9 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
+                            <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-500" />
+                            <UserPlus v-else class="size-4" />
+                        </div>
+
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5">
                                 <Crown
@@ -153,7 +187,7 @@ function unaffordable(u: UnitMin): boolean {
                                 size="icon"
                                 class="size-7 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400"
                                 title="Add as Commander"
-                                @click="emit('hire', u, true)"
+                                @click.stop="emit('hire', u, true)"
                             >
                                 <Crown class="size-4" />
                             </Button>
@@ -163,12 +197,12 @@ function unaffordable(u: UnitMin): boolean {
                                 class="size-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                 :disabled="hasCommander && unaffordable(u)"
                                 :title="hasCommander && unaffordable(u) ? 'Over the Scrip budget' : 'Hire unit'"
-                                @click="emit('hire', u, false)"
+                                @click.stop="emit('hire', u, false)"
                             >
                                 <UserPlus class="size-4" />
                             </Button>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </div>
         </CardContent>

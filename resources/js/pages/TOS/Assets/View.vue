@@ -6,7 +6,7 @@ import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Package } from 'lucide-vue-next';
+import { ArrowLeft, Package, Swords } from 'lucide-vue-next';
 
 interface Limit {
     id: number;
@@ -44,8 +44,20 @@ interface Asset {
     limits: Limit[];
 }
 
+interface CompatibleUnit {
+    id: number;
+    slug: string;
+    name: string;
+    title: string | null;
+    scrip: number;
+    sculpts: Array<{ id: number; slug: string; combination_image: string | null; front_image: string | null }>;
+    special_unit_rules: Array<{ id: number; slug: string; name: string }>;
+    allegiances: Array<{ id: number; slug: string; name: string }>;
+}
+
 defineProps<{
     asset: Asset;
+    compatible_units: CompatibleUnit[];
 }>();
 
 const describeLimit = (l: Limit): string => {
@@ -137,6 +149,44 @@ const describeLimit = (l: Limit): string => {
                     </CardContent>
                 </div>
             </Card>
+
+            <!-- Cross-reference: every Unit the rules say can carry this Asset -->
+            <section v-if="compatible_units.length">
+                <div class="mb-2 flex items-center justify-between">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Compatible Units
+                    </h2>
+                    <span class="text-[11px] text-muted-foreground">
+                        {{ compatible_units.length }} {{ compatible_units.length === 1 ? 'unit' : 'units' }}
+                    </span>
+                </div>
+                <div class="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                    <a
+                        v-for="u in compatible_units"
+                        :key="u.id"
+                        :href="u.sculpts[0] ? route('tos.units.view', u.sculpts[0].slug) : '#'"
+                        class="group flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+                    >
+                        <img
+                            v-if="u.sculpts[0]?.combination_image || u.sculpts[0]?.front_image"
+                            :src="u.sculpts[0].combination_image ?? u.sculpts[0].front_image as string"
+                            :alt="u.name"
+                            class="size-9 shrink-0 rounded object-cover ring-1 ring-border/60"
+                            loading="lazy"
+                        />
+                        <div v-else class="flex size-9 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
+                            <Swords class="size-4" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-medium leading-tight group-hover:text-primary">{{ u.name }}</p>
+                            <p class="truncate text-[10px] text-muted-foreground">
+                                <span v-if="u.title" class="italic">{{ u.title }}</span>
+                                <span v-else class="tabular-nums">{{ u.scrip }}s</span>
+                            </p>
+                        </div>
+                    </a>
+                </div>
+            </section>
         </div>
     </div>
 </template>

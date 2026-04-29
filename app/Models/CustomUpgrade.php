@@ -13,7 +13,6 @@ use Illuminate\Support\Str;
 
 /**
  * @property FactionEnum|null $faction
- *
  * @mixin IdeHelperCustomUpgrade
  */
 #[ObservedBy(CustomUpgradeObserver::class)]

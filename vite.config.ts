@@ -86,6 +86,11 @@ export default defineConfig({
         sourcemap: false,
         // Esbuild-based minification — significantly lower memory than terser.
         minify: 'esbuild',
+        // Target evergreen browsers (Edge 88+ / Chrome 87+ / Firefox 78+ /
+        // Safari 14+). Skipping older-browser polyfills shrinks the transform
+        // graph so esbuild emits less code per file and the working set is
+        // smaller during bundling.
+        target: 'es2022',
         rollupOptions: {
             // Tighter chunking to keep any single rollup task's working set
             // smaller. TipTap and ProseMirror are split because together they

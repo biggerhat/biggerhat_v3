@@ -80,15 +80,27 @@ export default defineConfig({
         // bundling just to print a size column. The Apr-28 prod deploy was
         // SIGKILL'd by the kernel during this exact step.
         reportCompressedSize: false,
+        // Be explicit — Vite's default is `false` for production, but stating
+        // it ensures no plugin or env override flips it on. Sourcemaps roughly
+        // double the transform-phase memory pressure.
+        sourcemap: false,
+        // Esbuild-based minification — significantly lower memory than terser.
+        minify: 'esbuild',
         rollupOptions: {
+            // Tighter chunking to keep any single rollup task's working set
+            // smaller. TipTap and ProseMirror are split because together they
+            // were the biggest single chunk (~420 kB).
             output: {
                 manualChunks: (id) => {
                     if (id.includes('node_modules')) {
-                        if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
+                        if (id.includes('@tiptap')) return 'vendor-tiptap';
+                        if (id.includes('prosemirror')) return 'vendor-prosemirror';
                         if (id.includes('@tanstack')) return 'vendor-tanstack';
                         if (id.includes('radix-vue') || id.includes('reka-ui') || id.includes('vaul-vue')) return 'vendor-ui';
                         if (id.includes('lucide')) return 'vendor-icons';
-                        if (id.includes('vue') || id.includes('@inertiajs') || id.includes('@vueuse')) return 'vendor-core';
+                        if (id.includes('@inertiajs')) return 'vendor-inertia';
+                        if (id.includes('@vueuse')) return 'vendor-vueuse';
+                        if (id.includes('vue')) return 'vendor-vue';
                     }
                 },
             },

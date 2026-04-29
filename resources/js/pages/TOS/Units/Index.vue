@@ -145,7 +145,7 @@ function setRule(slug: string | null) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="u in units.data" :key="u.id">
+                        <TableRow v-for="u in units.data" :key="u.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">
                                 <Link
                                     v-if="u.sculpts[0]"

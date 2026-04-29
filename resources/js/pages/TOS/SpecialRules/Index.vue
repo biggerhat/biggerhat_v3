@@ -7,6 +7,7 @@ import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import TosText from '@/components/TosText.vue';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
@@ -18,6 +19,7 @@ interface Rule {
     slug: string;
     name: string;
     description: string | null;
+    units_count?: number;
 }
 
 const props = defineProps<{
@@ -37,7 +39,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
 <template>
     <Head title="Special Unit Rules — TOS" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Special Unit Rules" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -71,12 +78,16 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     <TableHeader>
                         <TableRow>
                             <TableHead>Name</TableHead>
+                            <TableHead class="w-24 text-right">Units</TableHead>
                             <TableHead>Description</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="r in rules.data" :key="r.id">
+                        <TableRow v-for="r in rules.data" :key="r.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">{{ r.name }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums text-muted-foreground">
+                                {{ r.units_count ?? 0 }}
+                            </TableCell>
                             <TableCell class="text-xs text-muted-foreground">
                                 <TosText v-if="r.description" :text="r.description" />
                             </TableCell>
@@ -86,14 +97,28 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
             </div>
 
             <div v-else-if="rules.data.length" class="grid gap-3 sm:grid-cols-2">
-                <Card v-for="r in rules.data" :key="r.id">
+                <Card
+                    v-for="r in rules.data"
+                    :key="r.id"
+                    class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                >
                     <CardContent class="p-4">
-                        <p class="mb-1 text-sm font-semibold">{{ r.name }}</p>
+                        <div class="mb-1 flex items-center justify-between gap-2">
+                            <p class="text-sm font-semibold">{{ r.name }}</p>
+                            <Badge v-if="r.units_count" variant="outline" class="shrink-0 text-[10px] tabular-nums">
+                                {{ r.units_count }} {{ r.units_count === 1 ? 'unit' : 'units' }}
+                            </Badge>
+                        </div>
                         <p v-if="r.description" class="text-xs text-muted-foreground"><TosText :text="r.description" /></p>
                     </CardContent>
                 </Card>
             </div>
-            <EmptyState v-else :icon="BookOpen" title="No special rules yet" />
+            <EmptyState
+                v-else
+                :icon="BookOpen"
+                title="No special rules match"
+                description="Special Unit Rules tag a Unit Card with a behaviour (Commander, Fireteam, Squad, etc.). Try clearing your search."
+            />
 
             <InertiaPagination v-if="!isLoading" :paginator="rules" :only="['rules', 'name_search', 'page_view']" />
         </div>

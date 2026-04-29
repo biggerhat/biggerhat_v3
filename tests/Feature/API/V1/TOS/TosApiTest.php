@@ -6,7 +6,6 @@ use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
-use App\Models\TOS\Envoy;
 use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Trigger;
@@ -80,14 +79,6 @@ it('lists TOS assets', function () {
     Asset::factory()->count(2)->create();
 
     $this->getJson('/api/v1/tos/assets')
-        ->assertOk()
-        ->assertJsonCount(2, 'data');
-});
-
-it('lists TOS envoys', function () {
-    Envoy::factory()->count(2)->create();
-
-    $this->getJson('/api/v1/tos/envoys')
         ->assertOk()
         ->assertJsonCount(2, 'data');
 });

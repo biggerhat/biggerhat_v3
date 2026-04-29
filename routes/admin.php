@@ -44,7 +44,6 @@ use App\Http\Controllers\TOS\Admin\ActionAdminController as TosActionAdminContro
 use App\Http\Controllers\TOS\Admin\AllegianceAdminController as TosAllegianceAdminController;
 use App\Http\Controllers\TOS\Admin\AllegianceCardAdminController as TosAllegianceCardAdminController;
 use App\Http\Controllers\TOS\Admin\AssetAdminController as TosAssetAdminController;
-use App\Http\Controllers\TOS\Admin\EnvoyAdminController as TosEnvoyAdminController;
 use App\Http\Controllers\TOS\Admin\SculptAdminController as TosSculptAdminController;
 use App\Http\Controllers\TOS\Admin\SpecialUnitRuleAdminController as TosSpecialUnitRuleAdminController;
 use App\Http\Controllers\TOS\Admin\StratagemAdminController as TosStratagemAdminController;
@@ -433,15 +432,6 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
             Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_allegiance_card');
             Route::post('/update/{card}', 'update')->name('update')->middleware('permission:edit_tos_allegiance_card');
             Route::post('/delete/{card}', 'delete')->name('delete')->middleware('permission:delete_tos_allegiance_card');
-        });
-
-        Route::controller(TosEnvoyAdminController::class)->prefix('envoys')->name('envoys.')->group(function () {
-            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_envoy');
-            Route::get('/edit/{envoy}', 'edit')->name('edit')->middleware('permission:view_tos_envoy');
-            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_envoy');
-            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_envoy');
-            Route::post('/update/{envoy}', 'update')->name('update')->middleware('permission:edit_tos_envoy');
-            Route::post('/delete/{envoy}', 'delete')->name('delete')->middleware('permission:delete_tos_envoy');
         });
 
         Route::controller(TosAssetAdminController::class)->prefix('assets')->name('assets.')->group(function () {

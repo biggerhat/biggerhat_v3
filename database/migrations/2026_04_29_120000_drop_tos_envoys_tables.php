@@ -4,24 +4,32 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Envoy Cards were superseded by the new Allegiance Card format that carries
+ * the same cross-allegiance content via the Standard / Primary tier split.
+ * Drop the orphaned tables, models, and routes — see the same-day
+ * `apr-15-game-mode` branch removal commit for the corresponding code wipe.
+ *
+ * The `down()` recreates the table shape so a rollback restores the schema,
+ * but the data is gone — Envoys aren't seeded any more.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
+        Schema::dropIfExists('tos_envoy_ability');
+        Schema::dropIfExists('tos_envoys');
+    }
+
+    public function down(): void
+    {
         Schema::create('tos_envoys', function (Blueprint $table) {
             $table->id();
-            // Points at the Syndicate (or Allegiance) that brings this Envoy
-            // rule into play. A Syndicate's Envoy enables its units to be
-            // hired into any Allegiance whose type matches `restriction`.
             $table->foreignId('allegiance_id')->constrained('tos_allegiances')->cascadeOnDelete();
             $table->string('slug')->unique();
             $table->string('name');
             $table->string('keyword')->nullable();
-            // Hardcoded literal because the matching enum was removed when
-            // Envoy Cards were superseded by the Allegiance Card Primary tier
-            // (apr-15-game-mode branch). Historical migrations must remain
-            // self-contained.
-            $table->string('restriction')->default('earth');
+            $table->string('restriction', 16);
             $table->longText('body')->nullable();
             $table->string('image_path')->nullable();
             $table->unsignedSmallInteger('sort_order')->default(0);
@@ -33,14 +41,7 @@ return new class extends Migration
             $table->foreignId('envoy_id')->constrained('tos_envoys')->cascadeOnDelete();
             $table->foreignId('ability_id')->constrained('tos_abilities')->cascadeOnDelete();
             $table->unsignedSmallInteger('sort_order')->default(0);
-
             $table->unique(['envoy_id', 'ability_id']);
         });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('tos_envoy_ability');
-        Schema::dropIfExists('tos_envoys');
     }
 };

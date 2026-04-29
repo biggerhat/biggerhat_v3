@@ -14,7 +14,10 @@ class SpecialUnitRuleController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = SpecialUnitRule::orderBy('sort_order')->orderBy('name');
+        $query = SpecialUnitRule::query()
+            ->withCount('units')
+            ->orderBy('sort_order')
+            ->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

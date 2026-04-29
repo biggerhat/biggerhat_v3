@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import PageBanner from '@/components/PageBanner.vue';
-import SearchableSelect from '@/components/SearchableSelect.vue';
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import CompanyHiringPoolPane from '@/components/TOS/CompanyHiringPoolPane.vue';
+import CompanyRosterPane from '@/components/TOS/CompanyRosterPane.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowLeft, Crown, Lock, Plus, ShieldAlert, Trash2, X } from 'lucide-vue-next';
+import { AlertTriangle, ArrowLeft, Package, Plus, Search, ShieldAlert, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-const confirm = useConfirm();
+const confirmDialog = useConfirm();
 
 interface Allegiance {
     id: number;
@@ -86,28 +90,47 @@ const props = defineProps<{
     available_assets: AssetMin[];
 }>();
 
-const unitToAdd = ref<string | null>(null);
-const addAsCommander = ref(false);
-const assetSelections = ref<Record<number, string | null>>({});
+// ── Hiring pool state ────────────────────────────────────────────────────
+const filterText = ref('');
+type PoolFilter = 'all' | 'direct' | 'neutral' | 'commander';
+const poolFilter = ref<PoolFilter>('all');
+type PoolSort = 'name' | 'scrip';
+const poolSort = ref<PoolSort>('name');
 
-const unitOptions = computed(() =>
-    props.hireable_units.map((u) => {
-        const cat = u.hire_category === 'neutral' ? '· Neutral' : '';
-        const cost = `(${u.scrip}s)`;
-        const label = `${u.name}${u.title ? ` — ${u.title}` : ''} ${cost} ${cat}`.trim();
-        return { value: String(u.id), name: label };
-    }),
-);
+const isCommanderEligible = (u: UnitMin) => u.special_unit_rules.some((r) => r.slug === 'commander');
 
-const assetOptions = computed(() =>
-    props.available_assets.map((a) => {
-        const isUnique = (a.limits ?? []).some((l) => l.limit_type === 'unique');
-        const taken = a.already_attached && isUnique ? ' · already in Company' : '';
-        const tag = isUnique ? ' · Unique' : '';
-        return { value: String(a.id), name: `${a.name} (${a.scrip_cost}s)${tag}${taken}` };
-    }),
-);
+const augmentedPool = computed(() => {
+    const text = filterText.value.trim().toLowerCase();
+    const filtered = props.hireable_units.filter((u) => {
+        if (text && !u.name.toLowerCase().includes(text) && !(u.title?.toLowerCase().includes(text) ?? false)) {
+            return false;
+        }
+        switch (poolFilter.value) {
+            case 'direct':
+                return u.hire_category === 'direct';
+            case 'neutral':
+                return u.hire_category === 'neutral';
+            case 'commander':
+                return isCommanderEligible(u);
+            default:
+                return true;
+        }
+    });
 
+    return [...filtered].sort((a, b) => {
+        if (poolSort.value === 'scrip') return a.scrip - b.scrip || a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name);
+    });
+});
+
+const filterCounts = computed(() => ({
+    all: props.hireable_units.length,
+    direct: props.hireable_units.filter((u) => u.hire_category === 'direct').length,
+    neutral: props.hireable_units.filter((u) => u.hire_category === 'neutral').length,
+    commander: props.hireable_units.filter(isCommanderEligible).length,
+}));
+
+// ── Budget helpers ───────────────────────────────────────────────────────
 const budgetPercent = computed(() => {
     if (props.scrip_budget <= 0) return 0;
     return Math.min(100, Math.round((props.scrip_spent / props.scrip_budget) * 100));
@@ -121,36 +144,42 @@ const budgetBarClass = computed(() => {
     return 'bg-emerald-500';
 });
 
-// Combined Arms parent → children pairing — used to nest the auto-attached
-// child rows under their parent in the rendered list, mirroring how the
-// rulebook prints the two cards side-by-side.
+// ── Roster helpers — Commander pinned, then by position ──────────────────
 const childByParentUnitId = computed(() => {
     const map = new Map<number, CompanyUnit>();
     for (const cu of props.company.company_units) {
         if (cu.is_combined_arms_child) {
-            const parent = props.company.company_units.find((p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child);
-            if (parent) {
-                map.set(parent.unit.id, cu);
-            }
+            const parent = props.company.company_units.find(
+                (p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child,
+            );
+            if (parent) map.set(parent.unit.id, cu);
         }
     }
     return map;
 });
 
-const renderableUnits = computed(() => props.company.company_units.filter((cu) => !cu.is_combined_arms_child));
+const renderableUnits = computed(() =>
+    [...props.company.company_units]
+        .filter((cu) => !cu.is_combined_arms_child)
+        .sort((a, b) => {
+            if (a.is_commander && !b.is_commander) return -1;
+            if (!a.is_commander && b.is_commander) return 1;
+            return a.position - b.position;
+        }),
+);
 
-function addUnit() {
-    if (!unitToAdd.value) return;
+const totalModels = computed(() => props.company.company_units.length);
+
+const accentBg = computed(() =>
+    props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40',
+);
+
+// ── Hire / remove ────────────────────────────────────────────────────────
+function hireUnit(unit: UnitMin, asCommander = false) {
     router.post(
         route('tos.companies.units.add', props.company.slug),
-        { unit_id: Number(unitToAdd.value), is_commander: addAsCommander.value },
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                unitToAdd.value = null;
-                addAsCommander.value = false;
-            },
-        },
+        { unit_id: unit.id, is_commander: asCommander },
+        { preserveScroll: true },
     );
 }
 
@@ -158,16 +187,32 @@ function removeUnit(cu: CompanyUnit) {
     router.post(route('tos.companies.units.remove', [props.company.slug, cu.id]), {}, { preserveScroll: true });
 }
 
-function attachAsset(cu: CompanyUnit) {
-    const id = assetSelections.value[cu.id];
-    if (!id) return;
+// ── Asset attach dialog ──────────────────────────────────────────────────
+const assetDialogOpen = ref(false);
+const assetDialogTarget = ref<CompanyUnit | null>(null);
+const assetDialogFilter = ref('');
+
+function openAssetDialog(cu: CompanyUnit) {
+    assetDialogTarget.value = cu;
+    assetDialogFilter.value = '';
+    assetDialogOpen.value = true;
+}
+
+const filteredAssets = computed(() => {
+    const text = assetDialogFilter.value.trim().toLowerCase();
+    if (!text) return props.available_assets;
+    return props.available_assets.filter((a) => a.name.toLowerCase().includes(text));
+});
+
+function attachAsset(asset: AssetMin) {
+    if (!assetDialogTarget.value) return;
     router.post(
-        route('tos.companies.assets.attach', [props.company.slug, cu.id]),
-        { asset_id: Number(id) },
+        route('tos.companies.assets.attach', [props.company.slug, assetDialogTarget.value.id]),
+        { asset_id: asset.id },
         {
             preserveScroll: true,
             onSuccess: () => {
-                assetSelections.value[cu.id] = null;
+                assetDialogOpen.value = false;
             },
         },
     );
@@ -177,14 +222,8 @@ function detachAsset(cu: CompanyUnit, asset: AssetMin) {
     router.post(route('tos.companies.assets.detach', [props.company.slug, cu.id, asset.slug]), {}, { preserveScroll: true });
 }
 
-async function deleteCompany() {
-    if (!(await confirm({
-        title: 'Delete Company',
-        message: `Delete "${props.company.name}"? This cannot be undone.`,
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
-    router.post(route('tos.companies.delete', props.company.slug));
+function isAssetUnique(asset: AssetMin) {
+    return (asset.limits ?? []).some((l) => l.limit_type === 'unique');
 }
 
 function slotLocations(asset: AssetMin): string[] {
@@ -192,167 +231,239 @@ function slotLocations(asset: AssetMin): string[] {
         .filter((l) => l.limit_type === 'slot' && l.parameter_value)
         .map((l) => (l.parameter_value as string).toLowerCase());
 }
+
+// ── Delete ───────────────────────────────────────────────────────────────
+async function deleteCompany() {
+    if (
+        !(await confirmDialog({
+            title: 'Delete Company',
+            message: `Delete "${props.company.name}"? This cannot be undone.`,
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    ) {
+        return;
+    }
+    router.post(route('tos.companies.delete', props.company.slug));
+}
 </script>
 
 <template>
     <Head :title="`${company.name} — TOS Company`" />
-    <div class="relative">
-        <PageBanner :title="company.name" class="mb-2">
-            <template #subtitle>
-                <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <span>{{ company.allegiance.name }}</span>
-                    <span class="capitalize">· {{ company.allegiance.type }}</span>
-                </div>
-            </template>
-        </PageBanner>
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
 
-        <div class="container mx-auto space-y-4 sm:px-4">
-            <div class="flex items-center justify-between gap-2">
-                <Link :href="route('tos.companies.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                    <ArrowLeft class="size-3" /> All Companies
-                </Link>
-                <Button variant="ghost" size="sm" class="gap-1 text-xs text-rose-600 hover:bg-rose-500/10" @click="deleteCompany">
-                    <Trash2 class="size-3" /> Delete
-                </Button>
-            </div>
-
-            <!-- Validity warnings — Commander missing is the showstopper -->
-            <div
-                v-if="!has_commander"
-                class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300"
+        <div class="container mx-auto space-y-3 px-3 pt-4 sm:px-4">
+            <Link
+                :href="route('tos.companies.index')"
+                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-                <ShieldAlert class="mt-0.5 size-4 shrink-0" />
-                <div>
-                    <p class="font-medium">Commander not set</p>
-                    <p class="text-xs opacity-90">
-                        A Company needs exactly one Commander to provide its Scrip budget. Add a Commander unit
-                        below and toggle "Commander" before clicking Add.
-                    </p>
-                </div>
-            </div>
+                <ArrowLeft class="size-3" /> All Companies
+            </Link>
 
-            <!-- Budget bar — Malifaux Crew Builder parity. Shows budget,
-                 spent, remaining, and a coloured progress bar. -->
-            <Card>
-                <CardContent class="p-4">
-                    <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                        <div class="flex items-baseline gap-3">
-                            <span class="font-semibold">Scrip Budget</span>
-                            <span class="tabular-nums text-muted-foreground">
-                                <span class="font-medium text-foreground">{{ scrip_spent }}</span>
-                                /
-                                <span class="font-medium text-foreground">{{ scrip_budget }}</span>
-                                spent
-                            </span>
+            <!-- ═══ Header card ═══ -->
+            <Card class="overflow-hidden">
+                <div :class="['h-1 w-full', accentBg]" />
+                <CardContent class="p-3 sm:p-4">
+                    <div class="flex items-start gap-3">
+                        <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-border/50 sm:size-14">
+                            <AllegianceLogo :allegiance="company.allegiance.slug" class-name="size-8 sm:size-10" />
                         </div>
-                        <Badge
-                            :class="overBudget ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'"
-                            variant="outline"
+                        <div class="min-w-0 flex-1">
+                            <h1 class="truncate text-lg font-bold leading-tight sm:text-xl">{{ company.name }}</h1>
+                            <p class="truncate text-xs text-muted-foreground">
+                                <Link
+                                    :href="route('tos.allegiances.view', company.allegiance.slug)"
+                                    class="hover:text-foreground hover:underline"
+                                >{{ company.allegiance.name }}</Link>
+                                <span class="mx-1 opacity-50">·</span>
+                                <span class="capitalize">{{ company.allegiance.type }}</span>
+                            </p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-8 gap-1 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                            @click="deleteCompany"
                         >
-                            <template v-if="overBudget">
-                                <AlertTriangle class="mr-1 size-3" /> {{ -scrip_remaining }} over
-                            </template>
-                            <template v-else>{{ scrip_remaining }} remaining</template>
-                        </Badge>
+                            <Trash2 class="size-3.5" />
+                            <span class="hidden sm:inline">Delete</span>
+                        </Button>
                     </div>
-                    <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-muted-foreground">Scrip:</span>
+                            <span
+                                class="font-semibold tabular-nums"
+                                :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
+                            >{{ scrip_spent }} / {{ scrip_budget }}</span>
+                        </div>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-muted-foreground">Models:</span>
+                            <span class="font-semibold tabular-nums">{{ totalModels }}</span>
+                        </div>
+                        <div class="ml-auto">
+                            <Badge
+                                v-if="overBudget"
+                                variant="outline"
+                                class="border-rose-500/40 bg-rose-500/10 text-[11px] text-rose-700 dark:text-rose-400"
+                            >
+                                <AlertTriangle class="mr-1 size-3" /> {{ -scrip_remaining }} over budget
+                            </Badge>
+                            <Badge
+                                v-else-if="scrip_budget > 0"
+                                variant="outline"
+                                class="border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-400"
+                            >{{ scrip_remaining }} remaining</Badge>
+                            <Badge v-else variant="outline" class="text-[11px]">No Commander yet</Badge>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div
                             class="h-full transition-all duration-300 ease-out"
                             :class="budgetBarClass"
                             :style="{ width: `${budgetPercent}%` }"
                         />
                     </div>
-                    <p v-if="scrip_budget === 0" class="mt-2 text-[11px] italic text-muted-foreground">
-                        Hire a Commander to set the Scrip budget.
+                </CardContent>
+            </Card>
+
+            <!-- Validity: Commander missing -->
+            <div
+                v-if="!has_commander"
+                class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300"
+            >
+                <ShieldAlert class="mt-0.5 size-4 shrink-0" />
+                <div class="min-w-0">
+                    <p class="font-medium">Commander not set</p>
+                    <p class="text-xs opacity-90">
+                        A Company needs exactly one Commander to provide its Scrip budget. Use the Hiring Pool below to add a Commander
+                        unit (the crown icon adds them in the right role).
                     </p>
-                </CardContent>
-            </Card>
-
-            <!-- Unit picker -->
-            <Card>
-                <CardContent class="space-y-3 p-4">
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Add a unit</p>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <div class="min-w-[260px] flex-1">
-                            <SearchableSelect v-model="unitToAdd" :options="unitOptions" placeholder="Choose a hireable unit…" />
-                        </div>
-                        <label v-if="!has_commander" class="flex items-center gap-1 text-xs text-muted-foreground">
-                            <input v-model="addAsCommander" type="checkbox" class="rounded" />
-                            Add as Commander
-                        </label>
-                        <Button :disabled="!unitToAdd" size="sm" class="gap-1" @click="addUnit">
-                            <Plus class="size-3" /> Add
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div v-if="!renderableUnits.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-                No units in this Company yet. Pick a Commander first to set the Scrip budget.
+                </div>
             </div>
 
-            <!-- Company unit list -->
-            <Card v-for="cu in renderableUnits" :key="cu.id" class="overflow-hidden">
-                <CardContent class="space-y-2 p-4">
-                    <!-- Parent unit row -->
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-baseline gap-2">
-                                <Crown v-if="cu.is_commander" class="size-3 shrink-0 text-amber-500" />
-                                <span class="text-sm font-semibold">{{ cu.unit.name }}</span>
-                                <span v-if="cu.unit.title" class="text-[11px] italic text-muted-foreground">{{ cu.unit.title }}</span>
-                                <Badge v-if="cu.is_commander" class="bg-amber-500/10 text-[9px] text-amber-700 dark:text-amber-400">Commander</Badge>
-                                <Badge v-if="cu.unit.restriction" variant="outline" class="text-[9px] capitalize">Neutral {{ cu.unit.restriction }}</Badge>
-                                <Badge v-for="r in cu.unit.special_unit_rules" :key="r.id" variant="outline" class="text-[9px]">{{ r.name }}</Badge>
-                            </div>
-                            <p class="text-[11px] text-muted-foreground">
-                                <span :class="cu.is_commander ? 'text-emerald-600 dark:text-emerald-400' : ''">
-                                    {{ cu.is_commander ? `+${cu.unit.scrip}` : `${cu.unit.scrip}` }} Scrip
-                                </span>
-                            </p>
-                        </div>
+            <!-- ═══ Two-pane (lg+) / Tabs (mobile) ═══ -->
+            <div class="hidden lg:grid lg:grid-cols-5 lg:gap-4">
+                <div class="lg:col-span-3">
+                    <CompanyRosterPane
+                        :renderable-units="renderableUnits"
+                        :child-by-parent="childByParentUnitId"
+                        @remove="removeUnit"
+                        @attach="openAssetDialog"
+                        @detach="detachAsset"
+                    />
+                </div>
+                <div class="lg:col-span-2">
+                    <CompanyHiringPoolPane
+                        v-model:filter-text="filterText"
+                        v-model:pool-filter="poolFilter"
+                        v-model:pool-sort="poolSort"
+                        :pool="augmentedPool"
+                        :counts="filterCounts"
+                        :has-commander="has_commander"
+                        :scrip-remaining="scrip_remaining"
+                        @hire="hireUnit"
+                    />
+                </div>
+            </div>
+
+            <Tabs default-value="roster" class="lg:hidden">
+                <TabsList class="grid w-full grid-cols-2">
+                    <TabsTrigger value="roster">
+                        Roster
+                        <Badge v-if="renderableUnits.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            {{ renderableUnits.length }}
+                        </Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="pool">
+                        Hiring Pool
+                        <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ filterCounts.all }}</Badge>
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="roster" class="mt-3">
+                    <CompanyRosterPane
+                        :renderable-units="renderableUnits"
+                        :child-by-parent="childByParentUnitId"
+                        @remove="removeUnit"
+                        @attach="openAssetDialog"
+                        @detach="detachAsset"
+                    />
+                </TabsContent>
+                <TabsContent value="pool" class="mt-3">
+                    <CompanyHiringPoolPane
+                        v-model:filter-text="filterText"
+                        v-model:pool-filter="poolFilter"
+                        v-model:pool-sort="poolSort"
+                        :pool="augmentedPool"
+                        :counts="filterCounts"
+                        :has-commander="has_commander"
+                        :scrip-remaining="scrip_remaining"
+                        @hire="hireUnit"
+                    />
+                </TabsContent>
+            </Tabs>
+        </div>
+
+        <!-- Asset attach dialog -->
+        <Dialog v-model:open="assetDialogOpen">
+            <DialogContent class="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Attach Asset</DialogTitle>
+                    <DialogDescription>
+                        <span v-if="assetDialogTarget">
+                            Pick an Asset to attach to <strong>{{ assetDialogTarget.unit.name }}</strong>.
+                        </span>
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="relative">
+                    <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input v-model="assetDialogFilter" placeholder="Search assets…" class="pl-9" />
+                </div>
+                <div class="-mx-2 max-h-[50vh] overflow-y-auto px-2">
+                    <div v-if="!filteredAssets.length" class="py-6 text-center text-xs text-muted-foreground">No assets match.</div>
+                    <div v-else class="space-y-1">
                         <button
+                            v-for="a in filteredAssets"
+                            :key="a.id"
                             type="button"
-                            class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            aria-label="Remove unit"
-                            @click="removeUnit(cu)"
+                            :disabled="isAssetUnique(a) && a.already_attached"
+                            class="group flex w-full items-center gap-2 rounded-md border bg-card px-3 py-2 text-left text-xs transition-colors hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                            @click="attachAsset(a)"
                         >
-                            <X class="size-3.5" />
+                            <Package class="size-4 shrink-0 text-muted-foreground" />
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="truncate font-medium">{{ a.name }}</span>
+                                    <Badge v-if="isAssetUnique(a)" variant="outline" class="px-1 py-0 text-[9px]">Unique</Badge>
+                                    <Badge
+                                        v-if="a.already_attached"
+                                        variant="outline"
+                                        class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
+                                    >In Company</Badge>
+                                </div>
+                                <div v-if="slotLocations(a).length" class="mt-0.5 flex gap-1">
+                                    <span
+                                        v-for="loc in slotLocations(a)"
+                                        :key="loc"
+                                        class="text-[9px] uppercase tracking-wider text-muted-foreground"
+                                    >{{ loc }}</span>
+                                </div>
+                            </div>
+                            <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ a.scrip_cost }}s</span>
+                            <Plus class="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                         </button>
                     </div>
-
-                    <!-- Combined Arms child — rendered nested, can't be removed independently -->
-                    <div
-                        v-if="childByParentUnitId.get(cu.unit.id)"
-                        class="ml-4 rounded border-l-2 border-amber-500/40 bg-amber-500/5 p-2"
-                    >
-                        <div class="flex items-center gap-2 text-xs">
-                            <Lock class="size-3 text-amber-600 dark:text-amber-400" />
-                            <span class="font-medium">{{ childByParentUnitId.get(cu.unit.id)?.unit.name }}</span>
-                            <Badge class="bg-amber-500/10 text-[9px] text-amber-700 dark:text-amber-400">Combined Arms</Badge>
-                            <span class="text-[10px] italic text-muted-foreground">Auto-attached with parent</span>
-                        </div>
-                    </div>
-
-                    <!-- Attached assets -->
-                    <div v-if="cu.assets.length" class="flex flex-wrap gap-1">
-                        <Badge v-for="a in cu.assets" :key="a.id" variant="outline" class="text-[10px]">
-                            {{ a.name }} ({{ a.scrip_cost }}s)
-                            <span v-for="loc in slotLocations(a)" :key="loc" class="ml-1 text-[9px] uppercase tracking-wider text-muted-foreground">{{ loc }}</span>
-                            <button type="button" class="ml-1 text-muted-foreground hover:text-rose-600" @click="detachAsset(cu, a)">×</button>
-                        </Badge>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <div class="min-w-[200px] flex-1">
-                            <SearchableSelect v-model="assetSelections[cu.id]" :options="assetOptions" placeholder="Attach an Asset…" />
-                        </div>
-                        <Button :disabled="!assetSelections[cu.id]" size="sm" variant="outline" class="text-xs" @click="attachAsset(cu)">
-                            Attach
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" @click="assetDialogOpen = false">Cancel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

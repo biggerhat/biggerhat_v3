@@ -14,7 +14,10 @@ class ActionController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Action::with('triggers:id,name,suits,margin_cost,timing,body', 'typeLinks')->orderBy('name');
+        $query = Action::query()
+            ->with('triggers:id,name,suits,margin_cost,timing,body', 'typeLinks')
+            ->withCount('unitSides')
+            ->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

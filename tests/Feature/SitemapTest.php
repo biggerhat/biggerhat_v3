@@ -2,7 +2,6 @@
 
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
-use App\Models\TOS\Envoy;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
@@ -24,7 +23,6 @@ it('includes TOS landing routes', function () {
         '/tos',
         '/tos/allegiances',
         '/tos/units',
-        '/tos/envoys',
         '/tos/stratagems',
         '/tos/assets',
         '/tos/special-rules',
@@ -40,7 +38,6 @@ it('includes TOS landing routes', function () {
 it('includes per-entity TOS rows when records exist', function () {
     $allegiance = Allegiance::factory()->create();
     $asset = Asset::factory()->create();
-    $envoy = Envoy::factory()->create();
     $stratagem = Stratagem::factory()->create();
     $unit = Unit::factory()->create();
     $sculpt = UnitSculpt::factory()->for($unit, 'unit')->create();
@@ -49,7 +46,6 @@ it('includes per-entity TOS rows when records exist', function () {
 
     expect($body)->toContain($allegiance->slug);
     expect($body)->toContain($asset->slug);
-    expect($body)->toContain($envoy->slug);
     expect($body)->toContain($stratagem->slug);
     expect($body)->toContain($sculpt->slug);
 });

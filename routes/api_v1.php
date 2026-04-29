@@ -22,7 +22,6 @@ use App\Http\Controllers\API\V1\TOS\ActionController as TosActionController;
 use App\Http\Controllers\API\V1\TOS\AllegianceCardController as TosAllegianceCardController;
 use App\Http\Controllers\API\V1\TOS\AllegianceController as TosAllegianceController;
 use App\Http\Controllers\API\V1\TOS\AssetController as TosAssetController;
-use App\Http\Controllers\API\V1\TOS\EnvoyController as TosEnvoyController;
 use App\Http\Controllers\API\V1\TOS\SpecialUnitRuleController as TosSpecialUnitRuleController;
 use App\Http\Controllers\API\V1\TOS\StratagemController as TosStratagemController;
 use App\Http\Controllers\API\V1\TOS\TriggerController as TosTriggerController;
@@ -71,7 +70,6 @@ Route::prefix('tos')->name('tos.')->group(function () {
     Route::apiResource('allegiance-cards', TosAllegianceCardController::class)->only(['index', 'show'])->parameter('allegiance-cards', 'allegianceCard');
     Route::apiResource('units', TosUnitController::class)->only(['index', 'show']);
     Route::apiResource('assets', TosAssetController::class)->only(['index', 'show']);
-    Route::apiResource('envoys', TosEnvoyController::class)->only(['index', 'show']);
     Route::apiResource('stratagems', TosStratagemController::class)->only(['index', 'show']);
     // SpecialUnitRule's URL parameter would default to {special_unit_rule}; we use the simpler {rule} path.
     Route::get('special-unit-rules', [TosSpecialUnitRuleController::class, 'index'])->name('special_unit_rules.index');

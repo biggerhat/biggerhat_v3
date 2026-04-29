@@ -119,7 +119,6 @@ const adminGroups: AdminNavGroup[] = [
         items: [
             { title: 'Allegiances', href: route('admin.tos.allegiances.index'), icon: Shield, permission: 'view_tos_allegiance' },
             { title: 'Allegiance Cards', href: route('admin.tos.allegiance_cards.index'), icon: BookOpen, permission: 'view_tos_allegiance_card' },
-            { title: 'Envoys', href: route('admin.tos.envoys.index'), icon: Shield, permission: 'view_tos_envoy' },
             { title: 'Assets', href: route('admin.tos.assets.index'), icon: Package, permission: 'view_tos_asset' },
             { title: 'Stratagems', href: route('admin.tos.stratagems.index'), icon: Newspaper, permission: 'view_tos_stratagem' },
         ],

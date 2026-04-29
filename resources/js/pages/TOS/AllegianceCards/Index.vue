@@ -50,7 +50,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
 <template>
     <Head title="Allegiance Cards — TOS" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Allegiance Cards" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -90,7 +95,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="c in cards.data" :key="c.id">
+                        <TableRow v-for="c in cards.data" :key="c.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">
                                 <Link :href="route('tos.allegiance_cards.view', c.slug)" class="hover:underline">{{ c.name }}</Link>
                             </TableCell>
@@ -138,7 +143,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     </Card>
                 </Link>
             </div>
-            <EmptyState v-else :icon="BookOpen" title="No allegiance cards yet" />
+            <EmptyState
+                v-else
+                :icon="BookOpen"
+                title="No allegiance cards match"
+                description="Allegiance Cards carry the Standard and Primary tier rules for an Allegiance. Try clearing your search."
+            />
 
             <InertiaPagination v-if="!isLoading" :paginator="cards" :only="['cards', 'name_search', 'page_view']" />
         </div>

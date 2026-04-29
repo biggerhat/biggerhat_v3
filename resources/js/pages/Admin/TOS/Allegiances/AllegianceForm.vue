@@ -122,13 +122,13 @@ onMounted(() => {
                             </Select>
                             <p class="text-[11px] text-muted-foreground">
                                 Set only when an Allegiance lists both Earth and Malifaux on its card. Hybrid Allegiances pull
-                                Neutral hires, Envoys, and type-restricted Stratagems from both sides.
+                                Neutral hires and type-restricted Stratagems from both sides.
                             </p>
                             <InputError :message="usePage().props.errors.secondary_type" />
                         </div>
                         <div class="flex items-center gap-2">
                             <Checkbox id="is_syndicate" v-model:checked="formInfo.is_syndicate" />
-                            <Label for="is_syndicate">Syndicate (hireable into matching-type allegiances via Envoy)</Label>
+                            <Label for="is_syndicate">Syndicate (cross-allegiance group within a type)</Label>
                             <InputError :message="usePage().props.errors.is_syndicate" />
                         </div>
                         <div class="flex flex-col space-y-1.5">

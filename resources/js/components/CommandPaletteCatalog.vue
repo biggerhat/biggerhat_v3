@@ -12,7 +12,7 @@
  * `<CommandInput>`'s model.
  */
 import { CommandGroup, CommandItem, CommandSeparator, useCommand } from '@/components/ui/command';
-import { Bot, Layers, Newspaper, Package, Shield, Sparkles, Swords, Tags, Users } from 'lucide-vue-next';
+import { Layers, Newspaper, Package, Shield, Sparkles, Swords, Tags, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface CommandEntry {
@@ -28,7 +28,6 @@ interface CommandSearchResults {
     packages?: CommandEntry[];
     tos_allegiances?: CommandEntry[];
     tos_units?: CommandEntry[];
-    tos_envoys?: CommandEntry[];
     tos_stratagems?: CommandEntry[];
 }
 
@@ -144,18 +143,6 @@ const hasQuery = computed(() => (filterState.search ?? '').trim().length > 0);
             >
                 <Swords class="mr-2 size-4 text-muted-foreground" />
                 {{ u.name }}
-            </CommandItem>
-        </CommandGroup>
-
-        <CommandGroup v-if="catalog?.tos_envoys?.length" heading="TOS — Envoys">
-            <CommandItem
-                v-for="e in catalog.tos_envoys"
-                :key="`tos-envoy-${e.route}`"
-                :value="`tos-envoy:${e.name}`"
-                @select="emit('select', e.route)"
-            >
-                <Bot class="mr-2 size-4 text-muted-foreground" />
-                {{ e.name }}
             </CommandItem>
         </CommandGroup>
 

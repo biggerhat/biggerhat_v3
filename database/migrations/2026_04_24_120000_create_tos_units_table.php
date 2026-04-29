@@ -27,8 +27,7 @@ return new class extends Migration
             // Neutral-side hireability — when set and the unit has no
             // Allegiance attachments (or alongside them), the unit is
             // hireable by ANY Allegiance of the matching type (rulebook
-            // "Neutral (Earth)" / "Neutral (Malifaux)" pool). Mirrors the
-            // shape of Envoy.restriction.
+            // "Neutral (Earth)" / "Neutral (Malifaux)" pool).
             $table->string('restriction', 16)->nullable();
             // Self-FK for Combined Arms — points to the embedded child Unit
             // Card (rulebook p. 11). Nullable; set on parent Unit only.

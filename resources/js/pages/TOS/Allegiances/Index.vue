@@ -89,7 +89,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="a in allegiances.data" :key="a.id">
+                        <TableRow v-for="a in allegiances.data" :key="a.id" class="transition-colors hover:bg-muted/40">
                             <TableCell>
                                 <Link :href="route('tos.allegiances.view', a.slug)">
                                     <AllegianceLogo :allegiance="a.slug" class-name="size-8" />

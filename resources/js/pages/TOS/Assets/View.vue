@@ -57,13 +57,20 @@ const describeLimit = (l: Limit): string => {
 
 <template>
     <Head :title="`${asset.name} — Asset`" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner :title="asset.name" class="mb-2">
             <template #subtitle>
-                <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <span class="tabular-nums">{{ asset.scrip_cost }} Scrip</span>
-                    <span v-if="asset.disable_count != null">· Disable {{ asset.disable_count }}</span>
-                    <span v-if="asset.scrap_count != null">· Scrap {{ asset.scrap_count }}</span>
+                <div class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                    <Badge class="bg-cyan-500/10 text-[10px] tabular-nums text-cyan-700 dark:text-cyan-400">
+                        {{ asset.scrip_cost }} Scrip
+                    </Badge>
+                    <Badge v-if="asset.disable_count != null" variant="outline" class="text-[10px]">Disable {{ asset.disable_count }}</Badge>
+                    <Badge v-if="asset.scrap_count != null" variant="outline" class="text-[10px]">Scrap {{ asset.scrap_count }}</Badge>
                 </div>
             </template>
         </PageBanner>

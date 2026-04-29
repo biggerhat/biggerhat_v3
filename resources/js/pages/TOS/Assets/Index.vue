@@ -55,7 +55,12 @@ const limitLabel = (l: Limit): string => {
 
 <template>
     <Head title="TOS Assets" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Assets" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -95,7 +100,7 @@ const limitLabel = (l: Limit): string => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="a in assets.data" :key="a.id">
+                        <TableRow v-for="a in assets.data" :key="a.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">
                                 <Link :href="route('tos.assets.view', a.slug)" class="hover:underline">{{ a.name }}</Link>
                             </TableCell>
@@ -140,7 +145,12 @@ const limitLabel = (l: Limit): string => {
                     </Card>
                 </Link>
             </div>
-            <EmptyState v-else :icon="Package" title="No assets yet" />
+            <EmptyState
+                v-else
+                :icon="Package"
+                title="No assets match"
+                description="Assets are gear, vehicles, and constructs hired alongside Units. Try clearing your search."
+            />
 
             <InertiaPagination v-if="!isLoading" :paginator="assets" :only="['assets', 'name_search', 'page_view']" />
         </div>

@@ -47,7 +47,6 @@ class Allegiance extends Model
         static::deleting(function (self $allegiance) {
             $allegiance->units()->detach();
             $allegiance->allegianceCards()->get()->each->delete();
-            $allegiance->envoys()->get()->each->delete();
             $allegiance->stratagems()->get()->each->delete();
         });
     }
@@ -55,11 +54,6 @@ class Allegiance extends Model
     public function allegianceCards(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(AllegianceCard::class);
-    }
-
-    public function envoys(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(Envoy::class);
     }
 
     public function stratagems(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -72,7 +66,7 @@ class Allegiance extends Model
      * a one-element array; hybrid Allegiances (those that print both Earth
      * and Malifaux on their card) return both. Used by every scope that
      * needs to OR-match a type-derived check (Neutral pool, Stratagem
-     * applicability, Envoy restriction).
+     * applicability, Neutral hireability).
      *
      * @return array<int, AllegianceTypeEnum>
      */

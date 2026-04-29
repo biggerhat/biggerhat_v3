@@ -192,13 +192,6 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::TosAllegianceCard)]
     case DeleteTosAllegianceCard = 'delete_tos_allegiance_card';
 
-    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
-    case ViewTosEnvoy = 'view_tos_envoy';
-    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
-    case EditTosEnvoy = 'edit_tos_envoy';
-    #[PermissionGroup(PermissionGroupEnum::TosEnvoy)]
-    case DeleteTosEnvoy = 'delete_tos_envoy';
-
     #[PermissionGroup(PermissionGroupEnum::TosUnit)]
     case ViewTosUnit = 'view_tos_unit';
     #[PermissionGroup(PermissionGroupEnum::TosUnit)]

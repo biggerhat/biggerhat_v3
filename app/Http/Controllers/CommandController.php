@@ -9,7 +9,6 @@ use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
 use App\Models\TOS\Allegiance as TosAllegiance;
-use App\Models\TOS\Envoy as TosEnvoy;
 use App\Models\TOS\Stratagem as TosStratagem;
 use App\Models\TOS\Unit as TosUnit;
 use App\Models\Upgrade;
@@ -96,13 +95,6 @@ class CommandController extends Controller
             })
             ->values();
 
-        $tosEnvoys = TosEnvoy::orderBy('name', 'ASC')->get()->map(function (TosEnvoy $e) {
-            return [
-                'name' => $e->name,
-                'route' => route('tos.envoys.view', ['envoy' => $e->slug]),
-            ];
-        });
-
         $tosStratagems = TosStratagem::orderBy('name', 'ASC')->get()->map(function (TosStratagem $s) {
             return [
                 'name' => $s->name,
@@ -119,7 +111,6 @@ class CommandController extends Controller
             'packages' => $packages,
             'tos_allegiances' => $tosAllegiances,
             'tos_units' => $tosUnits,
-            'tos_envoys' => $tosEnvoys,
             'tos_stratagems' => $tosStratagems,
         ]);
     }

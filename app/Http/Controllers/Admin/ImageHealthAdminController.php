@@ -17,7 +17,6 @@ class ImageHealthAdminController extends Controller
     private const TARGETS = [
         ['table' => 'tos_allegiances', 'columns' => ['logo_path']],
         ['table' => 'tos_allegiance_cards', 'columns' => ['image_path']],
-        ['table' => 'tos_envoys', 'columns' => ['image_path']],
         ['table' => 'tos_assets', 'columns' => ['image_path']],
         ['table' => 'tos_stratagems', 'columns' => ['image_path']],
         ['table' => 'blog_posts', 'columns' => ['featured_image']],

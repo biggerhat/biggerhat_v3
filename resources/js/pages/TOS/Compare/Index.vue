@@ -108,7 +108,12 @@ function activeSculpt(u: Unit): Sculpt | null {
 
 <template>
     <Head title="Compare Units — TOS" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Compare Units" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -117,8 +122,9 @@ function activeSculpt(u: Unit): Sculpt | null {
             </template>
         </PageBanner>
 
-        <div class="container mx-auto space-y-4 sm:px-4">
-            <div class="flex flex-wrap items-center gap-2">
+        <!-- Sticky picker — stays accessible while scrolling cards below -->
+        <div class="sticky top-0 z-20 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <div class="container mx-auto flex flex-wrap items-center gap-2 py-2 sm:px-4">
                 <div v-if="canAddMore" class="min-w-[260px] flex-1 sm:max-w-md">
                     <SearchableSelect
                         v-model="pickerSlot"
@@ -127,10 +133,16 @@ function activeSculpt(u: Unit): Sculpt | null {
                         @update:modelValue="pushUnit"
                     />
                 </div>
-                <Button v-if="units.length" variant="ghost" size="sm" class="text-xs" @click="clearAll">
+                <span v-if="units.length" class="text-[11px] text-muted-foreground">
+                    {{ units.length }} of {{ max_units }} selected
+                </span>
+                <Button v-if="units.length" variant="ghost" size="sm" class="ml-auto text-xs" @click="clearAll">
                     <X class="size-3" /> Clear all
                 </Button>
             </div>
+        </div>
+
+        <div class="container mx-auto space-y-4 sm:px-4">
 
             <EmptyState
                 v-if="!units.length"

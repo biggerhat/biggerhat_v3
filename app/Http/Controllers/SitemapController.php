@@ -19,7 +19,6 @@ use App\Models\Token;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
-use App\Models\TOS\Envoy;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\UnitSculpt;
 use App\Models\Tournament;
@@ -193,7 +192,6 @@ class SitemapController extends Controller
                 ['url' => route('tos.units.index'), 'priority' => '0.7', 'changefreq' => 'weekly'],
                 ['url' => route('tos.special_rules.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
                 ['url' => route('tos.allegiance_cards.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
-                ['url' => route('tos.envoys.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
                 ['url' => route('tos.assets.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
                 ['url' => route('tos.stratagems.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
                 ['url' => route('tos.abilities.index'), 'priority' => '0.5', 'changefreq' => 'weekly'],
@@ -211,7 +209,6 @@ class SitemapController extends Controller
             $this->collectByModel($urls, Allegiance::class, 'tos.allegiances.view', 'slug', priority: '0.8');
             $this->collectByModel($urls, AllegianceCard::class, 'tos.allegiance_cards.view', 'slug', priority: '0.6');
             $this->collectByModel($urls, Asset::class, 'tos.assets.view', 'slug', priority: '0.6');
-            $this->collectByModel($urls, Envoy::class, 'tos.envoys.view', 'slug', priority: '0.6');
             $this->collectByModel($urls, Stratagem::class, 'tos.stratagems.view', 'slug', priority: '0.6');
             $this->collectByModel($urls, UnitSculpt::class, 'tos.units.view', 'slug', priority: '0.7');
 

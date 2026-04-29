@@ -15,6 +15,10 @@ interface SpecialRule {
 interface Sculpt {
     id: number;
     slug: string;
+    name: string | null;
+    front_image: string | null;
+    back_image: string | null;
+    combination_image: string | null;
 }
 
 interface UnitMin {
@@ -47,6 +51,7 @@ interface CompanyUnit {
     id: number;
     is_commander: boolean;
     is_combined_arms_child: boolean;
+    sculpt_id: number | null;
     position: number;
     unit: UnitMin;
     assets: AssetMin[];
@@ -55,13 +60,26 @@ interface CompanyUnit {
 defineProps<{
     renderableUnits: CompanyUnit[];
     childByParent: Map<number, CompanyUnit>;
+    /** Tailwind background class for the allegiance, e.g. `bg-kingsempire`. */
+    allegianceBg: string;
 }>();
 
 const emit = defineEmits<{
+    (e: 'preview', cu: CompanyUnit): void;
     (e: 'remove', cu: CompanyUnit): void;
     (e: 'attach', cu: CompanyUnit): void;
     (e: 'detach', cu: CompanyUnit, asset: AssetMin): void;
 }>();
+
+function activeSculpt(cu: CompanyUnit): Sculpt | null {
+    if (!cu.unit.sculpts?.length) return null;
+    return cu.unit.sculpts.find((s) => s.id === cu.sculpt_id) ?? cu.unit.sculpts[0] ?? null;
+}
+
+function thumbSrc(cu: CompanyUnit): string | null {
+    const s = activeSculpt(cu);
+    return s?.combination_image ?? s?.front_image ?? null;
+}
 
 function slotLocations(asset: AssetMin): string[] {
     return (asset.limits ?? [])
@@ -83,41 +101,67 @@ function slotLocations(asset: AssetMin): string[] {
                 v-if="!renderableUnits.length"
                 :icon="Users"
                 title="No units yet"
-                description="Pick a Commander from the Hiring Pool to start your Company."
+                description="Open the Hiring Pool to add Units to your Company."
             />
 
+            <!--
+                Each row is allegiance-tinted (Malifaux Crew Builder pattern).
+                We render the colour as a thin left strip + a subtle 5%
+                overlay so the row reads as part of the Allegiance without
+                stomping on text contrast.
+            -->
             <div
                 v-for="cu in renderableUnits"
                 :key="cu.id"
-                class="overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/30"
+                class="group relative overflow-hidden rounded-lg border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
-                <!-- Unit row header -->
-                <div class="flex items-center gap-2 px-3 py-2">
-                    <TooltipProvider v-if="cu.is_commander">
-                        <Tooltip>
-                            <TooltipTrigger as-child>
-                                <div class="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                    <Crown class="size-4" />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                                <p class="text-xs">Commander — provides Scrip budget</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <div v-else class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-                        <Swords class="size-4" />
+                <div :class="['absolute inset-y-0 left-0 w-1', allegianceBg]" />
+                <div :class="['pointer-events-none absolute inset-0 opacity-[0.04] transition-opacity group-hover:opacity-[0.08]', allegianceBg]" />
+
+                <!-- Header row — clickable opens drawer -->
+                <button
+                    type="button"
+                    class="relative flex w-full items-center gap-2 px-3 py-2 text-left"
+                    @click="emit('preview', cu)"
+                >
+                    <!-- Sculpt thumbnail or category icon -->
+                    <div
+                        v-if="thumbSrc(cu)"
+                        class="relative size-12 shrink-0 overflow-hidden rounded-md ring-1 ring-border/60"
+                    >
+                        <img
+                            :src="thumbSrc(cu) as string"
+                            :alt="cu.unit.name"
+                            class="h-full w-full object-cover"
+                            loading="lazy"
+                        />
+                        <TooltipProvider v-if="cu.is_commander">
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <div class="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-card">
+                                        <Crown class="size-3" />
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    <p class="text-xs">Commander — provides Scrip budget</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                    <div
+                        v-else
+                        :class="[
+                            'flex size-12 shrink-0 items-center justify-center rounded-md',
+                            cu.is_commander ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted/60 text-muted-foreground',
+                        ]"
+                    >
+                        <Crown v-if="cu.is_commander" class="size-5" />
+                        <Swords v-else class="size-5" />
                     </div>
 
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                            <a
-                                v-if="cu.unit.sculpts && cu.unit.sculpts[0]"
-                                :href="route('tos.units.view', cu.unit.sculpts[0].slug)"
-                                target="_blank"
-                                class="truncate text-sm font-semibold hover:underline"
-                            >{{ cu.unit.name }}</a>
-                            <span v-else class="truncate text-sm font-semibold">{{ cu.unit.name }}</span>
+                            <span class="truncate text-sm font-semibold">{{ cu.unit.name }}</span>
                             <span v-if="cu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ cu.unit.title }}</span>
                         </div>
                         <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
@@ -142,21 +186,24 @@ function slotLocations(asset: AssetMin): string[] {
                         </div>
                     </div>
 
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        class="size-7 shrink-0 text-muted-foreground hover:text-rose-600"
+                    <!-- Stop click propagation so the drawer doesn't open when removing -->
+                    <span
+                        v-if="!cu.is_commander"
+                        role="button"
+                        tabindex="0"
+                        class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-600"
                         aria-label="Remove unit"
-                        @click="emit('remove', cu)"
+                        @click.stop="emit('remove', cu)"
+                        @keydown.enter.stop.prevent="emit('remove', cu)"
                     >
                         <UserMinus class="size-4" />
-                    </Button>
-                </div>
+                    </span>
+                </button>
 
                 <!-- Combined Arms child (auto-attached) -->
                 <div
                     v-if="childByParent.get(cu.unit.id)"
-                    class="mx-3 mb-2 flex items-center gap-2 rounded-md border-l-2 border-amber-500/50 bg-amber-500/5 px-2.5 py-1.5"
+                    class="relative mx-3 mb-2 flex items-center gap-2 rounded-md border-l-2 border-amber-500/50 bg-amber-500/5 px-2.5 py-1.5"
                 >
                     <Lock class="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
                     <span class="text-xs font-medium">{{ childByParent.get(cu.unit.id)?.unit.name }}</span>
@@ -165,7 +212,7 @@ function slotLocations(asset: AssetMin): string[] {
                 </div>
 
                 <!-- Asset row -->
-                <div class="flex flex-wrap items-center gap-1 border-t bg-muted/20 px-3 py-1.5">
+                <div class="relative flex flex-wrap items-center gap-1 border-t bg-background/40 px-3 py-1.5">
                     <Badge
                         v-for="a in cu.assets"
                         :key="a.id"

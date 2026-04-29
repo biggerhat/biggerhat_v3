@@ -6,6 +6,7 @@ use App\Models\TOS\Asset;
 use App\Models\TOS\Company;
 use App\Models\TOS\CompanyUnit;
 use App\Models\TOS\Unit;
+use App\Models\TOS\UnitSculpt;
 use App\Models\User;
 
 beforeEach(function () {
@@ -279,4 +280,75 @@ it('Neutral units can be hired into matching-type Allegiances', function () {
     ])->assertRedirect();
 
     expect($company->companyUnits()->count())->toBe(2);
+});
+
+it('updateSculpt persists the sculpt selection', function () {
+    $alle = Allegiance::factory()->earth()->create();
+    $company = Company::factory()->forUser($this->user)->forAllegiance($alle)->create();
+    $unit = Unit::factory()->withSides()->create(['scrip' => 8]);
+    $unit->allegiances()->sync([$alle->id]);
+    $sculptA = UnitSculpt::factory()->forUnit($unit)->create();
+    $sculptB = UnitSculpt::factory()->forUnit($unit)->create();
+    $cu = CompanyUnit::create([
+        'company_id' => $company->id,
+        'unit_id' => $unit->id,
+        'is_commander' => false,
+        'position' => 0,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('tos.companies.units.sculpt', [$company->slug, $cu->id]), ['sculpt_id' => $sculptB->id])
+        ->assertRedirect();
+
+    expect($cu->fresh()->sculpt_id)->toBe($sculptB->id);
+
+    // Allow unsetting back to null (default sculpt at render time).
+    $this->actingAs($this->user)
+        ->post(route('tos.companies.units.sculpt', [$company->slug, $cu->id]), ['sculpt_id' => null])
+        ->assertRedirect();
+
+    expect($cu->fresh()->sculpt_id)->toBeNull();
+});
+
+it('updateSculpt rejects a sculpt belonging to a different unit', function () {
+    $alle = Allegiance::factory()->earth()->create();
+    $company = Company::factory()->forUser($this->user)->forAllegiance($alle)->create();
+    $unit = Unit::factory()->withSides()->create(['scrip' => 8]);
+    $unit->allegiances()->sync([$alle->id]);
+    $cu = CompanyUnit::create([
+        'company_id' => $company->id,
+        'unit_id' => $unit->id,
+        'is_commander' => false,
+        'position' => 0,
+    ]);
+
+    // Sculpt belongs to a wholly different unit — must be rejected.
+    $otherUnit = Unit::factory()->withSides()->create();
+    $foreignSculpt = UnitSculpt::factory()->forUnit($otherUnit)->create();
+
+    $this->actingAs($this->user)
+        ->post(route('tos.companies.units.sculpt', [$company->slug, $cu->id]), ['sculpt_id' => $foreignSculpt->id])
+        ->assertStatus(422);
+
+    expect($cu->fresh()->sculpt_id)->toBeNull();
+});
+
+it('updateSculpt blocks the owner of another user\'s Company', function () {
+    $alle = Allegiance::factory()->earth()->create();
+    $company = Company::factory()->forAllegiance($alle)->create(); // some other user
+    $unit = Unit::factory()->withSides()->create(['scrip' => 8]);
+    $unit->allegiances()->sync([$alle->id]);
+    $sculpt = UnitSculpt::factory()->forUnit($unit)->create();
+    $cu = CompanyUnit::create([
+        'company_id' => $company->id,
+        'unit_id' => $unit->id,
+        'is_commander' => false,
+        'position' => 0,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('tos.companies.units.sculpt', [$company->slug, $cu->id]), ['sculpt_id' => $sculpt->id])
+        ->assertForbidden();
+
+    expect($cu->fresh()->sculpt_id)->toBeNull();
 });

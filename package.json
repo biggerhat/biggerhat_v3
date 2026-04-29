@@ -22,8 +22,7 @@
         "prettier-plugin-tailwindcss": "^0.6.9",
         "pusher-js": "^8.4.0",
         "typescript-eslint": "^8.23.0",
-        "vite-plugin-pwa": "^1.2.0",
-        "vue-tsc": "^2.2.4"
+        "vite-plugin-pwa": "^1.2.0"
     },
     "dependencies": {
         "@inertiajs/vue3": "^2.3.21",
@@ -47,7 +46,6 @@
         "embla-carousel-vue": "^8.6.0",
         "html-to-image": "^1.11.13",
         "laravel-vite-plugin": "^1.0",
-        "lucide": "^0.468.0",
         "lucide-vue-next": "^0.468.0",
         "qrcode": "^1.5.4",
         "radix-vue": "^1.9.11",

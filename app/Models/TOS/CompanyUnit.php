@@ -44,6 +44,15 @@ class CompanyUnit extends Model
         return $this->belongsTo(Unit::class);
     }
 
+    /**
+     * Optional sculpt selection — which physical model variant the company is
+     * fielding. Falls back to the Unit's first sculpt at render time when null.
+     */
+    public function sculpt(): BelongsTo
+    {
+        return $this->belongsTo(UnitSculpt::class, 'sculpt_id');
+    }
+
     public function assets(): BelongsToMany
     {
         return $this->belongsToMany(Asset::class, 'tos_company_unit_assets', 'company_unit_id', 'asset_id')->withTimestamps();

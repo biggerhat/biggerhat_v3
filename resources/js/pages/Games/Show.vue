@@ -330,17 +330,32 @@ const saveScenarioFromDrawer = async () => {
     }
 };
 
-const regenerateScenario = () => {
-    toast.loading('Regenerating scenario…', { id: 'game-scenario-regen' });
-    router.post(
-        route('games.scenario.regenerate', props.game.uuid),
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () => toast.success('New scenario generated', { id: 'game-scenario-regen' }),
-            onError: () => toast.error('Could not regenerate scenario', { id: 'game-scenario-regen' }),
-        },
-    );
+// Re-roll the scenario (deployment/strategy/scheme pool). Uses raw fetch + an
+// explicit router.reload — same pattern as saveScenarioFromDrawer — because
+// `router.post` to a same-page redirect was not consistently re-pulling the
+// `game` / `schemes` / `deployment` props, leaving the UI stale even though
+// the DB had been updated.
+const regenerateScenario = async () => {
+    const regenPromise = fetch(route('games.scenario.regenerate', props.game.uuid), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeaders() },
+    }).then((res) => {
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        return res;
+    });
+
+    toast.promise(regenPromise, {
+        loading: 'Regenerating scenario…',
+        success: 'New scenario generated',
+        error: 'Could not regenerate scenario',
+    });
+
+    try {
+        await regenPromise;
+        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+    } catch {
+        // Toast already surfaced via toast.promise.
+    }
 };
 
 // Scenario drawers

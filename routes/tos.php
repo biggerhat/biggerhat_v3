@@ -78,11 +78,17 @@ Route::prefix('tos')->name('tos.')->group(function () {
         Route::get('/{company}', 'view')->name('view');
         Route::post('/{company}', 'update')->name('update');
         Route::post('/{company}/delete', 'delete')->name('delete');
+        Route::post('/{company}/public', 'togglePublic')->name('toggle_public');
+        Route::get('/{company}/pdf', 'downloadPdf')->name('pdf');
         Route::post('/{company}/units', 'addUnit')->name('units.add');
         Route::post('/{company}/units/{companyUnit}/delete', 'removeUnit')->name('units.remove');
+        Route::post('/{company}/units/{companyUnit}/sculpt', 'updateSculpt')->name('units.sculpt');
         Route::post('/{company}/units/{companyUnit}/assets', 'attachAsset')->name('assets.attach');
         Route::post('/{company}/units/{companyUnit}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
     });
+
+    // Public read-only Company view via share_code — no auth.
+    Route::get('/c/{share_code}', [CompanyController::class, 'shared'])->name('companies.shared');
 });
 
 Route::post('/system/switch', [GameSystemController::class, 'switch'])->name('system.switch');

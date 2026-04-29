@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * A roster of Units hired around a single Allegiance — the rulebook calls
@@ -32,17 +33,31 @@ class Company extends Model
         return 'slug';
     }
 
+    public function casts(): array
+    {
+        return [
+            'is_public' => 'boolean',
+        ];
+    }
+
     protected static function newFactory(): CompanyFactory
     {
         return CompanyFactory::new();
     }
 
     /**
-     * Manual cascade for the SQLite test environment. Each child
-     * CompanyUnit's own booted hook in turn detaches its Asset pivot.
+     * Generate a stable share_code on create (mirrors `CrewBuild::booted`)
+     * and run the manual cascade on delete for the SQLite test environment —
+     * each child CompanyUnit's own booted hook detaches its Asset pivot.
      */
     protected static function booted(): void
     {
+        static::creating(function (self $company) {
+            if (! $company->share_code) {
+                $company->share_code = Str::random(12);
+            }
+        });
+
         static::deleting(function (self $company) {
             $company->companyUnits()->get()->each->delete();
         });

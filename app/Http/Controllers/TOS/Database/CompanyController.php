@@ -73,10 +73,10 @@ class CompanyController extends Controller
             'allegiance:id,slug,name,type,secondary_type,color_slug',
             'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
             'companyUnits.unit.specialUnitRules:id,slug,name',
-            // Sculpts only need id+slug for the linkable card art; full
-            // image columns and box references are loaded on the unit-view
-            // page, not here.
-            'companyUnits.unit.sculpts:id,unit_id,slug',
+            // Sculpts include image columns now — the company-builder drawer
+            // shows the FlipCard preview and lets the user switch sculpt
+            // variants per company unit.
+            'companyUnits.unit.sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
             'companyUnits.assets:id,slug,name,scrip_cost',
             'companyUnits.assets.limits',
         ]);
@@ -88,7 +88,11 @@ class CompanyController extends Controller
         // vs versatile/ook badges.
         $hireable = Unit::hireableInto($company->allegiance)
             ->notCombinedArmsChild()
-            ->with(['specialUnitRules:id,slug,name', 'sculpts:id,unit_id,slug', 'allegiances:id'])
+            ->with([
+                'specialUnitRules:id,slug,name',
+                'sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
+                'allegiances:id',
+            ])
             ->orderBy('name')
             ->get(['id', 'slug', 'name', 'title', 'scrip', 'restriction', 'combined_arms_child_id'])
             ->map(function (Unit $u) use ($company) {
@@ -149,6 +153,98 @@ class CompanyController extends Controller
         $company->delete();
 
         return redirect()->route('tos.companies.index')->withMessage('Company deleted.');
+    }
+
+    /**
+     * PDF export of the roster — print-ready single page mirroring the
+     * Malifaux Crew Builder PDF flow (DomPDF + Blade). Owner-only; the
+     * shared route can wire its own copy of this if public-PDF becomes a
+     * Phase-2 ask.
+     */
+    public function downloadPdf(Company $company): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->authorizeCompany($company);
+
+        $company->load([
+            'allegiance:id,slug,name,type',
+            'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
+            'companyUnits.unit.specialUnitRules:id,slug,name',
+            'companyUnits.assets:id,slug,name,scrip_cost',
+        ]);
+
+        $renderable = $company->companyUnits
+            ->reject(fn ($cu) => $cu->is_combined_arms_child)
+            ->sortByDesc('is_commander')
+            ->values();
+
+        $childByParent = collect();
+        foreach ($company->companyUnits as $cu) {
+            if (! $cu->is_combined_arms_child) {
+                continue;
+            }
+            $parent = $company->companyUnits->first(
+                fn ($p) => ! $p->is_combined_arms_child && $p->unit->combined_arms_child_id === $cu->unit->id
+            );
+            if ($parent) {
+                $childByParent->put($parent->unit->id, $cu);
+            }
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('PDF.Company', [
+            'company' => $company,
+            'renderable_units' => $renderable,
+            'children_by_parent' => $childByParent,
+            'scrip_budget' => $company->scripBudget(),
+            'scrip_spent' => $company->scripSpent(),
+            'scrip_remaining' => $company->scripRemaining(),
+        ]);
+
+        return $pdf->stream(\Illuminate\Support\Str::slug($company->name).'.pdf');
+    }
+
+    /**
+     * Flip a Company between owner-only and publicly-shareable. Mirrors
+     * the Malifaux Crew Builder's `togglePublic` pattern. The share URL
+     * (`/tos/c/{share_code}`) is stable regardless of the toggle state —
+     * just inaccessible while `is_public` is false.
+     */
+    public function togglePublic(Company $company): RedirectResponse
+    {
+        $this->authorizeCompany($company);
+
+        $company->update(['is_public' => ! $company->is_public]);
+
+        return back();
+    }
+
+    /**
+     * Public read-only Company view, bound by share_code. Returns 404 when
+     * the row is private — same outcome as a missing share code, so a
+     * scraper can't distinguish "doesn't exist" from "owner made it private".
+     */
+    public function shared(string $share_code): \Inertia\Response
+    {
+        $company = Company::query()
+            ->where('share_code', $share_code)
+            ->where('is_public', true)
+            ->firstOrFail();
+
+        $company->load([
+            'allegiance:id,slug,name,type,secondary_type,color_slug',
+            'user:id,name',
+            'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
+            'companyUnits.unit.specialUnitRules:id,slug,name',
+            'companyUnits.unit.sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
+            'companyUnits.assets:id,slug,name,scrip_cost',
+            'companyUnits.assets.limits',
+        ]);
+
+        return inertia('TOS/Companies/Shared', [
+            'company' => $company,
+            'scrip_budget' => $company->scripBudget(),
+            'scrip_spent' => $company->scripSpent(),
+            'scrip_remaining' => $company->scripRemaining(),
+        ]);
     }
 
     public function addUnit(Request $request, Company $company): RedirectResponse
@@ -219,6 +315,32 @@ class CompanyController extends Controller
                 ]);
             }
         });
+
+        return back();
+    }
+
+    /**
+     * Persist which sculpt variant the user wants displayed for a hired unit.
+     * Drawer-driven — the FlipCard preview swaps front/back images live as
+     * the user picks a different sculpt; saving here keeps the choice across
+     * page loads. Validates that the sculpt actually belongs to the unit so
+     * users can't pin an unrelated sculpt onto a different unit.
+     */
+    public function updateSculpt(Request $request, Company $company, CompanyUnit $companyUnit): RedirectResponse
+    {
+        $this->authorizeCompany($company);
+        abort_unless($companyUnit->company_id === $company->id, 404);
+
+        $validated = $request->validate([
+            'sculpt_id' => ['nullable', 'integer', 'exists:tos_unit_sculpts,id'],
+        ]);
+
+        if ($validated['sculpt_id'] !== null) {
+            $sculptUnitId = \App\Models\TOS\UnitSculpt::whereKey($validated['sculpt_id'])->value('unit_id');
+            abort_unless($sculptUnitId === $companyUnit->unit_id, 422, 'That sculpt does not belong to this unit.');
+        }
+
+        $companyUnit->update(['sculpt_id' => $validated['sculpt_id']]);
 
         return back();
     }

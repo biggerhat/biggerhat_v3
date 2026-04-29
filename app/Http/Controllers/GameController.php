@@ -388,7 +388,11 @@ class GameController extends Controller
                 : $schemes->pluck('id')->toArray(),
         ]);
 
-        return redirect()->route('games.show', $game->uuid);
+        // Return JSON instead of redirecting — the front-end uses raw fetch +
+        // router.reload to refresh props, mirroring updateScenario. The old
+        // 302→games.show redirect did not reliably trigger an Inertia prop
+        // refresh, so the new scenario landed in the DB but the UI stayed stale.
+        return response()->json(['success' => true]);
     }
 
     public function destroy(Game $game)

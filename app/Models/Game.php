@@ -19,7 +19,6 @@ use Illuminate\Support\Str;
  * @property GameStatusEnum $status
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
- *
  * @mixin IdeHelperGame
  */
 class Game extends Model

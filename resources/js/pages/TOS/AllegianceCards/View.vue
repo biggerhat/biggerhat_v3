@@ -62,7 +62,12 @@ defineProps<{
 
 <template>
     <Head :title="`${card.name} — Allegiance Card`" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner :title="card.name" class="mb-2">
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">

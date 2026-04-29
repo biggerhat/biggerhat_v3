@@ -13,7 +13,6 @@ use App\Models\TOS\Ability as TosAbility;
 use App\Models\TOS\Allegiance as TosAllegiance;
 use App\Models\TOS\AllegianceCard as TosAllegianceCard;
 use App\Models\TOS\Asset as TosAsset;
-use App\Models\TOS\Envoy as TosEnvoy;
 use App\Models\TOS\SpecialUnitRule as TosSpecialUnitRule;
 use App\Models\TOS\Stratagem as TosStratagem;
 use App\Models\TOS\Unit as TosUnit;
@@ -100,11 +99,10 @@ class DashboardAdminController extends Controller
             ],
             [
                 'title' => 'The Other Side',
-                'description' => 'Allegiances, units, cards, envoys, assets, and stratagems.',
+                'description' => 'Allegiances, units, cards, assets, and stratagems.',
                 'items' => [
                     ['label' => 'Allegiances', 'permission' => 'view_tos_allegiance', 'href' => route('admin.tos.allegiances.index'), 'count' => fn () => TosAllegiance::count()],
                     ['label' => 'Allegiance Cards', 'permission' => 'view_tos_allegiance_card', 'href' => route('admin.tos.allegiance_cards.index'), 'count' => fn () => TosAllegianceCard::count()],
-                    ['label' => 'Envoys', 'permission' => 'view_tos_envoy', 'href' => route('admin.tos.envoys.index'), 'count' => fn () => TosEnvoy::count()],
                     ['label' => 'Units', 'permission' => 'view_tos_unit', 'href' => route('admin.tos.units.index'), 'count' => fn () => TosUnit::count()],
                     ['label' => 'Special Rules', 'permission' => 'view_tos_special_unit_rule', 'href' => route('admin.tos.special_rules.index'), 'count' => fn () => TosSpecialUnitRule::count()],
                     ['label' => 'Abilities', 'permission' => 'view_tos_ability', 'href' => route('admin.tos.abilities.index'), 'count' => fn () => TosAbility::count()],

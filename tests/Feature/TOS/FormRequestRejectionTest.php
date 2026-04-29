@@ -5,7 +5,6 @@ use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
-use App\Models\TOS\Envoy;
 use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Trigger;
@@ -84,16 +83,6 @@ it('UpdateAssetRequest rejects an invalid limit_type', function () {
             ['limit_type' => 'made-up-limit'],
         ],
     ])->assertStatus(422)->assertJsonValidationErrors(['limits.0.limit_type']);
-});
-
-it('UpdateEnvoyRequest rejects missing restriction', function () {
-    $a = Allegiance::factory()->malifaux()->syndicate()->create();
-    $e = Envoy::factory()->forAllegiance($a)->create();
-
-    $this->actingAs($this->admin)->postJson(route('admin.tos.envoys.update', $e->slug), [
-        'allegiance_id' => $a->id,
-        'name' => 'Renamed',
-    ])->assertStatus(422)->assertJsonValidationErrors(['restriction']);
 });
 
 it('UpdateSculptRequest rejects a non-existent unit_id', function () {

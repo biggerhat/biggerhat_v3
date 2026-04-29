@@ -36,7 +36,6 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Feedback = 'feedback';
     case TosAllegiance = 'tos_allegiance';
     case TosAllegianceCard = 'tos_allegiance_card';
-    case TosEnvoy = 'tos_envoy';
     case TosUnit = 'tos_unit';
     case TosSculpt = 'tos_sculpt';
     case TosSpecialUnitRule = 'tos_special_unit_rule';

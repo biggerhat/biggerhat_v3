@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BiggerHat v3 is a Wyrd Games database and tool suite covering **two sibling game systems** sharing one codebase: **Malifaux** (the original — characters, upgrades, keywords, crews, tournaments, game tracker, etc.) and **The Other Side (TOS)** (allegiances, units, envoys, stratagems, assets, etc.). The top-level game system is resolved per request and surfaced as `currentGameSystem` on the shared Inertia data; a mode switcher in the header lets users flip between games. Built with Laravel 12 + Vue 3 + Inertia.js.
+BiggerHat v3 is a Wyrd Games database and tool suite covering **two sibling game systems** sharing one codebase: **Malifaux** (the original — characters, upgrades, keywords, crews, tournaments, game tracker, etc.) and **The Other Side (TOS)** (allegiances, units, stratagems, assets, etc.). The top-level game system is resolved per request and surfaced as `currentGameSystem` on the shared Inertia data; a mode switcher in the header lets users flip between games. Built with Laravel 12 + Vue 3 + Inertia.js.
 
 ## Development Commands
 
@@ -61,7 +61,7 @@ Inertia.js bridges Laravel controllers and Vue pages. Controllers return `Inerti
 
 Routes are split across files in `routes/`:
 - `web.php` — Public Malifaux pages (characters, factions, keywords, tools/pdf)
-- `tos.php` — Public TOS pages under `/tos` (allegiances, units, envoys, stratagems, assets, abilities, actions, triggers, special rules, allegiance cards)
+- `tos.php` — Public TOS pages under `/tos` (allegiances, units, stratagems, assets, abilities, actions, triggers, special rules, allegiance cards)
 - `api.php` — JSON API endpoints under `/api` (used by external bot and PDF tool)
 - `admin.php` — Admin CRUD under `/admin`, protected by `auth`, `verified`, and `admin.any` middleware. Individual routes further gate by specific `permission:*` checks. TOS admin routes live in a nested `/admin/tos/*` group inside this file. The admin area uses its own Inertia layout (`AppAdminLayout`) selected automatically by `app.ts` based on page path (`Admin/*`), and has a dedicated sidebar (`AppAdminSidebar`) with sections grouped into Game Data / Content / Community / Access / TOS — Units / TOS — Cards.
 - `auth.php` — Authentication flows
@@ -113,7 +113,7 @@ TOS is the sibling game system living alongside Malifaux in the same codebase.
 
 ### **Guiding principle: mirror Malifaux patterns**
 
-**When adding or changing anything on the TOS side, first check how the Malifaux side solves the equivalent problem and mirror that pattern.** This applies to controller shape, FormRequest conventions, admin form component structure, seeder style, test coverage, and UI conventions. Diverge only when the TOS rulebook demands it (e.g., two-sided unit cards, the Fireteam/Squad/Combined Arms rule pivot, Envoy/Neutral hireability, the separate symbol font). If you're unsure whether a pattern applies, read the Malifaux equivalent before writing TOS code — the matching file almost always exists.
+**When adding or changing anything on the TOS side, first check how the Malifaux side solves the equivalent problem and mirror that pattern.** This applies to controller shape, FormRequest conventions, admin form component structure, seeder style, test coverage, and UI conventions. Diverge only when the TOS rulebook demands it (e.g., two-sided unit cards, the Fireteam/Squad/Combined Arms rule pivot, Neutral hireability via type-restricted units, the separate symbol font). If you're unsure whether a pattern applies, read the Malifaux equivalent before writing TOS code — the matching file almost always exists.
 
 ### Where TOS code lives
 
@@ -147,7 +147,7 @@ The resolved system is exposed on the shared Inertia data as `currentGameSystem`
 ### Key data-model divergences
 
 - **Two-sided Unit Cards.** Every unit has Standard + Glory sides with different AVs, abilities, actions, and triggers per side. Stored in `tos_unit_sides` (unique on `unit_id, side`), not on the unit row.
-- **Allegiance & Syndicate share one table.** `tos_allegiances` with `is_syndicate` flag and a `type` (Earth/Malifaux). Envoys plug into the cross-allegiance hiring mechanic via `Envoy.restriction`.
+- **Allegiance & Syndicate share one table.** `tos_allegiances` with `is_syndicate` flag and a `type` (Earth/Malifaux). Cross-allegiance hires within a type fall under the Neutral pool (`Unit.restriction`) — see `Unit::hireableInto`.
 - **Neutral Units.** `Unit.restriction` (nullable `AllegianceTypeEnum`) flags a unit as hireable by any Allegiance of that type. `Unit::hireableInto(Allegiance)` scope returns units with direct pivot attachment OR matching restriction. FormRequests require at least one of `allegiance_ids` or `restriction` via `required_without`.
 - **Special Unit Rules are pivoted**, not a discriminator column. `tos_unit_special_rule` carries a `parameters` JSON per-rule (Fireteam size, Squad count, Combined Arms child, Adjunct size, Reserves X).
 - **Combined Arms** uses `Unit.combined_arms_child_id` self-FK. Top-level unit listings must filter via `Unit::notCombinedArmsChild()`.

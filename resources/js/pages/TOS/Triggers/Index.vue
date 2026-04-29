@@ -42,7 +42,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
 <template>
     <Head title="TOS Triggers" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Triggers" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -82,7 +87,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="t in triggers.data" :key="t.id">
+                        <TableRow v-for="t in triggers.data" :key="t.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">{{ t.name }}</TableCell>
                             <TableCell class="text-xs">
                                 <TosSuits v-if="t.suits" :suits="t.suits" />
@@ -99,7 +104,11 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
             </div>
 
             <div v-else-if="triggers.data.length" class="grid gap-3 sm:grid-cols-2">
-                <Card v-for="t in triggers.data" :key="t.id">
+                <Card
+                    v-for="t in triggers.data"
+                    :key="t.id"
+                    class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                >
                     <CardContent class="p-4 text-sm">
                         <div class="mb-1 flex items-center justify-between gap-2">
                             <span class="font-semibold">{{ t.name }}</span>
@@ -114,7 +123,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     </CardContent>
                 </Card>
             </div>
-            <EmptyState v-else :icon="Swords" title="No triggers yet" />
+            <EmptyState
+                v-else
+                :icon="Swords"
+                title="No triggers match"
+                description="Triggers attach to Actions as suit-driven or margin-driven follow-ups. Try clearing your search."
+            />
 
             <InertiaPagination v-if="!isLoading" :paginator="triggers" :only="['triggers', 'name_search', 'page_view']" />
         </div>

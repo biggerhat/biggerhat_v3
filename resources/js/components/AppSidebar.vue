@@ -115,7 +115,6 @@ const tosNavItems = computed<NavItem[]>(() => [
             { title: 'Actions', href: route('tos.actions.index'), icon: Swords },
             { title: 'Triggers', href: route('tos.triggers.index'), icon: Swords },
             { title: 'Allegiance Cards', href: route('tos.allegiance_cards.index'), icon: BookOpen },
-            { title: 'Envoys', href: route('tos.envoys.index'), icon: Bot },
             { title: 'Assets', href: route('tos.assets.index'), icon: Package },
             { title: 'Stratagems', href: route('tos.stratagems.index'), icon: Newspaper },
         ],

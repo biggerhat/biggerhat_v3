@@ -1642,8 +1642,6 @@ namespace App\Models\TOS{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\AllegianceCard> $allegianceCards
  * @property-read int|null $allegiance_cards_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Envoy> $envoys
- * @property-read int|null $envoys_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Stratagem> $stratagems
  * @property-read int|null $stratagems_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $units
@@ -1880,46 +1878,6 @@ namespace App\Models\TOS{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperCompanyUnit {}
-}
-
-namespace App\Models\TOS{
-/**
- * 
- *
- * @property int $id
- * @property int $allegiance_id
- * @property string $slug
- * @property string $name
- * @property string|null $keyword
- * @property \App\Enums\TOS\EnvoyRestrictionEnum $restriction
- * @property string|null $body
- * @property string|null $image_path
- * @property int $sort_order
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Ability> $abilities
- * @property-read int|null $abilities_count
- * @property-read \App\Models\TOS\Allegiance $allegiance
- * @method static \Database\Factories\TOS\EnvoyFactory factory($count = null, $state = [])
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy hireableInto(\App\Models\TOS\Allegiance $target)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereAllegianceId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereBody($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereImagePath($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereKeyword($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereRestriction($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereSlug($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereSortOrder($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Envoy whereUpdatedAt($value)
- * @mixin \Eloquent
- */
-	#[\AllowDynamicProperties]
-	class IdeHelperEnvoy {}
 }
 
 namespace App\Models\TOS{

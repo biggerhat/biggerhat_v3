@@ -8,7 +8,6 @@ use App\Http\Controllers\TOS\Database\AllegianceController;
 use App\Http\Controllers\TOS\Database\AssetController;
 use App\Http\Controllers\TOS\Database\CompanyController;
 use App\Http\Controllers\TOS\Database\CompareController;
-use App\Http\Controllers\TOS\Database\EnvoyController;
 use App\Http\Controllers\TOS\Database\PdfController as TosPdfController;
 use App\Http\Controllers\TOS\Database\SearchController as TosSearchController;
 use App\Http\Controllers\TOS\Database\SpecialUnitRuleController;
@@ -58,11 +57,6 @@ Route::prefix('tos')->name('tos.')->group(function () {
     Route::controller(AllegianceCardController::class)->prefix('allegiance-cards')->name('allegiance_cards.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{card}', 'view')->name('view');
-    });
-
-    Route::controller(EnvoyController::class)->prefix('envoys')->name('envoys.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/{envoy}', 'view')->name('view');
     });
 
     Route::controller(AssetController::class)->prefix('assets')->name('assets.')->group(function () {

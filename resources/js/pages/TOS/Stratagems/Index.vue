@@ -43,7 +43,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
 <template>
     <Head title="TOS Stratagems" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner title="Stratagems" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
@@ -83,7 +88,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="s in stratagems.data" :key="s.id">
+                        <TableRow v-for="s in stratagems.data" :key="s.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">
                                 <Link :href="route('tos.stratagems.view', s.slug)" class="hover:underline">{{ s.name }}</Link>
                             </TableCell>
@@ -131,7 +136,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     </Card>
                 </Link>
             </div>
-            <EmptyState v-else :icon="Newspaper" title="No stratagems yet" />
+            <EmptyState
+                v-else
+                :icon="Newspaper"
+                title="No stratagems yet"
+                description="Stratagems are tactics-token-cost battlefield events. Try clearing your search or check back as the database grows."
+            />
 
             <InertiaPagination v-if="!isLoading" :paginator="stratagems" :only="['stratagems', 'name_search', 'page_view']" />
         </div>

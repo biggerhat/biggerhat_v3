@@ -14,7 +14,12 @@ class AbilityController extends Controller
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
 
-        $query = Ability::orderBy('name');
+        // Surface a usage count so the index page can show "used by N unit
+        // sides" — counts pivot rows; a unit with the ability on both
+        // Standard and Glory contributes 2.
+        $query = Ability::query()
+            ->withCount('unitSides')
+            ->orderBy('name');
         if ($nameSearch) {
             $query->where('name', 'LIKE', "%{$nameSearch}%");
         }

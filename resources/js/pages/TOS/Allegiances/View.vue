@@ -196,8 +196,9 @@ const ruleChips = computed(() => props.statistics.by_rule);
             </div>
         </div>
 
-        <!-- Tabs + mobile filter trigger -->
-        <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
+        <!-- Tabs + mobile filter trigger — sticky so users can switch view/filter while scrolling -->
+        <div class="sticky top-0 z-20 mb-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 py-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="(v) => handleViewChange(v as string)">
                 <TabsList>
                     <TabsTrigger value="cards">
@@ -268,6 +269,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     </FilterPanel>
                 </div>
             </div>
+        </div>
         </div>
 
         <!-- Main content -->

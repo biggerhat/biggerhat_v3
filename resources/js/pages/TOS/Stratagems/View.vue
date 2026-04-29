@@ -25,11 +25,21 @@ defineProps<{
 
 <template>
     <Head :title="`${stratagem.name} — Stratagem`" />
-    <div class="relative">
+    <div class="relative pb-12">
+        <div
+            class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
+            :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
+        />
+
         <PageBanner :title="stratagem.name" class="mb-2">
             <template #subtitle>
-                <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <Badge variant="outline" class="text-[10px] tabular-nums">{{ stratagem.tactical_cost }} Tactics Tokens</Badge>
+                <div class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                    <Badge class="bg-emerald-500/10 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                        {{ stratagem.tactical_cost }}T · Tactics Tokens
+                    </Badge>
+                    <Badge v-if="stratagem.allegiance" variant="outline" class="text-[10px]">{{ stratagem.allegiance.name }}</Badge>
+                    <Badge v-else-if="stratagem.allegiance_type" variant="outline" class="text-[10px] capitalize">Any {{ stratagem.allegiance_type }}</Badge>
+                    <Badge v-else variant="outline" class="text-[10px]">Universal</Badge>
                 </div>
             </template>
         </PageBanner>

@@ -1,13 +1,11 @@
 <?php
 
 use App\Enums\TOS\AllegianceTypeEnum;
-use App\Enums\TOS\EnvoyRestrictionEnum;
 use App\Models\TOS\Ability;
 use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
-use App\Models\TOS\Envoy;
 use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Trigger;
@@ -249,44 +247,6 @@ it('returns 404 for missing asset', function () {
 });
 
 // ============================================================
-// Envoys
-// ============================================================
-
-it('returns envoy with allegiance and abilities', function () {
-    $allegiance = Allegiance::factory()->create();
-    $envoy = Envoy::factory()->create([
-        'allegiance_id' => $allegiance->id,
-        'restriction' => EnvoyRestrictionEnum::Earth,
-    ]);
-    $ability = Ability::factory()->create();
-    $envoy->abilities()->attach($ability->id);
-
-    $resp = $this->getJson("/api/v1/tos/envoys/{$envoy->slug}");
-
-    $resp->assertOk()
-        ->assertJsonStructure([
-            'data' => ['id', 'name', 'slug', 'restriction', 'allegiance' => ['id', 'slug'], 'abilities'],
-        ])
-        ->assertJsonPath('data.restriction', 'earth')
-        ->assertJsonPath('data.allegiance.id', $allegiance->id);
-    expect($resp->json('data.abilities'))->toHaveCount(1);
-});
-
-it('filters envoys by restriction', function () {
-    Envoy::factory()->create(['restriction' => EnvoyRestrictionEnum::Earth]);
-    Envoy::factory()->create(['restriction' => EnvoyRestrictionEnum::Malifaux]);
-
-    $resp = $this->getJson('/api/v1/tos/envoys?restriction=earth');
-
-    expect($resp->json('data'))->toHaveCount(1);
-    expect($resp->json('data.0.restriction'))->toBe('earth');
-});
-
-it('returns 404 for missing envoy', function () {
-    $this->getJson('/api/v1/tos/envoys/nope')->assertNotFound();
-});
-
-// ============================================================
 // Stratagems
 // ============================================================
 
@@ -439,7 +399,6 @@ it('every list endpoint returns 200 with paginated envelope when empty', functio
     '/api/v1/tos/allegiance-cards',
     '/api/v1/tos/units',
     '/api/v1/tos/assets',
-    '/api/v1/tos/envoys',
     '/api/v1/tos/stratagems',
     '/api/v1/tos/special-unit-rules',
     '/api/v1/tos/abilities',

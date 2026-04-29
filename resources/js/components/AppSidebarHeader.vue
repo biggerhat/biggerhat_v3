@@ -11,7 +11,6 @@ import axios from 'axios';
 import {
     BarChart3,
     BookOpen,
-    Bot,
     Dice6,
     Hammer,
     Home,
@@ -49,7 +48,6 @@ interface CommandSearchResults {
     packages?: CommandEntry[];
     tos_allegiances?: CommandEntry[];
     tos_units?: CommandEntry[];
-    tos_envoys?: CommandEntry[];
     tos_stratagems?: CommandEntry[];
 }
 
@@ -105,7 +103,6 @@ const tosNavigateItems: QuickAction[] = [
     { name: 'Units', icon: Swords, route: route('tos.units.index'), keywords: 'units tos models' },
     { name: 'Special Rules', icon: BookOpen, route: route('tos.special_rules.index'), keywords: 'special rules tos commander titan fireteam squad' },
     { name: 'Allegiance Cards', icon: BookOpen, route: route('tos.allegiance_cards.index'), keywords: 'allegiance cards tos' },
-    { name: 'Envoys', icon: Bot, route: route('tos.envoys.index'), keywords: 'envoys tos syndicates' },
     { name: 'Assets', icon: Package, route: route('tos.assets.index'), keywords: 'assets tos vehicles gear' },
     { name: 'Stratagems', icon: Newspaper, route: route('tos.stratagems.index'), keywords: 'stratagems tos' },
     { name: 'Abilities', icon: Zap, route: route('tos.abilities.index'), keywords: 'abilities tos' },

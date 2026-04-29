@@ -58,6 +58,7 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
+                'can_view_tos' => (bool) $request->user()?->can('view_tos'),
                 'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
                 'impersonating' => $request->user() && app('impersonate')->isImpersonating()
                     ? [

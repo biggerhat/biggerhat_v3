@@ -34,6 +34,7 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case PodLink = 'pod_link';
     case Tournament = 'tournament';
     case Feedback = 'feedback';
+    case Tos = 'tos';
     case TosAllegiance = 'tos_allegiance';
     case TosAllegianceCard = 'tos_allegiance_card';
     case TosUnit = 'tos_unit';

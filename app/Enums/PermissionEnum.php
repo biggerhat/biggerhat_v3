@@ -178,6 +178,9 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Feedback)]
     case ManageFeedback = 'manage_feedback';
 
+    #[PermissionGroup(PermissionGroupEnum::Tos)]
+    case ViewTos = 'view_tos';
+
     #[PermissionGroup(PermissionGroupEnum::TosAllegiance)]
     case ViewTosAllegiance = 'view_tos_allegiance';
     #[PermissionGroup(PermissionGroupEnum::TosAllegiance)]

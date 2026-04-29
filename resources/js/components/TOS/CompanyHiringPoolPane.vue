@@ -1,23 +1,16 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CircleX, Crown, Search, UserPlus } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface SpecialRule {
     id: number;
     slug: string;
     name: string;
-}
-
-interface Sculpt {
-    id: number;
-    slug: string;
-    name: string | null;
-    front_image: string | null;
-    back_image: string | null;
-    combination_image: string | null;
 }
 
 interface UnitMin {
@@ -29,7 +22,6 @@ interface UnitMin {
     restriction: string | null;
     combined_arms_child_id: number | null;
     special_unit_rules: SpecialRule[];
-    sculpts?: Sculpt[];
     hire_category?: 'direct' | 'neutral';
 }
 
@@ -44,6 +36,8 @@ const props = defineProps<{
     poolSort: PoolSort;
     hasCommander: boolean;
     scripRemaining: number;
+    allegianceSlug: string;
+    allegianceColorSlug: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -73,10 +67,9 @@ function unaffordable(u: UnitMin): boolean {
     return u.scrip > props.scripRemaining;
 }
 
-function thumbSrc(u: UnitMin): string | null {
-    const s = u.sculpts?.[0];
-    return s?.combination_image ?? s?.front_image ?? null;
-}
+const accentTintBg = computed(() =>
+    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60',
+);
 </script>
 
 <template>
@@ -147,19 +140,13 @@ function thumbSrc(u: UnitMin): string | null {
                         @click="emit('preview', u)"
                     >
                         <div
-                            v-if="thumbSrc(u)"
-                            class="size-9 shrink-0 overflow-hidden rounded ring-1 ring-border/60"
+                            :class="[
+                                'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded ring-1 ring-border/60',
+                                accentTintBg,
+                            ]"
                         >
-                            <img
-                                :src="thumbSrc(u) as string"
-                                :alt="u.name"
-                                class="h-full w-full object-cover"
-                                loading="lazy"
-                            />
-                        </div>
-                        <div v-else class="flex size-9 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
                             <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-500" />
-                            <UserPlus v-else class="size-4" />
+                            <AllegianceLogo v-else :allegiance="allegianceSlug" class-name="size-5 opacity-70" />
                         </div>
 
                         <div class="min-w-0 flex-1">

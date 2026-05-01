@@ -27,7 +27,9 @@ import {
     Download,
     LayoutGrid,
     List,
+    Newspaper,
     Package,
+    ScrollText,
     Search as SearchIcon,
     Sparkles,
     Swords,
@@ -36,7 +38,7 @@ import {
 import { computed, onMounted, ref } from 'vue';
 
 interface ResultRow {
-    result_type: 'unit' | 'asset' | 'stratagem';
+    result_type: 'unit' | 'asset' | 'stratagem' | 'allegiance_card';
     id: number;
     slug: string;
     name: string;
@@ -46,9 +48,11 @@ interface ResultRow {
     tactical_cost?: number;
     body?: string | null;
     effect?: string | null;
+    image_path?: string | null;
     sculpts?: Array<{ id: number; slug: string; front_image: string | null; back_image: string | null; combination_image: string | null }>;
     sides?: Array<{ side: string; speed: number; defense: number; willpower: number; armor: number }>;
     allegiances?: Array<{ id: number; slug: string; name: string }>;
+    allegiance?: { id: number; slug: string; name: string } | null;
     special_unit_rules?: Array<{ id: number; slug: string; name: string }>;
 }
 
@@ -61,7 +65,7 @@ interface SavedSearch {
 defineProps<{
     results: Paginator<ResultRow>;
     result_count: number;
-    result_breakdown: { units: number; assets: number; stratagems: number };
+    result_breakdown: { units: number; assets: number; stratagems: number; allegiance_cards: number };
     allegiances: TosSelectOption[];
     special_rules: TosSelectOption[];
     restriction_options: TosSelectOption[];
@@ -307,6 +311,8 @@ const exportUrl = computed(() => {
                     <span>{{ result_breakdown.assets }} assets</span>
                     <span class="text-muted-foreground/50">·</span>
                     <span>{{ result_breakdown.stratagems }} stratagems</span>
+                    <span class="text-muted-foreground/50">·</span>
+                    <span>{{ result_breakdown.allegiance_cards }} cards</span>
                 </div>
             </template>
         </PageBanner>
@@ -454,15 +460,22 @@ const exportUrl = computed(() => {
                                             :href="route('tos.stratagems.view', r.slug)"
                                             class="hover:underline"
                                         >{{ r.name }}</Link>
+                                        <Link
+                                            v-else-if="r.result_type === 'allegiance_card'"
+                                            :href="route('tos.allegiance_cards.view', r.slug)"
+                                            class="hover:underline"
+                                        >{{ r.name }}</Link>
                                         <span v-else>{{ r.name }}</span>
                                     </TableCell>
                                     <TableCell class="text-xs tabular-nums">
                                         <template v-if="r.result_type === 'unit'">{{ r.scrip ?? '—' }}</template>
                                         <template v-else-if="r.result_type === 'asset'">{{ r.scrip_cost ?? '—' }}</template>
                                         <template v-else-if="r.result_type === 'stratagem'">{{ r.tactical_cost ?? '—' }}</template>
+                                        <template v-else>—</template>
                                     </TableCell>
                                     <TableCell class="text-xs text-muted-foreground">
                                         <template v-if="r.allegiances">{{ r.allegiances.map((a) => a.name).join(', ') || '—' }}</template>
+                                        <template v-else-if="r.allegiance">{{ r.allegiance.name }}</template>
                                         <span v-else class="text-muted-foreground">—</span>
                                     </TableCell>
                                     <TableCell class="text-xs">
@@ -512,6 +525,8 @@ const exportUrl = computed(() => {
                             />
                             <div v-else class="flex aspect-[5/7] items-center justify-center bg-muted">
                                 <Package v-if="r.result_type === 'asset'" class="size-12 text-muted-foreground/50" />
+                                <Newspaper v-else-if="r.result_type === 'stratagem'" class="size-12 text-muted-foreground/50" />
+                                <ScrollText v-else-if="r.result_type === 'allegiance_card'" class="size-12 text-muted-foreground/50" />
                                 <Sparkles v-else class="size-12 text-muted-foreground/50" />
                             </div>
                             <CardContent class="space-y-1.5 p-3">
@@ -524,6 +539,7 @@ const exportUrl = computed(() => {
                                     <template v-if="r.result_type === 'unit'">{{ r.scrip }} Scrip</template>
                                     <template v-else-if="r.result_type === 'asset'">{{ r.scrip_cost }} Scrip</template>
                                     <template v-else-if="r.result_type === 'stratagem'">{{ r.tactical_cost }} Tactics</template>
+                                    <template v-else-if="r.result_type === 'allegiance_card' && r.allegiance">{{ r.allegiance.name }}</template>
                                 </p>
                                 <div v-if="r.special_unit_rules?.length" class="flex flex-wrap gap-1">
                                     <Badge v-for="ru in r.special_unit_rules" :key="ru.id" variant="outline" class="text-[10px]">{{ ru.name }}</Badge>
@@ -550,6 +566,13 @@ const exportUrl = computed(() => {
                                         class="h-6 px-0 text-[11px]"
                                         @click="router.get(route('tos.stratagems.view', r.slug))"
                                     >View Stratagem</Button>
+                                    <Button
+                                        v-else-if="r.result_type === 'allegiance_card'"
+                                        size="sm"
+                                        variant="link"
+                                        class="h-6 px-0 text-[11px]"
+                                        @click="router.get(route('tos.allegiance_cards.view', r.slug))"
+                                    >View Card</Button>
                                 </div>
                             </CardContent>
                         </Card>

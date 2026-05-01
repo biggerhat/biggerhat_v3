@@ -57,6 +57,7 @@ const columns: ColumnDef<Sculpt>[] = [
 
 const props = defineProps<{ sculpts: Sculpt[] }>();
 const columnFilters = ref<ColumnFiltersState>([]);
+const globalFilter = ref('');
 
 const table = useVueTable({
     get data() { return props.sculpts; },
@@ -64,8 +65,21 @@ const table = useVueTable({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
+    onGlobalFilterChange: (u) => valueUpdater(u, globalFilter),
     getFilteredRowModel: getFilteredRowModel(),
-    state: { get columnFilters() { return columnFilters.value; } },
+    globalFilterFn: (row, _columnId, value) => {
+        const needle = String(value ?? '').toLowerCase().trim();
+        if (!needle) return true;
+        const sculpt = row.original as Sculpt;
+        return (
+            (sculpt.name ?? '').toLowerCase().includes(needle) ||
+            (sculpt.unit?.name ?? '').toLowerCase().includes(needle)
+        );
+    },
+    state: {
+        get columnFilters() { return columnFilters.value; },
+        get globalFilter() { return globalFilter.value; },
+    },
 });
 </script>
 
@@ -75,9 +89,9 @@ const table = useVueTable({
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"
-                placeholder="Filter by name"
-                :model-value="table.getColumn('name')?.getFilterValue() as string"
-                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+                placeholder="Filter by sculpt or unit name"
+                :model-value="globalFilter"
+                @update:model-value="(v) => table.setGlobalFilter(String(v ?? ''))"
             />
             <Button @click="router.get(route('admin.tos.sculpts.create'))">Create Sculpt</Button>
         </div>

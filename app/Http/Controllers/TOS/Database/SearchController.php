@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TOS\Ability;
 use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
+use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
 use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Stratagem;
@@ -108,12 +109,16 @@ class SearchController extends Controller
             || $request->filled('scrip_min') || $request->filled('scrip_max');
         $assetResults = collect();
         $stratagemResults = collect();
+        $allegianceCardResults = collect();
         if ($hasTextOrCost) {
             $assetResults = $this->assetMatches($request);
             $stratagemResults = $this->stratagemMatches($request);
+            $allegianceCardResults = $this->allegianceCardMatches($request);
         }
 
-        $hasMixed = $assetResults->isNotEmpty() || $stratagemResults->isNotEmpty();
+        $hasMixed = $assetResults->isNotEmpty()
+            || $stratagemResults->isNotEmpty()
+            || $allegianceCardResults->isNotEmpty();
 
         if ($hasMixed) {
             // Mixed result type — pull all Units to allow unified sort across
@@ -148,6 +153,24 @@ class SearchController extends Controller
                     '_sort_key' => $sort === 'scrip' ? sprintf('%012d', $s->tactical_cost ?? 0) : strtolower((string) $s->name),
                 ];
             }
+            foreach ($allegianceCardResults as $c) {
+                $rows[] = [
+                    'result_type' => 'allegiance_card',
+                    'id' => $c->id,
+                    'slug' => $c->slug,
+                    'name' => $c->name,
+                    'body' => $c->body,
+                    'image_path' => $c->image_path,
+                    'allegiance' => $c->relationLoaded('allegiance') && $c->allegiance ? [
+                        'id' => $c->allegiance->id,
+                        'slug' => $c->allegiance->slug,
+                        'name' => $c->allegiance->name,
+                    ] : null,
+                    // No native cost field — sort cards by name on numeric sorts
+                    // so they don't collapse to a single bucket at zero.
+                    '_sort_key' => strtolower((string) $c->name),
+                ];
+            }
 
             usort($rows, fn (array $a, array $b) => $direction === 'desc'
                 ? strcmp($b['_sort_key'], $a['_sort_key'])
@@ -171,6 +194,7 @@ class SearchController extends Controller
             $unitCount = $allUnits->count();
             $assetCount = $assetResults->count();
             $stratagemCount = $stratagemResults->count();
+            $allegianceCardCount = $allegianceCardResults->count();
         } else {
             $results = $query->orderBy($sort, $direction)->orderBy('name')->paginate($perPage)->withQueryString();
             $results->setCollection($results->getCollection()->map(function ($u) { // @phpstan-ignore argument.type
@@ -182,6 +206,7 @@ class SearchController extends Controller
             $unitCount = $totalResults = $results->total();
             $assetCount = 0;
             $stratagemCount = 0;
+            $allegianceCardCount = 0;
         }
 
         return inertia('TOS/Search/Index', [
@@ -191,6 +216,7 @@ class SearchController extends Controller
                 'units' => $unitCount,
                 'assets' => $assetCount,
                 'stratagems' => $stratagemCount,
+                'allegiance_cards' => $allegianceCardCount,
             ],
             // Filter dropdowns rarely change between requests — cache for 5
             // minutes keyed by the parent table's max(updated_at) so admin
@@ -587,6 +613,35 @@ class SearchController extends Controller
         }
 
         return $applied ? $q->get() : collect();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, AllegianceCard>
+     */
+    private function allegianceCardMatches(Request $request): \Illuminate\Database\Eloquent\Collection
+    {
+        $q = AllegianceCard::query()
+            ->select(['id', 'slug', 'name', 'body', 'image_path', 'allegiance_id'])
+            ->with('allegiance:id,slug,name');
+        $applied = false;
+        if ($request->filled('name')) {
+            $q->where(function ($qq) use ($request) {
+                $name = (string) $request->get('name');
+                $qq->where('name', 'LIKE', "%{$name}%")->orWhere('body', 'LIKE', "%{$name}%");
+            });
+            $applied = true;
+        }
+        if ($request->filled('description')) {
+            $q->where('body', 'LIKE', '%'.$request->get('description').'%');
+            $applied = true;
+        }
+
+        // Allegiance Cards have no scrip/tactical-cost field — scrip-range
+        // filters are silently inapplicable. They join the result list only
+        // when name/description hit. Return an Eloquent collection in both
+        // branches so the declared return type holds (Support\Collection
+        // is the parent class, not a subtype, so `collect()` would mismatch).
+        return $applied ? $q->get() : AllegianceCard::query()->whereRaw('1=0')->get();
     }
 
     private function unitSortKey(Unit $unit, string $sort): string

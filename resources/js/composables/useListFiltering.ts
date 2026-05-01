@@ -1,6 +1,6 @@
 import { cleanObject } from '@/composables/CleanObject';
 import { router } from '@inertiajs/vue3';
-import { computed, onMounted, type Ref, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, type Ref, ref } from 'vue';
 
 interface UseListFilteringOptions {
     /** Route name to filter against */
@@ -67,6 +67,12 @@ export function useListFiltering<T extends Record<string, string | null>>(initia
 
     const isLoading = ref(false);
 
+    // `router.on` returns an off-fn — capture it so we can detach on unmount,
+    // otherwise every visit to a page using this composable stacks another
+    // pair of listeners on the global router and they fire forever.
+    let offStart: (() => void) | null = null;
+    let offFinish: (() => void) | null = null;
+
     onMounted(() => {
         // Hydrate from URL params
         const urlParams = new URLSearchParams(window.location.search);
@@ -80,12 +86,19 @@ export function useListFiltering<T extends Record<string, string | null>>(initia
             filterParams.value.page_view = options.defaultView ?? 'cards';
         }
 
-        router.on('start', () => {
+        offStart = router.on('start', () => {
             isLoading.value = true;
         });
-        router.on('finish', () => {
+        offFinish = router.on('finish', () => {
             isLoading.value = false;
         });
+    });
+
+    onBeforeUnmount(() => {
+        offStart?.();
+        offFinish?.();
+        offStart = null;
+        offFinish = null;
     });
 
     return {

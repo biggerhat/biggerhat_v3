@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { factionBackground } from '@/composables/useFactionColor';
-import { csrfToken } from '@/lib/utils';
+import { xsrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useVirtualizer } from '@tanstack/vue-virtual';
@@ -239,6 +239,12 @@ const currentBuildId = ref<number | null>(null);
 const currentShareCode = ref<string | null>(null);
 const isSaving = ref(false);
 let currentSavePromise: Promise<void> | null = null;
+// Flag set when triggerAutosave / saveBuild fires while another save is
+// already in flight. The in-flight save reads it on completion and
+// re-fires saveBuild so the latest crew state isn't silently lost on
+// slow connections. Without this, autosaves arriving during a >2s save
+// were being dropped entirely.
+let pendingSave = false;
 const saveDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const lastSavedAt = ref<string | null>(null);
 const shareTooltip = ref(false);
@@ -1277,8 +1283,39 @@ const buildPayload = () => ({
     custom_references: Object.values(customReferences.value).some((arr) => arr.length > 0) ? customReferences.value : null,
 });
 
-const saveBuild = () => {
-    if (!isAuthenticated.value || !selectedMasterTitle.value || isSaving.value) return;
+// Translate a non-OK response into a user-readable message. Surfaces the
+// server's first validation error for 422 so the user can see *why* the save
+// failed, and gives 419 (CSRF expiry) its own actionable hint.
+const saveErrorFromResponse = async (response: Response, fallback: string): Promise<string> => {
+    if (response.status === 419) {
+        return 'Your session expired — please refresh the page to keep saving.';
+    }
+    if (response.status === 403) {
+        return "You don't have permission to save this crew.";
+    }
+    if (response.status === 422) {
+        try {
+            const body = await response.json();
+            const firstField = Object.keys(body?.errors ?? {})[0];
+            const firstMsg = firstField ? body.errors[firstField]?.[0] : null;
+            return firstMsg ?? body?.message ?? fallback;
+        } catch {
+            return fallback;
+        }
+    }
+    return fallback;
+};
+
+const saveBuild = (): Promise<void> | null => {
+    if (!isAuthenticated.value || !selectedMasterTitle.value) return null;
+
+    // If a save is already in flight, don't drop this trigger silently — flag
+    // it so the in-flight save re-fires saveBuild on completion. Returning
+    // the in-flight promise lets callers (generateShareLink) still await it.
+    if (isSaving.value) {
+        pendingSave = true;
+        return currentSavePromise;
+    }
 
     const doSave = async () => {
         isSaving.value = true;
@@ -1287,11 +1324,11 @@ const saveBuild = () => {
             if (currentBuildId.value && isOwner.value) {
                 const response = await fetch(route('tools.crew_builder.update', { crewBuild: currentBuildId.value }), {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' },
                     body: JSON.stringify(buildPayload()),
                 });
                 if (!response.ok) {
-                    saveError.value = 'Failed to save crew';
+                    saveError.value = await saveErrorFromResponse(response, 'Failed to save crew');
                     return;
                 }
                 const data = await response.json();
@@ -1309,11 +1346,11 @@ const saveBuild = () => {
             } else {
                 const response = await fetch(route('tools.crew_builder.store'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' },
                     body: JSON.stringify(buildPayload()),
                 });
                 if (!response.ok) {
-                    saveError.value = 'Failed to create crew';
+                    saveError.value = await saveErrorFromResponse(response, 'Failed to create crew');
                     return;
                 }
                 const data = await response.json();
@@ -1330,10 +1367,24 @@ const saveBuild = () => {
             }
             lastSavedAt.value = new Date().toLocaleTimeString();
             pushBuildToUrl();
-        } catch {
-            saveError.value = 'Network error saving crew';
+        } catch (err) {
+            // Surface to the console so users reporting the issue have something
+            // we can read in their browser logs — silent catches were making
+            // these reports very hard to triage.
+             
+            console.error('[CrewBuilder] autosave error:', err);
+            saveError.value = 'Network error saving crew — your changes are still pending.';
         } finally {
             isSaving.value = false;
+            currentSavePromise = null;
+            // If anything queued up while we were saving, re-fire so we don't
+            // lose the user's most recent edits. Only re-fire on success — on
+            // error we leave saveError visible and let the next user action
+            // (or the user clicking the Save button) retry.
+            if (pendingSave && !saveError.value) {
+                pendingSave = false;
+                saveBuild();
+            }
         }
     };
     currentSavePromise = doSave();
@@ -1481,7 +1532,7 @@ const confirmDeleteBuild = async () => {
     try {
         const response = await fetch(route('tools.crew_builder.destroy', { crewBuild: deleteTarget.value.id }), {
             method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': csrfToken() },
+            headers: { 'X-XSRF-TOKEN': xsrfToken() },
         });
         if (response.ok) {
             savedBuilds.value = savedBuilds.value.filter((b) => b.id !== deleteTarget.value!.id);
@@ -1500,7 +1551,7 @@ const toggleArchive = async (build: SavedBuild) => {
     try {
         await fetch(route('tools.crew_builder.update', { crewBuild: build.id }), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken() },
             body: JSON.stringify({ is_archived: newArchived }),
         });
         const idx = savedBuilds.value.findIndex((b) => b.id === build.id);
@@ -1515,7 +1566,7 @@ const togglePublic = async (build: SavedBuild) => {
     try {
         const response = await fetch(route('tools.crew_builder.update', { crewBuild: build.id }), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' },
             body: JSON.stringify({ is_public: newPublic }),
         });
         if (!response.ok) return;
@@ -1833,9 +1884,19 @@ const startNewBuild = () => {
 
 // ─── Init ───
 
-// ─── Init ───
+// When the tab regains focus we refresh `auth` shared data so a sign-in that
+// happened in another tab gets picked up here. Without this, page.props.auth.user
+// stays frozen at the initial Blade render — a logged-out load → sign-in
+// elsewhere → return-to-tab flow leaves `isAuthenticated` false and every
+// autosave silently no-ops. Reloading only `auth` avoids a heavy props refetch.
+const onVisibilityChange = () => {
+    if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+    router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
+};
+
 onMounted(() => {
     window.addEventListener('popstate', onPopState);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     const params = new URLSearchParams(window.location.search);
     const hasParams = params.has('build') || params.has('crew') || params.has('step');
@@ -1847,6 +1908,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('popstate', onPopState);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
     if (saveDebounceTimer.value) {
         clearTimeout(saveDebounceTimer.value);
         saveDebounceTimer.value = null;

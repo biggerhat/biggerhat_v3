@@ -394,8 +394,14 @@ class GameSetupController extends Controller
         $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
         $sortOrder = 0;
 
-        // Add leader
-        $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++, $miniatureSelections, $miniatureIndexes);
+        // Add leader(s) — masters with count > 1 (e.g. pair models) come as
+        // multiple physical models on the table, so we need a GameCrewMember
+        // per copy. Mirrors the totem-count loop directly below and the
+        // Crew Builder's leader handling.
+        $leaderCount = max(1, $master->count ?? 1);
+        for ($i = 0; $i < $leaderCount; $i++) {
+            $this->createCrewMember($game, $player, $master, 'leader', 0, $sortOrder++, $miniatureSelections, $miniatureIndexes);
+        }
 
         // Add totem
         if ($master->has_totem_id) {

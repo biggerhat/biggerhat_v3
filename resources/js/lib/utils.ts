@@ -11,9 +11,28 @@ export function valueUpdater<T extends Updater<any>>(updaterOrValue: T, ref: Ref
     ref.value = typeof updaterOrValue === 'function' ? updaterOrValue(ref.value) : updaterOrValue;
 }
 
-/** Read the CSRF token from the Blade-rendered <meta> tag. */
+/**
+ * Read the CSRF token from the Blade-rendered `<meta>` tag — raw (un-encrypted)
+ * 40-char value. Send via the `X-CSRF-TOKEN` header. Note: this value is
+ * baked in at initial page render, so it goes stale after a session rotation
+ * (sign-in/out in another tab). For long-lived pages that may outlive the
+ * session, prefer `xsrfToken()` below.
+ */
 export function csrfToken(): string {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+}
+
+/**
+ * Read the encrypted CSRF token from the `XSRF-TOKEN` cookie. Laravel refreshes
+ * this cookie on every response, so it stays valid even after a session rotation
+ * the page didn't witness (e.g. user signed in via another tab). Send via the
+ * `X-XSRF-TOKEN` header — Laravel will decrypt and compare against the session
+ * token. Returns an empty string if the cookie is missing.
+ */
+export function xsrfToken(): string {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : '';
 }
 
 /**

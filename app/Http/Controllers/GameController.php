@@ -791,13 +791,18 @@ class GameController extends Controller
             $totalSpent = 0;
             $ookCount = 0;
 
-            $members[] = [
-                'display_name' => $master->display_name,
-                'faction' => $master->getRawOriginal('faction'),
-                'cost' => 0,
-                'effective_cost' => 0,
-                'category' => 'leader',
-            ];
+            // Leader(s) — masters with count > 1 (pair models) need one entry
+            // per physical model so the preview matches the real game-tracker crew.
+            $leaderCount = max(1, $master->count ?? 1);
+            for ($i = 0; $i < $leaderCount; $i++) {
+                $members[] = [
+                    'display_name' => $master->display_name,
+                    'faction' => $master->getRawOriginal('faction'),
+                    'cost' => 0,
+                    'effective_cost' => 0,
+                    'category' => 'leader',
+                ];
+            }
 
             if ($master->has_totem_id) {
                 $totem = $characters->get($master->has_totem_id) ?? Character::find($master->has_totem_id);

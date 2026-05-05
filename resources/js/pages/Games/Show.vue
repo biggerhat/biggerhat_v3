@@ -1105,10 +1105,22 @@ const confirmLeave = () => {
     }
 };
 
+// When the tab regains focus, refresh `auth` shared data so a sign-in that
+// happened in a different tab — e.g. user clicked a join link, was bounced
+// to login in another tab, came back here — gets reflected. Without this,
+// `auth.user` and other auth-derived UI state stay frozen at the initial
+// (anonymous) Blade render until the user hard-refreshes, making save/join
+// actions non-functional.
+const onAuthVisibilityChange = () => {
+    if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+    router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
+};
+
 onMounted(() => {
     if (isGameInProgress.value) {
         setupLeaveGuard();
     }
+    document.addEventListener('visibilitychange', onAuthVisibilityChange);
 });
 
 // Watch in case status changes (e.g., game completed mid-session)
@@ -1122,6 +1134,7 @@ watch(isGameInProgress, (active) => {
 
 onUnmounted(() => {
     teardownLeaveGuard();
+    document.removeEventListener('visibilitychange', onAuthVisibilityChange);
 });
 
 // ─── Gameplay ───

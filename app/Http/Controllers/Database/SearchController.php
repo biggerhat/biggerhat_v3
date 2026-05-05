@@ -108,7 +108,7 @@ class SearchController extends Controller
             $query->where('willpower_suit', $request->get('willpower_suit'));
         }
 
-        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'] as $field) {
+        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count', 'summon_target_number'] as $field) {
             if ($request->filled("{$field}_min")) {
                 $query->where($field, '>=', (int) $request->get("{$field}_min"));
             }
@@ -483,7 +483,7 @@ class SearchController extends Controller
             $query->where('station', $request->get('station'));
         }
 
-        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'] as $field) {
+        foreach (['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count', 'summon_target_number'] as $field) {
             if ($request->filled("{$field}_min")) {
                 $query->where($field, '>=', (int) $request->get("{$field}_min"));
             }

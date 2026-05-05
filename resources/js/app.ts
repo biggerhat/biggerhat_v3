@@ -3,7 +3,7 @@ import './echo';
 
 import AppAdminLayout from '@/layouts/AppAdminLayout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { createInertiaApp, Head, Link } from '@inertiajs/vue3';
+import { createInertiaApp, Head, Link, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h, type DefineComponent } from 'vue';
 
@@ -55,6 +55,23 @@ createInertiaApp({
 initializeTheme();
 // Apply the saved per-faction accent (no-op if user hasn't picked one).
 initializeAccent();
+
+// After every Inertia navigation, sync <meta name="csrf-token"> with the
+// shared `csrf_token` prop. Without this, the meta tag stays at whatever
+// was rendered on the FIRST page load, so a user who logs in mid-session
+// (e.g. via a join link → login → game tracker chain) keeps sending the
+// pre-login token from raw fetch() calls and gets 419'd until they
+// hard-refresh. Inertia events run on every visit, including same-page
+// reloads, keeping the tag aligned with the live session.
+router.on('success', (event) => {
+    const props = event.detail?.page?.props as { csrf_token?: string } | undefined;
+    const token = props?.csrf_token;
+    if (!token || typeof document === 'undefined') return;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
+    if (meta && meta.content !== token) {
+        meta.content = token;
+    }
+});
 
 // Register PWA service worker
 if ('serviceWorker' in navigator) {

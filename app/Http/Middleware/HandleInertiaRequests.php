@@ -43,6 +43,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            // Surfaced so the client can sync the <meta name="csrf-token"> tag
+            // on every Inertia navigation. The Blade-rendered tag is baked in
+            // at the FIRST request and goes stale after a session rotation
+            // (login/logout/admin impersonate), which causes any raw fetch()
+            // using csrfToken() to 419 until the user hard-refreshes.
+            'csrf_token' => fn () => csrf_token(),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'messageTitle' => fn () => $request->session()->get('messageTitle'),

@@ -305,6 +305,8 @@ const filterParams = ref({
     description: null as string | null,
     count_min: null as string | null,
     count_max: null as string | null,
+    summon_target_number_min: null as string | null,
+    summon_target_number_max: null as string | null,
     is: null as string | null,
     has: null as string | null,
     stat_compare: null as string | null,
@@ -356,12 +358,20 @@ const filterKeys = [
     'description',
     'count_min',
     'count_max',
+    'summon_target_number_min',
+    'summon_target_number_max',
     'is',
     'has',
     'stat_compare',
 ] as const;
 
-const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'] as const;
+const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count', 'summon_target_number'] as const;
+
+// Display label override for stat fields whose column name is awkward to title-case directly.
+// `summon_target_number` reads "Summon target number" with the default capitalize filter — too long for the inline label.
+const statLabels: Partial<Record<(typeof statFields)[number], string>> = {
+    summon_target_number: 'Summon TN',
+};
 
 const factionNameToValue = (name: string): string | undefined => {
     const match = props.factions.find((f: { name: string; value: string }) => f.name === name);
@@ -585,6 +595,8 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
     filterParams.value.size_max = urlParams.get('size_max');
     filterParams.value.count_min = urlParams.get('count_min');
     filterParams.value.count_max = urlParams.get('count_max');
+    filterParams.value.summon_target_number_min = urlParams.get('summon_target_number_min');
+    filterParams.value.summon_target_number_max = urlParams.get('summon_target_number_max');
     // Is/Has filters
     filterParams.value.is = urlParams.get('is');
     filterParams.value.has = urlParams.get('has');
@@ -689,6 +701,8 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
         filterParams.value.size_max ||
         filterParams.value.count_min ||
         filterParams.value.count_max ||
+        filterParams.value.summon_target_number_min ||
+        filterParams.value.summon_target_number_max ||
         filterParams.value.stat_compare ||
         filterParams.value.base;
     const hasActions =
@@ -866,10 +880,11 @@ const searchExplanation = computed(() => {
     for (const stat of statFields) {
         const min = filterParams.value[`${stat}_min` as keyof typeof filterParams.value];
         const max = filterParams.value[`${stat}_max` as keyof typeof filterParams.value];
-        if (min && max && min === max) parts.push(`${stat} = ${min}`);
-        else if (min && max) parts.push(`${stat} ${min}-${max}`);
-        else if (min) parts.push(`${stat} >= ${min}`);
-        else if (max) parts.push(`${stat} <= ${max}`);
+        const label = statLabels[stat] ?? stat;
+        if (min && max && min === max) parts.push(`${label} = ${min}`);
+        else if (min && max) parts.push(`${label} ${min}-${max}`);
+        else if (min) parts.push(`${label} >= ${min}`);
+        else if (max) parts.push(`${label} <= ${max}`);
     }
     if (filterParams.value.base) parts.push(`base: ${lookupName(props.base_sizes, filterParams.value.base)}`);
     if (selectedActions.value.length) parts.push(`action: ${selectedActions.value.join(actionLogic.value === 'or' ? ' or ' : ' + ')}`);
@@ -960,7 +975,7 @@ const activeFilters = computed(() => {
         const min = filterParams.value[`${stat}_min` as keyof typeof filterParams.value];
         const max = filterParams.value[`${stat}_max` as keyof typeof filterParams.value];
         if (min || max) {
-            let label = `${stat}: `;
+            let label = `${statLabels[stat] ?? stat}: `;
             if (min && max && min === max) label += `= ${min}`;
             else if (min && max) label += `${min}-${max}`;
             else if (min) label += `>= ${min}`;
@@ -2124,7 +2139,7 @@ onUnmounted(() => {
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                        <label class="text-sm font-medium capitalize">{{ stat }}</label>
+                                        <label class="text-sm font-medium" :class="{ capitalize: !statLabels[stat] }">{{ statLabels[stat] ?? stat }}</label>
                                         <div class="flex items-center gap-2">
                                             <Input
                                                 v-model="filterParams[`${stat}_min`]"
@@ -2783,7 +2798,7 @@ onUnmounted(() => {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                            <label class="text-xs font-medium capitalize text-muted-foreground">{{ stat }}</label>
+                                            <label class="text-xs font-medium text-muted-foreground" :class="{ capitalize: !statLabels[stat] }">{{ statLabels[stat] ?? stat }}</label>
                                             <div class="flex items-center gap-2">
                                                 <Input
                                                     v-model="filterParams[`${stat}_min`]"

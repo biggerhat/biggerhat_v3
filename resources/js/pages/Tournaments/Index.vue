@@ -4,11 +4,13 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
-import { formatDateOnly } from '@/lib/utils';
+import { csrfToken, formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/vue3';
-import { CalendarDays, MapPin, Plus, Trophy, Users } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { CalendarDays, Info, MapPin, Plus, Trash2, Trophy, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface TournamentSummary {
@@ -34,8 +36,42 @@ defineProps<{
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const canCreateTournaments = computed(() => (page.props.auth.permissions ?? []).includes('create_tournaments'));
+// Super-admins see a trash icon on every tournament card and can delete in
+// any state (creators are still gated to Draft on the controller side).
+const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
 
 const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
+
+const confirm = useConfirm();
+const toast = useToast();
+
+const removeTournament = async (t: TournamentSummary) => {
+    if (
+        !(await confirm({
+            title: `Delete ${t.name}?`,
+            message: 'This permanently removes the tournament along with its rounds, pairings, games, and player roster. This cannot be undone.',
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    ) {
+        return;
+    }
+    try {
+        const res = await fetch(route('tournaments.destroy', t.uuid), {
+            method: 'DELETE',
+            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+        });
+        if (!res.ok && res.status !== 302) {
+            const body = await res.json().catch(() => ({}));
+            toast.error(body?.error ?? 'Could not delete tournament.');
+            return;
+        }
+        toast.success(`${t.name} deleted.`);
+        router.reload({ only: ['my_tournaments', 'public_tournaments'], preserveScroll: true });
+    } catch {
+        toast.error('Network error deleting tournament.');
+    }
+};
 </script>
 
 <template>
@@ -58,6 +94,27 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
+            <!-- TO opt-in notice — shown to users without create-tournament
+                 permission. Tracker access is gated while in beta; this points
+                 prospective TOs to the right channel for getting onboarded. -->
+            <div
+                v-if="!canCreateTournaments"
+                class="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm dark:bg-amber-500/10"
+            >
+                <Info class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <div class="space-y-1">
+                    <p class="font-medium text-amber-900 dark:text-amber-200">Are you a Tournament Organizer?</p>
+                    <p class="text-muted-foreground">
+                        The Tournament Tracker is in beta and access is request-only while we polish it. If you'd like to run an event with it,
+                        reach out to an admin or
+                        <Link :href="route('feedback.show')" class="font-medium text-primary underline-offset-2 hover:underline">
+                            send us a note via the feedback page
+                        </Link>
+                        and we'll get you set up.
+                    </p>
+                </div>
+            </div>
+
             <!-- Create Tournament CTA -->
             <Link
                 v-if="canCreateTournaments"
@@ -95,10 +152,22 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
                                         statusLabel(t.status)
                                     }}</Badge>
-                                    <span class="text-[11px] tabular-nums text-muted-foreground"
-                                        >{{ t.encounter_size }}ss
-                                        {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
-                                    >
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11px] tabular-nums text-muted-foreground"
+                                            >{{ t.encounter_size }}ss
+                                            {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
+                                        >
+                                        <button
+                                            v-if="isSuperAdmin"
+                                            type="button"
+                                            class="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                            :title="`Delete ${t.name}`"
+                                            :aria-label="`Delete ${t.name}`"
+                                            @click.stop.prevent="removeTournament(t)"
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />
@@ -132,10 +201,22 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
                                         statusLabel(t.status)
                                     }}</Badge>
-                                    <span class="text-[11px] tabular-nums text-muted-foreground"
-                                        >{{ t.encounter_size }}ss
-                                        {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
-                                    >
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11px] tabular-nums text-muted-foreground"
+                                            >{{ t.encounter_size }}ss
+                                            {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
+                                        >
+                                        <button
+                                            v-if="isSuperAdmin"
+                                            type="button"
+                                            class="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                            :title="`Delete ${t.name}`"
+                                            :aria-label="`Delete ${t.name}`"
+                                            @click.stop.prevent="removeTournament(t)"
+                                        >
+                                            <Trash2 class="size-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="mb-2 flex items-center gap-2">
                                     <Trophy class="size-4 text-muted-foreground" />

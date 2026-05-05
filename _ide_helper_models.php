@@ -1818,6 +1818,7 @@ namespace App\Models\TOS{
  * @property int $id
  * @property int $user_id
  * @property int $allegiance_id
+ * @property int|null $garrison_id
  * @property string $slug
  * @property string|null $share_code
  * @property bool $is_public
@@ -1830,6 +1831,7 @@ namespace App\Models\TOS{
  * @property-read int|null $commander_unit_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CompanyUnit> $companyUnits
  * @property-read int|null $company_units_count
+ * @property-read \App\Models\TOS\Garrison|null $garrison
  * @property-read \App\Models\User $user
  * @method static \Database\Factories\TOS\CompanyFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newModelQuery()
@@ -1837,6 +1839,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereAllegianceId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereGarrisonId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereName($value)
@@ -1885,6 +1888,98 @@ namespace App\Models\TOS{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperCompanyUnit {}
+}
+
+namespace App\Models\TOS{
+/**
+ * Tournament-level pool a player declares before a Fields-of-Glory event.
+ * 
+ * Distinct from Company: a Company is a single battlefield force assembled
+ * around one Commander; a Garrison is the larger pool a player draws from
+ * when building Companies between rounds. The validation profile (commander
+ * cap, scrip ceiling, stratagem count, envoy count) is set by `format`.
+ * 
+ * Envoys are stored as a pivot to `tos_allegiance_cards` because the
+ * codebase folded the old standalone Envoy entity into the Allegiance Card
+ * Primary tier (see drop migration 2026_04_29_120000). The pivot keeps the
+ * "envoys" name so the rules language survives in the schema.
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property int $allegiance_id
+ * @property string $slug
+ * @property string|null $share_code
+ * @property bool $is_public
+ * @property string $name
+ * @property \App\Enums\TOS\GarrisonFormatEnum $format
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance $allegiance
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Asset> $assets
+ * @property-read int|null $assets_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\GarrisonUnit> $commanderUnits
+ * @property-read int|null $commander_units_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\AllegianceCard> $envoys
+ * @property-read int|null $envoys_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\GarrisonUnit> $garrisonUnits
+ * @property-read int|null $garrison_units_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Stratagem> $stratagems
+ * @property-read int|null $stratagems_count
+ * @property-read \App\Models\User $user
+ * @method static \Database\Factories\TOS\GarrisonFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereFormat($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereShareCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Garrison whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGarrison {}
+}
+
+namespace App\Models\TOS{
+/**
+ * One row per unit instance in a Garrison's pool. Mirrors `CompanyUnit` minus
+ * the per-unit Asset pivot — Assets in a Garrison live at the Garrison level
+ * (a pool with quantity), not attached to a specific unit row.
+ *
+ * @property int $id
+ * @property int $garrison_id
+ * @property int $unit_id
+ * @property int|null $sculpt_id
+ * @property bool $is_commander
+ * @property int $position
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Garrison $garrison
+ * @property-read \App\Models\TOS\UnitSculpt|null $sculpt
+ * @property-read \App\Models\TOS\Unit $unit
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereGarrisonId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereIsCommander($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit wherePosition($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereSculptId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereUnitId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GarrisonUnit whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperGarrisonUnit {}
 }
 
 namespace App\Models\TOS{

@@ -7,6 +7,7 @@ use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Company;
 use App\Models\TOS\CompanyUnit;
+use App\Models\TOS\Garrison;
 use App\Models\TOS\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,12 +39,24 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $preselectGarrisonId = $request->filled('garrison_id') ? (int) $request->get('garrison_id') : null;
+
         return inertia('TOS/Companies/Create', [
             'allegiances' => fn () => Allegiance::query()
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'type', 'is_syndicate', 'color_slug']),
+            // The user's Garrisons are surfaced as an optional "Build from
+            // Garrison" picker. Selecting one locks the Allegiance to match
+            // and tells the Builder to filter the hireable pool down to
+            // what's actually in the Garrison.
+            'garrisons' => fn () => Garrison::query()
+                ->where('user_id', Auth::id())
+                ->with('allegiance:id,slug,name,color_slug')
+                ->orderByDesc('updated_at')
+                ->get(['id', 'slug', 'name', 'allegiance_id', 'format', 'updated_at']),
+            'preselect_garrison_id' => $preselectGarrisonId,
         ]);
     }
 
@@ -52,8 +65,19 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'allegiance_id' => ['required', 'integer', 'exists:tos_allegiances,id'],
+            'garrison_id' => ['nullable', 'integer', 'exists:tos_garrisons,id'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        // If the user picked a Garrison, snap the allegiance to it (the
+        // Builder UI already locks the picker, but server-side enforcement
+        // means an out-of-band POST can't desync the two).
+        if (! empty($validated['garrison_id'])) {
+            $garrison = Garrison::where('id', $validated['garrison_id'])
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+            $validated['allegiance_id'] = $garrison->allegiance_id;
+        }
 
         $company = Company::create([
             'user_id' => Auth::id(),
@@ -71,6 +95,7 @@ class CompanyController extends Controller
             // secondary_type is required because Unit::hireableInto reads
             // $allegiance->typeValues() which dereferences both type columns.
             'allegiance:id,slug,name,type,secondary_type,color_slug',
+            'garrison:id,slug,name,format,allegiance_id',
             'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
             'companyUnits.unit.specialUnitRules:id,slug,name',
             // Sculpts include image columns now — the company-builder drawer
@@ -81,45 +106,70 @@ class CompanyController extends Controller
             'companyUnits.assets.limits',
         ]);
 
-        // Hireable pool for the picker — direct allegiance attachments PLUS
-        // Neutral (matching-type) units, courtesy of Unit::hireableInto.
-        // Each unit is annotated with a `hire_category` so the UI can chip
-        // it (Direct/Neutral) the way Malifaux's Crew Builder shows in-keyword
-        // vs versatile/ook badges.
-        $hireable = Unit::hireableInto($company->allegiance)
-            ->notCombinedArmsChild()
-            ->with([
-                'specialUnitRules:id,slug,name',
-                'sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
-                'allegiances:id',
-            ])
-            ->orderBy('name')
-            ->get(['id', 'slug', 'name', 'title', 'scrip', 'restriction', 'combined_arms_child_id'])
-            ->map(function (Unit $u) use ($company) {
-                $direct = $u->allegiances->contains('id', $company->allegiance_id);
-                $u->setAttribute('hire_category', $direct ? 'direct' : 'neutral');
+        // Pre-compute the Garrison's pool ids when this Company is tied to
+        // one — used to intersect both pickers below. Distinct unit ids
+        // because the Garrison can hold multiple rows of the same unit
+        // (Same-Name cap), but for picker eligibility we only care that
+        // the unit *appears at all* in the pool.
+        $garrisonUnitIds = null;
+        $garrisonAssetIds = null;
+        if ($company->garrison_id) {
+            $garrisonUnitIds = $company->garrison->garrisonUnits()->distinct()->pluck('unit_id');
+            $garrisonAssetIds = $company->garrison->assets()->pluck('tos_assets.id');
+        }
 
-                return $u;
-            });
+        // Picker pools are wrapped in lazy closures so partial reloads
+        // (`router.post({ only: ['company', 'scrip_spent', ...] })`) skip
+        // the heavy hireable / asset queries entirely — same pattern the
+        // Crew Builder and Garrison Builder use. Inertia evaluates these
+        // only on full visits or when the prop is explicitly requested.
+        $hireableUnits = function () use ($company, $garrisonUnitIds) {
+            $hireableQuery = Unit::hireableInto($company->allegiance)
+                ->notCombinedArmsChild();
+            if ($garrisonUnitIds !== null) {
+                $hireableQuery->whereIn('tos_units.id', $garrisonUnitIds);
+            }
 
-        // Hireable assets — those flagged for this Allegiance OR with no
-        // allegiance restriction.
-        $assets = Asset::query()
-            ->where(function ($q) use ($company) {
-                $q->whereDoesntHave('allegiances')
-                    ->orWhereHas('allegiances', fn ($inner) => $inner->where('tos_allegiances.id', $company->allegiance_id));
-            })
-            ->with(['limits', 'allegiances:id,slug,name'])
-            ->orderBy('name')
-            ->get(['id', 'slug', 'name', 'scrip_cost'])
-            ->map(function (Asset $a) use ($company) {
-                // Annotate with already-attached state so the picker UI can
-                // gray out Unique Assets that are already on the Company
-                // without a round trip.
-                $a->setAttribute('already_attached', $company->hasAssetAttached($a));
+            return $hireableQuery
+                ->with([
+                    'specialUnitRules:id,slug,name',
+                    'sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
+                    'allegiances:id',
+                ])
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'title', 'scrip', 'restriction', 'combined_arms_child_id'])
+                ->map(function (Unit $u) use ($company) {
+                    // hire_category drives the Direct/Neutral chip in the
+                    // picker (mirrors Crew Builder's in-keyword vs OOK).
+                    $direct = $u->allegiances->contains('id', $company->allegiance_id);
+                    $u->setAttribute('hire_category', $direct ? 'direct' : 'neutral');
 
-                return $a;
-            });
+                    return $u;
+                });
+        };
+
+        $availableAssets = function () use ($company, $garrisonAssetIds) {
+            $assetsQuery = Asset::query()
+                ->where(function ($q) use ($company) {
+                    $q->whereDoesntHave('allegiances')
+                        ->orWhereHas('allegiances', fn ($inner) => $inner->where('tos_allegiances.id', $company->allegiance_id));
+                });
+            if ($garrisonAssetIds !== null) {
+                $assetsQuery->whereIn('tos_assets.id', $garrisonAssetIds);
+            }
+
+            return $assetsQuery
+                ->with(['limits', 'allegiances:id,slug,name'])
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'scrip_cost'])
+                ->map(function (Asset $a) use ($company) {
+                    // already_attached lets the picker grey out Unique
+                    // Assets that are already in play without a round trip.
+                    $a->setAttribute('already_attached', $company->hasAssetAttached($a));
+
+                    return $a;
+                });
+        };
 
         return inertia('TOS/Companies/View', [
             'company' => $company,
@@ -127,8 +177,16 @@ class CompanyController extends Controller
             'scrip_spent' => $company->scripSpent(),
             'scrip_remaining' => $company->scripRemaining(),
             'has_commander' => $company->hasCommander(),
-            'hireable_units' => $hireable,
-            'available_assets' => $assets,
+            'hireable_units' => $hireableUnits,
+            'available_assets' => $availableAssets,
+            // Garrisons the user owns that can host this Company (same
+            // Allegiance) — drives the "Build from Garrison" picker.
+            // Lazy so partial reloads of pool actions skip it.
+            'available_garrisons' => fn () => Garrison::query()
+                ->where('user_id', Auth::id())
+                ->where('allegiance_id', $company->allegiance_id)
+                ->orderByDesc('updated_at')
+                ->get(['id', 'slug', 'name', 'format', 'allegiance_id', 'updated_at']),
         ]);
     }
 
@@ -144,6 +202,37 @@ class CompanyController extends Controller
         $company->update($validated);
 
         return redirect()->route('tos.companies.view', $company->slug);
+    }
+
+    /**
+     * Tie or untie a Company to/from a Garrison from the View page. Setting
+     * a Garrison snaps the allegiance to match (defensive — the picker
+     * already locks it). Setting NULL drops the restriction; the existing
+     * roster stays put even if items now fall outside what the prior
+     * Garrison would have allowed (the Builder simply unrestricts going
+     * forward — same call as a casual Company).
+     */
+    public function setGarrison(Request $request, Company $company): RedirectResponse
+    {
+        $this->authorizeCompany($company);
+
+        $validated = $request->validate([
+            'garrison_id' => ['nullable', 'integer', 'exists:tos_garrisons,id'],
+        ]);
+
+        if (! empty($validated['garrison_id'])) {
+            $garrison = Garrison::where('id', $validated['garrison_id'])
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+            $company->update([
+                'garrison_id' => $garrison->id,
+                'allegiance_id' => $garrison->allegiance_id,
+            ]);
+        } else {
+            $company->update(['garrison_id' => null]);
+        }
+
+        return back();
     }
 
     public function delete(Company $company): RedirectResponse
@@ -271,6 +360,20 @@ class CompanyController extends Controller
             return back()->withErrors(['unit_id' => "{$unit->name} can't be hired into this Allegiance."]);
         }
 
+        // When this Company is being built from a Garrison, the unit must
+        // also appear in the Garrison's declared pool — same enforcement
+        // the picker UI applies, re-checked server-side for out-of-band
+        // POSTs.
+        if ($company->garrison_id) {
+            $inPool = \App\Models\TOS\GarrisonUnit::query()
+                ->where('garrison_id', $company->garrison_id)
+                ->where('unit_id', $unit->id)
+                ->exists();
+            if (! $inPool) {
+                return back()->withErrors(['unit_id' => "{$unit->name} isn't in your declared Garrison."]);
+            }
+        }
+
         // Scrip budget — Commanders provide budget so they're never rejected;
         // every other hire has to fit under the remaining scrip.
         if (! $promotingCommander) {
@@ -392,6 +495,20 @@ class CompanyController extends Controller
 
         if (! $asset->canAttachTo($companyUnit->unit)) {
             return back()->withErrors(['asset_id' => "{$asset->name} can't be attached to {$companyUnit->unit->name}."]);
+        }
+
+        // Garrison-restricted Companies pull only from the Garrison's
+        // declared Asset pool — mirrors the Unit gate above. Use the
+        // pivot relation rather than a raw DB query so the table name
+        // stays in one place (Company belongsTo Garrison; Garrison's
+        // assets() pivot is the single source of truth).
+        if ($company->garrison_id) {
+            $inPool = $company->garrison->assets()
+                ->where('tos_assets.id', $asset->id)
+                ->exists();
+            if (! $inPool) {
+                return back()->withErrors(['asset_id' => "{$asset->name} isn't in your declared Garrison's Asset pool."]);
+            }
         }
 
         // Unique cap (rulebook p. 12) — same Asset can't appear twice

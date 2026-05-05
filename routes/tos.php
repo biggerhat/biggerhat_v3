@@ -8,6 +8,7 @@ use App\Http\Controllers\TOS\Database\AllegianceController;
 use App\Http\Controllers\TOS\Database\AssetController;
 use App\Http\Controllers\TOS\Database\CompanyController;
 use App\Http\Controllers\TOS\Database\CompareController;
+use App\Http\Controllers\TOS\Database\GarrisonController;
 use App\Http\Controllers\TOS\Database\PdfController as TosPdfController;
 use App\Http\Controllers\TOS\Database\SearchController as TosSearchController;
 use App\Http\Controllers\TOS\Database\SpecialUnitRuleController;
@@ -79,6 +80,7 @@ Route::prefix('tos')->name('tos.')->group(function () {
         Route::post('/{company}', 'update')->name('update');
         Route::post('/{company}/delete', 'delete')->name('delete');
         Route::post('/{company}/public', 'togglePublic')->name('toggle_public');
+        Route::post('/{company}/garrison', 'setGarrison')->name('set_garrison');
         Route::get('/{company}/pdf', 'downloadPdf')->name('pdf');
         Route::post('/{company}/units', 'addUnit')->name('units.add');
         Route::post('/{company}/units/{companyUnit}/delete', 'removeUnit')->name('units.remove');
@@ -89,6 +91,34 @@ Route::prefix('tos')->name('tos.')->group(function () {
 
     // Public read-only Company view via share_code — no auth.
     Route::get('/c/{share_code}', [CompanyController::class, 'shared'])->name('companies.shared');
+
+    // Garrison Builder — auth-gated. A Garrison is the tournament-level pool
+    // (Commanders, Units, Assets, Stratagems, Envoys) drawn from to assemble
+    // Companies between rounds. Format-driven validation in
+    // App\Models\TOS\Garrison::violations().
+    Route::middleware('auth')->controller(GarrisonController::class)->prefix('garrisons')->name('garrisons.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{garrison}', 'view')->name('view');
+        Route::post('/{garrison}', 'update')->name('update');
+        Route::post('/{garrison}/delete', 'delete')->name('delete');
+        Route::post('/{garrison}/public', 'togglePublic')->name('toggle_public');
+        Route::get('/{garrison}/pdf', 'downloadPdf')->name('pdf');
+        // Pool modification — Phase 3.
+        Route::post('/{garrison}/units', 'addUnit')->name('units.add');
+        Route::post('/{garrison}/units/{garrisonUnit}/delete', 'removeUnit')->name('units.remove');
+        Route::post('/{garrison}/units/{garrisonUnit}/sculpt', 'updateSculpt')->name('units.sculpt');
+        Route::post('/{garrison}/assets', 'attachAsset')->name('assets.attach');
+        Route::post('/{garrison}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
+        Route::post('/{garrison}/stratagems', 'pickStratagem')->name('stratagems.pick');
+        Route::post('/{garrison}/stratagems/{stratagem}/delete', 'unpickStratagem')->name('stratagems.unpick');
+        Route::post('/{garrison}/envoys', 'pickEnvoy')->name('envoys.pick');
+        Route::post('/{garrison}/envoys/{allegianceCard}/delete', 'unpickEnvoy')->name('envoys.unpick');
+    });
+
+    // Public read-only Garrison view via share_code — no auth.
+    Route::get('/g/{share_code}', [GarrisonController::class, 'shared'])->name('garrisons.shared');
 });
 
 Route::post('/system/switch', [GameSystemController::class, 'switch'])->name('system.switch');

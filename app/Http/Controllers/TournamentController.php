@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
+use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
@@ -469,7 +470,11 @@ class TournamentController extends Controller
         // before() hook). Invited organizers cannot delete.
         $this->authorize('delete', $tournament);
 
-        if ($tournament->status !== TournamentStatusEnum::Draft) {
+        // Creators can only delete drafts so they can't accidentally nuke an
+        // event mid-run; super_admins (manage_tournaments perm) can delete in
+        // any state for moderation cleanup.
+        $isSuperAdmin = Auth::user()?->can(PermissionEnum::ManageTournaments->value) ?? false;
+        if ($tournament->status !== TournamentStatusEnum::Draft && ! $isSuperAdmin) {
             return response()->json(['error' => 'Only draft tournaments can be deleted'], 422);
         }
 

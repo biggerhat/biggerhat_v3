@@ -73,6 +73,18 @@ class Company extends Model
         return $this->belongsTo(Allegiance::class);
     }
 
+    /**
+     * Optional tournament-Garrison this Company is being built out of.
+     * When set, the Company Builder restricts its hiring pool to the
+     * Garrison's declared Units + Assets — see CompanyController::view
+     * + addUnit + attachAsset for the enforcement points. NULL means
+     * unrestricted casual play.
+     */
+    public function garrison(): BelongsTo
+    {
+        return $this->belongsTo(Garrison::class);
+    }
+
     public function companyUnits(): HasMany
     {
         return $this->hasMany(CompanyUnit::class)->orderBy('position');

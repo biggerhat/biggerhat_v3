@@ -22,7 +22,9 @@ import {
     Printer,
     Search,
     Share2,
+    Shield,
     Trash2,
+    X,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -99,6 +101,17 @@ interface Company {
     allegiance: Allegiance;
     notes: string | null;
     company_units: CompanyUnit[];
+    garrison_id: number | null;
+    garrison: { id: number; slug: string; name: string; format: string } | null;
+}
+
+interface AvailableGarrison {
+    id: number;
+    slug: string;
+    name: string;
+    format: string;
+    allegiance_id: number;
+    updated_at: string;
 }
 
 const props = defineProps<{
@@ -109,6 +122,7 @@ const props = defineProps<{
     has_commander: boolean;
     hireable_units: UnitMin[];
     available_assets: AssetMin[];
+    available_garrisons: AvailableGarrison[];
 }>();
 
 // ── Hiring pool filter state ─────────────────────────────────────────────
@@ -195,13 +209,23 @@ const accentBg = computed(() =>
     props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40',
 );
 
+// Inertia partial-reload contract — keys whose values we want refreshed
+// on every pool action. `hireable_units` / `available_assets` aren't in
+// this list so the heavy controller queries are skipped server-side; the
+// asset-attach flow opts those back in to refresh the `already_attached`
+// annotation.
+const reloadOnly = ['company', 'scrip_budget', 'scrip_spent', 'scrip_remaining', 'has_commander'];
+const reloadOnlyWithAssets = [...reloadOnly, 'available_assets'];
+
 // ── Hire / remove ────────────────────────────────────────────────────────
 function hireUnit(unit: UnitMin, asCommander = false) {
     router.post(
         route('tos.companies.units.add', props.company.slug),
         { unit_id: unit.id, is_commander: asCommander },
         {
+            only: reloadOnly,
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 drawerOpen.value = false;
             },
@@ -214,7 +238,9 @@ function removeUnit(cu: CompanyUnit) {
         route('tos.companies.units.remove', [props.company.slug, cu.id]),
         {},
         {
+            only: reloadOnly,
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 drawerOpen.value = false;
             },
@@ -227,7 +253,7 @@ function updateSculpt(cu: CompanyUnit, sculptId: number) {
     router.post(
         route('tos.companies.units.sculpt', [props.company.slug, cu.id]),
         { sculpt_id: sculptId },
-        { preserveScroll: true, preserveState: true },
+        { only: reloadOnly, preserveScroll: true, preserveState: true },
     );
 }
 
@@ -311,7 +337,12 @@ function attachAsset(asset: AssetMin) {
         route('tos.companies.assets.attach', [props.company.slug, assetDialogTarget.value.id]),
         { asset_id: asset.id },
         {
+            // Refresh `available_assets` so the picker's already_attached
+            // annotation reflects the new attachment without a full
+            // page navigation.
+            only: reloadOnlyWithAssets,
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 assetDialogOpen.value = false;
             },
@@ -320,7 +351,11 @@ function attachAsset(asset: AssetMin) {
 }
 
 function detachAsset(cu: CompanyUnit, asset: AssetMin) {
-    router.post(route('tos.companies.assets.detach', [props.company.slug, cu.id, asset.slug]), {}, { preserveScroll: true });
+    router.post(
+        route('tos.companies.assets.detach', [props.company.slug, cu.id, asset.slug]),
+        {},
+        { only: reloadOnlyWithAssets, preserveScroll: true, preserveState: true },
+    );
 }
 
 function isAssetUnique(asset: AssetMin) {
@@ -337,8 +372,59 @@ function slotLocations(asset: AssetMin): string[] {
 const shareCopied = ref(false);
 
 function togglePublic() {
-    router.post(route('tos.companies.toggle_public', props.company.slug), {}, { preserveScroll: true });
+    router.post(
+        route('tos.companies.toggle_public', props.company.slug),
+        {},
+        { only: reloadOnly, preserveScroll: true, preserveState: true },
+    );
 }
+
+// ── Garrison link ────────────────────────────────────────────────────────
+// Setting `garrison_id = null` drops the restriction; the picker for the
+// existing roster doesn't change retroactively (Builder simply unrestricts
+// going forward — same as a casual Company).
+function clearGarrison() {
+    // Garrison swap re-scopes the picker pools — refresh both lists so
+    // the user immediately sees the unrestricted hireable + available set.
+    router.post(
+        route('tos.companies.set_garrison', props.company.slug),
+        { garrison_id: null },
+        {
+            only: [...reloadOnly, 'hireable_units', 'available_assets'],
+            preserveScroll: true,
+            preserveState: true,
+        },
+    );
+}
+
+// ── Garrison picker dialog ──────────────────────────────────────────────
+const garrisonPickerOpen = ref(false);
+function openGarrisonPicker() {
+    garrisonPickerOpen.value = true;
+}
+function pickGarrison(garrison: AvailableGarrison) {
+    router.post(
+        route('tos.companies.set_garrison', props.company.slug),
+        { garrison_id: garrison.id },
+        {
+            // Garrison swap re-scopes the picker pools — pull both fresh.
+            only: [...reloadOnly, 'hireable_units', 'available_assets'],
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                garrisonPickerOpen.value = false;
+            },
+        },
+    );
+}
+
+const garrisonFormatLabel: Record<string, string> = {
+    one_commander: 'One Commander',
+    one_commander_plus_10: 'One Cmdr +10',
+    two_commanders: 'Two Commanders',
+    theater_of_war: 'Theater of War',
+    no_mans_land: "No Man's Land",
+};
 
 async function copyShareLink() {
     const url = window.location.origin + route('tos.companies.shared', props.company.share_code, false);
@@ -406,6 +492,40 @@ async function deleteCompany() {
                                 <span class="mx-1 opacity-50">·</span>
                                 <span class="capitalize">{{ company.allegiance.type }}</span>
                             </p>
+                            <div
+                                v-if="company.garrison"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
+                            >
+                                <Shield class="size-3" />
+                                <span>Building from</span>
+                                <Link
+                                    :href="route('tos.garrisons.view', company.garrison.slug)"
+                                    class="font-semibold hover:underline"
+                                >{{ company.garrison.name }}</Link>
+                                <button
+                                    v-if="available_garrisons.length > 1"
+                                    type="button"
+                                    class="ml-0.5 rounded-full px-1 text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-400/60 dark:hover:text-emerald-400"
+                                    title="Switch to a different Garrison"
+                                    @click="openGarrisonPicker"
+                                >change</button>
+                                <button
+                                    type="button"
+                                    class="ml-0.5 rounded-full text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-400/60 dark:hover:text-emerald-400"
+                                    title="Drop the Garrison restriction"
+                                    @click="clearGarrison"
+                                ><X class="size-3" /></button>
+                            </div>
+                            <button
+                                v-else-if="available_garrisons.length"
+                                type="button"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-full border border-dashed border-emerald-500/40 px-2 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/5 dark:text-emerald-400"
+                                title="Restrict the hiring pool to a tournament Garrison"
+                                @click="openGarrisonPicker"
+                            >
+                                <Shield class="size-3" />
+                                Build from a Garrison…
+                            </button>
                         </div>
                         <div class="flex shrink-0 items-center gap-1">
                             <Button
@@ -650,6 +770,53 @@ async function deleteCompany() {
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" @click="assetDialogOpen = false">Cancel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Garrison picker — set or swap the Garrison this Company is built from. -->
+        <Dialog v-model:open="garrisonPickerOpen">
+            <DialogContent class="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>
+                        <span v-if="company.garrison">Switch Garrison</span>
+                        <span v-else>Build from a Garrison</span>
+                    </DialogTitle>
+                    <DialogDescription>
+                        Restricts the hiring pool to one of your tournament Garrisons.
+                        Allegiance stays locked to {{ company.allegiance.name }}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-2 py-2">
+                    <div v-if="!available_garrisons.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+                        No Garrisons of this Allegiance yet.
+                        <Link :href="route('tos.garrisons.create')" class="underline hover:text-foreground">Create one →</Link>
+                    </div>
+                    <button
+                        v-for="g in available_garrisons"
+                        :key="g.id"
+                        type="button"
+                        :disabled="company.garrison?.id === g.id"
+                        :class="[
+                            'flex w-full items-center gap-3 rounded-lg border p-3 text-left text-xs transition-all',
+                            company.garrison?.id === g.id
+                                ? 'cursor-not-allowed border-primary bg-primary/5 opacity-60 ring-1 ring-primary/40'
+                                : 'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm',
+                        ]"
+                        @click="pickGarrison(g)"
+                    >
+                        <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <Shield class="size-4" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-[12px] font-semibold">{{ g.name }}</p>
+                            <p class="truncate text-[10px] text-muted-foreground">{{ garrisonFormatLabel[g.format] ?? g.format }}</p>
+                        </div>
+                        <span v-if="company.garrison?.id === g.id" class="text-[10px] font-medium text-primary">current</span>
+                    </button>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" @click="garrisonPickerOpen = false">Cancel</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

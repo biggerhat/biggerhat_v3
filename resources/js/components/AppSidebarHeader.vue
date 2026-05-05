@@ -121,6 +121,7 @@ const malifauxMyStuffItems: QuickAction[] = [
 
 const tosMyStuffItems: QuickAction[] = [
     { name: 'Company Builder', icon: Users, route: route('tos.companies.index'), keywords: 'company builder tos build' },
+    { name: 'Garrison Builder', icon: Shield, route: route('tos.garrisons.index'), keywords: 'garrison builder tos tournament pool' },
 ];
 
 /** Lazy catalog load — kicked off on first idle after mount so first open is warm. */

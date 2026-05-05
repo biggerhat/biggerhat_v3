@@ -27,6 +27,7 @@ import {
     ShieldCheck,
     Swords,
     TextSearch,
+    Trophy,
     Users,
     Zap,
     ArrowUpCircle,
@@ -72,6 +73,7 @@ const tosNavItems = computed<NavItem[]>(() => [
             // the active game system is TOS, matching the Malifaux pattern.
             { title: 'Advanced Search', href: route('tos.search'), icon: TextSearch },
             ...(isAuthenticated.value ? [{ title: 'Company Builder', href: route('tos.companies.index'), icon: Users }] : []),
+            ...(isAuthenticated.value ? [{ title: 'Garrison Builder', href: route('tos.garrisons.index'), icon: Shield }] : []),
             ...(canAccessAdmin.value
                 ? [
                       {
@@ -171,6 +173,12 @@ const mainNavItems = computed<NavItem[]>(() => [
                 title: 'Game Tracker',
                 href: route('games.index'),
                 icon: Swords,
+                badge: 'Beta',
+            },
+            {
+                title: 'Tournament Tracker',
+                href: route('tournaments.index'),
+                icon: Trophy,
                 badge: 'Beta',
             },
             {

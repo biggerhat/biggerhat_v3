@@ -3,6 +3,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameAbandonDialog from '@/components/Game/GameAbandonDialog.vue';
+import GameAllCardsDialog from '@/components/Game/GameAllCardsDialog.vue';
 import GameAttachedUpgradeDrawer from '@/components/Game/GameAttachedUpgradeDrawer.vue';
 import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
 import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
@@ -46,6 +47,7 @@ import {
     Footprints,
     Heart,
     Layers,
+    LayoutGrid,
     Loader2,
     Minus,
     PanelLeftClose,
@@ -1349,6 +1351,91 @@ const allOpponentCardsExpanded = computed(() => {
     const ids = opponentCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
     return ids.length > 0 && ids.every((id: number) => expandedOpponentCards.value.has(id));
 });
+
+// ─── All-cards dialog (desktop wide-screen card grid) ───
+// Single source of truth for which side's cards we're viewing. The button is
+// gated to lg+ in the template since cramming a 4-column card grid into a
+// phone is unworkable; the inline card-expand toggle still covers mobile use.
+const allCardsDialogOpen = ref(false);
+const allCardsSide = ref<'my' | 'opponent'>('my');
+
+interface AllCardsEntry {
+    id: string | number;
+    title: string;
+    subtitle?: string | null;
+    front_image: string | null;
+    back_image: string | null;
+    badge?: string | null;
+    badgeTone?: 'amber' | 'red' | 'muted' | 'primary';
+}
+
+const buildAllCardsEntries = (
+    members: any[],
+    crewUpgrades: any[],
+    activeUpgradeId: number | null,
+): AllCardsEntry[] => {
+    const entries: AllCardsEntry[] = [];
+
+    // Surface the active crew upgrade first — it's the player-level rules card
+    // every member references during play. Skip non-active swappable upgrades
+    // since only one is in play at a time.
+    const activeUpgrade = crewUpgrades.find((u: any) => u.id === activeUpgradeId);
+    if (activeUpgrade?.front_image) {
+        entries.push({
+            id: 'crew-upgrade-' + activeUpgrade.id,
+            title: activeUpgrade.name,
+            subtitle: 'Crew Upgrade',
+            front_image: activeUpgrade.front_image,
+            back_image: activeUpgrade.back_image ?? null,
+            badge: 'Crew',
+            badgeTone: 'amber',
+        });
+    }
+
+    // Sort so the master(s) appear directly after the crew upgrade — they're
+    // the at-a-glance reference for the rest of the crew. `count > 1` masters
+    // (pair models) each get their own entry since createCrewMember rolls one
+    // GameCrewMember per copy.
+    const sorted = [...members].sort((a: any, b: any) => {
+        const rank = (m: any) => (m.hiring_category === 'leader' ? 0 : m.hiring_category === 'totem' ? 1 : 2);
+        return rank(a) - rank(b);
+    });
+
+    for (const m of sorted) {
+        if (!m.front_image) continue;
+        const isLeader = m.hiring_category === 'leader';
+        entries.push({
+            id: 'member-' + m.id,
+            title: m.display_name,
+            subtitle: m.is_summoned ? 'Summoned' : null,
+            front_image: m.front_image,
+            back_image: m.back_image ?? null,
+            badge: m.is_killed ? 'Killed' : isLeader ? 'Master' : null,
+            badgeTone: m.is_killed ? 'red' : isLeader ? 'primary' : 'muted',
+        });
+    }
+
+    return entries;
+};
+
+const allCardsEntries = computed<AllCardsEntry[]>(() => {
+    if (allCardsSide.value === 'my') {
+        return buildAllCardsEntries(myCrewMembers.value, myCrewUpgrades.value, myActiveUpgradeId.value);
+    }
+    return buildAllCardsEntries(opponentCrewMembers.value, opponentCrewUpgrades.value, opponentActiveUpgradeId.value);
+});
+
+const allCardsTitle = computed(() => {
+    if (allCardsSide.value === 'my') {
+        return `${isObserver.value ? playerName(myPlayer.value) : 'Your Crew'} — All Cards`;
+    }
+    return `${playerName(opponent.value)} — All Cards`;
+});
+
+const openAllCards = (side: 'my' | 'opponent') => {
+    allCardsSide.value = side;
+    allCardsDialogOpen.value = true;
+};
 
 const toast = useToast();
 const showError = (msg: string) => toast.error(msg);
@@ -4040,6 +4127,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 >
                                     <Layers class="size-3.5" :class="allMyCardsExpanded ? 'text-amber-500' : 'text-muted-foreground'" />
                                 </button>
+                                <!-- Wide-screen-only: open every member + active crew upgrade
+                                     in a single grid view. Hidden under lg because the grid
+                                     is unusable on a narrow viewport (single-column scrolling
+                                     defeats the at-a-glance purpose). -->
+                                <button
+                                    class="hidden rounded p-0.5 hover:bg-muted lg:inline-flex"
+                                    title="View all crew cards"
+                                    aria-label="View all crew cards"
+                                    @click="openAllCards('my')"
+                                >
+                                    <LayoutGrid class="size-3.5 text-muted-foreground" />
+                                </button>
                             </div>
                             <div class="flex items-center gap-1">
                                 <button v-if="!isObserver" class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1" @click="updateSoulstonePool(-1)">
@@ -4436,6 +4535,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     @click="toggleAllCards('opponent')"
                                 >
                                     <Layers class="size-3.5" :class="allOpponentCardsExpanded ? 'text-amber-500' : 'text-muted-foreground'" />
+                                </button>
+                                <button
+                                    class="hidden rounded p-0.5 hover:bg-muted lg:inline-flex"
+                                    title="View all crew cards"
+                                    aria-label="View all crew cards"
+                                    @click="openAllCards('opponent')"
+                                >
+                                    <LayoutGrid class="size-3.5 text-muted-foreground" />
                                 </button>
                             </div>
                             <div class="flex items-center gap-1">
@@ -5700,6 +5807,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
     <!-- Card Fullscreen Dialog -->
     <GameCardFullscreenDialog :open="cardFullscreenOpen" :src="cardFullscreenSrc" @update:open="cardFullscreenOpen = $event" />
+
+    <!-- All-cards desktop grid (per-side, opens from the layout-grid icon) -->
+    <GameAllCardsDialog
+        :open="allCardsDialogOpen"
+        :title="allCardsTitle"
+        :entries="allCardsEntries"
+        @update:open="allCardsDialogOpen = $event"
+    />
 
     <!-- Leave confirmation for in-progress games -->
     <GameLeaveDialog :open="confirmLeaveOpen" @stay="cancelLeave" @leave="confirmLeave" />

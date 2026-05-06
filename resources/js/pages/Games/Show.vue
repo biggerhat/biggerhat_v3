@@ -2410,6 +2410,26 @@ const categoryColor = (cat: string): string =>
 
 const setupSteps = ['faction', 'master', 'crew', 'scheme'] as const;
 const stepLabels: Record<string, string> = { faction: 'Faction', master: 'Master', crew: 'Crew', scheme: 'Scheme' };
+
+// Friendly label for the observer placeholder card during setup phases. Maps
+// the full status enum (faction_select, etc) — `stepLabels` above is keyed by
+// short step name and used elsewhere for the breadcrumb dots.
+const observerSetupLabel = computed(() => {
+    switch (props.game.status) {
+        case 'setup':
+            return 'Waiting for opponent';
+        case 'faction_select':
+            return 'Selecting Factions';
+        case 'master_select':
+            return 'Selecting Masters';
+        case 'crew_select':
+            return 'Building Crews';
+        case 'scheme_select':
+            return 'Selecting Schemes';
+        default:
+            return 'Game Setup';
+    }
+});
 const statusOrder = ['faction_select', 'master_select', 'crew_select', 'scheme_select', 'in_progress'];
 const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > statusOrder.indexOf(step + '_select');
 </script>
@@ -2692,7 +2712,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- ═══ LOBBY ═══ -->
-            <template v-if="game.status === 'setup' && !isSolo">
+            <template v-if="game.status === 'setup' && !isSolo && !isObserver">
                 <Card v-if="isCreator" class="mb-6">
                     <CardContent class="p-4 sm:p-6">
                         <h2 class="mb-3 font-semibold">Invite Opponent</h2>
@@ -2718,9 +2738,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Card>
             </template>
 
+            <!-- Observer placeholder during setup steps. Replaces the
+                 interactive lobby/faction/master/crew/scheme pickers so
+                 spectators can't see (or click) buttons that aren't theirs
+                 to use. -->
+            <Card
+                v-if="isObserver && ['setup', 'faction_select', 'master_select', 'crew_select', 'scheme_select'].includes(game.status)"
+                class="mb-6 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5"
+            >
+                <CardContent class="p-4 text-center sm:p-6">
+                    <Loader2 class="mx-auto mb-3 size-6 animate-spin text-muted-foreground" />
+                    <h2 class="mb-1 font-semibold">{{ observerSetupLabel }}</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Players are setting up the game. The crew list will populate here once they begin play.
+                    </p>
+                </CardContent>
+            </Card>
+
             <!-- ═══ FACTION SELECT ═══ -->
             <Card
-                v-if="game.status === 'faction_select'"
+                v-if="game.status === 'faction_select' && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -2826,7 +2863,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ MASTER SELECT ═══ -->
             <Card
-                v-if="game.status === 'master_select'"
+                v-if="game.status === 'master_select' && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -2940,7 +2977,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ CREW SELECT ═══ -->
             <Card
-                v-if="game.status === 'crew_select'"
+                v-if="game.status === 'crew_select' && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -3249,7 +3286,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ SCHEME SELECT ═══ -->
-            <template v-if="game.status === 'scheme_select'">
+            <template v-if="game.status === 'scheme_select' && !isObserver">
                 <Card class="mb-6">
                     <CardContent class="p-4 sm:p-6">
                         <h2 class="mb-1 font-semibold">Select Your Scheme</h2>

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
@@ -87,6 +88,9 @@ interface FactionInfo {
 interface Rsvp {
     id: number;
     user_id: number;
+    /** Optional intended faction. Captured at RSVP time so TOs can plan terrain
+     *  / meta balance before the player list is finalized. */
+    faction: string | null;
     user?: { id: number; name: string } | null;
 }
 
@@ -141,17 +145,23 @@ const canRsvp = computed(
 const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
 
 const rsvping = ref(false);
+// Optional faction the user intends to play. Stays null when they don't pick
+// one — the TO can still finalize without it.
+const rsvpFaction = ref<string | null>(null);
 
 // Use Inertia's router rather than raw fetch: CSRF + progress bar come for
 // free, and the preserveScroll reload keeps the user's position on the page.
 const submitRsvp = () => {
     router.post(
         route('tournaments.rsvp', props.tournament.uuid),
-        {},
+        rsvpFaction.value ? { faction: rsvpFaction.value } : {},
         {
             preserveScroll: true,
             onStart: () => (rsvping.value = true),
-            onFinish: () => (rsvping.value = false),
+            onFinish: () => {
+                rsvping.value = false;
+                rsvpFaction.value = null;
+            },
         },
     );
 };
@@ -294,19 +304,37 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
             <!-- RSVP Banner (Draft and Registration phases) -->
             <Card v-if="canRsvp" class="mb-6 border-blue-500/30 bg-blue-500/5">
-                <CardContent class="flex flex-col items-center gap-3 p-4 sm:flex-row sm:justify-between">
-                    <div>
+                <CardContent class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
                         <div class="flex items-center gap-2 font-semibold">
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Express your interest in playing. The organizer will finalize the player list and assign your faction.
+                            Express your interest in playing. Optionally pick a faction so the organizer can plan accordingly — you can change it before the tournament starts.
                         </p>
                     </div>
-                    <Button size="sm" :disabled="rsvping" @click="submitRsvp">
-                        <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
-                    </Button>
+                    <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                        <!-- Optional intended faction. Empty string sentinel because
+                             Reka's Select can't bind to literal null on its value prop. -->
+                        <Select :model-value="rsvpFaction ?? '__none__'" @update:model-value="rsvpFaction = $event === '__none__' ? null : ($event as string)">
+                            <SelectTrigger class="h-8 w-full min-w-[180px] text-xs sm:w-auto">
+                                <SelectValue placeholder="Faction (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">No faction yet</SelectItem>
+                                <SelectItem v-for="(info, key) in factions" :key="key" :value="String(key)">
+                                    <div class="flex items-center gap-2">
+                                        <FactionLogo :faction="String(key)" class-name="size-4 shrink-0" />
+                                        <span>{{ info.name }}</span>
+                                    </div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button size="sm" :disabled="rsvping" @click="submitRsvp">
+                            <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
             <Card
@@ -619,8 +647,10 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     :key="rsvp.id"
                                     class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
                                 >
-                                    <UserPlus class="size-3.5 shrink-0 text-muted-foreground" />
+                                    <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
+                                    <UserPlus v-else class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="font-medium">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                    <span v-if="rsvp.faction" class="text-xs text-muted-foreground">{{ factions[rsvp.faction]?.name ?? rsvp.faction }}</span>
                                 </div>
                             </div>
                         </CardContent>

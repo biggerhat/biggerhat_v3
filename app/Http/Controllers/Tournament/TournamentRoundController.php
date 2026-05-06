@@ -126,8 +126,13 @@ class TournamentRoundController extends Controller
             'deployment' => ['nullable', 'string'],
             'strategy_id' => ['nullable', 'exists:strategies,id'],
             'scheme_pool' => ['nullable', 'array', 'min:3', 'max:3'],
-            'scheme_pool.*' => ['integer', 'exists:schemes,id'],
+            // `distinct` rejects a pool that repeats the same scheme id — TOs were
+            // accidentally picking the same scheme twice, which left the spawned
+            // game with only 2 distinct picks.
+            'scheme_pool.*' => ['integer', 'exists:schemes,id', 'distinct'],
             'status' => ['sometimes', 'string'],
+        ], [
+            'scheme_pool.*.distinct' => 'A round cannot have duplicate schemes — pick three different schemes.',
         ]);
 
         // Scenario edits gated by the state machine. Only checked when the

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FactionEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,6 +12,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TournamentRsvp extends Model
 {
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'faction' => FactionEnum::class,
+        ];
+    }
 
     public function tournament(): BelongsTo
     {

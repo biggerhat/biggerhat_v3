@@ -281,6 +281,11 @@ const mainNavItems = computed<NavItem[]>(() => [
                 icon: Dice6,
             },
             {
+                title: 'Random Character',
+                href: route('tools.random_character'),
+                icon: Dice6,
+            },
+            {
                 title: 'Hat Gamin Bot',
                 href: route('tools.hat_gamin'),
                 icon: Bot,

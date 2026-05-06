@@ -147,6 +147,9 @@ interface FactionInfo {
 interface Rsvp {
     id: number;
     user_id: number;
+    /** Optional intended faction the user picked at RSVP time. Pre-fills the
+     *  TO's add-player dialog so they don't have to ask again. */
+    faction: string | null;
     user: { id: number; name: string } | null;
 }
 
@@ -252,9 +255,11 @@ const rsvpPlayerDialogOpen = ref(false);
 const rsvpPlayerTarget = ref<any>(null);
 const rsvpPlayerError = ref<string | null>(null);
 
-const openRsvpPlayerDialog = (rsvp: any) => {
+const openRsvpPlayerDialog = (rsvp: Rsvp) => {
     rsvpPlayerTarget.value = rsvp;
-    rsvpPlayerFaction.value = null;
+    // Pre-fill with the faction the user picked at RSVP time so the TO can
+    // accept without re-typing. They're free to change it before submit.
+    rsvpPlayerFaction.value = rsvp.faction ?? null;
     rsvpPlayerError.value = null;
     rsvpPlayerDialogOpen.value = true;
 };
@@ -957,8 +962,24 @@ const saveRoundScenario = async (roundId: number) => {
 const scenarioIsComplete = (): boolean => {
     if (!editDeployment.value) return false;
     if (!editStrategy.value) return false;
-    const schemes = editSchemePool.value.filter(Boolean);
-    return schemes.length === 3;
+    const schemes = editSchemePool.value.filter(Boolean) as string[];
+    if (schemes.length !== 3) return false;
+    // Reject duplicates client-side — server's `distinct` rule would 422 anyway,
+    // but skipping the request keeps the autosave error toast quiet while the
+    // user is still mid-pick after reusing a slot.
+    return new Set(schemes).size === schemes.length;
+};
+
+// Per-slot scheme list excluding ids already picked in OTHER slots, so the
+// user physically can't choose the same scheme twice. Mirrors the same shape
+// the Crew Builder uses for sculpt picking.
+const availableSchemesForSlot = (idx: number) => {
+    const taken = new Set(
+        editSchemePool.value
+            .map((v, i) => (i === idx ? null : v))
+            .filter(Boolean) as string[],
+    );
+    return (props.all_schemes ?? []).filter((s: { id: number }) => !taken.has(String(s.id)));
 };
 
 watch(
@@ -1293,7 +1314,11 @@ const titlesForMaster = (masterName: string | null) => {
                                 :key="rsvp.id"
                                 class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
                             >
-                                <span class="text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                <div class="flex min-w-0 items-center gap-2">
+                                    <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
+                                    <span class="truncate text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                    <span v-if="rsvp.faction" class="text-[10px] text-muted-foreground sm:text-xs">{{ factions[rsvp.faction]?.name ?? rsvp.faction }}</span>
+                                </div>
                                 <div class="flex items-center gap-1">
                                     <Button
                                         v-if="
@@ -1689,7 +1714,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                     ><SelectValue :placeholder="all_schemes ? 'Scheme ' + (idx + 1) : 'Loading…'"
                                                 /></SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem v-for="s in all_schemes ?? []" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
+                                                    <SelectItem v-for="s in availableSchemesForSlot(idx)" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <button

@@ -259,3 +259,26 @@ it('creates tracker games when the round transitions to InProgress', function ()
     expect($round->fresh()->games()->whereNotNull('game_id')->count())->toBe(1);
     expect(Game::count())->toBe(1);
 });
+
+it('rejects a scheme_pool with duplicate scheme ids', function () {
+    $strategy = \App\Models\Strategy::factory()->create(['season' => $this->tournament->season]);
+    $schemes = \App\Models\Scheme::factory()->count(3)->create(['season' => $this->tournament->season]);
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->toArray(),
+    ]);
+
+    // Three slots but only two distinct schemes — `distinct` rule should bounce it.
+    $dupePool = [$schemes[0]->id, $schemes[0]->id, $schemes[1]->id];
+
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), [
+            'scheme_pool' => $dupePool,
+        ])
+        ->assertStatus(422);
+
+    // Original pool stays intact — no partial write.
+    expect($round->fresh()->scheme_pool)->toBe($schemes->pluck('id')->toArray());
+});

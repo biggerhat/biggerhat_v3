@@ -32,6 +32,7 @@ use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PrivacyController;
+use App\Http\Controllers\RandomCharacterController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
@@ -246,6 +247,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
+    Route::get('/random-character', RandomCharacterController::class)->name('random_character');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');

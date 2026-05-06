@@ -69,9 +69,13 @@ class RandomCharacterController extends Controller
      */
     private function roll(Request $request): ?array
     {
+        // Pull both the full miniatures list (so we still find a sculpt for
+        // characters that only have promo art) and the standard subset, which
+        // we prefer for the result card. Filter on `whereHas` so the picker
+        // never lands on a character with zero rendered sculpts.
         $query = Character::standard()
             ->where('is_hidden', false)
-            ->with(['miniatures' => fn ($q) => $q->orderBy('id')])
+            ->with(['miniatures' => fn ($q) => $q->orderBy('id'), 'standardMiniatures'])
             ->whereHas('miniatures');
 
         if ($factions = $this->csv($request->get('faction'))) {
@@ -98,7 +102,13 @@ class RandomCharacterController extends Controller
             return null;
         }
 
-        $miniature = $character->miniatures->first();
+        // Prefer a random standard-edition sculpt — alts and promos can be
+        // visually surprising for a "random character" pick. Fall back to any
+        // miniature for characters that only have promo art on file.
+        $pool = $character->standardMiniatures->isNotEmpty()
+            ? $character->standardMiniatures
+            : $character->miniatures;
+        $miniature = $pool->random();
 
         // Shape the payload for CharacterCardView — that component owns the
         // flip / fullscreen / collection / wishlist / "View Character Page"

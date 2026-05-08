@@ -59,6 +59,12 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
     Route::middleware('role:super_admin')->group(function () {
         Route::get('/activity', [ActivityAdminController::class, 'index'])->name('activity.index');
 
+        Route::controller(\App\Http\Controllers\Admin\LootCardAdminController::class)->prefix('loot-cards')->name('loot_cards.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/edit/{lootCard}', 'edit')->name('edit');
+            Route::post('/update/{lootCard}', 'update')->name('update');
+        });
+
         Route::controller(FailedJobsAdminController::class)->prefix('failed-jobs')->name('failed_jobs.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/retry-all', 'retryAll')->name('retry_all');

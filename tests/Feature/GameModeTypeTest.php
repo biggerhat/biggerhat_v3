@@ -12,22 +12,27 @@ use App\Models\Upgrade;
 it('has the correct game mode type cases', function () {
     $cases = GameModeTypeEnum::cases();
 
-    expect($cases)->toHaveCount(4);
-    expect(array_map(fn ($c) => $c->value, $cases))->toBe(['standard', 'campaign', 'cooperative', 'custom']);
+    expect($cases)->toHaveCount(5);
+    expect(array_map(fn ($c) => $c->value, $cases))->toBe(['standard', 'campaign', 'cooperative', 'bonanza_brawl', 'custom']);
 });
 
 it('generates select options', function () {
     $options = GameModeTypeEnum::toSelectOptions();
 
-    expect($options)->toHaveCount(4);
+    expect($options)->toHaveCount(5);
     expect($options[0])->toBe(['name' => 'Standard', 'value' => 'standard']);
     expect($options[1])->toBe(['name' => 'Campaign', 'value' => 'campaign']);
+    // Bonanza Brawl slots in before Custom so the dropdown groups format-style
+    // game modes together (Standard/Campaign/Cooperative/BonanzaBrawl) ahead
+    // of the Custom escape hatch.
+    expect($options[3])->toBe(['name' => 'Bonanza Brawl', 'value' => 'bonanza_brawl']);
 });
 
 it('generates labels from case names', function () {
     expect(GameModeTypeEnum::Standard->label())->toBe('Standard');
     expect(GameModeTypeEnum::Campaign->label())->toBe('Campaign');
     expect(GameModeTypeEnum::Cooperative->label())->toBe('Cooperative');
+    expect(GameModeTypeEnum::BonanzaBrawl->label())->toBe('Bonanza Brawl');
     expect(GameModeTypeEnum::Custom->label())->toBe('Custom');
 });
 

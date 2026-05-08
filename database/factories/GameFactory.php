@@ -45,4 +45,20 @@ class GameFactory extends Factory
     {
         return $this->state(['status' => GameStatusEnum::Completed, 'started_at' => now(), 'completed_at' => now()]);
     }
+
+    /**
+     * Bonanza Brawl: 11ss, no scenario triple. Strategy/scheme/deployment all
+     * null since the format doesn't use them. Format flag drives skip-Crew /
+     * skip-Scheme behavior in setup.
+     */
+    public function bonanza(): static
+    {
+        return $this->state([
+            'format' => \App\Enums\GameFormatEnum::BonanzaBrawl->value,
+            'encounter_size' => 11,
+            'strategy_id' => null,
+            'deployment' => null,
+            'scheme_pool' => null,
+        ]);
+    }
 }

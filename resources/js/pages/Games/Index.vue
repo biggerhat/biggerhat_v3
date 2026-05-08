@@ -26,6 +26,8 @@ interface Game {
     uuid: string;
     status: string;
     is_solo: boolean;
+    /** 'standard' | 'bonanza_brawl' — drives the format badge in the lists. */
+    format: string;
     encounter_size: number;
     season: string;
     current_turn: number;
@@ -157,6 +159,13 @@ const formatDate = (dateStr: string) => {
                                     <div class="mb-2 flex items-center gap-2">
                                         <Swords class="size-4 text-muted-foreground" />
                                         <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
+                                        <Badge
+                                            v-if="game.format === 'bonanza_brawl'"
+                                            variant="outline"
+                                            class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                        >
+                                            Bonanza Brawl
+                                        </Badge>
                                         <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
                                     </div>
                                     <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">
@@ -212,6 +221,9 @@ const formatDate = (dateStr: string) => {
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
+                                    <span v-if="game.format === 'bonanza_brawl'" class="text-purple-600 dark:text-purple-300"
+                                        >&middot; Bonanza Brawl</span
+                                    >
                                     <span v-if="game.strategy">&middot; {{ game.strategy.name }}</span>
                                     <span v-if="game.completed_at">&middot; {{ formatDate(game.completed_at) }}</span>
                                 </div>
@@ -263,6 +275,13 @@ const formatDate = (dateStr: string) => {
                                 <div class="mb-2 flex items-center gap-2">
                                     <Swords class="size-4 text-muted-foreground" />
                                     <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
+                                    <Badge
+                                        v-if="game.format === 'bonanza_brawl'"
+                                        variant="outline"
+                                        class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                    >
+                                        Bonanza Brawl
+                                    </Badge>
                                     <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
                                 </div>
                                 <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">

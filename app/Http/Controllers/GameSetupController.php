@@ -17,6 +17,7 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Scheme;
+use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -38,11 +39,14 @@ class GameSetupController extends Controller
         $player->update(['faction' => $validated['faction']]);
 
         // Pessimistic lock: prevent two concurrent submissions from both
-        // seeing "2 of 2 done" and advancing the status twice.
+        // seeing "2 of 2 done" and advancing the status twice. Bonanza is
+        // force-solo personal-tracking, so slot-1 alone counts as "done".
         $bothDone = DB::transaction(function () use ($game) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
-            $done = $locked->players()->whereNotNull('faction')->count() === 2;
+            $done = $locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+                ? $locked->players()->where('slot', 1)->whereNotNull('faction')->exists()
+                : $locked->players()->whereNotNull('faction')->count() === 2;
             if ($done && $locked->status === GameStatusEnum::FactionSelect) {
                 $locked->update(['status' => GameStatusEnum::MasterSelect]);
             }
@@ -71,8 +75,11 @@ class GameSetupController extends Controller
 
         $validated = $request->validated();
 
-        // Find master character by display_name or name + faction
-        $master = Character::standard()->where('station', CharacterStationEnum::Master->value)
+        // Find master character by display_name or name + faction. Bonanza Brawl
+        // hires any model (not just masters), so for that format we drop the
+        // station=master filter; the buildBonanzaCharactersProp() method
+        // already gates the picker by 11ss-affordable models.
+        $masterQuery = Character::standard()
             ->where(function ($q) use ($player) {
                 $q->where('faction', $player->faction)
                     ->orWhere('second_faction', $player->faction);
@@ -80,8 +87,13 @@ class GameSetupController extends Controller
             ->where(function ($q) use ($validated) {
                 $q->where('display_name', $validated['master_name'])
                     ->orWhere('name', $validated['master_name']);
-            })
-            ->first();
+            });
+
+        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            $masterQuery->where('station', CharacterStationEnum::Master->value);
+        }
+
+        $master = $masterQuery->first();
 
         $player->update([
             'master_name' => $validated['master_name'],
@@ -91,10 +103,42 @@ class GameSetupController extends Controller
         [$bothDone, $statusChanged] = DB::transaction(function () use ($game) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
-            $done = $locked->players()->whereNotNull('master_name')->count() === 2;
+            // Bonanza is force-solo personal-tracking only: the user only ever
+            // submits their own master, and the slot-2 GamePlayer stays empty.
+            // So "done" for Bonanza means slot 1 has a pick, not both slots.
+            $done = $locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+                ? $locked->players()->where('slot', 1)->whereNotNull('master_name')->exists()
+                : $locked->players()->whereNotNull('master_name')->count() === 2;
             $changed = false;
             if ($done && $locked->status === GameStatusEnum::MasterSelect) {
-                $locked->update(['status' => GameStatusEnum::CrewSelect]);
+                // Bonanza Brawl has no Crew or Scheme select — the user fields a
+                // single model, so we auto-create one GameCrewMember for slot 1
+                // and jump straight to InProgress.
+                if ($locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+                    /** @var GamePlayer|null $slotOne */
+                    $slotOne = $locked->players()->where('slot', 1)->first();
+                    if ($slotOne && $slotOne->master_id) {
+                        $this->createBonanzaCrewMember($locked, $slotOne);
+                        $slotOne->update(['soulstone_pool' => 0]);
+                    }
+                    // Seed the loot deck once at InProgress transition. Initialized
+                    // here (vs lazily in draw()) so observers + opponents see the
+                    // deck size even before the first card is drawn, and so a
+                    // re-trigger of submitMaster doesn't reshuffle mid-game.
+                    $lootState = $locked->loot_state ?? null;
+                    $needsInit = ! is_array($lootState)
+                        || (empty($lootState['deck']) && empty($lootState['discard']) && empty($lootState['dropped_markers']));
+                    if ($needsInit) {
+                        $locked->update(['loot_state' => app(LootDeckService::class)->initialState()]);
+                    }
+                    $locked->update([
+                        'status' => GameStatusEnum::InProgress,
+                        'current_turn' => 1,
+                        'started_at' => $locked->started_at ?? now(),
+                    ]);
+                } else {
+                    $locked->update(['status' => GameStatusEnum::CrewSelect]);
+                }
                 $changed = true;
             }
 
@@ -473,6 +517,35 @@ class GameSetupController extends Controller
                 'sort_order' => $sortOrder++,
             ]);
         }
+    }
+
+    /**
+     * Create the single GameCrewMember used by Bonanza Brawl. The format hires
+     * one model per player, picked at MasterSelect — there's no Crew Select,
+     * no totem, no scheme pool. Marked with the `lone` hiring_category so the
+     * UI can flag it as "your single model" rather than treating it as a
+     * Leader (Bonanza models are explicitly NOT Leaders per rulebook).
+     */
+    private function createBonanzaCrewMember(Game $game, GamePlayer $player): void
+    {
+        if (! $player->master_id) {
+            return;
+        }
+
+        // Wipe existing rows in case the player re-picked their character.
+        GameCrewMember::where('game_id', $game->id)
+            ->where('game_player_id', $player->id)
+            ->delete();
+
+        $character = Character::with('miniatures')->find($player->master_id);
+        if (! $character) {
+            return;
+        }
+
+        // createCrewMember takes $miniatureIndexes by reference; supply an
+        // empty array so PHP can bind it.
+        $miniatureIndexes = [];
+        $this->createCrewMember($game, $player, $character, 'lone', 0, 0, [], $miniatureIndexes);
     }
 
     private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = []): void

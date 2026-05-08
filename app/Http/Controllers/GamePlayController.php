@@ -21,10 +21,13 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\GameTurn;
+use App\Models\LootCard;
 use App\Models\Scheme;
 use App\Models\TournamentGame;
+use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -84,6 +87,16 @@ class GamePlayController extends Controller
         $this->assertInProgress($game);
         $this->authorize('updateCrewMember', [$game, $gameCrewMember]);
 
+        // Drop loot markers BEFORE flipping is_killed — the service reads the
+        // member's current attached_upgrades to find loot entries, and we want
+        // them stripped on the same row update so the UI doesn't show ghost
+        // loot on a dead model. Bonanza-only; standard games never have loot.
+        $droppedMarkers = [];
+        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && ! $gameCrewMember->is_killed) {
+            $droppedMarkers = app(LootDeckService::class)->dropMarkersOnDeath($game, $gameCrewMember);
+            $gameCrewMember->refresh();
+        }
+
         // Idempotent: if already killed, skip DB write + broadcast but
         // still return replacements so the UI can handle the state.
         if (! $gameCrewMember->is_killed) {
@@ -123,6 +136,7 @@ class GamePlayController extends Controller
         return response()->json([
             'success' => true,
             'replacements' => $replacements,
+            'dropped_markers' => $droppedMarkers,
         ]);
     }
 
@@ -314,15 +328,30 @@ class GamePlayController extends Controller
 
         $validated = $request->validated();
 
-        // Verify the upgrade belongs to the player's master's crew upgrades
         $master = $player->master;
-        if (! $master || $master->crew_upgrade_mode !== \App\Enums\CrewUpgradeModeEnum::Swappable) {
-            return response()->json(['error' => 'Crew upgrades are not swappable for this master'], 422);
+        if (! $master) {
+            return response()->json(['error' => 'No model selected'], 422);
         }
 
-        $validIds = $master->crewUpgrades->pluck('id')->toArray();
+        // Standard format: only Swappable masters can swap, and the upgrade
+        // must belong to the master's direct crew upgrade list.
+        // Bonanza: any keyword-derived crew upgrade is valid (the picked model
+        // usually isn't even a master, so crew_upgrade_mode is irrelevant).
+        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            $validIds = $master->loadMissing('keywords.crewUpgrades')->keywords
+                ->flatMap(fn ($k) => $k->crewUpgrades)
+                ->pluck('id')
+                ->unique()
+                ->toArray();
+        } else {
+            if ($master->crew_upgrade_mode !== \App\Enums\CrewUpgradeModeEnum::Swappable) {
+                return response()->json(['error' => 'Crew upgrades are not swappable for this master'], 422);
+            }
+            $validIds = $master->crewUpgrades->pluck('id')->toArray();
+        }
+
         if (! in_array($validated['active_crew_upgrade_id'], $validIds)) {
-            return response()->json(['error' => 'Upgrade not available for this master'], 422);
+            return response()->json(['error' => 'Upgrade not available for this model'], 422);
         }
 
         $player->update(['active_crew_upgrade_id' => $validated['active_crew_upgrade_id']]);
@@ -387,6 +416,232 @@ class GamePlayController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Manual VP delta for Bonanza Brawl games. The format scores by event
+     * (kill = +3, damage at full HP = +1, friendly Loot Marker on Treasure
+     * Pile = +1, etc.) — there's no per-turn strategy/scheme breakdown to
+     * shoehorn into GameTurn rows, so we just bump total_points directly.
+     * Negative deltas are allowed (death = -3 to a minimum of 0).
+     */
+    public function adjustBonanzaVp(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+
+        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            return response()->json(['error' => 'This action is only available in Bonanza Brawl games.'], 422);
+        }
+
+        $validated = $request->validate([
+            'slot' => ['sometimes', 'integer', 'in:1,2'],
+            'delta' => ['required', 'integer', 'min:-20', 'max:20'],
+        ]);
+
+        $slot = (int) ($validated['slot'] ?? 0);
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        // Floor at 0 — Bonanza explicitly says "to a minimum of 0 Total VP".
+        $next = max(0, $player->total_points + (int) $validated['delta']);
+        $player->update(['total_points' => $next]);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'bonanza_vp'))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'total_points' => $next]);
+    }
+
+    /**
+     * Bonanza: pop the top of the loot deck. Returns the drawn card with both
+     * sides + side-scoped relations so the UI can render the side-picker
+     * dialog without a follow-up fetch. The actual attach happens via
+     * attachLoot() once the player picks a side.
+     */
+    public function drawLoot(Request $request, Game $game): JsonResponse
+    {
+        $this->assertBonanzaInProgress($game);
+
+        $card = app(LootDeckService::class)->draw($game);
+        if (! $card) {
+            return response()->json(['error' => 'The Loot deck is empty.'], 422);
+        }
+
+        $card->load([
+            'sideAActions',
+            'sideAAbilities',
+            'sideATriggers',
+            'sideBActions',
+            'sideBAbilities',
+            'sideBTriggers',
+        ]);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'loot_drawn'))->toOthers();
+        }
+
+        return response()->json([
+            'success' => true,
+            'card' => $card,
+            'deck_size' => count($game->fresh()->loot_state['deck'] ?? []),
+            'discard_size' => count($game->fresh()->loot_state['discard'] ?? []),
+        ]);
+    }
+
+    /**
+     * Bonanza: attach a previously-drawn card to one of this player's crew
+     * members with a chosen side. Fences against cross-player attaches
+     * (you can only attach to your own model) using the existing
+     * updateCrewMember policy.
+     */
+    public function attachLoot(Request $request, Game $game): JsonResponse
+    {
+        $this->assertBonanzaInProgress($game);
+
+        $validated = $request->validate([
+            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
+            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
+            'side' => ['required', 'string', 'in:a,b'],
+        ]);
+
+        /** @var GameCrewMember $member */
+        $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
+        $this->authorize('updateCrewMember', [$game, $member]);
+
+        $card = LootCard::findOrFail($validated['loot_card_id']);
+        app(LootDeckService::class)->attachToMember($member, $card, $validated['side']);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Bonanza: claim a dropped Loot Marker for a crew member. The new owner
+     * picks a fresh side — Yoink doesn't carry the previous owner's choice
+     * per the rulebook.
+     */
+    public function yoinkLoot(Request $request, Game $game): JsonResponse
+    {
+        $this->assertBonanzaInProgress($game);
+
+        $validated = $request->validate([
+            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
+            'marker_id' => ['required', 'string'],
+            'side' => ['required', 'string', 'in:a,b'],
+        ]);
+
+        /** @var GameCrewMember $member */
+        $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
+        $this->authorize('updateCrewMember', [$game, $member]);
+
+        $card = app(LootDeckService::class)->yoinkMarker($game, $member, $validated['marker_id'], $validated['side']);
+        if (! $card) {
+            return response()->json(['error' => 'Loot marker not found.'], 404);
+        }
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'loot_yoinked'))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'card_id' => $card->id]);
+    }
+
+    private function assertBonanzaInProgress(Game $game): void
+    {
+        $this->assertInProgress($game);
+        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            abort(422, 'Loot deck actions are only available in Bonanza Brawl games.');
+        }
+    }
+
+    /**
+     * Bonanza turn advance. Standard format uses submitTurnScore (which carries
+     * strategy + scheme points and gates on both players submitting), but
+     * Bonanza is event-driven VP only — there's nothing to score per turn, so
+     * the user just bumps the counter when they're ready. Hitting the last
+     * turn auto-finalizes the game with no declared winner (is_tie=true) since
+     * slot 2 is inert in the personal-tracker mode.
+     */
+    public function advanceBonanzaTurn(Request $request, Game $game): JsonResponse
+    {
+        $this->assertBonanzaInProgress($game);
+
+        $result = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+
+            if ($locked->status !== GameStatusEnum::InProgress) {
+                return ['game_complete' => true];
+            }
+
+            // Reset is_activated on the user's models for the new turn — same
+            // hygiene step the standard submitTurnScore does so the activation
+            // toggle stays meaningful.
+            GameCrewMember::where('game_id', $locked->id)->update(['is_activated' => false]);
+
+            if ($locked->current_turn >= $locked->max_turns) {
+                // End of turn N where N == max_turns → game over.
+                $locked->players()->update(['is_game_complete' => true]);
+                $this->finalizeBonanzaGame($locked);
+
+                return ['game_complete' => true];
+            }
+
+            $locked->increment('current_turn');
+
+            return ['game_complete' => false, 'current_turn' => $locked->current_turn];
+        });
+
+        if (! $game->is_solo || $game->is_observable) {
+            if ($result['game_complete']) {
+                broadcast(new GameStatusChanged($game->fresh()));
+            } else {
+                broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
+            }
+        }
+
+        return response()->json(['success' => true, ...$result]);
+    }
+
+    /**
+     * Bonanza-flavored finalize: no winner determination (slot 2 is inert in
+     * personal-tracker mode, so comparing total_points wouldn't be meaningful).
+     * Mark Completed with is_tie=true so the summary view renders "no winner"
+     * cleanly instead of crowning the user by default.
+     */
+    private function finalizeBonanzaGame(Game $game): void
+    {
+        // Snapshot the user's crew for the final turn, mirroring submitTurnScore.
+        $players = $game->players()->get();
+        foreach ($players as $player) {
+            /** @var GamePlayer $player */
+            $existing = GameTurn::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->where('turn_number', $game->current_turn)
+                ->first();
+            if (! $existing) {
+                GameTurn::create([
+                    'game_id' => $game->id,
+                    'turn_number' => $game->current_turn,
+                    'game_player_id' => $player->id,
+                    'strategy_points' => 0,
+                    'scheme_points' => 0,
+                    'points_scored' => 0,
+                    'crew_snapshot' => $this->buildCrewSnapshot($game->id, $player->id),
+                ]);
+            }
+        }
+
+        $game->update([
+            'status' => GameStatusEnum::Completed,
+            'completed_at' => now(),
+            'is_tie' => true,
+            'winner_id' => null,
+            'winner_slot' => null,
+        ]);
     }
 
     public function submitTurnScore(SubmitTurnRequest $request, Game $game): JsonResponse

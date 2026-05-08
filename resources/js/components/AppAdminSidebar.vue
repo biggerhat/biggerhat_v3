@@ -13,6 +13,7 @@ import {
     ArrowUpCircle,
     BookOpen,
     Clock,
+    Coins,
     Eraser,
     ExternalLink,
     FileImage,
@@ -141,6 +142,7 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Custom Cards', href: route('admin.custom_cards.index'), icon: ShieldAlert, permission: 'super_admin' },
             { title: 'Image Health', href: route('admin.image_health.index'), icon: ImageOff, permission: 'super_admin' },
             { title: 'Tournament Override', href: route('admin.tournaments.index'), icon: Trophy, permission: 'super_admin' },
+            { title: 'Bonanza Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' },
             // Log Viewer + Telescope are separate Blade-rendered apps. external=true
             // makes the sidebar use a plain <a> so the browser does a full page nav
             // — Inertia's XHR-then-fallback path leaves the prior URL in place,

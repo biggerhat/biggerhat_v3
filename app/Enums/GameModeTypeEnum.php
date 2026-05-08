@@ -14,5 +14,6 @@ enum GameModeTypeEnum: string implements HasDefaultEnumMethods
     case Standard = 'standard';
     case Campaign = 'campaign';
     case Cooperative = 'cooperative';
+    case BonanzaBrawl = 'bonanza_brawl';
     case Custom = 'custom';
 }

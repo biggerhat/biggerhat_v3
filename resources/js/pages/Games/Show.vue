@@ -28,6 +28,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerT
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/composables/useConfirm';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_POOL, MAX_SCHEME_PER_TURN, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
@@ -154,6 +155,8 @@ interface MasterTitle {
     id: number;
     display_name: string;
     title: string | null;
+    /** Effective hire cost in Bonanza Brawl (totems/peons derived from health). */
+    bonanza_cost?: number;
 }
 
 interface MasterOption {
@@ -188,6 +191,32 @@ interface CrewOption {
     members: CrewMember[];
 }
 
+interface LootMarker {
+    id: string;
+    card_id: number;
+    side: 'a' | 'b';
+    dropped_by_player_id: number | null;
+}
+
+interface LootCardSummary {
+    id: number;
+    name: string;
+    title_a: string | null;
+    title_b: string | null;
+    effect_a: string | null;
+    effect_b: string | null;
+    image: string | null;
+    suit: string | null;
+    value: number | null;
+    value_label: string | null;
+    side_a_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
+    side_b_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
+    side_a_abilities: { id: number; name: string }[];
+    side_b_abilities: { id: number; name: string }[];
+    side_a_triggers: { id: number; name: string }[];
+    side_b_triggers: { id: number; name: string }[];
+}
+
 interface GameData {
     id: number;
     uuid: string;
@@ -196,6 +225,15 @@ interface GameData {
     creator_id: number;
     encounter_size: number;
     season: string;
+    /** 'standard' | 'bonanza_brawl'. Drives whether the scenario panel renders,
+     *  whether SchemeSelect fires, and whether the manual-VP widget shows. */
+    format: string;
+    /** Bonanza per-game loot deck state. Null on standard-format games. */
+    loot_state: {
+        deck: number[];
+        discard: number[];
+        dropped_markers: LootMarker[];
+    } | null;
     current_turn: number;
     max_turns: number;
     is_tie: boolean;
@@ -253,6 +291,22 @@ const props = defineProps<{
         number,
         { display_name: string; faction: string; cost: number; hiring_category: string; front_image: string | null; back_image: string | null }[]
     >;
+    /** Bonanza-only catalog of every loot card. Used to resolve card_id refs
+     *  in dropped markers + attached_upgrades. Empty array on non-Bonanza. */
+    loot_card_catalog?: LootCardSummary[];
+    /** Bonanza-only: crew upgrades aggregated from the picked character's
+     *  keywords (since a Bonanza model usually isn't a master with direct
+     *  crew upgrades). Empty array on non-Bonanza. */
+    bonanza_crew_upgrades?: {
+        id: number;
+        name: string;
+        slug: string;
+        front_image: string | null;
+        back_image: string | null;
+        type: string | null;
+        plentiful: number | null;
+        power_bar_count: number | null;
+    }[];
     is_observer: boolean;
 }>();
 
@@ -270,6 +324,10 @@ const opponent = computed(() => {
 
 const isSolo = computed(() => props.game.is_solo);
 const isObserver = computed(() => props.is_observer);
+// Bonanza Brawl: 11ss single-model FFA, no scenario, manual VP. Used to gate
+// the standard-format scenario panel + the per-turn scheme/strategy scoring
+// widgets, and to show a rules-summary banner on the gameplay surface.
+const isBonanza = computed(() => props.game.format === 'bonanza_brawl');
 // Resolve the actual slot numbers rather than hardcoding 1/2 — solo games
 // created from a tournament round can place the registered user in slot 2
 // (see TournamentTrackerGameFactory::createForGame), which breaks anything
@@ -849,6 +907,9 @@ const myStepDone = (step: string) => {
 // Solo: detect when we're picking for the opponent to style the card differently
 const isOpponentSetupPhase = computed(() => {
     if (!isSolo.value) return false;
+    // Bonanza is solo-by-force but opponent-less — the user only ever runs
+    // their own setup, so we never enter the opponent-half of any phase.
+    if (isBonanza.value) return false;
     const status = props.game.status;
     if (status === 'faction_select') return myStepDone('faction') && !opponentStepDone('faction');
     if (status === 'master_select') return myStepDone('master') && !opponentStepDone('master');
@@ -1293,13 +1354,133 @@ const updateSoulstonePool = (delta: number) => {
     postPlay(route('games.play.soulstones', props.game.uuid), 'PATCH', { soulstone_pool: newVal });
 };
 
+// Bonanza VP — event-driven scoring (kill = +3, damage at max HP = +1, etc).
+// Server clamps to a minimum of 0 to honor the rules' "to a minimum of 0 Total VP".
+const adjustBonanzaVp = (delta: number, slot?: number) => {
+    const body: Record<string, number> = { delta };
+    if (slot) body.slot = slot;
+    postPlay(route('games.play.bonanza_vp', props.game.uuid), 'PATCH', body);
+};
+
+// Bonanza turn advance — no per-turn scoring panel, just bump the counter.
+// Hitting max_turns auto-finalizes the game (is_tie=true, no winner declared).
+const advanceBonanzaTurn = async () => {
+    if (props.game.current_turn >= props.game.max_turns) {
+        const ok = await confirmDialog({
+            title: 'End game?',
+            message: `This is the last turn (${props.game.max_turns}). Advancing will finalize the game with your current VP — you can't undo this.`,
+            confirmLabel: 'End game',
+        });
+        if (!ok) return;
+    }
+    postPlay(route('games.play.bonanza_next_turn', props.game.uuid));
+};
+
+// ── Bonanza Loot Deck ──────────────────────────────────────────────────────
+// State for the post-draw side-picker dialog and the post-Yoink side-picker
+// dialog. Both share a single dialog (the picker UI is identical) keyed by
+// mode + payload so we don't duplicate the rendering.
+type LootSidePickerMode = { type: 'attach'; card: LootCardSummary } | { type: 'yoink'; marker: LootMarker; card: LootCardSummary };
+const lootSidePicker = ref<LootSidePickerMode | null>(null);
+const lootSidePickerMemberId = ref<number | null>(null);
+
+const lootDeckSize = computed(() => props.game.loot_state?.deck?.length ?? 0);
+const lootDiscardSize = computed(() => props.game.loot_state?.discard?.length ?? 0);
+const lootMarkers = computed<LootMarker[]>(() => props.game.loot_state?.dropped_markers ?? []);
+
+const lootCardCatalog = computed<Map<number, LootCardSummary>>(() => {
+    const map = new Map<number, LootCardSummary>();
+    for (const c of props.loot_card_catalog ?? []) map.set(c.id, c);
+    return map;
+});
+const lootCardById = (id: number): LootCardSummary | null => lootCardCatalog.value.get(id) ?? null;
+
+// In solo, the creator can attach to either side. In a duel, only your own.
+// Typed as `any[]` because Show.vue has two `CrewMember` interface declarations
+// that shadow each other — the existing code works around it by sticking to
+// `any` for crew-member computeds, and we follow that pattern.
+const attachableMembers = computed<any[]>(() => {
+    if (isSolo.value) {
+        return props.game.players.flatMap((p) => p.crew_members ?? []).filter((m: any) => !m.is_killed);
+    }
+    return (myPlayer.value?.crew_members ?? []).filter((m: any) => !m.is_killed);
+});
+
+const drawLoot = async () => {
+    try {
+        const res = await fetch(route('games.play.loot.draw', props.game.uuid), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(err.error ?? 'Could not draw a loot card.');
+            return;
+        }
+        const data = await res.json();
+        // Open the side-picker; pre-select the only living member if just one.
+        lootSidePicker.value = { type: 'attach', card: data.card };
+        const candidates = attachableMembers.value;
+        lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
+        router.reload({ only: ['game'], preserveScroll: true });
+    } catch {
+        showError('Network error. Please check your connection.');
+    }
+};
+
+const submitLootSide = async (side: 'a' | 'b') => {
+    const picker = lootSidePicker.value;
+    const memberId = lootSidePickerMemberId.value;
+    if (!picker || !memberId) {
+        showError('Pick a model to receive the loot.');
+        return;
+    }
+    if (picker.type === 'attach') {
+        await postPlay(route('games.play.loot.attach', props.game.uuid), 'POST', {
+            game_crew_member_id: memberId,
+            loot_card_id: picker.card.id,
+            side,
+        });
+    } else {
+        await postPlay(route('games.play.loot.yoink', props.game.uuid), 'POST', {
+            game_crew_member_id: memberId,
+            marker_id: picker.marker.id,
+            side,
+        });
+    }
+    lootSidePicker.value = null;
+    lootSidePickerMemberId.value = null;
+};
+
+const openYoinkPicker = (marker: LootMarker) => {
+    const card = lootCardById(marker.card_id);
+    if (!card) {
+        showError('Loot card data not loaded.');
+        return;
+    }
+    lootSidePicker.value = { type: 'yoink', marker, card };
+    const candidates = attachableMembers.value;
+    lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
+};
+
+const closeLootPicker = () => {
+    lootSidePicker.value = null;
+    lootSidePickerMemberId.value = null;
+};
+
 const openUpgradePreview = (upgrade: any) => {
     if (!upgrade.front_image) return;
     previewUpgrade.value = upgrade;
     upgradeDrawerOpen.value = true;
 };
 
-const myCrewUpgrades = computed(() => myPlayer.value?.master?.crew_upgrades ?? []);
+const myCrewUpgrades = computed(() => {
+    // Bonanza falls back to the keyword-aggregated list because the picked
+    // character is usually a non-master without direct crew upgrades. The
+    // prop is populated server-side from the character's keywords.
+    if (isBonanza.value) return props.bonanza_crew_upgrades ?? [];
+    return myPlayer.value?.master?.crew_upgrades ?? [];
+});
 const opponentCrewUpgrades = computed(() => opponent.value?.master?.crew_upgrades ?? []);
 const myActiveUpgradeId = computed(() => myPlayer.value?.active_crew_upgrade_id ?? myPlayer.value?.crew_build?.crew_upgrade_id ?? null);
 const opponentActiveUpgradeId = computed(() => opponent.value?.active_crew_upgrade_id ?? opponent.value?.crew_build?.crew_upgrade_id ?? null);
@@ -1438,6 +1619,7 @@ const openAllCards = (side: 'my' | 'opponent') => {
 };
 
 const toast = useToast();
+const confirmDialog = useConfirm();
 const showError = (msg: string) => toast.error(msg);
 
 const postPlay = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
@@ -2463,6 +2645,177 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <span class="text-xs text-muted-foreground">You are watching this game in real time. All changes are read-only.</span>
             </div>
 
+            <!-- Bonanza Brawl rules-summary banner. The tracker covers crew creation
+                 + manual VP; everything else (Loot deck, initiative, Treasure Pile
+                 markers) is dealer-handled off-table. Linked rules let the player
+                 jump out for the full text without leaving the tab. -->
+            <div v-if="isBonanza" class="mb-4 flex flex-col gap-1 rounded-lg border border-purple-500/40 bg-purple-500/5 px-4 py-2 text-sm dark:bg-purple-500/10">
+                <div class="flex items-center gap-2 font-medium text-purple-700 dark:text-purple-300">
+                    <Dices class="size-4" /> Bonanza Brawl
+                </div>
+                <p class="text-xs text-muted-foreground">
+                    Single-model FFA at 11ss. The Game Tracker handles crew + manual VP — the Dealer manages the Loot deck, initiative draws, and
+                    Treasure Pile markers off-table. VP scoring is event-driven (kill = +3, damaging a max-HP enemy = +1, dying = -3 to a minimum of 0).
+                </p>
+                <p class="text-xs">
+                    <Link :href="route('tools.bonanza_loot_deck')" class="font-medium text-primary underline-offset-2 hover:underline">
+                        Browse the Loot Deck reference →
+                    </Link>
+                </p>
+            </div>
+
+            <!-- Bonanza VP widget — only shown during in-progress Bonanza games.
+                 The standard scoreboard is hidden for Bonanza (no strategy/scheme),
+                 so this is the primary scoring surface. Quick buttons match the
+                 most-common Bonanza VP events. Negative values floor at 0
+                 server-side. -->
+            <Card v-if="isBonanza && game.status === 'in_progress' && !isObserver" class="mb-4 border-purple-500/30 bg-purple-500/5 dark:bg-purple-500/10">
+                <CardContent class="flex flex-wrap items-center gap-3 p-3">
+                    <div class="flex items-center gap-2">
+                        <Trophy class="size-4 text-purple-600 dark:text-purple-300" />
+                        <span class="text-sm font-medium">Your VP</span>
+                        <span class="font-mono text-base font-bold tabular-nums">{{ myPlayer?.total_points ?? 0 }}</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(1)">+1 dmg</Button>
+                        <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(2)">+2 cost up</Button>
+                        <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(3)">+3 kill</Button>
+                        <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(4)">+4 kill+cost</Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            class="h-7 border-red-500/50 px-2 text-xs text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            @click="adjustBonanzaVp(-3)"
+                        >
+                            -3 died
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            class="h-7 border-red-500/50 px-2 text-xs text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            @click="adjustBonanzaVp(-1)"
+                        >
+                            -1
+                        </Button>
+                    </div>
+                    <div class="ml-auto flex items-center gap-2 border-l pl-3">
+                        <span class="text-xs text-muted-foreground">Turn</span>
+                        <span class="font-mono text-sm font-bold tabular-nums">{{ game.current_turn }}/{{ game.max_turns }}</span>
+                        <Button size="sm" class="h-7 gap-1 px-2 text-xs" @click="advanceBonanzaTurn">
+                            <ArrowUpCircle class="size-3.5" />
+                            {{ game.current_turn >= game.max_turns ? 'End Game' : 'End Turn' }}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Bonanza Loot Deck panel — deck/discard/marker counters + Draw +
+                 dropped marker list (with Yoink). The Dealer normally manages
+                 the deck off-table, but this panel lets a solo or remote player
+                 run it through the tracker. -->
+            <Card v-if="isBonanza && game.status === 'in_progress'" class="mb-4 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
+                <CardContent class="flex flex-col gap-3 p-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <Layers class="size-4 text-amber-600 dark:text-amber-300" />
+                            <span class="text-sm font-medium">Loot Deck</span>
+                        </div>
+                        <Badge variant="secondary" class="text-xs">Deck {{ lootDeckSize }}</Badge>
+                        <Badge variant="secondary" class="text-xs">Discard {{ lootDiscardSize }}</Badge>
+                        <Badge variant="secondary" class="text-xs">Markers {{ lootMarkers.length }}</Badge>
+                        <Button v-if="!isObserver" size="sm" class="ml-auto h-7 gap-1 text-xs" :disabled="lootDeckSize === 0 && lootDiscardSize === 0" @click="drawLoot">
+                            <Dices class="size-3.5" /> Draw
+                        </Button>
+                    </div>
+                    <div v-if="lootMarkers.length" class="flex flex-col gap-1.5 border-t border-amber-500/20 pt-2">
+                        <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dropped Loot Markers</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <div
+                                v-for="marker in lootMarkers"
+                                :key="marker.id"
+                                class="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-background/60 px-2 py-1 text-xs"
+                            >
+                                <Banana class="size-3.5 text-amber-600 dark:text-amber-300" />
+                                <span class="font-medium">{{ lootCardById(marker.card_id)?.name ?? `Card #${marker.card_id}` }}</span>
+                                <span class="text-muted-foreground">({{ marker.side === 'a' ? 'A' : 'B' }})</span>
+                                <Button
+                                    v-if="!isObserver"
+                                    size="sm"
+                                    variant="outline"
+                                    class="ml-1 h-5 px-1.5 py-0 text-[10px]"
+                                    @click="openYoinkPicker(marker)"
+                                >
+                                    Yoink
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Loot side-picker dialog: shared between draw → attach and Yoink → attach.
+                 Shows both sides of the card, lets the player pick a side and (in solo)
+                 a target model. The endpoint enforces one-side-only and policy. -->
+            <Dialog :open="lootSidePicker !== null" @update:open="(v) => !v && closeLootPicker()">
+                <DialogContent class="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {{ lootSidePicker?.type === 'attach' ? 'Loot drawn — pick a side' : 'Yoink loot — pick a side' }}
+                        </DialogTitle>
+                        <DialogDescription v-if="lootSidePicker">
+                            {{ lootSidePicker.card.name
+                            }}<span v-if="lootSidePicker.card.value_label" class="ml-2 text-muted-foreground"
+                                >{{ lootSidePicker.card.value_label }}</span
+                            >
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div v-if="lootSidePicker" class="flex flex-col gap-4">
+                        <div v-if="attachableMembers.length > 1" class="flex flex-col gap-1.5">
+                            <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attach to</label>
+                            <select
+                                v-model.number="lootSidePickerMemberId"
+                                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                            >
+                                <option :value="null">Select a model…</option>
+                                <option v-for="m in attachableMembers" :key="m.id" :value="m.id">{{ m.display_name }}</option>
+                            </select>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <button
+                                type="button"
+                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5"
+                                @click="submitLootSide('a')"
+                            >
+                                <div class="flex items-center gap-2 font-semibold">
+                                    Side A
+                                    <span v-if="lootSidePicker.card.title_a" class="font-normal text-muted-foreground">
+                                        — {{ lootSidePicker.card.title_a }}
+                                    </span>
+                                </div>
+                                <p v-if="lootSidePicker.card.effect_a" class="whitespace-pre-line text-xs text-muted-foreground">
+                                    {{ lootSidePicker.card.effect_a }}
+                                </p>
+                            </button>
+                            <button
+                                type="button"
+                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5"
+                                @click="submitLootSide('b')"
+                            >
+                                <div class="flex items-center gap-2 font-semibold">
+                                    Side B
+                                    <span v-if="lootSidePicker.card.title_b" class="font-normal text-muted-foreground">
+                                        — {{ lootSidePicker.card.title_b }}
+                                    </span>
+                                </div>
+                                <p v-if="lootSidePicker.card.effect_b" class="whitespace-pre-line text-xs text-muted-foreground">
+                                    {{ lootSidePicker.card.effect_b }}
+                                </p>
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             <!-- Game Header (hidden during gameplay — info is in the Game tab) -->
             <div v-if="game.status !== 'in_progress'" class="mb-6 flex flex-wrap items-center gap-3">
                 <Swords class="size-6 text-primary" />
@@ -2488,8 +2841,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </div>
             </div>
 
-            <!-- Scenario (hidden during gameplay and completed) -->
-            <div v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6">
+            <!-- Scenario (hidden during gameplay and completed; Bonanza Brawl
+                 has no scenario at all) -->
+            <div v-if="!isBonanza && game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6">
                 <!-- Mobile: compact text rows -->
                 <div class="space-y-1.5 sm:hidden">
                     <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
@@ -2601,8 +2955,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </h3>
             <Card v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6">
                 <CardContent class="p-4 sm:p-6">
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div v-for="player in game.players" :key="player.id" class="flex items-center gap-3 rounded-lg border p-3">
+                    <!-- Bonanza is personal-tracking only — slot 2 is inert, so the
+                         player grid drops to a single column showing just the user. -->
+                    <div :class="['grid gap-4', isBonanza ? '' : 'sm:grid-cols-2']">
+                        <div
+                            v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
+                            :key="player.id"
+                            class="flex items-center gap-3 rounded-lg border p-3"
+                        >
                             <div class="relative">
                                 <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-8" />
                                 <Users v-else class="size-8 text-muted-foreground/30" />
@@ -2636,7 +2996,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </template>
                                     <span v-else class="font-medium">{{ playerName(player) }}</span>
-                                    <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[9px] capitalize">
+                                    <!-- Attacker/Defender role is meaningless in Bonanza
+                                         (there's no opposing player to flip with). -->
+                                    <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-[9px] capitalize">
                                         <Shield v-if="player.role === 'defender'" class="mr-0.5 size-3" />
                                         <ShieldAlert v-else class="mr-0.5 size-3" />
                                         {{ player.role }}
@@ -2665,8 +3027,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </div>
                     </div>
 
-                    <!-- Solo: swap roles button -->
-                    <div v-if="isSolo && !isObserver && game.status !== 'completed' && game.status !== 'abandoned'" class="mt-3 flex justify-center">
+                    <!-- Solo: swap roles button (suppressed in Bonanza — no opponent
+                         to swap with in the personal-tracker mode). -->
+                    <div
+                        v-if="isSolo && !isBonanza && !isObserver && game.status !== 'completed' && game.status !== 'abandoned'"
+                        class="mt-3 flex justify-center"
+                    >
                         <Button variant="ghost" size="sm" class="gap-1.5 text-xs text-muted-foreground" @click="swapRoles">
                             <RotateCcw class="size-3" />
                             Swap Attacker / Defender
@@ -2869,7 +3235,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             >
                 <CardContent class="p-4 sm:p-6">
                     <h2 class="mb-1 font-semibold">
-                        {{ isSolo && myStepDone('master') ? "Select Opponent's Master" : 'Select Your Master' }}
+                        <template v-if="isBonanza">
+                            {{ isSolo && myStepDone('master') ? "Select Opponent's Model" : 'Select Your Model' }}
+                        </template>
+                        <template v-else>
+                            {{ isSolo && myStepDone('master') ? "Select Opponent's Master" : 'Select Your Master' }}
+                        </template>
                         <Badge
                             v-if="isOpponentSetupPhase"
                             variant="outline"
@@ -2880,8 +3251,17 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <p v-if="myStepDone('master') && !isSolo" class="mb-4 text-xs text-muted-foreground">
                         <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
                     </p>
-                    <p v-else-if="!myStepDone('master')" class="mb-4 text-xs text-muted-foreground">Choose the master for your crew.</p>
-                    <p v-else class="mb-4 text-xs text-muted-foreground">Choose the master for the opponent.</p>
+                    <p v-else-if="!myStepDone('master')" class="mb-4 text-xs text-muted-foreground">
+                        <template v-if="isBonanza">
+                            Pick any single model from your faction within 11ss. Totems and dash-cost models cost
+                            <span class="font-medium">max wounds − 1 (capped at 10)</span>.
+                        </template>
+                        <template v-else>Choose the master for your crew.</template>
+                    </p>
+                    <p v-else class="mb-4 text-xs text-muted-foreground">
+                        <template v-if="isBonanza">Choose the model for the opponent.</template>
+                        <template v-else>Choose the master for the opponent.</template>
+                    </p>
 
                     <template v-if="!myStepDone('master')">
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2912,9 +3292,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                                 Alt Leader
                                             </Badge>
+                                            <!-- Bonanza-only: cost hint per the format's totem/peon derivation. -->
+                                            <Badge
+                                                v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
+                                                variant="outline"
+                                                class="border-purple-500/50 px-1 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                            >{{ master.titles[0].bonanza_cost }}ss</Badge>
                                         </div>
-                                        <div v-if="master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
+                                        <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
                                             {{ master.titles.length }} titles — choose during crew select
+                                        </div>
+                                        <div v-else-if="isBonanza && master.titles.length > 1" class="mt-0.5 flex flex-wrap gap-1">
+                                            <Badge
+                                                v-for="t in master.titles"
+                                                :key="t.id"
+                                                variant="outline"
+                                                class="border-purple-500/40 px-1 py-0 text-[9px] text-purple-700 dark:text-purple-300"
+                                            >{{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss</Badge>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -3440,19 +3834,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ IN PROGRESS ═══ -->
             <template v-if="game.status === 'in_progress'">
-                <!-- Mobile: 3-tab switcher (scenario / my crew / opponent) -->
+                <!-- Mobile: 3-tab switcher (scenario / my crew / opponent).
+                     Bonanza skips the opponent tab — the format is a personal
+                     tracker so there's no opponent panel to switch to. -->
                 <div class="mb-4 md:hidden">
                     <Tabs v-model="mobileGameplayTab">
-                        <TabsList class="grid w-full grid-cols-3">
+                        <TabsList :class="['grid w-full', isBonanza ? 'grid-cols-2' : 'grid-cols-3']">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
                             <TabsTrigger value="my-crew">{{ isObserver ? playerName(myPlayer) : 'My Crew' }}</TabsTrigger>
-                            <TabsTrigger value="opponent">{{ playerName(opponent) }}</TabsTrigger>
+                            <TabsTrigger v-if="!isBonanza" value="opponent">{{ playerName(opponent) }}</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
 
-                <!-- Tablet: 2-tab switcher (game / both crews side-by-side) -->
-                <div class="mb-4 hidden md:block xl:hidden">
+                <!-- Tablet: 2-tab switcher (game / both crews side-by-side).
+                     Bonanza has only one crew, so the Crews tab is just the
+                     user's own — keep the simpler tabs since the layout still
+                     works. -->
+                <div v-if="!isBonanza" class="mb-4 hidden md:block xl:hidden">
                     <Tabs v-model="tabletGameplayTab">
                         <TabsList class="grid w-full grid-cols-2">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
@@ -3486,8 +3885,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div
                     class="grid grid-cols-1 gap-4"
                     :class="[
-                        gameplayTab === 'crews' ? 'md:grid-cols-2' : '',
-                        scenarioCollapsed ? 'xl:grid-cols-[auto_1fr_1fr]' : 'xl:grid-cols-3',
+                        gameplayTab === 'crews' && !isBonanza ? 'md:grid-cols-2' : '',
+                        isBonanza
+                            ? scenarioCollapsed
+                                ? 'xl:grid-cols-[auto_1fr]'
+                                : 'xl:grid-cols-2'
+                            : scenarioCollapsed
+                              ? 'xl:grid-cols-[auto_1fr_1fr]'
+                              : 'xl:grid-cols-3',
                     ]"
                 >
                     <!-- Column 1: Scenario Info -->
@@ -3533,15 +3938,21 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </button>
                                 </div>
 
-                                <!-- Scores -->
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div v-for="player in game.players" :key="'score-' + player.id" class="rounded-lg border p-3 text-center">
+                                <!-- Scores. Bonanza renders only the user's score
+                                     (single-column) — slot 2 is inert and the
+                                     Attacker/Defender role isn't meaningful. -->
+                                <div :class="['grid gap-2', isBonanza ? 'grid-cols-1' : 'grid-cols-2']">
+                                    <div
+                                        v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
+                                        :key="'score-' + player.id"
+                                        class="rounded-lg border p-3 text-center"
+                                    >
                                         <div class="flex items-center justify-center gap-1.5">
                                             <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                                             <span class="text-xs font-medium">{{ playerName(player) }}</span>
                                         </div>
                                         <div class="mt-1 text-2xl font-bold">{{ player.total_points }}</div>
-                                        <Badge v-if="player.role" variant="outline" class="mt-1 px-1 py-0 text-[9px] capitalize">{{
+                                        <Badge v-if="player.role && !isBonanza" variant="outline" class="mt-1 px-1 py-0 text-[9px] capitalize">{{
                                             player.role
                                         }}</Badge>
                                     </div>
@@ -3834,9 +4245,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                 </details>
 
-                                <!-- Turn scoring (hidden for observers) -->
-                                <template v-if="isObserver">
-                                    <!-- observers see nothing here -->
+                                <!-- Turn scoring (hidden for observers, and entirely
+                                     skipped for Bonanza Brawl which uses event-driven
+                                     manual VP via the banner widget at the top). -->
+                                <template v-if="isObserver || isBonanza">
+                                    <!-- observers + Bonanza see nothing here -->
                                 </template>
                                 <template v-else-if="myPlayer?.is_turn_complete">
                                     <div class="py-2 text-center text-xs text-muted-foreground">
@@ -4025,8 +4438,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     </div>
                                 </template>
 
-                                <!-- Solo: Opponent scheme + scoring (in Game column) -->
-                                <template v-if="isSolo && !isObserver">
+                                <!-- Solo: Opponent scheme + scoring (in Game column).
+                                     Hidden for Bonanza — manual VP buttons in the
+                                     top banner already cover both crews. -->
+                                <template v-if="isSolo && !isObserver && !isBonanza">
                                     <div class="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 dark:bg-amber-500/5">
                                         <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
                                             <UserRound class="size-3.5" /> Opponent — Turn {{ game.current_turn }}
@@ -4230,7 +4645,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     />
                                     <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                     <button
-                                        v-if="myUpgradeMode === 'swappable' && !isObserver && myActiveUpgradeId !== upgrade.id"
+                                        v-if="(myUpgradeMode === 'swappable' || isBonanza) && !isObserver && myActiveUpgradeId !== upgrade.id"
                                         class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
                                         @click.stop="swapCrewUpgrade(upgrade.id)"
                                     >
@@ -4543,8 +4958,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </details>
                     </div>
 
-                    <!-- Column 3: Opponent Crew -->
-                    <div :class="gameplayColumnClass('opponent')">
+                    <!-- Column 3: Opponent Crew. Hidden entirely for Bonanza —
+                         the format is a personal-tracking surface for one model
+                         in an FFA, so there's nothing meaningful to render for
+                         the (always-empty) slot 2. -->
+                    <div v-if="!isBonanza" :class="gameplayColumnClass('opponent')">
                         <!-- Transient summon/replace banner for the opponent column (solo mode summoning to slot 2) -->
                         <Transition
                             enter-active-class="transition-all duration-200 ease-out"
@@ -4998,13 +5416,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </div>
                         </div>
 
-                        <!-- Final scores side by side -->
-                        <div class="grid grid-cols-2 divide-x border-t">
-                            <div v-for="player in game.players" :key="'final-' + player.id" class="p-3 text-center">
+                        <!-- Final scores side by side. Bonanza is single-column
+                             (only the user) and skips the Attacker/Defender role. -->
+                        <div :class="['border-t', isBonanza ? '' : 'grid grid-cols-2 divide-x']">
+                            <div
+                                v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
+                                :key="'final-' + player.id"
+                                class="p-3 text-center"
+                            >
                                 <div class="flex items-center justify-center gap-1.5">
                                     <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                                     <span class="text-xs font-medium">{{ playerName(player) }}</span>
-                                    <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[8px] capitalize">{{ player.role }}</Badge>
+                                    <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-[8px] capitalize">{{
+                                        player.role
+                                    }}</Badge>
                                 </div>
                                 <div v-if="player.master_name" class="mt-0.5 text-[10px] text-muted-foreground">{{ player.master_name }}</div>
                                 <div

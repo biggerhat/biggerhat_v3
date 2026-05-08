@@ -71,9 +71,17 @@ class GameController extends Controller
             'label' => $s->label(),
         ]);
 
+        $formats = collect(\App\Enums\GameFormatEnum::cases())->map(fn (\App\Enums\GameFormatEnum $f) => [
+            'value' => $f->value,
+            'label' => $f->label(),
+            'default_encounter_size' => $f->defaultEncounterSize(),
+            'uses_scenario' => $f->usesScenario(),
+        ]);
+
         return inertia('Games/Create', [
             'seasons' => $seasons,
             'encounter_sizes' => [35, 40, 50],
+            'formats' => $formats,
         ]);
     }
 
@@ -82,26 +90,49 @@ class GameController extends Controller
         $validated = $request->validated();
 
         $seasonEnum = PoolSeasonEnum::from($validated['season']);
+        $format = \App\Enums\GameFormatEnum::tryFrom($validated['format'] ?? '') ?? \App\Enums\GameFormatEnum::Standard;
 
-        // Generate scenario
-        $strategies = Strategy::forSeason($seasonEnum)->get();
-        $schemes = Scheme::forSeason($seasonEnum)->get();
-        $deployments = DeploymentEnum::cases();
+        // Bonanza Brawl skips scenario generation — it has no Strategy / Scheme
+        // pool / Deployment, scoring is event-driven VP, and encounter size is
+        // fixed at 11ss for a single-model crew. Standard generates the usual
+        // scenario triple.
+        $strategy = null;
+        $deployment = null;
+        $schemePool = null;
+        if ($format->usesScenario()) {
+            $strategies = Strategy::forSeason($seasonEnum)->get();
+            $schemes = Scheme::forSeason($seasonEnum)->get();
+            $deployments = DeploymentEnum::cases();
 
-        $strategy = $strategies->isNotEmpty() ? $strategies->random() : null;
-        $deployment = $deployments[array_rand($deployments)];
-        $schemePool = $schemes->count() >= 3
-            ? $schemes->random(3)->pluck('id')->toArray()
-            : $schemes->pluck('id')->toArray();
+            $strategy = $strategies->isNotEmpty() ? $strategies->random() : null;
+            $deployment = $deployments[array_rand($deployments)];
+            $schemePool = $schemes->count() >= 3
+                ? $schemes->random(3)->pluck('id')->toArray()
+                : $schemes->pluck('id')->toArray();
+        }
 
-        $isSolo = filter_var($request->input('is_solo', false), FILTER_VALIDATE_BOOLEAN);
+        // Bonanza Brawl is forced into solo mode — the rulebook describes a 3-8
+        // player FFA, so the tracker isn't trying to model the table; it's a
+        // personal scratchpad where the user tracks their own model's HP, loot
+        // attachments, and VP. Slot 2 stays inert (created so existing
+        // firstWhere('slot', 2) callsites don't blow up) but never surfaces.
+        $isSolo = $format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            ? true
+            : filter_var($request->input('is_solo', false), FILTER_VALIDATE_BOOLEAN);
+
+        // Bonanza locks encounter_size to its rule-defined value regardless of
+        // what the form sent — the format spec is authoritative.
+        $encounterSize = $format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            ? \App\Enums\GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
+            : $validated['encounter_size'];
 
         $game = Game::create([
             'name' => $validated['name'] ?? null,
-            'encounter_size' => $validated['encounter_size'],
+            'encounter_size' => $encounterSize,
             'season' => $seasonEnum->value,
+            'format' => $format->value,
             'strategy_id' => $strategy?->id,
-            'deployment' => $deployment->value,
+            'deployment' => $deployment?->value,
             'scheme_pool' => $schemePool,
             'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
             'started_at' => $isSolo ? now() : null,
@@ -297,8 +328,58 @@ class GameController extends Controller
             },
             'observer_scheme_intel' => fn () => null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
+            // Catalog of every loot card with both sides + relations, lazily
+            // loaded only for Bonanza in-progress games. The UI uses this to
+            // render the side-picker dialog (after a draw), the dropped-marker
+            // list, and the loot entries inside attached_upgrades — all of
+            // which reference cards by id rather than embedding card data on
+            // the game state JSON.
+            'loot_card_catalog' => fn () => ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && $game->status === GameStatusEnum::InProgress)
+                ? \App\Models\LootCard::with([
+                    'sideAActions',
+                    'sideAAbilities',
+                    'sideATriggers',
+                    'sideBActions',
+                    'sideBAbilities',
+                    'sideBTriggers',
+                ])->orderBy('id')->get()
+                : [],
+            // Bonanza crew upgrades: pulled via the picked character's keywords
+            // rather than master.crewUpgrades (the picked model often isn't a
+            // master, so the direct relation is empty). Aggregates unique
+            // upgrades across all the character's keywords.
+            'bonanza_crew_upgrades' => fn () => $this->buildBonanzaCrewUpgrades($game),
             'is_observer' => false,
         ]);
+    }
+
+    /**
+     * Crew upgrades available to a Bonanza model: every Crew-domain upgrade
+     * attached to any of the picked character's Keywords. Returns an empty
+     * collection on standard-format games so the prop is always defined but
+     * cheap to ignore.
+     */
+    private function buildBonanzaCrewUpgrades(Game $game): \Illuminate\Support\Collection
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            return collect();
+        }
+        $myPlayer = $game->players->firstWhere('user_id', Auth::id())
+            ?? $game->players->firstWhere('slot', 1);
+        if (! $myPlayer || ! $myPlayer->master_id) {
+            return collect();
+        }
+
+        $character = \App\Models\Character::with(['keywords.crewUpgrades'])->find($myPlayer->master_id);
+        if (! $character) {
+            return collect();
+        }
+
+        return $character->keywords
+            ->flatMap(fn ($keyword) => $keyword->crewUpgrades)
+            ->unique('id')
+            ->values()
+            ->map(fn ($upgrade) => $upgrade->only(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count']));
     }
 
     public function join(Game $game)
@@ -528,6 +609,16 @@ class GameController extends Controller
             'opponent_next_schemes' => fn () => [],
             'observer_scheme_intel' => fn () => $this->buildObserverSchemeIntel($game),
             'starting_crews' => fn () => $this->getStartingCrews($game),
+            'loot_card_catalog' => fn () => ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && $game->status === GameStatusEnum::InProgress)
+                ? \App\Models\LootCard::with([
+                    'sideAActions',
+                    'sideAAbilities',
+                    'sideATriggers',
+                    'sideBActions',
+                    'sideBAbilities',
+                    'sideBTriggers',
+                ])->orderBy('id')->get()
+                : [],
             'is_observer' => true,
         ]);
     }
@@ -693,6 +784,12 @@ class GameController extends Controller
     /**
      * Master characters (plus alternate leaders granted by crew upgrades)
      * grouped by name with their titles, for the MasterSelect UI.
+     *
+     * Bonanza Brawl branch: returns ALL standard non-hidden characters of any
+     * station within the 11ss budget — the format hires a single non-Leader
+     * model from anywhere in the faction (totems/peons priced via
+     * Character::bonanzaCost). The same payload shape is reused so the
+     * existing MasterSelect picker UI works without a refactor.
      */
     private function buildMastersProp(Game $game): array
     {
@@ -703,6 +800,10 @@ class GameController extends Controller
         }
         if (! in_array($game->status, $masterStatuses)) {
             return [];
+        }
+
+        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+            return $this->buildBonanzaCharactersProp();
         }
 
         $characters = Character::standard()->where('station', 'master')
@@ -749,6 +850,47 @@ class GameController extends Controller
                     'id' => $c->id,
                     'display_name' => $c->display_name,
                     'title' => $c->title,
+                ])->values(),
+            ];
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Faction-wide character pool for Bonanza Brawl picker. Filters to anyone
+     * (any station) hireable within 11ss using the format's totem/peon cost
+     * derivation. Output mirrors the MasterSelect grouped shape so the same
+     * picker UI renders.
+     */
+    private function buildBonanzaCharactersProp(): array
+    {
+        $characters = Character::standard()
+            ->where('is_hidden', false)
+            ->with('miniatures')
+            ->orderBy('name')
+            ->orderBy('title')
+            ->get()
+            ->filter(fn (Character $c) => $c->bonanzaCost() <= \App\Enums\GameFormatEnum::BonanzaBrawl->defaultEncounterSize())
+            ->values();
+
+        $grouped = [];
+        foreach ($characters->groupBy('name') as $name => $group) {
+            /** @var Character $first */
+            $first = $group->first();
+            $grouped[] = [
+                'name' => $name,
+                'faction' => $first->getRawOriginal('faction'),
+                'second_faction' => $first->getRawOriginal('second_faction'),
+                'front_image' => $first->miniatures->first()?->front_image,
+                'is_alternate_leader' => false,
+                // Each title is a separate hireable in Bonanza; tag with the
+                // effective cost so the UI can show "(7ss)" hints inline.
+                'titles' => $group->map(fn (Character $c) => [
+                    'id' => $c->id,
+                    'display_name' => $c->display_name,
+                    'title' => $c->title,
+                    'bonanza_cost' => $c->bonanzaCost(),
                 ])->values(),
             ];
         }

@@ -80,6 +80,23 @@ class Character extends Model
         return 'slug';
     }
 
+    /**
+     * Effective hire cost for Bonanza Brawl. The format rule (rulebook):
+     * "Totems and other models with a cost of '-' may be hired and consider
+     * their cost to be equal to their max wounds minus 1, to a maximum of 10."
+     * Characters with a printed cost use that directly.
+     */
+    public function bonanzaCost(): int
+    {
+        if ($this->cost !== null) {
+            return (int) $this->cost;
+        }
+
+        $derived = max(0, ((int) $this->health) - 1);
+
+        return min(10, $derived);
+    }
+
     public function miniatures(): HasMany
     {
         return $this->hasMany(Miniature::class, 'character_id', 'id');

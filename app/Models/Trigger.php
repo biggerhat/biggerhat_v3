@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\GameModeTypeEnum;
+use App\Traits\HasGameModeType;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,10 +18,18 @@ class Trigger extends Model
     /** @use HasFactory<\Database\Factories\TriggerFactory> */
     use HasFactory;
 
+    use HasGameModeType;
     use UsesSelectOptionsScope;
     use UsesSlugName;
 
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'game_mode_type' => GameModeTypeEnum::class,
+        ];
+    }
 
     public function actions(): BelongsToMany
     {

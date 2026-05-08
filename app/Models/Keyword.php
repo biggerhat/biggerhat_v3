@@ -9,6 +9,7 @@ use App\Traits\UsesCharacters;
 use App\Traits\UsesPackages;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
+use App\Traits\UsesUpgrades;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -28,6 +29,7 @@ class Keyword extends Model
     use UsesPackages;
     use UsesSelectOptionsScope;
     use UsesSlugName;
+    use UsesUpgrades;
 
     protected $guarded = ['id'];
 

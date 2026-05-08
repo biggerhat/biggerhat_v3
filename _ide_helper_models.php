@@ -170,6 +170,17 @@ namespace App\Models{
 
 namespace App\Models{
 /**
+ * App\Models\LootCard — Bonanza Brawl Loot Card row. Generated stub; full
+ * column metadata will be filled in by `composer ide-generate` on next run.
+ *
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperLootCard {}
+}
+
+namespace App\Models{
+/**
  * 
  *
  * @property int $id

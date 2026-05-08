@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeploymentEnum;
+use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Traits\LogsCreationActivity;
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
  * @property GameStatusEnum $status
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
+ * @property GameFormatEnum $format
  *
  * @mixin IdeHelperGame
  */
@@ -41,7 +43,9 @@ class Game extends Model
             'status' => GameStatusEnum::class,
             'deployment' => DeploymentEnum::class,
             'season' => PoolSeasonEnum::class,
+            'format' => GameFormatEnum::class,
             'scheme_pool' => 'array',
+            'loot_state' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'is_tie' => 'boolean',

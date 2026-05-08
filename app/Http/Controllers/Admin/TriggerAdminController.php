@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Trigger;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TriggerAdminController extends Controller
 {
@@ -20,6 +22,7 @@ class TriggerAdminController extends Controller
     {
         return inertia('Admin/Triggers/TriggerForm', [
             'suits' => SuitEnum::toSelectOptions(),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ]);
     }
 
@@ -28,6 +31,7 @@ class TriggerAdminController extends Controller
         return inertia('Admin/Triggers/TriggerForm', [
             'trigger' => $trigger->loadMissing(['actions']),
             'suits' => SuitEnum::toSelectOptions(),
+            'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ]);
     }
 
@@ -60,6 +64,8 @@ class TriggerAdminController extends Controller
             'suits' => ['nullable', 'string', 'max:255'],
             'stone_cost' => ['required', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
+            // Optional — defaults to 'standard' on the column when not sent.
+            'game_mode_type' => ['sometimes', 'string', Rule::enum(GameModeTypeEnum::class)],
         ]);
 
         if (! $trigger) {

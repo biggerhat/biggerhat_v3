@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             TosAllegianceCardSeeder::class,
             TosAssetSeeder::class,
             TosStratagemSeeder::class,
+            LootCardSeeder::class,
         ]);
 
         $this->command->info('Seeding from production API...');

@@ -9,34 +9,71 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Head, router } from '@inertiajs/vue3';
 import { ArrowLeft, Loader2, Swords, User } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface Season {
     value: string;
     label: string;
 }
 
-defineProps<{
+interface FormatOption {
+    value: string;
+    label: string;
+    default_encounter_size: number;
+    uses_scenario: boolean;
+}
+
+const props = defineProps<{
     seasons: Season[];
     encounter_sizes: number[];
+    formats: FormatOption[];
 }>();
 
 const gameName = ref('');
 const encounterSize = ref(50);
 const season = ref('core');
 const isSolo = ref(false);
+const format = ref<string>(props.formats[0]?.value ?? 'standard');
 const submitting = ref(false);
+
+const activeFormat = computed(() => props.formats.find((f) => f.value === format.value) ?? props.formats[0]);
+const isBonanza = computed(() => format.value === 'bonanza_brawl');
+
+// When the user switches format, snap encounter size to the format's default
+// so the form reads honestly. Bonanza is locked server-side regardless.
+// Bonanza also force-flips solo on (the tracker is a personal scratchpad for
+// FFA play, not a 2-player duel). `immediate: true` covers the case where
+// Bonanza happens to be the initial format (e.g. if formats[0] flips), so the
+// watcher isn't relying on a user-driven change to set the flag.
+watch(
+    format,
+    () => {
+        if (activeFormat.value) {
+            encounterSize.value = activeFormat.value.default_encounter_size;
+        }
+        if (isBonanza.value) {
+            isSolo.value = true;
+        }
+    },
+    { immediate: true },
+);
 
 const submit = () => {
     if (submitting.value) return;
     submitting.value = true;
+    // Belt-and-suspenders: force is_solo=true at submit time for Bonanza so a
+    // stale toggle value can't ride through (the toggle is hidden under
+    // Bonanza, but Vue refs persist when v-if flips). The server enforces
+    // this too, but sending the right value avoids a confusing round-trip.
+    const payloadIsSolo = isBonanza.value ? true : isSolo.value;
     router.post(
         route('games.store'),
         {
             name: gameName.value || null,
             encounter_size: encounterSize.value,
             season: season.value,
-            is_solo: isSolo.value,
+            is_solo: payloadIsSolo,
+            format: format.value,
         },
         { onFinish: () => (submitting.value = false) },
     );
@@ -82,8 +119,27 @@ const submit = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label>Encounter Size (Soulstones)</Label>
-                            <NumberField v-model="encounterSize" :min="20" :max="100" :step="5">
+                            <Label>Format</Label>
+                            <Select v-model="format">
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="f in formats" :key="f.value" :value="f.value">{{ f.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p v-if="isBonanza" class="text-xs text-muted-foreground">
+                                Bonanza Brawl is single-model FFA at 11ss. The Game Tracker covers crew creation and manual VP — Loot deck, initiative
+                                order, and Treasure Pile markers are tracked off-table by the Dealer.
+                            </p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label>
+                                Encounter Size (Soulstones)
+                                <span v-if="isBonanza" class="text-xs text-muted-foreground">(locked at 11 for Bonanza Brawl)</span>
+                            </Label>
+                            <NumberField v-model="encounterSize" :min="10" :max="100" :step="isBonanza ? 1 : 5" :disabled="isBonanza">
                                 <NumberFieldContent>
                                     <NumberFieldDecrement />
                                     <NumberFieldInput />
@@ -108,7 +164,7 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between rounded-lg border p-3">
+                    <div v-if="!isBonanza" class="flex items-center justify-between rounded-lg border p-3">
                         <div class="flex items-center gap-2">
                             <User class="size-4 text-muted-foreground" />
                             <div>
@@ -120,7 +176,11 @@ const submit = () => {
                     </div>
 
                     <div class="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">
-                        <template v-if="isSolo">
+                        <template v-if="isBonanza">
+                            You'll pick one model, jump straight to play, and track only your own HP, loot, and VP — the dealer + table handle the
+                            rest of the FFA. No Strategy / Scheme pool / Deployment.
+                        </template>
+                        <template v-else-if="isSolo">
                             A scenario will be generated and you'll control both sides of the encounter. No opponent needed.
                         </template>
                         <template v-else>

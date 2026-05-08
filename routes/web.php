@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BonanzaLootDeckController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CommandController;
@@ -248,6 +249,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
     Route::get('/random-character', RandomCharacterController::class)->name('random_character');
+    Route::get('/bonanza-loot-deck', BonanzaLootDeckController::class)->name('bonanza_loot_deck');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
@@ -344,6 +346,11 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
         Route::patch('/crew-upgrade', [GamePlayController::class, 'swapCrewUpgrade'])->name('crew-upgrade');
         Route::patch('/crew-upgrade-power-bar', [GamePlayController::class, 'updateCrewUpgradePowerBar'])->name('crew-upgrade-power-bar');
+        Route::patch('/bonanza-vp', [GamePlayController::class, 'adjustBonanzaVp'])->name('bonanza_vp');
+        Route::post('/bonanza-next-turn', [GamePlayController::class, 'advanceBonanzaTurn'])->name('bonanza_next_turn');
+        Route::post('/loot/draw', [GamePlayController::class, 'drawLoot'])->name('loot.draw');
+        Route::post('/loot/attach', [GamePlayController::class, 'attachLoot'])->name('loot.attach');
+        Route::post('/loot/yoink', [GamePlayController::class, 'yoinkLoot'])->name('loot.yoink');
         Route::patch('/scheme-notes', [GamePlayController::class, 'updateSchemeNotes'])->name('scheme-notes');
         Route::post('/turns', [GamePlayController::class, 'submitTurnScore'])->name('turns.store');
         Route::post('/complete', [GamePlayController::class, 'markComplete'])->name('complete');

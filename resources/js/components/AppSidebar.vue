@@ -12,6 +12,7 @@ import {
     BookOpen,
     Calendar,
     CircleDollarSign,
+    Coins,
     Dice6,
     FileImage,
     Heart,
@@ -284,6 +285,11 @@ const mainNavItems = computed<NavItem[]>(() => [
                 title: 'Random Character',
                 href: route('tools.random_character'),
                 icon: Dice6,
+            },
+            {
+                title: 'Bonanza Loot Deck',
+                href: route('tools.bonanza_loot_deck'),
+                icon: Coins,
             },
             {
                 title: 'Hat Gamin Bot',

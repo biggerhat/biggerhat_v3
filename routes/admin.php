@@ -61,8 +61,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
 
         Route::controller(\App\Http\Controllers\Admin\LootCardAdminController::class)->prefix('loot-cards')->name('loot_cards.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
             Route::get('/edit/{lootCard}', 'edit')->name('edit');
             Route::post('/update/{lootCard}', 'update')->name('update');
+            Route::delete('/{lootCard}', 'destroy')->name('destroy');
         });
 
         Route::controller(FailedJobsAdminController::class)->prefix('failed-jobs')->name('failed_jobs.')->group(function () {

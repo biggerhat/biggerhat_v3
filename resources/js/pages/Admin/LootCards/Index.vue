@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Head, Link } from '@inertiajs/vue3';
-import { Pencil, Search } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface LootCardRow {
@@ -38,6 +39,18 @@ const filtered = computed(() => {
 });
 
 const totalWithEffects = computed(() => props.cards.filter((c) => c.effect_a || c.effect_b).length);
+
+const confirmDialog = useConfirm();
+const deleteCard = async (card: LootCardRow) => {
+    const ok = await confirmDialog({
+        title: 'Delete Loot Card?',
+        message: `Permanently remove "${card.name}" from the loot deck. This can't be undone.`,
+        confirmLabel: 'Delete',
+        destructive: true,
+    });
+    if (!ok) return;
+    router.delete(route('admin.loot_cards.destroy', card.slug), { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -47,9 +60,16 @@ const totalWithEffects = computed(() => props.cards.filter((c) => c.effect_a || 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold">Bonanza Loot Cards</h1>
-                <p class="text-sm text-muted-foreground">Fill in effect text from the Wyrd loot deck doc. Cards are seeded structurally — name, suit, value can be edited but the 54-card deck size is fixed.</p>
+                <p class="text-sm text-muted-foreground">Fill in effect text from the Wyrd loot deck doc. The 54 rulebook cards are seeded; admins can also add homebrew cards.</p>
             </div>
-            <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
+            <div class="flex items-center gap-2">
+                <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
+                <Link :href="route('admin.loot_cards.create')">
+                    <Button size="sm" class="gap-1.5">
+                        <Plus class="size-4" /> Add Card
+                    </Button>
+                </Link>
+            </div>
         </div>
 
         <Card>
@@ -71,7 +91,7 @@ const totalWithEffects = computed(() => props.cards.filter((c) => c.effect_a || 
                             <th class="hidden px-3 py-2 text-left sm:table-cell">Value</th>
                             <th class="px-3 py-2 text-left">Effects</th>
                             <th class="hidden px-3 py-2 text-left md:table-cell">Granted</th>
-                            <th class="w-20 px-3 py-2"></th>
+                            <th class="w-28 px-3 py-2"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,11 +116,22 @@ const totalWithEffects = computed(() => props.cards.filter((c) => c.effect_a || 
                                 <span v-else class="italic">none</span>
                             </td>
                             <td class="px-3 py-2 text-right">
-                                <Link :href="route('admin.loot_cards.edit', c.slug)">
-                                    <Button size="sm" variant="ghost" class="h-7 gap-1 px-2 text-xs">
-                                        <Pencil class="size-3.5" /> Edit
+                                <div class="flex items-center justify-end gap-1">
+                                    <Link :href="route('admin.loot_cards.edit', c.slug)">
+                                        <Button size="sm" variant="ghost" class="h-7 gap-1 px-2 text-xs">
+                                            <Pencil class="size-3.5" /> Edit
+                                        </Button>
+                                    </Link>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        class="h-7 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        title="Delete card"
+                                        @click="deleteCard(c)"
+                                    >
+                                        <Trash2 class="size-3.5" />
                                     </Button>
-                                </Link>
+                                </div>
                             </td>
                         </tr>
                     </tbody>

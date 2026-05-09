@@ -51,27 +51,55 @@ interface LootCardRow {
 }
 
 const props = defineProps<{
-    card: LootCardRow;
+    /** Null when creating a new card; populated when editing. */
+    card: LootCardRow | null;
     all_actions: ActionOption[] | null;
     all_abilities: NamedOption[] | null;
     all_triggers: NamedOption[] | null;
 }>();
 
+const isCreate = computed(() => props.card === null);
+
 // Multi-select inputs work in slug arrays — convert the linked entities to
 // slugs on init, and back to id arrays on submit (server expects ids).
 const slugList = (rows: { slug: string }[]) => rows.map((r) => r.slug);
 
+// Suit + value are only on create (immutable on edit so the deck identity
+// stays stable). Defaults match the seeder's allowed set.
+const newSuit = ref<string>('crow');
+const newValue = ref<number | null>(null);
+const newValueLabel = ref<string>('');
+
+const isJoker = computed(() => newSuit.value === 'joker');
+
+/**
+ * Mirror of `LootCardAdminController::resolveValueLabel`. Non-jokers derive
+ * their printed face from `value`; jokers use the admin-supplied label
+ * (the only case where we actually ask for it on the form).
+ */
+const derivedValueLabel = computed<string>(() => {
+    if (isJoker.value) return newValueLabel.value.trim() || 'Joker';
+    switch (newValue.value) {
+        case 1: return 'A';
+        case 11: return 'J';
+        case 12: return 'Q';
+        case 13: return 'K';
+        case null: return '';
+        default: return String(newValue.value);
+    }
+});
+
 const sideAActionRows = ref<{ slug: string; is_signature_action: boolean }[]>(
-    props.card.side_a_actions.map((a) => ({ slug: a.slug, is_signature_action: !!a.pivot?.is_signature_action })),
+    (props.card?.side_a_actions ?? []).map((a) => ({ slug: a.slug, is_signature_action: !!a.pivot?.is_signature_action })),
 );
 const sideBActionRows = ref<{ slug: string; is_signature_action: boolean }[]>(
-    props.card.side_b_actions.map((a) => ({ slug: a.slug, is_signature_action: !!a.pivot?.is_signature_action })),
+    (props.card?.side_b_actions ?? []).map((a) => ({ slug: a.slug, is_signature_action: !!a.pivot?.is_signature_action })),
 );
 
-const sideAAbilitySlugs = ref<string[]>(slugList(props.card.side_a_abilities));
-const sideBAbilitySlugs = ref<string[]>(slugList(props.card.side_b_abilities));
-const sideATriggerSlugs = ref<string[]>(slugList(props.card.side_a_triggers));
-const sideBTriggerSlugs = ref<string[]>(slugList(props.card.side_b_triggers));
+const sideAAbilitySlugs = ref<string[]>(slugList(props.card?.side_a_abilities ?? []));
+const sideBAbilitySlugs = ref<string[]>(slugList(props.card?.side_b_abilities ?? []));
+const sideATriggerSlugs = ref<string[]>(slugList(props.card?.side_a_triggers ?? []));
+const sideBTriggerSlugs = ref<string[]>(slugList(props.card?.side_b_triggers ?? []));
 
 const actionOptions = computed(() => (props.all_actions ?? []).map((a) => ({ value: a.slug, name: a.name })));
 const abilityOptions = computed(() => (props.all_abilities ?? []).map((a) => ({ value: a.slug, name: a.name })));
@@ -106,11 +134,11 @@ const onImageChange = (event: Event) => {
 // non-form values just before submit since the relations / image are tracked
 // in their own refs above.
 const form = useForm<Record<string, unknown>>({
-    name: props.card.name,
-    title_a: props.card.title_a ?? '',
-    title_b: props.card.title_b ?? '',
-    effect_a: props.card.effect_a ?? '',
-    effect_b: props.card.effect_b ?? '',
+    name: props.card?.name ?? '',
+    title_a: props.card?.title_a ?? '',
+    title_b: props.card?.title_b ?? '',
+    effect_a: props.card?.effect_a ?? '',
+    effect_b: props.card?.effect_b ?? '',
     side_a_actions: [],
     side_b_actions: [],
     side_a_abilities: [],
@@ -119,6 +147,11 @@ const form = useForm<Record<string, unknown>>({
     side_b_triggers: [],
     image: null as File | null,
     remove_image: false,
+    // Create-only fields. The server ignores these on update so we can include
+    // them unconditionally without leaking immutable column writes.
+    suit: 'crow',
+    value: null as number | null,
+    value_label: '',
 });
 
 // Toggle is_signature_action for an action row. Triggered from the action row
@@ -162,8 +195,13 @@ const submit = () => {
     form.side_b_triggers = sideBTriggerSlugs.value.map((s) => slugToTriggerId.value[s]).filter(Boolean);
     form.image = imageFile.value;
     form.remove_image = removeImage.value;
+    form.suit = newSuit.value;
+    form.value = isJoker.value ? null : newValue.value;
+    form.value_label = derivedValueLabel.value;
 
-    form.post(route('admin.loot_cards.update', props.card.slug), {
+    const url = isCreate.value ? route('admin.loot_cards.store') : route('admin.loot_cards.update', props.card!.slug);
+
+    form.post(url, {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => router.visit(route('admin.loot_cards.index')),
@@ -174,7 +212,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
 </script>
 
 <template>
-    <Head :title="`Edit ${card.name} · Loot Card`" />
+    <Head :title="isCreate ? 'New Loot Card · Admin' : `Edit ${card!.name} · Loot Card`" />
 
     <div class="container mx-auto space-y-4 p-4 lg:p-6">
         <Link :href="route('admin.loot_cards.index')">
@@ -184,10 +222,11 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
         </Link>
 
         <div>
-            <h1 class="text-xl font-bold">{{ card.name }}</h1>
-            <p class="text-sm text-muted-foreground">
-                <span class="capitalize">{{ card.suit }}</span> · <span class="font-mono">{{ card.value_label }}</span>
+            <h1 class="text-xl font-bold">{{ isCreate ? 'New Loot Card' : card!.name }}</h1>
+            <p v-if="!isCreate" class="text-sm text-muted-foreground">
+                <span class="capitalize">{{ card!.suit }}</span> · <span class="font-mono">{{ card!.value_label }}</span>
             </p>
+            <p v-else class="text-sm text-muted-foreground">Add a homebrew or expansion card to the Bonanza Brawl loot deck.</p>
         </div>
 
         <form @submit.prevent="submit" class="space-y-4">
@@ -200,9 +239,46 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                         <p v-if="form.errors.name" class="text-xs text-destructive">{{ form.errors.name }}</p>
                     </div>
 
+                    <!-- Suit + value are create-only; on edit these stay
+                         locked. Jokers swap the numeric Value input for a
+                         Display Label since Red vs Black is the only thing
+                         to disambiguate them. Non-jokers derive their
+                         printed face automatically (A / 2-10 / J / Q / K). -->
+                    <div v-if="isCreate" class="grid gap-3 sm:grid-cols-2">
+                        <div class="space-y-1.5">
+                            <Label for="suit">Suit</Label>
+                            <select id="suit" v-model="newSuit" class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+                                <option value="crow">Crow</option>
+                                <option value="mask">Mask</option>
+                                <option value="ram">Ram</option>
+                                <option value="tome">Tome</option>
+                                <option value="joker">Joker</option>
+                            </select>
+                            <p v-if="form.errors.suit" class="text-xs text-destructive">{{ form.errors.suit }}</p>
+                        </div>
+                        <div v-if="!isJoker" class="space-y-1.5">
+                            <Label for="value">Value</Label>
+                            <Input id="value" v-model.number="newValue" type="number" min="1" max="13" placeholder="1-13" />
+                            <p class="text-[11px] text-muted-foreground">
+                                Printed face is derived automatically:
+                                <span class="font-mono">{{ derivedValueLabel || '—' }}</span>
+                            </p>
+                            <p v-if="form.errors.value" class="text-xs text-destructive">{{ form.errors.value }}</p>
+                        </div>
+                        <div v-else class="space-y-1.5">
+                            <Label for="value_label">Display Label</Label>
+                            <select id="value_label" v-model="newValueLabel" class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+                                <option value="">Choose…</option>
+                                <option value="Red Joker">Red Joker</option>
+                                <option value="Black Joker">Black Joker</option>
+                            </select>
+                            <p v-if="form.errors.value_label" class="text-xs text-destructive">{{ form.errors.value_label }}</p>
+                        </div>
+                    </div>
+
                     <div class="space-y-1.5">
                         <Label>Card Image</Label>
-                        <div v-if="card.image && !removeImage" class="flex items-center gap-3">
+                        <div v-if="card?.image && !removeImage" class="flex items-center gap-3">
                             <img :src="`/storage/${card.image}`" :alt="card.name" class="size-24 rounded-md border object-cover" />
                             <Button type="button" variant="outline" size="sm" class="gap-1.5" @click="removeImage = true">
                                 <Trash2 class="size-3.5" /> Remove image
@@ -314,13 +390,6 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                     </CardContent>
                 </Card>
             </div>
-
-            <p class="text-[11px] text-muted-foreground">
-                Reference the canonical effect text at
-                <a href="https://wyrdgames.net/bonanza-loot-deck" target="_blank" rel="noopener" class="text-primary underline-offset-2 hover:underline">
-                    wyrdgames.net/bonanza-loot-deck
-                </a>.
-            </p>
 
             <div class="flex justify-end">
                 <Button type="submit" :disabled="form.processing" class="gap-1.5">

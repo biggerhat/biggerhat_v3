@@ -19,6 +19,7 @@ class SubmitTurnRequest extends FormRequest
     {
         return [
             'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
+            'strategy_bonus_used' => ['sometimes', 'boolean'],
             'scheme_points' => ['required', 'integer', 'min:0', 'max:2'],
             'scheme_action' => ['required', 'string', 'in:scored,held,discarded'],
             'next_scheme_id' => ['nullable', 'integer', 'exists:schemes,id'],

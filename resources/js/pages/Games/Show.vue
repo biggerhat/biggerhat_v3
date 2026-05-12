@@ -13,6 +13,7 @@ import GameLeaveDialog from '@/components/Game/GameLeaveDialog.vue';
 import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
+import GameSubmitTurnDialog from '@/components/Game/GameSubmitTurnDialog.vue';
 import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
@@ -23,6 +24,7 @@ import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
@@ -803,6 +805,8 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
     try {
         const payload: Record<string, any> = {
             strategy_points: opponentStrategyPoints.value,
+            strategy_bonus_used:
+                opponentStrategyPoints.value === 2 || (opponentStrategyPoints.value === 1 && opponentStrategyBonusOnly.value),
             scheme_points: opponentSchemePoints.value,
             scheme_action: schemeAction,
             slot: opponentSlot.value,
@@ -823,6 +827,7 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
         console.error('Opponent turn submit error:', e);
     }
     opponentStrategyPoints.value = 0;
+    opponentStrategyBonusOnly.value = false;
     opponentSchemePoints.value = 0;
     scoringOpponentTurn.value = false;
     const savedStrategy = strategyPoints.value;
@@ -1958,9 +1963,19 @@ const myDisplaySchemeId = computed(() => {
     return myPlayer.value?.current_scheme_id ?? null;
 });
 
-// Strategy: 1/turn + 1 bonus once per game (max 2 any turn)
+// Strategy: 1/turn + 1 bonus once per game (max 2 any turn). The bonus can
+// also be the *only* point scored in a turn (yielding strategy_points = 1
+// that draws from the once-per-game pool), so we also honor an explicit
+// `strategy_bonus_used` flag set when the user confirmed that case.
 const myStrategyBonusUsed = computed(() => {
-    return (myPlayer.value?.turns ?? []).some((t: any) => t.strategy_points > 1);
+    return (myPlayer.value?.turns ?? []).some((t: any) => t.strategy_bonus_used || t.strategy_points > 1);
+});
+// When the user has selected exactly 1 strategy VP, this flag captures
+// whether that single point was the once-per-game bonus rather than the
+// regular base point. Reset whenever the score moves off 1.
+const strategyBonusOnly = ref(false);
+watch(strategyPoints, (v) => {
+    if (v !== 1) strategyBonusOnly.value = false;
 });
 const maxStrategyThisTurn = computed(() => (myStrategyBonusUsed.value ? 1 : 2));
 
@@ -1977,8 +1992,15 @@ const mySchemeCapReached = computed(() => myTotalSchemeScored.value + schemePoin
 
 // Opponent scoring limits (solo)
 const opponentStrategyBonusUsed = computed(() => {
-    return (opponent.value?.turns ?? []).some((t: any) => t.strategy_points > 1);
+    return (opponent.value?.turns ?? []).some((t: any) => t.strategy_bonus_used || t.strategy_points > 1);
 });
+const opponentStrategyBonusOnly = ref(false);
+watch(
+    () => opponentStrategyPoints.value,
+    (v) => {
+        if (v !== 1) opponentStrategyBonusOnly.value = false;
+    },
+);
 const opponentMaxStrategyThisTurn = computed(() => (opponentStrategyBonusUsed.value ? 1 : 2));
 const opponentTotalSchemeScored = computed(() => {
     return (opponent.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
@@ -2008,6 +2030,7 @@ const submitTurnScore = async () => {
             headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
             body: JSON.stringify({
                 strategy_points: strategyPoints.value,
+                strategy_bonus_used: strategyPoints.value === 2 || (strategyPoints.value === 1 && strategyBonusOnly.value),
                 scheme_points: schemePoints.value,
                 scheme_action: schemeAction,
                 next_scheme_id: nextSchemeId.value,
@@ -2023,6 +2046,7 @@ const submitTurnScore = async () => {
     }
 
     strategyPoints.value = 0;
+    strategyBonusOnly.value = false;
     schemePoints.value = 0;
     nextSchemeId.value = null;
     scoringTurn.value = false;
@@ -2031,6 +2055,17 @@ const submitTurnScore = async () => {
         preserveState: true,
         preserveScroll: true,
     });
+};
+
+// Confirmation dialog for Submit Turn — users were locking in the wrong
+// scheme pick or VP on accident. Show a summary first, then POST.
+const submitTurnDialogOpen = ref(false);
+const submitTurnSchemeAction = computed<'scored' | 'discarded' | 'held'>(() =>
+    schemePoints.value > 0 ? 'scored' : nextSchemeId.value ? 'discarded' : 'held',
+);
+const confirmSubmitTurn = async () => {
+    await submitTurnScore();
+    submitTurnDialogOpen.value = false;
 };
 
 const markGameComplete = async () => {
@@ -4288,6 +4323,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </button>
                                             </div>
                                         </div>
+                                        <!-- "Bonus-only" disambiguation: 1 VP can be the base point OR the
+                                             once-per-game bonus scored alone. Surfacing it as a checkbox stops
+                                             the bonus from leaking into future turns when it was already used. -->
+                                        <label
+                                            v-if="strategyPoints === 1 && !myStrategyBonusUsed"
+                                            class="-mt-1 flex cursor-pointer items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs"
+                                        >
+                                            <Checkbox
+                                                class="mt-0.5"
+                                                :checked="strategyBonusOnly"
+                                                @update:checked="(v: boolean) => (strategyBonusOnly = v)"
+                                            />
+                                            <span>
+                                                <span class="font-medium text-amber-700 dark:text-amber-400">This was the bonus point</span>
+                                                <span class="block text-[10px] text-muted-foreground">
+                                                    Check if your 1 VP came from the once-per-game bonus (it can't be scored again).
+                                                </span>
+                                            </span>
+                                        </label>
 
                                         <!-- Scheme points (max 2/turn, max 6 total) -->
                                         <div class="flex items-center justify-between">
@@ -4430,7 +4484,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     !nextSchemeId &&
                                                     next_schemes.length > 0)
                                             "
-                                            @click="submitTurnScore"
+                                            @click="submitTurnDialogOpen = true"
                                         >
                                             <Loader2 v-if="scoringTurn" class="mr-2 size-4 animate-spin" />
                                             Submit Turn ({{ strategyPoints + schemePoints }} VP)
@@ -4484,6 +4538,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     </button>
                                                 </div>
                                             </div>
+                                            <label
+                                                v-if="opponentStrategyPoints === 1 && !opponentStrategyBonusUsed"
+                                                class="-mt-1 flex cursor-pointer items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs"
+                                            >
+                                                <Checkbox
+                                                    class="mt-0.5"
+                                                    :checked="opponentStrategyBonusOnly"
+                                                    @update:checked="(v: boolean) => (opponentStrategyBonusOnly = v)"
+                                                />
+                                                <span>
+                                                    <span class="font-medium text-amber-700 dark:text-amber-400">This was the bonus point</span>
+                                                    <span class="block text-[10px] text-muted-foreground">
+                                                        Check if the opponent's 1 VP came from the once-per-game bonus.
+                                                    </span>
+                                                </span>
+                                            </label>
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <span class="text-xs text-muted-foreground">Scheme VP</span>
@@ -6251,6 +6321,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     />
 
     <GameAbandonDialog :open="abandonDialogOpen" @update:open="abandonDialogOpen = $event" @confirm="executeAbandon" />
+
+    <!-- Confirm-before-submit dialog: surfaces the chosen VP and scheme so
+         users can double-check before locking the turn in. -->
+    <GameSubmitTurnDialog
+        :open="submitTurnDialogOpen"
+        :turn-number="game.current_turn"
+        :strategy-points="strategyPoints"
+        :strategy-bonus-used="strategyPoints === 2 || (strategyPoints === 1 && strategyBonusOnly)"
+        :scheme-points="schemePoints"
+        :current-scheme-name="findScheme(myDisplaySchemeId)?.name ?? null"
+        :scheme-action="submitTurnSchemeAction"
+        :next-scheme-name="findScheme(nextSchemeId)?.name ?? null"
+        :next-scheme-model="nextSchemeModel || null"
+        :next-scheme-marker="nextSchemeMarker || null"
+        :next-scheme-terrain="nextSchemeTerrain || null"
+        :submitting="scoringTurn"
+        @update:open="submitTurnDialogOpen = $event"
+        @confirm="confirmSubmitTurn"
+    />
 
     <!-- Replace on Death Dialog -->
     <GameReplaceOnDeathDialog

@@ -242,10 +242,13 @@ let currentSavePromise: Promise<void> | null = null;
 // Flag set when triggerAutosave / saveBuild fires while another save is
 // already in flight. The in-flight save reads it on completion and
 // re-fires saveBuild so the latest crew state isn't silently lost on
-// slow connections. Without this, autosaves arriving during a >2s save
-// were being dropped entirely.
+// slow connections.
 let pendingSave = false;
-const saveDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+// Suspends the autosave watcher during load operations (loadBuild,
+// rebuildCrew, resetBuildState) so loading another crew doesn't trigger
+// a spurious save of the just-loaded data.
+let suspendAutosave = false;
+let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const lastSavedAt = ref<string | null>(null);
 const shareTooltip = ref(false);
 const saveError = ref<string | null>(null);
@@ -300,6 +303,10 @@ const archivedBuilds = computed(() => savedBuilds.value.filter((b) => b.is_archi
 
 // ─── Faction selection ───
 const selectFaction = (factionSlug: string) => {
+    // Save any in-flight edits before we drop the current master/crew. The
+    // editor step about to be set is no longer 'hiring' so the watcher would
+    // otherwise let the pending debounce expire silently.
+    flushPendingSave();
     selectedFaction.value = factionSlug;
     selectedMasterName.value = null;
     selectedMasterTitle.value = null;
@@ -359,7 +366,7 @@ const clearBuildFromUrl = () => {
     syncUrlToState(false);
 };
 
-const restoreFromUrl = () => {
+const restoreFromUrl = async () => {
     const params = new URLSearchParams(window.location.search);
     lastPushedUrl.value = window.location.href;
 
@@ -367,73 +374,82 @@ const restoreFromUrl = () => {
     if (buildParam) {
         const build = savedBuilds.value.find((b) => b.share_code === buildParam);
         if (build) {
-            loadBuild(build);
+            await loadBuild(build);
             return;
         }
     }
 
-    const crewParam = params.get('crew');
-    if (crewParam) {
-        try {
-            const state = JSON.parse(atob(crewParam));
-            crewName.value = state.n || 'Untitled Crew';
-            encounterSize.value = state.e || 50;
-            rebuildCrew(state.f, state.m, state.c ?? [], state.u ?? null);
-            currentBuildId.value = null;
-            currentShareCode.value = null;
-            lastSavedAt.value = null;
-            viewMode.value = 'editor';
-        } catch {
-            // Invalid param
-        }
-        return;
-    }
-
-    const step = params.get('step');
-    if (step) {
-        viewMode.value = 'editor';
-        const faction = params.get('faction');
-        const masterParam = params.get('master');
-
-        if (step === 'faction') {
-            selectedFaction.value = null;
-            selectedMasterName.value = null;
-            selectedMasterTitle.value = null;
-            crew.value = [];
-        } else if (step === 'master' && faction) {
-            selectedFaction.value = faction;
-            selectedMasterName.value = null;
-            selectedMasterTitle.value = null;
-            crew.value = [];
-        } else if (step === 'title' && faction && masterParam) {
-            selectedFaction.value = faction;
-            selectedMasterName.value = masterParam;
-            selectedMasterTitle.value = null;
-            crew.value = [];
-        } else if (step === 'hiring' && faction && masterParam) {
-            const masterId = Number(masterParam);
-            const master = characterById.value.get(masterId);
-            if (master) {
-                rebuildCrew(faction, masterId, [], null);
+    // Every remaining branch hydrates the editor from URL state. The
+    // autosave watcher would interpret those mutations as user edits and
+    // schedule a spurious save — suspend it for the duration of the load.
+    suspendAutosave = true;
+    try {
+        const crewParam = params.get('crew');
+        if (crewParam) {
+            try {
+                const state = JSON.parse(atob(crewParam));
+                crewName.value = state.n || 'Untitled Crew';
+                encounterSize.value = state.e || 50;
+                rebuildCrew(state.f, state.m, state.c ?? [], state.u ?? null);
+                currentBuildId.value = null;
+                currentShareCode.value = null;
+                lastSavedAt.value = null;
+                viewMode.value = 'editor';
+            } catch {
+                // Invalid param
             }
+            return;
         }
-        return;
-    }
 
-    // No relevant params — go to builds list
-    currentBuildId.value = null;
-    currentShareCode.value = null;
-    lastSavedAt.value = null;
-    crewName.value = 'Untitled Crew';
-    crewDescription.value = null;
-    showDescriptionEditor.value = false;
-    encounterSize.value = 50;
-    selectedFaction.value = null;
-    selectedMasterName.value = null;
-    selectedMasterTitle.value = null;
-    activeCrewUpgradeId.value = null;
-    crew.value = [];
-    viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
+        const step = params.get('step');
+        if (step) {
+            viewMode.value = 'editor';
+            const faction = params.get('faction');
+            const masterParam = params.get('master');
+
+            if (step === 'faction') {
+                selectedFaction.value = null;
+                selectedMasterName.value = null;
+                selectedMasterTitle.value = null;
+                crew.value = [];
+            } else if (step === 'master' && faction) {
+                selectedFaction.value = faction;
+                selectedMasterName.value = null;
+                selectedMasterTitle.value = null;
+                crew.value = [];
+            } else if (step === 'title' && faction && masterParam) {
+                selectedFaction.value = faction;
+                selectedMasterName.value = masterParam;
+                selectedMasterTitle.value = null;
+                crew.value = [];
+            } else if (step === 'hiring' && faction && masterParam) {
+                const masterId = Number(masterParam);
+                const master = characterById.value.get(masterId);
+                if (master) {
+                    rebuildCrew(faction, masterId, [], null);
+                }
+            }
+            return;
+        }
+
+        // No relevant params — go to builds list
+        currentBuildId.value = null;
+        currentShareCode.value = null;
+        lastSavedAt.value = null;
+        crewName.value = 'Untitled Crew';
+        crewDescription.value = null;
+        showDescriptionEditor.value = false;
+        encounterSize.value = 50;
+        selectedFaction.value = null;
+        selectedMasterName.value = null;
+        selectedMasterTitle.value = null;
+        activeCrewUpgradeId.value = null;
+        crew.value = [];
+        viewMode.value = isAuthenticated.value ? 'builds' : 'editor';
+    } finally {
+        await nextTick();
+        suspendAutosave = false;
+    }
 };
 
 const onPopState = () => {
@@ -441,20 +457,30 @@ const onPopState = () => {
 };
 
 const resetBuildState = () => {
-    currentBuildId.value = null;
-    currentShareCode.value = null;
-    lastSavedAt.value = null;
-    crewName.value = 'Untitled Crew';
-    crewDescription.value = null;
-    showDescriptionEditor.value = false;
-    encounterSize.value = 50;
-    selectedFaction.value = null;
-    selectedMasterName.value = null;
-    selectedMasterTitle.value = null;
-    activeCrewUpgradeId.value = null;
-    customReferences.value = { characters: [], upgrades: [], markers: [], tokens: [] };
-    crew.value = [];
-    clearBuildFromUrl();
+    // Rescue any unsaved edits before we tear down the editor state.
+    flushPendingSave();
+
+    suspendAutosave = true;
+    try {
+        currentBuildId.value = null;
+        currentShareCode.value = null;
+        lastSavedAt.value = null;
+        crewName.value = 'Untitled Crew';
+        crewDescription.value = null;
+        showDescriptionEditor.value = false;
+        encounterSize.value = 50;
+        selectedFaction.value = null;
+        selectedMasterName.value = null;
+        selectedMasterTitle.value = null;
+        activeCrewUpgradeId.value = null;
+        customReferences.value = { characters: [], upgrades: [], markers: [], tokens: [] };
+        crew.value = [];
+        clearBuildFromUrl();
+    } finally {
+        nextTick(() => {
+            suspendAutosave = false;
+        });
+    }
 };
 
 // ─── Masters for selected faction ───
@@ -575,15 +601,9 @@ const selectMasterTitle = (master: CharacterData) => {
         applyHiringRules(rules);
     }
 
-    // Push URL for the hiring step
+    // Push URL for the hiring step. The deep autosave watcher will pick up
+    // the crew mutations above and schedule a debounced save.
     syncUrlToState(true);
-
-    // Save immediately for new builds, debounce for existing
-    if (isAuthenticated.value && !currentBuildId.value) {
-        saveBuild();
-    } else {
-        triggerAutosave();
-    }
 };
 
 // ─── Swap master title (keep crew) ───
@@ -634,8 +654,6 @@ const swapMasterTitle = (master: CharacterData) => {
     if (rules) {
         applyHiringRules(rules);
     }
-
-    triggerAutosave();
 };
 
 // ─── Keyword helpers ───
@@ -756,7 +774,6 @@ const addToCrewById = (character: CharacterData) => {
         effectiveCost: getEffectiveCost(character),
         hiringCategory: getHiringCategory(character),
     });
-    triggerAutosave();
 };
 
 const addToCrewWithMiniature = (character: CharacterData, miniature: MiniatureData | null) => {
@@ -767,7 +784,6 @@ const addToCrewWithMiniature = (character: CharacterData, miniature: MiniatureDa
         effectiveCost: getEffectiveCost(character),
         hiringCategory: getHiringCategory(character),
     });
-    triggerAutosave();
 };
 
 const addCustomToCrew = (custom: CustomCharacterData) => {
@@ -814,21 +830,18 @@ const addCustomToCrew = (custom: CustomCharacterData) => {
         isCustom: true,
         customCharacterId: custom.id,
     });
-    triggerAutosave();
 };
 
 const removeFromCrew = (index: number) => {
     const cat = crew.value[index].hiringCategory;
     if (cat === 'leader' || cat === 'totem' || cat === 'fixed-crew' || cat === 'required') return;
     crew.value.splice(index, 1);
-    triggerAutosave();
 };
 
 const clearHiredModels = () => {
     crew.value = crew.value.filter(
         (m) => m.hiringCategory === 'leader' || m.hiringCategory === 'totem' || m.hiringCategory === 'fixed-crew' || m.hiringCategory === 'required',
     );
-    triggerAutosave();
 };
 
 const recalculateHiringCategories = () => {
@@ -1066,11 +1079,9 @@ const addCustomReference = (type: 'characters' | 'upgrades' | 'markers' | 'token
 
     list.push(formatted);
 
-    // Track as custom and trigger autosave
     if (!customReferences.value[type].some((c: any) => c.id === formatted.id)) {
         customReferences.value[type].push(formatted);
     }
-    triggerAutosave();
 };
 
 // ─── Virtual scroller ───
@@ -1125,8 +1136,6 @@ const toggleCrewUpgradeActive = (upgrade: CrewUpgrade) => {
     if (!wasActive && upgrade.hiring_rules) {
         applyHiringRules(upgrade.hiring_rules);
     }
-
-    triggerAutosave();
 };
 
 // ─── Hiring rules computeds ───
@@ -1377,12 +1386,13 @@ const saveBuild = (): Promise<void> | null => {
         } finally {
             isSaving.value = false;
             currentSavePromise = null;
-            // If anything queued up while we were saving, re-fire so we don't
-            // lose the user's most recent edits. Only re-fire on success — on
-            // error we leave saveError visible and let the next user action
-            // (or the user clicking the Save button) retry.
-            if (pendingSave && !saveError.value) {
-                pendingSave = false;
+            // Clear the queue regardless of outcome. On error we rely on
+            // the next reactive mutation to re-arm the watcher instead of
+            // leaving `pendingSave = true` orphaned across saves — that
+            // used to produce phantom extra requests on the next success.
+            const hadPending = pendingSave;
+            pendingSave = false;
+            if (hadPending && !saveError.value) {
                 saveBuild();
             }
         }
@@ -1393,21 +1403,37 @@ const saveBuild = (): Promise<void> | null => {
 
 const triggerAutosave = () => {
     if (!isAuthenticated.value) return;
-    if (saveDebounceTimer.value) clearTimeout(saveDebounceTimer.value);
-    saveDebounceTimer.value = setTimeout(() => {
+    if (editorStep.value !== 'hiring') return;
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
         if (selectedMasterTitle.value) saveBuild();
     }, 2000);
 };
 
-watch(encounterSize, () => {
-    if (editorStep.value === 'hiring') triggerAutosave();
-});
-watch(crewName, () => {
-    if (editorStep.value === 'hiring') triggerAutosave();
-});
-watch(crewDescription, () => {
-    if (editorStep.value === 'hiring') triggerAutosave();
-});
+// Single source of truth for autosave: any deep change to the crew, its
+// configuration, or its metadata schedules a debounced save. Replaces the
+// dozen-plus manual triggerAutosave() calls that used to live at every
+// mutation site — those were easy to forget on new code paths and a
+// frequent source of silent data loss.
+watch(
+    [crew, customReferences, activeCrewUpgradeId, encounterSize, crewName, crewDescription],
+    () => {
+        if (suspendAutosave) return;
+        triggerAutosave();
+    },
+    { deep: true },
+);
+
+// Fires any pending debounced save immediately. Returns the in-flight
+// promise so callers that switch context (loadBuild, selectFaction) can
+// await the prior crew's save before mutating state under it.
+const flushPendingSave = (): Promise<void> | null => {
+    if (!saveDebounceTimer) return null;
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = null;
+    if (!isAuthenticated.value || !selectedMasterTitle.value) return null;
+    return saveBuild();
+};
 
 // ─── Rebuild crew from a saved/shared build data ───
 const rebuildCrew = (faction: string, masterId: number, crewData: number[], crewUpgradeId?: number | null) => {
@@ -1475,52 +1501,63 @@ const rebuildCrew = (faction: string, masterId: number, crewData: number[], crew
     }
 };
 
-const loadBuild = (build: SavedBuild) => {
-    currentBuildId.value = build.id;
-    currentShareCode.value = build.share_code;
-    crewName.value = build.name;
-    crewDescription.value = build.description ?? null;
-    showDescriptionEditor.value = !!build.description;
-    encounterSize.value = build.encounter_size;
-    customReferences.value = build.custom_references ?? { characters: [], upgrades: [], markers: [], tokens: [] };
-    rebuildCrew(build.faction, build.master_id, build.crew_data, build.crew_upgrade_id);
+const loadBuild = async (build: SavedBuild) => {
+    // Save whatever was being edited under the prior build before we
+    // mutate state out from under it. Awaiting avoids the race where a
+    // late POST from the old crew would land on the new build's state.
+    await flushPendingSave();
 
-    // Restore custom crew members from saved build
-    if (build.custom_crew_data?.length) {
-        for (const entry of build.custom_crew_data) {
-            const match = props.customCharacters.find((c) => c.id === entry.custom_character_id);
-            if (match) {
-                addCustomToCrew(match);
+    suspendAutosave = true;
+    try {
+        currentBuildId.value = build.id;
+        currentShareCode.value = build.share_code;
+        crewName.value = build.name;
+        crewDescription.value = build.description ?? null;
+        showDescriptionEditor.value = !!build.description;
+        encounterSize.value = build.encounter_size;
+        customReferences.value = build.custom_references ?? { characters: [], upgrades: [], markers: [], tokens: [] };
+        rebuildCrew(build.faction, build.master_id, build.crew_data, build.crew_upgrade_id);
+
+        // Restore custom crew members from saved build
+        if (build.custom_crew_data?.length) {
+            for (const entry of build.custom_crew_data) {
+                const match = props.customCharacters.find((c) => c.id === entry.custom_character_id);
+                if (match) {
+                    addCustomToCrew(match);
+                }
             }
         }
-    }
 
-    // Restore miniature selections from saved build
-    if (build.miniature_selections) {
-        const indexCounters: Record<string, number> = {};
-        for (const member of crew.value) {
-            const key = String(member.character.id);
-            const selection = build.miniature_selections[key];
-            let miniId: number | null = null;
+        // Restore miniature selections from saved build
+        if (build.miniature_selections) {
+            const indexCounters: Record<string, number> = {};
+            for (const member of crew.value) {
+                const key = String(member.character.id);
+                const selection = build.miniature_selections[key];
+                let miniId: number | null = null;
 
-            if (Array.isArray(selection)) {
-                const idx = indexCounters[key] ?? 0;
-                miniId = selection[idx] ?? null;
-                indexCounters[key] = idx + 1;
-            } else if (selection) {
-                miniId = selection;
-            }
+                if (Array.isArray(selection)) {
+                    const idx = indexCounters[key] ?? 0;
+                    miniId = selection[idx] ?? null;
+                    indexCounters[key] = idx + 1;
+                } else if (selection) {
+                    miniId = selection;
+                }
 
-            if (miniId) {
-                const mini = member.character.miniatures?.find((m: any) => m.id === miniId);
-                if (mini) member.miniature = mini;
+                if (miniId) {
+                    const mini = member.character.miniatures?.find((m: any) => m.id === miniId);
+                    if (mini) member.miniature = mini;
+                }
             }
         }
-    }
 
-    lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
-    viewMode.value = 'editor';
-    pushBuildToUrl();
+        lastSavedAt.value = new Date(build.updated_at).toLocaleTimeString();
+        viewMode.value = 'editor';
+        pushBuildToUrl();
+    } finally {
+        await nextTick();
+        suspendAutosave = false;
+    }
 };
 
 const deleteTarget = ref<SavedBuild | null>(null);
@@ -1611,9 +1648,9 @@ const generateShareLink = async () => {
         if (!currentBuildIsPublic.value) return;
 
         // Cancel any pending autosave and save immediately
-        if (saveDebounceTimer.value) {
-            clearTimeout(saveDebounceTimer.value);
-            saveDebounceTimer.value = null;
+        if (saveDebounceTimer) {
+            clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = null;
         }
         if (currentSavePromise) {
             await currentSavePromise;
@@ -1894,8 +1931,33 @@ const onVisibilityChange = () => {
     router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
 };
 
+// Best-effort flush when the browser tab is being closed or fully navigated
+// away from (refresh, address-bar nav, OS close). `keepalive` lets the
+// request outlive the page so the pending debounce isn't dropped. Inertia
+// SPA navigation goes through onUnmounted instead since beforeunload doesn't
+// fire for in-app navigation.
+const onBeforeUnload = () => {
+    if (!saveDebounceTimer) return;
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = null;
+    if (!isAuthenticated.value || !selectedMasterTitle.value) return;
+
+    const useUpdate = currentBuildId.value && isOwner.value;
+    const url = useUpdate
+        ? route('tools.crew_builder.update', { crewBuild: currentBuildId.value })
+        : route('tools.crew_builder.store');
+
+    fetch(url, {
+        method: useUpdate ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' },
+        body: JSON.stringify(buildPayload()),
+        keepalive: true,
+    }).catch(() => {});
+};
+
 onMounted(() => {
     window.addEventListener('popstate', onPopState);
+    window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     const params = new URLSearchParams(window.location.search);
@@ -1908,11 +1970,12 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('popstate', onPopState);
+    window.removeEventListener('beforeunload', onBeforeUnload);
     document.removeEventListener('visibilitychange', onVisibilityChange);
-    if (saveDebounceTimer.value) {
-        clearTimeout(saveDebounceTimer.value);
-        saveDebounceTimer.value = null;
-    }
+    // Fire any queued save before we go away. The component is unmounting
+    // but the fetch promise survives, so this rescues pending edits when
+    // the user Inertia-navigates within the 2s debounce window.
+    flushPendingSave();
 });
 </script>
 
@@ -2345,9 +2408,8 @@ onUnmounted(() => {
                             <div class="flex items-center gap-1.5">
                                 <Button
                                     v-if="isAuthenticated"
-                                    variant="ghost"
                                     size="sm"
-                                    class="h-7 gap-1 text-xs"
+                                    class="h-7 gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
                                     @click="saveBuild"
                                     :disabled="isSaving"
                                 >
@@ -2866,7 +2928,6 @@ onUnmounted(() => {
                                                             (val: string) => {
                                                                 member.miniature =
                                                                     member.character.miniatures.find((m) => m.id === Number(val)) ?? null;
-                                                                triggerAutosave();
                                                             }
                                                         "
                                                     >
@@ -3333,7 +3394,6 @@ onUnmounted(() => {
                                                     @update:model-value="
                                                         (val: string) => {
                                                             member.miniature = member.character.miniatures.find((m) => m.id === Number(val)) ?? null;
-                                                            triggerAutosave();
                                                         }
                                                     "
                                                 >
@@ -3506,7 +3566,6 @@ onUnmounted(() => {
                             @update:model-value="
                                 (val: string) => {
                                     crewPreviewMember!.miniature = crewPreviewMember!.character.miniatures.find((m) => m.id === Number(val)) ?? null;
-                                    triggerAutosave();
                                 }
                             "
                         >

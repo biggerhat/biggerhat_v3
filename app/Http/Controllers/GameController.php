@@ -183,7 +183,7 @@ class GameController extends Controller
         }
         if ($game->status === GameStatusEnum::InProgress) {
             // During gameplay, only load scoring data — exclude large crew_snapshot JSON
-            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,scheme_points,scheme_id,scheme_action,scheme_notes,next_scheme_id,points_scored';
+            $eagerLoads[] = 'players.turns:id,game_player_id,turn_number,strategy_points,strategy_bonus_used,scheme_points,scheme_id,scheme_action,scheme_notes,next_scheme_id,points_scored';
         } elseif (in_array($game->status, [GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
             // Summary view needs full turn data including snapshots
             $eagerLoads[] = 'players.turns';

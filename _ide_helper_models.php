@@ -170,17 +170,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * App\Models\LootCard — Bonanza Brawl Loot Card row. Generated stub; full
- * column metadata will be filled in by `composer ide-generate` on next run.
- *
- * @mixin \Eloquent
- */
-	#[\AllowDynamicProperties]
-	class IdeHelperLootCard {}
-}
-
-namespace App\Models{
-/**
  * 
  *
  * @property int $id
@@ -754,12 +743,14 @@ namespace App\Models{
  * @property GameStatusEnum $status
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
+ * @property GameFormatEnum $format
  * @property int $id
  * @property string $uuid
  * @property string|null $name
  * @property int $encounter_size
  * @property int|null $strategy_id
  * @property array<array-key, mixed>|null $scheme_pool
+ * @property array<array-key, mixed>|null $loot_state
  * @property int $current_turn
  * @property int $max_turns
  * @property int $creator_id
@@ -805,10 +796,12 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereDeployment($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereEncounterSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereFormat($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsObservable($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsSolo($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereIsTie($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereLootState($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereMaxTurns($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Game whereSchemePool($value)
@@ -1016,6 +1009,7 @@ namespace App\Models{
  * @property int|null $next_scheme_id
  * @property array<array-key, mixed>|null $scheme_notes
  * @property int $strategy_points
+ * @property bool $strategy_bonus_used
  * @property int $scheme_points
  * @property array<array-key, mixed>|null $crew_snapshot
  * @property int $points_scored
@@ -1040,6 +1034,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereSchemeId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereSchemeNotes($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereSchemePoints($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereStrategyBonusUsed($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereStrategyPoints($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereTurnNumber($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameTurn whereUpdatedAt($value)
@@ -1063,14 +1058,20 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $blogPosts
  * @property-read int|null $blog_posts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
+ * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
  * @property-read int|null $characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
+ * @property-read int|null $crew_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $masters
  * @property-read int|null $masters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
  * @property-read int|null $packages_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PodLink> $podLinks
  * @property-read int|null $pod_links_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
+ * @property-read int|null $upgrades_count
  * @method static \Database\Factories\KeywordFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Keyword forGameMode(\App\Enums\GameModeTypeEnum $mode)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Keyword newModelQuery()
@@ -1089,6 +1090,65 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperKeyword {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $suit
+ * @property int|null $value
+ * @property string $value_label
+ * @property string $name
+ * @property string|null $title_a
+ * @property string|null $effect_a
+ * @property string|null $title_b
+ * @property string|null $effect_b
+ * @property string|null $image
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
+ * @property-read int|null $abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
+ * @property-read int|null $actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $sideAAbilities
+ * @property-read int|null $side_a_abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $sideAActions
+ * @property-read int|null $side_a_actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Trigger> $sideATriggers
+ * @property-read int|null $side_a_triggers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $sideBAbilities
+ * @property-read int|null $side_b_abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $sideBActions
+ * @property-read int|null $side_b_actions_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Trigger> $sideBTriggers
+ * @property-read int|null $side_b_triggers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Trigger> $triggers
+ * @property-read int|null $triggers_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereEffectA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereEffectB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereTitleA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereTitleB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LootCard whereValueLabel($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperLootCard {}
 }
 
 namespace App\Models{
@@ -2559,6 +2619,7 @@ namespace App\Models{
  * @property int $id
  * @property int $tournament_id
  * @property int $user_id
+ * @property \App\Enums\FactionEnum|null $faction
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Tournament $tournament
@@ -2567,6 +2628,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp whereTournamentId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentRsvp whereUpdatedAt($value)
@@ -2624,6 +2686,7 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property \App\Enums\GameModeTypeEnum $game_mode_type
  * @property string $name
  * @property string $slug
  * @property int $stone_cost
@@ -2636,13 +2699,16 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
  * @method static \Database\Factories\TriggerFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger forGameMode(\App\Enums\GameModeTypeEnum $mode)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereGameModeType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereInternalNotes($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereName($value)

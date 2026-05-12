@@ -57,6 +57,22 @@ const formattedMsrp = computed(() => {
     return `$${(props.package.msrp / 100).toFixed(2)}`;
 });
 
+// Append our affiliate/referral code to every outbound store link. If the
+// link is malformed we fall back to the original so we never break a Buy
+// button; if `bg_ref` is already present we leave the existing value alone.
+const STORE_REF = 'hEWYov8ywW';
+const withStoreRef = (raw: string): string => {
+    try {
+        const url = new URL(raw);
+        if (!url.searchParams.has('bg_ref')) {
+            url.searchParams.set('bg_ref', STORE_REF);
+        }
+        return url.toString();
+    } catch {
+        return raw;
+    }
+};
+
 const images = computed(() => {
     const imgs: Array<{ src: string; label: string }> = [];
     if (props.package.front_image) {
@@ -262,7 +278,7 @@ const togglePackageCollection = async () => {
                                         <a
                                             v-for="link in package.store_links"
                                             :key="link.url"
-                                            :href="link.url"
+                                            :href="withStoreRef(link.url)"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >

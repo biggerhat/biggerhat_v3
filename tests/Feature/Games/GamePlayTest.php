@@ -111,6 +111,42 @@ it('blocks strategy bonus if already used this game', function () {
     ])->assertStatus(422);
 });
 
+it('records and blocks the bonus when scored alone as 1 VP', function () {
+    // Turn 1: player scores 1 VP and flags it as the bonus.
+    $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
+        'strategy_points' => 1,
+        'strategy_bonus_used' => true,
+        'scheme_points' => 0,
+        'scheme_action' => 'held',
+    ])->assertOk();
+
+    $turn = GameTurn::where('game_id', $this->game->id)
+        ->where('game_player_id', $this->player1->id)
+        ->first();
+    expect($turn->strategy_bonus_used)->toBeTrue();
+
+    // Advance turn so player1 can submit again.
+    $this->actingAs($this->user2)->postJson(route('games.play.turns.store', $this->game->uuid), [
+        'strategy_points' => 0,
+        'scheme_points' => 0,
+        'scheme_action' => 'held',
+    ])->assertOk();
+
+    // Turn 2: trying to use the bonus again (either form) must be rejected.
+    $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
+        'strategy_points' => 2,
+        'scheme_points' => 0,
+        'scheme_action' => 'held',
+    ])->assertStatus(422);
+
+    $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
+        'strategy_points' => 1,
+        'strategy_bonus_used' => true,
+        'scheme_points' => 0,
+        'scheme_action' => 'held',
+    ])->assertStatus(422);
+});
+
 it('updates scheme for next turn', function () {
     $this->actingAs($this->user1)->postJson(route('games.play.turns.store', $this->game->uuid), [
         'strategy_points' => 0,

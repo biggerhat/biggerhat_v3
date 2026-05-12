@@ -660,9 +660,15 @@ class GamePlayController extends Controller
             ->where('game_player_id', $player->id)
             ->get();
 
-        if ($validated['strategy_points'] > 1) {
-            $bonusUsed = $previousTurns->contains(fn (GameTurn $t) => $t->strategy_points > 1);
-            if ($bonusUsed) {
+        // The bonus is used if strategy_points = 2 (base + bonus) OR the
+        // client flagged a 1-VP turn as the bonus-only case. Either signal
+        // counts against the once-per-game cap.
+        $bonusUsedThisTurn = $validated['strategy_points'] > 1 || ! empty($validated['strategy_bonus_used']);
+        if ($bonusUsedThisTurn) {
+            $bonusAlreadyUsed = $previousTurns->contains(
+                fn (GameTurn $t) => $t->strategy_bonus_used || $t->strategy_points > 1,
+            );
+            if ($bonusAlreadyUsed) {
                 return response()->json(['error' => 'Strategy bonus already used this game'], 422);
             }
         }
@@ -726,7 +732,7 @@ class GamePlayController extends Controller
         // a double-submit can't double-advance the turn counter or inflate
         // total_points. GameTurn::updateOrCreate + recompute-from-sum keeps
         // the scoring side idempotent on retry.
-        $result = DB::transaction(function () use ($game, $player, $turnSchemeId, $schemeAction, $validated, $nextSchemeId, $totalTurnPoints, $crewSnapshot) {
+        $result = DB::transaction(function () use ($game, $player, $turnSchemeId, $schemeAction, $validated, $nextSchemeId, $totalTurnPoints, $crewSnapshot, $bonusUsedThisTurn) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
 
@@ -746,6 +752,7 @@ class GamePlayController extends Controller
                     'scheme_notes' => $player->scheme_notes,
                     'next_scheme_id' => $nextSchemeId,
                     'strategy_points' => $validated['strategy_points'],
+                    'strategy_bonus_used' => $bonusUsedThisTurn,
                     'scheme_points' => $validated['scheme_points'],
                     'points_scored' => $totalTurnPoints,
                     'crew_snapshot' => $crewSnapshot,

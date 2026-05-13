@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Database;
 use App\Enums\FactionEnum;
 use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\Blueprint;
 use App\Models\Character;
@@ -15,6 +16,8 @@ use Illuminate\Http\Request;
 
 class PackageController extends Controller
 {
+    use BuildsPageMeta;
+
     public function index(Request $request)
     {
         $query = Package::withCount(['characters', 'miniatures'])
@@ -146,6 +149,37 @@ class PackageController extends Controller
                     'sculpt_version' => $b->sculpt_version->value,
                 ]),
             ],
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $package->name,
+                description: $package->description ?: $this->summarizePackage($package),
+                image: $package->front_image,
+            ),
         ]);
+    }
+
+    /**
+     * Falls back to a short content summary when a package has no description —
+     * keeps social previews from being empty for store / starter boxes.
+     */
+    private function summarizePackage(Package $package): string
+    {
+        $factionLabels = collect($package->factions ?? [])
+            ->map(fn (string $f) => FactionEnum::from($f)->label())
+            ->implode(', ');
+        $characterCount = $package->characters->count();
+
+        $parts = [];
+        if ($factionLabels !== '') {
+            $parts[] = $factionLabels.' package';
+        }
+        if ($characterCount > 0) {
+            $parts[] = $characterCount.' '.($characterCount === 1 ? 'character' : 'characters');
+        }
+        if ($package->category) {
+            $parts[] = $package->category->label();
+        }
+
+        return $parts ? implode(' · ', $parts) : 'Malifaux package';
     }
 }

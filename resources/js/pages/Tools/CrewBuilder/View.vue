@@ -4,6 +4,7 @@ import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewListDisplay, { type CrewMemberDisplay, type CrewUpgradeDisplay } from '@/components/CrewListDisplay.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -405,7 +406,13 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head :title="`${build.name} — Crew Builder`" />
+    <SeoHead
+        :title="`${build.name} — Crew Builder`"
+        :description="
+            `${build.encounter_size}ss ${faction?.name ?? 'Malifaux'} crew${master ? ` led by ${master.display_name}` : ''}${build.user_name ? ` by ${build.user_name}` : ''}.`
+        "
+        :image="faction?.logo"
+    />
 
     <div :class="{ 'relative pb-12': !embed }">
         <template v-if="!embed">

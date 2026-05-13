@@ -17,7 +17,6 @@ import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { useToast } from '@/composables/useToast';
-import { csrfToken } from '@/lib/utils';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
@@ -152,8 +151,7 @@ const allStandardInCollection = computed(() => {
 
 const toast = useToast();
 const collectionProcessing = ref(false);
-const toggleMiniature = async () => {
-    collectionProcessing.value = true;
+const toggleMiniature = () => {
     const ids = page.props.auth.collection_miniature_ids;
     const miniatureId = props.miniature.id;
     const wasInCollection = currentMiniatureInCollection.value;
@@ -165,29 +163,29 @@ const toggleMiniature = async () => {
         if (!ids.includes(miniatureId)) ids.push(miniatureId);
     }
 
-    try {
-        const res = await fetch(route('collection.toggle'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ miniature_id: miniatureId }),
-        });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-    } catch {
-        // Roll back the optimistic update so the UI matches server state.
-        if (wasInCollection) {
-            if (!ids.includes(miniatureId)) ids.push(miniatureId);
-        } else {
-            const idx = ids.indexOf(miniatureId);
-            if (idx !== -1) ids.splice(idx, 1);
-        }
-        toast.error('Could not update collection', { description: 'Try again in a moment.' });
-    } finally {
-        collectionProcessing.value = false;
-    }
+    router.post(
+        route('collection.toggle'),
+        { miniature_id: miniatureId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (collectionProcessing.value = true),
+            onError: () => {
+                // Roll back the optimistic update so the UI matches server state.
+                if (wasInCollection) {
+                    if (!ids.includes(miniatureId)) ids.push(miniatureId);
+                } else {
+                    const idx = ids.indexOf(miniatureId);
+                    if (idx !== -1) ids.splice(idx, 1);
+                }
+                toast.error('Could not update collection', { description: 'Try again in a moment.' });
+            },
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 
-const addAllStandard = async () => {
-    collectionProcessing.value = true;
+const addAllStandard = () => {
     const ids = page.props.auth.collection_miniature_ids;
     const added: number[] = [];
     for (const m of standardMiniatures.value) {
@@ -197,28 +195,28 @@ const addAllStandard = async () => {
         }
     }
 
-    try {
-        const res = await fetch(route('collection.add_character'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ character_id: props.character.id }),
-        });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-        toast.success(
-            added.length
-                ? `Added ${added.length} miniature${added.length === 1 ? '' : 's'} to your collection`
-                : 'Already in your collection',
-        );
-    } catch {
-        // Roll back the miniatures we just added.
-        for (const id of added) {
-            const idx = ids.indexOf(id);
-            if (idx !== -1) ids.splice(idx, 1);
-        }
-        toast.error('Could not update collection', { description: 'Try again in a moment.' });
-    } finally {
-        collectionProcessing.value = false;
-    }
+    router.post(
+        route('collection.add_character'),
+        { character_id: props.character.id },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (collectionProcessing.value = true),
+            onSuccess: () => {
+                toast.success(
+                    added.length
+                        ? `Added ${added.length} miniature${added.length === 1 ? '' : 's'} to your collection`
+                        : 'Already in your collection',
+                );
+            },
+            onError: () => {
+                const rollback = new Set(added);
+                page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));
+                toast.error('Could not update collection', { description: 'Try again in a moment.' });
+            },
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 
 // ─── Upgrade Drawer ───

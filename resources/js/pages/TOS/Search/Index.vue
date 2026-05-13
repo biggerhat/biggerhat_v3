@@ -129,6 +129,9 @@ const blankParams = (): FilterParams => ({
     trigger_suits: null,
     trigger_description: null,
     has: null,
+    // Result-type filter — short-circuits the asset/stratagem/allegiance-card
+    // queries on the server when the user wants a unit-only browse.
+    units_only: null,
     sort: 'name',
     sort_type: 'ascending',
     page_view: 'cards',
@@ -147,6 +150,7 @@ const filterKeys = [
     'action_is_piercing', 'action_is_accurate', 'action_is_area',
     'ability_name', 'ability_description',
     'trigger_name', 'trigger_suits', 'trigger_description', 'has',
+    'units_only',
 ] as const;
 
 const activeFilterCount = computed(() => filterKeys.filter((k) => {

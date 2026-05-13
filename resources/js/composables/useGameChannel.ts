@@ -40,7 +40,13 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                 } else if (status === 'crew_select') {
                     reload([...base, 'masters', 'my_crews']);
                 } else if (status === 'scheme_select') {
-                    reload([...base, 'schemes', 'deployment', 'current_schemes']);
+                    // all_markers is empty during crew_select (server only emits it
+                    // for scheme_select + in_progress). The receiving-side player
+                    // doesn't go through postSetup's broader reload, so without
+                    // an explicit refresh here the marker dropdown for schemes
+                    // like Grave Robbing / Reshape the Land stays empty until
+                    // status flips to in_progress.
+                    reload([...base, 'schemes', 'deployment', 'current_schemes', 'all_markers']);
                 } else if (status === 'in_progress') {
                     reload([
                         ...base,

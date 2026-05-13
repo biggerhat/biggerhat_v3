@@ -102,11 +102,18 @@ class SearchController extends Controller
         };
         $direction = $request->get('sort_type') === 'descending' ? 'desc' : 'asc';
 
-        // Asset + Stratagem supplementary lists (only when a text/cost field
-        // could match either). Mirrors the Malifaux Search pattern of merging
-        // Upgrade rows alongside Character rows.
-        $hasTextOrCost = $request->filled('name') || $request->filled('description')
-            || $request->filled('scrip_min') || $request->filled('scrip_max');
+        // Asset + Stratagem + AllegianceCard supplementary lists (only when a
+        // text/cost field could match any of them). Mirrors the Malifaux
+        // Search pattern of merging Upgrade rows alongside Character rows.
+        //
+        // `units_only=1` is the user-facing escape hatch for the times the
+        // user wants a unit-shape browse without side-record clutter — same
+        // shape as the Malifaux `exclude_upgrades` toggle.
+        $unitsOnly = $request->boolean('units_only');
+        $hasTextOrCost = ! $unitsOnly && (
+            $request->filled('name') || $request->filled('description')
+            || $request->filled('scrip_min') || $request->filled('scrip_max')
+        );
         $assetResults = collect();
         $stratagemResults = collect();
         $allegianceCardResults = collect();
@@ -580,6 +587,11 @@ class SearchController extends Controller
             $applied = true;
         }
 
+        // Allegiance — BelongsToMany via tos_allegiance_asset. Same AND/OR
+        // semantics as the Unit allegiance filter so the two surfaces feel
+        // identical to the user.
+        $this->applyAllegianceFilterToBelongsToMany($q, $request);
+
         return $applied ? $q->get() : collect();
     }
 
@@ -612,6 +624,22 @@ class SearchController extends Controller
             $applied = true;
         }
 
+        // Stratagems have a singular allegiance (belongsTo). Filter on the
+        // related allegiance's slug — the URL param is still a slug list so
+        // AND vs OR collapses to "in list" against a single FK.
+        $this->applyAllegianceFilterToBelongsTo($q, $request, 'allegiance');
+
+        // Stratagems also carry an `allegiance_type` enum (Earth|Malifaux)
+        // which is the TOS analog of the Neutral-pool restriction filter on
+        // Units. Honor it so a stratagem allowed by Earth crews shows up on
+        // an `?restriction=earth` browse.
+        if ($request->filled('restriction')) {
+            $q->where(function ($qq) use ($request) {
+                $qq->where('allegiance_type', $request->get('restriction'))
+                    ->orWhereNull('allegiance_type');
+            });
+        }
+
         return $applied ? $q->get() : collect();
     }
 
@@ -636,12 +664,71 @@ class SearchController extends Controller
             $applied = true;
         }
 
+        // AllegianceCard is always tied to a single allegiance (belongsTo).
+        // Apply the allegiance + allegiance_exclude filters so a faction-
+        // scoped search returns matching cards instead of every card on
+        // the table.
+        $this->applyAllegianceFilterToBelongsTo($q, $request, 'allegiance');
+
         // Allegiance Cards have no scrip/tactical-cost field — scrip-range
         // filters are silently inapplicable. They join the result list only
         // when name/description hit. Return an Eloquent collection in both
         // branches so the declared return type holds (Support\Collection
         // is the parent class, not a subtype, so `collect()` would mismatch).
         return $applied ? $q->get() : AllegianceCard::query()->whereRaw('1=0')->get();
+    }
+
+    /**
+     * Apply the allegiance + allegiance_exclude filters to a query whose
+     * model exposes a `BelongsToMany` allegiances relation (Asset). Honors
+     * the `allegiance_logic` AND/OR toggle the same way the Unit search
+     * does, so the surfaces stay consistent.
+     */
+    private function applyAllegianceFilterToBelongsToMany(Builder $query, Request $request): void
+    {
+        if ($request->filled('allegiance')) {
+            $slugs = array_filter(explode(',', (string) $request->get('allegiance')));
+            if ($slugs) {
+                if ($request->get('allegiance_logic') === 'or') {
+                    $query->whereHas('allegiances', fn ($q) => $q->whereIn('slug', $slugs));
+                } else {
+                    foreach ($slugs as $slug) {
+                        $query->whereHas('allegiances', fn ($q) => $q->where('slug', $slug));
+                    }
+                }
+            }
+        }
+        if ($request->filled('allegiance_exclude')) {
+            $excluded = array_filter(explode(',', (string) $request->get('allegiance_exclude')));
+            if ($excluded) {
+                $query->whereDoesntHave('allegiances', fn ($q) => $q->whereIn('slug', $excluded));
+            }
+        }
+    }
+
+    /**
+     * Apply the allegiance filters to a query whose model exposes a
+     * `BelongsTo` allegiance relation (Stratagem, AllegianceCard). With a
+     * single FK there's no AND/OR distinction — the slug list collapses to
+     * an `in (...)` check.
+     */
+    private function applyAllegianceFilterToBelongsTo(Builder $query, Request $request, string $relation): void
+    {
+        if ($request->filled('allegiance')) {
+            $slugs = array_filter(explode(',', (string) $request->get('allegiance')));
+            if ($slugs) {
+                $query->whereHas($relation, fn ($q) => $q->whereIn('slug', $slugs));
+            }
+        }
+        if ($request->filled('allegiance_exclude')) {
+            $excluded = array_filter(explode(',', (string) $request->get('allegiance_exclude')));
+            if ($excluded) {
+                $query->where(function ($qq) use ($relation, $excluded) {
+                    $qq->whereDoesntHave($relation, fn ($q) => $q->whereIn('slug', $excluded))
+                        ->orWhereNull('allegiance_id');
+                });
+            }
+        }
     }
 
     private function unitSortKey(Unit $unit, string $sort): string

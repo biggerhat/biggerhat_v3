@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Checkbox } from '@/components/ui/checkbox';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     BarChart3,
     BookOpen,
     Check,
+    CheckSquare,
     Copy,
     Globe,
     Grid2x2,
@@ -28,7 +31,7 @@ import {
     Trash2,
     X,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface CollectionItem {
     miniature_id: number;
@@ -75,9 +78,11 @@ interface OwnedPackage {
 
 const props = defineProps<{
     collection: CollectionItem[];
-    owned_packages: OwnedPackage[];
+    // Deferred via Inertia::defer — `null` on initial paint, then streamed
+    // in by the follow-up request triggered automatically by Inertia.
+    owned_packages: OwnedPackage[] | null;
     faction_stats: FactionStat[];
-    keyword_stats: KeywordStat[];
+    keyword_stats: KeywordStat[] | null;
     totals: {
         characters: number;
         owned_characters: number;
@@ -89,12 +94,14 @@ const props = defineProps<{
         built_percent: number;
         painted_percent: number;
     };
-    factions: Record<string, { slug: string; name: string; color: string; logo: string }>;
     is_owner: boolean;
     share_code: string;
     is_public: boolean;
     owner_name?: string;
 }>();
+
+const page = usePage<SharedData>();
+const factionInfo = computed(() => page.props.faction_info ?? {});
 
 const activeTab = ref('collection');
 
@@ -188,7 +195,7 @@ const { delays: factionDelays } = useStaggeredEntry(factionCount);
 const keywordCount = computed(() => sortedKeywordStats.value.length);
 const { delays: keywordDelays } = useStaggeredEntry(keywordCount, 20, 400);
 
-const packageCount = computed(() => props.owned_packages.length);
+const packageCount = computed(() => props.owned_packages?.length ?? 0);
 const { delays: packageDelays } = useStaggeredEntry(packageCount);
 
 // ─── Mutations ───
@@ -238,8 +245,87 @@ const removePackage = (packageId: number) => {
     );
 };
 
+// ─── Bulk select mode ───
+// Discoverable rather than always-on: users opt into multi-select via the
+// "Select" toggle, then a sticky action bar surfaces Remove / Mark Built /
+// Mark Painted for the chosen rows. Selection is wiped when the user exits
+// select mode or applies an action so the bar can't act on stale state.
+const selectMode = ref(false);
+const selectedIds = ref<Set<number>>(new Set());
+
+const toggleSelected = (miniatureId: number) => {
+    const next = new Set(selectedIds.value);
+    if (next.has(miniatureId)) next.delete(miniatureId);
+    else next.add(miniatureId);
+    selectedIds.value = next;
+};
+
+const filteredMiniatureIds = computed(() => filteredCollection.value.map((i) => i.miniature_id));
+const allFilteredSelected = computed(
+    () => filteredMiniatureIds.value.length > 0 && filteredMiniatureIds.value.every((id) => selectedIds.value.has(id)),
+);
+const toggleSelectAll = () => {
+    if (allFilteredSelected.value) {
+        // Deselect only the rows currently visible — keeps off-screen picks
+        // intact if the user is iterating through filters.
+        const next = new Set(selectedIds.value);
+        filteredMiniatureIds.value.forEach((id) => next.delete(id));
+        selectedIds.value = next;
+    } else {
+        const next = new Set(selectedIds.value);
+        filteredMiniatureIds.value.forEach((id) => next.add(id));
+        selectedIds.value = next;
+    }
+};
+
+const exitSelectMode = () => {
+    selectMode.value = false;
+    selectedIds.value = new Set();
+};
+// Clear selection when select mode flips off (covers the keyboard-escape /
+// programmatic-toggle paths).
+watch(selectMode, (active) => {
+    if (!active) selectedIds.value = new Set();
+});
+
+const bulkRemove = () => {
+    const ids = [...selectedIds.value];
+    if (!ids.length) return;
+    processing.value = true;
+    router.post(
+        route('collection.remove_bulk'),
+        { miniature_ids: ids },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                processing.value = false;
+                exitSelectMode();
+            },
+        },
+    );
+};
+
+const bulkMark = (field: 'is_built' | 'is_painted', value: boolean) => {
+    const ids = [...selectedIds.value];
+    if (!ids.length) return;
+    processing.value = true;
+    router.post(
+        route('collection.update_status_bulk'),
+        { miniature_ids: ids, [field]: value },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                processing.value = false;
+                exitSelectMode();
+            },
+        },
+    );
+};
+
 // Sorted keyword stats
-const sortedKeywordStats = computed(() => [...props.keyword_stats].sort((a, b) => b.percent - a.percent));
+const sortedKeywordStats = computed(() => [...(props.keyword_stats ?? [])].sort((a, b) => b.percent - a.percent));
 
 // Top factions by owned count
 const topFactions = computed(() =>
@@ -288,7 +374,7 @@ const topFactions = computed(() =>
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6" :class="{ 'pb-24': is_owner && selectMode && selectedIds.size > 0 }">
             <!-- Overview stats -->
             <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card class="overflow-hidden">
@@ -366,7 +452,7 @@ const topFactions = computed(() =>
                                     <SelectValue placeholder="All Factions" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem v-for="(f, key) in factions" :key="key" :value="key">{{ f.name }}</SelectItem>
+                                    <SelectItem v-for="(f, key) in factionInfo" :key="key" :value="key">{{ f.name }}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select v-model="filterStatus">
@@ -381,7 +467,34 @@ const topFactions = computed(() =>
                                 </SelectContent>
                             </Select>
                             <Button v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters"> Clear </Button>
+                            <Button
+                                v-if="is_owner && collection.length > 0"
+                                :variant="selectMode ? 'default' : 'outline'"
+                                size="sm"
+                                class="gap-1.5"
+                                :title="selectMode ? 'Exit select mode' : 'Enter select mode for bulk actions'"
+                                @click="selectMode ? exitSelectMode() : (selectMode = true)"
+                            >
+                                <CheckSquare class="size-3.5" />
+                                {{ selectMode ? 'Done' : 'Select' }}
+                            </Button>
                         </div>
+                    </div>
+
+                    <!-- Bulk-select header (only visible in select mode with filtered rows) -->
+                    <div
+                        v-if="is_owner && selectMode && filteredCollection.length > 0"
+                        class="mb-2 flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
+                    >
+                        <Checkbox
+                            :checked="allFilteredSelected"
+                            :title="allFilteredSelected ? 'Deselect visible' : 'Select all visible'"
+                            @update:checked="toggleSelectAll"
+                        />
+                        <span class="text-muted-foreground">
+                            <template v-if="selectedIds.size === 0">Select rows for bulk actions</template>
+                            <template v-else>{{ selectedIds.size }} selected</template>
+                        </span>
                     </div>
 
                     <div v-if="hasActiveFilter" class="mb-3 text-sm text-muted-foreground">
@@ -411,12 +524,27 @@ const topFactions = computed(() =>
                             <div
                                 v-for="(item, itemIndex) in group.miniatures"
                                 :key="item.miniature_id"
-                                class="px-3 py-2.5 sm:px-4"
-                                :class="{ 'border-t border-border/50': itemIndex > 0 }"
+                                class="px-3 py-2.5 transition-colors sm:px-4"
+                                :class="[
+                                    { 'border-t border-border/50': itemIndex > 0 },
+                                    selectMode && selectedIds.has(item.miniature_id) ? 'bg-primary/5' : '',
+                                    selectMode ? 'cursor-pointer' : '',
+                                ]"
+                                @click="selectMode ? toggleSelected(item.miniature_id) : null"
                             >
                                 <div class="flex items-center gap-2 sm:gap-3">
+                                    <Checkbox
+                                        v-if="is_owner && selectMode"
+                                        :checked="selectedIds.has(item.miniature_id)"
+                                        class="shrink-0"
+                                        @update:checked="toggleSelected(item.miniature_id)"
+                                        @click.stop
+                                    />
                                     <FactionLogo v-if="item.faction" :faction="item.faction" class-name="size-5 shrink-0" />
+                                    <!-- In select mode the whole row drives selection; navigation is
+                                         disabled so a tap doesn't accidentally leave the page mid-edit. -->
                                     <Link
+                                        v-if="!selectMode"
                                         :href="
                                             route('characters.view', {
                                                 character: item.character_slug,
@@ -431,6 +559,12 @@ const topFactions = computed(() =>
                                             {{ item.miniature_name }}
                                         </div>
                                     </Link>
+                                    <div v-else class="min-w-0 flex-1">
+                                        <div class="truncate text-sm font-medium">{{ item.character_name }}</div>
+                                        <div v-if="item.miniature_name !== item.character_name" class="truncate text-xs text-muted-foreground">
+                                            {{ item.miniature_name }}
+                                        </div>
+                                    </div>
                                     <!-- Status icons (view-only, non-owner) -->
                                     <template v-if="!is_owner">
                                         <div class="flex shrink-0 items-center gap-1">
@@ -444,8 +578,9 @@ const topFactions = computed(() =>
                                         <span class="text-sm tabular-nums text-muted-foreground">&times;{{ item.quantity }}</span>
                                     </template>
                                 </div>
-                                <!-- Owner controls: second row on mobile, inline on desktop -->
-                                <div v-if="is_owner" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
+                                <!-- Owner controls: second row on mobile, inline on desktop.
+                                     Hidden in select mode — the row click drives selection instead. -->
+                                <div v-if="is_owner && !selectMode" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
                                     <Button
                                         :variant="item.is_built ? 'default' : 'outline'"
                                         size="icon"
@@ -506,8 +641,23 @@ const topFactions = computed(() =>
 
                 <!-- Packages Tab -->
                 <TabsContent value="packages">
+                    <!-- Deferred prop: show a quiet skeleton while the follow-up
+                         request resolves so we don't flash "no packages" -->
+                    <div v-if="owned_packages === null" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Card v-for="i in 3" :key="i" class="animate-pulse">
+                            <CardContent class="p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="size-16 shrink-0 rounded-md bg-muted" />
+                                    <div class="min-w-0 flex-1 space-y-2">
+                                        <div class="h-4 w-3/4 rounded bg-muted" />
+                                        <div class="h-3 w-1/2 rounded bg-muted" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                     <EmptyState
-                        v-if="owned_packages.length === 0"
+                        v-else-if="owned_packages.length === 0"
                         :icon="Package"
                         :title="is_owner ? 'No packages tracked yet' : 'No packages in this collection'"
                         :description="is_owner ? 'Add packages from the package pages to get started.' : ''"
@@ -588,7 +738,18 @@ const topFactions = computed(() =>
 
                 <!-- Keywords Tab -->
                 <TabsContent value="keywords">
-                    <div class="space-y-1.5">
+                    <!-- Deferred prop: light skeleton while keyword_stats streams in -->
+                    <div v-if="keyword_stats === null" class="space-y-1.5">
+                        <div v-for="i in 8" :key="i" class="animate-pulse rounded-lg border bg-card px-3 py-2.5 sm:px-4">
+                            <div class="flex items-center gap-2 sm:gap-3">
+                                <div class="h-4 w-1/3 rounded bg-muted" />
+                                <div class="ml-auto h-3 w-12 rounded bg-muted" />
+                                <div class="h-5 w-14 rounded bg-muted" />
+                            </div>
+                            <div class="mt-1.5 h-1.5 w-full rounded-full bg-muted" />
+                        </div>
+                    </div>
+                    <div v-else class="space-y-1.5">
                         <div
                             v-for="(stat, index) in sortedKeywordStats"
                             :key="stat.slug"
@@ -722,4 +883,40 @@ const topFactions = computed(() =>
             </Tabs>
         </div>
     </div>
+
+    <!-- Sticky bulk-action bar: surfaces once the user has selected anything.
+         Lives outside the container so it floats over the viewport bottom on
+         mobile and desktop alike. -->
+    <Transition
+        enter-active-class="transition duration-150 ease-out"
+        enter-from-class="translate-y-full opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="translate-y-full opacity-0"
+    >
+        <div
+            v-if="is_owner && selectMode && selectedIds.size > 0"
+            class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-3 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur sm:px-6"
+        >
+            <div class="container mx-auto flex flex-wrap items-center gap-2">
+                <span class="mr-1 text-sm font-medium">{{ selectedIds.size }} selected</span>
+                <Button size="sm" variant="outline" :disabled="processing" class="gap-1.5" @click="bulkMark('is_built', true)">
+                    <Hammer class="size-3.5" /> <span class="hidden sm:inline">Mark</span> Built
+                </Button>
+                <Button size="sm" variant="outline" :disabled="processing" class="gap-1.5" @click="bulkMark('is_built', false)">
+                    <Hammer class="size-3.5 text-muted-foreground" /> Unbuilt
+                </Button>
+                <Button size="sm" variant="outline" :disabled="processing" class="gap-1.5" @click="bulkMark('is_painted', true)">
+                    <Paintbrush class="size-3.5" /> <span class="hidden sm:inline">Mark</span> Painted
+                </Button>
+                <Button size="sm" variant="outline" :disabled="processing" class="gap-1.5" @click="bulkMark('is_painted', false)">
+                    <Paintbrush class="size-3.5 text-muted-foreground" /> Unpainted
+                </Button>
+                <Button size="sm" variant="destructive" :disabled="processing" class="ml-auto gap-1.5" @click="bulkRemove">
+                    <Trash2 class="size-3.5" /> Remove {{ selectedIds.size }}
+                </Button>
+            </div>
+        </div>
+    </Transition>
 </template>

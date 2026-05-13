@@ -50,7 +50,14 @@ const canonicalUrl = computed(() => {
     return `${window.location.origin}${window.location.pathname}`;
 });
 
-const imageUrl = computed(() => absoluteUrl(props.image ?? null));
+// Always emit an og:image. Without a fallback, a client-side navigation
+// from a page that set its own image (e.g. Character) to a page that
+// doesn't (e.g. Keyword) would leave the previous page's image stuck on
+// the DOM via Inertia's head-deduping. The fallback matches the brand
+// image hardcoded in app.blade.php so the server-rendered and
+// client-rendered states agree.
+const DEFAULT_OG_IMAGE = '/images/biggerhat-og.png';
+const imageUrl = computed(() => absoluteUrl(props.image ?? DEFAULT_OG_IMAGE));
 const ogType = computed(() => props.type ?? 'article');
 </script>
 

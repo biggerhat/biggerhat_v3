@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { router } from '@inertiajs/vue3';
 import { Maximize2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -16,18 +16,8 @@ const props = defineProps<{
 const flipped = ref(false);
 const fullscreenOpen = ref(false);
 
-const currentImage = computed(() => {
-    if (!props.backImage || !flipped.value) {
-        return '/storage/' + props.frontImage;
-    }
-    return '/storage/' + props.backImage;
-});
-
-const currentLabel = computed(() => {
-    const name = props.altText ?? 'Card';
-    const side = props.backImage && flipped.value ? ' (back)' : ' (front)';
-    return name + side;
-});
+const frontImageUrl = computed(() => '/storage/' + props.frontImage);
+const backImageUrl = computed(() => (props.backImage ? '/storage/' + props.backImage : null));
 </script>
 
 <template>
@@ -68,20 +58,12 @@ const currentLabel = computed(() => {
             <Button @click="router.get(route('upgrades.view', { upgrade: props.upgradeSlug }))" size="sm" variant="link"> View Upgrade Page </Button>
         </div>
 
-        <Dialog v-model:open="fullscreenOpen">
-            <DialogContent class="max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
-                <DialogTitle class="sr-only">{{ currentLabel }}</DialogTitle>
-                <div class="flex items-center justify-center">
-                    <img
-                        :src="currentImage"
-                        :alt="currentLabel"
-                        loading="lazy"
-                        decoding="async"
-                        class="max-h-[90dvh] w-auto rounded-lg object-contain"
-                    />
-                </div>
-            </DialogContent>
-        </Dialog>
+        <CardFullscreenDialog
+            v-model:open="fullscreenOpen"
+            :src="flipped && backImageUrl ? backImageUrl : frontImageUrl"
+            :back-src="flipped && backImageUrl ? frontImageUrl : backImageUrl"
+            :title="altText ?? 'Card'"
+        />
     </div>
 </template>
 

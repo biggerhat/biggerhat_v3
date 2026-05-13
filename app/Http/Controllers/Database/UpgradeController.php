@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Database;
 
 use App\Enums\FactionEnum;
 use App\Enums\UpgradeTypeEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 
 class UpgradeController extends Controller
 {
+    use BuildsPageMeta;
+
     public function crewIndex(Request $request)
     {
         $upgrades = Upgrade::standard()->forCrews()
@@ -140,6 +143,16 @@ class UpgradeController extends Controller
                     'slug' => $t->slug ?? null,
                 ]),
             ],
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $upgrade->name.' — Upgrade',
+                description: trim(implode(' · ', array_filter([
+                    $upgrade->domain->label(),
+                    $upgrade->type?->label(),
+                    $upgrade->faction?->label(),
+                ]))) ?: 'Malifaux upgrade',
+                image: $upgrade->front_image,
+            ),
         ]);
     }
 }

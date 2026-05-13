@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Resources\CharacterCrewBuilderResource;
 use App\Models\Character;
 use App\Models\CrewBuild;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 
 class CrewBuilderController extends Controller
 {
+    use BuildsPageMeta;
+
     /**
      * @param  \Illuminate\Database\Eloquent\Collection<int, CrewBuild>  $builds
      * @return array<int, array<string, mixed>>
@@ -479,6 +482,9 @@ class CrewBuilderController extends Controller
 
         $characters = $this->getCharacters();
 
+        $master = $build->master_id ? Character::find($build->master_id, ['id', 'display_name']) : null;
+        $factionEnum = $build->faction;
+
         return inertia('Tools/CrewBuilder/View', [
             'factions' => fn () => FactionEnum::buildDetails(),
             'characters' => fn () => CharacterCrewBuilderResource::collection($characters)->toArray($request),
@@ -499,6 +505,18 @@ class CrewBuilderController extends Controller
                 'user_name' => $build->user?->name,
                 'updated_at' => $build->updated_at->toISOString(),
             ],
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $build->name,
+                description: sprintf(
+                    '%dss %s crew%s%s — built on BiggerHat Crew Builder.',
+                    $build->encounter_size,
+                    $factionEnum->label(),
+                    $master ? ' led by '.$master->display_name : '',
+                    $build->user?->name ? ' by '.$build->user->name : '',
+                ),
+                image: $factionEnum->logo(),
+            ),
         ]);
     }
 

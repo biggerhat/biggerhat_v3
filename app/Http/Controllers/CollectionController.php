@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class CollectionController extends Controller
 {
@@ -25,10 +26,8 @@ class CollectionController extends Controller
             $user->save();
         }
 
-        $data = $this->buildCollectionData($user);
-
         return inertia('Collection/Index', [
-            ...$data,
+            ...$this->collectionPropsFor($user),
             'is_owner' => true,
             'share_code' => $user->collection_share_code,
             'is_public' => (bool) $user->collection_is_public,
@@ -43,10 +42,8 @@ class CollectionController extends Controller
             abort(403, 'This collection is private.');
         }
 
-        $data = $this->buildCollectionData($user);
-
         return inertia('Collection/Index', [
-            ...$data,
+            ...$this->collectionPropsFor($user),
             'is_owner' => Auth::id() === $user->id,
             'share_code' => $user->collection_share_code,
             'is_public' => (bool) $user->collection_is_public,
@@ -109,13 +106,18 @@ class CollectionController extends Controller
         $user = Auth::user();
         $character = Character::with('standardMiniatures')->findOrFail($validated['character_id']);
 
-        $miniatureIds = $character->standardMiniatures->pluck('id');
-        $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
-        $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
+        // Wrap in a transaction so a half-applied attach can't leave the
+        // collection with orphan rows on retry — matches addCharacters and
+        // addPackage which already do this.
+        DB::transaction(function () use ($user, $character) {
+            $miniatureIds = $character->standardMiniatures->pluck('id');
+            $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
+            $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
 
-        if ($toAttach->isNotEmpty()) {
-            $user->collectionMiniatures()->attach($toAttach);
-        }
+            if ($toAttach->isNotEmpty()) {
+                $user->collectionMiniatures()->attach($toAttach);
+            }
+        });
 
         return back();
     }
@@ -224,15 +226,78 @@ class CollectionController extends Controller
         return back();
     }
 
+    public function removeBulk(Request $request)
+    {
+        $validated = $request->validate([
+            'miniature_ids' => 'required|array|min:1',
+            'miniature_ids.*' => 'integer|exists:miniatures,id',
+        ]);
+
+        Auth::user()->collectionMiniatures()->detach($validated['miniature_ids']);
+
+        return back();
+    }
+
+    public function updateStatusBulk(Request $request)
+    {
+        $validated = $request->validate([
+            'miniature_ids' => 'required|array|min:1',
+            'miniature_ids.*' => 'integer|exists:miniatures,id',
+            'is_built' => 'nullable|boolean',
+            'is_painted' => 'nullable|boolean',
+        ]);
+
+        $data = array_filter(
+            ['is_built' => $validated['is_built'] ?? null, 'is_painted' => $validated['is_painted'] ?? null],
+            fn ($v) => $v !== null,
+        );
+
+        if (empty($data)) {
+            return back();
+        }
+
+        // Single UPDATE against the pivot — much cheaper than looping
+        // updateExistingPivot when bulk-marking dozens of rows.
+        DB::table('user_miniatures')
+            ->where('user_id', Auth::id())
+            ->whereIn('miniature_id', $validated['miniature_ids'])
+            ->update($data);
+
+        return back();
+    }
+
     /**
-     * Build collection data for a given user.
+     * Props shared by the owner-facing and share-link Collection views.
+     *
+     * Splits the payload three ways:
+     *   1. Immediate — collection items, totals, faction stats. These power
+     *      the default Collection tab + overview cards and need to be in the
+     *      initial HTML so users see content on first paint.
+     *   2. Deferred (collection_extras group) — keyword stats and owned
+     *      packages. Only visible after the user opens those tabs, so we
+     *      let Inertia stream them in a follow-up request and shave them
+     *      off the synchronous response time.
      *
      * @return array<string, mixed>
      */
-    private function buildCollectionData(User $user): array
+    private function collectionPropsFor(User $user): array
+    {
+        return [
+            ...$this->buildCoreCollectionData($user),
+            'keyword_stats' => Inertia::defer(fn () => $this->buildKeywordStats($user), 'collection_extras'),
+            'owned_packages' => Inertia::defer(fn () => $this->buildOwnedPackages($user), 'collection_extras'),
+        ];
+    }
+
+    /**
+     * Immediate render payload: characters owned, faction stats, totals.
+     * Shares one Character query across faction stats + totals.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildCoreCollectionData(User $user): array
     {
         $ownedMiniatureIds = $user->collectionMiniatures()->pluck('miniatures.id')->toArray();
-        $ownedPackageIds = $user->collectionPackages()->pluck('packages.id')->toArray();
 
         $allCharacters = Character::standard()->with('miniatures:id,character_id')
             ->where('is_hidden', false)
@@ -242,13 +307,10 @@ class CollectionController extends Controller
             return $character->miniatures->pluck('id')->intersect($ownedMiniatureIds)->isNotEmpty();
         });
 
-        // Faction stats
         $factionStats = [];
         foreach (FactionEnum::cases() as $faction) {
-            $factionChars = $allCharacters->where('faction', $faction);
-            $ownedFactionChars = $ownedCharacters->where('faction', $faction);
-            $total = $factionChars->count();
-            $owned = $ownedFactionChars->count();
+            $total = $allCharacters->where('faction', $faction)->count();
+            $owned = $ownedCharacters->where('faction', $faction)->count();
             $factionStats[] = [
                 'faction' => $faction->value,
                 'name' => $faction->label(),
@@ -260,26 +322,6 @@ class CollectionController extends Controller
             ];
         }
 
-        // Keyword stats — use withCount to avoid loading all character IDs
-        $keywordStats = [];
-        $ownedCharacterIds = $ownedCharacters->pluck('id')->all();
-        $allKeywords = Keyword::standard()->withCount([
-            'characters',
-            'characters as owned_characters_count' => fn ($q) => $q->whereIn('characters.id', $ownedCharacterIds),
-        ])->orderBy('name')->get();
-        foreach ($allKeywords as $keyword) {
-            if ($keyword->characters_count > 0) {
-                $keywordStats[] = [
-                    'name' => $keyword->name,
-                    'slug' => $keyword->slug,
-                    'total' => $keyword->characters_count,
-                    'owned' => $keyword->owned_characters_count,
-                    'percent' => round(($keyword->owned_characters_count / $keyword->characters_count) * 100, 1),
-                ];
-            }
-        }
-
-        // Collection items
         $collectionItems = $user->collectionMiniatures()
             ->with(['character.keywords', 'character.standardMiniatures'])
             ->get()
@@ -304,8 +346,76 @@ class CollectionController extends Controller
                 ];
             });
 
-        // Owned packages
-        $ownedPackages = Package::whereIn('id', $ownedPackageIds)
+        $totalMiniatures = $collectionItems->count();
+        $builtCount = $collectionItems->where('is_built', '===', true)->count();
+        $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
+        $ownedPackagesCount = $user->collectionPackages()->count();
+
+        return [
+            'collection' => $collectionItems,
+            'faction_stats' => $factionStats,
+            'totals' => [
+                'characters' => $allCharacters->count(),
+                'owned_characters' => $ownedCharacters->count(),
+                'owned_miniatures' => (int) $user->collectionMiniatures()->sum('quantity'),
+                'owned_packages' => $ownedPackagesCount,
+                'percent' => $allCharacters->count() > 0
+                    ? round(($ownedCharacters->count() / $allCharacters->count()) * 100, 1)
+                    : 0,
+                'built' => $builtCount,
+                'painted' => $paintedCount,
+                'built_percent' => $totalMiniatures > 0 ? round(($builtCount / $totalMiniatures) * 100, 1) : 0,
+                'painted_percent' => $totalMiniatures > 0 ? round(($paintedCount / $totalMiniatures) * 100, 1) : 0,
+            ],
+        ];
+    }
+
+    /**
+     * Keyword stats — runs in the deferred follow-up request so the heavy
+     * withCount query doesn't block the initial paint. Resolves owned
+     * character IDs via a single JOIN to skip re-loading every character.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildKeywordStats(User $user): array
+    {
+        $ownedCharacterIds = DB::table('user_miniatures')
+            ->join('miniatures', 'miniatures.id', '=', 'user_miniatures.miniature_id')
+            ->where('user_miniatures.user_id', $user->id)
+            ->pluck('miniatures.character_id')
+            ->unique()
+            ->all();
+
+        $allKeywords = Keyword::standard()->withCount([
+            'characters',
+            'characters as owned_characters_count' => fn ($q) => $q->whereIn('characters.id', $ownedCharacterIds),
+        ])->orderBy('name')->get();
+
+        $stats = [];
+        foreach ($allKeywords as $keyword) {
+            if ($keyword->characters_count > 0) {
+                $stats[] = [
+                    'name' => $keyword->name,
+                    'slug' => $keyword->slug,
+                    'total' => $keyword->characters_count,
+                    'owned' => $keyword->owned_characters_count,
+                    'percent' => round(($keyword->owned_characters_count / $keyword->characters_count) * 100, 1),
+                ];
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Owned-package summary — deferred since it's only visible on the
+     * Packages tab.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildOwnedPackages(User $user): array
+    {
+        return $user->collectionPackages()
             ->get()
             ->map(fn (Package $p) => [
                 'id' => $p->id,
@@ -318,31 +428,7 @@ class CollectionController extends Controller
                     'color' => FactionEnum::from($f)->color(),
                     'logo' => FactionEnum::from($f)->logo(),
                 ]),
-            ]);
-
-        $totalMiniatures = $collectionItems->count();
-        $builtCount = $collectionItems->where('is_built', '===', true)->count();
-        $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
-
-        return [
-            'collection' => $collectionItems,
-            'owned_packages' => $ownedPackages,
-            'faction_stats' => $factionStats,
-            'keyword_stats' => $keywordStats,
-            'totals' => [
-                'characters' => $allCharacters->count(),
-                'owned_characters' => $ownedCharacters->count(),
-                'owned_miniatures' => (int) $user->collectionMiniatures()->sum('quantity'),
-                'owned_packages' => count($ownedPackageIds),
-                'percent' => $allCharacters->count() > 0
-                    ? round(($ownedCharacters->count() / $allCharacters->count()) * 100, 1)
-                    : 0,
-                'built' => $builtCount,
-                'painted' => $paintedCount,
-                'built_percent' => $totalMiniatures > 0 ? round(($builtCount / $totalMiniatures) * 100, 1) : 0,
-                'painted_percent' => $totalMiniatures > 0 ? round(($paintedCount / $totalMiniatures) * 100, 1) : 0,
-            ],
-            'factions' => FactionEnum::buildDetails(),
-        ];
+            ])
+            ->all();
     }
 }

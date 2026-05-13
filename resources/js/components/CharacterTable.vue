@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { csrfToken, valueUpdater } from '@/lib/utils';
+import { valueUpdater } from '@/lib/utils';
 import type { SharedData } from '@/types';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
 import { BookMarked, Heart, Plus } from 'lucide-vue-next';
 import { computed, h, ref } from 'vue';
@@ -33,21 +33,30 @@ const isWishlisted = (character: any) => {
 
 const isLoggedIn = computed(() => !!page.props.auth?.user);
 
-const addToCollection = async (character: any) => {
-    // Optimistically update shared auth data
+const addToCollection = (character: any) => {
+    // Optimistically update shared auth data; track which IDs we added so we
+    // can roll them back if the request fails.
     const ids = page.props.auth.collection_miniature_ids;
+    const added: number[] = [];
     for (const m of character.standard_miniatures ?? []) {
-        if (!ids.includes(m.id)) ids.push(m.id);
+        if (!ids.includes(m.id)) {
+            ids.push(m.id);
+            added.push(m.id);
+        }
     }
 
-    await fetch(route('collection.add_character'), {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken(),
+    router.post(
+        route('collection.add_character'),
+        { character_id: character.id },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                const rollback = new Set(added);
+                page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));
+            },
         },
-        body: JSON.stringify({ character_id: character.id }),
-    });
+    );
 };
 
 const columns: ColumnDef<Miniatures>[] = [

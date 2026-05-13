@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Database;
 
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
 use App\Models\Miniature;
@@ -11,6 +12,8 @@ use Inertia\ResponseFactory;
 
 class CharacterController extends Controller
 {
+    use BuildsPageMeta;
+
     public function view(Request $request, Character $character, Miniature $miniature): Response|ResponseFactory
     {
         $character->loadMissing(
@@ -25,6 +28,15 @@ class CharacterController extends Controller
         $character->load(['blueprints' => fn ($q) => $q->withImage()]);
         $character->load(['transmissions' => fn ($q) => $q->with('channel:id,name,slug,image')->latest('release_date')->limit(3)]);
         $character->load(['blogPosts' => fn ($q) => $q->published()->with('category:id,name')->latest('published_at')->limit(3)]);
+
+        $keywordList = $character->keywords->pluck('name')->take(3)->implode(', ');
+        $description = sprintf(
+            '%s — %s%s%s',
+            $character->display_name,
+            $character->station?->label() ?? 'Character',
+            $character->faction ? ' of '.$character->faction->label() : '',
+            $keywordList !== '' ? '. Keywords: '.$keywordList : '',
+        );
 
         return inertia('Characters/View', [
             'character' => $character,
@@ -45,6 +57,12 @@ class CharacterController extends Controller
                     'miniature_id' => $c->miniatures->first()?->id,
                     'miniature_slug' => $c->miniatures->first()?->slug,
                 ]),
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $character->display_name,
+                description: $description,
+                image: $miniature->front_image,
+            ),
         ]);
     }
 

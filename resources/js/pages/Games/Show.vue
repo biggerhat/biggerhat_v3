@@ -21,6 +21,7 @@ import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,7 +36,7 @@ import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_POOL, MAX_SCHEME_PER_TURN, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     ArrowUpCircle,
@@ -1336,9 +1337,13 @@ watch(
 const crewMemberDrawerOpen = ref(false);
 const previewMember = ref<any>(null);
 const cardFullscreenOpen = ref(false);
-const cardFullscreenSrc = ref('');
-const openCardFullscreen = (src: string) => {
-    cardFullscreenSrc.value = src;
+const cardFullscreenSrc = ref<string | null>(null);
+const cardFullscreenBackSrc = ref<string | null>(null);
+const cardFullscreenTitle = ref<string | null>(null);
+const openCardFullscreen = (payload: { src: string; backSrc?: string | null; title?: string | null }) => {
+    cardFullscreenSrc.value = payload.src;
+    cardFullscreenBackSrc.value = payload.backSrc ?? null;
+    cardFullscreenTitle.value = payload.title ?? null;
     cardFullscreenOpen.value = true;
 };
 const upgradeDrawerOpen = ref(false);
@@ -2652,7 +2657,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 </script>
 
 <template>
-    <Head :title="game.name || `Game - ${game.encounter_size}ss`" />
+    <SeoHead
+        :title="
+            game.players.map((p: any) => p.user?.name ?? p.opponent_name ?? `Player ${p.slot}`).join(' vs ') ||
+            game.name ||
+            `Game - ${game.encounter_size}ss`
+        "
+        :description="
+            `${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''} · ${
+                game.status === 'completed' ? 'Completed' : game.status === 'abandoned' ? 'Abandoned' : game.status === 'in_progress' ? 'In progress' : 'Setup'
+            }`
+        "
+        :image="game.strategy?.image_url"
+    />
     <div class="relative">
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
@@ -6356,8 +6373,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     <!-- QR Code Dialog -->
     <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="qrDialogUrl" :title="qrDialogTitle" />
 
-    <!-- Card Fullscreen Dialog -->
-    <GameCardFullscreenDialog :open="cardFullscreenOpen" :src="cardFullscreenSrc" @update:open="cardFullscreenOpen = $event" />
+    <!-- Card Fullscreen Dialog — backSrc is forwarded so members with a
+         flip side get the in-dialog Flip button instead of needing two
+         separate zoom buttons to view both faces. -->
+    <GameCardFullscreenDialog
+        :open="cardFullscreenOpen"
+        :src="cardFullscreenSrc"
+        :back-src="cardFullscreenBackSrc"
+        :title="cardFullscreenTitle"
+        @update:open="cardFullscreenOpen = $event"
+    />
 
     <!-- All-cards desktop grid (per-side, opens from the layout-grid icon) -->
     <GameAllCardsDialog

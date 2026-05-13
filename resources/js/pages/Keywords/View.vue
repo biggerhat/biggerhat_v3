@@ -3,12 +3,13 @@ import SeoHead from '@/components/SeoHead.vue';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { BookOpen, Grid2x2, LayoutGrid, Library, List, Plus } from 'lucide-vue-next';
+import { BookOpen, Grid2x2, LayoutGrid, Library, List } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CharacterTable from '@/components/CharacterTable.vue';
 import CharacterView from '@/components/CharacterView.vue';
+import AddAllToCollectionDialog from '@/components/Collection/AddAllToCollectionDialog.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
@@ -169,9 +170,13 @@ const uncollectedCharacters = computed(() => {
 });
 
 const addingAll = ref(false);
+const addAllDialogOpen = ref(false);
 const addAllToCollection = () => {
     const chars = uncollectedCharacters.value;
-    if (!chars.length) return;
+    if (!chars.length) {
+        addAllDialogOpen.value = false;
+        return;
+    }
 
     // Optimistic update so the UI feels instant. Snapshot the additions so we
     // can roll back on failure.
@@ -198,7 +203,10 @@ const addAllToCollection = () => {
                 const rollback = new Set(added);
                 page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));
             },
-            onFinish: () => (addingAll.value = false),
+            onFinish: () => {
+                addingAll.value = false;
+                addAllDialogOpen.value = false;
+            },
         },
     );
 };
@@ -288,15 +296,16 @@ onMounted(() => {
             <div class="flex items-center gap-2">
                 <Button
                     v-if="isLoggedIn && uncollectedCharacters.length > 0"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    class="h-7 gap-1 text-xs"
+                    class="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
                     :disabled="addingAll"
-                    @click="addAllToCollection"
+                    :title="`Add all ${uncollectedCharacters.length} uncollected characters to your collection`"
+                    @click="addAllDialogOpen = true"
                 >
                     <Library class="size-3.5" />
-                    <Plus class="size-3" />
-                    <span class="hidden sm:inline">Add All</span> ({{ uncollectedCharacters.length }})
+                    <span class="hidden sm:inline">Add All</span>
+                    <span class="tabular-nums">({{ uncollectedCharacters.length }})</span>
                 </Button>
             </div>
             <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
@@ -461,4 +470,13 @@ onMounted(() => {
             <EmptyState v-else />
         </div>
     </div>
+
+    <AddAllToCollectionDialog
+        :open="addAllDialogOpen"
+        :count="uncollectedCharacters.length"
+        :scope="keyword?.name ?? 'this keyword'"
+        :submitting="addingAll"
+        @update:open="addAllDialogOpen = $event"
+        @confirm="addAllToCollection"
+    />
 </template>

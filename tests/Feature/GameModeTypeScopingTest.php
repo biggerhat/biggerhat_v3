@@ -294,13 +294,30 @@ it('collection page excludes campaign keywords from stats', function () {
     $stdKw->characters()->attach($char);
     $campKw->characters()->attach($char);
 
-    $response = $this->actingAs($user)->get(route('collection.index'));
+    // keyword_stats is an Inertia::defer prop — it lands in a follow-up
+    // partial reload, not the initial response. Hit the page with the
+    // partial-reload headers so the deferred closure runs and we can
+    // assert against the resolved value. The X-Inertia-Version header is
+    // computed the same way Inertia's middleware does (xxh128 of the Vite
+    // manifest) — without it the partial reload returns 409.
+    $manifest = public_path('build/manifest.json');
+    $version = file_exists($manifest) ? hash_file('xxh128', $manifest) : '';
+
+    $response = $this->actingAs($user)
+        ->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => $version,
+            'X-Inertia-Partial-Component' => 'Collection/Index',
+            'X-Inertia-Partial-Data' => 'keyword_stats',
+        ])
+        ->get(route('collection.index'));
 
     $response->assertOk();
-    $response->assertInertia(fn ($page) => $page
-        ->component('Collection/Index')
-        ->has('keyword_stats', 1)
-    );
+    // Partial reloads return JSON; AssertableInertia chokes on the
+    // shortened shape, so we assert directly against the parsed payload.
+    $payload = $response->json();
+    expect($payload['component'])->toBe('Collection/Index');
+    expect($payload['props']['keyword_stats'])->toHaveCount(1);
 });
 
 it('wishlist show excludes campaign keywords from dropdown', function () {

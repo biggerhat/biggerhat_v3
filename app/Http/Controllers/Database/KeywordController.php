@@ -7,6 +7,7 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PageViewOptionsEnum;
 use App\Enums\SortTypeEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\KeywordResource;
 use App\Models\BlogPost;
@@ -18,6 +19,8 @@ use Illuminate\Http\Request;
 
 class KeywordController extends Controller
 {
+    use BuildsPageMeta;
+
     public function index(Request $request)
     {
         $keywords = Keyword::standard()->orderBy('name', 'ASC')->withCount('packages')->with(['masters.crewUpgrades', 'masters.standardMiniatures', 'characters.standardMiniatures'])->get();
@@ -131,6 +134,15 @@ class KeywordController extends Controller
             'suit_counts' => $suitCounts,
         ];
 
+        $factionList = $factions->pluck('name')->take(3)->implode(', ');
+        $description = sprintf(
+            'Browse %d %s in the %s keyword%s.',
+            $characters->count(),
+            $characters->count() === 1 ? 'character' : 'characters',
+            $keyword->name,
+            $factionList !== '' ? ' across '.$factionList : '',
+        );
+
         return inertia('Keywords/View', [
             'keyword' => $keyword,
             'characters' => $characters,
@@ -146,6 +158,11 @@ class KeywordController extends Controller
             'sort_types' => SortTypeEnum::toSelectOptions(),
             'view_options' => PageViewOptionsEnum::toSelectOptions(),
             'resources' => fn () => $this->getKeywordResources($keyword),
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $keyword->name.' — Keyword',
+                description: $description,
+            ),
         ]);
     }
 

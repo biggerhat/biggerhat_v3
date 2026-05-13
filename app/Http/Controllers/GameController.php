@@ -10,6 +10,7 @@ use App\Enums\PoolSeasonEnum;
 use App\Events\GamePlayerJoined;
 use App\Events\GameStatusChanged;
 use App\Events\TournamentUpdated;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;
@@ -27,6 +28,8 @@ use Inertia\ResponseFactory;
 
 class GameController extends Controller
 {
+    use BuildsPageMeta;
+
     public function index(): Response|ResponseFactory
     {
         $userId = Auth::id();
@@ -620,7 +623,46 @@ class GameController extends Controller
                 ])->orderBy('id')->get()
                 : [],
             'is_observer' => true,
+        ])->withViewData([
+            'page_meta' => $this->buildGameMeta($game),
         ]);
+    }
+
+    /**
+     * Shared social-meta builder for `observe` and `summary` — both are
+     * publicly shareable game views, so unfurlers should see the players,
+     * scenario, and outcome rather than the generic site default.
+     */
+    private function buildGameMeta(Game $game): array
+    {
+        // PHPDoc says GamePlayer->user is non-nullable, but solo games allow a
+        // null user on slot 2 — fall back to opponent_name or the slot index.
+        $players = $game->players->map(function ($p) {
+            $name = $p->user->name ?? $p->opponent_name ?? 'Player '.$p->slot;
+            $faction = $p->faction?->label();
+
+            return $faction ? "$name ($faction)" : $name;
+        })->implode(' vs ');
+
+        $scenario = $game->strategy?->name;
+        $status = match ($game->status) {
+            GameStatusEnum::Completed => 'Completed',
+            GameStatusEnum::Abandoned => 'Abandoned',
+            GameStatusEnum::InProgress => 'In progress',
+            default => 'Setup',
+        };
+
+        $description = sprintf(
+            '%s · %s%s',
+            $status,
+            $game->encounter_size.'ss',
+            $scenario ? ' · '.$scenario : '',
+        );
+
+        return $this->pageMeta(
+            title: $players !== '' ? $players : ($game->name ?? 'Game'),
+            description: $description,
+        );
     }
 
     public function summary(Game $game): Response|ResponseFactory
@@ -682,6 +724,8 @@ class GameController extends Controller
             'all_markers' => fn () => [],
             'starting_crews' => $this->getStartingCrews($game),
             'is_observer' => true,
+        ])->withViewData([
+            'page_meta' => $this->buildGameMeta($game),
         ]);
     }
 

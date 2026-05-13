@@ -40,6 +40,7 @@ import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -220,6 +221,11 @@ const props = defineProps({
         default: () => ({ characters: 0, upgrades: 0 }),
     },
 });
+
+// Limits results to characters only — short-circuits the Upgrade query
+// in the backend, useful when a wide rules-text search is pulling in too
+// many crew cards / character upgrades alongside the character results.
+const excludeUpgrades = ref(false);
 
 const selectedGameModes = ref<string[]>([]);
 const excludedGameModes = ref<string[]>([]);
@@ -402,7 +408,8 @@ const activeFilterCount = computed(() => {
         (selectedAbilities.value.length > 0 ? 1 : 0) +
         (selectedTriggers.value.length > 0 ? 1 : 0) +
         (selectedTokens.value.length > 0 ? 1 : 0) +
-        (selectedMarkers.value.length > 0 ? 1 : 0)
+        (selectedMarkers.value.length > 0 ? 1 : 0) +
+        (excludeUpgrades.value ? 1 : 0)
     );
 });
 
@@ -469,6 +476,8 @@ const filter = () => {
     if (filterParams.value.description) {
         params.description = filterParams.value.description;
     }
+    // Result-type filter
+    params.exclude_upgrades = excludeUpgrades.value ? '1' : null;
     // Reset to page 1 on any filter change
     params.page = null;
     router.get(route('search.view'), cleanObject(params), {
@@ -509,6 +518,7 @@ const resetFilters = () => {
     statCompareLeft.value = null;
     statCompareOp.value = null;
     statCompareRight.value = null;
+    excludeUpgrades.value = false;
     filterParams.value.page_view = 'images';
     filterParams.value.sort = 'name';
     filterParams.value.sort_type = 'ascending';
@@ -600,6 +610,8 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
     // Is/Has filters
     filterParams.value.is = urlParams.get('is');
     filterParams.value.has = urlParams.get('has');
+    // Result-type filter — accept any truthy URL value (1, true, on)
+    excludeUpgrades.value = ['1', 'true', 'on'].includes((urlParams.get('exclude_upgrades') ?? '').toLowerCase());
     // Stat comparison
     const statCompareParam = urlParams.get('stat_compare');
     if (statCompareParam) {
@@ -801,6 +813,7 @@ const buildCurrentParams = (): Record<string, string> => {
     if (filterParams.value.description) params.description = filterParams.value.description;
     if (filterParams.value.is) params.is = filterParams.value.is;
     if (filterParams.value.has) params.has = filterParams.value.has;
+    if (excludeUpgrades.value) params.exclude_upgrades = '1';
     if (statCompareLeft.value && statCompareOp.value && statCompareRight.value) {
         params.stat_compare = `${statCompareLeft.value}${statCompareOp.value}${statCompareRight.value}`;
     }
@@ -2056,6 +2069,19 @@ onUnmounted(() => {
                                     class="h-8 border-2 border-primary text-xs"
                                 />
                             </div>
+
+                            <!-- Result-type filter: limit results to characters only.
+                                 Lives next to Rules Text because a broad rules-text search
+                                 is the place most users want to turn upgrades off. -->
+                            <label class="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/40 p-2 text-xs">
+                                <Checkbox class="mt-0.5" :checked="excludeUpgrades" @update:checked="(v: boolean) => (excludeUpgrades = v)" />
+                                <span>
+                                    <span class="font-medium">Characters only</span>
+                                    <span class="block text-[10px] text-muted-foreground">
+                                        Hide Upgrades and Crew Cards from the results.
+                                    </span>
+                                </span>
+                            </label>
 
                             <!-- Exclusions -->
                             <Collapsible v-model:open="sectionsOpen.exclusions">

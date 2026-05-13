@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { BookMarked, Heart, Maximize2, Plus } from 'lucide-vue-next';
@@ -72,39 +71,39 @@ const onWishlist = computed(() => {
 const isLoggedIn = computed(() => !!page.props.auth?.user);
 
 const addingToCollection = ref(false);
-const addToCollection = async () => {
+const addToCollection = () => {
     const characterId = props.miniature?.character_id;
     if (!characterId || inCollection.value) return;
-    addingToCollection.value = true;
 
-    // Optimistically update shared auth data
+    // Optimistically update shared auth data so the UI flips immediately.
+    // Snapshot the additions so we can roll them back on failure.
     const ids = page.props.auth.collection_miniature_ids;
+    const added: number[] = [];
     for (const id of miniatureIds.value) {
-        if (!ids.includes(id)) ids.push(id);
+        if (!ids.includes(id)) {
+            ids.push(id);
+            added.push(id);
+        }
     }
 
-    try {
-        await fetch(route('collection.add_character'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken(),
+    router.post(
+        route('collection.add_character'),
+        { character_id: characterId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (addingToCollection.value = true),
+            onError: () => {
+                const rollback = new Set(added);
+                page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));
             },
-            body: JSON.stringify({ character_id: characterId }),
-        });
-    } finally {
-        addingToCollection.value = false;
-    }
+            onFinish: () => (addingToCollection.value = false),
+        },
+    );
 };
 
-const currentImage = computed(() => {
-    const path = flipped.value ? props.miniature.back_image : props.miniature.front_image;
-    return '/storage/' + path;
-});
-
-const currentLabel = computed(() => {
-    return props.miniature.display_name + (flipped.value ? ' (back)' : ' (front)');
-});
+const frontImageUrl = computed(() => (props.miniature.front_image ? '/storage/' + props.miniature.front_image : null));
+const backImageUrl = computed(() => (props.miniature.back_image ? '/storage/' + props.miniature.back_image : null));
 </script>
 
 <template>
@@ -181,40 +180,17 @@ const currentLabel = computed(() => {
             </Button>
         </div>
 
-        <Dialog v-model:open="fullscreenOpen">
-            <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
-                <DialogTitle class="sr-only">{{ currentLabel }}</DialogTitle>
-                <div class="flex items-center justify-center">
-                    <img
-                        :src="currentImage"
-                        :alt="currentLabel"
-                        loading="lazy"
-                        decoding="async"
-                        class="max-h-[90dvh] w-auto rounded-lg object-contain"
-                    />
-                </div>
-            </DialogContent>
-        </Dialog>
+        <CardFullscreenDialog
+            v-model:open="fullscreenOpen"
+            :src="flipped ? backImageUrl : frontImageUrl"
+            :back-src="flipped ? frontImageUrl : backImageUrl"
+            :title="miniature.display_name"
+        />
     </div>
 </template>
 
 <style scoped>
 .card-flipped {
     transform: rotateY(180deg);
-}
-</style>
-
-<style>
-.fullscreen-card-dialog > button {
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    color: white;
-    opacity: 1;
-    border-radius: 9999px;
-    padding: 0.375rem;
-}
-
-.fullscreen-card-dialog > button:hover {
-    background-color: rgba(0, 0, 0, 0.85);
 }
 </style>

@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+// Game-tracker wrapper around the shared CardFullscreenDialog. Kept as a
+// separate component for stable callers (Games/Show.vue, GameCrewMemberDrawer)
+// while the underlying dialog evolves — same prop surface, plus an optional
+// backSrc so the in-game zoom view gets the same flip-button affordance as
+// the database pages.
+import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 
-defineProps<{
-    open: boolean;
-    src: string | null;
-}>();
+withDefaults(
+    defineProps<{
+        open: boolean;
+        src: string | null;
+        backSrc?: string | null;
+        title?: string | null;
+    }>(),
+    { backSrc: null, title: null },
+);
 
 const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
@@ -12,12 +22,5 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <Dialog :open="open" @update:open="emit('update:open', $event)">
-        <DialogContent class="fullscreen-card-dialog max-h-[95dvh] max-w-[95vw] border-none bg-black/95 p-2 sm:max-w-fit sm:p-4">
-            <DialogTitle class="sr-only">Card Preview</DialogTitle>
-            <div class="flex items-center justify-center">
-                <img v-if="src" :src="src" alt="Card" class="max-h-[90dvh] w-auto rounded-lg object-contain" />
-            </div>
-        </DialogContent>
-    </Dialog>
+    <CardFullscreenDialog :open="open" :src="src" :back-src="backSrc" :title="title" @update:open="emit('update:open', $event)" />
 </template>

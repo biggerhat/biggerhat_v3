@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import AddToWishlist from '@/components/AddToWishlist.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
-import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -93,54 +93,86 @@ const collectionPackageIds = computed(() => page.props.auth.collection_package_i
 const packageInCollection = computed(() => collectionPackageIds.value.includes(props.package.id));
 
 const collectionProcessing = ref(false);
-const addPackageToCollection = async () => {
-    collectionProcessing.value = true;
+const addPackageToCollection = () => {
     const pkgIds = page.props.auth.collection_package_ids;
-    if (!pkgIds.includes(props.package.id)) pkgIds.push(props.package.id);
-
-    // Also optimistically add character miniatures
     const miniIds = page.props.auth.collection_miniature_ids;
+
+    // Snapshot optimistic additions so we can roll back precisely on failure.
+    const pkgAdded = !pkgIds.includes(props.package.id);
+    if (pkgAdded) pkgIds.push(props.package.id);
+
+    const miniAdded: number[] = [];
     for (const c of props.package.characters ?? []) {
         if (c.standard_miniature && !miniIds.includes(c.standard_miniature.id)) {
             miniIds.push(c.standard_miniature.id);
+            miniAdded.push(c.standard_miniature.id);
         }
     }
 
-    try {
-        await fetch(route('collection.add_package'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ package_id: props.package.id }),
-        });
-    } finally {
-        collectionProcessing.value = false;
-    }
+    router.post(
+        route('collection.add_package'),
+        { package_id: props.package.id },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (collectionProcessing.value = true),
+            onError: () => {
+                if (pkgAdded) {
+                    const idx = pkgIds.indexOf(props.package.id);
+                    if (idx !== -1) pkgIds.splice(idx, 1);
+                }
+                const miniRollback = new Set(miniAdded);
+                page.props.auth.collection_miniature_ids = miniIds.filter((id) => !miniRollback.has(id));
+            },
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 
-const togglePackageCollection = async () => {
-    collectionProcessing.value = true;
+const togglePackageCollection = () => {
     const pkgIds = page.props.auth.collection_package_ids;
-    const idx = pkgIds.indexOf(props.package.id);
-    if (idx !== -1) {
-        pkgIds.splice(idx, 1);
+    const wasInCollection = pkgIds.includes(props.package.id);
+    if (wasInCollection) {
+        const idx = pkgIds.indexOf(props.package.id);
+        if (idx !== -1) pkgIds.splice(idx, 1);
     } else {
         pkgIds.push(props.package.id);
     }
 
-    try {
-        await fetch(route('collection.toggle_package'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ package_id: props.package.id }),
-        });
-    } finally {
-        collectionProcessing.value = false;
-    }
+    router.post(
+        route('collection.toggle_package'),
+        { package_id: props.package.id },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (collectionProcessing.value = true),
+            onError: () => {
+                // Revert the toggle if the server rejected it.
+                if (wasInCollection) {
+                    if (!pkgIds.includes(props.package.id)) pkgIds.push(props.package.id);
+                } else {
+                    const idx = pkgIds.indexOf(props.package.id);
+                    if (idx !== -1) pkgIds.splice(idx, 1);
+                }
+            },
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
 };
 </script>
 
 <template>
-    <Head :title="package.name" />
+    <SeoHead
+        :title="package.name"
+        :description="
+            package.description ||
+            [package.factions.map((f) => f.label).join(', '), package.characters.length ? `${package.characters.length} characters` : null]
+                .filter(Boolean)
+                .join(' · ') ||
+            'Malifaux package'
+        "
+        :image="package.front_image"
+    />
 
     <div class="relative h-full w-full">
         <div

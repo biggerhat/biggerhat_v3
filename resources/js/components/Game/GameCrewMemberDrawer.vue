@@ -42,7 +42,13 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
     (e: 'sculpt-change', miniatureId: string): void;
-    (e: 'open-fullscreen', src: string): void;
+    /**
+     * Zoom request. `src` is the face the user clicked; `backSrc` is the
+     * opposite face (when one exists) so the parent's fullscreen dialog
+     * can offer an in-place flip button instead of forcing a second click
+     * back here.
+     */
+    (e: 'open-fullscreen', payload: { src: string; backSrc: string | null; title: string | null }): void;
     /** Persist a note edit. Parent handles the API + broadcast. */
     (e: 'notes-change', payload: { notes: string | null; attached_upgrades: AttachedUpgrade[] }): void;
 }>();
@@ -147,7 +153,13 @@ const handleVisualPick = (miniatureId: number) => {
                                 class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                                 title="View fullscreen"
                                 aria-label="View fullscreen"
-                                @click="emit('open-fullscreen', '/storage/' + member.front_image)"
+                                @click="
+                                    emit('open-fullscreen', {
+                                        src: '/storage/' + member.front_image,
+                                        backSrc: member.back_image ? '/storage/' + member.back_image : null,
+                                        title: member.display_name,
+                                    })
+                                "
                             >
                                 <Maximize2 class="size-3.5" />
                             </button>
@@ -162,7 +174,13 @@ const handleVisualPick = (miniatureId: number) => {
                                 class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                                 title="View fullscreen"
                                 aria-label="View fullscreen"
-                                @click="emit('open-fullscreen', '/storage/' + member.back_image)"
+                                @click="
+                                    emit('open-fullscreen', {
+                                        src: '/storage/' + member.back_image,
+                                        backSrc: '/storage/' + member.front_image,
+                                        title: member.display_name,
+                                    })
+                                "
                             >
                                 <Maximize2 class="size-3.5" />
                             </button>

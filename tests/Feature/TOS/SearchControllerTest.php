@@ -2,8 +2,10 @@
 
 use App\Enums\TOS\AllegianceTypeEnum;
 use App\Models\TOS\Allegiance;
+use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
 use App\Models\TOS\SpecialUnitRule;
+use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 use App\Models\User;
@@ -192,4 +194,179 @@ it('blocks deleting another user\'s saved search', function () {
 
     $this->actingAs($user)->post(route('tos.search.saved.delete', $saved->id))->assertForbidden();
     expect(\App\Models\SavedSearch::find($saved->id))->not->toBeNull();
+});
+
+// ─── Side-record filter parity (Asset / Stratagem / AllegianceCard) ───
+// Same intent as the Malifaux upgrade filter fix — when the user constrains
+// the search by allegiance, side-records should respect that constraint
+// instead of leaking the entire table back into the results.
+
+it('respects allegiance filter on assets', function () {
+    $kingsEmpire = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+    $cult = Allegiance::factory()->malifaux()->create(['slug' => 'cult']);
+
+    $matching = Asset::factory()->create(['name' => 'Allied Banner']);
+    $matching->allegiances()->sync([$kingsEmpire->id]);
+    $mismatching = Asset::factory()->create(['name' => 'Allied Charm']);
+    $mismatching->allegiances()->sync([$cult->id]);
+
+    $response = $this->get(route('tos.search', [
+        'name' => 'Allied',
+        'allegiance' => 'kings_empire',
+    ]));
+
+    $response->assertOk();
+    $assetNames = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'asset')
+        ->pluck('name')
+        ->all();
+
+    expect($assetNames)->toBe(['Allied Banner']);
+});
+
+it('respects allegiance_exclude on stratagems', function () {
+    $kingsEmpire = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+    $cult = Allegiance::factory()->malifaux()->create(['slug' => 'cult']);
+
+    Stratagem::factory()->create([
+        'name' => 'Bombard Excl A',
+        'allegiance_id' => $kingsEmpire->id,
+        'allegiance_type' => AllegianceTypeEnum::Earth,
+    ]);
+    Stratagem::factory()->create([
+        'name' => 'Bombard Excl B',
+        'allegiance_id' => $cult->id,
+        'allegiance_type' => AllegianceTypeEnum::Malifaux,
+    ]);
+
+    $response = $this->get(route('tos.search', [
+        'name' => 'Bombard',
+        'allegiance_exclude' => 'kings_empire',
+    ]));
+
+    $response->assertOk();
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'stratagem')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toBe(['Bombard Excl B']);
+});
+
+it('respects allegiance filter on allegiance cards', function () {
+    $kingsEmpire = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+    $cult = Allegiance::factory()->malifaux()->create(['slug' => 'cult']);
+
+    AllegianceCard::factory()->create([
+        'name' => 'Card Match',
+        'allegiance_id' => $kingsEmpire->id,
+        'body' => 'A leadership card.',
+    ]);
+    AllegianceCard::factory()->create([
+        'name' => 'Card NoMatch',
+        'allegiance_id' => $cult->id,
+        'body' => 'Another leadership card.',
+    ]);
+
+    $response = $this->get(route('tos.search', [
+        'name' => 'Card',
+        'allegiance' => 'kings_empire',
+    ]));
+
+    $response->assertOk();
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'allegiance_card')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toBe(['Card Match']);
+});
+
+it('honours restriction (Earth/Malifaux) on stratagems', function () {
+    $earth = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+    $malifaux = Allegiance::factory()->malifaux()->create(['slug' => 'cult']);
+
+    Stratagem::factory()->create([
+        'name' => 'Restrict Earth',
+        'allegiance_id' => $earth->id,
+        'allegiance_type' => AllegianceTypeEnum::Earth,
+    ]);
+    Stratagem::factory()->create([
+        'name' => 'Restrict Mali',
+        'allegiance_id' => $malifaux->id,
+        'allegiance_type' => AllegianceTypeEnum::Malifaux,
+    ]);
+
+    $response = $this->get(route('tos.search', [
+        'name' => 'Restrict',
+        'restriction' => AllegianceTypeEnum::Earth->value,
+    ]));
+
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'stratagem')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toBe(['Restrict Earth']);
+});
+
+it('short-circuits side-record queries when units_only=1', function () {
+    $kingsEmpire = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+
+    $unit = Unit::factory()->withSides()->create(['name' => 'Shared Term Unit']);
+    UnitSculpt::factory()->forUnit($unit)->create();
+
+    $asset = Asset::factory()->create(['name' => 'Shared Term Asset']);
+    $asset->allegiances()->sync([$kingsEmpire->id]);
+    Stratagem::factory()->create([
+        'name' => 'Shared Term Strat',
+        'allegiance_id' => $kingsEmpire->id,
+        'allegiance_type' => AllegianceTypeEnum::Earth,
+    ]);
+    AllegianceCard::factory()->create([
+        'name' => 'Shared Term Card',
+        'allegiance_id' => $kingsEmpire->id,
+        'body' => 'something',
+    ]);
+
+    $this->get(route('tos.search', [
+        'name' => 'Shared Term',
+        'units_only' => '1',
+    ]))->assertInertia(fn ($page) => $page
+        ->where('result_breakdown.assets', 0)
+        ->where('result_breakdown.stratagems', 0)
+        ->where('result_breakdown.allegiance_cards', 0)
+        ->where('result_breakdown.units', 1)
+    );
+
+    // And without the toggle, the side-records come back.
+    $this->get(route('tos.search', ['name' => 'Shared Term']))
+        ->assertInertia(fn ($page) => $page
+            ->where('result_breakdown.assets', 1)
+            ->where('result_breakdown.stratagems', 1)
+            ->where('result_breakdown.allegiance_cards', 1)
+        );
+});
+
+it('does not pull side-records on a bare allegiance browse', function () {
+    // Preserves the existing gate — only text/cost filters trigger
+    // side-record queries. A bare allegiance filter is a Unit-shape browse.
+    $kingsEmpire = Allegiance::factory()->earth()->create(['slug' => 'kings_empire']);
+
+    $asset = Asset::factory()->create();
+    $asset->allegiances()->sync([$kingsEmpire->id]);
+    Stratagem::factory()->create([
+        'allegiance_id' => $kingsEmpire->id,
+        'allegiance_type' => AllegianceTypeEnum::Earth,
+    ]);
+    AllegianceCard::factory()->create([
+        'allegiance_id' => $kingsEmpire->id,
+    ]);
+
+    $this->get(route('tos.search', ['allegiance' => 'kings_empire']))
+        ->assertInertia(fn ($page) => $page
+            ->where('result_breakdown.assets', 0)
+            ->where('result_breakdown.stratagems', 0)
+            ->where('result_breakdown.allegiance_cards', 0)
+        );
 });

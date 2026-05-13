@@ -420,7 +420,9 @@ Route::prefix('collection')->name('collection.')->group(function () {
         Route::post('/add-package', [CollectionController::class, 'addPackage'])->name('add_package');
         Route::post('/toggle-package', [CollectionController::class, 'togglePackage'])->name('toggle_package');
         Route::post('/update-status', [CollectionController::class, 'updateStatus'])->name('update_status');
+        Route::post('/update-status-bulk', [CollectionController::class, 'updateStatusBulk'])->name('update_status_bulk');
         Route::post('/remove', [CollectionController::class, 'remove'])->name('remove');
+        Route::post('/remove-bulk', [CollectionController::class, 'removeBulk'])->name('remove_bulk');
     });
 });
 

@@ -2,6 +2,7 @@
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import type { TosSelectOption } from '@/types/tos';
@@ -85,6 +86,23 @@ const emit = defineEmits<{
                 <label class="text-xs font-medium text-muted-foreground">Description (any rules text)</label>
                 <Input v-model="params.description" placeholder="e.g. push, repulsion, terrifying" />
             </div>
+            <!-- Result-type filter — short-circuits the asset/stratagem/allegiance-card
+                 side-record queries on the server, equivalent to the Malifaux Search's
+                 "Characters only" toggle. Lives next to Description because that's where
+                 the user usually realises a wide rules-text search has pulled too much in. -->
+            <label class="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/40 p-2 text-xs">
+                <Checkbox
+                    class="mt-0.5"
+                    :checked="params.units_only === '1'"
+                    @update:checked="(v: boolean) => (params.units_only = v ? '1' : null)"
+                />
+                <span>
+                    <span class="font-medium">Units only</span>
+                    <span class="block text-[10px] text-muted-foreground">
+                        Hide Assets, Stratagems, and Allegiance Cards from the results.
+                    </span>
+                </span>
+            </label>
             <div class="space-y-1">
                 <label class="text-xs font-medium text-muted-foreground">Allegiance</label>
                 <SearchableMultiselect

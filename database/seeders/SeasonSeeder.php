@@ -87,6 +87,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => 'You may reveal this scheme after the chosen model suffers damage from an enemy attack action targeting it while it is on the enemy table half.',
                 'scoring' => 'When this scheme is revealed, gain 1 VP.',
                 'additional' => 'When this scheme is revealed, you may remove one friendly Scheme marker from within 2" of the chosen model to gain 1 additional VP.',
+                'requirements' => [['type' => 'select_model', 'allegiance' => 'friendly']],
                 'next' => ['Public Demonstration', 'Harness the Leyline', 'Scout the Rooftops'],
             ],
             [
@@ -96,6 +97,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => 'You may reveal this scheme after the chosen model is reduced to below half of its maximum health.',
                 'scoring' => 'When this scheme is revealed, gain 1 VP.',
                 'additional' => 'At the end of the turn on which this scheme was revealed, if the chosen model has been killed, gain 1 additional VP.',
+                'requirements' => [['type' => 'select_model', 'allegiance' => 'enemy', 'unique' => true]],
                 'next' => ['Scout the Rooftops', 'Detonate Charges', 'Runic Binding'],
             ],
             [
@@ -168,6 +170,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => 'After killing an enemy model within 2" of both one or more friendly Scheme marker(s) and one or more of the chosen marker, reveal this scheme.',
                 'scoring' => 'When this scheme is revealed, remove one friendly Scheme marker within 2" of the killed model to gain 1 VP.',
                 'additional' => "Until the end of the turn, friendly models may target enemy Remains markers with the Interact action to remove them and place them on your crew card.\n\nAt the end of the turn remove all Remains markers from your crew card that were placed this way. If two or more are removed, gain 1 additional VP.",
+                'requirements' => [['type' => 'select_marker']],
                 'next' => ['Runic Binding', 'Leave Your Mark', 'Make it Look Like an Accident'],
             ],
             [
@@ -186,6 +189,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => 'You may reveal this scheme at the end of any turn.',
                 'scoring' => 'If there are four friendly markers of the chosen type completely on the enemy table half, gain 1 VP. Then, if the chosen marker type was Scheme, remove all markers used to score this Scheme.',
                 'additional' => 'If there are five friendly markers of the chosen type completely on the enemy table half, gain 1 additional VP.',
+                'requirements' => [['type' => 'select_marker']],
                 'next' => ['Search the Area', 'Breakthrough', 'Public Demonstration'],
             ],
             [
@@ -195,6 +199,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => 'You may reveal this scheme at the end of any turn.',
                 'scoring' => 'When this scheme is revealed, if there are two or more friendly minions within 2" of the chosen model, gain 1 VP.',
                 'additional' => 'When this scheme is revealed, remove a friendly Scheme marker from within 1" of the chosen model to gain 1 additional VP.',
+                'requirements' => [['type' => 'select_model', 'allegiance' => 'enemy', 'unique' => true]],
                 'next' => ['Harness the Leyline', 'Assassinate', 'Detonate Charges'],
             ],
             [
@@ -219,6 +224,7 @@ class SeasonSeeder extends Seeder
                 'reveal' => $data['reveal'],
                 'scoring' => $data['scoring'],
                 'additional' => $data['additional'],
+                'requirements' => $data['requirements'] ?? null,
                 'image' => 'placeholder/schemes/'.str($data['name'])->slug().'.webp',
             ]);
         }

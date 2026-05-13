@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Database;
 
 use App\Enums\BlogPostStatusEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class BlogController extends Controller
 {
+    use BuildsPageMeta;
+
     public function index(Request $request)
     {
         $query = BlogPost::published()
@@ -78,6 +81,13 @@ class BlogController extends Controller
 
         return inertia('Blog/View', [
             'post' => $blogPost,
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $blogPost->title,
+                description: $blogPost->excerpt ?: $blogPost->content,
+                image: $blogPost->featured_image,
+                type: 'article',
+            ),
         ]);
     }
 }

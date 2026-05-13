@@ -7,6 +7,7 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PageViewOptionsEnum;
 use App\Enums\SortTypeEnum;
+use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
 use App\Models\Character;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 
 class FactionController extends Controller
 {
+    use BuildsPageMeta;
+
     public function view(Request $request, FactionEnum $factionEnum)
     {
         $query = Character::standard()->with('keywords', 'standardMiniatures', 'miniatures', 'characteristics', 'crewUpgrades', 'totem.standardMiniatures', 'isTotemFor.standardMiniatures', 'actions.triggers')->whereHas('standardMiniatures')->where('faction', $factionEnum->value);
@@ -178,6 +181,17 @@ class FactionController extends Controller
             'sort_types' => SortTypeEnum::toSelectOptions(),
             'view_options' => PageViewOptionsEnum::toSelectOptions(),
             'resources' => fn () => $this->getFactionResources($factionEnum),
+        ])->withViewData([
+            'page_meta' => $this->pageMeta(
+                title: $factionEnum->label().' — Faction',
+                description: sprintf(
+                    'Browse %d characters and %d keywords in the %s faction.',
+                    $characters->count(),
+                    $keywords->count(),
+                    $factionEnum->label(),
+                ),
+                image: $factionEnum->logo(),
+            ),
         ]);
     }
 

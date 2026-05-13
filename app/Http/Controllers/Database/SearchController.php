@@ -255,9 +255,24 @@ class SearchController extends Controller
         };
 
         // --- Upgrade query (only if upgrade-relevant filters are active) ---
+        //
+        // Gating: we only run the upgrade query when at least one filter
+        // strongly implies "the user is searching for something that could
+        // be an upgrade" (name/text/action/ability/trigger/token/marker).
+        // A bare faction filter alone still won't pull upgrades, since that
+        // would silently flip every faction-browse into a combined results
+        // page — the user's complaint was that *when* upgrades are returned,
+        // faction/keyword should be honored, not that faction-only browses
+        // should start including upgrades.
+        //
+        // `exclude_upgrades=1` is the user-facing escape hatch — checked
+        // first so the rest of the upgrade pipeline can be skipped.
 
-        $hasUpgradeFilter = $request->filled('name') || $request->filled('description') || $hasActionFilter || $hasAbilityFilter
-            || $hasTriggerFilter || $tokenEntries || $markerEntries;
+        $excludeUpgrades = $request->boolean('exclude_upgrades');
+        $hasUpgradeFilter = ! $excludeUpgrades && (
+            $request->filled('name') || $request->filled('description') || $hasActionFilter || $hasAbilityFilter
+            || $hasTriggerFilter || $tokenEntries || $markerEntries
+        );
 
         $upgradeResults = collect();
         if ($hasUpgradeFilter) {
@@ -266,6 +281,41 @@ class SearchController extends Controller
 
             if ($request->filled('name')) {
                 $upgradeQuery->where('name', 'LIKE', '%'.$request->get('name').'%');
+            }
+
+            // Faction + keyword filters were previously skipped on upgrades,
+            // so a "Arcanists + has a Trigger" search would return Bayou
+            // upgrades with triggers. Mirror the character-side logic 1:1.
+            if ($request->filled('faction')) {
+                $factions = array_filter(explode(',', $request->get('faction')));
+                if ($factions) {
+                    $upgradeQuery->whereIn('faction', $factions);
+                }
+            }
+
+            if ($request->filled('faction_exclude')) {
+                $excluded = array_filter(explode(',', $request->get('faction_exclude')));
+                if ($excluded) {
+                    $upgradeQuery->whereNotIn('faction', $excluded);
+                }
+            }
+
+            if ($request->filled('keyword')) {
+                $keywords = array_filter(explode(',', $request->get('keyword')));
+                if ($request->get('keyword_logic') === 'or') {
+                    $upgradeQuery->whereHas('keywords', fn ($q) => $q->whereIn('slug', $keywords));
+                } else {
+                    foreach ($keywords as $kw) {
+                        $upgradeQuery->whereHas('keywords', fn ($q) => $q->where('slug', $kw));
+                    }
+                }
+            }
+
+            if ($request->filled('keyword_exclude')) {
+                $excluded = array_filter(explode(',', $request->get('keyword_exclude')));
+                if ($excluded) {
+                    $upgradeQuery->whereDoesntHave('keywords', fn ($q) => $q->whereIn('slug', $excluded));
+                }
             }
 
             if ($request->filled('description')) {

@@ -20,8 +20,8 @@
  * to a single-face viewer, matching the prior behavior of components that
  * only had one image to show.
  */
-import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'radix-vue';
 import { FlipHorizontal, X } from 'lucide-vue-next';
+import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'radix-vue';
 import { computed, ref, watch } from 'vue';
 
 const props = withDefaults(

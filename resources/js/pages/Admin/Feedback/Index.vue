@@ -77,11 +77,7 @@ const cancelEditingNotes = (id: number) => {
 };
 
 const applyStatus = (entry: FeedbackEntry, status: string) => {
-    router.post(
-        route('admin.feedback.update', entry.id),
-        { status },
-        { preserveScroll: true, preserveState: true },
-    );
+    router.post(route('admin.feedback.update', entry.id), { status }, { preserveScroll: true, preserveState: true });
 };
 
 const saveNotes = (entry: FeedbackEntry) => {
@@ -226,10 +222,7 @@ const setCategoryFilter = (value: string) => {
                     <CardContent class="p-4">
                         <!-- Header row -->
                         <div class="mb-3 flex flex-wrap items-center gap-2">
-                            <Badge
-                                :class="['border text-[10px] uppercase tracking-wide', statusTone[entry.status]]"
-                                variant="outline"
-                            >
+                            <Badge :class="['border text-[10px] uppercase tracking-wide', statusTone[entry.status]]" variant="outline">
                                 {{ entry.status }}
                             </Badge>
                             <Badge :class="['flex items-center gap-1 border-0 text-[10px]', categoryTone[entry.category]]" variant="outline">
@@ -258,7 +251,13 @@ const setCategoryFilter = (value: string) => {
                             </span>
                             <span v-else class="italic text-muted-foreground">Anonymous</span>
 
-                            <a v-if="entry.url" :href="entry.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1 hover:underline">
+                            <a
+                                v-if="entry.url"
+                                :href="entry.url"
+                                target="_blank"
+                                rel="noopener"
+                                class="inline-flex items-center gap-1 hover:underline"
+                            >
                                 <ExternalLink class="size-3" /> Submitted from
                             </a>
                             <span v-if="entry.submitter_ip" class="font-mono text-[10px]">{{ entry.submitter_ip }}</span>
@@ -268,12 +267,23 @@ const setCategoryFilter = (value: string) => {
                         <div class="mt-3 rounded-md border border-dashed bg-muted/30 p-3">
                             <div class="mb-1 flex items-center justify-between">
                                 <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Admin notes (private)</span>
-                                <Button v-if="!(entry.id in editingNotes)" variant="ghost" size="sm" class="h-6 px-2 text-[10px]" @click="startEditingNotes(entry)">
+                                <Button
+                                    v-if="!(entry.id in editingNotes)"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-6 px-2 text-[10px]"
+                                    @click="startEditingNotes(entry)"
+                                >
                                     {{ entry.admin_notes ? 'Edit' : 'Add note' }}
                                 </Button>
                             </div>
                             <template v-if="entry.id in editingNotes">
-                                <Textarea v-model="editingNotes[entry.id]" rows="3" class="text-xs" placeholder="Notes only you and other admins see" />
+                                <Textarea
+                                    v-model="editingNotes[entry.id]"
+                                    rows="3"
+                                    class="text-xs"
+                                    placeholder="Notes only you and other admins see"
+                                />
                                 <div class="mt-2 flex gap-2">
                                     <Button size="sm" class="h-7 text-[11px]" @click="saveNotes(entry)">Save</Button>
                                     <Button variant="ghost" size="sm" class="h-7 text-[11px]" @click="cancelEditingNotes(entry.id)">Cancel</Button>
@@ -349,13 +359,18 @@ const setCategoryFilter = (value: string) => {
     </div>
 
     <!-- Delete confirmation -->
-    <Dialog :open="pendingDelete !== null" @update:open="(v) => { if (!v) cancelDelete(); }">
+    <Dialog
+        :open="pendingDelete !== null"
+        @update:open="
+            (v) => {
+                if (!v) cancelDelete();
+            }
+        "
+    >
         <DialogContent class="max-w-sm">
             <DialogHeader>
                 <DialogTitle>Delete feedback entry?</DialogTitle>
-                <DialogDescription>
-                    This permanently removes the message and any admin notes attached to it. You can't undo this.
-                </DialogDescription>
+                <DialogDescription> This permanently removes the message and any admin notes attached to it. You can't undo this. </DialogDescription>
             </DialogHeader>
             <div v-if="pendingDelete" class="rounded-md border bg-muted/30 p-3 text-xs">
                 <p v-if="pendingDelete.subject" class="mb-1 font-semibold">{{ pendingDelete.subject }}</p>

@@ -108,7 +108,7 @@ const typePools = computed(() => [
     {
         slug: 'earth',
         label: 'Earth Side',
-        description: 'King\'s Empire, Abyssinia, and the Earthside roster.',
+        description: "King's Empire, Abyssinia, and the Earthside roster.",
         icon: Earth,
         count: props.type_pool_counts.earth,
         href: route('tos.allegiances.viewByType', 'earth'),
@@ -142,16 +142,20 @@ const typePools = computed(() => [
         <div class="container mx-auto flex w-full max-w-full flex-col gap-12 overflow-x-hidden px-3 pb-12 pt-6 sm:px-4 lg:gap-16">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-4 text-center sm:pt-8">
-                <div class="relative mb-4 flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30 sm:size-24">
+                <div
+                    class="relative mb-4 flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30 sm:size-24"
+                >
                     <Swords class="size-10 text-primary sm:size-12" />
-                    <div class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-md">
+                    <div
+                        class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-md"
+                    >
                         β
                     </div>
                 </div>
                 <h1 class="text-balance text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">The Other Side</h1>
                 <p class="mt-2 max-w-2xl text-balance text-sm text-muted-foreground sm:text-base">
-                    Wyrd's mass-battle steampunk wargame database. Browse every Unit, Allegiance, Asset, and Stratagem — built from the
-                    rulebook, ready for your next Company.
+                    Wyrd's mass-battle steampunk wargame database. Browse every Unit, Allegiance, Asset, and Stratagem — built from the rulebook,
+                    ready for your next Company.
                 </p>
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
@@ -176,13 +180,21 @@ const typePools = computed(() => [
                 </div>
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:gap-x-5 sm:text-xs">
-                    <span><strong class="text-foreground">{{ stats.units }}</strong> units</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.units }}</strong> units</span
+                    >
                     <span class="opacity-50">·</span>
-                    <span><strong class="text-foreground">{{ stats.allegiances }}</strong> allegiances</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.allegiances }}</strong> allegiances</span
+                    >
                     <span class="opacity-50">·</span>
-                    <span><strong class="text-foreground">{{ stats.assets }}</strong> assets</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.assets }}</strong> assets</span
+                    >
                     <span class="opacity-50">·</span>
-                    <span><strong class="text-foreground">{{ stats.stratagems }}</strong> stratagems</span>
+                    <span
+                        ><strong class="text-foreground">{{ stats.stratagems }}</strong> stratagems</span
+                    >
                 </div>
             </div>
 
@@ -196,7 +208,10 @@ const typePools = computed(() => [
                         v-for="pool in typePools"
                         :key="pool.slug"
                         :href="pool.href"
-                        :class="['group relative overflow-hidden rounded-xl border-2 bg-gradient-to-br p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg', pool.accent]"
+                        :class="[
+                            'group relative overflow-hidden rounded-xl border-2 bg-gradient-to-br p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+                            pool.accent,
+                        ]"
                     >
                         <div class="flex items-start gap-3">
                             <div :class="['flex size-12 shrink-0 items-center justify-center rounded-xl transition-colors', pool.iconBg]">
@@ -208,7 +223,9 @@ const typePools = computed(() => [
                                     <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ pool.count }} units</span>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ pool.description }}</p>
-                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
+                                <div
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
+                                >
                                     Open roster <ArrowRight class="size-3" />
                                 </div>
                             </div>
@@ -232,10 +249,14 @@ const typePools = computed(() => [
                         :href="route('tos.allegiances.view', a.slug)"
                         class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <div class="relative h-full overflow-hidden rounded-xl border bg-card transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg">
+                        <div
+                            class="relative h-full overflow-hidden rounded-xl border bg-card transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"
+                        >
                             <div :class="['h-1 w-full', a.color_slug ? `bg-${a.color_slug}` : 'bg-primary/40']" />
                             <div class="flex items-center gap-3 p-4">
-                                <div class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted/40 text-primary ring-1 ring-border/50 transition-transform group-hover:scale-105">
+                                <div
+                                    class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted/40 text-primary ring-1 ring-border/50 transition-transform group-hover:scale-105"
+                                >
                                     <AllegianceLogo :allegiance="a.slug" class-name="size-9" />
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -270,9 +291,7 @@ const typePools = computed(() => [
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium leading-tight">{{ s.name }}</p>
-                            <p class="text-[10px] capitalize text-muted-foreground">
-                                {{ s.type }} · {{ s.unit_count ?? 0 }} units
-                            </p>
+                            <p class="text-[10px] capitalize text-muted-foreground">{{ s.type }} · {{ s.unit_count ?? 0 }} units</p>
                         </div>
                         <ArrowRight class="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </Link>
@@ -289,7 +308,10 @@ const typePools = computed(() => [
                         v-for="tile in browseTiles"
                         :key="tile.title"
                         :href="tile.href"
-                        :class="['group relative overflow-hidden rounded-xl border-2 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg', tile.accent]"
+                        :class="[
+                            'group relative overflow-hidden rounded-xl border-2 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+                            tile.accent,
+                        ]"
                     >
                         <div class="flex flex-col gap-3">
                             <div :class="['flex size-12 items-center justify-center rounded-xl transition-colors', tile.iconBg]">
@@ -319,7 +341,9 @@ const typePools = computed(() => [
                         :href="tile.href"
                         class="group flex flex-col items-center gap-1.5 rounded-lg border border-transparent p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-md sm:p-4"
                     >
-                        <div class="flex size-10 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/15 group-hover:text-primary">
+                        <div
+                            class="flex size-10 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/15 group-hover:text-primary"
+                        >
                             <component :is="tile.icon" class="size-5" />
                         </div>
                         <span class="text-xs font-medium leading-tight">{{ tile.title }}</span>

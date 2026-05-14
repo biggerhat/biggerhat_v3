@@ -53,21 +53,27 @@ watch(search, () => {
 });
 
 const unpublish = async (card: CardRow) => {
-    if (!(await confirm({
-        title: `Force-unpublish "${card.name}"?`,
-        message: 'The owner can re-publish it from their card creator.',
-        confirmLabel: 'Unpublish',
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Force-unpublish "${card.name}"?`,
+            message: 'The owner can re-publish it from their card creator.',
+            confirmLabel: 'Unpublish',
+        }))
+    )
+        return;
     router.post(route('admin.custom_cards.unpublish', { kind: card.kind, id: card.id }), {}, { preserveScroll: true });
 };
 
 const remove = async (card: CardRow) => {
-    if (!(await confirm({
-        title: `Soft-delete "${card.name}"?`,
-        message: 'It will disappear from the public site. Recoverable via the database.',
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Soft-delete "${card.name}"?`,
+            message: 'It will disappear from the public site. Recoverable via the database.',
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.custom_cards.delete', { kind: card.kind, id: card.id }), {}, { preserveScroll: true });
 };
 
@@ -81,13 +87,35 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
             <ShieldAlert class="size-5" />
             <h1 class="text-2xl font-semibold tracking-tight">Custom Card Moderation</h1>
         </div>
-        <p class="text-sm text-muted-foreground">User-created Characters and Upgrades. Force-unpublish hides from the public site without deleting.</p>
+        <p class="text-sm text-muted-foreground">
+            User-created Characters and Upgrades. Force-unpublish hides from the public site without deleting.
+        </p>
 
         <div class="grid gap-3 sm:grid-cols-4">
-            <Card><CardContent class="p-3"><div class="text-[10px] uppercase text-muted-foreground">Public Characters</div><div class="text-xl font-bold">{{ counts.public_characters }}</div></CardContent></Card>
-            <Card><CardContent class="p-3"><div class="text-[10px] uppercase text-muted-foreground">Public Upgrades</div><div class="text-xl font-bold">{{ counts.public_upgrades }}</div></CardContent></Card>
-            <Card><CardContent class="p-3"><div class="text-[10px] uppercase text-muted-foreground">Total Characters</div><div class="text-xl font-bold">{{ counts.total_characters }}</div></CardContent></Card>
-            <Card><CardContent class="p-3"><div class="text-[10px] uppercase text-muted-foreground">Total Upgrades</div><div class="text-xl font-bold">{{ counts.total_upgrades }}</div></CardContent></Card>
+            <Card
+                ><CardContent class="p-3"
+                    ><div class="text-[10px] uppercase text-muted-foreground">Public Characters</div>
+                    <div class="text-xl font-bold">{{ counts.public_characters }}</div></CardContent
+                ></Card
+            >
+            <Card
+                ><CardContent class="p-3"
+                    ><div class="text-[10px] uppercase text-muted-foreground">Public Upgrades</div>
+                    <div class="text-xl font-bold">{{ counts.public_upgrades }}</div></CardContent
+                ></Card
+            >
+            <Card
+                ><CardContent class="p-3"
+                    ><div class="text-[10px] uppercase text-muted-foreground">Total Characters</div>
+                    <div class="text-xl font-bold">{{ counts.total_characters }}</div></CardContent
+                ></Card
+            >
+            <Card
+                ><CardContent class="p-3"
+                    ><div class="text-[10px] uppercase text-muted-foreground">Total Upgrades</div>
+                    <div class="text-xl font-bold">{{ counts.total_upgrades }}</div></CardContent
+                ></Card
+            >
         </div>
 
         <Card>
@@ -135,8 +163,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
                         <div class="mt-0.5 text-xs text-muted-foreground">
                             <span v-if="card.user">by {{ card.user.name }}</span>
                             <span v-else class="italic">no owner</span>
-                            · {{ formatDate(card.created_at) }}
-                            · <code class="rounded bg-muted px-1">{{ card.share_code }}</code>
+                            · {{ formatDate(card.created_at) }} · <code class="rounded bg-muted px-1">{{ card.share_code }}</code>
                         </div>
                     </div>
                     <div class="flex shrink-0 gap-1.5">

@@ -54,7 +54,7 @@ const hasResetLink = computed(() => !!(page.props as { flash?: { reset_link?: st
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <AlertMessage
                 v-if="hasResetLink"
-                :message="(($page.props as { flash?: { reset_link?: string } }).flash?.reset_link) ?? ''"
+                :message="($page.props as { flash?: { reset_link?: string } }).flash?.reset_link ?? ''"
                 message-title="Password reset link"
                 message-type="info"
                 class="w-3/4"

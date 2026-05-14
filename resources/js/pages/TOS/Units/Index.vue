@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator, TosSelectOption } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -12,6 +11,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator, TosSelectOption } from '@/types/tos';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
 
@@ -110,12 +110,9 @@ function setRule(slug: string | null) {
             <!-- Special-rule filter chips — segmented control aligned with the rest of TOS -->
             <div class="mb-4 flex flex-wrap items-center gap-1">
                 <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Rule:</span>
-                <Button
-                    :variant="!filterParams.rule ? 'default' : 'outline'"
-                    size="sm"
-                    class="h-6 px-2 text-[11px]"
-                    @click="setRule(null)"
-                >All</Button>
+                <Button :variant="!filterParams.rule ? 'default' : 'outline'" size="sm" class="h-6 px-2 text-[11px]" @click="setRule(null)"
+                    >All</Button
+                >
                 <Button
                     v-for="r in special_rules"
                     :key="r.value"
@@ -123,13 +120,14 @@ function setRule(slug: string | null) {
                     size="sm"
                     class="h-6 px-2 text-[11px]"
                     @click="setRule(r.value)"
-                >{{ r.name }}</Button>
+                    >{{ r.name }}</Button
+                >
             </div>
 
             <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
                 <TableSkeleton :rows="8" :cols="5" />
             </div>
-            <div v-else-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-else-if="isLoading" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
 
@@ -147,11 +145,7 @@ function setRule(slug: string | null) {
                     <TableBody>
                         <TableRow v-for="u in units.data" :key="u.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">
-                                <Link
-                                    v-if="u.sculpts[0]"
-                                    :href="route('tos.units.view', u.sculpts[0].slug)"
-                                    class="hover:underline"
-                                >
+                                <Link v-if="u.sculpts[0]" :href="route('tos.units.view', u.sculpts[0].slug)" class="hover:underline">
                                     {{ u.name }}
                                 </Link>
                                 <span v-else>{{ u.name }}</span>
@@ -160,9 +154,10 @@ function setRule(slug: string | null) {
                             <TableCell class="text-xs">
                                 <span
                                     v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
-                                    class="tabular-nums font-medium text-emerald-700 dark:text-emerald-400"
+                                    class="font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
                                     title="Provides starting Scrip budget"
-                                >+{{ u.scrip }}</span>
+                                    >+{{ u.scrip }}</span
+                                >
                                 <span v-else class="tabular-nums text-muted-foreground">{{ u.scrip }}</span>
                             </TableCell>
                             <TableCell class="text-xs text-muted-foreground">
@@ -177,7 +172,7 @@ function setRule(slug: string | null) {
                 </Table>
             </div>
 
-            <div v-else-if="units.data.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-else-if="units.data.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 <Card
                     v-for="u in units.data"
                     :key="u.id"
@@ -197,9 +192,10 @@ function setRule(slug: string | null) {
                             <span class="truncate text-sm font-semibold">{{ u.name }}</span>
                             <span
                                 v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
-                                class="shrink-0 text-[11px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400"
+                                class="shrink-0 text-[11px] font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
                                 title="Provides starting Scrip budget"
-                            >+{{ u.scrip }}</span>
+                                >+{{ u.scrip }}</span
+                            >
                             <span v-else class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}</span>
                         </div>
                         <p v-if="u.title" class="truncate text-[11px] italic text-muted-foreground">{{ u.title }}</p>

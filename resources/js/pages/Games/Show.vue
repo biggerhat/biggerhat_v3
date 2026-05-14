@@ -34,7 +34,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
-import { MAX_SCHEME_POOL, MAX_SCHEME_PER_TURN, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
+import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
@@ -754,11 +754,7 @@ const saveOpponentName = () => {
 };
 
 const swapRoles = () => {
-    router.post(
-        route('games.setup.swap_roles', props.game.uuid),
-        {},
-        { only: ['game'], preserveScroll: true, preserveState: true },
-    );
+    router.post(route('games.setup.swap_roles', props.game.uuid), {}, { only: ['game'], preserveScroll: true, preserveState: true });
 };
 
 // Solo gameplay: opponent scoring
@@ -806,8 +802,7 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
     try {
         const payload: Record<string, any> = {
             strategy_points: opponentStrategyPoints.value,
-            strategy_bonus_used:
-                opponentStrategyPoints.value === 2 || (opponentStrategyPoints.value === 1 && opponentStrategyBonusOnly.value),
+            strategy_bonus_used: opponentStrategyPoints.value === 2 || (opponentStrategyPoints.value === 1 && opponentStrategyBonusOnly.value),
             scheme_points: opponentSchemePoints.value,
             scheme_action: schemeAction,
             slot: opponentSlot.value,
@@ -998,11 +993,7 @@ const generateSpectateQR = async () => {
 const syncSpectateToggle = (value: boolean) => {
     spectateOn.value = value;
     if (value) generateSpectateQR();
-    router.post(
-        route('games.toggle_observable', props.game.uuid),
-        {},
-        { only: ['game'], preserveScroll: true, preserveState: true },
-    );
+    router.post(route('games.toggle_observable', props.game.uuid), {}, { only: ['game'], preserveScroll: true, preserveState: true });
 };
 
 // Soulstone award banner
@@ -1560,11 +1551,7 @@ interface AllCardsEntry {
     badgeTone?: 'amber' | 'red' | 'muted' | 'primary';
 }
 
-const buildAllCardsEntries = (
-    members: any[],
-    crewUpgrades: any[],
-    activeUpgradeId: number | null,
-): AllCardsEntry[] => {
+const buildAllCardsEntries = (members: any[], crewUpgrades: any[], activeUpgradeId: number | null): AllCardsEntry[] => {
     const entries: AllCardsEntry[] = [];
 
     // Surface the active crew upgrade first — it's the player-level rules card
@@ -2101,11 +2088,7 @@ const markGameComplete = async () => {
 };
 
 const cancelGameComplete = () => {
-    router.post(
-        route('games.play.cancel_complete', props.game.uuid),
-        {},
-        { only: ['game'], preserveScroll: true, preserveState: true },
-    );
+    router.post(route('games.play.cancel_complete', props.game.uuid), {}, { only: ['game'], preserveScroll: true, preserveState: true });
 };
 
 // Summon modal
@@ -2200,7 +2183,7 @@ const summonCharacter = async (characterId: number, miniatureId: number | null =
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify(body),
     });
-    const data = await res.json().catch(() => ({} as Record<string, unknown>));
+    const data = await res.json().catch(() => ({}) as Record<string, unknown>);
     summonDialogOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
@@ -2350,8 +2333,11 @@ const onSculptChange = async (miniatureId: string) => {
 // Crew member + upgrade notes — both players see the result via the existing
 // GameCrewMemberUpdated broadcast; the drawer debounces edits to avoid hammering
 // the endpoint on every keystroke.
-const onCrewMemberNotesChange = async (payload: { notes: string | null; attached_upgrades: { id: number; name: string; notes?: string | null }[] }) => {
-    if (! previewMember.value) return;
+const onCrewMemberNotesChange = async (payload: {
+    notes: string | null;
+    attached_upgrades: { id: number; name: string; notes?: string | null }[];
+}) => {
+    if (!previewMember.value) return;
     // Optimistic local update so the next debounce cycle has the latest.
     previewMember.value.notes = payload.notes;
     previewMember.value.attached_upgrades = payload.attached_upgrades;
@@ -2517,7 +2503,13 @@ const filteredUpgrades = computed(() => {
     });
 });
 
-const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: string | null; back_image: string | null; power_bar_count?: number | null }) => {
+const toggleUpgrade = async (upgrade: {
+    id: number;
+    name: string;
+    front_image: string | null;
+    back_image: string | null;
+    power_bar_count?: number | null;
+}) => {
     if (!upgradeMember.value) return;
     const current = upgradeMember.value.attached_upgrades ?? [];
     const has = current.some((u: any) => u.id === upgrade.id);
@@ -2546,9 +2538,7 @@ const toggleUpgrade = async (upgrade: { id: number; name: string; front_image: s
 // We mutate the local JSON, then PATCH the whole attached_upgrades array using
 // the existing crew.update endpoint — same path toggleUpgrade uses.
 const setMemberUpgradePowerBar = async (member: any, upgradeId: number, value: number) => {
-    const list: any[] = (member.attached_upgrades ?? []).map((u: any) =>
-        u.id === upgradeId ? { ...u, current_power_bar: value } : u,
-    );
+    const list: any[] = (member.attached_upgrades ?? []).map((u: any) => (u.id === upgradeId ? { ...u, current_power_bar: value } : u));
     member.attached_upgrades = list;
     await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'PATCH',
@@ -2663,11 +2653,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             game.name ||
             `Game - ${game.encounter_size}ss`
         "
-        :description="
-            `${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''} · ${
-                game.status === 'completed' ? 'Completed' : game.status === 'abandoned' ? 'Abandoned' : game.status === 'in_progress' ? 'In progress' : 'Setup'
-            }`
-        "
+        :description="`${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''} · ${
+            game.status === 'completed'
+                ? 'Completed'
+                : game.status === 'abandoned'
+                  ? 'Abandoned'
+                  : game.status === 'in_progress'
+                    ? 'In progress'
+                    : 'Setup'
+        }`"
         :image="game.strategy?.image_url"
     />
     <div class="relative">
@@ -2701,13 +2695,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                  + manual VP; everything else (Loot deck, initiative, Treasure Pile
                  markers) is dealer-handled off-table. Linked rules let the player
                  jump out for the full text without leaving the tab. -->
-            <div v-if="isBonanza" class="mb-4 flex flex-col gap-1 rounded-lg border border-purple-500/40 bg-purple-500/5 px-4 py-2 text-sm dark:bg-purple-500/10">
-                <div class="flex items-center gap-2 font-medium text-purple-700 dark:text-purple-300">
-                    <Dices class="size-4" /> Bonanza Brawl
-                </div>
+            <div
+                v-if="isBonanza"
+                class="mb-4 flex flex-col gap-1 rounded-lg border border-purple-500/40 bg-purple-500/5 px-4 py-2 text-sm dark:bg-purple-500/10"
+            >
+                <div class="flex items-center gap-2 font-medium text-purple-700 dark:text-purple-300"><Dices class="size-4" /> Bonanza Brawl</div>
                 <p class="text-xs text-muted-foreground">
                     Single-model FFA at 11ss. The Game Tracker handles crew + manual VP — the Dealer manages the Loot deck, initiative draws, and
-                    Treasure Pile markers off-table. VP scoring is event-driven (kill = +3, damaging a max-HP enemy = +1, dying = -3 to a minimum of 0).
+                    Treasure Pile markers off-table. VP scoring is event-driven (kill = +3, damaging a max-HP enemy = +1, dying = -3 to a minimum of
+                    0).
                 </p>
                 <p class="text-xs">
                     <Link :href="route('tools.bonanza_loot_deck')" class="font-medium text-primary underline-offset-2 hover:underline">
@@ -2721,7 +2717,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                  so this is the primary scoring surface. Quick buttons match the
                  most-common Bonanza VP events. Negative values floor at 0
                  server-side. -->
-            <Card v-if="isBonanza && game.status === 'in_progress' && !isObserver" class="mb-4 border-purple-500/30 bg-purple-500/5 dark:bg-purple-500/10">
+            <Card
+                v-if="isBonanza && game.status === 'in_progress' && !isObserver"
+                class="mb-4 border-purple-500/30 bg-purple-500/5 dark:bg-purple-500/10"
+            >
                 <CardContent class="flex flex-wrap items-center gap-3 p-3">
                     <div class="flex items-center gap-2">
                         <Trophy class="size-4 text-purple-600 dark:text-purple-300" />
@@ -2775,7 +2774,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <Badge variant="secondary" class="text-xs">Deck {{ lootDeckSize }}</Badge>
                         <Badge variant="secondary" class="text-xs">Discard {{ lootDiscardSize }}</Badge>
                         <Badge variant="secondary" class="text-xs">Markers {{ lootMarkers.length }}</Badge>
-                        <Button v-if="!isObserver" size="sm" class="ml-auto h-7 gap-1 text-xs" :disabled="lootDeckSize === 0 && lootDiscardSize === 0" @click="drawLoot">
+                        <Button
+                            v-if="!isObserver"
+                            size="sm"
+                            class="ml-auto h-7 gap-1 text-xs"
+                            :disabled="lootDeckSize === 0 && lootDiscardSize === 0"
+                            @click="drawLoot"
+                        >
                             <Dices class="size-3.5" /> Draw
                         </Button>
                     </div>
@@ -2816,18 +2821,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </DialogTitle>
                         <DialogDescription v-if="lootSidePicker">
                             {{ lootSidePicker.card.name
-                            }}<span v-if="lootSidePicker.card.value_label" class="ml-2 text-muted-foreground"
-                                >{{ lootSidePicker.card.value_label }}</span
-                            >
+                            }}<span v-if="lootSidePicker.card.value_label" class="ml-2 text-muted-foreground">{{
+                                lootSidePicker.card.value_label
+                            }}</span>
                         </DialogDescription>
                     </DialogHeader>
                     <div v-if="lootSidePicker" class="flex flex-col gap-4">
                         <div v-if="attachableMembers.length > 1" class="flex flex-col gap-1.5">
                             <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attach to</label>
-                            <select
-                                v-model.number="lootSidePickerMemberId"
-                                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                            >
+                            <select v-model.number="lootSidePickerMemberId" class="h-9 rounded-md border border-input bg-background px-2 text-sm">
                                 <option :value="null">Select a model…</option>
                                 <option v-for="m in attachableMembers" :key="m.id" :value="m.id">{{ m.display_name }}</option>
                             </select>
@@ -3349,7 +3351,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
                                                 variant="outline"
                                                 class="border-purple-500/50 px-1 py-0 text-[9px] text-purple-600 dark:text-purple-300"
-                                            >{{ master.titles[0].bonanza_cost }}ss</Badge>
+                                                >{{ master.titles[0].bonanza_cost }}ss</Badge
+                                            >
                                         </div>
                                         <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
                                             {{ master.titles.length }} titles — choose during crew select
@@ -3360,7 +3363,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 :key="t.id"
                                                 variant="outline"
                                                 class="border-purple-500/40 px-1 py-0 text-[9px] text-purple-700 dark:text-purple-300"
-                                            >{{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss</Badge>
+                                                >{{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss</Badge
+                                            >
                                         </div>
                                     </div>
                                 </CardContent>
@@ -3698,7 +3702,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 class="w-full"
                                                 size="sm"
                                                 :disabled="submitting || crew.is_over_budget"
-                                                @click="postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: opponentSlot })"
+                                                @click="
+                                                    postSetup(route('games.setup.crew', game.uuid), { crew_build_id: crew.id, slot: opponentSlot })
+                                                "
                                             >
                                                 <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                                 {{ crew.is_over_budget ? 'Over Budget' : 'Select This Crew' }}
@@ -4651,7 +4657,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-left text-xs transition-colors hover:bg-primary/15"
                                 @click="clickSummonBanner"
                             >
-                                <span><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span>
+                                <span
+                                    ><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span
+                                >
                                 <X class="size-3.5 shrink-0 text-muted-foreground" @click.stop="dismissSummonBanner" />
                             </button>
                         </Transition>
@@ -5063,7 +5071,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 class="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-left text-xs transition-colors hover:bg-primary/15"
                                 @click="clickSummonBanner"
                             >
-                                <span><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span>
+                                <span
+                                    ><strong>{{ summonBanner.name }}</strong> added. Tap to change sculpt.</span
+                                >
                                 <X class="size-3.5 shrink-0 text-muted-foreground" @click.stop="dismissSummonBanner" />
                             </button>
                         </Transition>
@@ -6195,7 +6205,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         @select="selectCharacterForReplace"
     />
 
-
     <!-- Upgrade Dialog -->
     <GameUpgradeDialog
         :open="upgradeDialogOpen"
@@ -6365,7 +6374,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         :warnings="replaceOnDeathWarnings"
         :has-selected="hasSelectedReplacements"
         @update:open="replaceOnDeathDialogOpen = $event"
-        @toggle="(id) => { const r = replaceOnDeathReplacements.find((x) => x.id === id); if (r) r.selected = !r.selected; }"
+        @toggle="
+            (id) => {
+                const r = replaceOnDeathReplacements.find((x) => x.id === id);
+                if (r) r.selected = !r.selected;
+            }
+        "
         @confirm="confirmReplaceOnDeath"
         @dismiss="dismissReplaceOnDeath"
     />
@@ -6385,12 +6399,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
     />
 
     <!-- All-cards desktop grid (per-side, opens from the layout-grid icon) -->
-    <GameAllCardsDialog
-        :open="allCardsDialogOpen"
-        :title="allCardsTitle"
-        :entries="allCardsEntries"
-        @update:open="allCardsDialogOpen = $event"
-    />
+    <GameAllCardsDialog :open="allCardsDialogOpen" :title="allCardsTitle" :entries="allCardsEntries" @update:open="allCardsDialogOpen = $event" />
 
     <!-- Leave confirmation for in-progress games -->
     <GameLeaveDialog :open="confirmLeaveOpen" @stay="cancelLeave" @leave="confirmLeave" />

@@ -41,9 +41,7 @@ const onClick = (index: number) => {
             class="rounded-full border transition-colors"
             :class="[
                 compact ? 'size-2.5' : 'size-3.5',
-                i <= safeCurrent
-                    ? 'border-amber-500 bg-amber-500'
-                    : 'border-amber-500/40 bg-transparent',
+                i <= safeCurrent ? 'border-amber-500 bg-amber-500' : 'border-amber-500/40 bg-transparent',
                 readonly ? 'cursor-default opacity-80' : 'cursor-pointer hover:border-amber-400',
             ]"
             :disabled="readonly"
@@ -51,9 +49,8 @@ const onClick = (index: number) => {
             :aria-pressed="i <= safeCurrent"
             @click.stop="onClick(i - 1)"
         />
-        <span
-            class="ml-1 font-mono tabular-nums text-amber-300/90"
-            :class="compact ? 'text-[10px]' : 'text-xs'"
-        >{{ safeCurrent }}/{{ safeMax }}</span>
+        <span class="ml-1 font-mono tabular-nums text-amber-300/90" :class="compact ? 'text-[10px]' : 'text-xs'"
+            >{{ safeCurrent }}/{{ safeMax }}</span
+        >
     </div>
 </template>

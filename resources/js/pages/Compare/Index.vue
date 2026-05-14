@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Head, Link } from '@inertiajs/vue3';
-import EmptyState from '@/components/EmptyState.vue';
 import { Copy, Loader2, Search, Swords, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 

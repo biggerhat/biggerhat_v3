@@ -86,7 +86,9 @@ onMounted(() => {
     <Head title="TOS Action — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ action ? 'Edit Action' : 'New Action' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ action ? 'Edit Action' : 'New Action' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-2">
                     <div class="md:col-span-2">
@@ -140,15 +142,9 @@ onMounted(() => {
                 </div>
 
                 <div class="flex flex-wrap gap-4 rounded-md border p-3">
-                    <label class="flex items-center gap-1.5 text-xs">
-                        <Checkbox v-model:checked="formInfo.is_piercing" /> Piercing
-                    </label>
-                    <label class="flex items-center gap-1.5 text-xs">
-                        <Checkbox v-model:checked="formInfo.is_accurate" /> Accurate
-                    </label>
-                    <label class="flex items-center gap-1.5 text-xs">
-                        <Checkbox v-model:checked="formInfo.is_area" /> Area
-                    </label>
+                    <label class="flex items-center gap-1.5 text-xs"> <Checkbox v-model:checked="formInfo.is_piercing" /> Piercing </label>
+                    <label class="flex items-center gap-1.5 text-xs"> <Checkbox v-model:checked="formInfo.is_accurate" /> Accurate </label>
+                    <label class="flex items-center gap-1.5 text-xs"> <Checkbox v-model:checked="formInfo.is_area" /> Area </label>
                 </div>
 
                 <div>

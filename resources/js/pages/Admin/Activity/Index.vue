@@ -54,8 +54,7 @@ const applyFilters = () => {
     );
 };
 
-const formatDate = (s: string) =>
-    new Date(s).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
 const subjectShortType = (t: string | null) => (t ? t.replace(/^.*\\/, '').replace(/\\Models\\?/, '') : '—');
 
@@ -85,9 +84,7 @@ const diffSummary = (row: ActivityRow): string[] => {
     });
 };
 
-const hasFilters = computed(
-    () => logFilter.value !== '__all__' || eventFilter.value !== '__all__' || !!props.filters.causer,
-);
+const hasFilters = computed(() => logFilter.value !== '__all__' || eventFilter.value !== '__all__' || !!props.filters.causer);
 
 const clearFilters = () => {
     logFilter.value = '__all__';
@@ -137,7 +134,9 @@ const clearFilters = () => {
                 <CardContent class="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:gap-4">
                     <div class="flex shrink-0 flex-col gap-1 text-xs text-muted-foreground sm:w-44">
                         <span>{{ formatDate(row.created_at) }}</span>
-                        <span v-if="row.causer">by <span class="font-medium text-foreground">{{ row.causer.name }}</span></span>
+                        <span v-if="row.causer"
+                            >by <span class="font-medium text-foreground">{{ row.causer.name }}</span></span
+                        >
                         <span v-else>by system</span>
                     </div>
                     <div class="min-w-0 flex-1">
@@ -145,7 +144,8 @@ const clearFilters = () => {
                             <Badge variant="outline" :class="eventBadgeClass(row.event)">{{ row.event ?? 'event' }}</Badge>
                             <Badge variant="secondary">{{ row.log_name ?? 'default' }}</Badge>
                             <span class="text-sm font-medium">
-                                {{ subjectShortType(row.subject_type) }}<span v-if="row.subject_id" class="text-muted-foreground"> #{{ row.subject_id }}</span>
+                                {{ subjectShortType(row.subject_type)
+                                }}<span v-if="row.subject_id" class="text-muted-foreground"> #{{ row.subject_id }}</span>
                             </span>
                         </div>
                         <p v-if="row.description && row.description !== row.event" class="mt-1 text-sm">{{ row.description }}</p>

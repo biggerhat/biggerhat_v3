@@ -147,8 +147,13 @@ const formatDate = (dateStr: string) => {
                 <h2 class="mb-3 font-semibold">Active Games</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div v-for="game in active_games" :key="game.id" class="group relative">
-                        <Link :href="route('games.show', game.uuid)" class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                            <Card class="h-full transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-md">
+                        <Link
+                            :href="route('games.show', game.uuid)"
+                            class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <Card
+                                class="h-full transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-md"
+                            >
                                 <CardContent class="p-4">
                                     <div class="mb-2 flex items-center justify-between">
                                         <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">

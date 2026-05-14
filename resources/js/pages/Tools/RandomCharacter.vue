@@ -73,11 +73,11 @@ const toggleFaction = (slug: string) => {
 
 const hasFilters = computed(
     () =>
-        selectedFactions.value.size > 0
-        || selectedKeywords.value.length > 0
-        || selectedCharacteristics.value.length > 0
-        || costMin.value !== ''
-        || costMax.value !== '',
+        selectedFactions.value.size > 0 ||
+        selectedKeywords.value.length > 0 ||
+        selectedCharacteristics.value.length > 0 ||
+        costMin.value !== '' ||
+        costMax.value !== '',
 );
 
 const buildQuery = () => {
@@ -196,7 +196,13 @@ const clearAll = () => {
             </Card>
 
             <EmptyState
-                v-else-if="filters.faction.length || filters.keyword.length || filters.characteristic.length || filters.cost_min !== null || filters.cost_max !== null"
+                v-else-if="
+                    filters.faction.length ||
+                    filters.keyword.length ||
+                    filters.characteristic.length ||
+                    filters.cost_min !== null ||
+                    filters.cost_max !== null
+                "
                 :icon="Dices"
                 title="No characters match those filters"
                 description="Loosen the filters and roll again."

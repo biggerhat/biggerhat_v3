@@ -134,33 +134,26 @@ const emit = defineEmits<{
 // Local search resets every time the picker opens to a new kind so the
 // previous search doesn't leak across resource types.
 const search = ref('');
-watch(() => props.open, (next) => {
-    if (next !== null) search.value = '';
-});
+watch(
+    () => props.open,
+    (next) => {
+        if (next !== null) search.value = '';
+    },
+);
 
 const matches = (haystack: string | null | undefined, needle: string): boolean => {
     if (!needle.trim()) return true;
     return (haystack ?? '').toLowerCase().includes(needle.toLowerCase());
 };
 
-const filteredUnits = computed(() =>
-    props.hireableUnits.filter((u) => matches(u.name, search.value) || matches(u.title, search.value)),
-);
-const filteredAssets = computed(() =>
-    props.availableAssets.filter((a) => matches(a.name, search.value)),
-);
-const filteredStratagems = computed(() =>
-    props.availableStratagems.filter((s) => matches(s.name, search.value) || matches(s.effect, search.value)),
-);
-const filteredEnvoys = computed(() =>
-    props.availableEnvoys.filter((c) => matches(c.name, search.value)),
-);
+const filteredUnits = computed(() => props.hireableUnits.filter((u) => matches(u.name, search.value) || matches(u.title, search.value)));
+const filteredAssets = computed(() => props.availableAssets.filter((a) => matches(a.name, search.value)));
+const filteredStratagems = computed(() => props.availableStratagems.filter((s) => matches(s.name, search.value) || matches(s.effect, search.value)));
+const filteredEnvoys = computed(() => props.availableEnvoys.filter((c) => matches(c.name, search.value)));
 
-const isCommanderEligible = (u: HireableUnit): boolean =>
-    u.special_unit_rules.some((r) => r.slug === 'commander');
+const isCommanderEligible = (u: HireableUnit): boolean => u.special_unit_rules.some((r) => r.slug === 'commander');
 
-const sameNameCount = (name: string): number =>
-    props.poolUnits.filter((gu) => gu.unit.name === name).length;
+const sameNameCount = (name: string): number => props.poolUnits.filter((gu) => gu.unit.name === name).length;
 
 const isUnitInPool = (u: HireableUnit): boolean => sameNameCount(u.name) > 0;
 
@@ -169,19 +162,11 @@ const assetQuantity = (assetId: number): number => {
     return row ? row.pivot.quantity : 0;
 };
 
-const cmdrCapReached = computed(() =>
-    props.poolUnits.filter((gu) => gu.is_commander).length >= props.format.max_commanders,
-);
-const stratagemCapReached = computed(() =>
-    props.poolStratagems.length >= props.format.stratagem_count,
-);
-const envoySlotFilled = computed(() =>
-    props.poolEnvoys.length >= props.format.envoy_count,
-);
-const isStratagemPicked = (s: AvailableStratagem): boolean =>
-    props.poolStratagems.some((picked) => picked.id === s.id);
-const isEnvoyPicked = (c: AvailableEnvoy): boolean =>
-    props.poolEnvoys.some((picked) => picked.id === c.id);
+const cmdrCapReached = computed(() => props.poolUnits.filter((gu) => gu.is_commander).length >= props.format.max_commanders);
+const stratagemCapReached = computed(() => props.poolStratagems.length >= props.format.stratagem_count);
+const envoySlotFilled = computed(() => props.poolEnvoys.length >= props.format.envoy_count);
+const isStratagemPicked = (s: AvailableStratagem): boolean => props.poolStratagems.some((picked) => picked.id === s.id);
+const isEnvoyPicked = (c: AvailableEnvoy): boolean => props.poolEnvoys.some((picked) => picked.id === c.id);
 
 const titleFor: Record<Exclude<PickerKind, null>, string> = {
     units: 'Add Unit / Commander',
@@ -194,7 +179,11 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
 <template>
     <Sheet
         :open="open !== null"
-        @update:open="(v) => { if (!v) emit('update:open', null); }"
+        @update:open="
+            (v) => {
+                if (!v) emit('update:open', null);
+            }
+        "
     >
         <SheetContent class="w-full max-w-md overflow-y-auto sm:max-w-lg">
             <SheetHeader>
@@ -211,11 +200,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-if="!filteredUnits.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                     No matching Units in this Allegiance's hireable pool.
                 </div>
-                <div
-                    v-for="u in filteredUnits"
-                    :key="u.id"
-                    class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-                >
+                <div v-for="u in filteredUnits" :key="u.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-1.5">
                             <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
@@ -239,7 +224,8 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                             :disabled="cmdrCapReached"
                             title="Add as Commander"
                             @click="emit('add-unit', u, true)"
-                        ><Crown class="size-3.5" /></Button>
+                            ><Crown class="size-3.5"
+                        /></Button>
                         <Button
                             size="icon"
                             variant="ghost"
@@ -247,7 +233,8 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                             :disabled="u.scrip > scripRemaining"
                             :title="u.scrip > scripRemaining ? 'Over the Scrip pool' : 'Add to pool'"
                             @click="emit('add-unit', u, false)"
-                        ><Plus class="size-3.5" /></Button>
+                            ><Plus class="size-3.5"
+                        /></Button>
                     </div>
                 </div>
             </div>
@@ -257,11 +244,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-if="!filteredAssets.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                     No matching Assets available.
                 </div>
-                <div
-                    v-for="a in filteredAssets"
-                    :key="a.id"
-                    class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-                >
+                <div v-for="a in filteredAssets" :key="a.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <div class="min-w-0 flex-1">
                         <span class="truncate text-xs font-medium">{{ a.name }}</span>
                         <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -276,7 +259,8 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                         :disabled="a.scrip_cost > scripRemaining"
                         :title="a.scrip_cost > scripRemaining ? 'Over the Scrip pool' : 'Add'"
                         @click="emit('step-asset', a, 1)"
-                    ><Plus class="size-3.5" /></Button>
+                        ><Plus class="size-3.5"
+                    /></Button>
                 </div>
             </div>
 
@@ -285,11 +269,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-if="!filteredStratagems.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                     No matching Stratagems.
                 </div>
-                <div
-                    v-for="s in filteredStratagems"
-                    :key="s.id"
-                    class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-                >
+                <div v-for="s in filteredStratagems" :key="s.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-1.5">
                             <span class="truncate text-xs font-medium">{{ s.name }}</span>
@@ -304,9 +284,10 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                         variant="ghost"
                         class="size-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                         :disabled="stratagemCapReached || isStratagemPicked(s)"
-                        :title="isStratagemPicked(s) ? 'Already in deck' : (stratagemCapReached ? 'Stratagem cap reached' : 'Pick')"
+                        :title="isStratagemPicked(s) ? 'Already in deck' : stratagemCapReached ? 'Stratagem cap reached' : 'Pick'"
                         @click="emit('pick-stratagem', s)"
-                    ><Plus class="size-3.5" /></Button>
+                        ><Plus class="size-3.5"
+                    /></Button>
                 </div>
             </div>
 
@@ -315,11 +296,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-if="!filteredEnvoys.length" class="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                     No Allegiance Cards seeded for this Allegiance yet.
                 </div>
-                <div
-                    v-for="c in filteredEnvoys"
-                    :key="c.id"
-                    class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-                >
+                <div v-for="c in filteredEnvoys" :key="c.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ c.name }}</span>
                     <Button
                         size="icon"
@@ -327,7 +304,8 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                         class="size-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                         :disabled="envoySlotFilled || isEnvoyPicked(c)"
                         @click="emit('pick-envoy', c)"
-                    ><Plus class="size-3.5" /></Button>
+                        ><Plus class="size-3.5"
+                    /></Button>
                 </div>
             </div>
         </SheetContent>

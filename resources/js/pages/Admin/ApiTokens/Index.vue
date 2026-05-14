@@ -43,7 +43,10 @@ const submit = () => {
         {
             user_id: form.value.user_id,
             name: form.value.name,
-            abilities: form.value.abilities.split(',').map((a) => a.trim()).filter(Boolean),
+            abilities: form.value.abilities
+                .split(',')
+                .map((a) => a.trim())
+                .filter(Boolean),
         },
         {
             onSuccess: () => {
@@ -54,12 +57,15 @@ const submit = () => {
 };
 
 const revoke = async (token: Token) => {
-    if (!(await confirm({
-        title: `Revoke "${token.name}"?`,
-        message: 'Any client using this token will start failing immediately.',
-        confirmLabel: 'Revoke',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Revoke "${token.name}"?`,
+            message: 'Any client using this token will start failing immediately.',
+            confirmLabel: 'Revoke',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.api_tokens.delete', token.id), {}, { preserveScroll: true });
 };
 
@@ -81,8 +87,8 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
             <h1 class="text-2xl font-semibold tracking-tight">API Tokens</h1>
         </div>
         <p class="text-sm text-muted-foreground">
-            Sanctum personal access tokens. Mint a token for a service account (e.g. the Hat Gamin bot). The plaintext shown after creation is the only
-            time it's visible — copy it then.
+            Sanctum personal access tokens. Mint a token for a service account (e.g. the Hat Gamin bot). The plaintext shown after creation is the
+            only time it's visible — copy it then.
         </p>
 
         <!-- Just-created token banner -->

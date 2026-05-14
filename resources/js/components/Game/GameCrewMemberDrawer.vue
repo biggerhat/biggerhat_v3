@@ -69,11 +69,11 @@ watch(
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const queueSave = () => {
-    if (! props.member || ! props.canEditNotes) return;
+    if (!props.member || !props.canEditNotes) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
         const member = props.member;
-        if (! member) return;
+        if (!member) return;
         const upgrades = (member.attached_upgrades ?? []).map((u) => ({
             ...u,
             notes: upgradeNotes.value[u.id] ?? '',

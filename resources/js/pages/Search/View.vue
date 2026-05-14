@@ -2077,9 +2077,7 @@ onUnmounted(() => {
                                 <Checkbox class="mt-0.5" :checked="excludeUpgrades" @update:checked="(v: boolean) => (excludeUpgrades = v)" />
                                 <span>
                                     <span class="font-medium">Characters only</span>
-                                    <span class="block text-[10px] text-muted-foreground">
-                                        Hide Upgrades and Crew Cards from the results.
-                                    </span>
+                                    <span class="block text-[10px] text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
                                 </span>
                             </label>
 
@@ -2165,7 +2163,9 @@ onUnmounted(() => {
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                        <label class="text-sm font-medium" :class="{ capitalize: !statLabels[stat] }">{{ statLabels[stat] ?? stat }}</label>
+                                        <label class="text-sm font-medium" :class="{ capitalize: !statLabels[stat] }">{{
+                                            statLabels[stat] ?? stat
+                                        }}</label>
                                         <div class="flex items-center gap-2">
                                             <Input
                                                 v-model="filterParams[`${stat}_min`]"
@@ -2729,6 +2729,18 @@ onUnmounted(() => {
                                 <label class="text-xs font-medium text-muted-foreground">Rules Text</label>
                                 <Input v-model="filterParams.description" type="text" placeholder="Search rules text..." class="h-8 text-xs" />
                             </div>
+
+                            <!-- Result-type filter: limit results to characters only.
+                                 Mirrors the mobile filter sheet placement (next to Rules Text)
+                                 since a broad rules-text search is where users most want
+                                 upgrades and crew cards out of the way. -->
+                            <label class="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/40 p-2 text-xs">
+                                <Checkbox class="mt-0.5" :checked="excludeUpgrades" @update:checked="(v: boolean) => (excludeUpgrades = v)" />
+                                <span>
+                                    <span class="font-medium">Characters only</span>
+                                    <span class="block text-[10px] text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
+                                </span>
+                            </label>
                         </div>
 
                         <!-- Exclusions -->
@@ -2824,7 +2836,9 @@ onUnmounted(() => {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div v-for="stat in statFields" :key="stat" class="space-y-1">
-                                            <label class="text-xs font-medium text-muted-foreground" :class="{ capitalize: !statLabels[stat] }">{{ statLabels[stat] ?? stat }}</label>
+                                            <label class="text-xs font-medium text-muted-foreground" :class="{ capitalize: !statLabels[stat] }">{{
+                                                statLabels[stat] ?? stat
+                                            }}</label>
                                             <div class="flex items-center gap-2">
                                                 <Input
                                                     v-model="filterParams[`${stat}_min`]"

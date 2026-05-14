@@ -91,18 +91,16 @@ defineProps<{
         </PageBanner>
 
         <div class="container mx-auto space-y-4 sm:px-4">
-            <Link :href="route('tos.allegiance_cards.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Link
+                :href="route('tos.allegiance_cards.index')"
+                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
                 <ArrowLeft class="size-3" /> All allegiance cards
             </Link>
 
             <Card class="overflow-hidden">
                 <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,260px)_1fr]">
-                    <CardImage
-                        :src="card.image_path"
-                        :alt="card.name"
-                        :allegiance-slug="card.allegiance.slug"
-                        :placeholder-icon="BookOpen"
-                    />
+                    <CardImage :src="card.image_path" :alt="card.name" :allegiance-slug="card.allegiance.slug" :placeholder-icon="BookOpen" />
 
                     <CardContent class="space-y-6 px-0 pb-0">
                         <!-- Standard tier -->
@@ -129,12 +127,19 @@ defineProps<{
                                     <li v-for="ac in card.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                         <div class="flex items-center justify-between gap-2">
                                             <div class="flex items-center gap-1.5">
-                                                <span v-for="l in ac.type_links" :key="l.id" class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground">{{ l.type }}</span>
+                                                <span
+                                                    v-for="l in ac.type_links"
+                                                    :key="l.id"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    >{{ l.type }}</span
+                                                >
                                                 <span class="font-medium">{{ ac.name }}</span>
                                             </div>
                                             <span class="text-[10px] text-muted-foreground">
                                                 <template v-if="ac.av != null">
-                                                    {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target"> v {{ ac.av_target }}</template>
+                                                    {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
+                                                        v {{ ac.av_target }}</template
+                                                    >
                                                 </template>
                                                 <template v-if="ac.range"> · {{ ac.range }}</template>
                                                 <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
@@ -193,12 +198,19 @@ defineProps<{
                                     <li v-for="ac in card.primary_actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                         <div class="flex items-center justify-between gap-2">
                                             <div class="flex items-center gap-1.5">
-                                                <span v-for="l in ac.type_links" :key="l.id" class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground">{{ l.type }}</span>
+                                                <span
+                                                    v-for="l in ac.type_links"
+                                                    :key="l.id"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    >{{ l.type }}</span
+                                                >
                                                 <span class="font-medium">{{ ac.name }}</span>
                                             </div>
                                             <span class="text-[10px] text-muted-foreground">
                                                 <template v-if="ac.av != null">
-                                                    {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target"> v {{ ac.av_target }}</template>
+                                                    {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
+                                                        v {{ ac.av_target }}</template
+                                                    >
                                                 </template>
                                                 <template v-if="ac.range"> · {{ ac.range }}</template>
                                                 <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
@@ -236,14 +248,12 @@ defineProps<{
             <!-- Cross-reference: units that hire into this card's allegiance -->
             <section v-if="related_units.length">
                 <div class="mb-2 flex items-center justify-between">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Units in {{ card.allegiance.name }}
-                    </h2>
+                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Units in {{ card.allegiance.name }}</h2>
                     <span class="text-[11px] text-muted-foreground">
                         {{ related_units.length }} {{ related_units.length === 1 ? 'unit' : 'units' }}
                     </span>
                 </div>
-                <div class="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     <Link
                         v-for="u in related_units"
                         :key="u.id"
@@ -252,7 +262,7 @@ defineProps<{
                     >
                         <img
                             v-if="u.sculpts[0]?.combination_image || u.sculpts[0]?.front_image"
-                            :src="u.sculpts[0].combination_image ?? u.sculpts[0].front_image as string"
+                            :src="u.sculpts[0].combination_image ?? (u.sculpts[0].front_image as string)"
                             :alt="u.name"
                             class="size-9 shrink-0 rounded object-cover ring-1 ring-border/60"
                             loading="lazy"

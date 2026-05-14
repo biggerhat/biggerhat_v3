@@ -56,7 +56,10 @@ const emit = defineEmits<{
                 <div class="space-y-4 px-4 pb-4">
                     <div class="space-y-1.5">
                         <label class="text-xs font-medium text-muted-foreground">Deployment</label>
-                        <Select :model-value="editDeployment ?? undefined" @update:model-value="(v) => emit('update:editDeployment', (v as string) ?? null)">
+                        <Select
+                            :model-value="editDeployment ?? undefined"
+                            @update:model-value="(v) => emit('update:editDeployment', (v as string) ?? null)"
+                        >
                             <SelectTrigger><SelectValue placeholder="Select Deployment" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem v-for="d in deployments" :key="d.value" :value="d.value">{{ d.label }}</SelectItem>
@@ -65,7 +68,10 @@ const emit = defineEmits<{
                     </div>
                     <div class="space-y-1.5">
                         <label class="text-xs font-medium text-muted-foreground">Strategy</label>
-                        <Select :model-value="editStrategy ?? undefined" @update:model-value="(v) => emit('update:editStrategy', (v as string) ?? null)">
+                        <Select
+                            :model-value="editStrategy ?? undefined"
+                            @update:model-value="(v) => emit('update:editStrategy', (v as string) ?? null)"
+                        >
                             <SelectTrigger><SelectValue placeholder="Select Strategy" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem v-for="s in strategies" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
@@ -90,9 +96,7 @@ const emit = defineEmits<{
                     </div>
                 </div>
                 <DrawerFooter class="flex-row gap-2 pt-2">
-                    <Button variant="outline" class="flex-1 gap-1" @click="emit('regenerate')">
-                        <Dices class="size-3.5" /> Randomize
-                    </Button>
+                    <Button variant="outline" class="flex-1 gap-1" @click="emit('regenerate')"> <Dices class="size-3.5" /> Randomize </Button>
                     <Button class="flex-1" @click="emit('save')">Save</Button>
                 </DrawerFooter>
             </div>

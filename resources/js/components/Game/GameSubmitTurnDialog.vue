@@ -40,7 +40,9 @@ const hasNextSetup = computed(() => !!(props.nextSchemeModel || props.nextScheme
         <DialogContent class="max-w-md">
             <DialogHeader>
                 <DialogTitle>Confirm Turn {{ turnNumber }}</DialogTitle>
-                <DialogDescription> Lock in this turn's VP and scheme choice. Once submitted, the turn advances and can't be undone here. </DialogDescription>
+                <DialogDescription>
+                    Lock in this turn's VP and scheme choice. Once submitted, the turn advances and can't be undone here.
+                </DialogDescription>
             </DialogHeader>
 
             <div class="space-y-3 text-sm">

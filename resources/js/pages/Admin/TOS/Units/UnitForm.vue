@@ -18,9 +18,15 @@ interface SelectId {
 }
 
 type AbilityOption = SelectId;
-interface ActionOption extends SelectId { type_links: Array<{ id: number; type: string }> }
-interface AllegianceOption extends SelectId { is_syndicate: boolean }
-interface SpecialRuleOption extends SelectId { slug: string }
+interface ActionOption extends SelectId {
+    type_links: Array<{ id: number; type: string }>;
+}
+interface AllegianceOption extends SelectId {
+    is_syndicate: boolean;
+}
+interface SpecialRuleOption extends SelectId {
+    slug: string;
+}
 
 interface SideForm {
     side: 'standard' | 'glory';
@@ -146,10 +152,7 @@ function compactParams(rule: SpecialRuleEntry): Record<string, unknown> | null {
 const submit = () => {
     const payload = {
         ...formInfo.value,
-        combined_arms_child_id:
-            formInfo.value.combined_arms_child_id !== null
-                ? toInt(formInfo.value.combined_arms_child_id)
-                : null,
+        combined_arms_child_id: formInfo.value.combined_arms_child_id !== null ? toInt(formInfo.value.combined_arms_child_id) : null,
         allegiance_ids: formInfo.value.allegiance_ids.map(toInt),
         sides: formInfo.value.sides.map((s) => ({
             side: s.side,
@@ -190,9 +193,7 @@ onMounted(() => {
     formInfo.value.description = props.unit.description;
     formInfo.value.lore_text = props.unit.lore_text;
     formInfo.value.restriction = props.unit.restriction;
-    formInfo.value.combined_arms_child_id = props.unit.combined_arms_child_id !== null
-        ? String(props.unit.combined_arms_child_id)
-        : null;
+    formInfo.value.combined_arms_child_id = props.unit.combined_arms_child_id !== null ? String(props.unit.combined_arms_child_id) : null;
     formInfo.value.sort_order = props.unit.sort_order;
     formInfo.value.allegiance_ids = props.unit.allegiances.map((a) => String(a.id));
     formInfo.value.sides = ['standard', 'glory'].map((s) => {
@@ -245,14 +246,8 @@ onMounted(() => {
                     </div>
                     <div>
                         <Label for="glory_tactics">Tactics (Glory)</Label>
-                        <Input
-                            id="glory_tactics"
-                            v-model="formInfo.glory_tactics"
-                            placeholder="Leave blank if same as Standard"
-                        />
-                        <p class="mt-1 text-[11px] text-muted-foreground">
-                            Only fill this in when the Glory side prints a different Tactics value.
-                        </p>
+                        <Input id="glory_tactics" v-model="formInfo.glory_tactics" placeholder="Leave blank if same as Standard" />
+                        <p class="mt-1 text-[11px] text-muted-foreground">Only fill this in when the Glory side prints a different Tactics value.</p>
                     </div>
                     <div class="md:col-span-2">
                         <Label for="description">Description</Label>
@@ -285,7 +280,9 @@ onMounted(() => {
                             <option :value="null">—</option>
                             <option v-for="r in restrictions" :key="r.value" :value="r.value">{{ r.name }}</option>
                         </select>
-                        <p class="mt-1 text-[10px] text-muted-foreground">Set when the unit is hireable by any Allegiance of that type (Neutral pool).</p>
+                        <p class="mt-1 text-[10px] text-muted-foreground">
+                            Set when the unit is hireable by any Allegiance of that type (Neutral pool).
+                        </p>
                         <InputError :message="usePage().props.errors.restriction" />
                     </div>
                 </div>
@@ -337,9 +334,7 @@ onMounted(() => {
                 <div>
                     <div class="mb-1 flex items-center justify-between">
                         <Label>Special Unit Rules</Label>
-                        <Button type="button" variant="outline" size="sm" @click="addRule">
-                            <Plus class="mr-1 size-3" /> Add Rule
-                        </Button>
+                        <Button type="button" variant="outline" size="sm" @click="addRule"> <Plus class="mr-1 size-3" /> Add Rule </Button>
                     </div>
                     <div v-for="(rule, idx) in formInfo.special_rules" :key="idx" class="mb-2 rounded-md border p-3">
                         <div class="flex items-start gap-2">
@@ -349,7 +344,12 @@ onMounted(() => {
                                     placeholder="Choose rule…"
                                     :options="special_rules"
                                     option-value="id"
-                                    @update:model-value="(v) => { rule.special_unit_rule_id = v; onRuleChange(rule); }"
+                                    @update:model-value="
+                                        (v) => {
+                                            rule.special_unit_rule_id = v;
+                                            onRuleChange(rule);
+                                        }
+                                    "
                                 />
                             </div>
                             <Button type="button" variant="ghost" size="sm" @click="removeRule(idx)"><Trash2 class="size-4" /></Button>
@@ -397,12 +397,7 @@ onMounted(() => {
                                 </p>
                             </div>
                         </template>
-                        <p
-                            v-else-if="ruleSlugFor(rule)"
-                            class="mt-3 text-[11px] text-muted-foreground"
-                        >
-                            No parameters required.
-                        </p>
+                        <p v-else-if="ruleSlugFor(rule)" class="mt-3 text-[11px] text-muted-foreground">No parameters required.</p>
                     </div>
                 </div>
             </CardContent>

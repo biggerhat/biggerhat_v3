@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -11,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator } from '@/types/tos';
 import { Head } from '@inertiajs/vue3';
 import { Shield } from 'lucide-vue-next';
 
@@ -129,12 +129,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                 </Card>
             </div>
 
-            <EmptyState
-                v-else
-                :icon="Shield"
-                title="No abilities match"
-                description="Try clearing your search or switching the page view."
-            />
+            <EmptyState v-else :icon="Shield" title="No abilities match" description="Try clearing your search or switching the page view." />
 
             <InertiaPagination v-if="!isLoading" :paginator="abilities" :only="['abilities', 'name_search', 'page_view']" />
         </div>

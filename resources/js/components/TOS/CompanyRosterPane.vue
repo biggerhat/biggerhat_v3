@@ -65,14 +65,10 @@ const emit = defineEmits<{
     (e: 'detach', cu: CompanyUnit, asset: AssetMin): void;
 }>();
 
-const accentTintBg = computed(() =>
-    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60',
-);
+const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60'));
 
 function slotLocations(asset: AssetMin): string[] {
-    return (asset.limits ?? [])
-        .filter((l) => l.limit_type === 'slot' && l.parameter_value)
-        .map((l) => (l.parameter_value as string).toLowerCase());
+    return (asset.limits ?? []).filter((l) => l.limit_type === 'slot' && l.parameter_value).map((l) => (l.parameter_value as string).toLowerCase());
 }
 </script>
 
@@ -107,11 +103,7 @@ function slotLocations(asset: AssetMin): string[] {
                 <div :class="['pointer-events-none absolute inset-0 opacity-[0.04] transition-opacity group-hover:opacity-[0.08]', allegianceBg]" />
 
                 <!-- Header row — clickable opens drawer -->
-                <button
-                    type="button"
-                    class="relative flex w-full items-center gap-2 px-3 py-2 text-left"
-                    @click="emit('preview', cu)"
-                >
+                <button type="button" class="relative flex w-full items-center gap-2 px-3 py-2 text-left" @click="emit('preview', cu)">
                     <!-- Allegiance-tinted role marker -->
                     <div
                         :class="[
@@ -123,7 +115,9 @@ function slotLocations(asset: AssetMin): string[] {
                         <TooltipProvider v-if="cu.is_commander">
                             <Tooltip>
                                 <TooltipTrigger as-child>
-                                    <div class="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-card">
+                                    <div
+                                        class="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-card"
+                                    >
                                         <Crown class="size-3" />
                                     </div>
                                 </TooltipTrigger>
@@ -142,22 +136,21 @@ function slotLocations(asset: AssetMin): string[] {
                         <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
                             <span
                                 :class="cu.is_commander ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'tabular-nums text-muted-foreground'"
-                            >{{ cu.is_commander ? '+' : '' }}{{ cu.unit.scrip }} Scrip</span>
-                            <Badge
-                                v-if="cu.is_commander"
-                                class="bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
-                            >Commander</Badge>
-                            <Badge
-                                v-if="cu.unit.restriction"
-                                variant="outline"
-                                class="px-1 py-0 text-[9px] capitalize"
-                            >Neutral · {{ cu.unit.restriction }}</Badge>
+                                >{{ cu.is_commander ? '+' : '' }}{{ cu.unit.scrip }} Scrip</span
+                            >
+                            <Badge v-if="cu.is_commander" class="bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
+                                >Commander</Badge
+                            >
+                            <Badge v-if="cu.unit.restriction" variant="outline" class="px-1 py-0 text-[9px] capitalize"
+                                >Neutral · {{ cu.unit.restriction }}</Badge
+                            >
                             <Badge
                                 v-for="r in cu.unit.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
                                 class="px-1 py-0 text-[9px]"
-                            >{{ r.name }}</Badge>
+                                >{{ r.name }}</Badge
+                            >
                         </div>
                     </div>
 
@@ -197,11 +190,9 @@ function slotLocations(asset: AssetMin): string[] {
                         <Package class="size-2.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
                         <span>{{ a.name }}</span>
                         <span class="tabular-nums text-muted-foreground">({{ a.scrip_cost }}s)</span>
-                        <span
-                            v-for="loc in slotLocations(a)"
-                            :key="loc"
-                            class="text-[8px] uppercase tracking-wider text-muted-foreground"
-                        >{{ loc }}</span>
+                        <span v-for="loc in slotLocations(a)" :key="loc" class="text-[8px] uppercase tracking-wider text-muted-foreground">{{
+                            loc
+                        }}</span>
                         <button
                             type="button"
                             class="ml-0.5 rounded text-muted-foreground transition-colors hover:text-rose-600"

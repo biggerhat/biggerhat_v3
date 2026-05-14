@@ -17,11 +17,14 @@ const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
 const confirm = useConfirm();
 
 const startImpersonation = async (user: { id: number; name: string }) => {
-    if (!(await confirm({
-        title: `Impersonate ${user.name}?`,
-        message: `You'll be logged in as ${user.name} until you click "Leave Impersonation" in the banner at the top of the page.`,
-        confirmLabel: 'Impersonate',
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Impersonate ${user.name}?`,
+            message: `You'll be logged in as ${user.name} until you click "Leave Impersonation" in the banner at the top of the page.`,
+            confirmLabel: 'Impersonate',
+        }))
+    )
+        return;
     window.location.href = `/impersonate/take/${user.id}`;
 };
 

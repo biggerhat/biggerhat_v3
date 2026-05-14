@@ -21,9 +21,7 @@ withDefaults(
     <div
         :class="[
             'rounded-md border p-3 transition-all',
-            active
-                ? 'border-primary bg-card shadow-sm ring-1 ring-primary/40'
-                : 'border-dashed bg-muted/40 opacity-60',
+            active ? 'border-primary bg-card shadow-sm ring-1 ring-primary/40' : 'border-dashed bg-muted/40 opacity-60',
         ]"
     >
         <p v-if="label" :class="['mb-2 text-[10px] font-semibold uppercase tracking-wider', active ? 'text-foreground' : 'text-muted-foreground']">

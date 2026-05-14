@@ -98,9 +98,7 @@ const emit = defineEmits<{
                 />
                 <span>
                     <span class="font-medium">Units only</span>
-                    <span class="block text-[10px] text-muted-foreground">
-                        Hide Assets, Stratagems, and Allegiance Cards from the results.
-                    </span>
+                    <span class="block text-[10px] text-muted-foreground"> Hide Assets, Stratagems, and Allegiance Cards from the results. </span>
                 </span>
             </label>
             <div class="space-y-1">
@@ -173,7 +171,7 @@ const emit = defineEmits<{
                 <label class="text-xs font-medium text-muted-foreground">Side</label>
                 <ClearableSelect v-model="params.side" placeholder="Both" :options="sideOptions" />
             </div>
-            <div v-for="stat in (['speed', 'defense', 'willpower', 'armor'] as const)" :key="stat" class="grid grid-cols-2 gap-2">
+            <div v-for="stat in ['speed', 'defense', 'willpower', 'armor'] as const" :key="stat" class="grid grid-cols-2 gap-2">
                 <div class="space-y-1">
                     <label class="text-xs font-medium capitalize text-muted-foreground">{{ stat }} min</label>
                     <Input v-model="params[`${stat}_min`]" type="number" />

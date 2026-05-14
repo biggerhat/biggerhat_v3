@@ -95,10 +95,7 @@ function submit() {
         </PageBanner>
 
         <div class="container mx-auto max-w-3xl space-y-4 sm:px-4">
-            <Link
-                :href="route('tos.companies.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
+            <Link :href="route('tos.companies.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft class="size-3" /> All Companies
             </Link>
 
@@ -107,14 +104,7 @@ function submit() {
                     <!-- Step 1: Name -->
                     <div class="space-y-1.5">
                         <Label for="name">Company name</Label>
-                        <Input
-                            id="name"
-                            v-model="form.name"
-                            type="text"
-                            required
-                            maxlength="120"
-                            placeholder="e.g. The Iron Vanguard"
-                        />
+                        <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. The Iron Vanguard" />
                         <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
                     </div>
 
@@ -122,10 +112,12 @@ function submit() {
                     <div v-if="garrisons.length" class="space-y-2">
                         <div class="flex items-baseline justify-between gap-2">
                             <div>
-                                <Label class="flex items-center gap-1.5"><Shield class="size-3.5" /> Build from Garrison <span class="text-[11px] font-normal text-muted-foreground">(optional)</span></Label>
+                                <Label class="flex items-center gap-1.5"
+                                    ><Shield class="size-3.5" /> Build from Garrison
+                                    <span class="text-[11px] font-normal text-muted-foreground">(optional)</span></Label
+                                >
                                 <p class="mt-0.5 text-[11px] text-muted-foreground">
-                                    Restricts the hiring pool to a tournament Garrison you've declared.
-                                    Allegiance locks to match.
+                                    Restricts the hiring pool to a tournament Garrison you've declared. Allegiance locks to match.
                                 </p>
                             </div>
                             <Button
@@ -135,7 +127,8 @@ function submit() {
                                 size="sm"
                                 class="h-6 px-2 text-[11px]"
                                 @click="selectGarrison(null)"
-                            >Clear</Button>
+                                >Clear</Button
+                            >
                         </div>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <button
@@ -150,7 +143,12 @@ function submit() {
                                 ]"
                                 @click="selectGarrison(g)"
                             >
-                                <div :class="['absolute left-0 top-0 h-full w-1', g.allegiance.color_slug ? `bg-${g.allegiance.color_slug}` : 'bg-primary/40']" />
+                                <div
+                                    :class="[
+                                        'absolute left-0 top-0 h-full w-1',
+                                        g.allegiance.color_slug ? `bg-${g.allegiance.color_slug}` : 'bg-primary/40',
+                                    ]"
+                                />
                                 <div class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/40 ring-1 ring-border/50">
                                     <AllegianceLogo :allegiance="g.allegiance.slug" class-name="size-5" />
                                 </div>
@@ -169,20 +167,23 @@ function submit() {
                             <div>
                                 <Label>Allegiance</Label>
                                 <p class="mt-0.5 text-[11px] text-muted-foreground">
-                                    <span v-if="linkedGarrison">Locked to <strong>{{ linkedGarrison.allegiance.name }}</strong> by your Garrison.</span>
+                                    <span v-if="linkedGarrison"
+                                        >Locked to <strong>{{ linkedGarrison.allegiance.name }}</strong> by your Garrison.</span
+                                    >
                                     <span v-else>Locked once chosen — pick the side this Company fights for.</span>
                                 </p>
                             </div>
                             <div class="flex items-center gap-1">
                                 <Button
-                                    v-for="t in (['all', 'earth', 'malifaux'] as const)"
+                                    v-for="t in ['all', 'earth', 'malifaux'] as const"
                                     :key="t"
                                     type="button"
                                     :variant="typeFilter === t ? 'default' : 'outline'"
                                     size="sm"
                                     class="h-6 px-2 text-[11px] capitalize"
                                     @click="typeFilter = t"
-                                >{{ t === 'all' ? 'All' : t }}</Button>
+                                    >{{ t === 'all' ? 'All' : t }}</Button
+                                >
                             </div>
                         </div>
 
@@ -212,10 +213,7 @@ function submit() {
                                         <p class="truncate font-semibold">{{ a.name }}</p>
                                         <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>
-                                    <Check
-                                        v-if="form.allegiance_id === a.id"
-                                        class="size-4 shrink-0 text-primary"
-                                    />
+                                    <Check v-if="form.allegiance_id === a.id" class="size-4 shrink-0 text-primary" />
                                 </button>
                             </div>
                         </div>
@@ -265,9 +263,7 @@ function submit() {
 
                     <div class="flex justify-end gap-2 border-t pt-4">
                         <Button as="a" :href="route('tos.companies.index')" variant="ghost" size="sm">Cancel</Button>
-                        <Button :disabled="form.processing || !form.name || !form.allegiance_id" size="sm" @click="submit">
-                            Create Company
-                        </Button>
+                        <Button :disabled="form.processing || !form.name || !form.allegiance_id" size="sm" @click="submit"> Create Company </Button>
                     </div>
                 </CardContent>
             </Card>

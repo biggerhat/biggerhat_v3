@@ -106,9 +106,7 @@ const adminGroups: AdminNavGroup[] = [
     },
     {
         title: 'Bonanza Brawl',
-        items: [
-            { title: 'Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' },
-        ],
+        items: [{ title: 'Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' }],
     },
     {
         title: 'TOS — Units',

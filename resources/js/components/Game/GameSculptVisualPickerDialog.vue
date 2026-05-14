@@ -56,12 +56,7 @@ const emit = defineEmits<{
                                 loading="lazy"
                                 decoding="async"
                             />
-                            <div
-                                v-else
-                                class="flex h-full w-full items-center justify-center text-xs text-muted-foreground"
-                            >
-                                No image
-                            </div>
+                            <div v-else class="flex h-full w-full items-center justify-center text-xs text-muted-foreground">No image</div>
                             <div
                                 v-if="String(mini.id) === String(selectedId)"
                                 class="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md"

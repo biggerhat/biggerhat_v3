@@ -152,18 +152,14 @@ const rsvpFaction = ref<string | null>(null);
 // Use Inertia's router rather than raw fetch: CSRF + progress bar come for
 // free, and the preserveScroll reload keeps the user's position on the page.
 const submitRsvp = () => {
-    router.post(
-        route('tournaments.rsvp', props.tournament.uuid),
-        rsvpFaction.value ? { faction: rsvpFaction.value } : {},
-        {
-            preserveScroll: true,
-            onStart: () => (rsvping.value = true),
-            onFinish: () => {
-                rsvping.value = false;
-                rsvpFaction.value = null;
-            },
+    router.post(route('tournaments.rsvp', props.tournament.uuid), rsvpFaction.value ? { faction: rsvpFaction.value } : {}, {
+        preserveScroll: true,
+        onStart: () => (rsvping.value = true),
+        onFinish: () => {
+            rsvping.value = false;
+            rsvpFaction.value = null;
         },
-    );
+    });
 };
 
 const cancelRsvp = () => {
@@ -311,13 +307,17 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Express your interest in playing. Optionally pick a faction so the organizer can plan accordingly — you can change it before the tournament starts.
+                            Express your interest in playing. Optionally pick a faction so the organizer can plan accordingly — you can change it
+                            before the tournament starts.
                         </p>
                     </div>
                     <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                         <!-- Optional intended faction. Empty string sentinel because
                              Reka's Select can't bind to literal null on its value prop. -->
-                        <Select :model-value="rsvpFaction ?? '__none__'" @update:model-value="rsvpFaction = $event === '__none__' ? null : ($event as string)">
+                        <Select
+                            :model-value="rsvpFaction ?? '__none__'"
+                            @update:model-value="rsvpFaction = $event === '__none__' ? null : ($event as string)"
+                        >
                             <SelectTrigger class="h-8 w-full min-w-[180px] text-xs sm:w-auto">
                                 <SelectValue placeholder="Faction (optional)" />
                             </SelectTrigger>
@@ -377,7 +377,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             RSVPs
                             <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
                         </TabsTrigger>
-                        <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm"> <BarChart3 class="mr-1 size-3" /> Stats </TabsTrigger>
+                        <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm">
+                            <BarChart3 class="mr-1 size-3" /> Stats
+                        </TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -650,7 +652,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
                                     <UserPlus v-else class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="font-medium">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
-                                    <span v-if="rsvp.faction" class="text-xs text-muted-foreground">{{ factions[rsvp.faction]?.name ?? rsvp.faction }}</span>
+                                    <span v-if="rsvp.faction" class="text-xs text-muted-foreground">{{
+                                        factions[rsvp.faction]?.name ?? rsvp.faction
+                                    }}</span>
                                 </div>
                             </div>
                         </CardContent>

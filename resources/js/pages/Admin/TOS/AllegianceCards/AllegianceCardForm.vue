@@ -102,7 +102,9 @@ onMounted(() => {
     <Head title="TOS Allegiance Card — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ card ? 'Edit Allegiance Card' : 'New Allegiance Card' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ card ? 'Edit Allegiance Card' : 'New Allegiance Card' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div>
@@ -137,8 +139,8 @@ onMounted(() => {
                             </SelectContent>
                         </Select>
                         <p class="text-[11px] text-muted-foreground">
-                            Set only when an Allegiance Card lists both Earth and Malifaux on its face. Hybrid cards apply to
-                            Allegiances of either type.
+                            Set only when an Allegiance Card lists both Earth and Malifaux on its face. Hybrid cards apply to Allegiances of either
+                            type.
                         </p>
                         <InputError :message="usePage().props.errors.secondary_type" />
                     </div>
@@ -159,7 +161,12 @@ onMounted(() => {
                         </div>
                         <div>
                             <Label>Standard Abilities</Label>
-                            <SearchableMultiselect v-model="formInfo.ability_ids" placeholder="Search abilities…" :options="abilities" option-value="id" />
+                            <SearchableMultiselect
+                                v-model="formInfo.ability_ids"
+                                placeholder="Search abilities…"
+                                :options="abilities"
+                                option-value="id"
+                            />
                         </div>
                         <div>
                             <Label>Standard Actions</Label>
@@ -167,7 +174,12 @@ onMounted(() => {
                         </div>
                         <div>
                             <Label>Standard Triggers</Label>
-                            <SearchableMultiselect v-model="formInfo.trigger_ids" placeholder="Search triggers…" :options="triggers" option-value="id" />
+                            <SearchableMultiselect
+                                v-model="formInfo.trigger_ids"
+                                placeholder="Search triggers…"
+                                :options="triggers"
+                                option-value="id"
+                            />
                         </div>
                     </div>
                 </section>
@@ -183,15 +195,30 @@ onMounted(() => {
                         </div>
                         <div>
                             <Label>Primary Abilities</Label>
-                            <SearchableMultiselect v-model="formInfo.primary_ability_ids" placeholder="Search abilities…" :options="abilities" option-value="id" />
+                            <SearchableMultiselect
+                                v-model="formInfo.primary_ability_ids"
+                                placeholder="Search abilities…"
+                                :options="abilities"
+                                option-value="id"
+                            />
                         </div>
                         <div>
                             <Label>Primary Actions</Label>
-                            <SearchableMultiselect v-model="formInfo.primary_action_ids" placeholder="Search actions…" :options="actions" option-value="id" />
+                            <SearchableMultiselect
+                                v-model="formInfo.primary_action_ids"
+                                placeholder="Search actions…"
+                                :options="actions"
+                                option-value="id"
+                            />
                         </div>
                         <div>
                             <Label>Primary Triggers</Label>
-                            <SearchableMultiselect v-model="formInfo.primary_trigger_ids" placeholder="Search triggers…" :options="triggers" option-value="id" />
+                            <SearchableMultiselect
+                                v-model="formInfo.primary_trigger_ids"
+                                placeholder="Search triggers…"
+                                :options="triggers"
+                                option-value="id"
+                            />
                         </div>
                     </div>
                 </section>

@@ -43,7 +43,9 @@ onMounted(() => {
     <Head title="TOS Special Rule — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ rule ? 'Edit Special Rule' : 'New Special Rule' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ rule ? 'Edit Special Rule' : 'New Special Rule' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-3">
                 <div>
                     <Label for="name">Name</Label>

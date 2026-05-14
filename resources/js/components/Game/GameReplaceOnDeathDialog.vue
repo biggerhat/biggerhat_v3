@@ -26,9 +26,7 @@ const emit = defineEmits<{
 }>();
 
 const descriptionText = () =>
-    props.replacements.length > 1
-        ? 'Select which models to add to the crew.'
-        : 'This model replaces into the following when killed.';
+    props.replacements.length > 1 ? 'Select which models to add to the crew.' : 'This model replaces into the following when killed.';
 </script>
 
 <template>

@@ -24,9 +24,13 @@ interface TriggerData {
     actions?: TriggerAction[];
 }
 
-const props = defineProps<{
-    trigger: TriggerData;
-}>();
+const props = withDefaults(
+    defineProps<{
+        trigger: TriggerData;
+        hideFooter?: boolean;
+    }>(),
+    { hideFooter: false },
+);
 
 const uniqueCharacters = computed(() => {
     const map = new Map<
@@ -63,7 +67,7 @@ const characterCount = computed(() => uniqueCharacters.value.length);
         </div>
 
         <!-- Footer -->
-        <div class="mt-auto flex items-center justify-between border-t px-3 py-1.5 text-xs">
+        <div v-if="!hideFooter" class="mt-auto flex items-center justify-between border-t px-3 py-1.5 text-xs">
             <div class="flex items-center gap-1.5">
                 <Users class="h-3 w-3 shrink-0 text-muted-foreground" />
                 <slot name="footer">

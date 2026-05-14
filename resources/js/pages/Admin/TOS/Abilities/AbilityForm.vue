@@ -47,7 +47,9 @@ onMounted(() => {
     <Head title="TOS Ability — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ ability ? 'Edit Ability' : 'New Ability' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ ability ? 'Edit Ability' : 'New Ability' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-4">
                 <div>
                     <Label for="name">Name</Label>

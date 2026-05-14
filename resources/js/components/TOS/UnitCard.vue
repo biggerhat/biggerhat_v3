@@ -5,8 +5,8 @@ import TosMarginCost from '@/components/TosMarginCost.vue';
 import TosSuits from '@/components/TosSuits.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -85,9 +85,7 @@ const primaryAllegianceSlug = computed(() => props.unit.allegiances[0]?.slug ?? 
 // Commanders don't COST scrip — they provide the Company's starting scrip
 // budget (rulebook p. 9). The `scrip` column stores the magnitude either way;
 // display flips based on the Commander Special Unit Rule.
-const isCommander = computed(() =>
-    (props.unit.special_unit_rules ?? []).some((r) => r.slug === 'commander'),
-);
+const isCommander = computed(() => (props.unit.special_unit_rules ?? []).some((r) => r.slug === 'commander'));
 
 /**
  * Per-rule parameter formatter. Maps the JSON shape stored on each
@@ -154,13 +152,7 @@ function ruleBadge(rule: SpecialRule): string {
                 />
                 <div class="flex items-center justify-between text-[10px] text-muted-foreground">
                     <span class="capitalize tabular-nums">{{ flipped ? 'Glory side' : 'Standard side' }}</span>
-                    <Button
-                        v-if="sculpt?.back_image"
-                        variant="ghost"
-                        size="sm"
-                        class="h-6 gap-1 px-2 text-[10px]"
-                        @click="flipped = !flipped"
-                    >
+                    <Button v-if="sculpt?.back_image" variant="ghost" size="sm" class="h-6 gap-1 px-2 text-[10px]" @click="flipped = !flipped">
                         <RefreshCw class="size-3" /> Flip
                     </Button>
                 </div>
@@ -175,10 +167,17 @@ function ruleBadge(rule: SpecialRule): string {
                             <span v-if="unit.title" class="text-sm font-normal text-muted-foreground">— {{ unit.title }}</span>
                         </h2>
                         <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span v-if="isCommander" class="tabular-nums font-medium text-emerald-700 dark:text-emerald-400">+{{ unit.scrip }} Scrip budget</span>
+                            <span v-if="isCommander" class="font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
+                                >+{{ unit.scrip }} Scrip budget</span
+                            >
                             <span v-else class="tabular-nums">{{ unit.scrip }} Scrip</span>
                             <span v-if="unit.tactics" class="tabular-nums">
-                                · Tactics {{ unit.tactics }}<template v-if="unit.glory_tactics && unit.glory_tactics !== unit.tactics"> / <span class="text-amber-600 dark:text-amber-400" title="Glory-side Tactics">{{ unit.glory_tactics }}</span> Glory</template>
+                                · Tactics {{ unit.tactics
+                                }}<template v-if="unit.glory_tactics && unit.glory_tactics !== unit.tactics">
+                                    /
+                                    <span class="text-amber-600 dark:text-amber-400" title="Glory-side Tactics">{{ unit.glory_tactics }}</span>
+                                    Glory</template
+                                >
                             </span>
                         </div>
                     </div>
@@ -195,18 +194,8 @@ function ruleBadge(rule: SpecialRule): string {
                          while the other dims out. Lets readers compare Standard vs Glory
                          AVs at a glance instead of having to flip back and forth. -->
                     <div :class="['grid gap-2', standardSide && glorySide ? 'sm:grid-cols-2' : '']">
-                        <UnitStatBlock
-                            v-if="standardSide"
-                            :side="standardSide"
-                            label="Standard AVs"
-                            :active="!flipped"
-                        />
-                        <UnitStatBlock
-                            v-if="glorySide"
-                            :side="glorySide"
-                            label="Glory AVs"
-                            :active="flipped"
-                        />
+                        <UnitStatBlock v-if="standardSide" :side="standardSide" label="Standard AVs" :active="!flipped" />
+                        <UnitStatBlock v-if="glorySide" :side="glorySide" label="Glory AVs" :active="flipped" />
                     </div>
 
                     <div v-if="activeSide.abilities.length">
@@ -225,22 +214,36 @@ function ruleBadge(rule: SpecialRule): string {
                             <li v-for="ac in activeSide.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                 <div class="flex items-center justify-between gap-2">
                                     <div class="flex items-center gap-1.5">
-                                        <span v-for="l in ac.type_links" :key="l.id" class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground">{{ l.type }}</span>
+                                        <span
+                                            v-for="l in ac.type_links"
+                                            :key="l.id"
+                                            class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                            >{{ l.type }}</span
+                                        >
                                         <span class="font-medium">{{ ac.name }}</span>
                                     </div>
                                     <span class="text-[10px] text-muted-foreground">
                                         <template v-if="ac.av != null">
-                                            {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target"> v {{ ac.av_target }}</template>
+                                            {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
+                                                v {{ ac.av_target }}</template
+                                            >
                                         </template>
                                         <template v-if="ac.range"> · {{ ac.range }}</template>
                                         <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
                                     </span>
                                 </div>
-                                <div v-if="ac.is_piercing || ac.is_accurate || ac.is_area || ac.usage_limit" class="mt-1 flex flex-wrap gap-1 text-[9px]">
-                                    <span v-if="ac.is_piercing" class="rounded bg-amber-500/10 px-1 text-amber-700 dark:text-amber-400">Piercing</span>
+                                <div
+                                    v-if="ac.is_piercing || ac.is_accurate || ac.is_area || ac.usage_limit"
+                                    class="mt-1 flex flex-wrap gap-1 text-[9px]"
+                                >
+                                    <span v-if="ac.is_piercing" class="rounded bg-amber-500/10 px-1 text-amber-700 dark:text-amber-400"
+                                        >Piercing</span
+                                    >
                                     <span v-if="ac.is_accurate" class="rounded bg-sky-500/10 px-1 text-sky-700 dark:text-sky-400">Accurate</span>
                                     <span v-if="ac.is_area" class="rounded bg-rose-500/10 px-1 text-rose-700 dark:text-rose-400">Area</span>
-                                    <span v-if="ac.usage_limit" class="rounded border border-border px-1 capitalize text-muted-foreground">{{ ac.usage_limit.replace(/_/g, ' ') }}</span>
+                                    <span v-if="ac.usage_limit" class="rounded border border-border px-1 capitalize text-muted-foreground">{{
+                                        ac.usage_limit.replace(/_/g, ' ')
+                                    }}</span>
                                 </div>
                                 <p v-if="ac.body" class="mt-1 text-muted-foreground"><TosText :text="ac.body" /></p>
                                 <ul v-if="ac.triggers?.length" class="mt-1 space-y-1 border-l-2 border-border pl-2">
@@ -248,7 +251,9 @@ function ruleBadge(rule: SpecialRule): string {
                                         <TosSuits v-if="t.suits" :suits="t.suits" />
                                         <TosMarginCost v-else-if="t.margin_cost != null" :cost="t.margin_cost" />
                                         <span class="font-medium">{{ t.name }}</span>
-                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-[9px] italic text-muted-foreground">(Immediately)</span>
+                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-[9px] italic text-muted-foreground"
+                                            >(Immediately)</span
+                                        >
                                         <span v-if="t.body" class="text-muted-foreground"> — <TosText :text="t.body" /></span>
                                     </li>
                                 </ul>

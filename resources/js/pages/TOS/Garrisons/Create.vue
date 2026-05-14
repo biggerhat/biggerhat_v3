@@ -72,10 +72,7 @@ function submit() {
         </PageBanner>
 
         <div class="container mx-auto max-w-3xl space-y-4 sm:px-4">
-            <Link
-                :href="route('tos.garrisons.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
+            <Link :href="route('tos.garrisons.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft class="size-3" /> All Garrisons
             </Link>
 
@@ -84,14 +81,7 @@ function submit() {
                     <!-- Step 1: Name -->
                     <div class="space-y-1.5">
                         <Label for="name">Garrison name</Label>
-                        <Input
-                            id="name"
-                            v-model="form.name"
-                            type="text"
-                            required
-                            maxlength="120"
-                            placeholder="e.g. Burning Marsh Expedition"
-                        />
+                        <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. Burning Marsh Expedition" />
                         <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
                     </div>
 
@@ -99,8 +89,7 @@ function submit() {
                     <div class="space-y-2">
                         <Label>Format</Label>
                         <p class="text-[11px] text-muted-foreground">
-                            Drives the validation profile — commander cap, scrip ceiling, stratagem count, envoy slot.
-                            Editable later.
+                            Drives the validation profile — commander cap, scrip ceiling, stratagem count, envoy slot. Editable later.
                         </p>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <button
@@ -131,20 +120,20 @@ function submit() {
                             <div>
                                 <Label>Allegiance</Label>
                                 <p class="mt-0.5 text-[11px] text-muted-foreground">
-                                    Locked once chosen — your Garrison hires only from this Allegiance's pool plus its
-                                    matching Neutral pool.
+                                    Locked once chosen — your Garrison hires only from this Allegiance's pool plus its matching Neutral pool.
                                 </p>
                             </div>
                             <div class="flex items-center gap-1">
                                 <Button
-                                    v-for="t in (['all', 'earth', 'malifaux'] as const)"
+                                    v-for="t in ['all', 'earth', 'malifaux'] as const"
                                     :key="t"
                                     type="button"
                                     :variant="typeFilter === t ? 'default' : 'outline'"
                                     size="sm"
                                     class="h-6 px-2 text-[11px] capitalize"
                                     @click="typeFilter = t"
-                                >{{ t === 'all' ? 'All' : t }}</Button>
+                                    >{{ t === 'all' ? 'All' : t }}</Button
+                                >
                             </div>
                         </div>
 
@@ -225,9 +214,7 @@ function submit() {
 
                     <div class="flex justify-end gap-2 border-t pt-4">
                         <Button as="a" :href="route('tos.garrisons.index')" variant="ghost" size="sm">Cancel</Button>
-                        <Button :disabled="form.processing || !form.name || !form.allegiance_id" size="sm" @click="submit">
-                            Create Garrison
-                        </Button>
+                        <Button :disabled="form.processing || !form.name || !form.allegiance_id" size="sm" @click="submit"> Create Garrison </Button>
                     </div>
                 </CardContent>
             </Card>

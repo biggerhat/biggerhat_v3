@@ -56,10 +56,7 @@ defineProps<{
 
         <div class="container mx-auto space-y-4 sm:px-4">
             <div class="flex items-center justify-between gap-2">
-                <Link
-                    :href="route('tos.units.index')"
-                    class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
+                <Link :href="route('tos.units.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                     <ArrowLeft class="size-3" /> All units
                 </Link>
                 <Button

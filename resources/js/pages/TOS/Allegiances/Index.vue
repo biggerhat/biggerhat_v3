@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator } from '@/types/tos';
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -12,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator } from '@/types/tos';
 import { Head, Link } from '@inertiajs/vue3';
 import { Shield } from 'lucide-vue-next';
 
@@ -100,7 +100,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                                 <Badge v-if="a.is_syndicate" variant="outline" class="ml-2 text-[10px]">Syndicate</Badge>
                             </TableCell>
                             <TableCell class="text-xs capitalize">{{ a.type }}</TableCell>
-                            <TableCell class="max-w-md text-xs text-muted-foreground line-clamp-2">
+                            <TableCell class="line-clamp-2 max-w-md text-xs text-muted-foreground">
                                 <TosText v-if="a.description" :text="a.description" />
                             </TableCell>
                         </TableRow>
@@ -115,7 +115,9 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     :href="route('tos.allegiances.view', a.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card class="group/card h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                    <Card
+                        class="group/card h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                    >
                         <div :class="['h-1 w-full', a.color_slug ? `bg-${a.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
                             <div class="mb-3 flex items-start gap-3">

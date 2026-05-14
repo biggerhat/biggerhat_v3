@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface Rule {
@@ -19,16 +19,21 @@ interface Rule {
 
 const columns: ColumnDef<Rule>[] = [
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
-    { accessorKey: 'slug', header: () => h('div', {}, 'Slug'), cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.getValue('slug')) },
+    {
+        accessorKey: 'slug',
+        header: () => h('div', {}, 'Slug'),
+        cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.getValue('slug')),
+    },
     {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
-        cell: ({ row }) => h(AdminActions, {
-            name: row.original.name,
-            editRoute: route('admin.tos.special_rules.edit', row.original.slug),
-            deleteRoute: route('admin.tos.special_rules.delete', row.original.slug),
-        }),
+        cell: ({ row }) =>
+            h(AdminActions, {
+                name: row.original.name,
+                editRoute: route('admin.tos.special_rules.edit', row.original.slug),
+                deleteRoute: route('admin.tos.special_rules.delete', row.original.slug),
+            }),
     },
 ];
 
@@ -36,13 +41,21 @@ const props = defineProps<{ rules: Rule[] }>();
 const columnFilters = ref<ColumnFiltersState>([]);
 
 const table = useVueTable({
-    get data() { return props.rules; },
-    get columns() { return columns; },
+    get data() {
+        return props.rules;
+    },
+    get columns() {
+        return columns;
+    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
-    state: { get columnFilters() { return columnFilters.value; } },
+    state: {
+        get columnFilters() {
+            return columnFilters.value;
+        },
+    },
 });
 </script>
 
@@ -50,7 +63,12 @@ const table = useVueTable({
     <Head title="TOS Special Rules — Admin" />
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input class="max-w-sm" placeholder="Filter by name" :model-value="table.getColumn('name')?.getFilterValue() as string" @update:model-value="table.getColumn('name')?.setFilterValue($event)" />
+            <Input
+                class="max-w-sm"
+                placeholder="Filter by name"
+                :model-value="table.getColumn('name')?.getFilterValue() as string"
+                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+            />
             <Button @click="router.get(route('admin.tos.special_rules.create'))">Create Rule</Button>
         </div>
         <div class="rounded-md border">
@@ -70,7 +88,9 @@ const table = useVueTable({
                             </TableCell>
                         </TableRow>
                     </template>
-                    <template v-else><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template>
+                    <template v-else
+                        ><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template
+                    >
                 </TableBody>
             </Table>
         </div>

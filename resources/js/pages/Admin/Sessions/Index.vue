@@ -38,36 +38,45 @@ const shortenAgent = (ua: string | null) => {
     if (!ua) return 'Unknown';
     // Quick browser/OS sniff — exact UA is preserved as title for hover detail.
     const browser = /Firefox\/[\d.]+/.exec(ua)?.[0] ?? /Chrome\/[\d.]+/.exec(ua)?.[0] ?? /Safari\/[\d.]+/.exec(ua)?.[0] ?? 'Other';
-    const os = /Mac OS X [\d_.]+/.exec(ua)?.[0] ?? /Windows NT [\d.]+/.exec(ua)?.[0] ?? /Android [\d.]+/.exec(ua)?.[0] ?? /iPhone|iPad/.exec(ua)?.[0] ?? '';
+    const os =
+        /Mac OS X [\d_.]+/.exec(ua)?.[0] ?? /Windows NT [\d.]+/.exec(ua)?.[0] ?? /Android [\d.]+/.exec(ua)?.[0] ?? /iPhone|iPad/.exec(ua)?.[0] ?? '';
     return `${browser}${os ? ' · ' + os : ''}`;
 };
 
 const revokeSession = async (s: Session) => {
     if (s.is_current) {
-        if (!(await confirm({
-            title: 'Revoke your own session?',
-            message: 'This will log YOU out immediately.',
-            confirmLabel: 'Log myself out',
+        if (
+            !(await confirm({
+                title: 'Revoke your own session?',
+                message: 'This will log YOU out immediately.',
+                confirmLabel: 'Log myself out',
+                destructive: true,
+            }))
+        )
+            return;
+    } else if (
+        !(await confirm({
+            title: 'Revoke session',
+            message: 'The user will be logged out on their next request.',
+            confirmLabel: 'Revoke',
             destructive: true,
-        }))) return;
-    } else if (!(await confirm({
-        title: 'Revoke session',
-        message: 'The user will be logged out on their next request.',
-        confirmLabel: 'Revoke',
-        destructive: true,
-    }))) {
+        }))
+    ) {
         return;
     }
     router.post(route('admin.sessions.delete', s.id), {}, { preserveScroll: true });
 };
 
 const revokeAllForUser = async (userId: number) => {
-    if (!(await confirm({
-        title: 'Revoke all sessions',
-        message: 'They will be logged out everywhere.',
-        confirmLabel: 'Revoke all',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Revoke all sessions',
+            message: 'They will be logged out everywhere.',
+            confirmLabel: 'Revoke all',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.sessions.delete_all_for_user', userId), {}, { preserveScroll: true });
 };
 </script>

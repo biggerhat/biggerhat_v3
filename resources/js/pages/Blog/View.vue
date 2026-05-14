@@ -61,12 +61,7 @@ const seoDescription = computed(() => {
 </script>
 
 <template>
-    <SeoHead
-        :title="isPreview ? `Preview: ${post.title}` : post.title"
-        :description="seoDescription"
-        :image="post.featured_image"
-        type="article"
-    />
+    <SeoHead :title="isPreview ? `Preview: ${post.title}` : post.title" :description="seoDescription" :image="post.featured_image" type="article" />
     <JsonLd
         v-if="!isPreview && post.published_at"
         head-key="blog-article"
@@ -76,7 +71,9 @@ const seoDescription = computed(() => {
             headline: post.title,
             description: seoDescription,
             image: post.featured_image
-                ? (post.featured_image.startsWith('http') ? post.featured_image : `https://biggerhat.net/storage/${post.featured_image}`)
+                ? post.featured_image.startsWith('http')
+                    ? post.featured_image
+                    : `https://biggerhat.net/storage/${post.featured_image}`
                 : undefined,
             datePublished: post.published_at,
             author: { '@type': 'Person', name: post.author?.name ?? 'BiggerHat' },

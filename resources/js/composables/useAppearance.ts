@@ -8,16 +8,7 @@ type Appearance = 'light' | 'dark' | 'system';
 // short slug form (matching existing Tailwind `bg-*` classes + CSS selectors)
 // so the cookie value can be dropped directly into the HTML attribute
 // server-side with no mapping.
-export type Theme =
-    | 'default'
-    | 'arcanists'
-    | 'bayou'
-    | 'explorerssociety'
-    | 'guild'
-    | 'neverborn'
-    | 'outcasts'
-    | 'resurrectionists'
-    | 'tenthunders';
+export type Theme = 'default' | 'arcanists' | 'bayou' | 'explorerssociety' | 'guild' | 'neverborn' | 'outcasts' | 'resurrectionists' | 'tenthunders';
 
 export function updateTheme(value: Appearance) {
     if (typeof window === 'undefined') {

@@ -129,7 +129,9 @@ onMounted(() => {
     <Head title="TOS Asset — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ asset ? 'Edit Asset' : 'New Asset' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ asset ? 'Edit Asset' : 'New Asset' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-3">
                     <div class="md:col-span-2">
@@ -192,32 +194,24 @@ onMounted(() => {
 
                 <div>
                     <Label>Abilities</Label>
-                    <SearchableMultiselect
-                        v-model="formInfo.ability_ids"
-                        placeholder="Search abilities…"
-                        :options="abilities"
-                        option-value="id"
-                    />
+                    <SearchableMultiselect v-model="formInfo.ability_ids" placeholder="Search abilities…" :options="abilities" option-value="id" />
                 </div>
 
                 <div>
                     <Label>Actions</Label>
-                    <SearchableMultiselect
-                        v-model="formInfo.action_ids"
-                        placeholder="Search actions…"
-                        :options="actionOptions"
-                        option-value="id"
-                    />
+                    <SearchableMultiselect v-model="formInfo.action_ids" placeholder="Search actions…" :options="actionOptions" option-value="id" />
                 </div>
 
                 <div>
                     <div class="mb-1 flex items-center justify-between">
                         <Label>Limits</Label>
-                        <Button type="button" variant="outline" size="sm" @click="addLimit">
-                            <Plus class="mr-1 size-3" /> Add Limit
-                        </Button>
+                        <Button type="button" variant="outline" size="sm" @click="addLimit"> <Plus class="mr-1 size-3" /> Add Limit </Button>
                     </div>
-                    <div v-for="(limit, idx) in formInfo.limits" :key="idx" class="mb-2 grid gap-2 rounded-md border p-3 md:grid-cols-[140px_140px_1fr_auto]">
+                    <div
+                        v-for="(limit, idx) in formInfo.limits"
+                        :key="idx"
+                        class="mb-2 grid gap-2 rounded-md border p-3 md:grid-cols-[140px_140px_1fr_auto]"
+                    >
                         <Select v-model="limit.limit_type">
                             <SelectTrigger><SelectValue placeholder="Limit" /></SelectTrigger>
                             <SelectContent>

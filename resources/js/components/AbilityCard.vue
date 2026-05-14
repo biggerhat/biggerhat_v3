@@ -29,13 +29,9 @@ interface AbilityData {
     upgrades?: AbilityUpgrade[];
 }
 
-const props = withDefaults(
-    defineProps<{
-        ability: AbilityData;
-        hideFooter?: boolean;
-    }>(),
-    { hideFooter: false },
-);
+const props = defineProps<{
+    ability: AbilityData;
+}>();
 
 const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) === 0 && (props.ability.upgrades?.length ?? 0) > 0);
 </script>
@@ -65,7 +61,7 @@ const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) ===
                 </p>
             </div>
         </CardContent>
-        <div v-if="!hideFooter" class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
             <ScrollText v-if="showUpgradeIcon" class="h-3 w-3 shrink-0 text-muted-foreground" />
             <Users v-else class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">

@@ -28,6 +28,11 @@ class BonanzaLootDeckController extends Controller
                 // stones, etc.) instead of bare names.
                 'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
                 'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                // Each action carries its own triggers via the action_trigger
+                // pivot — surface them here so the compact action display can
+                // render them under the action without a second request.
+                'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+                'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
                 'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
                 'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
                 'sideATriggers:id,name,slug,suits,stone_cost,description',

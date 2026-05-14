@@ -34,5 +34,12 @@ class DatabaseSeeder extends Seeder
 
         $this->command->info('Seeding from production API...');
         Artisan::call('app:seed-from-prod', ['--skip-images' => false], $this->command->getOutput());
+
+        // Effect text + Ability/Action/Trigger attachments for Loot Cards.
+        // Must run AFTER the prod-data import — abilities/actions/triggers
+        // are loaded from there, and this seeder name-matches against them.
+        $this->call([
+            LootCardEffectsSeeder::class,
+        ]);
     }
 }

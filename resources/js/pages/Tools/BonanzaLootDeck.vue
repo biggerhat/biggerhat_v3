@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import AbilityCard from '@/components/AbilityCard.vue';
-import ActionCard from '@/components/ActionCard.vue';
+import BonanzaCardImage from '@/components/Bonanza/BonanzaCardImage.vue';
+import BonanzaSplitCard from '@/components/Bonanza/BonanzaSplitCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import TriggerCard from '@/components/TriggerCard.vue';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Head } from '@inertiajs/vue3';
 import { Coins, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+interface ActionTrigger {
+    id: number;
+    slug: string;
+    name: string;
+    suits?: string | null;
+    stone_cost?: number;
+    description?: string | null;
+}
 
 interface LootAction {
     id: number;
@@ -30,6 +35,7 @@ interface LootAction {
     target_suits?: string | null;
     damage?: number | string | null;
     description?: string | null;
+    triggers?: ActionTrigger[];
     pivot?: { is_signature_action?: boolean };
 }
 
@@ -79,8 +85,9 @@ const props = defineProps<{
 const suitFilter = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');
 const search = ref('');
 
-// Per-rulebook flank-zone mapping. Surfaced inline so players see the suit /
-// deployment-zone connection without flipping back to the rules card.
+// Per-rulebook flank-zone mapping. Surfaced in the header chips so players
+// see the suit / deployment-zone connection without flipping back to the
+// rules card.
 const suitMeta: Record<string, { label: string; tone: string }> = {
     crow: { label: 'Crow', tone: 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-300' },
     mask: { label: 'Mask', tone: 'border-purple-500/50 bg-purple-500/10 text-purple-700 dark:text-purple-300' },
@@ -122,22 +129,6 @@ const cardsBySuit = computed(() => {
         groups[card.suit].push(card);
     }
     return groups;
-});
-
-const sideHasContent = (
-    title: string | null,
-    effect: string | null,
-    actions: LootAction[],
-    abilities: LootAbility[],
-    triggers: LootTrigger[],
-): boolean => !!title || !!effect || actions.length > 0 || abilities.length > 0 || triggers.length > 0;
-
-// The pivot on `loot_card_action` carries `is_signature_action` per card-side
-// attachment — surface it on the action so ActionCard renders the signature
-// icon in the header without us forking the component.
-const withSignatureFlag = (action: LootAction): LootAction => ({
-    ...action,
-    is_signature: action.pivot?.is_signature_action ?? action.is_signature ?? false,
 });
 </script>
 
@@ -194,131 +185,36 @@ const withSignatureFlag = (action: LootAction): LootAction => ({
                         >
                         <span class="text-xs font-normal text-muted-foreground">{{ group.length }} card{{ group.length === 1 ? '' : 's' }}</span>
                     </h2>
-                    <div class="grid gap-3 xl:grid-cols-2">
-                        <Card v-for="card in group" :key="card.id" class="overflow-hidden">
-                            <CardContent class="space-y-3 p-3">
-                                <div class="flex items-start gap-3">
-                                    <img
-                                        v-if="card.image"
-                                        :src="`/storage/${card.image}`"
-                                        :alt="card.name"
-                                        class="size-20 shrink-0 rounded-md border object-cover"
-                                        loading="lazy"
-                                    />
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center gap-2">
-                                            <Badge
-                                                variant="outline"
-                                                class="px-1.5 py-0 font-mono text-[10px] tabular-nums"
-                                                :class="suitMeta[card.suit]?.tone ?? ''"
-                                                >{{ card.value_label }}</Badge
-                                            >
-                                            <span class="truncate text-sm font-semibold">{{ card.name }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="space-y-3">
-                                    <!-- SIDE A -->
-                                    <div
-                                        v-if="
-                                            sideHasContent(
-                                                card.title_a,
-                                                card.effect_a,
-                                                card.side_a_actions,
-                                                card.side_a_abilities,
-                                                card.side_a_triggers,
-                                            )
-                                        "
-                                        class="space-y-2 rounded-md border bg-muted/30 p-2"
-                                    >
-                                        <div class="flex items-center gap-1.5">
-                                            <Badge class="bg-primary/15 px-1 py-0 text-[9px] font-bold text-primary">A</Badge>
-                                            <span v-if="card.title_a" class="text-sm font-semibold">{{ card.title_a }}</span>
-                                        </div>
-                                        <p v-if="card.effect_a" class="whitespace-pre-line text-xs text-muted-foreground">
-                                            <GameText :text="card.effect_a" icon-class="h-4 inline-block align-text-bottom" />
-                                        </p>
-                                        <div v-if="card.side_a_abilities.length" class="space-y-1.5">
-                                            <AbilityCard
-                                                v-for="ability in card.side_a_abilities"
-                                                :key="`a-ab-${ability.id}`"
-                                                :ability="ability"
-                                                hide-footer
-                                            />
-                                        </div>
-                                        <div v-if="card.side_a_actions.length" class="space-y-1.5">
-                                            <ActionCard
-                                                v-for="action in card.side_a_actions"
-                                                :key="`a-ac-${action.id}`"
-                                                :action="withSignatureFlag(action)"
-                                                hide-footer
-                                            />
-                                        </div>
-                                        <div v-if="card.side_a_triggers.length" class="space-y-1.5">
-                                            <TriggerCard
-                                                v-for="trigger in card.side_a_triggers"
-                                                :key="`a-tr-${trigger.id}`"
-                                                :trigger="trigger"
-                                                hide-footer
-                                            />
-                                        </div>
-                                    </div>
-                                    <div v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">
-                                        Side A not yet entered
-                                    </div>
-
-                                    <!-- SIDE B -->
-                                    <div
-                                        v-if="
-                                            sideHasContent(
-                                                card.title_b,
-                                                card.effect_b,
-                                                card.side_b_actions,
-                                                card.side_b_abilities,
-                                                card.side_b_triggers,
-                                            )
-                                        "
-                                        class="space-y-2 rounded-md border bg-muted/30 p-2"
-                                    >
-                                        <div class="flex items-center gap-1.5">
-                                            <Badge class="bg-primary/15 px-1 py-0 text-[9px] font-bold text-primary">B</Badge>
-                                            <span v-if="card.title_b" class="text-sm font-semibold">{{ card.title_b }}</span>
-                                        </div>
-                                        <p v-if="card.effect_b" class="whitespace-pre-line text-xs text-muted-foreground">
-                                            <GameText :text="card.effect_b" icon-class="h-4 inline-block align-text-bottom" />
-                                        </p>
-                                        <div v-if="card.side_b_abilities.length" class="space-y-1.5">
-                                            <AbilityCard
-                                                v-for="ability in card.side_b_abilities"
-                                                :key="`b-ab-${ability.id}`"
-                                                :ability="ability"
-                                                hide-footer
-                                            />
-                                        </div>
-                                        <div v-if="card.side_b_actions.length" class="space-y-1.5">
-                                            <ActionCard
-                                                v-for="action in card.side_b_actions"
-                                                :key="`b-ac-${action.id}`"
-                                                :action="withSignatureFlag(action)"
-                                                hide-footer
-                                            />
-                                        </div>
-                                        <div v-if="card.side_b_triggers.length" class="space-y-1.5">
-                                            <TriggerCard
-                                                v-for="trigger in card.side_b_triggers"
-                                                :key="`b-tr-${trigger.id}`"
-                                                :trigger="trigger"
-                                                hide-footer
-                                            />
-                                        </div>
-                                    </div>
-                                    <div v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">
-                                        Side B not yet entered
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        <template v-for="card in group" :key="card.id">
+                            <!-- Image-first: when a card has a generated/uploaded
+                                 image, render it as the card (with a flip
+                                 icon to rotate so Side B can be read upright).
+                                 Falls back to the live text layout when no
+                                 image exists. -->
+                            <BonanzaCardImage v-if="card.image" :image="card.image" :name="card.name" />
+                            <BonanzaSplitCard
+                                v-else
+                                :name="card.name"
+                                :suit="card.suit"
+                                :value-label="card.value_label"
+                                :image="null"
+                                :side-a="{
+                                    title: card.title_a,
+                                    effect: card.effect_a,
+                                    abilities: card.side_a_abilities,
+                                    actions: card.side_a_actions,
+                                    triggers: card.side_a_triggers,
+                                }"
+                                :side-b="{
+                                    title: card.title_b,
+                                    effect: card.effect_b,
+                                    abilities: card.side_b_abilities,
+                                    actions: card.side_b_actions,
+                                    triggers: card.side_b_triggers,
+                                }"
+                            />
+                        </template>
                     </div>
                 </div>
             </template>

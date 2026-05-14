@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BonanzaSplitCard from '@/components/Bonanza/BonanzaSplitCard.vue';
+import { fetchFontEmbedCSS } from '@/components/CardCreator/utils';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,10 +12,34 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, ImageOff, Save, Trash2, Upload } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
+// `Linked` carries the full per-entity fields ourselves so the BonanzaSplitCard
+// preview can render with descriptions, stats, suit icons, etc. The admin
+// controller's `edit()` loads these columns for the card's existing pivots;
+// newly-added entities (selected from `all_*`) ride on the lighter `*Option`
+// shape and the preview will render with whatever fields are present.
 interface Linked {
     id: number;
     name: string;
     slug: string;
+    // Action fields
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | null;
+    range_type?: string | null;
+    stat?: number | null;
+    stat_suits?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | null;
+    target_suits?: string | null;
+    damage?: number | string | null;
+    triggers?: Array<{ id?: number; name: string; suits?: string | null; stone_cost?: number; description?: string | null }>;
+    // Ability fields
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    // Shared
+    description?: string | null;
     pivot?: { is_signature_action?: boolean };
 }
 
@@ -73,26 +99,13 @@ const newValueLabel = ref<string>('');
 const isJoker = computed(() => newSuit.value === 'joker');
 
 /**
- * Mirror of `LootCardAdminController::resolveValueLabel`. Non-jokers derive
- * their printed face from `value`; jokers use the admin-supplied label
- * (the only case where we actually ask for it on the form).
+ * Mirror of `LootCardAdminController::resolveValueLabel`. The loot deck is
+ * numeric-only (no A/J/Q/K) — non-jokers print their face as the raw value;
+ * jokers use the admin-supplied label.
  */
 const derivedValueLabel = computed<string>(() => {
     if (isJoker.value) return newValueLabel.value.trim() || 'Joker';
-    switch (newValue.value) {
-        case 1:
-            return 'A';
-        case 11:
-            return 'J';
-        case 12:
-            return 'Q';
-        case 13:
-            return 'K';
-        case null:
-            return '';
-        default:
-            return String(newValue.value);
-    }
+    return newValue.value === null ? '' : String(newValue.value);
 });
 
 const sideAActionRows = ref<{ slug: string; is_signature_action: boolean }[]>(
@@ -130,6 +143,9 @@ const slugToTriggerId = computed(() => {
 // Image upload — separate from useForm since the file input is its own ref.
 const imageFile = ref<File | null>(null);
 const removeImage = ref(false);
+// Surface the brief async capture step so the save button can show a
+// dedicated state and the admin knows the form didn't freeze.
+const capturing = ref(false);
 const onImageChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
     imageFile.value = target.files?.[0] ?? null;
@@ -187,7 +203,85 @@ const sideBSlugs = computed({
     set: (slugs: string[]) => syncActionRows(sideBActionRows.value, slugs),
 });
 
-const submit = () => {
+// Slug → full-entity maps. Sources are merged in order; later sources
+// overwrite earlier ones — so we put the lite `all_*` lists first, then
+// let the existing card's rich relations (descriptions, suits, stat
+// blocks, action.triggers) win.
+const buildLookup = <T extends { slug: string }>(...sources: (T[] | null | undefined)[]): Record<string, T> => {
+    const map: Record<string, T> = {};
+    for (const source of sources) {
+        for (const item of source ?? []) map[item.slug] = item;
+    }
+    return map;
+};
+
+const abilityLookup = computed(() =>
+    buildLookup<Linked | NamedOption>(props.all_abilities, props.card?.side_a_abilities, props.card?.side_b_abilities),
+);
+const actionLookup = computed(() => buildLookup<Linked | ActionOption>(props.all_actions, props.card?.side_a_actions, props.card?.side_b_actions));
+const triggerLookup = computed(() => buildLookup<Linked | NamedOption>(props.all_triggers, props.card?.side_a_triggers, props.card?.side_b_triggers));
+
+// Compose per-side data for the BonanzaSplitCard preview. Action rows carry
+// the pivot signature flag in their own local state — fold it back onto the
+// derived action entity so the preview reflects the toggled state live.
+const previewAbilities = (slugs: string[]) => slugs.map((s) => abilityLookup.value[s]).filter(Boolean) as Linked[];
+const previewActions = (rows: { slug: string; is_signature_action: boolean }[]) =>
+    rows
+        .map((row) => {
+            const base = actionLookup.value[row.slug];
+            if (!base) return null;
+            return { ...base, is_signature: row.is_signature_action };
+        })
+        .filter(Boolean) as Linked[];
+const previewTriggers = (slugs: string[]) => slugs.map((s) => triggerLookup.value[s]).filter(Boolean) as Linked[];
+
+const previewSideA = computed(() => ({
+    title: (form.title_a as string | null) || null,
+    effect: (form.effect_a as string | null) || null,
+    abilities: previewAbilities(sideAAbilitySlugs.value),
+    actions: previewActions(sideAActionRows.value),
+    triggers: previewTriggers(sideATriggerSlugs.value),
+}));
+const previewSideB = computed(() => ({
+    title: (form.title_b as string | null) || null,
+    effect: (form.effect_b as string | null) || null,
+    abilities: previewAbilities(sideBAbilitySlugs.value),
+    actions: previewActions(sideBActionRows.value),
+    triggers: previewTriggers(sideBTriggerSlugs.value),
+}));
+
+const previewSuit = computed(() => (isCreate.value ? newSuit.value : props.card!.suit));
+const previewValueLabel = computed(() => (isCreate.value ? derivedValueLabel.value || '?' : props.card!.value_label));
+
+// Hidden offscreen preview that html-to-image will capture on save. Width
+// roughly matches a tarot-card aspect at 2x export resolution.
+const previewRef = ref<HTMLDivElement | null>(null);
+
+const captureCardImage = async (): Promise<File | null> => {
+    if (!previewRef.value) return null;
+    const target = previewRef.value.firstElementChild as HTMLElement | null;
+    if (!target) return null;
+    try {
+        const { toPng } = await import('html-to-image');
+        const fontEmbedCSS = await fetchFontEmbedCSS();
+        // No backgroundColor — let the card's own bg-card / suit-tinted
+        // header chrome show through. Transparent surround keeps rounded
+        // corners clean when displayed on light or dark backgrounds.
+        const dataUrl = await toPng(target, { pixelRatio: 2, skipFonts: true, fontEmbedCSS });
+        const blob = await (await fetch(dataUrl)).blob();
+        const slugBase = (form.name as string) || `loot-card-${Date.now()}`;
+        const filename = `${slugBase}.png`.replace(/[^\w.-]+/g, '-');
+        return new File([blob], filename, { type: 'image/png' });
+    } catch (e) {
+        // Image capture is best-effort — if fonts fail to embed or the
+        // canvas tainting check fires, fall back to a no-image save so
+        // the admin's edit doesn't get blocked.
+        console.error('Loot card image capture failed:', e);
+        return null;
+    }
+};
+
+const submit = async () => {
     // Build the form payload from the side-row state at submit time.
     form.side_a_actions = sideAActionRows.value
         .filter((r) => slugToActionId.value[r.slug])
@@ -199,11 +293,27 @@ const submit = () => {
     form.side_b_abilities = sideBAbilitySlugs.value.map((s) => slugToAbilityId.value[s]).filter(Boolean);
     form.side_a_triggers = sideATriggerSlugs.value.map((s) => slugToTriggerId.value[s]).filter(Boolean);
     form.side_b_triggers = sideBTriggerSlugs.value.map((s) => slugToTriggerId.value[s]).filter(Boolean);
-    form.image = imageFile.value;
     form.remove_image = removeImage.value;
     form.suit = newSuit.value;
     form.value = isJoker.value ? null : newValue.value;
     form.value_label = derivedValueLabel.value;
+
+    // Manual upload wins. Otherwise, capture the live preview as the card's
+    // image so the bonanza display has a real PNG to flip to. If the
+    // capture fails (font fetch, etc.) we save with no image and the page
+    // falls back to the text layout.
+    if (imageFile.value) {
+        form.image = imageFile.value;
+    } else if (!removeImage.value) {
+        capturing.value = true;
+        try {
+            form.image = await captureCardImage();
+        } finally {
+            capturing.value = false;
+        }
+    } else {
+        form.image = null;
+    }
 
     const url = isCreate.value ? route('admin.loot_cards.store') : route('admin.loot_cards.update', props.card!.slug);
 
@@ -414,8 +524,34 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
             </div>
 
             <div class="flex justify-end">
-                <Button type="submit" :disabled="form.processing" class="gap-1.5"> <Save class="size-4" /> Save </Button>
+                <Button type="submit" :disabled="form.processing || capturing" class="gap-1.5">
+                    <Save class="size-4" />
+                    <span v-if="capturing">Capturing image…</span>
+                    <span v-else>Save</span>
+                </Button>
             </div>
         </form>
+
+        <!-- Hidden offscreen render of the BonanzaSplitCard with the current
+             form state. html-to-image captures the first child here when
+             the admin hasn't uploaded a manual image.
+             Width matches the bonanza display: at xl with 3 cols, each
+             grid cell is ~408px (container 1280 − padding − gaps ÷ 3).
+             Capturing at 420px renders the layout at native scale so the
+             PNG isn't downscaled by the browser when displayed — keeps
+             text readable instead of squished. pixelRatio:2 in the toPng
+             call gives retina sharpness. -->
+        <div ref="previewRef" aria-hidden="true" class="pointer-events-none fixed -left-[9999px] top-0 w-[420px] select-none">
+            <BonanzaSplitCard
+                :name="(form.name as string) || ''"
+                :suit="previewSuit"
+                :value-label="previewValueLabel"
+                :image="null"
+                :side-a="previewSideA"
+                :side-b="previewSideB"
+                :mirror="true"
+                :hide-toggle="true"
+            />
+        </div>
     </div>
 </template>

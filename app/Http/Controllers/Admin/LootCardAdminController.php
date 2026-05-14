@@ -36,31 +36,59 @@ class LootCardAdminController extends Controller
     {
         return inertia('Admin/LootCards/LootCardForm', [
             'card' => null,
-            'all_actions' => fn () => Action::query()->orderBy('name')->get(['id', 'name', 'slug', 'is_signature']),
-            'all_abilities' => fn () => Ability::query()->orderBy('name')->get(['id', 'name', 'slug']),
-            'all_triggers' => fn () => Trigger::query()->orderBy('name')->get(['id', 'name', 'slug']),
+            ...$this->multiselectProps(),
         ]);
     }
 
     public function edit(Request $request, LootCard $lootCard): \Inertia\Response|\Inertia\ResponseFactory
     {
+        // Load the full per-relation column set + nested action triggers so
+        // the form can render a faithful BonanzaSplitCard preview for the
+        // auto-generated card image. Matches what BonanzaLootDeckController
+        // ships to the public page.
         $lootCard->load([
-            'sideAActions:id,name,slug',
-            'sideBActions:id,name,slug',
-            'sideAAbilities:id,name,slug',
-            'sideBAbilities:id,name,slug',
-            'sideATriggers:id,name,slug',
-            'sideBTriggers:id,name,slug',
+            'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
+            'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
+            'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideATriggers:id,name,slug,suits,stone_cost,description',
+            'sideBTriggers:id,name,slug,suits,stone_cost,description',
         ]);
 
         return inertia('Admin/LootCards/LootCardForm', [
             'card' => $lootCard,
-            // Lazy props — populate the multi-select option lists only when
-            // the form actually mounts.
-            'all_actions' => fn () => Action::query()->orderBy('name')->get(['id', 'name', 'slug', 'is_signature']),
-            'all_abilities' => fn () => Ability::query()->orderBy('name')->get(['id', 'name', 'slug']),
-            'all_triggers' => fn () => Trigger::query()->orderBy('name')->get(['id', 'name', 'slug']),
+            ...$this->multiselectProps(),
         ]);
+    }
+
+    /**
+     * Lazy multiselect props for the form. Ships the full per-entity column
+     * set so the BonanzaSplitCard preview can render a faithful image even
+     * for newly-selected (not previously attached) abilities/actions/triggers.
+     * Action triggers are nested so the action-display can list its triggers.
+     *
+     * @return array<string, \Closure>
+     */
+    private function multiselectProps(): array
+    {
+        return [
+            'all_actions' => fn () => Action::query()
+                ->orderBy('name')
+                ->with(['triggers:id,name,slug,suits,stone_cost,description'])
+                ->get([
+                    'id', 'name', 'slug', 'type', 'is_signature', 'stone_cost', 'range',
+                    'range_type', 'stat', 'stat_suits', 'resisted_by', 'target_number',
+                    'target_suits', 'damage', 'description',
+                ]),
+            'all_abilities' => fn () => Ability::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'suits', 'defensive_ability_type', 'costs_stone', 'description']),
+            'all_triggers' => fn () => Trigger::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'suits', 'stone_cost', 'description']),
+        ];
     }
 
     public function store(Request $request)
@@ -138,16 +166,11 @@ class LootCardAdminController extends Controller
             return $label !== '' ? $label : 'Joker';
         }
 
+        // Bonanza loot deck is numeric-only (no A/J/Q/K) — print whichever
+        // integer 1-13 the admin entered.
         $value = $validated['value'] ?? null;
 
-        return match ($value) {
-            1 => 'A',
-            11 => 'J',
-            12 => 'Q',
-            13 => 'K',
-            null => '',
-            default => (string) $value,
-        };
+        return $value === null ? '' : (string) $value;
     }
 
     private function validatePayload(Request $request, bool $isCreate): array

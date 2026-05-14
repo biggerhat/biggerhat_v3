@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -13,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator } from '@/types/tos';
 import { Head } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
 
@@ -139,7 +139,11 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             </div>
                         </div>
                         <p class="mb-1 text-[11px] text-muted-foreground">
-                            <template v-if="a.av != null">{{ a.av }}<TosSuits v-if="a.av_suits" :suits="a.av_suits" /><template v-if="a.av_target"> v {{ a.av_target }}</template></template>
+                            <template v-if="a.av != null"
+                                >{{ a.av }}<TosSuits v-if="a.av_suits" :suits="a.av_suits" /><template v-if="a.av_target">
+                                    v {{ a.av_target }}</template
+                                ></template
+                            >
                             <template v-if="a.range"> · {{ a.range }}</template>
                             <template v-if="a.strength != null"> · Strength {{ a.strength }}</template>
                         </p>
@@ -165,12 +169,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     </CardContent>
                 </Card>
             </div>
-            <EmptyState
-                v-else
-                :icon="Swords"
-                title="No actions match"
-                description="Try clearing your search or switching the page view."
-            />
+            <EmptyState v-else :icon="Swords" title="No actions match" description="Try clearing your search or switching the page view." />
 
             <InertiaPagination v-if="!isLoading" :paginator="actions" :only="['actions', 'name_search', 'page_view']" />
         </div>

@@ -44,11 +44,7 @@ function switchTo(target: 'malifaux' | 'tos') {
         <button
             type="button"
             class="inline-flex h-7 items-center rounded px-2 transition-colors"
-            :class="
-                current === 'malifaux'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-            "
+            :class="current === 'malifaux' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             :aria-pressed="current === 'malifaux'"
             @click="switchTo('malifaux')"
         >

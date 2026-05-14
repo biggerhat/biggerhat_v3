@@ -8,23 +8,10 @@ import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import {
-    AlertTriangle,
-    Crown,
-    Globe,
-    Newspaper,
-    Package,
-    ScrollText,
-    Swords,
-} from 'lucide-vue-next';
+import { AlertTriangle, Crown, Globe, Newspaper, Package, ScrollText, Swords } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-type GarrisonFormat =
-    | 'one_commander'
-    | 'one_commander_plus_10'
-    | 'two_commanders'
-    | 'theater_of_war'
-    | 'no_mans_land';
+type GarrisonFormat = 'one_commander' | 'one_commander_plus_10' | 'two_commanders' | 'theater_of_war' | 'no_mans_land';
 
 interface Allegiance {
     id: number;
@@ -142,9 +129,7 @@ const props = defineProps<{
 const commanderUnits = computed(() => props.garrison.garrison_units.filter((gu) => gu.is_commander));
 const minionUnits = computed(() => props.garrison.garrison_units.filter((gu) => !gu.is_commander));
 
-const accentBg = computed(() =>
-    props.garrison.allegiance.color_slug ? `bg-${props.garrison.allegiance.color_slug}` : 'bg-primary/40',
-);
+const accentBg = computed(() => (props.garrison.allegiance.color_slug ? `bg-${props.garrison.allegiance.color_slug}` : 'bg-primary/40'));
 
 const overBudget = computed(() => props.scrip_remaining < 0);
 const budgetPercent = computed(() => {
@@ -189,11 +174,12 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 </div>
             </template>
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <Link
-                        :href="route('tos.allegiances.view', garrison.allegiance.slug)"
-                        class="hover:text-foreground hover:underline"
-                    >{{ garrison.allegiance.name }}</Link>
+                <div
+                    class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
+                    <Link :href="route('tos.allegiances.view', garrison.allegiance.slug)" class="hover:text-foreground hover:underline">{{
+                        garrison.allegiance.name
+                    }}</Link>
                     <span class="text-muted-foreground/50">&middot;</span>
                     <span>{{ format.label }}</span>
                     <span class="text-muted-foreground/50">&middot;</span>
@@ -204,7 +190,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
 
         <div class="container mx-auto space-y-3 px-3 sm:px-4">
             <!-- Public-share banner -->
-            <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+            <div
+                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+            >
                 <Globe class="size-3" />
                 Shared Garrison &middot; read-only
             </div>
@@ -222,10 +210,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                     <div>
                         <div class="mb-1 flex items-baseline justify-between text-xs">
                             <span class="text-muted-foreground">Scrip pool</span>
-                            <span
-                                class="font-semibold tabular-nums"
-                                :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
-                            >{{ scrip_spent }} / {{ format.scrip_budget }}</span>
+                            <span class="font-semibold tabular-nums" :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
+                                >{{ scrip_spent }} / {{ format.scrip_budget }}</span
+                            >
                         </div>
                         <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
                             <div class="h-full transition-all" :class="budgetBarClass" :style="{ width: `${budgetPercent}%` }" />
@@ -237,10 +224,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
             </Card>
 
             <!-- Violations banner -->
-            <div
-                v-if="violations.length"
-                class="rounded-md border border-rose-500/40 bg-rose-500/5 p-3"
-            >
+            <div v-if="violations.length" class="rounded-md border border-rose-500/40 bg-rose-500/5 p-3">
                 <div class="flex items-start gap-2">
                     <AlertTriangle class="mt-0.5 size-4 shrink-0 text-rose-600 dark:text-rose-400" />
                     <div class="min-w-0 flex-1">
@@ -256,7 +240,12 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
 
             <!-- Empty pool -->
             <EmptyState
-                v-if="garrison.garrison_units.length === 0 && garrison.assets.length === 0 && garrison.stratagems.length === 0 && garrison.envoys.length === 0"
+                v-if="
+                    garrison.garrison_units.length === 0 &&
+                    garrison.assets.length === 0 &&
+                    garrison.stratagems.length === 0 &&
+                    garrison.envoys.length === 0
+                "
                 :icon="Swords"
                 title="Garrison pool is empty"
                 description="The owner hasn't filled out their pool yet."
@@ -267,11 +256,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <Crown class="size-4 text-amber-500" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Commanders</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ commanderUnits.length }} / {{ format.max_commanders }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Card v-for="gu in commanderUnits" :key="gu.id" class="h-full overflow-hidden border-amber-500/30">
                         <FlipCard
                             :front-image="activeSculpt(gu)?.front_image"
@@ -300,7 +287,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Units</h2>
                     <Badge variant="secondary" class="text-[10px]">{{ minionUnits.length }}</Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Card v-for="gu in minionUnits" :key="gu.id" class="h-full overflow-hidden">
                         <FlipCard
                             :front-image="activeSculpt(gu)?.front_image"
@@ -335,7 +322,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                         {{ garrison.assets.reduce((n, a) => n + a.pivot.quantity, 0) }}
                     </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Link
                         v-for="a in garrison.assets"
                         :key="a.id"
@@ -359,12 +346,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                                     {{ a.scrip_cost }}s each &middot; {{ a.scrip_cost * a.pivot.quantity }}s total
                                 </p>
                                 <div v-if="a.limits.length" class="flex flex-wrap gap-1">
-                                    <Badge
-                                        v-for="l in a.limits"
-                                        :key="l.id"
-                                        variant="outline"
-                                        class="text-[10px] capitalize"
-                                    >{{ limitLabel(l) }}</Badge>
+                                    <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-[10px] capitalize">{{
+                                        limitLabel(l)
+                                    }}</Badge>
                                 </div>
                             </CardContent>
                         </Card>
@@ -377,11 +361,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Stratagems</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ garrison.stratagems.length }} / {{ format.stratagem_count }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.stratagems.length }} / {{ format.stratagem_count }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Link
                         v-for="s in garrison.stratagems"
                         :key="s.id"
@@ -416,11 +398,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Envoys</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ garrison.envoys.length }} / {{ format.envoy_count }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.envoys.length }} / {{ format.envoy_count }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Link
                         v-for="c in garrison.envoys"
                         :key="c.id"

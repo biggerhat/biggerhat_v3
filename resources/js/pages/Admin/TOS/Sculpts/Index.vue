@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface Sculpt {
@@ -60,25 +60,32 @@ const columnFilters = ref<ColumnFiltersState>([]);
 const globalFilter = ref('');
 
 const table = useVueTable({
-    get data() { return props.sculpts; },
-    get columns() { return columns; },
+    get data() {
+        return props.sculpts;
+    },
+    get columns() {
+        return columns;
+    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     onGlobalFilterChange: (u) => valueUpdater(u, globalFilter),
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: (row, _columnId, value) => {
-        const needle = String(value ?? '').toLowerCase().trim();
+        const needle = String(value ?? '')
+            .toLowerCase()
+            .trim();
         if (!needle) return true;
         const sculpt = row.original as Sculpt;
-        return (
-            (sculpt.name ?? '').toLowerCase().includes(needle) ||
-            (sculpt.unit?.name ?? '').toLowerCase().includes(needle)
-        );
+        return (sculpt.name ?? '').toLowerCase().includes(needle) || (sculpt.unit?.name ?? '').toLowerCase().includes(needle);
     },
     state: {
-        get columnFilters() { return columnFilters.value; },
-        get globalFilter() { return globalFilter.value; },
+        get columnFilters() {
+            return columnFilters.value;
+        },
+        get globalFilter() {
+            return globalFilter.value;
+        },
     },
 });
 </script>

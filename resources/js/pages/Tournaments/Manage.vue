@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Combobox,
     ComboboxAnchor,
@@ -26,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
@@ -187,15 +187,17 @@ const props = defineProps<{
     // null on initial render, populated by the follow-up request.
     masters: MasterOption[] | null;
     all_strategies: { id: number; name: string; slug: string; image_url: string | null }[] | null;
-    all_schemes: {
-        id: number;
-        name: string;
-        slug: string;
-        image_url: string | null;
-        prerequisite: string | null;
-        reveal: string | null;
-        scoring: string | null;
-    }[] | null;
+    all_schemes:
+        | {
+              id: number;
+              name: string;
+              slug: string;
+              image_url: string | null;
+              prerequisite: string | null;
+              reveal: string | null;
+              scoring: string | null;
+          }[]
+        | null;
     all_deployments: { value: string; label: string; description: string | null; image_url: string | null }[];
 }>();
 
@@ -321,7 +323,7 @@ const openEditPlayerDialog = (player: TournamentPlayer) => {
 };
 
 const submitEditPlayer = async () => {
-    if (! editingPlayer.value || ! editPlayerName.value.trim() || ! editPlayerFaction.value) return;
+    if (!editingPlayer.value || !editPlayerName.value.trim() || !editPlayerFaction.value) return;
     editPlayerSubmitting.value = true;
     editPlayerError.value = null;
 
@@ -605,12 +607,15 @@ const createRound = async () => {
 };
 
 const deleteRound = async (roundId: number, roundNumber: number) => {
-    if (!(await confirm({
-        title: `Delete Round ${roundNumber}?`,
-        message: 'This will remove the round and any pairings/games it contains.',
-        confirmLabel: 'Delete round',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Delete Round ${roundNumber}?`,
+            message: 'This will remove the round and any pairings/games it contains.',
+            confirmLabel: 'Delete round',
+            destructive: true,
+        }))
+    )
+        return;
     if (await doAction(route('tournaments.rounds.delete', { tournament: props.tournament.uuid, round: roundId }), 'DELETE')) {
         reloadPage();
     }
@@ -818,12 +823,16 @@ const trackerAbandoned = computed(() => editingGame.value?.tracker_game?.status 
 // blocking on their dashboards forever.
 const completingTracker = ref(false);
 const completeTrackerGame = async () => {
-    if (! editingGame.value) return;
-    if (! (await confirm({
-        title: 'Force complete tracker game?',
-        message: 'Marks the tracker game as Completed without recording a winner. The tournament score below is the source of truth — use this to clean up games players left in progress.',
-        confirmLabel: 'Complete',
-    }))) return;
+    if (!editingGame.value) return;
+    if (
+        !(await confirm({
+            title: 'Force complete tracker game?',
+            message:
+                'Marks the tracker game as Completed without recording a winner. The tournament score below is the source of truth — use this to clean up games players left in progress.',
+            confirmLabel: 'Complete',
+        }))
+    )
+        return;
     completingTracker.value = true;
     if (await doAction(route('tournaments.games.complete_tracker', { tournament: props.tournament.uuid, game: editingGame.value.id }), 'POST')) {
         reloadPage();
@@ -855,9 +864,10 @@ const saveScore = async () => {
     );
     if (!scoreResult.ok) {
         submitting.value = false;
-        scoreError.value = scoreResult.error === 'tracker_in_progress'
-            ? 'The tracker game is still in progress. Refresh and try again to confirm.'
-            : scoreResult.error;
+        scoreError.value =
+            scoreResult.error === 'tracker_in_progress'
+                ? 'The tracker game is still in progress. Refresh and try again to confirm.'
+                : scoreResult.error;
         return;
     }
 
@@ -974,11 +984,7 @@ const scenarioIsComplete = (): boolean => {
 // user physically can't choose the same scheme twice. Mirrors the same shape
 // the Crew Builder uses for sculpt picking.
 const availableSchemesForSlot = (idx: number) => {
-    const taken = new Set(
-        editSchemePool.value
-            .map((v, i) => (i === idx ? null : v))
-            .filter(Boolean) as string[],
-    );
+    const taken = new Set(editSchemePool.value.map((v, i) => (i === idx ? null : v)).filter(Boolean) as string[]);
     return (props.all_schemes ?? []).filter((s: { id: number }) => !taken.has(String(s.id)));
 };
 
@@ -1317,7 +1323,9 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div class="flex min-w-0 items-center gap-2">
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
-                                    <span v-if="rsvp.faction" class="text-[10px] text-muted-foreground sm:text-xs">{{ factions[rsvp.faction]?.name ?? rsvp.faction }}</span>
+                                    <span v-if="rsvp.faction" class="text-[10px] text-muted-foreground sm:text-xs">{{
+                                        factions[rsvp.faction]?.name ?? rsvp.faction
+                                    }}</span>
                                 </div>
                                 <div class="flex items-center gap-1">
                                     <Button
@@ -1382,7 +1390,10 @@ const titlesForMaster = (masterName: string | null) => {
                                                         class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
                                                         @click="openNewMetaDialog(newPlayerMetaSearch)"
                                                     >
-                                                        <Plus class="size-3.5" /> Add "<span class="font-medium">{{ newPlayerMetaSearch.trim() }}</span>"
+                                                        <Plus class="size-3.5" /> Add "<span class="font-medium">{{
+                                                            newPlayerMetaSearch.trim()
+                                                        }}</span
+                                                        >"
                                                     </button>
                                                     <span v-else class="text-xs text-muted-foreground">Type to search or add a meta.</span>
                                                 </ComboboxEmpty>
@@ -1436,7 +1447,9 @@ const titlesForMaster = (masterName: string | null) => {
                                         /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">
-                                                <span class="flex items-center gap-1.5"><img :src="f.logo" :alt="f.name" class="size-4" /> {{ f.name }}</span>
+                                                <span class="flex items-center gap-1.5"
+                                                    ><img :src="f.logo" :alt="f.name" class="size-4" /> {{ f.name }}</span
+                                                >
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1690,7 +1703,9 @@ const titlesForMaster = (masterName: string | null) => {
                                         </div>
                                         <div class="flex gap-1">
                                             <Select v-model="editStrategy">
-                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue :placeholder="all_strategies ? 'Strategy...' : 'Loading…'" /></SelectTrigger>
+                                                <SelectTrigger class="h-8 flex-1 text-xs"
+                                                    ><SelectValue :placeholder="all_strategies ? 'Strategy...' : 'Loading…'"
+                                                /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem v-for="s in all_strategies ?? []" :key="s.id" :value="String(s.id)">{{
                                                         s.name
@@ -1714,7 +1729,9 @@ const titlesForMaster = (masterName: string | null) => {
                                                     ><SelectValue :placeholder="all_schemes ? 'Scheme ' + (idx + 1) : 'Loading…'"
                                                 /></SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem v-for="s in availableSchemesForSlot(idx)" :key="s.id" :value="String(s.id)">{{ s.name }}</SelectItem>
+                                                    <SelectItem v-for="s in availableSchemesForSlot(idx)" :key="s.id" :value="String(s.id)">{{
+                                                        s.name
+                                                    }}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <button
@@ -2003,7 +2020,9 @@ const titlesForMaster = (masterName: string | null) => {
                                     <div class="space-y-1">
                                         <Label class="text-xs">Encounter Size</Label>
                                         <NumberField v-model="editEncounterSize" :min="20" :max="100" :step="5">
-                                            <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                            <NumberFieldContent
+                                                ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                            /></NumberFieldContent>
                                         </NumberField>
                                     </div>
                                     <div class="space-y-1">
@@ -2011,14 +2030,18 @@ const titlesForMaster = (masterName: string | null) => {
                                         <Select v-model="editEncounterType">
                                             <SelectTrigger class="h-9 text-xs"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
+                                                <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{
+                                                    et.label
+                                                }}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div class="space-y-1">
                                         <Label class="text-xs">Planned Rounds</Label>
                                         <NumberField v-model="editPlannedRounds" :min="1" :max="7">
-                                            <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                            <NumberFieldContent
+                                                ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                            /></NumberFieldContent>
                                         </NumberField>
                                     </div>
                                 </div>
@@ -2042,7 +2065,10 @@ const titlesForMaster = (masterName: string | null) => {
                                             Advanced Scoring
                                             <span class="text-xs font-normal text-muted-foreground">Bye scoring</span>
                                         </span>
-                                        <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform" :class="editAdvancedOpen ? 'rotate-180' : ''" />
+                                        <ChevronDown
+                                            class="size-4 shrink-0 text-muted-foreground transition-transform"
+                                            :class="editAdvancedOpen ? 'rotate-180' : ''"
+                                        />
                                     </button>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent class="space-y-3 pt-3">
@@ -2054,19 +2080,25 @@ const titlesForMaster = (masterName: string | null) => {
                                             <div class="space-y-1">
                                                 <Label class="text-[10px]">TP</Label>
                                                 <NumberField v-model="editByeTp" :min="0" :max="5">
-                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                    <NumberFieldContent
+                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                    /></NumberFieldContent>
                                                 </NumberField>
                                             </div>
                                             <div class="space-y-1">
                                                 <Label class="text-[10px]">Differential</Label>
                                                 <NumberField v-model="editByeDiff" :min="0" :max="20">
-                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                    <NumberFieldContent
+                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                    /></NumberFieldContent>
                                                 </NumberField>
                                             </div>
                                             <div class="space-y-1">
                                                 <Label class="text-[10px]">VP</Label>
                                                 <NumberField v-model="editByeVp" :min="0" :max="20">
-                                                    <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                    <NumberFieldContent
+                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                    /></NumberFieldContent>
                                                 </NumberField>
                                             </div>
                                         </div>
@@ -2135,7 +2167,9 @@ const titlesForMaster = (masterName: string | null) => {
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Bye Scoring</span>
-                                    <span class="tabular-nums">{{ tournament.bye_tp ?? 3 }} TP / {{ tournament.bye_diff ?? 4 }} DIFF / {{ tournament.bye_vp ?? 6 }} VP</span>
+                                    <span class="tabular-nums"
+                                        >{{ tournament.bye_tp ?? 3 }} TP / {{ tournament.bye_diff ?? 4 }} DIFF / {{ tournament.bye_vp ?? 6 }} VP</span
+                                    >
                                 </div>
                             </div>
 
@@ -2211,7 +2245,8 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="flex-1 space-y-0.5">
                         <div class="font-semibold">
                             <template v-if="trackerInProgress">
-                                Tracker game in progress (turn {{ editingGame.tracker_game.current_turn }} of {{ editingGame.tracker_game.max_turns ?? 5 }})
+                                Tracker game in progress (turn {{ editingGame.tracker_game.current_turn }} of
+                                {{ editingGame.tracker_game.max_turns ?? 5 }})
                             </template>
                             <template v-else-if="trackerComplete">Tracker game finalized</template>
                             <template v-else-if="trackerAbandoned">Tracker game was abandoned</template>
@@ -2219,7 +2254,8 @@ const titlesForMaster = (masterName: string | null) => {
                         </div>
                         <div class="text-[11px] opacity-90">
                             <template v-if="trackerInProgress">
-                                Scores below are the live tracker totals. Saving here locks this tournament record even if the tracker hasn't been marked complete.
+                                Scores below are the live tracker totals. Saving here locks this tournament record even if the tracker hasn't been
+                                marked complete.
                             </template>
                             <template v-else-if="trackerComplete">Scores below were pulled from the tracker.</template>
                             <template v-else-if="trackerAbandoned">
@@ -2233,14 +2269,14 @@ const titlesForMaster = (masterName: string | null) => {
                             :href="route('games.show', editingGame.tracker_game.uuid)"
                             target="_blank"
                             rel="noopener"
-                            class="rounded border border-current/30 px-2 py-0.5 text-center text-[10px] font-medium hover:bg-current/10"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-center text-[10px] font-medium"
                         >
                             Open tracker
                         </a>
                         <button
                             v-if="trackerInProgress"
                             type="button"
-                            class="rounded border border-current/30 px-2 py-0.5 text-[10px] font-medium hover:bg-current/10"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-[10px] font-medium"
                             :disabled="completingTracker"
                             @click="completeTrackerGame"
                         >
@@ -2550,12 +2586,17 @@ const titlesForMaster = (masterName: string | null) => {
                                 </ComboboxTrigger>
                             </ComboboxAnchor>
                             <ComboboxList class="max-h-72 overflow-y-auto">
-                                <ComboboxInput class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0" placeholder="Search metas..." />
+                                <ComboboxInput
+                                    class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0"
+                                    placeholder="Search metas..."
+                                />
                                 <ComboboxEmpty class="px-2 py-3 text-left">
                                     <span class="text-xs text-muted-foreground">No matches.</span>
                                 </ComboboxEmpty>
                                 <ComboboxGroup v-if="tournamentMetas.length">
-                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">In this tournament</div>
+                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        In this tournament
+                                    </div>
                                     <ComboboxItem v-for="m in tournamentMetas" :key="'et-' + m.id" :value="m">
                                         {{ m.name }}
                                         <Check v-if="editPlayerMeta?.id === m.id" class="ml-auto size-3.5" />
@@ -2587,10 +2628,7 @@ const titlesForMaster = (masterName: string | null) => {
             </div>
             <DialogFooter>
                 <Button variant="outline" @click="editPlayerDialogOpen = false">Cancel</Button>
-                <Button
-                    :disabled="!editPlayerName.trim() || !editPlayerFaction || editPlayerSubmitting"
-                    @click="submitEditPlayer"
-                >
+                <Button :disabled="!editPlayerName.trim() || !editPlayerFaction || editPlayerSubmitting" @click="submitEditPlayer">
                     <Loader2 v-if="editPlayerSubmitting" class="mr-1.5 size-3 animate-spin" />
                     Save
                 </Button>

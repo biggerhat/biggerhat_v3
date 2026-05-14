@@ -43,7 +43,8 @@ const emit = defineEmits<{
                     <template v-if="mode === 'scored'">Which scheme did they score on? Their next pool will derive from this scheme.</template>
                     <template v-else-if="mode === 'end-of-game'">Identify the opponent's scheme for final scoring, or keep hidden.</template>
                     <template v-else
-                        >Hold scheme hidden, or select which scheme they're discarding. Their next pool will derive from the discarded scheme.</template
+                        >Hold scheme hidden, or select which scheme they're discarding. Their next pool will derive from the discarded
+                        scheme.</template
                     >
                 </DialogDescription>
             </DialogHeader>

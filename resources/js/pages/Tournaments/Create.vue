@@ -191,16 +191,16 @@ const submit = () => {
                         <!-- ─── Advanced Scoring (collapsed by default) ─── -->
                         <Collapsible v-model:open="advancedOpen" class="border-t pt-4">
                             <CollapsibleTrigger as-child>
-                                <button
-                                    type="button"
-                                    class="flex w-full items-center justify-between rounded-md py-1 text-left hover:bg-accent/40"
-                                >
+                                <button type="button" class="flex w-full items-center justify-between rounded-md py-1 text-left hover:bg-accent/40">
                                     <span class="flex items-center gap-2 text-sm font-medium">
                                         <Settings2 class="size-4 text-muted-foreground" />
                                         Advanced Scoring
                                         <span class="text-xs font-normal text-muted-foreground">Defaults match Gaining Grounds</span>
                                     </span>
-                                    <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform" :class="advancedOpen ? 'rotate-180' : ''" />
+                                    <ChevronDown
+                                        class="size-4 shrink-0 text-muted-foreground transition-transform"
+                                        :class="advancedOpen ? 'rotate-180' : ''"
+                                    />
                                 </button>
                             </CollapsibleTrigger>
                             <CollapsibleContent class="space-y-4 pt-4">
@@ -227,19 +227,25 @@ const submit = () => {
                                         <div class="space-y-1">
                                             <Label class="text-[10px]">TP</Label>
                                             <NumberField v-model="form.bye_tp" :min="0" :max="5">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                <NumberFieldContent
+                                                    ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                /></NumberFieldContent>
                                             </NumberField>
                                         </div>
                                         <div class="space-y-1">
                                             <Label class="text-[10px]">Differential</Label>
                                             <NumberField v-model="form.bye_diff" :min="0" :max="20">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                <NumberFieldContent
+                                                    ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                /></NumberFieldContent>
                                             </NumberField>
                                         </div>
                                         <div class="space-y-1">
                                             <Label class="text-[10px]">VP</Label>
                                             <NumberField v-model="form.bye_vp" :min="0" :max="20">
-                                                <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
+                                                <NumberFieldContent
+                                                    ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
+                                                /></NumberFieldContent>
                                             </NumberField>
                                         </div>
                                     </div>

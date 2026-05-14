@@ -47,9 +47,13 @@ interface ActionData {
     upgrades?: ActionUpgrade[];
 }
 
-const props = defineProps<{
-    action: ActionData;
-}>();
+const props = withDefaults(
+    defineProps<{
+        action: ActionData;
+        hideFooter?: boolean;
+    }>(),
+    { hideFooter: false },
+);
 
 const showUpgradeIcon = computed(() => (props.action.characters_count ?? 0) === 0 && (props.action.upgrades?.length ?? 0) > 0);
 
@@ -122,7 +126,7 @@ const formatActionType = (type?: string) => {
                 <GameText v-if="trigger.description" :text="trigger.description" :max-length="120" icon-class="h-4 inline-block align-text-bottom" />
             </div>
         </div>
-        <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
+        <div v-if="!hideFooter" class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">
             <ScrollText v-if="showUpgradeIcon" class="h-3 w-3 shrink-0 text-muted-foreground" />
             <Users v-else class="h-3 w-3 shrink-0 text-muted-foreground" />
             <slot name="footer">

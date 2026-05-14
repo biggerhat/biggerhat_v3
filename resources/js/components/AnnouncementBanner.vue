@@ -55,20 +55,10 @@ const levelClass = (level: string) => {
         >
             <Info class="size-3.5 shrink-0" />
             <span class="text-center">{{ a.message }}</span>
-            <a
-                v-if="a.link_url"
-                :href="a.link_url"
-                class="font-semibold underline underline-offset-2 hover:opacity-80"
-            >
+            <a v-if="a.link_url" :href="a.link_url" class="font-semibold underline underline-offset-2 hover:opacity-80">
                 {{ a.link_label ?? 'Learn more' }}
             </a>
-            <button
-                v-if="a.is_dismissable"
-                type="button"
-                class="ml-2 rounded p-0.5 hover:opacity-70"
-                aria-label="Dismiss"
-                @click="dismiss(a.id)"
-            >
+            <button v-if="a.is_dismissable" type="button" class="ml-2 rounded p-0.5 hover:opacity-70" aria-label="Dismiss" @click="dismiss(a.id)">
                 <X class="size-3.5" />
             </button>
         </div>

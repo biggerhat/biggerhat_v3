@@ -46,12 +46,8 @@ const commanders = computed(() => {
         .sort((a, b) => b.scrip - a.scrip || a.name.localeCompare(b.name));
 });
 
-const accentBg = computed(() =>
-    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}` : 'bg-primary/40',
-);
-const accentTintBg = computed(() =>
-    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-primary/5',
-);
+const accentBg = computed(() => (props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}` : 'bg-primary/40'));
+const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-primary/5'));
 </script>
 
 <template>
@@ -60,16 +56,20 @@ const accentTintBg = computed(() =>
         <CardContent class="p-4 sm:p-6">
             <!-- Hero header -->
             <div class="flex flex-col items-center text-center">
-                <div class="relative mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 ring-1 ring-amber-500/30 sm:size-20">
+                <div
+                    class="relative mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 ring-1 ring-amber-500/30 sm:size-20"
+                >
                     <Crown class="size-8 text-amber-500 sm:size-10" />
-                    <div class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-background ring-2 ring-amber-500/40">
+                    <div
+                        class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-background ring-2 ring-amber-500/40"
+                    >
                         <AllegianceLogo :allegiance="allegianceSlug" class-name="size-5" />
                     </div>
                 </div>
                 <h2 class="text-balance text-lg font-bold sm:text-xl">Choose your Commander</h2>
                 <p class="mt-1 max-w-md text-balance text-xs text-muted-foreground sm:text-sm">
-                    The Commander sets the Scrip budget for your <strong>{{ allegianceName }}</strong> Company. Their cost
-                    becomes the pool every other hire spends from.
+                    The Commander sets the Scrip budget for your <strong>{{ allegianceName }}</strong> Company. Their cost becomes the pool every
+                    other hire spends from.
                 </p>
             </div>
 
@@ -110,24 +110,17 @@ const accentTintBg = computed(() =>
                         </div>
                         <p v-if="c.title" class="truncate text-[11px] italic text-muted-foreground">{{ c.title }}</p>
                         <div class="mt-auto flex flex-wrap gap-1">
-                            <Badge
-                                v-if="c.hire_category === 'neutral'"
-                                variant="outline"
-                                class="px-1 py-0 text-[9px]"
-                            >Neutral</Badge>
+                            <Badge v-if="c.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
                             <Badge
                                 v-for="r in c.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
                                 class="px-1 py-0 text-[9px]"
-                            >{{ r.name }}</Badge>
+                                >{{ r.name }}</Badge
+                            >
                         </div>
                         <div class="flex items-center gap-2 pt-1">
-                            <Button
-                                size="sm"
-                                class="flex-1 gap-1 bg-amber-500 text-white hover:bg-amber-600"
-                                @click.stop="emit('hire', c)"
-                            >
+                            <Button size="sm" class="flex-1 gap-1 bg-amber-500 text-white hover:bg-amber-600" @click.stop="emit('hire', c)">
                                 <Crown class="size-3.5" /> Set as Commander
                             </Button>
                         </div>

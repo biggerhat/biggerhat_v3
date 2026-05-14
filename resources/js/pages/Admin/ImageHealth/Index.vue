@@ -61,8 +61,8 @@ const grouped = computed(() => {
             <h1 class="text-2xl font-semibold tracking-tight">Image Health</h1>
         </div>
         <p class="text-sm text-muted-foreground">
-            Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for 60 minutes
-            after each scan.
+            Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for 60
+            minutes after each scan.
         </p>
 
         <Card>
@@ -92,9 +92,7 @@ const grouped = computed(() => {
             this up: {{ report.skipped_columns.join(', ') }}
         </div>
 
-        <div v-if="report && report.broken_count === 0" class="py-12 text-center text-sm text-muted-foreground">
-            All image paths resolve. 🎉
-        </div>
+        <div v-if="report && report.broken_count === 0" class="py-12 text-center text-sm text-muted-foreground">All image paths resolve. 🎉</div>
 
         <div v-if="grouped.length" class="space-y-3">
             <Card v-for="group in grouped" :key="group.table">

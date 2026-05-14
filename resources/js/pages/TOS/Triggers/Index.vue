@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -12,6 +11,7 @@ import TosText from '@/components/TosText.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator } from '@/types/tos';
 import { Head } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
 
@@ -95,7 +95,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                                 <span v-else class="text-muted-foreground">—</span>
                             </TableCell>
                             <TableCell class="text-xs text-muted-foreground">{{ t.actions.map((a) => a.name).join(', ') || '—' }}</TableCell>
-                            <TableCell class="max-w-md text-xs text-muted-foreground line-clamp-2">
+                            <TableCell class="line-clamp-2 max-w-md text-xs text-muted-foreground">
                                 <TosText v-if="t.body" :text="t.body" />
                             </TableCell>
                         </TableRow>

@@ -67,9 +67,7 @@ function unaffordable(u: UnitMin): boolean {
     return u.scrip > props.scripRemaining;
 }
 
-const accentTintBg = computed(() =>
-    props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60',
-);
+const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.allegianceColorSlug}/15` : 'bg-muted/60'));
 </script>
 
 <template>
@@ -123,14 +121,13 @@ const accentTintBg = computed(() =>
                     size="sm"
                     class="h-5 px-1.5 text-[10px]"
                     @click="emit('update:poolSort', s.key)"
-                >{{ s.label }}</Button>
+                    >{{ s.label }}</Button
+                >
             </div>
 
             <!-- Pool list -->
             <div class="-mx-1 max-h-[60vh] overflow-y-auto px-1">
-                <div v-if="!pool.length" class="py-6 text-center text-xs text-muted-foreground">
-                    No matching units.
-                </div>
+                <div v-if="!pool.length" class="py-6 text-center text-xs text-muted-foreground">No matching units.</div>
                 <div v-else class="space-y-1">
                     <button
                         v-for="u in pool"
@@ -140,10 +137,7 @@ const accentTintBg = computed(() =>
                         @click="emit('preview', u)"
                     >
                         <div
-                            :class="[
-                                'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded ring-1 ring-border/60',
-                                accentTintBg,
-                            ]"
+                            :class="['flex size-9 shrink-0 items-center justify-center overflow-hidden rounded ring-1 ring-border/60', accentTintBg]"
                         >
                             <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-500" />
                             <AllegianceLogo v-else :allegiance="allegianceSlug" class-name="size-5 opacity-70" />
@@ -151,17 +145,9 @@ const accentTintBg = computed(() =>
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5">
-                                <Crown
-                                    v-if="isCommanderEligible(u)"
-                                    class="size-3 shrink-0 text-amber-500"
-                                    aria-label="Commander-eligible"
-                                />
+                                <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
                                 <span class="truncate font-medium">{{ u.name }}</span>
-                                <Badge
-                                    v-if="u.hire_category === 'neutral'"
-                                    variant="outline"
-                                    class="px-1 py-0 text-[9px]"
-                                >Neutral</Badge>
+                                <Badge v-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
                             </div>
                             <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
                         </div>

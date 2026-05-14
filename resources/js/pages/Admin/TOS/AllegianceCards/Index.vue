@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface AllegianceCard {
@@ -19,17 +19,23 @@ interface AllegianceCard {
 
 const columns: ColumnDef<AllegianceCard>[] = [
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
-    { id: 'allegiance', accessorFn: (r) => r.allegiance.name, header: () => h('div', {}, 'Allegiance'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.allegiance.name) },
+    {
+        id: 'allegiance',
+        accessorFn: (r) => r.allegiance.name,
+        header: () => h('div', {}, 'Allegiance'),
+        cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.allegiance.name),
+    },
     { accessorKey: 'type', header: () => h('div', {}, 'Type'), cell: ({ row }) => h('div', { class: 'capitalize' }, row.getValue('type')) },
     {
         id: 'actions',
         enableHiding: false,
         header: () => h('div', {}, 'Actions'),
-        cell: ({ row }) => h(AdminActions, {
-            name: row.original.name,
-            editRoute: route('admin.tos.allegiance_cards.edit', row.original.slug),
-            deleteRoute: route('admin.tos.allegiance_cards.delete', row.original.slug),
-        }),
+        cell: ({ row }) =>
+            h(AdminActions, {
+                name: row.original.name,
+                editRoute: route('admin.tos.allegiance_cards.edit', row.original.slug),
+                deleteRoute: route('admin.tos.allegiance_cards.delete', row.original.slug),
+            }),
     },
 ];
 
@@ -37,13 +43,21 @@ const props = defineProps<{ cards: AllegianceCard[] }>();
 const columnFilters = ref<ColumnFiltersState>([]);
 
 const table = useVueTable({
-    get data() { return props.cards; },
-    get columns() { return columns; },
+    get data() {
+        return props.cards;
+    },
+    get columns() {
+        return columns;
+    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
-    state: { get columnFilters() { return columnFilters.value; } },
+    state: {
+        get columnFilters() {
+            return columnFilters.value;
+        },
+    },
 });
 </script>
 
@@ -51,7 +65,12 @@ const table = useVueTable({
     <Head title="TOS Allegiance Cards — Admin" />
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input class="max-w-sm" placeholder="Filter by name" :model-value="table.getColumn('name')?.getFilterValue() as string" @update:model-value="table.getColumn('name')?.setFilterValue($event)" />
+            <Input
+                class="max-w-sm"
+                placeholder="Filter by name"
+                :model-value="table.getColumn('name')?.getFilterValue() as string"
+                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+            />
             <Button @click="router.get(route('admin.tos.allegiance_cards.create'))">Create Allegiance Card</Button>
         </div>
         <div class="rounded-md border">
@@ -71,7 +90,9 @@ const table = useVueTable({
                             </TableCell>
                         </TableRow>
                     </template>
-                    <template v-else><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template>
+                    <template v-else
+                        ><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template
+                    >
                 </TableBody>
             </Table>
         </div>

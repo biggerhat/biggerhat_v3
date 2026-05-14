@@ -71,7 +71,12 @@ const emit = defineEmits<{
                         :disabled="crewCount(char.id) >= (char.count ?? 99)"
                         @click="emit('select', char)"
                     >
-                        <img v-if="char.front_image" :src="'/storage/' + char.front_image" :alt="char.display_name" class="size-8 rounded object-cover" />
+                        <img
+                            v-if="char.front_image"
+                            :src="'/storage/' + char.front_image"
+                            :alt="char.display_name"
+                            class="size-8 rounded object-cover"
+                        />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
                             <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-[10px] capitalize text-muted-foreground">
@@ -90,14 +95,11 @@ const emit = defineEmits<{
 
             <!-- Search all characters -->
             <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Search All Characters</summary>
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Search All Characters
+                </summary>
                 <div class="border-t px-1 pb-1 pt-1">
-                    <Input
-                        :model-value="search"
-                        placeholder="Search..."
-                        class="mb-1"
-                        @update:model-value="(v) => emit('update:search', String(v))"
-                    />
+                    <Input :model-value="search" placeholder="Search..." class="mb-1" @update:model-value="(v) => emit('update:search', String(v))" />
                     <div class="max-h-36 space-y-0.5 overflow-y-auto">
                         <div v-if="loading" class="flex justify-center py-3">
                             <Loader2 class="size-4 animate-spin text-muted-foreground" />
@@ -111,7 +113,12 @@ const emit = defineEmits<{
                                 :disabled="crewCount(char.id) >= (char.count ?? 1)"
                                 @click="emit('select', char)"
                             >
-                                <img v-if="char.front_image" :src="char.front_image" :alt="char.display_name ?? char.name" class="size-8 rounded object-cover" />
+                                <img
+                                    v-if="char.front_image"
+                                    :src="char.front_image"
+                                    :alt="char.display_name ?? char.name"
+                                    class="size-8 rounded object-cover"
+                                />
                                 <div class="min-w-0 flex-1">
                                     <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
                                     <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-xs capitalize text-muted-foreground">

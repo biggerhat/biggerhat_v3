@@ -32,14 +32,6 @@ const hasLogo = computed(() => Boolean(src.value) && !imgFailed.value);
 </script>
 
 <template>
-    <img
-        v-if="hasLogo"
-        :src="src"
-        :class="className"
-        :alt="alt"
-        loading="lazy"
-        decoding="async"
-        @error="imgFailed = true"
-    />
+    <img v-if="hasLogo" :src="src" :class="className" :alt="alt" loading="lazy" decoding="async" @error="imgFailed = true" />
     <Shield v-else :class="className" aria-hidden="true" />
 </template>

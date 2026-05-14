@@ -105,8 +105,8 @@ const removeTournament = async (t: TournamentSummary) => {
                 <div class="space-y-1">
                     <p class="font-medium text-amber-900 dark:text-amber-200">Are you a Tournament Organizer?</p>
                     <p class="text-muted-foreground">
-                        The Tournament Tracker is in beta and access is request-only while we polish it. If you'd like to run an event with it,
-                        reach out to an admin or
+                        The Tournament Tracker is in beta and access is request-only while we polish it. If you'd like to run an event with it, reach
+                        out to an admin or
                         <Link :href="route('feedback.show')" class="font-medium text-primary underline-offset-2 hover:underline">
                             send us a note via the feedback page
                         </Link>
@@ -174,7 +174,9 @@ const removeTournament = async (t: TournamentSummary) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"
+                                        ><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span
+                                    >
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
                                     <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
                                     <span class="tabular-nums">{{ t.planned_rounds }} rounds</span>
@@ -223,7 +225,9 @@ const removeTournament = async (t: TournamentSummary) => {
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
                                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                    <span class="flex items-center gap-1 tabular-nums"><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span>
+                                    <span class="flex items-center gap-1 tabular-nums"
+                                        ><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span
+                                    >
                                     <span v-if="t.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ t.location }}</span>
                                     <span class="flex items-center gap-1 tabular-nums"><Users class="size-3" /> {{ t.players_count }} players</span>
                                     <span>by {{ t.creator.name }}</span>
@@ -239,9 +243,11 @@ const removeTournament = async (t: TournamentSummary) => {
                 v-if="!my_tournaments.length && !public_tournaments.length"
                 :icon="Trophy"
                 title="No tournaments yet"
-                :description="canCreateTournaments
-                    ? 'Create your first Gaining Grounds event to get started.'
-                    : 'Tournament creation is restricted. Ask an admin for the Tournament Organizer role.'"
+                :description="
+                    canCreateTournaments
+                        ? 'Create your first Gaining Grounds event to get started.'
+                        : 'Tournament creation is restricted. Ask an admin for the Tournament Organizer role.'
+                "
             >
                 <template v-if="canCreateTournaments" #action>
                     <Link :href="route('tournaments.create')">

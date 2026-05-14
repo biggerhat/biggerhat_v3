@@ -140,23 +140,53 @@ const blankParams = (): FilterParams => ({
 const filterParams = ref<FilterParams>(blankParams());
 
 const filterKeys = [
-    'name', 'description', 'allegiance', 'allegiance_exclude', 'restriction',
-    'special_rule', 'special_rule_exclude', 'scrip_min', 'scrip_max', 'tactics', 'glory_tactics',
-    'speed_min', 'speed_max', 'defense_min', 'defense_max',
-    'willpower_min', 'willpower_max', 'armor_min', 'armor_max',
-    'action_name', 'action_type', 'action_av_min', 'action_av_max',
-    'action_strength_min', 'action_strength_max', 'action_range',
-    'action_usage_limit', 'action_description',
-    'action_is_piercing', 'action_is_accurate', 'action_is_area',
-    'ability_name', 'ability_description',
-    'trigger_name', 'trigger_suits', 'trigger_description', 'has',
+    'name',
+    'description',
+    'allegiance',
+    'allegiance_exclude',
+    'restriction',
+    'special_rule',
+    'special_rule_exclude',
+    'scrip_min',
+    'scrip_max',
+    'tactics',
+    'glory_tactics',
+    'speed_min',
+    'speed_max',
+    'defense_min',
+    'defense_max',
+    'willpower_min',
+    'willpower_max',
+    'armor_min',
+    'armor_max',
+    'action_name',
+    'action_type',
+    'action_av_min',
+    'action_av_max',
+    'action_strength_min',
+    'action_strength_max',
+    'action_range',
+    'action_usage_limit',
+    'action_description',
+    'action_is_piercing',
+    'action_is_accurate',
+    'action_is_area',
+    'ability_name',
+    'ability_description',
+    'trigger_name',
+    'trigger_suits',
+    'trigger_description',
+    'has',
     'units_only',
 ] as const;
 
-const activeFilterCount = computed(() => filterKeys.filter((k) => {
-    const v = filterParams.value[k];
-    return v != null && v !== '';
-}).length);
+const activeFilterCount = computed(
+    () =>
+        filterKeys.filter((k) => {
+            const v = filterParams.value[k];
+            return v != null && v !== '';
+        }).length,
+);
 
 const filter = () => {
     router.get(route('tos.search'), cleanObject({ ...filterParams.value }), {
@@ -207,12 +237,15 @@ const loadSavedSearch = (saved: SavedSearch) => {
 
 const confirmDialog = useConfirm();
 const deleteSavedSearch = async (saved: SavedSearch) => {
-    if (!(await confirmDialog({
-        title: 'Delete saved search',
-        message: `Delete saved search "${saved.name}"?`,
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirmDialog({
+            title: 'Delete saved search',
+            message: `Delete saved search "${saved.name}"?`,
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('tos.search.saved.delete', saved.id), {}, { preserveScroll: true });
 };
 
@@ -309,7 +342,9 @@ const exportUrl = computed(() => {
         />
         <PageBanner title="Advanced Search" class="mb-2">
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                <div
+                    class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
                     <span>{{ result_breakdown.units }} units</span>
                     <span class="text-muted-foreground/50">·</span>
                     <span>{{ result_breakdown.assets }} assets</span>
@@ -421,7 +456,7 @@ const exportUrl = computed(() => {
                     <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
                         <TableSkeleton :rows="8" :cols="6" />
                     </div>
-                    <div v-else-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    <div v-else-if="isLoading" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                         <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
                     </div>
 
@@ -429,7 +464,11 @@ const exportUrl = computed(() => {
                         <EmptyState
                             :icon="SearchIcon"
                             :title="hasActiveSearch ? 'No matches' : 'Refine your search'"
-                            :description="hasActiveSearch ? 'Try widening or clearing filters.' : 'Use the panel to filter by allegiance, special rules, side stats, action shape, abilities, and more.'"
+                            :description="
+                                hasActiveSearch
+                                    ? 'Try widening or clearing filters.'
+                                    : 'Use the panel to filter by allegiance, special rules, side stats, action shape, abilities, and more.'
+                            "
                         />
                     </div>
 
@@ -447,28 +486,34 @@ const exportUrl = computed(() => {
                             </TableHeader>
                             <TableBody>
                                 <TableRow v-for="r in results.data" :key="`${r.result_type}-${r.id}`">
-                                    <TableCell><Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge></TableCell>
+                                    <TableCell
+                                        ><Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge></TableCell
+                                    >
                                     <TableCell class="font-medium">
                                         <Link
                                             v-if="r.result_type === 'unit' && r.sculpts && r.sculpts[0]"
                                             :href="route('tos.units.view', r.sculpts[0].slug)"
                                             class="hover:underline"
-                                        >{{ r.name }}{{ r.title ? `, ${r.title}` : '' }}</Link>
+                                            >{{ r.name }}{{ r.title ? `, ${r.title}` : '' }}</Link
+                                        >
                                         <Link
                                             v-else-if="r.result_type === 'asset'"
                                             :href="route('tos.assets.view', r.slug)"
                                             class="hover:underline"
-                                        >{{ r.name }}</Link>
+                                            >{{ r.name }}</Link
+                                        >
                                         <Link
                                             v-else-if="r.result_type === 'stratagem'"
                                             :href="route('tos.stratagems.view', r.slug)"
                                             class="hover:underline"
-                                        >{{ r.name }}</Link>
+                                            >{{ r.name }}</Link
+                                        >
                                         <Link
                                             v-else-if="r.result_type === 'allegiance_card'"
                                             :href="route('tos.allegiance_cards.view', r.slug)"
                                             class="hover:underline"
-                                        >{{ r.name }}</Link>
+                                            >{{ r.name }}</Link
+                                        >
                                         <span v-else>{{ r.name }}</span>
                                     </TableCell>
                                     <TableCell class="text-xs tabular-nums">
@@ -498,7 +543,7 @@ const exportUrl = computed(() => {
 
                     <div v-else-if="filterParams.page_view === 'full'" class="space-y-4">
                         <template v-for="r in results.data" :key="`${r.result_type}-${r.id}`">
-                            <UnitCard v-if="r.result_type === 'unit'" :unit="(r as any)" :active-sculpt="(r as any).sculpts?.[0] ?? null" />
+                            <UnitCard v-if="r.result_type === 'unit'" :unit="r as any" :active-sculpt="(r as any).sculpts?.[0] ?? null" />
                             <Card v-else>
                                 <CardContent class="space-y-1 p-4">
                                     <div class="flex items-center justify-between gap-2">
@@ -511,7 +556,7 @@ const exportUrl = computed(() => {
                         </template>
                     </div>
 
-                    <div v-else class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    <div v-else class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                         <Card
                             v-for="r in results.data"
                             :key="`${r.result_type}-${r.id}`"
@@ -555,28 +600,32 @@ const exportUrl = computed(() => {
                                         variant="link"
                                         class="h-6 px-0 text-[11px]"
                                         @click="router.get(route('tos.units.view', r.sculpts![0].slug))"
-                                    >View Unit</Button>
+                                        >View Unit</Button
+                                    >
                                     <Button
                                         v-else-if="r.result_type === 'asset'"
                                         size="sm"
                                         variant="link"
                                         class="h-6 px-0 text-[11px]"
                                         @click="router.get(route('tos.assets.view', r.slug))"
-                                    >View Asset</Button>
+                                        >View Asset</Button
+                                    >
                                     <Button
                                         v-else-if="r.result_type === 'stratagem'"
                                         size="sm"
                                         variant="link"
                                         class="h-6 px-0 text-[11px]"
                                         @click="router.get(route('tos.stratagems.view', r.slug))"
-                                    >View Stratagem</Button>
+                                        >View Stratagem</Button
+                                    >
                                     <Button
                                         v-else-if="r.result_type === 'allegiance_card'"
                                         size="sm"
                                         variant="link"
                                         class="h-6 px-0 text-[11px]"
                                         @click="router.get(route('tos.allegiance_cards.view', r.slug))"
-                                    >View Card</Button>
+                                        >View Card</Button
+                                    >
                                 </div>
                             </CardContent>
                         </Card>

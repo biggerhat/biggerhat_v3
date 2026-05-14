@@ -23,12 +23,15 @@ class BonanzaLootDeckController extends Controller
             ->with([
                 // Side-specific relations are pre-filtered by `wherePivot` on
                 // the model, so each load only ships what's relevant per side.
-                'sideAActions:id,name,slug,description',
-                'sideBActions:id,name,slug,description',
-                'sideAAbilities:id,name,slug,description',
-                'sideBAbilities:id,name,slug,description',
-                'sideATriggers:id,name,slug,description',
-                'sideBTriggers:id,name,slug,description',
+                // Column lists mirror what ActionCard / AbilityCard / TriggerCard
+                // need so the public display can render icons (suits, range type,
+                // stones, etc.) instead of bare names.
+                'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                'sideATriggers:id,name,slug,suits,stone_cost,description',
+                'sideBTriggers:id,name,slug,suits,stone_cost,description',
             ])
             ->get();
 

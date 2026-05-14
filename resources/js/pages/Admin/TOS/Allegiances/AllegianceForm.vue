@@ -121,8 +121,8 @@ onMounted(() => {
                                 </SelectContent>
                             </Select>
                             <p class="text-[11px] text-muted-foreground">
-                                Set only when an Allegiance lists both Earth and Malifaux on its card. Hybrid Allegiances pull
-                                Neutral hires and type-restricted Stratagems from both sides.
+                                Set only when an Allegiance lists both Earth and Malifaux on its card. Hybrid Allegiances pull Neutral hires and
+                                type-restricted Stratagems from both sides.
                             </p>
                             <InputError :message="usePage().props.errors.secondary_type" />
                         </div>
@@ -151,7 +151,11 @@ onMounted(() => {
                                 @input="formInfo.logo_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                             />
                             <p class="text-[11px] text-muted-foreground">
-                                {{ existingLogo ? 'Choose a new file to replace the current logo, or leave empty to keep it.' : 'PNG / JPG up to 30 MB.' }}
+                                {{
+                                    existingLogo
+                                        ? 'Choose a new file to replace the current logo, or leave empty to keep it.'
+                                        : 'PNG / JPG up to 30 MB.'
+                                }}
                             </p>
                             <InputError :message="usePage().props.errors.logo_path" />
                         </div>

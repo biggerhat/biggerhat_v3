@@ -28,17 +28,17 @@ const lastUpdated = 'April 17, 2026';
         <div class="container mx-auto px-4 sm:px-6">
             <div class="mx-auto max-w-3xl space-y-8 py-6 text-sm leading-relaxed">
                 <!-- Owner-visible template warning. Remove once filled in. -->
-<!--                <div class="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200">-->
-<!--                    <AlertTriangle class="mt-0.5 size-5 shrink-0" aria-hidden="true" />-->
-<!--                    <div class="space-y-1">-->
-<!--                        <p class="font-semibold">Template — review before shipping publicly.</p>-->
-<!--                        <p class="text-xs opacity-90">-->
-<!--                            Replace every bracketed placeholder (e.g. <code>[YOUR NAME]</code>, <code>[CONTACT EMAIL]</code>) with your real info, confirm-->
-<!--                            retention periods match your hosting, and delete this banner before launch. This template is a reasonable default, not legal-->
-<!--                            advice.-->
-<!--                        </p>-->
-<!--                    </div>-->
-<!--                </div>-->
+                <!--                <div class="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200">-->
+                <!--                    <AlertTriangle class="mt-0.5 size-5 shrink-0" aria-hidden="true" />-->
+                <!--                    <div class="space-y-1">-->
+                <!--                        <p class="font-semibold">Template — review before shipping publicly.</p>-->
+                <!--                        <p class="text-xs opacity-90">-->
+                <!--                            Replace every bracketed placeholder (e.g. <code>[YOUR NAME]</code>, <code>[CONTACT EMAIL]</code>) with your real info, confirm-->
+                <!--                            retention periods match your hosting, and delete this banner before launch. This template is a reasonable default, not legal-->
+                <!--                            advice.-->
+                <!--                        </p>-->
+                <!--                    </div>-->
+                <!--                </div>-->
 
                 <section class="space-y-3">
                     <h2 class="text-lg font-semibold">Who we are</h2>
@@ -95,7 +95,11 @@ const lastUpdated = 'April 17, 2026';
                     <ul class="ml-5 list-disc space-y-2">
                         <li>
                             <strong>Google Analytics</strong> (only with your consent) — processes page view data.
-                            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" class="text-primary underline underline-offset-2"
+                            <a
+                                href="https://policies.google.com/privacy"
+                                target="_blank"
+                                rel="noopener"
+                                class="text-primary underline underline-offset-2"
                                 >Google's privacy policy</a
                             >.
                         </li>

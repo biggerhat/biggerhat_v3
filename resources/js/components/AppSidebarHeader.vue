@@ -95,7 +95,12 @@ const malifauxNavigateItems: QuickAction[] = [
     { name: 'Advanced Search', icon: Search, route: route('search.view'), keywords: 'advanced search filter' },
     { name: 'Scenario Generator', icon: Wand2, route: route('tools.scenario_generator'), keywords: 'scenario generator random strategy' },
     { name: 'Random Character', icon: Dice6, route: route('characters.random'), keywords: 'random dice surprise' },
-    { name: 'Random Character Picker', icon: Dice6, route: route('tools.random_character'), keywords: 'random character picker filtered faction keyword characteristic cost dice' },
+    {
+        name: 'Random Character Picker',
+        icon: Dice6,
+        route: route('tools.random_character'),
+        keywords: 'random character picker filtered faction keyword characteristic cost dice',
+    },
 ];
 
 const tosNavigateItems: QuickAction[] = [

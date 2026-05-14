@@ -86,9 +86,7 @@ const activeSculpt = computed<Sculpt | null>(() => {
 
 const hasMultipleSculpts = computed(() => (props.unit?.sculpts?.length ?? 0) > 1);
 
-const isCommanderEligible = computed(
-    () => props.unit?.special_unit_rules.some((r) => r.slug === 'commander') ?? false,
-);
+const isCommanderEligible = computed(() => props.unit?.special_unit_rules.some((r) => r.slug === 'commander') ?? false);
 
 function pickSculpt(value: string) {
     const id = Number(value);
@@ -108,34 +106,22 @@ function pickSculpt(value: string) {
                         <span class="inline-flex items-center gap-1.5">
                             <Crown v-if="isCommander" class="size-4 text-amber-500" />
                             <span>{{ unit.name }}</span>
-                            <span v-if="unit.title" class="text-sm font-normal italic text-muted-foreground">
-                                — {{ unit.title }}
-                            </span>
+                            <span v-if="unit.title" class="text-sm font-normal italic text-muted-foreground"> — {{ unit.title }} </span>
                         </span>
                     </DrawerTitle>
                     <div class="mt-1 flex flex-wrap items-center justify-center gap-1.5">
-                        <Badge
-                            class="bg-emerald-500/15 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400"
-                        >{{ isCommander ? `+${unit.scrip}` : unit.scrip }} Scrip</Badge>
-                        <Badge v-if="unit.restriction" variant="outline" class="text-[10px] capitalize">
-                            Neutral · {{ unit.restriction }}
-                        </Badge>
-                        <Badge
-                            v-for="r in unit.special_unit_rules"
-                            :key="r.id"
-                            variant="outline"
-                            class="text-[10px]"
-                        >{{ r.name }}</Badge>
+                        <Badge class="bg-emerald-500/15 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400"
+                            >{{ isCommander ? `+${unit.scrip}` : unit.scrip }} Scrip</Badge
+                        >
+                        <Badge v-if="unit.restriction" variant="outline" class="text-[10px] capitalize"> Neutral · {{ unit.restriction }} </Badge>
+                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
                     </div>
                 </DrawerHeader>
 
                 <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
                     <!-- Sculpt picker -->
                     <div v-if="hasMultipleSculpts" class="mb-3 shrink-0">
-                        <Select
-                            :model-value="String(activeSculpt?.id ?? '')"
-                            @update:model-value="(v) => pickSculpt(v as string)"
-                        >
+                        <Select :model-value="String(activeSculpt?.id ?? '')" @update:model-value="(v) => pickSculpt(v as string)">
                             <SelectTrigger class="h-8 text-xs">
                                 <SelectValue placeholder="Pick a sculpt…" />
                             </SelectTrigger>
@@ -169,10 +155,7 @@ function pickSculpt(value: string) {
                     </div>
 
                     <!-- Optional unit description -->
-                    <p
-                        v-if="unit.description"
-                        class="mt-3 line-clamp-3 text-center text-[11px] text-muted-foreground"
-                    >
+                    <p v-if="unit.description" class="mt-3 line-clamp-3 text-center text-[11px] text-muted-foreground">
                         <TosText :text="unit.description" />
                     </p>
                 </div>
@@ -197,11 +180,7 @@ function pickSculpt(value: string) {
                             >
                                 <Crown class="size-4" /> Add as Commander
                             </Button>
-                            <Button
-                                :disabled="hasCommander && unaffordable"
-                                class="gap-1.5"
-                                @click="emit('hire', false)"
-                            >
+                            <Button :disabled="hasCommander && unaffordable" class="gap-1.5" @click="emit('hire', false)">
                                 <Plus class="size-4" />
                                 {{ hasCommander && unaffordable ? 'Over budget' : 'Add to Roster' }}
                             </Button>

@@ -79,16 +79,12 @@ const charLimit = 5000;
 
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="fb-name">
-                                    Name <span class="text-xs text-muted-foreground">(optional)</span>
-                                </Label>
+                                <Label for="fb-name"> Name <span class="text-xs text-muted-foreground">(optional)</span> </Label>
                                 <Input id="fb-name" v-model="form.name" placeholder="What should we call you?" />
                                 <InputError :message="form.errors.name" />
                             </div>
                             <div class="space-y-2">
-                                <Label for="fb-email">
-                                    Email <span class="text-xs text-muted-foreground">(optional, for reply)</span>
-                                </Label>
+                                <Label for="fb-email"> Email <span class="text-xs text-muted-foreground">(optional, for reply)</span> </Label>
                                 <Input id="fb-email" v-model="form.email" type="email" placeholder="you@example.com" />
                                 <InputError :message="form.errors.email" />
                             </div>
@@ -106,9 +102,7 @@ const charLimit = 5000;
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="fb-subject">
-                                Subject <span class="text-xs text-muted-foreground">(optional)</span>
-                            </Label>
+                            <Label for="fb-subject"> Subject <span class="text-xs text-muted-foreground">(optional)</span> </Label>
                             <Input id="fb-subject" v-model="form.subject" placeholder="Short summary" />
                             <InputError :message="form.errors.subject" />
                         </div>
@@ -119,7 +113,9 @@ const charLimit = 5000;
                                 <span
                                     :class="[
                                         'text-[11px] tabular-nums',
-                                        form.message.trim().length > 0 && form.message.trim().length < 10 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                                        form.message.trim().length > 0 && form.message.trim().length < 10
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-muted-foreground',
                                     ]"
                                 >
                                     {{ form.message.length }} / {{ charLimit }}
@@ -132,7 +128,10 @@ const charLimit = 5000;
                                 :maxlength="charLimit"
                                 placeholder="What happened? What did you expect? Any steps to reproduce?"
                             />
-                            <p v-if="form.message.trim().length > 0 && form.message.trim().length < 10" class="text-[11px] text-amber-600 dark:text-amber-400">
+                            <p
+                                v-if="form.message.trim().length > 0 && form.message.trim().length < 10"
+                                class="text-[11px] text-amber-600 dark:text-amber-400"
+                            >
                                 A few more characters — minimum 10.
                             </p>
                             <InputError :message="form.errors.message" />

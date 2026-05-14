@@ -18,12 +18,15 @@ const props = defineProps<{
 const copied = ref(false);
 
 const goDown = async () => {
-    if (!(await confirm({
-        title: 'Enable maintenance mode',
-        message: 'Visitors will see a 503 page until you bring the site back up.',
-        confirmLabel: 'Take site down',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Enable maintenance mode',
+            message: 'Visitors will see a 503 page until you bring the site back up.',
+            confirmLabel: 'Take site down',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.maintenance.down'), {}, { preserveScroll: false });
 };
 

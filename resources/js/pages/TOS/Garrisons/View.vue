@@ -37,12 +37,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-type GarrisonFormat =
-    | 'one_commander'
-    | 'one_commander_plus_10'
-    | 'two_commanders'
-    | 'theater_of_war'
-    | 'no_mans_land';
+type GarrisonFormat = 'one_commander' | 'one_commander_plus_10' | 'two_commanders' | 'theater_of_war' | 'no_mans_land';
 
 interface Allegiance {
     id: number;
@@ -220,7 +215,12 @@ const minionUnits = computed(() => props.garrison.garrison_units.filter((gu) => 
 
 const tabs: Array<{ key: ResourceTab; label: string; count: number; cap: number | null }> = [];
 const tabsList = computed<typeof tabs>(() => [
-    { key: 'all', label: 'All', count: props.garrison.garrison_units.length + props.garrison.assets.length + props.garrison.stratagems.length + props.garrison.envoys.length, cap: null },
+    {
+        key: 'all',
+        label: 'All',
+        count: props.garrison.garrison_units.length + props.garrison.assets.length + props.garrison.stratagems.length + props.garrison.envoys.length,
+        cap: null,
+    },
     { key: 'commanders', label: 'Commanders', count: commanderUnits.value.length, cap: props.format.max_commanders },
     { key: 'units', label: 'Units', count: minionUnits.value.length, cap: null },
     { key: 'assets', label: 'Assets', count: props.garrison.assets.reduce((n, a) => n + a.pivot.quantity, 0), cap: null },
@@ -234,9 +234,7 @@ const showAssets = computed(() => activeTab.value === 'all' || activeTab.value =
 const showStratagems = computed(() => activeTab.value === 'all' || activeTab.value === 'stratagems');
 const showEnvoys = computed(() => activeTab.value === 'all' || activeTab.value === 'envoys');
 
-const accentBg = computed(() =>
-    props.garrison.allegiance.color_slug ? `bg-${props.garrison.allegiance.color_slug}` : 'bg-primary/40',
-);
+const accentBg = computed(() => (props.garrison.allegiance.color_slug ? `bg-${props.garrison.allegiance.color_slug}` : 'bg-primary/40'));
 
 const budgetPercent = computed(() => {
     if (props.format.scrip_budget <= 0) return 0;
@@ -263,9 +261,13 @@ const limitLabel = (l: AssetLimit): string => {
 const { confirm } = useConfirm();
 
 function togglePublic() {
-    router.post(route('tos.garrisons.toggle_public', props.garrison.slug), {}, {
-        preserveScroll: true,
-    });
+    router.post(
+        route('tos.garrisons.toggle_public', props.garrison.slug),
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
 }
 
 async function deleteGarrison() {
@@ -395,16 +397,20 @@ const openSculptDialog = (gu: GarrisonUnit) => {
 };
 
 const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
-    router.post(route('tos.garrisons.units.sculpt', [props.garrison.slug, gu.id]), {
-        sculpt_id: sculptId,
-    }, {
-        only: reloadOnly,
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: () => {
-            sculptDialogTarget.value = null;
+    router.post(
+        route('tos.garrisons.units.sculpt', [props.garrison.slug, gu.id]),
+        {
+            sculpt_id: sculptId,
         },
-    });
+        {
+            only: reloadOnly,
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                sculptDialogTarget.value = null;
+            },
+        },
+    );
 };
 </script>
 
@@ -423,11 +429,12 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                 </div>
             </template>
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <Link
-                        :href="route('tos.allegiances.view', garrison.allegiance.slug)"
-                        class="hover:text-foreground hover:underline"
-                    >{{ garrison.allegiance.name }}</Link>
+                <div
+                    class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
+                    <Link :href="route('tos.allegiances.view', garrison.allegiance.slug)" class="hover:text-foreground hover:underline">{{
+                        garrison.allegiance.name
+                    }}</Link>
                     <span class="text-muted-foreground/50">&middot;</span>
                     <span>{{ format.label }}</span>
                 </div>
@@ -435,10 +442,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
         </PageBanner>
 
         <div class="container mx-auto space-y-3 sm:px-4">
-            <Link
-                :href="route('tos.garrisons.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
+            <Link :href="route('tos.garrisons.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft class="size-3" /> All Garrisons
             </Link>
 
@@ -453,23 +457,11 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                             <p class="mt-1 text-[11px] text-muted-foreground">{{ format.description }}</p>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                class="gap-1.5"
-                                @click="togglePublic"
-                            >
+                            <Button size="sm" variant="outline" class="gap-1.5" @click="togglePublic">
                                 <component :is="garrison.is_public ? Globe : Lock" class="size-3.5" />
                                 {{ garrison.is_public ? 'Public' : 'Private' }}
                             </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                class="gap-1.5"
-                                @click="openEdit"
-                            >
-                                <Pencil class="size-3.5" /> Edit
-                            </Button>
+                            <Button size="sm" variant="outline" class="gap-1.5" @click="openEdit"> <Pencil class="size-3.5" /> Edit </Button>
                             <Button
                                 as="a"
                                 :href="route('tos.companies.create', { garrison_id: garrison.id })"
@@ -505,10 +497,9 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     <div>
                         <div class="mb-1 flex items-baseline justify-between text-xs">
                             <span class="text-muted-foreground">Scrip pool</span>
-                            <span
-                                class="font-semibold tabular-nums"
-                                :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
-                            >{{ scrip_spent }} / {{ format.scrip_budget }}</span>
+                            <span class="font-semibold tabular-nums" :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
+                                >{{ scrip_spent }} / {{ format.scrip_budget }}</span
+                            >
                         </div>
                         <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
                             <div class="h-full transition-all" :class="budgetBarClass" :style="{ width: `${budgetPercent}%` }" />
@@ -516,10 +507,15 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     </div>
 
                     <!-- Public share link -->
-                    <div v-if="garrison.is_public" class="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/10 p-2 text-[11px] text-emerald-700 dark:text-emerald-400">
+                    <div
+                        v-if="garrison.is_public"
+                        class="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/10 p-2 text-[11px] text-emerald-700 dark:text-emerald-400"
+                    >
                         <Globe class="size-3.5" />
                         <span>Shareable link:</span>
-                        <code class="rounded bg-background/60 px-1.5 py-0.5 font-mono text-[10px]">{{ route('tos.garrisons.shared', garrison.share_code) }}</code>
+                        <code class="rounded bg-background/60 px-1.5 py-0.5 font-mono text-[10px]">{{
+                            route('tos.garrisons.shared', garrison.share_code)
+                        }}</code>
                     </div>
 
                     <!-- Notes -->
@@ -528,10 +524,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             </Card>
 
             <!-- Violations banner -->
-            <div
-                v-if="violations.length"
-                class="rounded-md border border-rose-500/40 bg-rose-500/5 p-3"
-            >
+            <div v-if="violations.length" class="rounded-md border border-rose-500/40 bg-rose-500/5 p-3">
                 <div class="flex items-start gap-2">
                     <AlertTriangle class="mt-0.5 size-4 shrink-0 text-rose-600 dark:text-rose-400" />
                     <div class="min-w-0 flex-1">
@@ -559,7 +552,12 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
 
             <!-- Empty pool -->
             <EmptyState
-                v-if="garrison.garrison_units.length === 0 && garrison.assets.length === 0 && garrison.stratagems.length === 0 && garrison.envoys.length === 0"
+                v-if="
+                    garrison.garrison_units.length === 0 &&
+                    garrison.assets.length === 0 &&
+                    garrison.stratagems.length === 0 &&
+                    garrison.envoys.length === 0
+                "
                 :icon="Swords"
                 title="Garrison pool is empty"
                 description="Phase 3 of the Garrison Builder lands the add-Unit / attach-Asset / pick-Stratagem / pick-Envoy controls. Until then this Garrison is just metadata."
@@ -573,14 +571,11 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     variant="outline"
                     class="gap-1.5"
                     @click="openPicker('units')"
-                ><Plus class="size-3.5" /> Add Unit / Commander</Button>
-                <Button
-                    v-if="activeTab === 'all' || activeTab === 'assets'"
-                    size="sm"
-                    variant="outline"
-                    class="gap-1.5"
-                    @click="openPicker('assets')"
-                ><Plus class="size-3.5" /> Add Asset</Button>
+                    ><Plus class="size-3.5" /> Add Unit / Commander</Button
+                >
+                <Button v-if="activeTab === 'all' || activeTab === 'assets'" size="sm" variant="outline" class="gap-1.5" @click="openPicker('assets')"
+                    ><Plus class="size-3.5" /> Add Asset</Button
+                >
                 <Button
                     v-if="activeTab === 'all' || activeTab === 'stratagems'"
                     size="sm"
@@ -588,7 +583,8 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     class="gap-1.5"
                     :disabled="stratagemCapReached"
                     @click="openPicker('stratagems')"
-                ><Plus class="size-3.5" /> Pick Stratagem</Button>
+                    ><Plus class="size-3.5" /> Pick Stratagem</Button
+                >
                 <Button
                     v-if="(activeTab === 'all' || activeTab === 'envoys') && format.envoy_count > 0"
                     size="sm"
@@ -596,7 +592,8 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     class="gap-1.5"
                     :disabled="envoySlotFilled"
                     @click="openPicker('envoys')"
-                ><Plus class="size-3.5" /> Pick Envoy</Button>
+                    ><Plus class="size-3.5" /> Pick Envoy</Button
+                >
             </div>
 
             <!-- ── Commanders ────────────────────────────────────────── -->
@@ -604,16 +601,10 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Crown class="size-4 text-amber-500" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Commanders</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ commanderUnits.length }} / {{ format.max_commanders }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    <Card
-                        v-for="gu in commanderUnits"
-                        :key="gu.id"
-                        class="group/card relative h-full overflow-hidden border-amber-500/30"
-                    >
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <Card v-for="gu in commanderUnits" :key="gu.id" class="group/card relative h-full overflow-hidden border-amber-500/30">
                         <FlipCard
                             :front-image="activeSculpt(gu)?.front_image"
                             :back-image="activeSculpt(gu)?.back_image"
@@ -658,12 +649,8 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Units</h2>
                     <Badge variant="secondary" class="text-[10px]">{{ minionUnits.length }}</Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    <Card
-                        v-for="gu in minionUnits"
-                        :key="gu.id"
-                        class="group/card relative h-full overflow-hidden"
-                    >
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <Card v-for="gu in minionUnits" :key="gu.id" class="group/card relative h-full overflow-hidden">
                         <FlipCard
                             :front-image="activeSculpt(gu)?.front_image"
                             :back-image="activeSculpt(gu)?.back_image"
@@ -714,16 +701,9 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                         {{ garrison.assets.reduce((n, a) => n + a.pivot.quantity, 0) }}
                     </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    <Card
-                        v-for="a in garrison.assets"
-                        :key="a.id"
-                        class="group/card relative h-full overflow-hidden"
-                    >
-                        <Link
-                            :href="route('tos.assets.view', a.slug)"
-                            class="block focus-visible:outline-none"
-                        >
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <Card v-for="a in garrison.assets" :key="a.id" class="group/card relative h-full overflow-hidden">
+                        <Link :href="route('tos.assets.view', a.slug)" class="block focus-visible:outline-none">
                             <CardImage
                                 :src="a.image_path"
                                 :alt="a.name"
@@ -734,36 +714,25 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                         </Link>
                         <CardContent class="space-y-1.5 p-3">
                             <div class="flex items-center justify-between gap-2">
-                                <Link :href="route('tos.assets.view', a.slug)" class="truncate text-sm font-semibold hover:underline">{{ a.name }}</Link>
+                                <Link :href="route('tos.assets.view', a.slug)" class="truncate text-sm font-semibold hover:underline">{{
+                                    a.name
+                                }}</Link>
                                 <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">×{{ a.pivot.quantity }}</Badge>
                             </div>
                             <p class="text-[10px] tabular-nums text-muted-foreground">
                                 {{ a.scrip_cost }}s each &middot; {{ a.scrip_cost * a.pivot.quantity }}s total
                             </p>
                             <div v-if="a.limits.length" class="flex flex-wrap gap-1">
-                                <Badge
-                                    v-for="l in a.limits"
-                                    :key="l.id"
-                                    variant="outline"
-                                    class="text-[10px] capitalize"
-                                >{{ limitLabel(l) }}</Badge>
+                                <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-[10px] capitalize">{{ limitLabel(l) }}</Badge>
                             </div>
                             <div class="flex items-center justify-between gap-2 pt-1">
                                 <div class="flex items-center gap-1">
-                                    <Button
-                                        size="icon"
-                                        variant="outline"
-                                        class="size-6"
-                                        aria-label="Decrease quantity"
-                                        @click="stepAsset(a, -1)"
-                                    ><Minus class="size-3" /></Button>
-                                    <Button
-                                        size="icon"
-                                        variant="outline"
-                                        class="size-6"
-                                        aria-label="Increase quantity"
-                                        @click="stepAsset(a, 1)"
-                                    ><Plus class="size-3" /></Button>
+                                    <Button size="icon" variant="outline" class="size-6" aria-label="Decrease quantity" @click="stepAsset(a, -1)"
+                                        ><Minus class="size-3"
+                                    /></Button>
+                                    <Button size="icon" variant="outline" class="size-6" aria-label="Increase quantity" @click="stepAsset(a, 1)"
+                                        ><Plus class="size-3"
+                                    /></Button>
                                 </div>
                                 <Button
                                     size="icon"
@@ -771,7 +740,8 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                                     class="size-6 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600"
                                     aria-label="Remove all"
                                     @click="stepAsset(a, -a.pivot.quantity)"
-                                ><Trash2 class="size-3" /></Button>
+                                    ><Trash2 class="size-3"
+                                /></Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -783,16 +753,10 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Stratagems</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ garrison.stratagems.length }} / {{ format.stratagem_count }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.stratagems.length }} / {{ format.stratagem_count }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    <Card
-                        v-for="s in garrison.stratagems"
-                        :key="s.id"
-                        class="group/card relative h-full overflow-hidden"
-                    >
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <Card v-for="s in garrison.stratagems" :key="s.id" class="group/card relative h-full overflow-hidden">
                         <Link :href="route('tos.stratagems.view', s.slug)" class="block focus-visible:outline-none">
                             <CardImage
                                 :src="s.image_path"
@@ -812,7 +776,9 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                         </button>
                         <CardContent class="space-y-1 p-3">
                             <div class="flex items-center justify-between gap-2">
-                                <Link :href="route('tos.stratagems.view', s.slug)" class="truncate text-sm font-semibold hover:underline">{{ s.name }}</Link>
+                                <Link :href="route('tos.stratagems.view', s.slug)" class="truncate text-sm font-semibold hover:underline">{{
+                                    s.name
+                                }}</Link>
                                 <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
                             </div>
                             <p class="truncate text-[10px] capitalize text-muted-foreground">{{ stratagemScopeLabel(s) }}</p>
@@ -829,16 +795,10 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
                     <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Envoys</h2>
-                    <Badge variant="secondary" class="text-[10px]">
-                        {{ garrison.envoys.length }} / {{ format.envoy_count }}
-                    </Badge>
+                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.envoys.length }} / {{ format.envoy_count }} </Badge>
                 </header>
-                <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    <Card
-                        v-for="c in garrison.envoys"
-                        :key="c.id"
-                        class="group/card relative h-full overflow-hidden"
-                    >
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <Card v-for="c in garrison.envoys" :key="c.id" class="group/card relative h-full overflow-hidden">
                         <Link :href="route('tos.allegiance_cards.view', c.slug)" class="block focus-visible:outline-none">
                             <CardImage
                                 :src="c.image_path"
@@ -857,7 +817,9 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                             <X class="size-3.5" />
                         </button>
                         <CardContent class="space-y-1 p-3">
-                            <Link :href="route('tos.allegiance_cards.view', c.slug)" class="block truncate text-sm font-semibold hover:underline">{{ c.name }}</Link>
+                            <Link :href="route('tos.allegiance_cards.view', c.slug)" class="block truncate text-sm font-semibold hover:underline">{{
+                                c.name
+                            }}</Link>
                             <p v-if="c.allegiance" class="truncate text-[10px] text-muted-foreground">{{ c.allegiance.name }}</p>
                         </CardContent>
                     </Card>
@@ -892,13 +854,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     <div class="space-y-4 py-2">
                         <div class="space-y-1.5">
                             <Label for="edit-name">Name</Label>
-                            <Input
-                                id="edit-name"
-                                v-model="editForm.name"
-                                type="text"
-                                maxlength="120"
-                                required
-                            />
+                            <Input id="edit-name" v-model="editForm.name" type="text" maxlength="120" required />
                             <p v-if="editForm.errors.name" class="text-[11px] text-rose-600">{{ editForm.errors.name }}</p>
                         </div>
 
@@ -926,19 +882,14 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                                 v-if="formatChanged"
                                 class="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400"
                             >
-                                Format swap may put the existing pool over the new caps. The Garrison stays editable —
-                                trim units, assets, stratagems, or envoys as needed to clear the violations banner.
+                                Format swap may put the existing pool over the new caps. The Garrison stays editable — trim units, assets, stratagems,
+                                or envoys as needed to clear the violations banner.
                             </p>
                         </div>
 
                         <div class="space-y-1.5">
                             <Label for="edit-notes">Notes</Label>
-                            <Textarea
-                                id="edit-notes"
-                                v-model="editForm.notes"
-                                rows="3"
-                                placeholder="Tournament context, plan-of-attack…"
-                            />
+                            <Textarea id="edit-notes" v-model="editForm.notes" rows="3" placeholder="Tournament context, plan-of-attack…" />
                         </div>
                     </div>
                     <DialogFooter>

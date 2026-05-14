@@ -70,12 +70,15 @@ const submit = () => {
 };
 
 const remove = async (a: AnnouncementRow) => {
-    if (!(await confirm({
-        title: 'Delete announcement',
-        message: `Delete this announcement?\n\n"${a.message.slice(0, 200)}"`,
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Delete announcement',
+            message: `Delete this announcement?\n\n"${a.message.slice(0, 200)}"`,
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.announcements.delete', a.id), { _method: 'DELETE' }, { preserveScroll: true });
 };
 
@@ -99,9 +102,7 @@ const isActiveNow = (a: AnnouncementRow): boolean => {
     return startsOk && endsOk;
 };
 
-const sorted = computed(() =>
-    [...props.announcements].sort((a, b) => Number(isActiveNow(b)) - Number(isActiveNow(a))),
-);
+const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isActiveNow(b)) - Number(isActiveNow(a))));
 </script>
 
 <template>
@@ -113,14 +114,15 @@ const sorted = computed(() =>
         </div>
         <p class="text-sm text-muted-foreground">
             Site-wide banners pushed via the shared Inertia data. Active when current time is within
-            <code class="rounded bg-muted px-1 text-xs">starts_at</code> / <code class="rounded bg-muted px-1 text-xs">ends_at</code>; both fields are optional.
+            <code class="rounded bg-muted px-1 text-xs">starts_at</code> / <code class="rounded bg-muted px-1 text-xs">ends_at</code>; both fields are
+            optional.
         </p>
 
         <Card>
             <CardContent class="space-y-3 p-4">
                 <div class="text-sm font-semibold">New announcement</div>
                 <div class="grid gap-3 md:grid-cols-2">
-                    <div class="md:col-span-2 flex flex-col gap-1">
+                    <div class="flex flex-col gap-1 md:col-span-2">
                         <Label for="message">Message</Label>
                         <Textarea id="message" v-model="form.message" rows="2" placeholder="Heads-up to everyone…" />
                     </div>
@@ -180,7 +182,9 @@ const sorted = computed(() =>
                         <div class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" :class="levelBadgeClass(a.level)">{{ a.level }}</Badge>
                             <Badge variant="secondary" class="text-[10px]">{{ a.audience }}</Badge>
-                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-[10px] text-green-700 dark:text-green-400">live</Badge>
+                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-[10px] text-green-700 dark:text-green-400"
+                                >live</Badge
+                            >
                             <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">scheduled / expired</Badge>
                         </div>
                         <p class="mt-1 text-sm">{{ a.message }}</p>

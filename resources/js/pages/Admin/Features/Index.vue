@@ -21,11 +21,7 @@ defineProps<{
 }>();
 
 const apply = (flag: Flag, nextActive: boolean) => {
-    router.post(
-        route('admin.features.update', flag.name),
-        { action: nextActive ? 'activate' : 'deactivate' },
-        { preserveScroll: true },
-    );
+    router.post(route('admin.features.update', flag.name), { action: nextActive ? 'activate' : 'deactivate' }, { preserveScroll: true });
 };
 
 const clearOverride = (flag: Flag) => {
@@ -41,8 +37,8 @@ const clearOverride = (flag: Flag) => {
             <h1 class="text-2xl font-semibold tracking-tight">Feature Flags</h1>
         </div>
         <p class="text-sm text-muted-foreground">
-            Site-wide overrides for flags registered in <code class="rounded bg-muted px-1 text-xs">FeatureFlagsServiceProvider</code>. Toggle active to
-            activate the flag for everyone; clear the override to fall back to the registry default.
+            Site-wide overrides for flags registered in <code class="rounded bg-muted px-1 text-xs">FeatureFlagsServiceProvider</code>. Toggle active
+            to activate the flag for everyone; clear the override to fall back to the registry default.
         </p>
 
         <div

@@ -20,12 +20,7 @@ interface GarrisonUnitMin {
     is_commander: boolean;
 }
 
-type GarrisonFormat =
-    | 'one_commander'
-    | 'one_commander_plus_10'
-    | 'two_commanders'
-    | 'theater_of_war'
-    | 'no_mans_land';
+type GarrisonFormat = 'one_commander' | 'one_commander_plus_10' | 'two_commanders' | 'theater_of_war' | 'no_mans_land';
 
 interface Garrison {
     id: number;
@@ -81,12 +76,8 @@ function relativeTime(iso: string): string {
 
         <div class="container mx-auto space-y-4 sm:px-4">
             <div class="flex items-center justify-between gap-2">
-                <p class="text-xs text-muted-foreground">
-                    {{ garrisons.length }} {{ garrisons.length === 1 ? 'garrison' : 'garrisons' }}
-                </p>
-                <Button as="a" :href="route('tos.garrisons.create')" size="sm" class="gap-1.5">
-                    <Plus class="size-4" /> New Garrison
-                </Button>
+                <p class="text-xs text-muted-foreground">{{ garrisons.length }} {{ garrisons.length === 1 ? 'garrison' : 'garrisons' }}</p>
+                <Button as="a" :href="route('tos.garrisons.create')" size="sm" class="gap-1.5"> <Plus class="size-4" /> New Garrison </Button>
             </div>
 
             <div v-if="garrisons.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -96,11 +87,15 @@ function relativeTime(iso: string): string {
                     :href="route('tos.garrisons.view', g.slug)"
                     class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card class="h-full overflow-hidden transition-all duration-200 ease-out group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg">
+                    <Card
+                        class="h-full overflow-hidden transition-all duration-200 ease-out group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"
+                    >
                         <div :class="['h-1 w-full', g.allegiance.color_slug ? `bg-${g.allegiance.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
                             <div class="flex items-start gap-3">
-                                <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-border/50 transition-transform group-hover:scale-105">
+                                <div
+                                    class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-border/50 transition-transform group-hover:scale-105"
+                                >
                                     <AllegianceLogo :allegiance="g.allegiance.slug" class-name="size-8" />
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -120,10 +115,7 @@ function relativeTime(iso: string): string {
                                     <Crown class="size-2.5" />
                                     {{ g.garrison_units.filter((u) => u.is_commander).length }}
                                 </Badge>
-                                <Badge
-                                    v-if="g.is_public"
-                                    class="bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-400"
-                                >Public</Badge>
+                                <Badge v-if="g.is_public" class="bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-400">Public</Badge>
                             </div>
                             <div class="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
                                 <span>Updated {{ relativeTime(g.updated_at) }}</span>

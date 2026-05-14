@@ -34,12 +34,7 @@ const onConfirm = () => _resolvePrompt(value.value);
                 <DialogTitle>{{ state.options.title ?? 'Enter a value' }}</DialogTitle>
                 <DialogDescription v-if="state.options.message">{{ state.options.message }}</DialogDescription>
             </DialogHeader>
-            <Input
-                v-model="value"
-                :placeholder="state.options.placeholder ?? ''"
-                autofocus
-                @keydown.enter="onConfirm"
-            />
+            <Input v-model="value" :placeholder="state.options.placeholder ?? ''" autofocus @keydown.enter="onConfirm" />
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="ghost" @click="onCancel">{{ state.options.cancelLabel ?? 'Cancel' }}</Button>
                 <Button @click="onConfirm">{{ state.options.confirmLabel ?? 'OK' }}</Button>

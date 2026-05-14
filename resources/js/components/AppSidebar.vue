@@ -8,8 +8,9 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    Bot,
+    ArrowUpCircle,
     BookOpen,
+    Bot,
     Calendar,
     CircleDollarSign,
     Coins,
@@ -31,7 +32,6 @@ import {
     Trophy,
     Users,
     Zap,
-    ArrowUpCircle,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { useConfirm } from '@/composables/useConfirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -60,14 +60,14 @@ const deleteCard = async (card: LootCardRow) => {
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold">Bonanza Loot Cards</h1>
-                <p class="text-sm text-muted-foreground">Fill in effect text from the Wyrd loot deck doc. The 54 rulebook cards are seeded; admins can also add homebrew cards.</p>
+                <p class="text-sm text-muted-foreground">
+                    Fill in effect text from the Wyrd loot deck doc. The 54 rulebook cards are seeded; admins can also add homebrew cards.
+                </p>
             </div>
             <div class="flex items-center gap-2">
                 <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
                 <Link :href="route('admin.loot_cards.create')">
-                    <Button size="sm" class="gap-1.5">
-                        <Plus class="size-4" /> Add Card
-                    </Button>
+                    <Button size="sm" class="gap-1.5"> <Plus class="size-4" /> Add Card </Button>
                 </Link>
             </div>
         </div>
@@ -98,7 +98,12 @@ const deleteCard = async (card: LootCardRow) => {
                         <tr v-for="c in filtered" :key="c.id" class="border-b last:border-b-0 hover:bg-muted/20">
                             <td class="px-3 py-2">
                                 <div class="flex items-center gap-2">
-                                    <img v-if="c.image" :src="`/storage/${c.image}`" :alt="c.name" class="size-8 shrink-0 rounded border object-cover" />
+                                    <img
+                                        v-if="c.image"
+                                        :src="`/storage/${c.image}`"
+                                        :alt="c.name"
+                                        class="size-8 shrink-0 rounded border object-cover"
+                                    />
                                     <span class="font-medium">{{ c.name }}</span>
                                 </div>
                             </td>
@@ -118,9 +123,7 @@ const deleteCard = async (card: LootCardRow) => {
                             <td class="px-3 py-2 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <Link :href="route('admin.loot_cards.edit', c.slug)">
-                                        <Button size="sm" variant="ghost" class="h-7 gap-1 px-2 text-xs">
-                                            <Pencil class="size-3.5" /> Edit
-                                        </Button>
+                                        <Button size="sm" variant="ghost" class="h-7 gap-1 px-2 text-xs"> <Pencil class="size-3.5" /> Edit </Button>
                                     </Link>
                                     <Button
                                         size="sm"

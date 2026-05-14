@@ -133,9 +133,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                         @update:modelValue="pushUnit"
                     />
                 </div>
-                <span v-if="units.length" class="text-[11px] text-muted-foreground">
-                    {{ units.length }} of {{ max_units }} selected
-                </span>
+                <span v-if="units.length" class="text-[11px] text-muted-foreground"> {{ units.length }} of {{ max_units }} selected </span>
                 <Button v-if="units.length" variant="ghost" size="sm" class="ml-auto text-xs" @click="clearAll">
                     <X class="size-3" /> Clear all
                 </Button>
@@ -143,7 +141,6 @@ function activeSculpt(u: Unit): Sculpt | null {
         </div>
 
         <div class="container mx-auto space-y-4 sm:px-4">
-
             <EmptyState
                 v-if="!units.length"
                 :icon="Scale"
@@ -215,11 +212,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                                     <span class="font-medium">{{ a.name }}</span>
                                     <span v-if="a.body" class="ml-1 text-muted-foreground"><TosText :text="a.body" /></span>
                                 </li>
-                                <li
-                                    v-for="a in glorySide(u)?.abilities ?? []"
-                                    :key="`g-${a.id}`"
-                                    class="text-muted-foreground"
-                                >
+                                <li v-for="a in glorySide(u)?.abilities ?? []" :key="`g-${a.id}`" class="text-muted-foreground">
                                     <span class="font-medium text-foreground">{{ a.name }}</span>
                                     <span class="ml-1 text-[9px] uppercase tracking-wider">(glory)</span>
                                     <span v-if="a.body" class="ml-1"><TosText :text="a.body" /></span>
@@ -230,7 +223,11 @@ function activeSculpt(u: Unit): Sculpt | null {
                         <div v-if="standardSide(u)?.actions.length || glorySide(u)?.actions.length">
                             <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
                             <ul class="space-y-1 text-[11px]">
-                                <li v-for="ac in standardSide(u)?.actions ?? []" :key="`as-${ac.id}`" class="flex items-baseline justify-between gap-2">
+                                <li
+                                    v-for="ac in standardSide(u)?.actions ?? []"
+                                    :key="`as-${ac.id}`"
+                                    class="flex items-baseline justify-between gap-2"
+                                >
                                     <span class="font-medium">{{ ac.name }}</span>
                                     <span class="text-[10px] text-muted-foreground">
                                         <template v-if="ac.av != null">AV {{ ac.av }}</template>
@@ -243,7 +240,10 @@ function activeSculpt(u: Unit): Sculpt | null {
                                     :key="`ag-${ac.id}`"
                                     class="flex items-baseline justify-between gap-2 text-muted-foreground"
                                 >
-                                    <span><span class="font-medium text-foreground">{{ ac.name }}</span> <span class="text-[9px] uppercase tracking-wider">(glory)</span></span>
+                                    <span
+                                        ><span class="font-medium text-foreground">{{ ac.name }}</span>
+                                        <span class="text-[9px] uppercase tracking-wider">(glory)</span></span
+                                    >
                                     <span class="text-[10px]">
                                         <template v-if="ac.av != null">AV {{ ac.av }}</template>
                                         <template v-if="ac.range"> · {{ ac.range }}</template>

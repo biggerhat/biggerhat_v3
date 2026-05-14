@@ -27,7 +27,10 @@ const seoDescription = computed(() => {
     const c = props.character;
     const station = c.station ? `${String(c.station).charAt(0).toUpperCase()}${String(c.station).slice(1)}` : '';
     const faction = c.faction ? String(c.faction).replace(/_/g, ' ') : '';
-    const keywords = (c.keywords ?? []).map((k: { name: string }) => k.name).filter(Boolean).join(', ');
+    const keywords = (c.keywords ?? [])
+        .map((k: { name: string }) => k.name)
+        .filter(Boolean)
+        .join(', ');
     const parts = [
         `${c.display_name}, ${station} ${faction} character for Malifaux`.trim(),
         keywords ? `Keywords: ${keywords}.` : '',

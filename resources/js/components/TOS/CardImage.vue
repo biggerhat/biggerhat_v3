@@ -44,32 +44,10 @@ const allegianceColor = computed(() => {
 
 <template>
     <div :class="[aspectClass, roundedClass, 'relative overflow-hidden bg-muted/40']">
-        <img
-            v-if="resolvedSrc"
-            :src="resolvedSrc"
-            :alt="alt"
-            loading="lazy"
-            decoding="async"
-            class="size-full object-cover"
-        />
-        <div
-            v-else
-            :class="[
-                'flex size-full items-center justify-center',
-                allegianceColor ? `bg-${allegianceColor}/20` : 'bg-primary/5',
-            ]"
-        >
-            <AllegianceLogo
-                v-if="allegianceSlug"
-                :allegiance="allegianceSlug"
-                class-name="size-1/3 opacity-60"
-            />
-            <component
-                v-else-if="placeholderIcon"
-                :is="placeholderIcon"
-                class="size-1/4 text-muted-foreground/50"
-                aria-hidden="true"
-            />
+        <img v-if="resolvedSrc" :src="resolvedSrc" :alt="alt" loading="lazy" decoding="async" class="size-full object-cover" />
+        <div v-else :class="['flex size-full items-center justify-center', allegianceColor ? `bg-${allegianceColor}/20` : 'bg-primary/5']">
+            <AllegianceLogo v-if="allegianceSlug" :allegiance="allegianceSlug" class-name="size-1/3 opacity-60" />
+            <component v-else-if="placeholderIcon" :is="placeholderIcon" class="size-1/4 text-muted-foreground/50" aria-hidden="true" />
         </div>
     </div>
 </template>

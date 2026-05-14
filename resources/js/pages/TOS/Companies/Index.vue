@@ -64,12 +64,8 @@ function relativeTime(iso: string): string {
 
         <div class="container mx-auto space-y-4 sm:px-4">
             <div class="flex items-center justify-between gap-2">
-                <p class="text-xs text-muted-foreground">
-                    {{ companies.length }} {{ companies.length === 1 ? 'company' : 'companies' }}
-                </p>
-                <Button as="a" :href="route('tos.companies.create')" size="sm" class="gap-1.5">
-                    <Plus class="size-4" /> New Company
-                </Button>
+                <p class="text-xs text-muted-foreground">{{ companies.length }} {{ companies.length === 1 ? 'company' : 'companies' }}</p>
+                <Button as="a" :href="route('tos.companies.create')" size="sm" class="gap-1.5"> <Plus class="size-4" /> New Company </Button>
             </div>
 
             <div v-if="companies.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -79,11 +75,15 @@ function relativeTime(iso: string): string {
                     :href="route('tos.companies.view', c.slug)"
                     class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card class="h-full overflow-hidden transition-all duration-200 ease-out group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg">
+                    <Card
+                        class="h-full overflow-hidden transition-all duration-200 ease-out group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"
+                    >
                         <div :class="['h-1 w-full', c.allegiance.color_slug ? `bg-${c.allegiance.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
                             <div class="flex items-start gap-3">
-                                <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-border/50 transition-transform group-hover:scale-105">
+                                <div
+                                    class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/40 ring-1 ring-border/50 transition-transform group-hover:scale-105"
+                                >
                                     <AllegianceLogo :allegiance="c.allegiance.slug" class-name="size-8" />
                                 </div>
                                 <div class="min-w-0 flex-1">

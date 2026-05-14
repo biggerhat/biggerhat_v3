@@ -111,12 +111,7 @@ const hasQuery = computed(() => (filterState.search ?? '').trim().length > 0);
         </CommandGroup>
 
         <CommandGroup v-if="catalog?.packages?.length" heading="Packages">
-            <CommandItem
-                v-for="pkg in catalog.packages"
-                :key="`pkg-${pkg.route}`"
-                :value="`package:${pkg.name}`"
-                @select="emit('select', pkg.route)"
-            >
+            <CommandItem v-for="pkg in catalog.packages" :key="`pkg-${pkg.route}`" :value="`package:${pkg.name}`" @select="emit('select', pkg.route)">
                 <Package class="mr-2 size-4 text-muted-foreground" />
                 {{ pkg.name }}
             </CommandItem>
@@ -135,12 +130,7 @@ const hasQuery = computed(() => (filterState.search ?? '').trim().length > 0);
         </CommandGroup>
 
         <CommandGroup v-if="catalog?.tos_units?.length" heading="TOS — Units">
-            <CommandItem
-                v-for="u in catalog.tos_units"
-                :key="`tos-unit-${u.route}`"
-                :value="`tos-unit:${u.name}`"
-                @select="emit('select', u.route)"
-            >
+            <CommandItem v-for="u in catalog.tos_units" :key="`tos-unit-${u.route}`" :value="`tos-unit:${u.name}`" @select="emit('select', u.route)">
                 <Swords class="mr-2 size-4 text-muted-foreground" />
                 {{ u.name }}
             </CommandItem>

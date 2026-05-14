@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, AlertTriangle, Trash2 } from 'lucide-vue-next';
+import { AlertTriangle, ArrowLeft, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 const confirm = useConfirm();
@@ -42,34 +42,34 @@ const props = defineProps<{
 }>();
 
 const newTournamentStatus = ref(props.tournament.status ?? '');
-const roundStatusDrafts = ref<Record<number, string>>(
-    Object.fromEntries(props.tournament.rounds.map((r) => [r.id, r.status ?? ''])),
-);
+const roundStatusDrafts = ref<Record<number, string>>(Object.fromEntries(props.tournament.rounds.map((r) => [r.id, r.status ?? ''])));
 
 const forceTournamentStatus = async () => {
     if (!newTournamentStatus.value || newTournamentStatus.value === props.tournament.status) return;
-    if (!(await confirm({
-        title: 'Force tournament status',
-        message: `Force tournament to "${newTournamentStatus.value}"? This bypasses every guard.`,
-        confirmLabel: 'Force',
-        destructive: true,
-    }))) return;
-    router.post(
-        route('admin.tournaments.force_status', props.tournament.uuid),
-        { status: newTournamentStatus.value },
-        { preserveScroll: true },
-    );
+    if (
+        !(await confirm({
+            title: 'Force tournament status',
+            message: `Force tournament to "${newTournamentStatus.value}"? This bypasses every guard.`,
+            confirmLabel: 'Force',
+            destructive: true,
+        }))
+    )
+        return;
+    router.post(route('admin.tournaments.force_status', props.tournament.uuid), { status: newTournamentStatus.value }, { preserveScroll: true });
 };
 
 const forceRoundStatus = async (round: Round) => {
     const next = roundStatusDrafts.value[round.id];
     if (!next || next === round.status) return;
-    if (!(await confirm({
-        title: `Force round ${round.round_number}`,
-        message: `Force round ${round.round_number} to "${next}"? This bypasses pairing/scoring guards.`,
-        confirmLabel: 'Force',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Force round ${round.round_number}`,
+            message: `Force round ${round.round_number} to "${next}"? This bypasses pairing/scoring guards.`,
+            confirmLabel: 'Force',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(
         route('admin.tournaments.rounds.force_status', { tournament: props.tournament.uuid, round: round.id }),
         { status: next },
@@ -78,12 +78,15 @@ const forceRoundStatus = async (round: Round) => {
 };
 
 const deleteTournament = async () => {
-    if (!(await confirm({
-        title: 'Soft-delete tournament',
-        message: `Soft-delete "${props.tournament.name}"? Recoverable from the database, but it will disappear from the UI immediately.`,
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Soft-delete tournament',
+            message: `Soft-delete "${props.tournament.name}"? Recoverable from the database, but it will disappear from the UI immediately.`,
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.tournaments.delete', props.tournament.uuid), {}, { preserveScroll: false });
 };
 </script>
@@ -160,11 +163,7 @@ const deleteTournament = async () => {
             <CardContent class="space-y-2 p-4">
                 <div class="text-sm font-semibold">Players ({{ tournament.players.length }})</div>
                 <div class="grid gap-1.5 sm:grid-cols-2">
-                    <div
-                        v-for="p in tournament.players"
-                        :key="p.id"
-                        class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
-                    >
+                    <div v-for="p in tournament.players" :key="p.id" class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
                         <span class="truncate font-medium">{{ p.display_name }}</span>
                         <Badge v-if="p.is_disqualified" variant="destructive" class="text-[9px]">DQ</Badge>
                         <Badge v-else-if="p.dropped_after_round" variant="outline" class="text-[9px]">dropped R{{ p.dropped_after_round }}</Badge>
@@ -183,9 +182,7 @@ const deleteTournament = async () => {
                     <div class="text-sm font-semibold text-destructive">Danger zone</div>
                     <p class="text-xs text-muted-foreground">Soft-delete this tournament. The DB row stays — it just disappears from the UI.</p>
                 </div>
-                <Button variant="destructive" @click="deleteTournament">
-                    <Trash2 class="mr-1.5 size-3.5" /> Soft-delete
-                </Button>
+                <Button variant="destructive" @click="deleteTournament"> <Trash2 class="mr-1.5 size-3.5" /> Soft-delete </Button>
             </CardContent>
         </Card>
     </div>

@@ -408,9 +408,7 @@ onMounted(() => {
 <template>
     <SeoHead
         :title="`${build.name} — Crew Builder`"
-        :description="
-            `${build.encounter_size}ss ${faction?.name ?? 'Malifaux'} crew${master ? ` led by ${master.display_name}` : ''}${build.user_name ? ` by ${build.user_name}` : ''}.`
-        "
+        :description="`${build.encounter_size}ss ${faction?.name ?? 'Malifaux'} crew${master ? ` led by ${master.display_name}` : ''}${build.user_name ? ` by ${build.user_name}` : ''}.`"
         :image="faction?.logo"
     />
 

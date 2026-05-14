@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,12 +13,43 @@ import { Head } from '@inertiajs/vue3';
 import { Coins, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-interface NamedRule {
+interface LootAction {
     id: number;
     slug: string;
     name: string;
-    description: string | null;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | null;
+    range_type?: string | null;
+    stat?: number | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | null;
+    target_suits?: string | null;
+    damage?: number | string | null;
+    description?: string | null;
     pivot?: { is_signature_action?: boolean };
+}
+
+interface LootAbility {
+    id: number;
+    slug: string;
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
+
+interface LootTrigger {
+    id: number;
+    slug: string;
+    name: string;
+    suits?: string | null;
+    stone_cost?: number;
+    description?: string | null;
 }
 
 interface LootCardEntry {
@@ -29,12 +64,12 @@ interface LootCardEntry {
     effect_a: string | null;
     effect_b: string | null;
     image: string | null;
-    side_a_actions: NamedRule[];
-    side_b_actions: NamedRule[];
-    side_a_abilities: NamedRule[];
-    side_b_abilities: NamedRule[];
-    side_a_triggers: NamedRule[];
-    side_b_triggers: NamedRule[];
+    side_a_actions: LootAction[];
+    side_b_actions: LootAction[];
+    side_a_abilities: LootAbility[];
+    side_b_abilities: LootAbility[];
+    side_a_triggers: LootTrigger[];
+    side_b_triggers: LootTrigger[];
 }
 
 const props = defineProps<{
@@ -56,7 +91,7 @@ const suitMeta: Record<string, { label: string; tone: string }> = {
 
 const matchesSearch = (c: LootCardEntry, q: string): boolean => {
     if (!q) return true;
-    const haystacks: (string | null)[] = [
+    const haystacks: (string | null | undefined)[] = [
         c.name,
         c.title_a,
         c.title_b,
@@ -92,10 +127,18 @@ const cardsBySuit = computed(() => {
 const sideHasContent = (
     title: string | null,
     effect: string | null,
-    actions: NamedRule[],
-    abilities: NamedRule[],
-    triggers: NamedRule[],
+    actions: LootAction[],
+    abilities: LootAbility[],
+    triggers: LootTrigger[],
 ): boolean => !!title || !!effect || actions.length > 0 || abilities.length > 0 || triggers.length > 0;
+
+// The pivot on `loot_card_action` carries `is_signature_action` per card-side
+// attachment — surface it on the action so ActionCard renders the signature
+// icon in the header without us forking the component.
+const withSignatureFlag = (action: LootAction): LootAction => ({
+    ...action,
+    is_signature: action.pivot?.is_signature_action ?? action.is_signature ?? false,
+});
 </script>
 
 <template>
@@ -147,10 +190,11 @@ const sideHasContent = (
                         <span
                             class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider"
                             :class="suitMeta[suit]?.tone ?? 'border-border bg-muted text-muted-foreground'"
-                        >{{ suitMeta[suit]?.label ?? suit }}</span>
+                            >{{ suitMeta[suit]?.label ?? suit }}</span
+                        >
                         <span class="text-xs font-normal text-muted-foreground">{{ group.length }} card{{ group.length === 1 ? '' : 's' }}</span>
                     </h2>
-                    <div class="grid gap-3 lg:grid-cols-2">
+                    <div class="grid gap-3 xl:grid-cols-2">
                         <Card v-for="card in group" :key="card.id" class="overflow-hidden">
                             <CardContent class="space-y-3 p-3">
                                 <div class="flex items-start gap-3">
@@ -167,51 +211,57 @@ const sideHasContent = (
                                                 variant="outline"
                                                 class="px-1.5 py-0 font-mono text-[10px] tabular-nums"
                                                 :class="suitMeta[card.suit]?.tone ?? ''"
-                                            >{{ card.value_label }}</Badge>
+                                                >{{ card.value_label }}</Badge
+                                            >
                                             <span class="truncate text-sm font-semibold">{{ card.name }}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="grid gap-2 sm:grid-cols-2">
+                                <div class="space-y-3">
                                     <!-- SIDE A -->
                                     <div
-                                        v-if="sideHasContent(card.title_a, card.effect_a, card.side_a_actions, card.side_a_abilities, card.side_a_triggers)"
-                                        class="space-y-1.5 rounded-md border bg-muted/30 p-2"
+                                        v-if="
+                                            sideHasContent(
+                                                card.title_a,
+                                                card.effect_a,
+                                                card.side_a_actions,
+                                                card.side_a_abilities,
+                                                card.side_a_triggers,
+                                            )
+                                        "
+                                        class="space-y-2 rounded-md border bg-muted/30 p-2"
                                     >
                                         <div class="flex items-center gap-1.5">
                                             <Badge class="bg-primary/15 px-1 py-0 text-[9px] font-bold text-primary">A</Badge>
                                             <span v-if="card.title_a" class="text-sm font-semibold">{{ card.title_a }}</span>
                                         </div>
-                                        <p v-if="card.effect_a" class="whitespace-pre-line text-xs">{{ card.effect_a }}</p>
-                                        <div v-if="card.side_a_abilities.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="a in card.side_a_abilities" :key="`a-ab-${a.id}`">
-                                                    <span class="font-medium">{{ a.name }}</span><span v-if="a.description"> — <span class="text-muted-foreground">{{ a.description }}</span></span>
-                                                </li>
-                                            </ul>
+                                        <p v-if="card.effect_a" class="whitespace-pre-line text-xs text-muted-foreground">
+                                            <GameText :text="card.effect_a" icon-class="h-4 inline-block align-text-bottom" />
+                                        </p>
+                                        <div v-if="card.side_a_abilities.length" class="space-y-1.5">
+                                            <AbilityCard
+                                                v-for="ability in card.side_a_abilities"
+                                                :key="`a-ab-${ability.id}`"
+                                                :ability="ability"
+                                                hide-footer
+                                            />
                                         </div>
-                                        <div v-if="card.side_a_actions.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="a in card.side_a_actions" :key="`a-ac-${a.id}`">
-                                                    <span class="font-medium">{{ a.name }}</span>
-                                                    <Badge
-                                                        v-if="a.pivot?.is_signature_action"
-                                                        variant="outline"
-                                                        class="ml-1 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
-                                                    >Signature</Badge>
-                                                </li>
-                                            </ul>
+                                        <div v-if="card.side_a_actions.length" class="space-y-1.5">
+                                            <ActionCard
+                                                v-for="action in card.side_a_actions"
+                                                :key="`a-ac-${action.id}`"
+                                                :action="withSignatureFlag(action)"
+                                                hide-footer
+                                            />
                                         </div>
-                                        <div v-if="card.side_a_triggers.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Triggers</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="t in card.side_a_triggers" :key="`a-tr-${t.id}`">
-                                                    <span class="font-medium">{{ t.name }}</span>
-                                                </li>
-                                            </ul>
+                                        <div v-if="card.side_a_triggers.length" class="space-y-1.5">
+                                            <TriggerCard
+                                                v-for="trigger in card.side_a_triggers"
+                                                :key="`a-tr-${trigger.id}`"
+                                                :trigger="trigger"
+                                                hide-footer
+                                            />
                                         </div>
                                     </div>
                                     <div v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">
@@ -220,42 +270,47 @@ const sideHasContent = (
 
                                     <!-- SIDE B -->
                                     <div
-                                        v-if="sideHasContent(card.title_b, card.effect_b, card.side_b_actions, card.side_b_abilities, card.side_b_triggers)"
-                                        class="space-y-1.5 rounded-md border bg-muted/30 p-2"
+                                        v-if="
+                                            sideHasContent(
+                                                card.title_b,
+                                                card.effect_b,
+                                                card.side_b_actions,
+                                                card.side_b_abilities,
+                                                card.side_b_triggers,
+                                            )
+                                        "
+                                        class="space-y-2 rounded-md border bg-muted/30 p-2"
                                     >
                                         <div class="flex items-center gap-1.5">
                                             <Badge class="bg-primary/15 px-1 py-0 text-[9px] font-bold text-primary">B</Badge>
                                             <span v-if="card.title_b" class="text-sm font-semibold">{{ card.title_b }}</span>
                                         </div>
-                                        <p v-if="card.effect_b" class="whitespace-pre-line text-xs">{{ card.effect_b }}</p>
-                                        <div v-if="card.side_b_abilities.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="a in card.side_b_abilities" :key="`b-ab-${a.id}`">
-                                                    <span class="font-medium">{{ a.name }}</span><span v-if="a.description"> — <span class="text-muted-foreground">{{ a.description }}</span></span>
-                                                </li>
-                                            </ul>
+                                        <p v-if="card.effect_b" class="whitespace-pre-line text-xs text-muted-foreground">
+                                            <GameText :text="card.effect_b" icon-class="h-4 inline-block align-text-bottom" />
+                                        </p>
+                                        <div v-if="card.side_b_abilities.length" class="space-y-1.5">
+                                            <AbilityCard
+                                                v-for="ability in card.side_b_abilities"
+                                                :key="`b-ab-${ability.id}`"
+                                                :ability="ability"
+                                                hide-footer
+                                            />
                                         </div>
-                                        <div v-if="card.side_b_actions.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="a in card.side_b_actions" :key="`b-ac-${a.id}`">
-                                                    <span class="font-medium">{{ a.name }}</span>
-                                                    <Badge
-                                                        v-if="a.pivot?.is_signature_action"
-                                                        variant="outline"
-                                                        class="ml-1 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
-                                                    >Signature</Badge>
-                                                </li>
-                                            </ul>
+                                        <div v-if="card.side_b_actions.length" class="space-y-1.5">
+                                            <ActionCard
+                                                v-for="action in card.side_b_actions"
+                                                :key="`b-ac-${action.id}`"
+                                                :action="withSignatureFlag(action)"
+                                                hide-footer
+                                            />
                                         </div>
-                                        <div v-if="card.side_b_triggers.length" class="space-y-0.5 pt-1">
-                                            <div class="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Triggers</div>
-                                            <ul class="space-y-0.5 text-[11px]">
-                                                <li v-for="t in card.side_b_triggers" :key="`b-tr-${t.id}`">
-                                                    <span class="font-medium">{{ t.name }}</span>
-                                                </li>
-                                            </ul>
+                                        <div v-if="card.side_b_triggers.length" class="space-y-1.5">
+                                            <TriggerCard
+                                                v-for="trigger in card.side_b_triggers"
+                                                :key="`b-tr-${trigger.id}`"
+                                                :trigger="trigger"
+                                                hide-footer
+                                            />
                                         </div>
                                     </div>
                                     <div v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">

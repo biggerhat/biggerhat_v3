@@ -30,12 +30,12 @@ const page = usePage();
 
 const fullTitle = computed(() => {
     const base = (page.props as { name?: string }).name ?? 'BiggerHat';
-    if (! props.title) return base;
+    if (!props.title) return base;
     return props.title.includes(base) ? props.title : `${props.title} - ${base}`;
 });
 
 const absoluteUrl = (path: string | null | undefined): string | null => {
-    if (! path) return null;
+    if (!path) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     if (typeof window === 'undefined') return path;
     if (path.startsWith('/')) return `${window.location.origin}${path}`;

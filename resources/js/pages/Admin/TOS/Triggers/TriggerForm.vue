@@ -76,16 +76,18 @@ onMounted(() => {
     <Head title="TOS Trigger — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-3">
                 <div>
-                    <Label for="action_ids">Actions <span class="ml-1 text-[10px] font-normal text-muted-foreground">(optional — leave empty to save unattached, or pick one or more)</span></Label>
-                    <SearchableMultiselect
-                        v-model="formInfo.action_ids"
-                        placeholder="Search actions…"
-                        :options="actions"
-                        option-value="id"
-                    />
+                    <Label for="action_ids"
+                        >Actions
+                        <span class="ml-1 text-[10px] font-normal text-muted-foreground"
+                            >(optional — leave empty to save unattached, or pick one or more)</span
+                        ></Label
+                    >
+                    <SearchableMultiselect v-model="formInfo.action_ids" placeholder="Search actions…" :options="actions" option-value="id" />
                     <InputError :message="usePage().props.errors.action_ids" />
                 </div>
                 <div>
@@ -96,11 +98,17 @@ onMounted(() => {
 
                 <div>
                     <Label>Cost type</Label>
-                    <div class="mt-1 inline-flex items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium" role="group" aria-label="Trigger cost type">
+                    <div
+                        class="mt-1 inline-flex items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium"
+                        role="group"
+                        aria-label="Trigger cost type"
+                    >
                         <button
                             type="button"
                             class="inline-flex h-7 items-center rounded px-3 transition-colors"
-                            :class="costType === 'suits' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                            :class="
+                                costType === 'suits' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            "
                             @click="setCostType('suits')"
                         >
                             Suits
@@ -108,7 +116,9 @@ onMounted(() => {
                         <button
                             type="button"
                             class="inline-flex h-7 items-center rounded px-3 transition-colors"
-                            :class="costType === 'margin' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                            :class="
+                                costType === 'margin' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            "
                             @click="setCostType('margin')"
                         >
                             Margin
@@ -116,7 +126,9 @@ onMounted(() => {
                         <button
                             type="button"
                             class="inline-flex h-7 items-center rounded px-3 transition-colors"
-                            :class="costType === 'none' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                            :class="
+                                costType === 'none' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            "
                             @click="setCostType('none')"
                         >
                             None

@@ -43,12 +43,15 @@ const retry = (uuid: string) => {
 };
 
 const destroy = async (uuid: string) => {
-    if (!(await confirm({
-        title: 'Delete failed job',
-        message: 'Delete this failed job? This is permanent.',
-        confirmLabel: 'Delete',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Delete failed job',
+            message: 'Delete this failed job? This is permanent.',
+            confirmLabel: 'Delete',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.failed_jobs.delete', uuid), {}, { preserveScroll: true });
 };
 
@@ -58,12 +61,15 @@ const retryAll = async () => {
 };
 
 const flush = async () => {
-    if (!(await confirm({
-        title: 'Flush failed jobs',
-        message: 'Permanently delete all failed jobs?',
-        confirmLabel: 'Flush all',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: 'Flush failed jobs',
+            message: 'Permanently delete all failed jobs?',
+            confirmLabel: 'Flush all',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.failed_jobs.flush'), {}, { preserveScroll: true });
 };
 
@@ -78,12 +84,8 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
             <h1 class="text-2xl font-semibold tracking-tight">Failed Jobs</h1>
             <Badge variant="secondary" class="ml-1">{{ jobs.total }}</Badge>
             <div class="ml-auto flex gap-2">
-                <Button v-if="jobs.total > 0" variant="outline" size="sm" @click="retryAll">
-                    <RefreshCw class="mr-1.5 size-3.5" /> Retry all
-                </Button>
-                <Button v-if="jobs.total > 0" variant="destructive" size="sm" @click="flush">
-                    <Trash2 class="mr-1.5 size-3.5" /> Flush all
-                </Button>
+                <Button v-if="jobs.total > 0" variant="outline" size="sm" @click="retryAll"> <RefreshCw class="mr-1.5 size-3.5" /> Retry all </Button>
+                <Button v-if="jobs.total > 0" variant="destructive" size="sm" @click="flush"> <Trash2 class="mr-1.5 size-3.5" /> Flush all </Button>
             </div>
         </div>
         <p class="text-sm text-muted-foreground">Jobs that hit the failed_jobs table. Inspect the exception, retry, or discard.</p>
@@ -117,10 +119,9 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                             </Button>
                         </div>
                     </div>
-                    <pre
-                        v-if="expanded === job.uuid"
-                        class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] leading-relaxed"
-                        >{{ job.exception }}</pre>
+                    <pre v-if="expanded === job.uuid" class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] leading-relaxed">{{
+                        job.exception
+                    }}</pre>
                 </CardContent>
             </Card>
         </div>

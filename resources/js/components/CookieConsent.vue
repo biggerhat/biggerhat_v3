@@ -27,9 +27,11 @@ const { hasDecided, acceptConsent, declineConsent } = useCookieConsent();
                 <div class="flex items-start gap-3 sm:flex-1">
                     <Cookie class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
                     <p class="text-sm text-muted-foreground">
-                        We use cookies to keep you signed in and remember your preferences. Google Analytics helps us understand how the site is used —
-                        turn it on?
-                        <Link :href="route('privacy')" class="ml-1 font-medium text-foreground underline-offset-2 hover:underline">Privacy policy</Link>
+                        We use cookies to keep you signed in and remember your preferences. Google Analytics helps us understand how the site is used
+                        — turn it on?
+                        <Link :href="route('privacy')" class="ml-1 font-medium text-foreground underline-offset-2 hover:underline"
+                            >Privacy policy</Link
+                        >
                     </p>
                 </div>
                 <!-- Reject must be as easy as Accept per GDPR — same size, equal prominence. -->

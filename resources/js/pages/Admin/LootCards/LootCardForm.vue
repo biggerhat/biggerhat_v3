@@ -80,12 +80,18 @@ const isJoker = computed(() => newSuit.value === 'joker');
 const derivedValueLabel = computed<string>(() => {
     if (isJoker.value) return newValueLabel.value.trim() || 'Joker';
     switch (newValue.value) {
-        case 1: return 'A';
-        case 11: return 'J';
-        case 12: return 'Q';
-        case 13: return 'K';
-        case null: return '';
-        default: return String(newValue.value);
+        case 1:
+            return 'A';
+        case 11:
+            return 'J';
+        case 12:
+            return 'Q';
+        case 13:
+            return 'K';
+        case null:
+            return '';
+        default:
+            return String(newValue.value);
     }
 });
 
@@ -216,9 +222,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
 
     <div class="container mx-auto space-y-4 p-4 lg:p-6">
         <Link :href="route('admin.loot_cards.index')">
-            <Button variant="ghost" size="sm" class="gap-1.5 text-sm">
-                <ArrowLeft class="size-4" /> Back to Loot Cards
-            </Button>
+            <Button variant="ghost" size="sm" class="gap-1.5 text-sm"> <ArrowLeft class="size-4" /> Back to Loot Cards </Button>
         </Link>
 
         <div>
@@ -267,7 +271,11 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                         </div>
                         <div v-else class="space-y-1.5">
                             <Label for="value_label">Display Label</Label>
-                            <select id="value_label" v-model="newValueLabel" class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+                            <select
+                                id="value_label"
+                                v-model="newValueLabel"
+                                class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            >
                                 <option value="">Choose…</option>
                                 <option value="Red Joker">Red Joker</option>
                                 <option value="Black Joker">Black Joker</option>
@@ -288,9 +296,13 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                             <ImageOff class="size-4" /> Image will be removed on save.
                             <Button type="button" variant="ghost" size="sm" class="text-xs" @click="removeImage = false">Undo</Button>
                         </div>
-                        <label class="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs hover:bg-muted/50">
+                        <label
+                            class="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs hover:bg-muted/50"
+                        >
                             <Upload class="size-4 text-muted-foreground" />
-                            <span class="flex-1 text-muted-foreground">{{ imageFile?.name ?? 'Upload a new image (jpeg, png, webp, heic; max 30MB)' }}</span>
+                            <span class="flex-1 text-muted-foreground">{{
+                                imageFile?.name ?? 'Upload a new image (jpeg, png, webp, heic; max 30MB)'
+                            }}</span>
                             <input type="file" accept="image/*" class="hidden" @change="onImageChange" />
                         </label>
                         <p v-if="form.errors.image" class="text-xs text-destructive">{{ form.errors.image }}</p>
@@ -305,7 +317,9 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                 <Card>
                     <CardContent class="space-y-4 p-4">
                         <div class="flex items-center gap-2">
-                            <span class="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">A</span>
+                            <span class="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary"
+                                >A</span
+                            >
                             <h2 class="text-sm font-semibold">Side A</h2>
                         </div>
 
@@ -332,7 +346,10 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                 <li v-for="row in sideAActionRows" :key="`a-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-                                        <Checkbox :model-value="row.is_signature_action" @update:model-value="toggleSignature(sideAActionRows, row.slug)" />
+                                        <Checkbox
+                                            :model-value="row.is_signature_action"
+                                            @update:model-value="toggleSignature(sideAActionRows, row.slug)"
+                                        />
                                         Signature
                                     </label>
                                 </li>
@@ -349,7 +366,9 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                 <Card>
                     <CardContent class="space-y-4 p-4">
                         <div class="flex items-center gap-2">
-                            <span class="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">B</span>
+                            <span class="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary"
+                                >B</span
+                            >
                             <h2 class="text-sm font-semibold">Side B</h2>
                         </div>
 
@@ -376,7 +395,10 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                 <li v-for="row in sideBActionRows" :key="`b-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-                                        <Checkbox :model-value="row.is_signature_action" @update:model-value="toggleSignature(sideBActionRows, row.slug)" />
+                                        <Checkbox
+                                            :model-value="row.is_signature_action"
+                                            @update:model-value="toggleSignature(sideBActionRows, row.slug)"
+                                        />
                                         Signature
                                     </label>
                                 </li>
@@ -392,9 +414,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
             </div>
 
             <div class="flex justify-end">
-                <Button type="submit" :disabled="form.processing" class="gap-1.5">
-                    <Save class="size-4" /> Save
-                </Button>
+                <Button type="submit" :disabled="form.processing" class="gap-1.5"> <Save class="size-4" /> Save </Button>
             </div>
         </form>
     </div>

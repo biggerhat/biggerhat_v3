@@ -64,7 +64,9 @@ const hasRelatedContent = computed(
 <template>
     <SeoHead
         :title="upgrade.name"
-        :description="`${upgrade.name} — ${upgrade.domain_label} ${upgrade.type_label ? upgrade.type_label + ' ' : ''}upgrade${upgrade.faction_label ? ' for ' + upgrade.faction_label : ''} in Malifaux. ${upgrade.limitations_label ?? ''}`.trim()"
+        :description="
+            `${upgrade.name} — ${upgrade.domain_label} ${upgrade.type_label ? upgrade.type_label + ' ' : ''}upgrade${upgrade.faction_label ? ' for ' + upgrade.faction_label : ''} in Malifaux. ${upgrade.limitations_label ?? ''}`.trim()
+        "
         :image="upgrade.front_image"
     />
 

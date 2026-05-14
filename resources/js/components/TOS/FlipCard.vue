@@ -36,7 +36,7 @@ withDefaults(defineProps<Props>(), {
 const flipped = defineModel<boolean>('flipped', { default: false });
 
 const emit = defineEmits<{
-    fullscreen: []
+    fullscreen: [];
 }>();
 
 function toggle() {
@@ -64,11 +64,7 @@ function handleKey(e: KeyboardEvent) {
             @click="toggle"
             @keydown="handleKey"
         >
-            <div
-                class="relative w-full transition-transform duration-500"
-                :class="{ 'tos-flipped': flipped }"
-                style="transform-style: preserve-3d"
-            >
+            <div class="relative w-full transition-transform duration-500" :class="{ 'tos-flipped': flipped }" style="transform-style: preserve-3d">
                 <div class="tos-face" style="backface-visibility: hidden">
                     <CardImage
                         :src="frontImage"

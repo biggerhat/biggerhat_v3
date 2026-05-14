@@ -77,10 +77,10 @@ const describeLimit = (l: Limit): string => {
 
         <PageBanner :title="asset.name" class="mb-2">
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    <Badge class="bg-cyan-500/10 text-[10px] tabular-nums text-cyan-700 dark:text-cyan-400">
-                        {{ asset.scrip_cost }} Scrip
-                    </Badge>
+                <div
+                    class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
+                    <Badge class="bg-cyan-500/10 text-[10px] tabular-nums text-cyan-700 dark:text-cyan-400"> {{ asset.scrip_cost }} Scrip </Badge>
                     <Badge v-if="asset.disable_count != null" variant="outline" class="text-[10px]">Disable {{ asset.disable_count }}</Badge>
                     <Badge v-if="asset.scrap_count != null" variant="outline" class="text-[10px]">Scrap {{ asset.scrap_count }}</Badge>
                 </div>
@@ -108,44 +108,51 @@ const describeLimit = (l: Limit): string => {
 
                         <p v-if="asset.body" class="text-sm text-muted-foreground"><TosText :text="asset.body" /></p>
 
-                    <div v-if="asset.limits.length">
-                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Limits</p>
-                        <ul class="space-y-1 text-xs">
-                            <li v-for="l in asset.limits" :key="l.id">{{ describeLimit(l) }}</li>
-                        </ul>
-                    </div>
+                        <div v-if="asset.limits.length">
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Limits</p>
+                            <ul class="space-y-1 text-xs">
+                                <li v-for="l in asset.limits" :key="l.id">{{ describeLimit(l) }}</li>
+                            </ul>
+                        </div>
 
-                    <div v-if="asset.abilities.length">
-                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
-                        <ul class="space-y-1.5 text-xs">
-                            <li v-for="a in asset.abilities" :key="a.id">
-                                <span class="font-medium">{{ a.name }}.</span>
-                                <span v-if="a.body" class="ml-1 text-muted-foreground"><TosText :text="a.body" /></span>
-                            </li>
-                        </ul>
-                    </div>
+                        <div v-if="asset.abilities.length">
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                            <ul class="space-y-1.5 text-xs">
+                                <li v-for="a in asset.abilities" :key="a.id">
+                                    <span class="font-medium">{{ a.name }}.</span>
+                                    <span v-if="a.body" class="ml-1 text-muted-foreground"><TosText :text="a.body" /></span>
+                                </li>
+                            </ul>
+                        </div>
 
-                    <div v-if="asset.actions.length">
-                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
-                        <ul class="space-y-2 text-xs">
-                            <li v-for="ac in asset.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
-                                <div class="flex items-center justify-between gap-2">
-                                    <div class="flex items-center gap-1.5">
-                                        <span v-for="l in ac.type_links" :key="l.id" class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground">{{ l.type }}</span>
-                                        <span class="font-medium">{{ ac.name }}</span>
+                        <div v-if="asset.actions.length">
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                            <ul class="space-y-2 text-xs">
+                                <li v-for="ac in asset.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5">
+                                            <span
+                                                v-for="l in ac.type_links"
+                                                :key="l.id"
+                                                class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                >{{ l.type }}</span
+                                            >
+                                            <span class="font-medium">{{ ac.name }}</span>
+                                        </div>
+                                        <span class="text-[10px] text-muted-foreground">
+                                            <template v-if="ac.av != null">
+                                                {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
+                                                    v {{ ac.av_target }}</template
+                                                >
+                                            </template>
+                                            <template v-if="ac.range"> · {{ ac.range }}</template>
+                                            <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
+                                        </span>
                                     </div>
-                                    <span class="text-[10px] text-muted-foreground">
-                                        <template v-if="ac.av != null">
-                                            {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target"> v {{ ac.av_target }}</template>
-                                        </template>
-                                        <template v-if="ac.range"> · {{ ac.range }}</template>
-                                        <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
-                                    </span>
-                                </div>
-                                <p v-if="ac.body" class="mt-1 text-muted-foreground"><TosText :text="ac.body" /></p>
-                            </li>
-                        </ul>
-                    </div>
+                                    <p v-if="ac.body" class="mt-1 text-muted-foreground"><TosText :text="ac.body" /></p>
+                                </li>
+                            </ul>
+                        </div>
                     </CardContent>
                 </div>
             </Card>
@@ -153,14 +160,12 @@ const describeLimit = (l: Limit): string => {
             <!-- Cross-reference: every Unit the rules say can carry this Asset -->
             <section v-if="compatible_units.length">
                 <div class="mb-2 flex items-center justify-between">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Compatible Units
-                    </h2>
+                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Compatible Units</h2>
                     <span class="text-[11px] text-muted-foreground">
                         {{ compatible_units.length }} {{ compatible_units.length === 1 ? 'unit' : 'units' }}
                     </span>
                 </div>
-                <div class="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     <a
                         v-for="u in compatible_units"
                         :key="u.id"
@@ -169,7 +174,7 @@ const describeLimit = (l: Limit): string => {
                     >
                         <img
                             v-if="u.sculpts[0]?.combination_image || u.sculpts[0]?.front_image"
-                            :src="u.sculpts[0].combination_image ?? u.sculpts[0].front_image as string"
+                            :src="u.sculpts[0].combination_image ?? (u.sculpts[0].front_image as string)"
                             :alt="u.name"
                             class="size-9 shrink-0 rounded object-cover ring-1 ring-border/60"
                             loading="lazy"

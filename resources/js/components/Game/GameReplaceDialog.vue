@@ -64,7 +64,12 @@ const emit = defineEmits<{
                         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
                         @click="emit('select', char)"
                     >
-                        <img v-if="char.front_image" :src="'/storage/' + char.front_image" :alt="char.display_name" class="size-8 rounded object-cover" />
+                        <img
+                            v-if="char.front_image"
+                            :src="'/storage/' + char.front_image"
+                            :alt="char.display_name"
+                            class="size-8 rounded object-cover"
+                        />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
                             <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
@@ -75,14 +80,11 @@ const emit = defineEmits<{
 
             <!-- Search all characters -->
             <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Search All Characters</summary>
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Search All Characters
+                </summary>
                 <div class="border-t px-1 pb-1 pt-1">
-                    <Input
-                        :model-value="search"
-                        placeholder="Search..."
-                        class="mb-1"
-                        @update:model-value="(v) => emit('update:search', String(v))"
-                    />
+                    <Input :model-value="search" placeholder="Search..." class="mb-1" @update:model-value="(v) => emit('update:search', String(v))" />
                     <div class="max-h-36 space-y-0.5 overflow-y-auto">
                         <div v-if="loading" class="flex justify-center py-3">
                             <Loader2 class="size-4 animate-spin text-muted-foreground" />
@@ -94,7 +96,12 @@ const emit = defineEmits<{
                                 class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
                                 @click="emit('select', char)"
                             >
-                                <img v-if="char.front_image" :src="char.front_image" :alt="char.display_name ?? char.name" class="size-8 rounded object-cover" />
+                                <img
+                                    v-if="char.front_image"
+                                    :src="char.front_image"
+                                    :alt="char.display_name ?? char.name"
+                                    class="size-8 rounded object-cover"
+                                />
                                 <div class="min-w-0 flex-1">
                                     <div class="truncate font-medium">{{ char.display_name ?? char.name }}</div>
                                     <div v-if="char.station" class="text-xs capitalize text-muted-foreground">{{ char.station }}</div>

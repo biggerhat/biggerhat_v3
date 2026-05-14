@@ -12,20 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import {
-    AlertTriangle,
-    ArrowLeft,
-    Globe,
-    Lock,
-    Package,
-    Plus,
-    Printer,
-    Search,
-    Share2,
-    Shield,
-    Trash2,
-    X,
-} from 'lucide-vue-next';
+import { AlertTriangle, ArrowLeft, Globe, Lock, Package, Plus, Printer, Search, Share2, Shield, Trash2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const confirmDialog = useConfirm();
@@ -184,9 +171,7 @@ const childByParentUnitId = computed(() => {
     const map = new Map<number, CompanyUnit>();
     for (const cu of props.company.company_units) {
         if (cu.is_combined_arms_child) {
-            const parent = props.company.company_units.find(
-                (p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child,
-            );
+            const parent = props.company.company_units.find((p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child);
             if (parent) map.set(parent.unit.id, cu);
         }
     }
@@ -205,9 +190,7 @@ const renderableUnits = computed(() =>
 
 const totalModels = computed(() => props.company.company_units.length);
 
-const accentBg = computed(() =>
-    props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40',
-);
+const accentBg = computed(() => (props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40'));
 
 // Inertia partial-reload contract — keys whose values we want refreshed
 // on every pool action. `hireable_units` / `available_assets` aren't in
@@ -268,18 +251,12 @@ const drawerUnit = computed<UnitMin | null>(() => {
     return drawerPoolUnit.value;
 });
 
-const drawerSelectedSculptId = computed<number | null>(() =>
-    drawerMode.value === 'roster' ? (drawerCompanyUnit.value?.sculpt_id ?? null) : null,
-);
+const drawerSelectedSculptId = computed<number | null>(() => (drawerMode.value === 'roster' ? (drawerCompanyUnit.value?.sculpt_id ?? null) : null));
 
-const drawerIsCommander = computed(
-    () => drawerMode.value === 'roster' && (drawerCompanyUnit.value?.is_commander ?? false),
-);
+const drawerIsCommander = computed(() => drawerMode.value === 'roster' && (drawerCompanyUnit.value?.is_commander ?? false));
 
 const drawerUnaffordable = computed(() =>
-    drawerMode.value === 'pool' && drawerPoolUnit.value
-        ? drawerPoolUnit.value.scrip > props.scrip_remaining
-        : false,
+    drawerMode.value === 'pool' && drawerPoolUnit.value ? drawerPoolUnit.value.scrip > props.scrip_remaining : false,
 );
 
 function openRosterDrawer(cu: CompanyUnit) {
@@ -363,20 +340,14 @@ function isAssetUnique(asset: AssetMin) {
 }
 
 function slotLocations(asset: AssetMin): string[] {
-    return (asset.limits ?? [])
-        .filter((l) => l.limit_type === 'slot' && l.parameter_value)
-        .map((l) => (l.parameter_value as string).toLowerCase());
+    return (asset.limits ?? []).filter((l) => l.limit_type === 'slot' && l.parameter_value).map((l) => (l.parameter_value as string).toLowerCase());
 }
 
 // ── Sharing ──────────────────────────────────────────────────────────────
 const shareCopied = ref(false);
 
 function togglePublic() {
-    router.post(
-        route('tos.companies.toggle_public', props.company.slug),
-        {},
-        { only: reloadOnly, preserveScroll: true, preserveState: true },
-    );
+    router.post(route('tos.companies.toggle_public', props.company.slug), {}, { only: reloadOnly, preserveScroll: true, preserveState: true });
 }
 
 // ── Garrison link ────────────────────────────────────────────────────────
@@ -467,10 +438,7 @@ async function deleteCompany() {
         />
 
         <div class="container mx-auto space-y-3 px-3 pt-4 sm:px-4">
-            <Link
-                :href="route('tos.companies.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
+            <Link :href="route('tos.companies.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft class="size-3" /> All Companies
             </Link>
 
@@ -485,10 +453,9 @@ async function deleteCompany() {
                         <div class="min-w-0 flex-1">
                             <h1 class="truncate text-lg font-bold leading-tight sm:text-xl">{{ company.name }}</h1>
                             <p class="truncate text-xs text-muted-foreground">
-                                <Link
-                                    :href="route('tos.allegiances.view', company.allegiance.slug)"
-                                    class="hover:text-foreground hover:underline"
-                                >{{ company.allegiance.name }}</Link>
+                                <Link :href="route('tos.allegiances.view', company.allegiance.slug)" class="hover:text-foreground hover:underline">{{
+                                    company.allegiance.name
+                                }}</Link>
                                 <span class="mx-1 opacity-50">·</span>
                                 <span class="capitalize">{{ company.allegiance.type }}</span>
                             </p>
@@ -498,23 +465,26 @@ async function deleteCompany() {
                             >
                                 <Shield class="size-3" />
                                 <span>Building from</span>
-                                <Link
-                                    :href="route('tos.garrisons.view', company.garrison.slug)"
-                                    class="font-semibold hover:underline"
-                                >{{ company.garrison.name }}</Link>
+                                <Link :href="route('tos.garrisons.view', company.garrison.slug)" class="font-semibold hover:underline">{{
+                                    company.garrison.name
+                                }}</Link>
                                 <button
                                     v-if="available_garrisons.length > 1"
                                     type="button"
                                     class="ml-0.5 rounded-full px-1 text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-400/60 dark:hover:text-emerald-400"
                                     title="Switch to a different Garrison"
                                     @click="openGarrisonPicker"
-                                >change</button>
+                                >
+                                    change
+                                </button>
                                 <button
                                     type="button"
                                     class="ml-0.5 rounded-full text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-400/60 dark:hover:text-emerald-400"
                                     title="Drop the Garrison restriction"
                                     @click="clearGarrison"
-                                ><X class="size-3" /></button>
+                                >
+                                    <X class="size-3" />
+                                </button>
                             </div>
                             <button
                                 v-else-if="available_garrisons.length"
@@ -532,9 +502,11 @@ async function deleteCompany() {
                                 variant="ghost"
                                 size="sm"
                                 class="h-8 gap-1 text-xs"
-                                :class="company.is_public
-                                    ? 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400'
-                                    : 'text-muted-foreground hover:text-foreground'"
+                                :class="
+                                    company.is_public
+                                        ? 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                "
                                 :title="company.is_public ? 'Public — click to make private' : 'Private — click to make public'"
                                 @click="togglePublic"
                             >
@@ -553,13 +525,7 @@ async function deleteCompany() {
                                 <Share2 class="size-3.5" />
                                 <span class="hidden sm:inline">{{ shareCopied ? 'Copied!' : 'Share' }}</span>
                             </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                class="h-8 gap-1 text-xs"
-                                title="Download PDF"
-                                @click="downloadPdf"
-                            >
+                            <Button variant="ghost" size="sm" class="h-8 gap-1 text-xs" title="Download PDF" @click="downloadPdf">
                                 <Printer class="size-3.5" />
                                 <span class="hidden sm:inline">PDF</span>
                             </Button>
@@ -577,10 +543,9 @@ async function deleteCompany() {
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
                         <div class="flex items-baseline gap-1">
                             <span class="text-muted-foreground">Scrip:</span>
-                            <span
-                                class="font-semibold tabular-nums"
-                                :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
-                            >{{ scrip_spent }} / {{ scrip_budget }}</span>
+                            <span class="font-semibold tabular-nums" :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
+                                >{{ scrip_spent }} / {{ scrip_budget }}</span
+                            >
                         </div>
                         <div class="flex items-baseline gap-1">
                             <span class="text-muted-foreground">Models:</span>
@@ -598,17 +563,14 @@ async function deleteCompany() {
                                 v-else-if="scrip_budget > 0"
                                 variant="outline"
                                 class="border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-400"
-                            >{{ scrip_remaining }} remaining</Badge>
+                                >{{ scrip_remaining }} remaining</Badge
+                            >
                             <Badge v-else variant="outline" class="text-[11px]">Step 1 — pick a Commander</Badge>
                         </div>
                     </div>
 
                     <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                            class="h-full transition-all duration-300 ease-out"
-                            :class="budgetBarClass"
-                            :style="{ width: `${budgetPercent}%` }"
-                        />
+                        <div class="h-full transition-all duration-300 ease-out" :class="budgetBarClass" :style="{ width: `${budgetPercent}%` }" />
                     </div>
                 </CardContent>
             </Card>
@@ -725,7 +687,8 @@ async function deleteCompany() {
                     <DialogTitle>Attach Asset</DialogTitle>
                     <DialogDescription>
                         <span v-if="assetDialogTarget">
-                            Pick an Asset to attach to <strong>{{ assetDialogTarget.unit.name }}</strong>.
+                            Pick an Asset to attach to <strong>{{ assetDialogTarget.unit.name }}</strong
+                            >.
                         </span>
                     </DialogDescription>
                 </DialogHeader>
@@ -753,14 +716,16 @@ async function deleteCompany() {
                                         v-if="a.already_attached"
                                         variant="outline"
                                         class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
-                                    >In Company</Badge>
+                                        >In Company</Badge
+                                    >
                                 </div>
                                 <div v-if="slotLocations(a).length" class="mt-0.5 flex gap-1">
                                     <span
                                         v-for="loc in slotLocations(a)"
                                         :key="loc"
                                         class="text-[9px] uppercase tracking-wider text-muted-foreground"
-                                    >{{ loc }}</span>
+                                        >{{ loc }}</span
+                                    >
                                 </div>
                             </div>
                             <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ a.scrip_cost }}s</span>
@@ -783,8 +748,7 @@ async function deleteCompany() {
                         <span v-else>Build from a Garrison</span>
                     </DialogTitle>
                     <DialogDescription>
-                        Restricts the hiring pool to one of your tournament Garrisons.
-                        Allegiance stays locked to {{ company.allegiance.name }}.
+                        Restricts the hiring pool to one of your tournament Garrisons. Allegiance stays locked to {{ company.allegiance.name }}.
                     </DialogDescription>
                 </DialogHeader>
                 <div class="space-y-2 py-2">
@@ -805,7 +769,9 @@ async function deleteCompany() {
                         ]"
                         @click="pickGarrison(g)"
                     >
-                        <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <div
+                            class="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        >
                             <Shield class="size-4" />
                         </div>
                         <div class="min-w-0 flex-1">

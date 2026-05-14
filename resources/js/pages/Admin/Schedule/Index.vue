@@ -26,7 +26,8 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
             <Badge variant="secondary">{{ tasks.length }}</Badge>
         </div>
         <p class="text-sm text-muted-foreground">
-            Every entry registered through Laravel's scheduler. Cron must run <code class="rounded bg-muted px-1 text-xs">php artisan schedule:run</code>
+            Every entry registered through Laravel's scheduler. Cron must run
+            <code class="rounded bg-muted px-1 text-xs">php artisan schedule:run</code>
             every minute for these to fire.
         </p>
 

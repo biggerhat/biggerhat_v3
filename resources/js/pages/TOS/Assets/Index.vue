@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Paginator } from '@/types/tos';
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
@@ -11,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import type { Paginator } from '@/types/tos';
 import { Head, Link } from '@inertiajs/vue3';
 import { Package } from 'lucide-vue-next';
 
@@ -85,7 +85,7 @@ const limitLabel = (l: Limit): string => {
             <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
                 <TableSkeleton :rows="8" :cols="4" />
             </div>
-            <div v-else-if="isLoading" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-else-if="isLoading" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
             </div>
 
@@ -115,14 +115,16 @@ const limitLabel = (l: Limit): string => {
                 </Table>
             </div>
 
-            <div v-else-if="assets.data.length" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div v-else-if="assets.data.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 <Link
                     v-for="a in assets.data"
                     :key="a.id"
                     :href="route('tos.assets.view', a.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10">
+                    <Card
+                        class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10"
+                    >
                         <CardImage
                             :src="a.image_path"
                             :alt="a.name"

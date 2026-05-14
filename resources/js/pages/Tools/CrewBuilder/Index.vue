@@ -300,7 +300,6 @@ const characterById = computed(() => {
 const activeBuilds = computed(() => savedBuilds.value.filter((b) => !b.is_archived));
 const archivedBuilds = computed(() => savedBuilds.value.filter((b) => b.is_archived));
 
-
 // ─── Faction selection ───
 const selectFaction = (factionSlug: string) => {
     // Save any in-flight edits before we drop the current master/crew. The
@@ -1380,7 +1379,7 @@ const saveBuild = (): Promise<void> | null => {
             // Surface to the console so users reporting the issue have something
             // we can read in their browser logs — silent catches were making
             // these reports very hard to triage.
-             
+
             console.error('[CrewBuilder] autosave error:', err);
             saveError.value = 'Network error saving crew — your changes are still pending.';
         } finally {
@@ -1943,9 +1942,7 @@ const onBeforeUnload = () => {
     if (!isAuthenticated.value || !selectedMasterTitle.value) return;
 
     const useUpdate = currentBuildId.value && isOwner.value;
-    const url = useUpdate
-        ? route('tools.crew_builder.update', { crewBuild: currentBuildId.value })
-        : route('tools.crew_builder.store');
+    const url = useUpdate ? route('tools.crew_builder.update', { crewBuild: currentBuildId.value }) : route('tools.crew_builder.store');
 
     fetch(url, {
         method: useUpdate ? 'PUT' : 'POST',

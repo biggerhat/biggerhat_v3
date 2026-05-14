@@ -88,9 +88,7 @@ const childByParentUnitId = computed(() => {
     const map = new Map<number, CompanyUnit>();
     for (const cu of props.company.company_units) {
         if (cu.is_combined_arms_child) {
-            const parent = props.company.company_units.find(
-                (p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child,
-            );
+            const parent = props.company.company_units.find((p) => p.unit.combined_arms_child_id === cu.unit.id && !p.is_combined_arms_child);
             if (parent) map.set(parent.unit.id, cu);
         }
     }
@@ -107,9 +105,7 @@ const renderableUnits = computed(() =>
         }),
 );
 
-const accentBg = computed(() =>
-    props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40',
-);
+const accentBg = computed(() => (props.company.allegiance.color_slug ? `bg-${props.company.allegiance.color_slug}` : 'bg-primary/40'));
 
 const overBudget = computed(() => props.scrip_remaining < 0);
 const budgetPercent = computed(() => {
@@ -141,7 +137,9 @@ const noop = () => {};
 
         <div class="container mx-auto space-y-3 px-3 pt-4 sm:px-4">
             <!-- Public-share banner -->
-            <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+            <div
+                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+            >
                 <Globe class="size-3" />
                 Shared Company · read-only
             </div>
@@ -157,10 +155,9 @@ const noop = () => {};
                         <div class="min-w-0 flex-1">
                             <h1 class="truncate text-lg font-bold leading-tight sm:text-xl">{{ company.name }}</h1>
                             <p class="truncate text-xs text-muted-foreground">
-                                <Link
-                                    :href="route('tos.allegiances.view', company.allegiance.slug)"
-                                    class="hover:text-foreground hover:underline"
-                                >{{ company.allegiance.name }}</Link>
+                                <Link :href="route('tos.allegiances.view', company.allegiance.slug)" class="hover:text-foreground hover:underline">{{
+                                    company.allegiance.name
+                                }}</Link>
                                 <span class="mx-1 opacity-50">·</span>
                                 <span class="capitalize">{{ company.allegiance.type }}</span>
                                 <span class="mx-1 opacity-50">·</span>
@@ -172,10 +169,9 @@ const noop = () => {};
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
                         <div class="flex items-baseline gap-1">
                             <span class="text-muted-foreground">Scrip:</span>
-                            <span
-                                class="font-semibold tabular-nums"
-                                :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
-                            >{{ scrip_spent }} / {{ scrip_budget }}</span>
+                            <span class="font-semibold tabular-nums" :class="overBudget ? 'text-rose-600 dark:text-rose-400' : ''"
+                                >{{ scrip_spent }} / {{ scrip_budget }}</span
+                            >
                         </div>
                         <div class="flex items-baseline gap-1">
                             <span class="text-muted-foreground">Models:</span>
@@ -186,12 +182,14 @@ const noop = () => {};
                                 v-if="overBudget"
                                 variant="outline"
                                 class="border-rose-500/40 bg-rose-500/10 text-[11px] text-rose-700 dark:text-rose-400"
-                            >{{ -scrip_remaining }} over budget</Badge>
+                                >{{ -scrip_remaining }} over budget</Badge
+                            >
                             <Badge
                                 v-else
                                 variant="outline"
                                 class="border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-400"
-                            >{{ scrip_remaining }} remaining</Badge>
+                                >{{ scrip_remaining }} remaining</Badge
+                            >
                         </div>
                     </div>
 

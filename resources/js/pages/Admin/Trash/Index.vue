@@ -36,12 +36,15 @@ const restore = async (row: Row) => {
 };
 
 const forceDelete = async (row: Row) => {
-    if (!(await confirm({
-        title: `Permanently delete "${row.name}"?`,
-        message: 'This cannot be undone.',
-        confirmLabel: 'Delete forever',
-        destructive: true,
-    }))) return;
+    if (
+        !(await confirm({
+            title: `Permanently delete "${row.name}"?`,
+            message: 'This cannot be undone.',
+            confirmLabel: 'Delete forever',
+            destructive: true,
+        }))
+    )
+        return;
     router.post(route('admin.trash.force_delete', { kind: props.kind, id: row.id }), {}, { preserveScroll: true });
 };
 
@@ -60,13 +63,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
         </p>
 
         <div class="flex flex-wrap gap-1.5">
-            <Button
-                v-for="tab in tabs"
-                :key="tab.key"
-                size="sm"
-                :variant="tab.key === kind ? 'default' : 'outline'"
-                @click="switchTab(tab.key)"
-            >
+            <Button v-for="tab in tabs" :key="tab.key" size="sm" :variant="tab.key === kind ? 'default' : 'outline'" @click="switchTab(tab.key)">
                 {{ tab.label }}
                 <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ tab.count }}</Badge>
             </Button>

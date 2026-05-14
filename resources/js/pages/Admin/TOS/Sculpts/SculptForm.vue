@@ -68,17 +68,14 @@ onMounted(() => {
     <Head title="TOS Sculpt — Admin" />
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
-            <CardHeader><CardTitle>{{ sculpt ? 'Edit Sculpt' : 'New Sculpt' }}</CardTitle></CardHeader>
+            <CardHeader
+                ><CardTitle>{{ sculpt ? 'Edit Sculpt' : 'New Sculpt' }}</CardTitle></CardHeader
+            >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-2">
                     <div>
                         <Label for="unit_id">Unit</Label>
-                        <SearchableSelect
-                            v-model="formInfo.unit_id"
-                            placeholder="Search units…"
-                            :options="units"
-                            option-value="id"
-                        />
+                        <SearchableSelect v-model="formInfo.unit_id" placeholder="Search units…" :options="units" option-value="id" />
                         <InputError :message="usePage().props.errors.unit_id" />
                     </div>
                     <div>
@@ -145,7 +142,6 @@ onMounted(() => {
                         <Input id="sort_order" v-model.number="formInfo.sort_order" type="number" min="0" />
                     </div>
                 </div>
-
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
                 <Button variant="outline" @click="router.get(route('admin.tos.sculpts.index'))">Cancel</Button>

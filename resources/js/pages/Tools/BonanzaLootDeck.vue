@@ -85,9 +85,6 @@ const props = defineProps<{
 const suitFilter = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');
 const search = ref('');
 
-// Per-rulebook flank-zone mapping. Surfaced in the header chips so players
-// see the suit / deployment-zone connection without flipping back to the
-// rules card.
 const suitMeta: Record<string, { label: string; tone: string }> = {
     crow: { label: 'Crow', tone: 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-300' },
     mask: { label: 'Mask', tone: 'border-purple-500/50 bg-purple-500/10 text-purple-700 dark:text-purple-300' },
@@ -187,11 +184,6 @@ const cardsBySuit = computed(() => {
                     </h2>
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         <template v-for="card in group" :key="card.id">
-                            <!-- Image-first: when a card has a generated/uploaded
-                                 image, render it as the card (with a flip
-                                 icon to rotate so Side B can be read upright).
-                                 Falls back to the live text layout when no
-                                 image exists. -->
                             <BonanzaCardImage v-if="card.image" :image="card.image" :name="card.name" />
                             <BonanzaSplitCard
                                 v-else

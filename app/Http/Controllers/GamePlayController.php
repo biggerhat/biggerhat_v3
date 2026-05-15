@@ -452,12 +452,6 @@ class GamePlayController extends Controller
         return response()->json(['success' => true, 'total_points' => $next]);
     }
 
-    /**
-     * Bonanza: pop the top of the loot deck. Returns the drawn card with both
-     * sides + side-scoped relations so the UI can render the side-picker
-     * dialog without a follow-up fetch. The actual attach happens via
-     * attachLoot() once the player picks a side.
-     */
     public function drawLoot(Request $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
@@ -488,12 +482,41 @@ class GamePlayController extends Controller
         ]);
     }
 
-    /**
-     * Bonanza: attach a previously-drawn card to one of this player's crew
-     * members with a chosen side. Fences against cross-player attaches
-     * (you can only attach to your own model) using the existing
-     * updateCrewMember policy.
-     */
+    public function selectLoot(Request $request, Game $game): JsonResponse
+    {
+        $this->assertBonanzaInProgress($game);
+
+        $validated = $request->validate([
+            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
+            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
+            'side' => ['required', 'string', 'in:a,b'],
+        ]);
+
+        /** @var GameCrewMember $member */
+        $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
+        $this->authorize('updateCrewMember', [$game, $member]);
+
+        $service = app(LootDeckService::class);
+        $card = $service->selectCard($game, $validated['loot_card_id']);
+        if (! $card) {
+            return response()->json([
+                'error' => 'That loot card is already in play (attached to a model or dropped as a marker).',
+            ], 422);
+        }
+
+        $service->attachToMember($member, $card, $validated['side']);
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
+        }
+
+        return response()->json([
+            'success' => true,
+            'deck_size' => count($game->fresh()->loot_state['deck'] ?? []),
+            'discard_size' => count($game->fresh()->loot_state['discard'] ?? []),
+        ]);
+    }
+
     public function attachLoot(Request $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
@@ -518,11 +541,6 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Bonanza: claim a dropped Loot Marker for a crew member. The new owner
-     * picks a fresh side — Yoink doesn't carry the previous owner's choice
-     * per the rulebook.
-     */
     public function yoinkLoot(Request $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);

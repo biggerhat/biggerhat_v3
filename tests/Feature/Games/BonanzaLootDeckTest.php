@@ -235,6 +235,70 @@ it('rejects loot endpoints on a standard format game', function () {
     $this->actingAs($user)->postJson(route('games.play.loot.draw', $game->uuid))->assertStatus(422);
 });
 
+it('selectLoot pulls a specific card from the pool and attaches it', function () {
+    $cards = makeLootCardSet(3);
+    $service = new LootDeckService;
+
+    $user = User::factory()->create();
+    $game = Game::factory()->bonanza()->inProgress()->create([
+        'creator_id' => $user->id,
+        'is_solo' => true,
+        'loot_state' => $service->initialState(),
+    ]);
+    $player = GamePlayer::factory()->for($game, 'game')->create(['user_id' => $user->id, 'slot' => 1]);
+    $member = GameCrewMember::factory()->create([
+        'game_id' => $game->id,
+        'game_player_id' => $player->id,
+    ]);
+
+    $chosen = $cards[1];
+
+    $this->actingAs($user)->postJson(route('games.play.loot.select', $game->uuid), [
+        'game_crew_member_id' => $member->id,
+        'loot_card_id' => $chosen->id,
+        'side' => 'b',
+    ])->assertOk();
+
+    $member->refresh();
+    expect($member->attached_upgrades)->toHaveCount(1);
+    expect($member->attached_upgrades[0]['loot_card_id'])->toBe($chosen->id);
+    expect($member->attached_upgrades[0]['loot_side'])->toBe('b');
+
+    $state = $game->fresh()->loot_state;
+    expect($state['deck'])->toHaveCount(2);
+    expect($state['deck'])->not->toContain($chosen->id);
+});
+
+it('selectLoot rejects a card already in play (live on a model)', function () {
+    $cards = makeLootCardSet(2);
+    $service = new LootDeckService;
+
+    $user = User::factory()->create();
+    $game = Game::factory()->bonanza()->inProgress()->create([
+        'creator_id' => $user->id,
+        'is_solo' => true,
+        'loot_state' => $service->initialState(),
+    ]);
+    $player = GamePlayer::factory()->for($game, 'game')->create(['user_id' => $user->id, 'slot' => 1]);
+    $memberA = GameCrewMember::factory()->create(['game_id' => $game->id, 'game_player_id' => $player->id]);
+    $memberB = GameCrewMember::factory()->create(['game_id' => $game->id, 'game_player_id' => $player->id]);
+
+    $this->actingAs($user)->postJson(route('games.play.loot.select', $game->uuid), [
+        'game_crew_member_id' => $memberA->id,
+        'loot_card_id' => $cards[0]->id,
+        'side' => 'a',
+    ])->assertOk();
+
+    // Card is now in play — the second select should 422.
+    $this->actingAs($user)->postJson(route('games.play.loot.select', $game->uuid), [
+        'game_crew_member_id' => $memberB->id,
+        'loot_card_id' => $cards[0]->id,
+        'side' => 'a',
+    ])->assertStatus(422);
+
+    expect($memberB->fresh()->attached_upgrades ?? [])->toHaveCount(0);
+});
+
 it('attaches a drawn loot card to a crew member with a chosen side', function () {
     $cards = makeLootCardSet(2);
 

@@ -42,10 +42,6 @@ class LootCardAdminController extends Controller
 
     public function edit(Request $request, LootCard $lootCard): \Inertia\Response|\Inertia\ResponseFactory
     {
-        // Load the full per-relation column set + nested action triggers so
-        // the form can render a faithful BonanzaSplitCard preview for the
-        // auto-generated card image. Matches what BonanzaLootDeckController
-        // ships to the public page.
         $lootCard->load([
             'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
             'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
@@ -64,11 +60,6 @@ class LootCardAdminController extends Controller
     }
 
     /**
-     * Lazy multiselect props for the form. Ships the full per-entity column
-     * set so the BonanzaSplitCard preview can render a faithful image even
-     * for newly-selected (not previously attached) abilities/actions/triggers.
-     * Action triggers are nested so the action-display can list its triggers.
-     *
      * @return array<string, \Closure>
      */
     private function multiselectProps(): array
@@ -95,9 +86,7 @@ class LootCardAdminController extends Controller
     {
         $validated = $this->validatePayload($request, isCreate: true);
 
-        // Auto-derive slug from name with a short random suffix to avoid
-        // collisions across homebrew cards (matches the seeder pattern of
-        // `<suit>_<value>` without us having to enforce uniqueness manually).
+        // Random suffix avoids collisions across homebrew cards.
         $slug = Str::slug($validated['name']).'-'.Str::lower(Str::random(4));
 
         $card = LootCard::create([
@@ -143,17 +132,8 @@ class LootCardAdminController extends Controller
     }
 
     /**
-     * Validation rules shared between create and update. Suit and value are
-     * required only on create — the seeder writes them once and we don't let
-     * admins re-shuffle them on an existing card (would corrupt deck identity).
-     *
-     * @return array<string, mixed>
-     */
-    /**
-     * Display label semantics: non-jokers don't need an admin-supplied label —
-     * we derive the printed face from the numeric value (A / 2-10 / J / Q / K).
-     * Jokers MUST have one (it disambiguates Red vs Black) so the admin form
-     * only surfaces the input when suit is 'joker'.
+     * Jokers need an admin-supplied label (Red vs Black). Suited cards
+     * print their numeric value 1-13.
      *
      * @param  array<string, mixed>  $validated
      */
@@ -166,8 +146,6 @@ class LootCardAdminController extends Controller
             return $label !== '' ? $label : 'Joker';
         }
 
-        // Bonanza loot deck is numeric-only (no A/J/Q/K) — print whichever
-        // integer 1-13 the admin entered.
         $value = $validated['value'] ?? null;
 
         return $value === null ? '' : (string) $value;
@@ -209,10 +187,6 @@ class LootCardAdminController extends Controller
     }
 
     /**
-     * Slug-stable folder mirrors StrategyAdminController so re-edits don't
-     * orphan files in random directories. `remove_image` clears a previously
-     * uploaded image without requiring a replacement upload.
-     *
      * @param  array<string, mixed>  $validated
      */
     private function handleImage(Request $request, LootCard $card, array &$validated): void

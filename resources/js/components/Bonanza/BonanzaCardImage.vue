@@ -7,15 +7,12 @@ defineProps<{
     name: string;
 }>();
 
-// Local-only — every card flips independently. The image itself is captured
-// with Side B already rotated 180°; flipping rotates the whole image so
-// either side reads upright depending on which way the user prefers.
 const flipped = ref(false);
 </script>
 
 <template>
-    <!-- Outer wrapper holds the flip button so the button stays in the same
-         screen position whether the card is rotated or not. -->
+    <!-- Flip button sits on the outer wrapper so it stays in the same
+         screen position regardless of rotation. -->
     <div class="relative">
         <div :class="['transition-transform duration-500', flipped ? 'rotate-180' : '']">
             <img :src="`/storage/${image}`" :alt="name" class="block w-full rounded-xl shadow-sm" loading="lazy" />

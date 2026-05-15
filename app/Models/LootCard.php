@@ -20,11 +20,6 @@ class LootCard extends Model
         return 'slug';
     }
 
-    /**
-     * Bonanza loot cards have two sides; relations are scoped by the pivot
-     * `side` column ('a' | 'b'). Two parallel relations per kind keep the
-     * code that consumes them simple — no ad-hoc filtering on the caller.
-     */
     public function sideAActions(): BelongsToMany
     {
         return $this->belongsToMany(Action::class, 'loot_card_action')
@@ -74,28 +69,26 @@ class LootCard extends Model
     }
 
     /**
-     * Replace this card's side-A or side-B action attachments. Pass an array
-     * of `['action_id' => int, 'is_signature_action' => bool]`. Existing
-     * pivot rows for that side are wiped first so callers can submit the
-     * full new list rather than diffing.
-     *
      * @param  array<int, array{action_id: int, is_signature_action?: bool}>  $entries
      */
     public function syncSideActions(string $side, array $entries): void
     {
         $this->actions()->wherePivot('side', $side)->detach();
         foreach (array_values($entries) as $i => $entry) {
+            // `(bool) "false"` is true in PHP — Inertia's forceFormData
+            // sends booleans as the literal strings "true"/"false".
             $this->actions()->attach($entry['action_id'], [
                 'side' => $side,
-                'is_signature_action' => (bool) ($entry['is_signature_action'] ?? false),
+                'is_signature_action' => filter_var(
+                    $entry['is_signature_action'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN,
+                ),
                 'sort_order' => $i,
             ]);
         }
     }
 
     /**
-     * Replace this card's side-A or side-B ability/trigger attachments.
-     *
      * @param  array<int, int>  $ids
      */
     public function syncSideAbilities(string $side, array $ids): void
@@ -117,8 +110,6 @@ class LootCard extends Model
         }
     }
 
-    // Bare relations used by the side-scoped accessors above and by the sync
-    // helpers — needed for `wherePivot('side', ...)->detach()` to resolve.
     public function actions(): BelongsToMany
     {
         return $this->belongsToMany(Action::class, 'loot_card_action')

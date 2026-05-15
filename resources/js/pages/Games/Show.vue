@@ -62,6 +62,7 @@ import {
     QrCode,
     Replace,
     RotateCcw,
+    Search,
     Settings,
     Shield,
     ShieldAlert,
@@ -567,6 +568,21 @@ const availableMasters = computed(() => {
     const f = myPlayer.value.faction;
     return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
 });
+
+const masterSearchQuery = ref('');
+
+const filteredMasters = computed(() => {
+    const q = masterSearchQuery.value.trim().toLowerCase();
+    const list = availableMasters.value;
+    if (!q) return list;
+    return list.filter((m) => {
+        if (m.name.toLowerCase().includes(q)) return true;
+        return (m.titles ?? []).some((t: { title?: string | null; display_name?: string | null }) => {
+            return (t.title ?? '').toLowerCase().includes(q) || (t.display_name ?? '').toLowerCase().includes(q);
+        });
+    });
+});
+
 const selectedMasterName = ref<string | null>(null);
 
 const confirmMasterSelection = () => {
@@ -1381,9 +1397,20 @@ const advanceBonanzaTurn = async () => {
 // State for the post-draw side-picker dialog and the post-Yoink side-picker
 // dialog. Both share a single dialog (the picker UI is identical) keyed by
 // mode + payload so we don't duplicate the rendering.
-type LootSidePickerMode = { type: 'attach'; card: LootCardSummary } | { type: 'yoink'; marker: LootMarker; card: LootCardSummary };
+// `attach` = post-random-draw flow (card has been popped from deck)
+// `select` = solo-only choose-your-loot flow (card is still in the pool, the
+//            server will remove it via the /loot/select endpoint)
+// `yoink`  = claim a dropped marker
+type LootSidePickerMode =
+    | { type: 'attach'; card: LootCardSummary }
+    | { type: 'select'; card: LootCardSummary }
+    | { type: 'yoink'; marker: LootMarker; card: LootCardSummary };
 const lootSidePicker = ref<LootSidePickerMode | null>(null);
 const lootSidePickerMemberId = ref<number | null>(null);
+
+// Controls the new "Select a loot card" picker dialog (solo mode).
+const lootCardSelectorOpen = ref(false);
+const lootCardSelectorSearch = ref('');
 
 const lootDeckSize = computed(() => props.game.loot_state?.deck?.length ?? 0);
 const lootDiscardSize = computed(() => props.game.loot_state?.discard?.length ?? 0);
@@ -1442,6 +1469,12 @@ const submitLootSide = async (side: 'a' | 'b') => {
             loot_card_id: picker.card.id,
             side,
         });
+    } else if (picker.type === 'select') {
+        await postPlay(route('games.play.loot.select', props.game.uuid), 'POST', {
+            game_crew_member_id: memberId,
+            loot_card_id: picker.card.id,
+            side,
+        });
     } else {
         await postPlay(route('games.play.loot.yoink', props.game.uuid), 'POST', {
             game_crew_member_id: memberId,
@@ -1452,6 +1485,30 @@ const submitLootSide = async (side: 'a' | 'b') => {
     lootSidePicker.value = null;
     lootSidePickerMemberId.value = null;
 };
+
+const openLootCardSelector = () => {
+    lootCardSelectorOpen.value = true;
+    lootCardSelectorSearch.value = '';
+};
+
+const pickLootCardForSelect = (card: LootCardSummary) => {
+    lootCardSelectorOpen.value = false;
+    lootSidePicker.value = { type: 'select', card };
+    const candidates = attachableMembers.value;
+    lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
+};
+
+const availableLootCards = computed<LootCardSummary[]>(() => {
+    const state = props.game.loot_state;
+    if (!state) return [];
+    const ids = [...(state.deck ?? []), ...(state.discard ?? [])];
+    const search = lootCardSelectorSearch.value.trim().toLowerCase();
+    return ids
+        .map((id) => lootCardById(id))
+        .filter((c): c is LootCardSummary => c !== null)
+        .filter((c) => (search ? c.name.toLowerCase().includes(search) : true))
+        .sort((a, b) => a.name.localeCompare(b.name));
+});
 
 const openYoinkPicker = (marker: LootMarker) => {
     const card = lootCardById(marker.card_id);
@@ -2774,15 +2831,21 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <Badge variant="secondary" class="text-xs">Deck {{ lootDeckSize }}</Badge>
                         <Badge variant="secondary" class="text-xs">Discard {{ lootDiscardSize }}</Badge>
                         <Badge variant="secondary" class="text-xs">Markers {{ lootMarkers.length }}</Badge>
-                        <Button
-                            v-if="!isObserver"
-                            size="sm"
-                            class="ml-auto h-7 gap-1 text-xs"
-                            :disabled="lootDeckSize === 0 && lootDiscardSize === 0"
-                            @click="drawLoot"
-                        >
-                            <Dices class="size-3.5" /> Draw
-                        </Button>
+                        <div v-if="!isObserver" class="ml-auto flex gap-1.5">
+                            <Button
+                                v-if="isSolo"
+                                size="sm"
+                                variant="outline"
+                                class="h-7 gap-1 text-xs"
+                                :disabled="availableLootCards.length === 0"
+                                @click="openLootCardSelector"
+                            >
+                                <Layers class="size-3.5" /> Select
+                            </Button>
+                            <Button size="sm" class="h-7 gap-1 text-xs" :disabled="lootDeckSize === 0 && lootDiscardSize === 0" @click="drawLoot">
+                                <Dices class="size-3.5" /> Draw
+                            </Button>
+                        </div>
                     </div>
                     <div v-if="lootMarkers.length" class="flex flex-col gap-1.5 border-t border-amber-500/20 pt-2">
                         <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dropped Loot Markers</div>
@@ -2817,7 +2880,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <DialogContent class="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {{ lootSidePicker?.type === 'attach' ? 'Loot drawn — pick a side' : 'Yoink loot — pick a side' }}
+                            <template v-if="lootSidePicker?.type === 'attach'">Loot drawn — pick a side</template>
+                            <template v-else-if="lootSidePicker?.type === 'select'">Selected loot — pick a side</template>
+                            <template v-else>Yoink loot — pick a side</template>
                         </DialogTitle>
                         <DialogDescription v-if="lootSidePicker">
                             {{ lootSidePicker.card.name
@@ -2865,6 +2930,40 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     {{ lootSidePicker.card.effect_b }}
                                 </p>
                             </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog :open="lootCardSelectorOpen" @update:open="(v: boolean) => (lootCardSelectorOpen = v)">
+                <DialogContent class="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Select a loot card</DialogTitle>
+                        <DialogDescription>
+                            Pick a card from the remaining pool. The card will be removed from the deck and you'll choose which side to apply.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div class="flex flex-col gap-3">
+                        <Input v-model="lootCardSelectorSearch" placeholder="Search by name…" class="h-9 text-sm" />
+                        <div
+                            v-if="availableLootCards.length === 0"
+                            class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
+                        >
+                            No loot cards left in the pool — every card is either attached to a model or dropped as a marker.
+                        </div>
+                        <div v-else class="max-h-[60dvh] overflow-y-auto pr-1">
+                            <div class="grid gap-1.5 sm:grid-cols-2">
+                                <button
+                                    v-for="card in availableLootCards"
+                                    :key="card.id"
+                                    type="button"
+                                    class="flex items-center gap-2 rounded-md border border-input bg-background/60 px-2.5 py-2 text-left text-sm transition hover:border-primary/60 hover:bg-primary/5"
+                                    @click="pickLootCardForSelect(card)"
+                                >
+                                    <Badge variant="outline" class="shrink-0 font-mono text-[10px] tabular-nums">{{ card.value_label }}</Badge>
+                                    <span class="min-w-0 flex-1 truncate font-medium">{{ card.name }}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </DialogContent>
@@ -3318,9 +3417,27 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </p>
 
                     <template v-if="!myStepDone('master')">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="sticky top-0 z-10 -mx-3 mb-3 bg-background/95 px-3 pb-2 pt-1 backdrop-blur sm:-mx-0 sm:px-0">
+                            <div class="relative">
+                                <Search class="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                                <Input v-model="masterSearchQuery" placeholder="Search by name or title…" class="h-9 pl-7 text-sm" />
+                            </div>
+                            <div class="mt-1 text-[11px] text-muted-foreground">
+                                {{ filteredMasters.length }} of {{ availableMasters.length }}
+                                {{ availableMasters.length === 1 ? 'master' : 'masters' }}
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="filteredMasters.length === 0"
+                            class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
+                        >
+                            No masters match "{{ masterSearchQuery }}".
+                        </div>
+                        <!-- pb-24: room under the last row for the floating confirm bar. -->
+                        <div v-else class="grid grid-cols-1 gap-3 pb-24 sm:grid-cols-2 lg:grid-cols-3">
                             <Card
-                                v-for="master in availableMasters"
+                                v-for="master in filteredMasters"
                                 :key="master.name"
                                 class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
                                 :class="selectedMasterName === master.name ? 'ring-2 ring-primary' : ''"
@@ -3370,12 +3487,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </CardContent>
                             </Card>
                         </div>
-                        <div v-if="selectedMasterName" class="mt-4 flex justify-center">
-                            <Button :disabled="submitting" @click="confirmMasterSelection">
-                                <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                Confirm {{ selectedMasterName }}
-                            </Button>
-                        </div>
+                        <Transition
+                            enter-active-class="transition duration-200 ease-out"
+                            leave-active-class="transition duration-150 ease-in"
+                            enter-from-class="translate-y-4 opacity-0"
+                            leave-to-class="translate-y-4 opacity-0"
+                        >
+                            <div
+                                v-if="selectedMasterName"
+                                class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
+                            >
+                                <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-[10px] uppercase tracking-wider text-muted-foreground">Selected</div>
+                                        <div class="truncate text-sm font-medium">{{ selectedMasterName }}</div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" class="h-9" @click="selectedMasterName = null">Clear</Button>
+                                    <Button :disabled="submitting" class="h-9" @click="confirmMasterSelection">
+                                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                                        Confirm
+                                    </Button>
+                                </div>
+                            </div>
+                        </Transition>
                     </template>
                     <!-- My master done -->
                     <template v-else-if="!isSolo || opponentStepDone('master')">
@@ -4982,6 +5116,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
                                             <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                            <span
+                                                v-if="(upgrade as any).loot_side"
+                                                class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                            >
+                                                {{ (upgrade as any).loot_side.toUpperCase() }}
+                                            </span>
                                             <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                                             <button
                                                 v-if="!isObserver"
@@ -5405,6 +5546,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
                                             <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                            <span
+                                                v-if="(upgrade as any).loot_side"
+                                                class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                            >
+                                                {{ (upgrade as any).loot_side.toUpperCase() }}
+                                            </span>
                                             <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                                             <button
                                                 v-if="isSolo && !isObserver"
@@ -5882,6 +6030,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                             class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-[9px] text-amber-300"
                                                         >
                                                             <ArrowUpCircle class="size-2 shrink-0" />
+                                                            <span
+                                                                v-if="(upgrade as any).loot_side"
+                                                                class="rounded bg-amber-400 px-0.5 text-[8px] font-bold text-black"
+                                                            >
+                                                                {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                            </span>
                                                             <span class="truncate">{{ upgrade.name }}</span>
                                                         </div>
                                                     </div>

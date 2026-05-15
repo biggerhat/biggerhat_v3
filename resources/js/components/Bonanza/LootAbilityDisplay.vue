@@ -16,7 +16,6 @@ defineProps<{
 </script>
 
 <template>
-    <!-- Compact, no card chrome — sits inline within a loot card side. -->
     <div class="rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-xs">
         <div class="flex flex-wrap items-baseline gap-1 leading-tight">
             <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-3.5 inline-block shrink-0 self-center" />

@@ -349,6 +349,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::patch('/bonanza-vp', [GamePlayController::class, 'adjustBonanzaVp'])->name('bonanza_vp');
         Route::post('/bonanza-next-turn', [GamePlayController::class, 'advanceBonanzaTurn'])->name('bonanza_next_turn');
         Route::post('/loot/draw', [GamePlayController::class, 'drawLoot'])->name('loot.draw');
+        Route::post('/loot/select', [GamePlayController::class, 'selectLoot'])->name('loot.select');
         Route::post('/loot/attach', [GamePlayController::class, 'attachLoot'])->name('loot.attach');
         Route::post('/loot/yoink', [GamePlayController::class, 'yoinkLoot'])->name('loot.yoink');
         Route::patch('/scheme-notes', [GamePlayController::class, 'updateSchemeNotes'])->name('scheme-notes');

@@ -57,6 +57,39 @@ it('blocks non-super_admins from the loot card admin', function () {
         ->assertForbidden();
 });
 
+it('coerces string "true"/"false" signature flags from FormData submits', function () {
+    // Regression: `(bool) "false"` is `true` in PHP — Inertia's forceFormData
+    // serializes booleans as those literal strings.
+    $this->seed(\Database\Seeders\LootCardSeeder::class);
+    $card = \App\Models\LootCard::where('suit', 'crow')->first();
+    $signature = \App\Models\Action::factory()->create();
+    $plain = \App\Models\Action::factory()->create();
+
+    $card->syncSideActions('a', [
+        ['action_id' => $signature->id, 'is_signature_action' => 'true'],
+        ['action_id' => $plain->id, 'is_signature_action' => 'false'],
+    ]);
+
+    $card->load('sideAActions');
+    $sig = $card->sideAActions->firstWhere('id', $signature->id);
+    $not = $card->sideAActions->firstWhere('id', $plain->id);
+    expect((bool) $sig->pivot->is_signature_action)->toBeTrue();
+    expect((bool) $not->pivot->is_signature_action)->toBeFalse();
+
+    // Re-sync with the flags flipped — confirms toggle-off works too,
+    // which was the user-visible symptom.
+    $card->syncSideActions('a', [
+        ['action_id' => $signature->id, 'is_signature_action' => 'false'],
+        ['action_id' => $plain->id, 'is_signature_action' => 'true'],
+    ]);
+
+    $card->load('sideAActions');
+    $sig = $card->sideAActions->firstWhere('id', $signature->id);
+    $not = $card->sideAActions->firstWhere('id', $plain->id);
+    expect((bool) $sig->pivot->is_signature_action)->toBeFalse();
+    expect((bool) $not->pivot->is_signature_action)->toBeTrue();
+});
+
 it('syncs side-A and side-B relations independently with the signature pivot flag', function () {
     Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
     $admin = User::factory()->create()->assignRole('super_admin');

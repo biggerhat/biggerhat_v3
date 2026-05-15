@@ -50,8 +50,6 @@ interface ActionData {
 const props = withDefaults(
     defineProps<{
         action: ActionData;
-        // Bonanza loot card displays don't have character/upgrade context,
-        // so they pass hideFooter to suppress the count footer.
         hideFooter?: boolean;
     }>(),
     { hideFooter: false },

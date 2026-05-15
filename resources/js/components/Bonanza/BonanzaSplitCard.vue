@@ -18,28 +18,18 @@ const props = defineProps<{
     image?: string | null;
     sideA: LootCardSide;
     sideB: LootCardSide;
-    // When true, side B is rendered upside-down so the printed card reads
-    // correctly from either end. Off by default — readability beats
-    // physical fidelity on a webpage.
     mirror?: boolean;
-    // Suppress the Print/Read toggle. Used when the card is being captured
-    // for image generation — the toggle is purely UI and would clutter
-    // the generated PNG.
     hideToggle?: boolean;
 }>();
 
 const mirrored = ref(props.mirror ?? false);
 
-// `crow` etc. all resolve to glyphs in GameIcon; joker has no glyph, so
-// the value-label pip stands in for the icon in those slots.
 const suitIconType = computed(() => {
     const s = props.suit.toLowerCase();
     return ['crow', 'mask', 'ram', 'tome'].includes(s) ? s : null;
 });
 
-// Tailwind needs to see the full class names at build time — keep them
-// in a static map keyed on the lowercase suit. Mirrors the suit-icon
-// colors in GameIcon and the chip tones on the page's filter bar.
+// Full class names so Tailwind picks them up at build time.
 const suitThemes: Record<string, { border: string; header: string; divider: string }> = {
     crow: {
         border: 'border-green-500/40 dark:border-green-500/30',
@@ -75,15 +65,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
 </script>
 
 <template>
-    <!-- Card frame: rounded, bordered. Both sides stack vertically inside;
-         the middle divider carries the loot card's image (or value/suit pip
-         fallback) so the card has a focal centerpiece even when the sides
-         are sparse. -->
     <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm', theme.border]">
-        <!-- Top header: value+suit pip on the left, card name centered,
-             print/read toggle on the right. The same name+pip pair appears
-             on the bottom footer so the card reads correctly from either
-             end when viewed in Print mode. -->
         <header :class="['flex items-center gap-2 border-b px-3 py-1.5', theme.header]">
             <span class="inline-flex items-baseline gap-1 font-mono text-lg font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
@@ -101,7 +83,6 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </button>
         </header>
 
-        <!-- SIDE A -->
         <section class="space-y-1.5 px-3 py-2.5">
             <div class="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">A</span>
@@ -117,8 +98,6 @@ const sideHasContent = (side: LootCardSide): boolean =>
             <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">Side A not yet entered</p>
         </section>
 
-        <!-- Divider — slimmer than before; the image is the focal point if
-             one exists, otherwise we fall back to a subtle suit/value chip. -->
         <div :class="['relative flex items-center justify-center border-y px-3 py-1.5', theme.divider]">
             <div class="absolute inset-x-3 top-1/2 h-px bg-border/60" />
             <img
@@ -137,7 +116,6 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </span>
         </div>
 
-        <!-- SIDE B (right-side up by default; rotated 180° in print view) -->
         <section :class="['space-y-1.5 px-3 py-2.5', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
@@ -153,17 +131,12 @@ const sideHasContent = (side: LootCardSide): boolean =>
             <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">Side B not yet entered</p>
         </section>
 
-        <!-- Bottom footer: card name (paragraph-style, matches body text)
-             plus a mirrored value+suit pip so the card has matching corners.
-             Rotates 180° in print view so it reads upright when the card
-             is physically flipped (i.e. the bottom becomes the top). -->
         <footer v-if="name" :class="['flex items-center justify-between gap-2 border-t px-3 py-1.5', theme.header, mirrored ? 'rotate-180' : '']">
             <span class="inline-flex items-baseline gap-1 font-mono text-lg font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
             </span>
             <span class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{{ name }}</span>
-            <!-- Spacer to keep the name visually centered between the two ends. -->
-            <span class="invisible inline-flex items-baseline gap-1 font-mono text-lg font-bold leading-none">
+            <span class="invisible inline-flex items-baseline gap-1 font-mono text-lg font-bold leading-none" aria-hidden="true">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
             </span>
         </footer>

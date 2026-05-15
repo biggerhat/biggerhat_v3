@@ -5,9 +5,6 @@ import LootTriggerDisplay from '@/components/Bonanza/LootTriggerDisplay.vue';
 import GameText from '@/components/GameText.vue';
 import { computed } from 'vue';
 
-// Loose shapes — match enough of the compact display components' expected
-// props that they can render, without re-declaring every optional field.
-// Missing fields are treated gracefully downstream.
 export interface LootAbilityRef {
     id: number;
     name: string;
@@ -55,9 +52,6 @@ type Segment =
     | { type: 'action'; entity: LootActionRef }
     | { type: 'trigger'; entity: LootTriggerRef };
 
-// Adjacent entity blocks share connecting punctuation in the prose (", ",
-// " and ", " or "); drop it so two stacked cards don't have an awkward
-// comma floating between them.
 const isConnectorOnly = (value: string): boolean => /^[\s,;.]*(?:and|or)?[\s,;.]*$/i.test(value);
 
 type Lookup =
@@ -68,8 +62,7 @@ type Lookup =
 const segments = computed((): Segment[] => {
     if (!props.text) return [];
 
-    // Build a single match table sorted longest-first so "Arcane Reservoir"
-    // wins over a hypothetical shorter "Arcane".
+    // Sort longest-first so "Arcane Reservoir" beats a conflicting "Arcane".
     const lookups: Lookup[] = [
         ...(props.abilities ?? []).map<Lookup>((a) => ({ kind: 'ability', name: a.name, entity: a })),
         ...(props.actions ?? []).map<Lookup>((a) => ({ kind: 'action', name: a.name, entity: a })),
@@ -78,10 +71,7 @@ const segments = computed((): Segment[] => {
 
     if (lookups.length === 0) return [{ type: 'text', value: props.text }];
 
-    // Escape regex-meaningful chars in each name, then build one big
-    // case-insensitive alternation. `\b` boundaries don't play nice with
-    // names that have non-word characters (e.g. "Bête Noire"), so we just
-    // match raw and rely on attached-name uniqueness.
+    // No `\b` boundary — entity names can contain non-word chars (e.g. "Bête Noire").
     const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(lookups.map((l) => escape(l.name)).join('|'), 'gi');
 
@@ -103,9 +93,7 @@ const segments = computed((): Segment[] => {
         parts.push({ type: 'text', value: props.text.slice(lastIndex) });
     }
 
-    // Collapse pure-connector text segments sandwiched between two entity
-    // segments so adjacent cards don't have a stray "," or " and " between
-    // them.
+    // Drop stray "," / " and " between two adjacent entity cards.
     const collapsed: Segment[] = [];
     for (let i = 0; i < parts.length; i++) {
         const cur = parts[i];
@@ -124,8 +112,6 @@ const segments = computed((): Segment[] => {
     return collapsed;
 });
 
-// IDs of entities that landed inline, so the template can render any
-// leftover attachments after the parsed prose without double-printing.
 const matchedIds = computed(() => {
     const ids = { ability: new Set<number>(), action: new Set<number>(), trigger: new Set<number>() };
     for (const seg of segments.value) {
@@ -140,9 +126,7 @@ const leftoverAbilities = computed(() => (props.abilities ?? []).filter((a) => !
 const leftoverActions = computed(() => (props.actions ?? []).filter((a) => !matchedIds.value.action.has(a.id)));
 const leftoverTriggers = computed(() => (props.triggers ?? []).filter((t) => !matchedIds.value.trigger.has(t.id)));
 
-// Carry the pivot signature flag from the loot_card_action attachment onto
-// the action that ActionCard ultimately renders. ActionCard reads from
-// `is_signature` (not the pivot), so we surface it explicitly here.
+// ActionCard reads `is_signature`, not pivot.is_signature_action.
 const actionWithSignature = (action: LootActionRef): LootActionRef & { is_signature: boolean } => ({
     ...action,
     is_signature: action.pivot?.is_signature_action ?? action.is_signature ?? false,
@@ -160,9 +144,7 @@ const actionWithSignature = (action: LootActionRef): LootActionRef & { is_signat
             <LootTriggerDisplay v-else-if="segment.type === 'trigger'" :trigger="segment.entity" />
         </template>
 
-        <!-- Anything attached but not name-dropped in the prose still gets
-             rendered here so a sloppy effect-text doesn't accidentally hide
-             a real ability/action/trigger. -->
+        <!-- Attached but not name-dropped in the prose — render below. -->
         <LootAbilityDisplay v-for="a in leftoverAbilities" :key="`lab-${a.id}`" :ability="a" />
         <ActionCard v-for="a in leftoverActions" :key="`lac-${a.id}`" :action="actionWithSignature(a)" hide-footer />
         <LootTriggerDisplay v-for="t in leftoverTriggers" :key="`ltr-${t.id}`" :trigger="t" />

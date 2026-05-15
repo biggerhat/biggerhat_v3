@@ -41,7 +41,7 @@ const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) ===
         <CardHeader class="pb-2">
             <CardTitle class="inline-flex flex-wrap items-center gap-1 text-base">
                 <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="h-4 inline-block shrink-0" />
-                {{ ability.name }}
+                <GameText :text="ability.name" icon-class="h-4 inline-block align-text-bottom" />
                 <span
                     v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type"
                     class="inline-flex items-center gap-1 text-sm text-muted-foreground"

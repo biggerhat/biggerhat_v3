@@ -34,8 +34,6 @@ it('auto-links abilities mentioned by name in the effect text', function () {
 it('prefers longer matches over conflicting shorter substrings', function () {
     $this->seed(LootCardSeeder::class);
 
-    // "Arcane" is a substring of "Arcane Reservoir" — only the longer
-    // ability should attach when the text contains "Arcane Reservoir".
     Ability::factory()->create(['name' => 'Arcane']);
     Ability::factory()->create(['name' => 'Arcane Reservoir']);
 
@@ -111,13 +109,7 @@ it('is idempotent — re-running detaches stale pivots first', function () {
     expect($names)->not->toContain('Arcane Reservoir');
 });
 
-/**
- * Helper: stand up a one-off seeder instance with $data slotted in for
- * the Five of Crows card and run it against the live DB. Keeps each
- * test focused on a single effect-text scenario without bloating the
- * production seeder's `effects()` method.
- */
-function seedFiveOfCrows(array $data): void // helper name unchanged for readability
+function seedFiveOfCrows(array $data): void
 {
     $seeder = new class extends LootCardEffectsSeeder
     {

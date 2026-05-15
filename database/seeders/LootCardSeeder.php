@@ -8,26 +8,16 @@ use Illuminate\Support\Str;
 
 class LootCardSeeder extends Seeder
 {
-    /**
-     * Seed the 54-card Bonanza Brawl Loot Deck. Structure only — names are
-     * drawn from the standard fate-deck layout (e.g. "Five of Crows"); the
-     * `effect_a` / `effect_b` columns are intentionally left null so a TO /
-     * super-admin can fill them in via the admin UI from the canonical Wyrd
-     * doc (wyrdgames.net/bonanza-loot-deck). Idempotent — safe to re-run.
-     */
     public function run(): void
     {
+        // Suit order matches the rulebook's flank-deployment-zone mapping.
         $suits = [
-            // Order matches the rulebook's flank-deployment-zone mapping
-            // (Crows / Masks / Rams / Tomes), so seed sort_order follows it.
             'crow' => 'Crow',
             'mask' => 'Mask',
             'ram' => 'Ram',
             'tome' => 'Tome',
         ];
 
-        // Bonanza loot deck is pure-numeric (1-13) — no Ace/Jack/Queen/King
-        // distinction. Labels mirror the rulebook.
         $valueLabels = [
             1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6', 7 => '7',
             8 => '8', 9 => '9', 10 => '10', 11 => '11', 12 => '12', 13 => '13',
@@ -56,9 +46,6 @@ class LootCardSeeder extends Seeder
             }
         }
 
-        // Two jokers — physically distinct (red / black) so we model them as
-        // two rows. Suit = 'joker' since the cards have no suit; value is
-        // null because rule-text references "either Joker", not a numeric.
         foreach (['Red Joker', 'Black Joker'] as $jokerLabel) {
             LootCard::updateOrCreate(
                 ['slug' => Str::slug($jokerLabel)],

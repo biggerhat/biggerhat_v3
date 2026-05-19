@@ -593,18 +593,18 @@ const selectedMasterTitle = ref<string | null>(null);
 
 const pickMaster = (master: { name: string; titles: { id: number; display_name: string | null; title?: string | null }[] }) => {
     selectedMasterName.value = master.name;
-    // Auto-pick only when there's exactly one title to pick.
-    if (master.titles.length === 1) {
-        selectedMasterTitle.value = master.titles[0].display_name ?? master.name;
-    } else if (master.titles.length === 0) {
-        selectedMasterTitle.value = master.name;
+    // Only Bonanza requires the title at master-select (no crew step
+    // follows). Other formats defer the title pick to crew select, so
+    // we don't block the Confirm button here.
+    if (!isBonanza.value || master.titles.length <= 1) {
+        selectedMasterTitle.value = master.titles[0]?.display_name ?? master.name;
     } else {
         selectedMasterTitle.value = null;
     }
 };
 
 const masterRequiresTitle = computed(() => {
-    if (!selectedMasterName.value) return false;
+    if (!isBonanza.value || !selectedMasterName.value) return false;
     const m = availableMasters.value.find((x) => x.name === selectedMasterName.value);
     return (m?.titles?.length ?? 0) > 1;
 });
@@ -612,8 +612,11 @@ const masterRequiresTitle = computed(() => {
 const confirmMasterSelection = () => {
     if (!selectedMasterName.value) return;
     if (masterRequiresTitle.value && !selectedMasterTitle.value) return;
+    // Standard games submit the base name (title resolved during crew
+    // select). Bonanza submits the specific title display_name so the
+    // backend resolves to the exact titled character.
     const body: Record<string, unknown> = {
-        master_name: selectedMasterTitle.value ?? selectedMasterName.value,
+        master_name: isBonanza.value ? (selectedMasterTitle.value ?? selectedMasterName.value) : selectedMasterName.value,
     };
     if (isSolo.value) body.slot = mySlot.value;
     postSetup(route('games.setup.master', props.game.uuid), body);

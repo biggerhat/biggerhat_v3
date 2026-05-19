@@ -23,7 +23,7 @@ class TriggerController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $triggers = Trigger::query()
+        $triggers = Trigger::standard()
             ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
             ->orderBy('name')
             ->paginate(min((int) $request->query('per_page', 15), 100));

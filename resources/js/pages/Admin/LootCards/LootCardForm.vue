@@ -2,6 +2,7 @@
 import BonanzaSplitCard from '@/components/Bonanza/BonanzaSplitCard.vue';
 import { fetchFontEmbedCSS } from '@/components/CardCreator/utils';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -113,7 +114,12 @@ const sideBAbilitySlugs = ref<string[]>(slugList(props.card?.side_b_abilities ??
 const sideATriggerSlugs = ref<string[]>(slugList(props.card?.side_a_triggers ?? []));
 const sideBTriggerSlugs = ref<string[]>(slugList(props.card?.side_b_triggers ?? []));
 
-const actionOptions = computed(() => (props.all_actions ?? []).map((a) => ({ value: a.slug, name: a.name })));
+const actionOptions = computed(() =>
+    (props.all_actions ?? []).map((a) => ({
+        value: a.slug,
+        name: `${a.name} (#${a.id})`,
+    })),
+);
 const abilityOptions = computed(() => (props.all_abilities ?? []).map((a) => ({ value: a.slug, name: a.name })));
 const triggerOptions = computed(() => (props.all_triggers ?? []).map((t) => ({ value: t.slug, name: t.name })));
 
@@ -354,6 +360,18 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                 <option value="Black Joker">Black Joker</option>
                             </select>
                             <p v-if="form.errors.value_label" class="text-xs text-destructive">{{ form.errors.value_label }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Suit/value on edit: read-only display (immutable to preserve deck identity). -->
+                    <div v-else class="flex flex-wrap gap-3">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground">Suit</span>
+                            <Badge variant="outline" class="capitalize">{{ card!.suit }}</Badge>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground">Value</span>
+                            <Badge variant="outline" class="font-mono tabular-nums">{{ card!.value_label }}</Badge>
                         </div>
                     </div>
 

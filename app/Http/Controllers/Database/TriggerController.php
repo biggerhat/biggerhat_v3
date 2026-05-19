@@ -11,7 +11,9 @@ class TriggerController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Trigger::with('actions')
+        // Standard scope: hide Bonanza Brawl triggers from the public list.
+        $query = Trigger::standard()
+            ->with('actions')
             ->withCount('actions')
             ->with(['actions.characters' => fn ($q) => $q->select('characters.id', 'characters.display_name', 'characters.slug', 'characters.faction')
                 ->with('standardMiniatures:id,slug,character_id')->limit(2),
@@ -47,7 +49,7 @@ class TriggerController extends Controller
         return inertia('Triggers/Index', [
             'triggers' => $triggers,
             'result_count' => $triggers->total(),
-            'trigger_names' => fn () => Trigger::select('name')->distinct()->orderBy('name', 'ASC')
+            'trigger_names' => fn () => Trigger::standard()->select('name')->distinct()->orderBy('name', 'ASC')
                 ->get()->map(fn ($t) => ['name' => $t->name, 'value' => $t->name]),
             'suits' => fn () => SuitEnum::toSelectOptions(),
         ]);

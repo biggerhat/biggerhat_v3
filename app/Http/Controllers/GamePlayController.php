@@ -46,6 +46,27 @@ class GamePlayController extends Controller
 
         $validated = $request->validated();
 
+        // Detect loot upgrades being removed and push their card_id back to
+        // the discard pile so they're not lost from the deck state.
+        if (
+            $game->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            && array_key_exists('attached_upgrades', $validated)
+        ) {
+            $prevLoot = collect($gameCrewMember->attached_upgrades ?? [])
+                ->filter(fn ($u) => is_array($u) && ! empty($u['loot_card_id']))
+                ->pluck('loot_card_id');
+            $nextLootIds = collect($validated['attached_upgrades'] ?? [])
+                ->filter(fn ($u) => is_array($u) && ! empty($u['loot_card_id']))
+                ->pluck('loot_card_id')
+                ->flip();
+            $service = app(LootDeckService::class);
+            foreach ($prevLoot as $cardId) {
+                if (! $nextLootIds->has($cardId)) {
+                    $service->discardCard($game, (int) $cardId);
+                }
+            }
+        }
+
         // Validate upgrade plentiful limits
         if (isset($validated['attached_upgrades']) && ! empty($validated['attached_upgrades'])) {
             $newUpgradeIds = collect($validated['attached_upgrades'])->pluck('id')->filter()->toArray();
@@ -660,6 +681,64 @@ class GamePlayController extends Controller
             'winner_id' => null,
             'winner_slot' => null,
         ]);
+    }
+
+    /**
+     * Edit a previously-submitted turn's points. Scoped to the immediately
+     * preceding turn (current_turn - 1) so users can correct a mis-clicked
+     * score without giving them a full history-editor (which would muddy
+     * tournament integrations).
+     */
+    public function editTurnScore(Request $request, Game $game, GameTurn $turn): JsonResponse
+    {
+        if ($game->status !== GameStatusEnum::InProgress) {
+            return response()->json(['error' => 'Game not in progress'], 422);
+        }
+
+        if ($turn->game_id !== $game->id) {
+            abort(404);
+        }
+
+        if ($turn->turn_number !== $game->current_turn - 1) {
+            return response()->json(['error' => 'Only the most recently submitted turn can be edited'], 422);
+        }
+
+        $player = GamePlayer::findOrFail($turn->game_player_id);
+        $slot = $request->integer('slot') ?: null;
+        $actor = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+        if (! $game->is_solo && $actor->id !== $player->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
+            'scheme_points' => ['required', 'integer', 'min:0', 'max:3'],
+        ]);
+
+        DB::transaction(function () use ($game, $player, $turn, $validated) {
+            $bonusUsedThisTurn = $validated['strategy_points'] > 1;
+
+            $turn->update([
+                'strategy_points' => $validated['strategy_points'],
+                'strategy_bonus_used' => $bonusUsedThisTurn,
+                'scheme_points' => $validated['scheme_points'],
+                'points_scored' => $validated['strategy_points'] + $validated['scheme_points'],
+            ]);
+
+            $player->update([
+                'total_points' => GameTurn::where('game_id', $game->id)
+                    ->where('game_player_id', $player->id)
+                    ->sum('points_scored'),
+            ]);
+        });
+
+        $this->syncToTournamentGame($game->fresh()->load('players.master'));
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'total_points' => $player->fresh()->total_points]);
     }
 
     public function submitTurnScore(SubmitTurnRequest $request, Game $game): JsonResponse

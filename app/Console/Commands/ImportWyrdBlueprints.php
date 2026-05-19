@@ -82,6 +82,19 @@ class ImportWyrdBlueprints extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Generous connect/total timeouts + retry on transient failures so a
+     * single Wyrd hiccup doesn't kill a long scrape (or a deploy hook).
+     * Throws ConnectionException only after the final retry fails.
+     */
+    private function fetch(string $url): \Illuminate\Http\Client\Response
+    {
+        return Http::connectTimeout(30)
+            ->timeout(45)
+            ->retry(3, 1500, throw: false)
+            ->get($url);
+    }
+
     private function freshStart(): void
     {
         $this->warn('Clearing all blueprints, images, and pivot data...');
@@ -114,7 +127,12 @@ class ImportWyrdBlueprints extends Command
         while ($url) {
             $this->line("  Fetching page {$pageNum}...");
 
-            $response = Http::timeout(30)->get($url);
+            try {
+                $response = $this->fetch($url);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                $this->warn("  Page {$pageNum} unreachable, stopping pagination: {$e->getMessage()}");
+                break;
+            }
 
             if (! $response->successful()) {
                 $this->error("Failed to fetch page {$pageNum}: ".$response->status());
@@ -208,7 +226,13 @@ class ImportWyrdBlueprints extends Command
     private function fetchPostDetails(string $url): array
     {
         $fullUrl = self::BASE_URL.$url;
-        $response = Http::timeout(30)->get($fullUrl);
+        try {
+            $response = $this->fetch($fullUrl);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            $this->warn("    Failed to fetch post (network): {$url} — {$e->getMessage()}");
+
+            return ['title' => '', 'images' => [], 'tags' => [], 'categories' => [], 'sku' => null];
+        }
 
         if (! $response->successful()) {
             $this->warn("    Failed to fetch post: {$url}");
@@ -463,7 +487,7 @@ class ImportWyrdBlueprints extends Command
         }
 
         try {
-            $response = Http::timeout(30)->get($imageUrl);
+            $response = $this->fetch($imageUrl);
             if ($response->successful()) {
                 Storage::disk('public')->put($localPath, $response->body());
 

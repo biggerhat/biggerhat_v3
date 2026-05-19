@@ -52,7 +52,7 @@ const emit = defineEmits<{
                     v-if="upgrade.loot_card_id"
                     class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain"
                 >
-                    <BonanzaCardImage :image="upgrade.front_image" :name="upgrade.name" />
+                    <BonanzaCardImage :image="upgrade.front_image" :name="upgrade.name" :initial-side="upgrade.loot_side ?? 'a'" />
                 </div>
                 <div
                     v-else

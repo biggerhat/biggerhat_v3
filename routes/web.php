@@ -248,6 +248,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::get('/download', [PDFController::class, 'download'])->name('download');
     });
     Route::get('/scenario-generator', [ScenarioGeneratorController::class, 'index'])->name('scenario_generator');
+    Route::get('/scheme-paths', [\App\Http\Controllers\SchemePathController::class, 'index'])->name('scheme_paths');
     Route::get('/random-character', RandomCharacterController::class)->name('random_character');
     Route::get('/bonanza-loot-deck', BonanzaLootDeckController::class)->name('bonanza_loot_deck');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
@@ -354,6 +355,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/loot/yoink', [GamePlayController::class, 'yoinkLoot'])->name('loot.yoink');
         Route::patch('/scheme-notes', [GamePlayController::class, 'updateSchemeNotes'])->name('scheme-notes');
         Route::post('/turns', [GamePlayController::class, 'submitTurnScore'])->name('turns.store');
+        Route::patch('/turns/{turn}/score', [GamePlayController::class, 'editTurnScore'])->name('turns.edit');
         Route::post('/complete', [GamePlayController::class, 'markComplete'])->name('complete');
         Route::post('/cancel-complete', [GamePlayController::class, 'cancelComplete'])->name('cancel_complete');
     });

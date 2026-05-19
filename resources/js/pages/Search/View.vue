@@ -1414,7 +1414,7 @@ const fetchNameSuggestions = () => {
 };
 
 const selectNameSuggestion = (item: any) => {
-    syntaxInput.value = item.name;
+    syntaxInput.value = item.display_name ?? item.name ?? '';
     showNameSuggestions.value = false;
     nameSuggestions.value = [];
     applySyntax();
@@ -1805,7 +1805,7 @@ onUnmounted(() => {
                             :class="{ 'bg-accent': idx === nameSuggestionIndex }"
                             @mousedown.prevent="selectNameSuggestion(item)"
                         >
-                            <span class="truncate">{{ item.name }}</span>
+                            <span class="truncate">{{ item.display_name ?? item.name }}</span>
                             <Badge v-if="item.faction" variant="outline" class="ml-auto shrink-0 text-[10px]">{{ item.faction }}</Badge>
                         </button>
                     </div>

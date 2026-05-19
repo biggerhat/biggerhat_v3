@@ -2,12 +2,18 @@
 import { RotateCw } from 'lucide-vue-next';
 import { ref } from 'vue';
 
-defineProps<{
-    image: string;
-    name: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        image: string;
+        name: string;
+        // When the card is being viewed for a known side, open already
+        // rotated so the chosen face reads upright.
+        initialSide?: 'a' | 'b';
+    }>(),
+    { initialSide: 'a' },
+);
 
-const flipped = ref(false);
+const flipped = ref(props.initialSide === 'b');
 </script>
 
 <template>

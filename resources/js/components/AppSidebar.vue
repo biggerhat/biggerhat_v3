@@ -19,6 +19,7 @@ import {
     Heart,
     KeyRound,
     Library,
+    Map,
     Newspaper,
     Package,
     Puzzle,
@@ -280,6 +281,11 @@ const mainNavItems = computed<NavItem[]>(() => [
                 title: 'Scenario Generator',
                 href: route('tools.scenario_generator'),
                 icon: Dice6,
+            },
+            {
+                title: 'Scheme Paths',
+                href: route('tools.scheme_paths'),
+                icon: Map,
             },
             {
                 title: 'Random Character',

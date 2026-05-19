@@ -22,6 +22,7 @@ import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import SeoHead from '@/components/SeoHead.vue';
+import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -584,10 +585,36 @@ const filteredMasters = computed(() => {
 });
 
 const selectedMasterName = ref<string | null>(null);
+// For Bonanza, the user must pick a specific title (display_name) when a
+// model has multiple titles — no auto-select. For non-Bonanza, the base
+// master name is enough; title is picked during crew select. This holds
+// the title display_name to submit when one's been chosen.
+const selectedMasterTitle = ref<string | null>(null);
+
+const pickMaster = (master: { name: string; titles: { id: number; display_name: string | null; title?: string | null }[] }) => {
+    selectedMasterName.value = master.name;
+    // Auto-pick only when there's exactly one title to pick.
+    if (master.titles.length === 1) {
+        selectedMasterTitle.value = master.titles[0].display_name ?? master.name;
+    } else if (master.titles.length === 0) {
+        selectedMasterTitle.value = master.name;
+    } else {
+        selectedMasterTitle.value = null;
+    }
+};
+
+const masterRequiresTitle = computed(() => {
+    if (!selectedMasterName.value) return false;
+    const m = availableMasters.value.find((x) => x.name === selectedMasterName.value);
+    return (m?.titles?.length ?? 0) > 1;
+});
 
 const confirmMasterSelection = () => {
     if (!selectedMasterName.value) return;
-    const body: Record<string, unknown> = { master_name: selectedMasterName.value };
+    if (masterRequiresTitle.value && !selectedMasterTitle.value) return;
+    const body: Record<string, unknown> = {
+        master_name: selectedMasterTitle.value ?? selectedMasterName.value,
+    };
     if (isSolo.value) body.slot = mySlot.value;
     postSetup(route('games.setup.master', props.game.uuid), body);
 };
@@ -1325,9 +1352,10 @@ const schemeModelOptions = computed(() => {
     });
 });
 
-// Scheme notes lock: editable before submitting your turn, locked after
-// Scheme notes are always locked during gameplay — they're set during scheme selection (pregame or end-of-turn follow-up)
-const schemeNotesLocked = computed(() => props.game.status === 'in_progress');
+// Scheme notes lock: editable until the current turn is submitted. Solo
+// players can edit either side's notes freely during a turn (no concept
+// of opponent-submitting in solo).
+const schemeNotesLocked = computed(() => !isSolo.value && !!myPlayer.value?.is_turn_complete);
 
 // Sync scheme notes from props when they change (e.g. after reload)
 watch(
@@ -1423,6 +1451,11 @@ const lootCardCatalog = computed<Map<number, LootCardSummary>>(() => {
 });
 const lootCardById = (id: number): LootCardSummary | null => lootCardCatalog.value.get(id) ?? null;
 
+const lootCardSuitIcon = (suit: string | null | undefined): string | null => {
+    const s = (suit ?? '').toLowerCase();
+    return ['crow', 'mask', 'ram', 'tome'].includes(s) ? s : null;
+};
+
 // In solo, the creator can attach to either side. In a duel, only your own.
 // Typed as `any[]` because Show.vue has two `CrewMember` interface declarations
 // that shadow each other — the existing code works around it by sticking to
@@ -1498,17 +1531,47 @@ const pickLootCardForSelect = (card: LootCardSummary) => {
     lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
 };
 
+// Solo doesn't enforce deck-tracking — show every catalog card so the user
+// can grab any of the 54. The server still 422s if the card is already in
+// play. When multiplayer lands, swap this back to the pool-aware filter.
 const availableLootCards = computed<LootCardSummary[]>(() => {
-    const state = props.game.loot_state;
-    if (!state) return [];
-    const ids = [...(state.deck ?? []), ...(state.discard ?? [])];
     const search = lootCardSelectorSearch.value.trim().toLowerCase();
-    return ids
-        .map((id) => lootCardById(id))
-        .filter((c): c is LootCardSummary => c !== null)
-        .filter((c) => (search ? c.name.toLowerCase().includes(search) : true))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    const filter = lootCardSelectorSuit.value;
+    return (props.loot_card_catalog ?? [])
+        .filter((c) => (filter === 'all' ? true : c.suit === filter))
+        .filter((c) => {
+            if (!search) return true;
+            const hay = `${c.name} ${c.value_label ?? ''}`.toLowerCase();
+            return hay.includes(search);
+        })
+        .sort((a, b) => {
+            const suitOrder = ['crow', 'mask', 'ram', 'tome', 'joker'];
+            const sa = suitOrder.indexOf(a.suit ?? '');
+            const sb = suitOrder.indexOf(b.suit ?? '');
+            if (sa !== sb) return sa - sb;
+            return (a.value ?? 0) - (b.value ?? 0);
+        });
 });
+
+// Suit filter for the select dialog.
+const lootCardSelectorSuit = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');
+
+const lootSuitClass = (suit: string): string => {
+    switch (suit.toLowerCase()) {
+        case 'crow':
+            return 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-300';
+        case 'mask':
+            return 'border-purple-500/50 bg-purple-500/10 text-purple-700 dark:text-purple-300';
+        case 'ram':
+            return 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300';
+        case 'tome':
+            return 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300';
+        case 'joker':
+            return 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+        default:
+            return 'border-input bg-background/60 text-foreground';
+    }
+};
 
 const openYoinkPicker = (marker: LootMarker) => {
     const card = lootCardById(marker.card_id);
@@ -1559,6 +1622,15 @@ const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filte
 // Inline card preview — track expanded members per crew via Set
 const expandedMyCards = ref(new Set<number>());
 const expandedOpponentCards = ref(new Set<number>());
+
+// One crew upgrade can be inline-expanded per side at a time (typically
+// there's only one active crew upgrade per crew anyway).
+const expandedMyCrewUpgradeId = ref<number | null>(null);
+const expandedOppCrewUpgradeId = ref<number | null>(null);
+const toggleCrewUpgradeExpand = (upgradeId: number, crew: 'my' | 'opponent') => {
+    const target = crew === 'my' ? expandedMyCrewUpgradeId : expandedOppCrewUpgradeId;
+    target.value = target.value === upgradeId ? null : upgradeId;
+};
 
 const toggleInlineCard = (memberId: number, crew: 'my' | 'opponent') => {
     const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
@@ -2055,6 +2127,55 @@ const opponentTotalSchemeScored = computed(() => {
     return (opponent.value?.turns ?? []).reduce((sum: number, t: any) => sum + (t.scheme_points ?? 0), 0);
 });
 const opponentMaxSchemeThisTurn = computed(() => Math.min(MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL - opponentTotalSchemeScored.value));
+
+// ─── Edit previous turn ───
+const editTurnDialogOpen = ref(false);
+const editTurnTarget = ref<{ playerId: number; slot: number; turnId: number; turnNumber: number } | null>(null);
+const editTurnStrategy = ref(0);
+const editTurnScheme = ref(0);
+const editTurnSubmitting = ref(false);
+
+const previousTurnFor = (player: any) => {
+    const prev = props.game.current_turn - 1;
+    if (prev < 1) return null;
+    return (player.turns ?? []).find((t: any) => t.turn_number === prev) ?? null;
+};
+
+const openEditTurn = (player: any) => {
+    const turn = previousTurnFor(player);
+    if (!turn) return;
+    editTurnTarget.value = { playerId: player.id, slot: player.slot, turnId: turn.id, turnNumber: turn.turn_number };
+    editTurnStrategy.value = turn.strategy_points ?? 0;
+    editTurnScheme.value = turn.scheme_points ?? 0;
+    editTurnDialogOpen.value = true;
+};
+
+const submitEditTurn = async () => {
+    if (!editTurnTarget.value) return;
+    editTurnSubmitting.value = true;
+    try {
+        const res = await fetch(route('games.play.turns.edit', { game: props.game.uuid, turn: editTurnTarget.value.turnId }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+            body: JSON.stringify({
+                strategy_points: editTurnStrategy.value,
+                scheme_points: editTurnScheme.value,
+                ...(isSolo.value ? { slot: editTurnTarget.value.slot } : {}),
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(err.error ?? 'Failed to update turn score.');
+            return;
+        }
+        editTurnDialogOpen.value = false;
+        router.reload({ only: ['game'], preserveScroll: true });
+    } catch {
+        showError('Network error. Please check your connection.');
+    } finally {
+        editTurnSubmitting.value = false;
+    }
+};
 
 const submitTurnScore = async () => {
     scoringTurn.value = true;
@@ -2785,6 +2906,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <span class="font-mono text-base font-bold tabular-nums">{{ myPlayer?.total_points ?? 0 }}</span>
                     </div>
                     <div class="flex flex-wrap items-center gap-1.5">
+                        <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(1)">+1</Button>
                         <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(1)">+1 dmg</Button>
                         <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(2)">+2 cost up</Button>
                         <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="adjustBonanzaVp(3)">+3 kill</Button>
@@ -2892,7 +3014,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </DialogDescription>
                     </DialogHeader>
                     <div v-if="lootSidePicker" class="flex flex-col gap-4">
-                        <div v-if="attachableMembers.length > 1" class="flex flex-col gap-1.5">
+                        <div
+                            v-if="attachableMembers.length === 0"
+                            class="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+                        >
+                            No live models to attach loot to. Add a model to your crew first.
+                        </div>
+                        <div v-else class="flex flex-col gap-1.5">
                             <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attach to</label>
                             <select v-model.number="lootSidePickerMemberId" class="h-9 rounded-md border border-input bg-background px-2 text-sm">
                                 <option :value="null">Select a model…</option>
@@ -2902,7 +3030,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div class="grid gap-3 md:grid-cols-2">
                             <button
                                 type="button"
-                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5"
+                                :disabled="!lootSidePickerMemberId"
+                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                                 @click="submitLootSide('a')"
                             >
                                 <div class="flex items-center gap-2 font-semibold">
@@ -2917,7 +3046,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </button>
                             <button
                                 type="button"
-                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5"
+                                :disabled="!lootSidePickerMemberId"
+                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                                 @click="submitLootSide('b')"
                             >
                                 <div class="flex items-center gap-2 font-semibold">
@@ -2940,16 +3070,36 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <DialogHeader>
                         <DialogTitle>Select a loot card</DialogTitle>
                         <DialogDescription>
-                            Pick a card from the remaining pool. The card will be removed from the deck and you'll choose which side to apply.
+                            Pick a card and choose which side to apply. {{ availableLootCards.length }} of {{ loot_card_catalog?.length ?? 0 }} shown.
                         </DialogDescription>
                     </DialogHeader>
                     <div class="flex flex-col gap-3">
-                        <Input v-model="lootCardSelectorSearch" placeholder="Search by name…" class="h-9 text-sm" />
+                        <div class="relative">
+                            <Search class="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input v-model="lootCardSelectorSearch" placeholder="Search by name or number…" class="h-9 pl-7 text-sm" />
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            <button
+                                v-for="s in ['all', 'crow', 'mask', 'ram', 'tome', 'joker'] as const"
+                                :key="s"
+                                type="button"
+                                class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] capitalize transition-colors"
+                                :class="
+                                    lootCardSelectorSuit === s
+                                        ? lootSuitClass(s) + ' font-semibold'
+                                        : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/60'
+                                "
+                                @click="lootCardSelectorSuit = s"
+                            >
+                                <GameIcon v-if="lootCardSuitIcon(s)" :type="lootCardSuitIcon(s) as string" class-name="h-3 inline-block" />
+                                {{ s }}
+                            </button>
+                        </div>
                         <div
                             v-if="availableLootCards.length === 0"
                             class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
                         >
-                            No loot cards left in the pool — every card is either attached to a model or dropped as a marker.
+                            No cards match your filter.
                         </div>
                         <div v-else class="max-h-[60dvh] overflow-y-auto pr-1">
                             <div class="grid gap-1.5 sm:grid-cols-2">
@@ -2957,10 +3107,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     v-for="card in availableLootCards"
                                     :key="card.id"
                                     type="button"
-                                    class="flex items-center gap-2 rounded-md border border-input bg-background/60 px-2.5 py-2 text-left text-sm transition hover:border-primary/60 hover:bg-primary/5"
+                                    class="flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition hover:shadow-sm hover:brightness-110"
+                                    :class="lootSuitClass(card.suit ?? 'all')"
                                     @click="pickLootCardForSelect(card)"
                                 >
-                                    <Badge variant="outline" class="shrink-0 font-mono text-[10px] tabular-nums">{{ card.value_label }}</Badge>
+                                    <span
+                                        class="border-current/40 inline-flex shrink-0 items-center gap-0.5 rounded border bg-background/40 px-1 font-mono text-[10px] tabular-nums"
+                                    >
+                                        {{ card.value_label
+                                        }}<GameIcon
+                                            v-if="lootCardSuitIcon(card.suit)"
+                                            :type="lootCardSuitIcon(card.suit) as string"
+                                            class-name="h-2.5 inline-block"
+                                        />
+                                    </span>
                                     <span class="min-w-0 flex-1 truncate font-medium">{{ card.name }}</span>
                                 </button>
                             </div>
@@ -3441,7 +3601,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 :key="master.name"
                                 class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
                                 :class="selectedMasterName === master.name ? 'ring-2 ring-primary' : ''"
-                                @click="selectedMasterName = master.name"
+                                @click="pickMaster(master)"
                             >
                                 <CardContent class="flex items-start gap-3 p-3">
                                     <div v-if="master.front_image" class="shrink-0 overflow-hidden rounded-md">
@@ -3474,14 +3634,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
                                             {{ master.titles.length }} titles — choose during crew select
                                         </div>
-                                        <div v-else-if="isBonanza && master.titles.length > 1" class="mt-0.5 flex flex-wrap gap-1">
-                                            <Badge
+                                        <div v-else-if="isBonanza && master.titles.length > 1" class="mt-1 flex flex-wrap gap-1">
+                                            <button
                                                 v-for="t in master.titles"
                                                 :key="t.id"
-                                                variant="outline"
-                                                class="border-purple-500/40 px-1 py-0 text-[9px] text-purple-700 dark:text-purple-300"
-                                                >{{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss</Badge
+                                                type="button"
+                                                class="rounded border px-1.5 py-0.5 text-[10px] transition-colors"
+                                                :class="
+                                                    selectedMasterName === master.name && selectedMasterTitle === (t.display_name ?? master.name)
+                                                        ? 'border-primary bg-primary text-primary-foreground'
+                                                        : 'border-purple-500/40 text-purple-700 hover:bg-purple-500/10 dark:text-purple-300'
+                                                "
+                                                @click.stop="
+                                                    selectedMasterName = master.name;
+                                                    selectedMasterTitle = t.display_name ?? master.name;
+                                                "
                                             >
+                                                {{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss
+                                            </button>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -3500,10 +3670,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
                                     <div class="min-w-0 flex-1">
                                         <div class="text-[10px] uppercase tracking-wider text-muted-foreground">Selected</div>
-                                        <div class="truncate text-sm font-medium">{{ selectedMasterName }}</div>
+                                        <div class="truncate text-sm font-medium">{{ selectedMasterTitle ?? selectedMasterName }}</div>
+                                        <div
+                                            v-if="masterRequiresTitle && !selectedMasterTitle"
+                                            class="text-[11px] text-amber-600 dark:text-amber-400"
+                                        >
+                                            Pick a title to continue
+                                        </div>
                                     </div>
-                                    <Button variant="ghost" size="sm" class="h-9" @click="selectedMasterName = null">Clear</Button>
-                                    <Button :disabled="submitting" class="h-9" @click="confirmMasterSelection">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-9"
+                                        @click="
+                                            selectedMasterName = null;
+                                            selectedMasterTitle = null;
+                                        "
+                                        >Clear</Button
+                                    >
+                                    <Button
+                                        :disabled="submitting || (masterRequiresTitle && !selectedMasterTitle)"
+                                        class="h-9"
+                                        @click="confirmMasterSelection"
+                                    >
                                         <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                         Confirm
                                     </Button>
@@ -3605,6 +3794,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </template>
 
                     <template v-if="!myStepDone('crew')">
+                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs text-muted-foreground">{{ matchingCrews.length }} saved crews</span>
+                            <Link :href="newCrewUrl">
+                                <Button size="sm" class="gap-1.5">
+                                    <Plus class="size-3.5" />
+                                    Create New Crew
+                                </Button>
+                            </Link>
+                        </div>
                         <div v-if="matchingCrews.length" class="grid gap-2.5 sm:grid-cols-2">
                             <div v-for="crew in matchingCrews" :key="crew.id">
                                 <Card
@@ -3714,10 +3912,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </Card>
                             </div>
                         </div>
-                        <div v-else class="py-6 text-center text-sm text-muted-foreground">
-                            No saved crews for this faction.
-                            <Link :href="newCrewUrl" class="text-primary underline">Create one</Link>
-                        </div>
+                        <div v-else class="py-6 text-center text-sm text-muted-foreground">No saved crews for this faction yet.</div>
                     </template>
                     <template v-else-if="!isSolo || opponentStepDone('crew')">
                         <div class="py-4 text-center text-sm text-muted-foreground"><Check class="inline size-5 text-green-500" /> Crew selected</div>
@@ -3728,11 +3923,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div class="mb-3 text-center text-sm text-muted-foreground">
                             <Check class="inline size-4 text-green-500" /> Your crew selected
                         </div>
-                        <p class="mb-4 text-xs text-muted-foreground">
+                        <p class="mb-3 text-xs text-muted-foreground">
                             Optionally select a saved crew for
                             <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong
-                            >, <Link :href="newOpponentCrewUrl" class="text-primary underline">Create a new crew</Link>, or skip to track points only.
+                            >, or skip to track points only.
                         </p>
+                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs text-muted-foreground">{{ opponentMatchingCrews.length }} saved crews</span>
+                            <Link :href="newOpponentCrewUrl">
+                                <Button size="sm" class="gap-1.5">
+                                    <Plus class="size-3.5" />
+                                    Create New Crew
+                                </Button>
+                            </Link>
+                        </div>
                         <div v-if="opponentTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
                             <span class="text-[11px] text-muted-foreground">Filter:</span>
                             <button
@@ -4143,7 +4347,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                                             <span class="text-xs font-medium">{{ playerName(player) }}</span>
                                         </div>
-                                        <div class="mt-1 text-2xl font-bold">{{ player.total_points }}</div>
+                                        <div class="mt-1 flex items-center justify-center gap-1.5">
+                                            <span class="text-2xl font-bold">{{ player.total_points }}</span>
+                                            <button
+                                                v-if="!isObserver && previousTurnFor(player)"
+                                                type="button"
+                                                class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                :title="`Edit T${game.current_turn - 1} score`"
+                                                @click="openEditTurn(player)"
+                                            >
+                                                <Pencil class="size-3" />
+                                            </button>
+                                        </div>
                                         <Badge v-if="player.role && !isBonanza" variant="outline" class="mt-1 px-1 py-0 text-[9px] capitalize">{{
                                             player.role
                                         }}</Badge>
@@ -4886,6 +5101,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         class="border-amber-500/50 px-1.5 py-0 text-[9px] text-amber-600 dark:text-amber-400"
                                         >Active</Badge
                                     >
+                                    <button
+                                        v-if="upgrade.front_image"
+                                        type="button"
+                                        class="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                        :title="expandedMyCrewUpgradeId === upgrade.id ? 'Collapse card' : 'Expand card'"
+                                        @click.stop="toggleCrewUpgradeExpand(upgrade.id, 'my')"
+                                    >
+                                        <ChevronDown
+                                            class="size-3.5 transition-transform"
+                                            :class="expandedMyCrewUpgradeId === upgrade.id ? 'rotate-180' : ''"
+                                        />
+                                    </button>
                                 </div>
                                 <PowerBarBubbles
                                     v-if="(upgrade.power_bar_count ?? 0) > 0"
@@ -4896,6 +5123,27 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     compact
                                     @update="(v) => setCrewUpgradePowerBar(myPlayer, upgrade.id, v)"
                                 />
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-200 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-[600px] opacity-100"
+                                    leave-from-class="max-h-[600px] opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div
+                                        v-if="expandedMyCrewUpgradeId === upgrade.id && upgrade.front_image"
+                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
+                                        @click.stop
+                                    >
+                                        <UpgradeFlipCard
+                                            :front-image="upgrade.front_image"
+                                            :back-image="upgrade.back_image"
+                                            :alt-text="upgrade.name"
+                                            :show-link="false"
+                                        />
+                                    </div>
+                                </Transition>
                             </div>
                         </div>
                         <div class="space-y-1">
@@ -5116,13 +5364,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
                                             <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                            <span
-                                                v-if="(upgrade as any).loot_side"
-                                                class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
-                                                :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                            >
-                                                {{ (upgrade as any).loot_side.toUpperCase() }}
-                                            </span>
+                                            <template v-if="(upgrade as any).loot_side">
+                                                <span
+                                                    class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                    :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                                >
+                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                </span>
+                                                <span
+                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
+                                                    class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                >
+                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label
+                                                    }}<GameIcon
+                                                        v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
+                                                        :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
+                                                        class-name="h-2.5 inline-block"
+                                                    />
+                                                </span>
+                                            </template>
                                             <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                                             <button
                                                 v-if="!isObserver"
@@ -5546,13 +5806,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
                                             <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                            <span
-                                                v-if="(upgrade as any).loot_side"
-                                                class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
-                                                :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                            >
-                                                {{ (upgrade as any).loot_side.toUpperCase() }}
-                                            </span>
+                                            <template v-if="(upgrade as any).loot_side">
+                                                <span
+                                                    class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                    :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                                >
+                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                </span>
+                                                <span
+                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
+                                                    class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                >
+                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label
+                                                    }}<GameIcon
+                                                        v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
+                                                        :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
+                                                        class-name="h-2.5 inline-block"
+                                                    />
+                                                </span>
+                                            </template>
                                             <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                                             <button
                                                 v-if="isSolo && !isObserver"
@@ -6030,12 +6302,17 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                             class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-[9px] text-amber-300"
                                                         >
                                                             <ArrowUpCircle class="size-2 shrink-0" />
-                                                            <span
-                                                                v-if="(upgrade as any).loot_side"
-                                                                class="rounded bg-amber-400 px-0.5 text-[8px] font-bold text-black"
-                                                            >
-                                                                {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                            </span>
+                                                            <template v-if="(upgrade as any).loot_side">
+                                                                <span class="rounded bg-amber-400 px-0.5 text-[8px] font-bold text-black">
+                                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                                </span>
+                                                                <span
+                                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
+                                                                    class="rounded border border-white/30 bg-black/30 px-0.5 font-mono text-[8px] tabular-nums"
+                                                                >
+                                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label }}
+                                                                </span>
+                                                            </template>
                                                             <span class="truncate">{{ upgrade.name }}</span>
                                                         </div>
                                                     </div>
@@ -6504,6 +6781,32 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
     <!-- Confirm-before-submit dialog: surfaces the chosen VP and scheme so
          users can double-check before locking the turn in. -->
+    <Dialog :open="editTurnDialogOpen" @update:open="(v: boolean) => (editTurnDialogOpen = v)">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>Correct Turn {{ editTurnTarget?.turnNumber }} Score</DialogTitle>
+                <DialogDescription>Fix a mis-clicked score. Updates the player's total VP automatically.</DialogDescription>
+            </DialogHeader>
+            <div v-if="editTurnTarget" class="space-y-3">
+                <div class="space-y-1">
+                    <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Strategy points</label>
+                    <Input v-model.number="editTurnStrategy" type="number" min="0" max="2" class="h-9 text-sm" />
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scheme points</label>
+                    <Input v-model.number="editTurnScheme" type="number" min="0" max="3" class="h-9 text-sm" />
+                </div>
+                <div class="flex justify-end gap-2">
+                    <Button variant="ghost" :disabled="editTurnSubmitting" @click="editTurnDialogOpen = false">Cancel</Button>
+                    <Button :disabled="editTurnSubmitting" @click="submitEditTurn">
+                        <Loader2 v-if="editTurnSubmitting" class="mr-2 size-4 animate-spin" />
+                        Save
+                    </Button>
+                </div>
+            </div>
+        </DialogContent>
+    </Dialog>
+
     <GameSubmitTurnDialog
         :open="submitTurnDialogOpen"
         :turn-number="game.current_turn"

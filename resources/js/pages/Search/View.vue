@@ -2068,6 +2068,10 @@ onUnmounted(() => {
                                     placeholder="Search rules text..."
                                     class="h-8 border-2 border-primary text-xs"
                                 />
+                                <p class="text-[10px] text-muted-foreground">
+                                    Use <code class="rounded bg-muted px-1 font-mono">*</code> as a wildcard, e.g.
+                                    <code class="rounded bg-muted px-1 font-mono">remove * token</code>.
+                                </p>
                             </div>
 
                             <!-- Result-type filter: limit results to characters only.
@@ -2728,6 +2732,10 @@ onUnmounted(() => {
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Rules Text</label>
                                 <Input v-model="filterParams.description" type="text" placeholder="Search rules text..." class="h-8 text-xs" />
+                                <p class="text-[10px] text-muted-foreground">
+                                    Use <code class="rounded bg-muted px-1 font-mono">*</code> as a wildcard, e.g.
+                                    <code class="rounded bg-muted px-1 font-mono">remove * token</code>.
+                                </p>
                             </div>
 
                             <!-- Result-type filter: limit results to characters only.

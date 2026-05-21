@@ -25,6 +25,7 @@ use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
+use App\Support\Search;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -77,11 +78,11 @@ class SearchController extends Controller
         // --- Character filters ---
 
         if ($request->filled('name')) {
-            $search = $request->get('name');
+            $search = Search::wildcardLike($request->get('name'));
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('display_name', 'LIKE', "%{$search}%")
-                    ->orWhere('nicknames', 'LIKE', "%{$search}%");
+                $q->where('name', 'LIKE', $search)
+                    ->orWhere('display_name', 'LIKE', $search)
+                    ->orWhere('nicknames', 'LIKE', $search);
             });
         }
 
@@ -220,11 +221,11 @@ class SearchController extends Controller
 
         // Cross-field description/rules text search
         if ($request->filled('description')) {
-            $desc = $request->get('description');
+            $desc = Search::wildcardLike($request->get('description'));
             $query->where(function ($q) use ($desc) {
-                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%")));
+                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', $desc)));
             });
         }
 
@@ -280,7 +281,7 @@ class SearchController extends Controller
             $this->applyGameModeScope($upgradeQuery, $request);
 
             if ($request->filled('name')) {
-                $upgradeQuery->where('name', 'LIKE', '%'.$request->get('name').'%');
+                $upgradeQuery->where('name', 'LIKE', Search::wildcardLike($request->get('name')));
             }
 
             // Faction + keyword filters were previously skipped on upgrades,
@@ -319,12 +320,12 @@ class SearchController extends Controller
             }
 
             if ($request->filled('description')) {
-                $desc = $request->get('description');
+                $desc = Search::wildcardLike($request->get('description'));
                 $upgradeQuery->where(function ($q) use ($desc) {
-                    $q->where('description', 'LIKE', "%{$desc}%")
-                        ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                        ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                        ->orWhereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%"));
+                    $q->where('description', 'LIKE', $desc)
+                        ->orWhereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                        ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                        ->orWhereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', $desc));
                 });
             }
 
@@ -514,11 +515,11 @@ class SearchController extends Controller
         $abilityFilterKeys = ['ability', 'ability_name', 'ability_suits', 'ability_defensive_type', 'ability_costs_stone', 'ability_description'];
 
         if ($request->filled('name')) {
-            $search = $request->get('name');
+            $search = Search::wildcardLike($request->get('name'));
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('display_name', 'LIKE', "%{$search}%")
-                    ->orWhere('nicknames', 'LIKE', "%{$search}%");
+                $q->where('name', 'LIKE', $search)
+                    ->orWhere('display_name', 'LIKE', $search)
+                    ->orWhere('nicknames', 'LIKE', $search);
             });
         }
 
@@ -627,11 +628,11 @@ class SearchController extends Controller
         }
 
         if ($request->filled('description')) {
-            $desc = $request->get('description');
+            $desc = Search::wildcardLike($request->get('description'));
             $query->where(function ($q) use ($desc) {
-                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', "%{$desc}%"))
-                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', "%{$desc}%")));
+                $q->whereHas('actions', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                    ->orWhereHas('abilities', fn ($aq) => $aq->where('description', 'LIKE', $desc))
+                    ->orWhereHas('actions', fn ($aq) => $aq->whereHas('triggers', fn ($tq) => $tq->where('description', 'LIKE', $desc)));
             });
         }
     }
@@ -817,7 +818,7 @@ class SearchController extends Controller
     private function applyActionSubFilters($q, Request $request): void
     {
         if ($request->filled('action_name')) {
-            $q->where('name', 'LIKE', '%'.$request->get('action_name').'%');
+            $q->where('name', 'LIKE', Search::wildcardLike($request->get('action_name')));
         }
         if ($request->filled('action_type')) {
             $q->where('type', $request->get('action_type'));
@@ -866,14 +867,14 @@ class SearchController extends Controller
             $q->where('damage', 'LIKE', '%'.$request->get('action_damage').'%');
         }
         if ($request->filled('action_description')) {
-            $q->where('description', 'LIKE', '%'.$request->get('action_description').'%');
+            $q->where('description', 'LIKE', Search::wildcardLike($request->get('action_description')));
         }
     }
 
     private function applyAbilitySubFilters($q, Request $request): void
     {
         if ($request->filled('ability_name')) {
-            $q->where('name', 'LIKE', '%'.$request->get('ability_name').'%');
+            $q->where('name', 'LIKE', Search::wildcardLike($request->get('ability_name')));
         }
         if ($request->filled('ability_suits')) {
             $q->where('suits', 'LIKE', '%'.$request->get('ability_suits').'%');
@@ -885,7 +886,7 @@ class SearchController extends Controller
             $q->where('costs_stone', filter_var($request->get('ability_costs_stone'), FILTER_VALIDATE_BOOLEAN));
         }
         if ($request->filled('ability_description')) {
-            $q->where('description', 'LIKE', '%'.$request->get('ability_description').'%');
+            $q->where('description', 'LIKE', Search::wildcardLike($request->get('ability_description')));
         }
     }
 
@@ -895,7 +896,7 @@ class SearchController extends Controller
             $q->where('suits', 'LIKE', '%'.$request->get('trigger_suits').'%');
         }
         if ($request->filled('trigger_description')) {
-            $q->where('description', 'LIKE', '%'.$request->get('trigger_description').'%');
+            $q->where('description', 'LIKE', Search::wildcardLike($request->get('trigger_description')));
         }
     }
 }

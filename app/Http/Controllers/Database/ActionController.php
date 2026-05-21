@@ -10,6 +10,7 @@ use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Action;
 use App\Models\Trigger;
+use App\Support\Search;
 use Illuminate\Http\Request;
 
 class ActionController extends Controller
@@ -28,7 +29,7 @@ class ActionController extends Controller
 
         // Name text search (LIKE)
         if ($request->filled('name_search')) {
-            $query->where('name', 'LIKE', '%'.$request->get('name_search').'%');
+            $query->where('name', 'LIKE', Search::wildcardLike($request->get('name_search')));
         }
 
         if ($request->filled('type')) {
@@ -94,7 +95,7 @@ class ActionController extends Controller
         }
 
         if ($request->filled('description')) {
-            $query->where('description', 'LIKE', '%'.$request->get('description').'%');
+            $query->where('description', 'LIKE', Search::wildcardLike($request->get('description')));
         }
 
         if ($request->filled('trigger')) {

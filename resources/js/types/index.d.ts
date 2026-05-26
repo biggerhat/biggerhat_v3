@@ -77,6 +77,13 @@ export interface SharedData extends PageProps {
     faction_info: Record<string, FactionInfo>;
     tos_allegiance_info: Record<string, AllegianceInfo>;
     currentGameSystem: CurrentGameSystem;
+    /**
+     * True when M4E Campaign Mode is accessible to the current user: either
+     * the `m4e-campaign-mode` Pennant flag is on globally, or the user holds
+     * `use_campaign_mode` / is super_admin. Drives sidebar visibility and any
+     * page-level conditional UI for the pre-release feature.
+     */
+    campaign_features_enabled: boolean;
     announcements: AnnouncementBannerData[];
     ziggy: Config & { location: string };
 }

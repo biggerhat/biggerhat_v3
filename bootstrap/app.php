@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureCampaignAccess;
 use App\Http\Middleware\EnsureHasAdminPermission;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'admin.any' => EnsureHasAdminPermission::class,
+            'campaign.access' => EnsureCampaignAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -352,8 +352,43 @@ class GameController extends Controller
             // master, so the direct relation is empty). Aggregates unique
             // upgrades across all the character's keywords.
             'bonanza_crew_upgrades' => fn () => $this->buildBonanzaCrewUpgrades($game),
+            // Campaign-context overlay — exposed only on campaign-format games
+            // so non-campaign games stay unchanged.
+            'campaign_context' => fn () => $this->buildCampaignContext($game),
             'is_observer' => false,
         ]);
+    }
+
+    /**
+     * Sibling prop carrying CR + ss-pool bonus + crew links for a campaign-
+     * format game. Returns null on standard / bonanza so the Vue layer can
+     * conditionally render the banner.
+     */
+    private function buildCampaignContext(Game $game): ?array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+            return null;
+        }
+
+        $wrap = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['campaign:id,name,current_week,length_weeks', 'crewA:id,share_code,name,user_id', 'crewB:id,share_code,name,user_id'])
+            ->first();
+
+        if (! $wrap) {
+            return null;
+        }
+
+        return [
+            'campaign' => $wrap->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
+            'crew_a' => $wrap->crewA->only(['id', 'share_code', 'name', 'user_id']),
+            'crew_b' => $wrap->crewB->only(['id', 'share_code', 'name', 'user_id']),
+            'cr_a' => $wrap->cr_a,
+            'cr_b' => $wrap->cr_b,
+            'ss_bonus_to_lower' => $wrap->ss_bonus_to_lower,
+            'encounter_size' => $wrap->encounter_size,
+            'week_number' => $wrap->week_number,
+        ];
     }
 
     /**

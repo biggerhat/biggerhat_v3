@@ -6,7 +6,9 @@ use App\Enums\DeploymentEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
+use App\Observers\GameObserver;
 use App\Traits\LogsCreationActivity;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +26,7 @@ use Illuminate\Support\Str;
  *
  * @mixin IdeHelperGame
  */
+#[ObservedBy(GameObserver::class)]
 class Game extends Model
 {
     use HasFactory, LogsCreationActivity, SoftDeletes;

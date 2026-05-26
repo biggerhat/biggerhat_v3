@@ -36,6 +36,11 @@ class FeatureFlagsServiceProvider extends ServiceProvider
             'description' => 'Side-by-side character stat comparison page.',
             'default' => false,
         ],
+        'm4e-campaign-mode' => [
+            'label' => 'M4E Campaign Mode',
+            'description' => 'Index of the Untold campaign system — Arsenal Sheets, Leader Builder, Aftermath flow. Pre-release. While off, users with the use_campaign_mode permission (and super_admin) can still access the UI for playtesting.',
+            'default' => false,
+        ],
     ];
 
     public function boot(): void

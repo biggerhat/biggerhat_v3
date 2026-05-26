@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
         // are loaded from there, and this seeder name-matches against them.
         $this->call([
             LootCardEffectsSeeder::class,
+            CampaignCatalogSeeder::class,
         ]);
     }
 }

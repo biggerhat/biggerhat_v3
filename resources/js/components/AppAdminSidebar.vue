@@ -14,6 +14,7 @@ import {
     BookOpen,
     Clock,
     Coins,
+    Crown,
     Eraser,
     ExternalLink,
     FileImage,
@@ -109,6 +110,62 @@ const adminGroups: AdminNavGroup[] = [
         items: [{ title: 'Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' }],
     },
     {
+        // M4E Campaign Mode (Index of the Untold) catalog admin. Whole section is
+        // additionally gated below on `campaign_features_enabled` so it stays
+        // hidden while the feature is pre-release.
+        title: 'Campaign — Catalog',
+        items: [
+            { title: 'Leader Archetypes', href: route('admin.campaign.leader-archetypes.index'), icon: Crown, permission: 'view_campaign_catalog' },
+            {
+                title: 'Crew Card Effects',
+                href: route('admin.campaign.crew-card-effects.index'),
+                icon: ArrowUpCircle,
+                permission: 'view_campaign_catalog',
+            },
+            { title: 'Equipment', href: route('admin.campaign.equipment.index'), icon: Package, permission: 'view_campaign_catalog' },
+            { title: 'Injuries', href: route('admin.campaign.injuries.index'), icon: AlertTriangle, permission: 'view_campaign_catalog' },
+            { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
+            {
+                title: 'Back-Alley Doctor',
+                href: route('admin.campaign.back-alley-doctor.index'),
+                icon: Activity,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Advancement — Attack',
+                href: route('admin.campaign.advancement-attack-mod.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Advancement — Tactical',
+                href: route('admin.campaign.advancement-tactical-mod.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Advancement — Action',
+                href: route('admin.campaign.advancement-action.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Advancement — Ability',
+                href: route('admin.campaign.advancement-ability.index'),
+                icon: Shield,
+                permission: 'view_campaign_catalog',
+            },
+            { title: 'Totems', href: route('admin.campaign.totems.index'), icon: Puzzle, permission: 'view_campaign_catalog' },
+            {
+                title: 'Summoning Advancements',
+                href: route('admin.campaign.summoning-advancements.index'),
+                icon: Puzzle,
+                permission: 'view_campaign_catalog',
+            },
+            { title: 'Weekly Events', href: route('admin.campaign.weekly-events.index'), icon: Newspaper, permission: 'view_campaign_catalog' },
+        ],
+    },
+    {
         title: 'TOS — Units',
         items: [
             { title: 'Units', href: route('admin.tos.units.index'), icon: Swords, permission: 'view_tos_unit' },
@@ -167,8 +224,11 @@ const dashboardNav = computed<NavItem[]>(() => [
     },
 ]);
 
+const campaignFeaturesEnabled = computed(() => !!page.props.campaign_features_enabled);
+
 const filteredAdminNav = computed(() => {
     return adminGroups
+        .filter((group) => !group.title.startsWith('Campaign — ') || campaignFeaturesEnabled.value)
         .map((group) => ({
             title: group.title,
             collapsible: true,

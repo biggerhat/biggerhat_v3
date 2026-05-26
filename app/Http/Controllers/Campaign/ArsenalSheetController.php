@@ -1,0 +1,105 @@
+<?php
+
+namespace App\Http\Controllers\Campaign;
+
+use App\Http\Controllers\Controller;
+use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignCrew;
+use App\Services\CampaignRules;
+use Illuminate\Http\Request;
+
+/**
+ * Renders a crew's Arsenal Sheet — the canonical public artifact described on
+ * pg 56 of Index of the Untold. Two entry points:
+ *
+ *   /campaigns/{campaign}/crews/{crew}              — authed, requires membership
+ *   /a/{share_code}                                  — public read-only, no auth
+ *
+ * The Vue layer is the same; the controller just toggles `is_owner` / `is_member`
+ * flags so edit affordances stay hidden on the public path.
+ */
+class ArsenalSheetController extends Controller
+{
+    public function show(Request $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        if ($crew->campaign_id !== $campaign->id) {
+            abort(404);
+        }
+
+        $user = $request->user();
+        $isMember = $user && (
+            $user->hasRole('super_admin')
+            || $campaign->players()->where('user_id', $user->id)->exists()
+        );
+
+        if (! $isMember) {
+            abort(403);
+        }
+
+        return $this->render($campaign, $crew, isMember: true, isOwner: $user && $user->id === $crew->user_id);
+    }
+
+    /**
+     * Public share — anyone with the share_code can view. Still gated by
+     * `campaign.access` upstream so the page stays hidden while pre-release.
+     */
+    public function share(Request $request, string $shareCode)
+    {
+        $crew = CampaignCrew::query()->where('share_code', $shareCode)->firstOrFail();
+        $campaign = $crew->campaign;
+
+        return $this->render($campaign, $crew, isMember: false, isOwner: false);
+    }
+
+    private function render(Campaign $campaign, CampaignCrew $crew, bool $isMember, bool $isOwner)
+    {
+        // Single load picks up leader + totem via the dedicated relations on
+        // CampaignCrew; both hit the composite (campaign_crew_id, flag, current)
+        // index so two narrow queries replace the prior two open ones.
+        $crew->load([
+            'leader',
+            'totem',
+            'crewCardEffect',
+            'keywordOne:id,name,faction',
+            'keywordTwo:id,name,faction',
+            'arsenalModels' => fn ($q) => $q->active()->with('character:id,display_name,cost,faction,station'),
+        ]);
+
+        $leader = $crew->leader;
+        $totem = $crew->totem;
+
+        // Campaign Rating placeholder — equipment + advancements aren't tracked
+        // yet (Phases 8–9), but we expose the formula now so the UI shape stays
+        // stable once those land.
+        $equipmentCount = 0;
+        $advancementCount = 0;
+        $injuryCount = 0;
+        $cr = CampaignRules::campaignRating($equipmentCount, $advancementCount, $injuryCount);
+
+        return inertia('Campaigns/ArsenalSheet', [
+            'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
+            'crew' => array_merge(
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins']),
+                [
+                    'keyword_one' => $crew->keywordOne,
+                    'keyword_two' => $crew->keywordTwo,
+                    'crew_card_effect' => $crew->crewCardEffect,
+                    'arsenal_models' => $crew->arsenalModels,
+                ],
+            ),
+            'leader' => $leader,
+            'totem' => $totem,
+            'campaign_rating' => [
+                'value' => $cr,
+                'equipment_count' => $equipmentCount,
+                'advancement_count' => $advancementCount,
+                'injury_count' => $injuryCount,
+            ],
+            'view_mode' => [
+                'is_member' => $isMember,
+                'is_owner' => $isOwner,
+                'share_url' => route('campaigns.crews.arsenal.share', $crew->share_code),
+            ],
+        ]);
+    }
+}

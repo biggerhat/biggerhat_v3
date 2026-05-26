@@ -251,6 +251,25 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::TosStratagem)]
     case DeleteTosStratagem = 'delete_tos_stratagem';
 
+    // Pre-release access gate for M4E Campaign Mode. While the
+    // `m4e-campaign-mode` feature flag is off, users holding this permission
+    // (and super_admin) can still reach the UI for playtesting.
+    #[PermissionGroup(PermissionGroupEnum::Campaign)]
+    case UseCampaignMode = 'use_campaign_mode';
+
+    // Broad catalog-admin perms. One trio governs every Index-of-the-Untold
+    // catalog table (archetypes, equipment, injuries, advancements, totems,
+    // crew-card effects, weekly events, etc.) because the catalogs are small
+    // and uniformly maintained — splitting per-entity would 3×13 the perm
+    // list with no operational difference. Per-entity splits can land later
+    // if curator roles diverge.
+    #[PermissionGroup(PermissionGroupEnum::Campaign)]
+    case ViewCampaignCatalog = 'view_campaign_catalog';
+    #[PermissionGroup(PermissionGroupEnum::Campaign)]
+    case EditCampaignCatalog = 'edit_campaign_catalog';
+    #[PermissionGroup(PermissionGroupEnum::Campaign)]
+    case DeleteCampaignCatalog = 'delete_campaign_catalog';
+
     /**
      * @return list<array{name: string, value: string}>
      */

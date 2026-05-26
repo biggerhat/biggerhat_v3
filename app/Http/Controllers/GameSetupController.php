@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
@@ -170,6 +171,18 @@ class GameSetupController extends Controller
         // Verify ownership (solo mode can use any of the user's crews for either slot)
         if ($crewBuild->user_id !== Auth::id()) {
             return response()->json(['error' => 'Not your crew'], 403);
+        }
+
+        // Campaign-format games: every model in the crew_build must be in the
+        // player's campaign arsenal. Master is exempt (always counted as part
+        // of the arsenal via the leader CustomCharacter); models picked from
+        // crew_data are validated. Out-of-arsenal hires are rejected here
+        // rather than silently allowed.
+        if ($game->format === GameFormatEnum::Campaign) {
+            $arsenalError = $this->validateCampaignArsenalHires($game, $crewBuild);
+            if ($arsenalError !== null) {
+                return response()->json(['error' => $arsenalError], 422);
+            }
         }
 
         DB::transaction(function () use ($player, $game, $crewBuild) {
@@ -385,6 +398,56 @@ class GameSetupController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * Validate that every character in a CrewBuild belongs to the player's
+     * campaign arsenal. Returns null on pass, an error message on fail.
+     *
+     * Only meaningful for `GameFormatEnum::Campaign` games. Master picks
+     * (already enforced by the campaign Leader Builder) are exempt — only the
+     * crew_data ids are checked.
+     */
+    private function validateCampaignArsenalHires(Game $game, CrewBuild $crewBuild): ?string
+    {
+        $wrap = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->first();
+        if (! $wrap) {
+            // Defensive: campaign-format game with no wrapping campaign_games row.
+            // Shouldn't happen but fail open rather than break the tracker.
+            return null;
+        }
+
+        $userId = Auth::id();
+        $crew = null;
+        if ($wrap->crewA && $wrap->crewA->user_id === $userId) {
+            $crew = $wrap->crewA;
+        } elseif ($wrap->crewB && $wrap->crewB->user_id === $userId) {
+            $crew = $wrap->crewB;
+        }
+        if (! $crew) {
+            return 'Could not match your user to a crew in this campaign game.';
+        }
+
+        $arsenalCharacterIds = \App\Models\Campaign\CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->pluck('character_id')
+            ->all();
+
+        $crewCharIds = array_map('intval', $crewBuild->crew_data ?? []);
+        $outside = array_diff($crewCharIds, $arsenalCharacterIds);
+        if (! empty($outside)) {
+            $names = \App\Models\Character::query()
+                ->whereIn('id', $outside)
+                ->pluck('display_name')
+                ->all();
+
+            return 'Campaign games must hire from your arsenal — these are not in it: '.implode(', ', $names);
+        }
+
+        return null;
     }
 
     private function getPlayer(Game $game, ?int $slot = null): GamePlayer

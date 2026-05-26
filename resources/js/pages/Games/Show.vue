@@ -313,6 +313,16 @@ const props = defineProps<{
         power_bar_count: number | null;
     }[];
     is_observer: boolean;
+    campaign_context: {
+        campaign: { id: number; name: string; current_week: number; length_weeks: number } | null;
+        crew_a: { id: number; share_code: string; name: string; user_id: number } | null;
+        crew_b: { id: number; share_code: string; name: string; user_id: number } | null;
+        cr_a: number;
+        cr_b: number;
+        ss_bonus_to_lower: number;
+        encounter_size: number;
+        week_number: number;
+    } | null;
 }>();
 
 const page = usePage<SharedData>();
@@ -2857,6 +2867,50 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
              explicit 2xl cap so the layout fills the available width through
              tablet and only starts centering on very wide monitors. -->
         <div class="mx-auto w-full max-w-screen-2xl px-3 pb-8 pt-4 sm:px-4 lg:pt-6">
+            <!-- Campaign-context banner. Only renders when this Game is wrapped
+                 by a campaign_games row (format=Campaign). Shows CR per crew,
+                 the ss-pool bonus owed to the lower-rated side, and links back
+                 to each crew's Arsenal Sheet. -->
+            <div v-if="campaign_context" class="mb-4 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="font-medium uppercase text-primary">Campaign</span>
+                    <Link
+                        v-if="campaign_context.campaign"
+                        :href="route('campaigns.show', campaign_context.campaign.id)"
+                        class="font-medium hover:underline"
+                    >
+                        {{ campaign_context.campaign.name }}
+                    </Link>
+                    <span class="text-muted-foreground">
+                        Week {{ campaign_context.week_number }}
+                        <span v-if="campaign_context.campaign">/ {{ campaign_context.campaign.length_weeks }}</span>
+                        • Encounter {{ campaign_context.encounter_size }}ss
+                    </span>
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-3 text-muted-foreground">
+                    <span v-if="campaign_context.crew_a">
+                        <Link
+                            :href="route('campaigns.crews.arsenal.show', [campaign_context.campaign?.id, campaign_context.crew_a.share_code])"
+                            class="font-medium hover:underline"
+                            >{{ campaign_context.crew_a.name }}</Link
+                        >
+                        — CR <span class="tabular-nums">{{ campaign_context.cr_a }}</span>
+                    </span>
+                    <span class="text-foreground/40">vs</span>
+                    <span v-if="campaign_context.crew_b">
+                        <Link
+                            :href="route('campaigns.crews.arsenal.show', [campaign_context.campaign?.id, campaign_context.crew_b.share_code])"
+                            class="font-medium hover:underline"
+                            >{{ campaign_context.crew_b.name }}</Link
+                        >
+                        — CR <span class="tabular-nums">{{ campaign_context.cr_b }}</span>
+                    </span>
+                    <span v-if="campaign_context.ss_bonus_to_lower > 0" class="ml-auto rounded bg-primary/15 px-2 py-0.5 text-primary">
+                        +{{ campaign_context.ss_bonus_to_lower }} ss to lower-rated crew
+                    </span>
+                </div>
+            </div>
+
             <Link
                 :href="route('games.index')"
                 class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

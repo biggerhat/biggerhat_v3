@@ -9,6 +9,19 @@ use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
 use App\Http\Controllers\Admin\CacheAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementAbilityAdminController as CampaignAdvancementAbilityAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementActionAdminController as CampaignAdvancementActionAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementAttackModAdminController as CampaignAdvancementAttackModAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementTacticalModAdminController as CampaignAdvancementTacticalModAdminController;
+use App\Http\Controllers\Admin\Campaign\BackAlleyDoctorResultAdminController as CampaignBackAlleyDoctorResultAdminController;
+use App\Http\Controllers\Admin\Campaign\CrewCardEffectAdminController as CampaignCrewCardEffectAdminController;
+use App\Http\Controllers\Admin\Campaign\EquipmentAdminController as CampaignEquipmentAdminController;
+use App\Http\Controllers\Admin\Campaign\InjuryAdminController as CampaignInjuryAdminController;
+use App\Http\Controllers\Admin\Campaign\LeaderArchetypeAdminController as CampaignLeaderArchetypeAdminController;
+use App\Http\Controllers\Admin\Campaign\LuckyMissAdminController as CampaignLuckyMissAdminController;
+use App\Http\Controllers\Admin\Campaign\SummoningAdvancementAdminController as CampaignSummoningAdvancementAdminController;
+use App\Http\Controllers\Admin\Campaign\TotemAdminController as CampaignTotemAdminController;
+use App\Http\Controllers\Admin\Campaign\WeeklyEventAdminController as CampaignWeeklyEventAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
@@ -460,5 +473,36 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
             Route::post('/update/{stratagem}', 'update')->name('update')->middleware('permission:edit_tos_stratagem');
             Route::post('/delete/{stratagem}', 'delete')->name('delete')->middleware('permission:delete_tos_stratagem');
         });
+    });
+
+    // M4E Campaign Mode admin catalogs. Wrapped in `campaign.access` so users
+    // without the feature flag / permission see 404 on these admin URLs
+    // (hides feature existence while pre-release). Standard CRUD layout — a
+    // local closure builds the 6 routes per resource since they're uniform.
+    Route::prefix('campaign')->name('campaign.')->middleware('campaign.access')->group(function () {
+        $crud = function (string $controller, string $prefix, string $name, string $binding) {
+            Route::controller($controller)->prefix($prefix)->name("$name.")->group(function () use ($binding) {
+                Route::get('/', 'index')->name('index')->middleware('permission:view_campaign_catalog');
+                Route::get("/edit/{{$binding}}", 'edit')->name('edit')->middleware('permission:view_campaign_catalog');
+                Route::get('/create', 'create')->name('create')->middleware('permission:edit_campaign_catalog');
+                Route::post('/store', 'store')->name('store')->middleware('permission:edit_campaign_catalog');
+                Route::post("/update/{{$binding}}", 'update')->name('update')->middleware('permission:edit_campaign_catalog');
+                Route::post("/delete/{{$binding}}", 'delete')->name('delete')->middleware('permission:delete_campaign_catalog');
+            });
+        };
+
+        $crud(CampaignLeaderArchetypeAdminController::class, 'leader-archetypes', 'leader-archetypes', 'archetype');
+        $crud(CampaignCrewCardEffectAdminController::class, 'crew-card-effects', 'crew-card-effects', 'effect');
+        $crud(CampaignEquipmentAdminController::class, 'equipment', 'equipment', 'equipment');
+        $crud(CampaignInjuryAdminController::class, 'injuries', 'injuries', 'injury');
+        $crud(CampaignLuckyMissAdminController::class, 'lucky-miss', 'lucky-miss', 'luckyMiss');
+        $crud(CampaignBackAlleyDoctorResultAdminController::class, 'back-alley-doctor', 'back-alley-doctor', 'doctorResult');
+        $crud(CampaignAdvancementAttackModAdminController::class, 'advancement-attack-mod', 'advancement-attack-mod', 'advancement');
+        $crud(CampaignAdvancementTacticalModAdminController::class, 'advancement-tactical-mod', 'advancement-tactical-mod', 'advancement');
+        $crud(CampaignAdvancementActionAdminController::class, 'advancement-action', 'advancement-action', 'advancement');
+        $crud(CampaignAdvancementAbilityAdminController::class, 'advancement-ability', 'advancement-ability', 'advancement');
+        $crud(CampaignTotemAdminController::class, 'totems', 'totems', 'totem');
+        $crud(CampaignSummoningAdvancementAdminController::class, 'summoning-advancements', 'summoning-advancements', 'summoningAdvancement');
+        $crud(CampaignWeeklyEventAdminController::class, 'weekly-events', 'weekly-events', 'weeklyEvent');
     });
 });

@@ -107,6 +107,86 @@ All admin controllers follow the same CRUD pattern: `index`, `create`, `store`, 
 
 API responses use Laravel API Resources (`app/Http/Resources/API/`) for data transformation. These serve the external bot integration and the PDF generation tool.
 
+## Code Conventions
+
+**When in doubt, mirror existing patterns.** Before introducing a new pattern, grep the codebase for the equivalent problem — there's almost always a precedent. Diverging from convention to chase a "best practice" trade-off is rarely worth the inconsistency cost.
+
+### Models
+
+- `protected $guarded = ['id']` is the universal pattern (every model). Do **not** switch to `$fillable` — it would be inconsistent with 40+ existing models. Mass-assignment safety lives at the FormRequest layer (`$request->validated()`), not at the model.
+- Use the `casts()` method form (not `$casts` property) so cast definitions are typed and IDE-discoverable.
+- Define relations as methods with explicit return types (`BelongsTo`, `HasMany`, `HasOne`, `MorphToMany`). Always annotate `@property-read` on the model docblock.
+- Factories live at `database/factories/<Domain>/<Model>Factory.php` and are referenced via `newFactory()`. Add semantic state methods (`->solo()`, `->organizer()`, `->signature()`) for self-contained test setup.
+
+### Controllers + FormRequests
+
+- Every write action takes a FormRequest. Use `$request->validated()` — never `$request->all()` or `$request->only()`.
+- FormRequest `authorize()` runs before the controller method — put role/ownership checks there when they're route-scoped (e.g. `$this->user()->can('update', $campaign)`).
+- For organizer-only mutations, prefer `$this->authorize('update', $model)` calls backed by Policies. Per-crew/per-row ownership checks live in shared traits (e.g. `App\Traits\Campaign\AuthorizesCampaignAccess`) — extract any auth pattern duplicated across 3+ controllers.
+- Always use `use` statements for class references; never inline `\App\Models\Foo` in code. Fully-qualified paths only appear in static analysis annotations.
+
+### Migrations
+
+- MySQL caps identifier names at 64 chars. When Laravel's auto-generated `<table>_<col1>_<col2>_index` or `<table>_<col>_foreign` would exceed this (long table + long column combos), pass an explicit short name: `$table->index(['a', 'b'], 'idx_short_name')` or `$table->foreignId('col')->constrained('table', 'id', 'fk_short_name')`. Audit with the project's identifier-length script before pushing.
+- For columns that need FKs but reference tables created later (cross-migration ordering), add the constraint in a follow-up migration. Use the `dropForeignSafe` blueprint macro in `down()` so SQLite test runs (which disable FKs) don't barf.
+- Composite indexes on filtered-relation patterns (e.g. `(parent_id, is_active, current)`) — create them when the matching relationship exists (`hasOne()->where(...)`) so the relationship query hits an index.
+
+### Concurrency
+
+- Any state machine where requests advance through phases (Aftermath wizard, tournament rounds, game turns) needs **`lockForUpdate` inside a `DB::transaction`** at the start of each mutation handler. Pattern:
+  ```php
+  $advanced = false;
+  DB::transaction(function () use ($model, &$advanced) {
+      $locked = Model::lockForUpdate()->find($model->id);
+      if (! $locked || $locked->status !== 'open') return;
+      $locked->update([...]);
+      $advanced = true;
+  });
+  if (! $advanced) return redirect()->back();
+  ```
+- Re-check the expected state (phase, status) **after** acquiring the lock — the early-return check at the top of a handler is a UX guard, not a concurrency guard.
+- Stale concurrent requests should redirect cleanly, not error. Double-clicks are user-realistic.
+
+### Authorization layers
+
+Each feature stacks: **feature flag → permission → policy → ownership**. Example for Campaign Mode:
+
+1. **Feature flag** (`m4e-campaign-mode` via `CampaignAccess::canUse()`) — `EnsureCampaignAccess` middleware returns 404 (not 403) to hide the feature pre-release.
+2. **Permission** — `view_*`/`edit_*`/`delete_*` Spatie permissions gate admin catalog routes; `use_campaign_mode` gates the public UI. `super_admin` role bypasses everything.
+3. **Policy** (`CampaignPolicy`) — organizer-only mutations.
+4. **Ownership trait** (`AuthorizesCampaignAccess`) — per-crew / per-aftermath checks within an authorized campaign.
+
+### Inertia / Vue conventions
+
+- **Navigation = `<Link>`, not `router.get`.** Wrap the Button:
+  ```vue
+  <Link :href="route('campaigns.show', campaign.id)">
+      <Button variant="outline">View</Button>
+  </Link>
+  ```
+  This gives prefetch, right-click-open-in-new-tab, keyboard accessibility, and active-route handling. Use `router.post` / `router.delete` for mutations — but `router.get` for navigation is the wrong pattern.
+- **`useForm` composable is NOT the project default.** ~30 callsites vs ~300 manual `router.post` + `ref()`. Don't migrate without explicit reason.
+- **No browser dialogs.** `window.confirm`/`alert`/`prompt` are banned. Use `useConfirm` from `@/composables/useConfirm` (singleton Dialog) and `useToast` from `@/composables/useToast` (vue-sonner). Search results for `confirm(` in `.vue`/`.ts` files should turn up zero outside comments.
+- **Phase-gated / per-tab lazy props** use `fn () => ...` closures so partial reloads only fetch the data the current phase needs:
+  ```php
+  'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? Equipment::all() : null,
+  ```
+- **`Inertia::defer(...)`** is for genuinely async-expensive data (Tournament Manage stats, Collection extras) — renders a "loading…" placeholder, hydrates post-mount. See `TournamentController` for the canonical example.
+- **Page layout** uses `<PageBanner title>` with `#subtitle` and `#actions` slots for the top hero. Faction-tinted strips use `factionBackground()` from `@/composables/useFactionColor`.
+- **TypeScript:** define page-prop interfaces inline in the `<script setup>` — match the controller's `inertia()` payload shape exactly. Don't share interfaces across pages unless the same component is reused.
+
+### Tests (Pest)
+
+- Every controller method gets a feature test: index permission gate, store happy path, store validation rejection, update happy + permission, delete happy + permission.
+- Every FormRequest gets at least one rejection test per non-trivial rule.
+- Factories must be usable in isolation via semantic states.
+- Concurrency edge tests for stateful flows: "lockAndAdvance is a no-op when the phase has already moved on", "refuses mutations once locked", "self-heals when crew is missing".
+- Self-heal idempotency tests cover backfill paths (`firstOrCreate` patterns that run on every visit).
+
+### Verification before reporting
+
+Pre-push gate: `composer prepush` runs `composer stan` + `composer lint` + `php artisan test`. Run the full suite before claiming work is done. Reviewer agents over-claim — always verify findings against the actual code before acting.
+
 ## The Other Side (TOS)
 
 TOS is the sibling game system living alongside Malifaux in the same codebase.

@@ -22,6 +22,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Support\CampaignAccess;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -74,12 +75,21 @@ class GameController extends Controller
             'label' => $s->label(),
         ]);
 
-        $formats = collect(\App\Enums\GameFormatEnum::cases())->map(fn (\App\Enums\GameFormatEnum $f) => [
-            'value' => $f->value,
-            'label' => $f->label(),
-            'default_encounter_size' => $f->defaultEncounterSize(),
-            'uses_scenario' => $f->usesScenario(),
-        ]);
+        // Campaign format is only available to users who can access the
+        // wrapping Campaign Mode UI — a standalone Campaign-format Game with
+        // no campaign_games wrapper isn't meaningful. Mirrors the
+        // CampaignAccess::canUse() gate used by the campaign.access middleware.
+        $canUseCampaign = CampaignAccess::canUse(request()->user());
+
+        $formats = collect(\App\Enums\GameFormatEnum::cases())
+            ->reject(fn (\App\Enums\GameFormatEnum $f) => $f === \App\Enums\GameFormatEnum::Campaign && ! $canUseCampaign)
+            ->map(fn (\App\Enums\GameFormatEnum $f) => [
+                'value' => $f->value,
+                'label' => $f->label(),
+                'default_encounter_size' => $f->defaultEncounterSize(),
+                'uses_scenario' => $f->usesScenario(),
+            ])
+            ->values();
 
         return inertia('Games/Create', [
             'seasons' => $seasons,
@@ -352,8 +362,43 @@ class GameController extends Controller
             // master, so the direct relation is empty). Aggregates unique
             // upgrades across all the character's keywords.
             'bonanza_crew_upgrades' => fn () => $this->buildBonanzaCrewUpgrades($game),
+            // Campaign-context overlay — exposed only on campaign-format games
+            // so non-campaign games stay unchanged.
+            'campaign_context' => fn () => $this->buildCampaignContext($game),
             'is_observer' => false,
         ]);
+    }
+
+    /**
+     * Sibling prop carrying CR + ss-pool bonus + crew links for a campaign-
+     * format game. Returns null on standard / bonanza so the Vue layer can
+     * conditionally render the banner.
+     */
+    private function buildCampaignContext(Game $game): ?array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+            return null;
+        }
+
+        $wrap = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['campaign:id,name,current_week,length_weeks', 'crewA:id,share_code,name,user_id', 'crewB:id,share_code,name,user_id'])
+            ->first();
+
+        if (! $wrap) {
+            return null;
+        }
+
+        return [
+            'campaign' => $wrap->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
+            'crew_a' => $wrap->crewA->only(['id', 'share_code', 'name', 'user_id']),
+            'crew_b' => $wrap->crewB->only(['id', 'share_code', 'name', 'user_id']),
+            'cr_a' => $wrap->cr_a,
+            'cr_b' => $wrap->cr_b,
+            'ss_bonus_to_lower' => $wrap->ss_bonus_to_lower,
+            'encounter_size' => $wrap->encounter_size,
+            'week_number' => $wrap->week_number,
+        ];
     }
 
     /**

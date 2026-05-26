@@ -41,6 +41,15 @@ class CustomCharacter extends Model
             'characteristics' => 'array',
             'linked_crew_upgrades' => 'array',
             'linked_totems' => 'array',
+            // Campaign-mode extension flags. Booleans cast via stringly-typed
+            // SQLite columns; without these the `current` check returns 0/1
+            // ints and trips equality comparisons.
+            'is_campaign_leader' => 'boolean',
+            'is_campaign_totem' => 'boolean',
+            'miraculous_recovery_used' => 'boolean',
+            'current' => 'boolean',
+            'annihilated_at' => 'datetime',
+            'replaced_at' => 'datetime',
         ];
     }
 

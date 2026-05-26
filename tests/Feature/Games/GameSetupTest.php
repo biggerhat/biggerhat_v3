@@ -174,3 +174,44 @@ it('transitions to in_progress when both schemes are selected', function () {
     expect($game->status->value)->toBe('in_progress');
     expect($game->current_turn)->toBe(1);
 });
+
+// ─── Campaign format gating ───
+
+it('does not surface Campaign in the format list when user lacks campaign access', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('games.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->doesntContain('campaign'))
+        );
+});
+
+it('surfaces Campaign in the format list when user has the use_campaign_mode permission', function () {
+    Spatie\Permission\Models\Permission::firstOrCreate(['name' => App\Enums\PermissionEnum::UseCampaignMode->value]);
+
+    $user = User::factory()->create();
+    $user->givePermissionTo(App\Enums\PermissionEnum::UseCampaignMode->value);
+
+    $this->actingAs($user)
+        ->get(route('games.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->contains('campaign'))
+        );
+});
+
+it('rejects a direct POST with format=campaign from users without campaign access', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('games.store'), [
+            'encounter_size' => 50,
+            'season' => 'core',
+            'format' => 'campaign',
+        ])
+        ->assertSessionHasErrors('format');
+
+    expect(Game::query()->where('creator_id', $user->id)->count())->toBe(0);
+});

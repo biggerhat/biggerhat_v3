@@ -11,11 +11,14 @@ import axios from 'axios';
 import {
     BarChart3,
     BookOpen,
+    Bot,
+    Coins,
     Dice6,
     Hammer,
     Home,
     Library,
     Loader2,
+    Map,
     Newspaper,
     Package,
     Scale,
@@ -91,9 +94,12 @@ const malifauxNavigateItems: QuickAction[] = [
     { name: 'Keywords', icon: Tags, route: route('keywords.index'), keywords: 'keywords' },
     { name: 'Character Upgrades', icon: Sparkles, route: route('upgrades.character.index'), keywords: 'upgrades character' },
     { name: 'Crew Upgrades', icon: Sparkles, route: route('upgrades.crew.index'), keywords: 'upgrades crew' },
-    { name: 'Crew Builder', icon: Hammer, route: route('tools.crew_builder.index'), keywords: 'crew builder build' },
+    { name: 'Crew Builder', icon: Hammer, route: route('tools.crew_builder.editor'), keywords: 'crew builder build' },
+    { name: 'Community Crews', icon: Library, route: route('tools.crew_builder.index'), keywords: 'community crews browse shared' },
+    { name: 'Compare Characters', icon: Scale, route: route('tools.compare'), keywords: 'compare characters stat side by side' },
     { name: 'Advanced Search', icon: Search, route: route('search.view'), keywords: 'advanced search filter' },
     { name: 'Scenario Generator', icon: Wand2, route: route('tools.scenario_generator'), keywords: 'scenario generator random strategy' },
+    { name: 'Scheme Paths', icon: Map, route: route('tools.scheme_paths'), keywords: 'scheme paths chain planner' },
     { name: 'Random Character', icon: Dice6, route: route('characters.random'), keywords: 'random dice surprise' },
     {
         name: 'Random Character Picker',
@@ -101,6 +107,8 @@ const malifauxNavigateItems: QuickAction[] = [
         route: route('tools.random_character'),
         keywords: 'random character picker filtered faction keyword characteristic cost dice',
     },
+    { name: 'Bonanza Loot Deck', icon: Coins, route: route('tools.bonanza_loot_deck'), keywords: 'bonanza brawl loot deck solo format' },
+    { name: 'Hat Gamin Bot', icon: Bot, route: route('tools.hat_gamin'), keywords: 'hat gamin bot chat assistant ai' },
 ];
 
 const tosNavigateItems: QuickAction[] = [

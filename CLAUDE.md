@@ -111,6 +111,8 @@ API responses use Laravel API Resources (`app/Http/Resources/API/`) for data tra
 
 **When in doubt, mirror existing patterns.** Before introducing a new pattern, grep the codebase for the equivalent problem — there's almost always a precedent. Diverging from convention to chase a "best practice" trade-off is rarely worth the inconsistency cost.
 
+**User-facing terminology** is locked down in [`docs/terminology.md`](docs/terminology.md). When a string contradicts the glossary, fix the string. When you think the glossary is wrong, edit it there first.
+
 ### Models
 
 - `protected $guarded = ['id']` is the universal pattern (every model). Do **not** switch to `$fillable` — it would be inconsistent with 40+ existing models. Mass-assignment safety lives at the FormRequest layer (`$request->validated()`), not at the model.

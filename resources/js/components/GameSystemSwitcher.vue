@@ -40,6 +40,11 @@ function switchTo(target: 'malifaux' | 'tos') {
         class="inline-flex h-8 items-center rounded-md border border-input bg-background/60 p-0.5 text-[11px] font-medium"
         role="group"
         aria-label="Game system"
+        :title="
+            current === 'tos'
+                ? 'The Other Side — large-scale mass-battle. Allegiances are TOS’s equivalent of Malifaux Factions.'
+                : 'Malifaux — skirmish-scale. Factions are Malifaux’s equivalent of TOS Allegiances.'
+        "
     >
         <button
             type="button"

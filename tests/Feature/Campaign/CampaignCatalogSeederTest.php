@@ -8,7 +8,6 @@ use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CrewCardEffect;
 use App\Models\Campaign\Equipment;
 use App\Models\Campaign\Injury;
-use App\Models\Campaign\LeaderArchetype;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\SummoningAdvancement;
 use App\Models\Campaign\Totem;
@@ -18,8 +17,7 @@ use Database\Seeders\CampaignCatalogSeeder;
 it('seeds every campaign catalog table with usable rows', function () {
     $this->seed(CampaignCatalogSeeder::class);
 
-    expect(LeaderArchetype::count())->toBe(5)
-        ->and(CrewCardEffect::count())->toBeGreaterThanOrEqual(5)
+    expect(CrewCardEffect::count())->toBeGreaterThanOrEqual(5)
         ->and(Equipment::count())->toBeGreaterThanOrEqual(10)
         ->and(Injury::count())->toBeGreaterThanOrEqual(6)
         ->and(LuckyMiss::count())->toBeGreaterThanOrEqual(3)
@@ -51,10 +49,10 @@ it('covers the full 1-13 flip range on back-alley doctor results', function () {
 
 it('is idempotent — re-running does not duplicate rows', function () {
     $this->seed(CampaignCatalogSeeder::class);
-    $firstCount = LeaderArchetype::count() + BackAlleyDoctorResult::count() + Equipment::count();
+    $firstCount = BackAlleyDoctorResult::count() + Equipment::count() + CrewCardEffect::count();
 
     $this->seed(CampaignCatalogSeeder::class);
-    $secondCount = LeaderArchetype::count() + BackAlleyDoctorResult::count() + Equipment::count();
+    $secondCount = BackAlleyDoctorResult::count() + Equipment::count() + CrewCardEffect::count();
 
     expect($secondCount)->toBe($firstCount);
 });

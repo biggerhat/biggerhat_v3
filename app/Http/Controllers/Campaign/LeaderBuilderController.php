@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\LeaderArchetypeEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\FactionEnum;
-use App\Enums\LeaderArchetypeEnum;
-use App\Enums\LeaderTagEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\LeaderArchetype;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
@@ -35,7 +34,7 @@ class LeaderBuilderController extends Controller
             'campaign' => $campaign->only(['id', 'name', 'status']),
             'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id']),
             'leader' => $existingLeader,
-            'archetypes' => LeaderArchetype::orderBy('id')->get(),
+            'archetypes' => LeaderArchetypeEnum::dataset(),
             'archetype_enum' => LeaderArchetypeEnum::toSelectOptions(),
             'tag_enum' => LeaderTagEnum::toSelectOptions(),
             'faction_enum' => FactionEnum::toSelectOptions(),
@@ -52,7 +51,7 @@ class LeaderBuilderController extends Controller
         $this->ensureCrewOwner($request, $campaign, $crew);
 
         $data = $request->validated();
-        $archetype = LeaderArchetype::where('slug', $data['archetype'])->firstOrFail();
+        $archetype = LeaderArchetypeEnum::from($data['archetype']);
 
         // Tag actions with their attack/tactical category in the JSON payload
         // so the renderer can group them. The category field is part of the
@@ -104,18 +103,18 @@ class LeaderBuilderController extends Controller
                 'archetype' => $data['archetype'],
                 'tag' => $data['tag'],
                 'campaign_size' => $data['size'],
-                'campaign_df' => $archetype->df,
-                'campaign_wp' => $archetype->wp,
-                'campaign_sp' => $archetype->sp,
-                'campaign_health' => $archetype->health,
+                'campaign_df' => $archetype->df(),
+                'campaign_wp' => $archetype->wp(),
+                'campaign_sp' => $archetype->sp(),
+                'campaign_health' => $archetype->health(),
                 'current' => true,
                 'name' => $data['name'],
                 'faction' => $data['faction'],
                 'station' => 'master', // Leaders auto-gain the Master characteristic (pg 18).
-                'health' => $archetype->health,
-                'defense' => $archetype->df,
-                'willpower' => $archetype->wp,
-                'speed' => $archetype->sp,
+                'health' => $archetype->health(),
+                'defense' => $archetype->df(),
+                'willpower' => $archetype->wp(),
+                'speed' => $archetype->sp(),
                 'size' => $data['size'],
                 'base' => $data['base'],
                 'cost' => null,

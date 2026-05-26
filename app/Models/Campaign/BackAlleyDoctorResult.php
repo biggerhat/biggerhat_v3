@@ -2,7 +2,7 @@
 
 namespace App\Models\Campaign;
 
-use App\Enums\BackAlleyDoctorOutcomeEnum;
+use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use Database\Factories\Campaign\BackAlleyDoctorResultFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

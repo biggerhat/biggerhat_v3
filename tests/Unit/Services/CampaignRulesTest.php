@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\LeaderTagEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Services\CampaignRules;
 
 describe('maxEncounterSize', function () {

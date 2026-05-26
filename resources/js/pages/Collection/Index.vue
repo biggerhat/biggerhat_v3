@@ -349,7 +349,11 @@ const topFactions = computed(() =>
             <template #subtitle>
                 <div class="flex flex-wrap items-center gap-3 px-2">
                     <span class="text-sm text-muted-foreground">
-                        {{ is_owner ? 'Track your miniatures, packages, and collection progress.' : `Viewing ${owner_name}'s collection.` }}
+                        {{
+                            is_owner
+                                ? 'Miniatures and packages you already own — track assembly, paint, and play progress here.'
+                                : `Viewing ${owner_name}'s collection.`
+                        }}
                     </span>
                     <div v-if="is_owner" class="flex items-center gap-1.5">
                         <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="togglePublic">

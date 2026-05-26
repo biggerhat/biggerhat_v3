@@ -575,15 +575,15 @@ it('Phase 4 fills XP boxes and writes leader_advancements rows', function () {
 
     expect($aftermath->fresh()->current_phase)->toBe(5);
 
-    $track = \App\Models\Campaign\CampaignLeaderXpTrack::firstWhere('custom_character_id', $leader->id);
+    $track = $leader->fresh()->xp_track;
     expect($track)->not->toBeNull();
-    expect($track->track[0]['filled'])->toBeTrue();
-    expect($track->track[1]['filled'])->toBeTrue();
-    expect($track->track[2]['filled'])->toBeFalse();
+    expect($track[0]['filled'])->toBeTrue();
+    expect($track[1]['filled'])->toBeTrue();
+    expect($track[2]['filled'])->toBeFalse();
 
     $advance = \App\Models\Campaign\CampaignLeaderAdvancement::firstWhere('custom_character_id', $leader->id);
     expect($advance)->not->toBeNull();
-    expect($advance->source_table)->toBe(\App\Enums\AdvancementTableEnum::AttackMod);
+    expect($advance->source_table)->toBe(\App\Enums\Campaign\AdvancementTableEnum::AttackMod);
     expect($advance->catalog_id)->toBe($attackMod->id);
     expect($advance->source_aftermath_id)->toBe($aftermath->id);
 });

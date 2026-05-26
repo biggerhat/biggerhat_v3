@@ -9,6 +9,7 @@ import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowUpCircle,
+    BarChart3,
     BookOpen,
     Bot,
     Calendar,
@@ -66,6 +67,23 @@ const tosAllegianceItems = computed(() => {
             icon: AllegianceLogo,
             icon_class: 'w-8 h-8',
             icon_props: { allegiance: a.slug as string },
+        }));
+});
+
+// Faction entries from the shared `faction_info` map — mirrors the TOS
+// allegiance pattern above so new factions (rare) don't need a sidebar edit.
+// Alphabetical to match the prior hardcoded order.
+const malifauxFactionItems = computed(() => {
+    const info = page.props.faction_info ?? {};
+    return Object.values(info)
+        .slice()
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map((f) => ({
+            title: f.name as string,
+            href: route('factions.view', f.slug as string),
+            icon: FactionLogo,
+            icon_class: 'w-8 h-8',
+            icon_props: { faction: f.slug as string },
         }));
 });
 
@@ -135,6 +153,11 @@ const myHatNavItems = computed(() => {
             icon: Library,
         },
         {
+            title: 'My Stats',
+            href: route('stats.my'),
+            icon: BarChart3,
+        },
+        {
             title: 'My Wishlists',
             href: route('wishlists.index'),
             icon: Heart,
@@ -168,8 +191,12 @@ const mainNavItems = computed<NavItem[]>(() => [
                 icon: TextSearch,
             },
             {
+                // Sidebar "Crew Builder" sends you to the editor (the most common
+                // intent). The community-crews browse list is reachable via a
+                // dedicated entry below + the URL /tools/crew-builder/ for any
+                // existing bookmarks.
                 title: 'Crew Builder',
-                href: route('tools.crew_builder.index'),
+                href: route('tools.crew_builder.editor'),
                 icon: Swords,
             },
             {
@@ -184,16 +211,30 @@ const mainNavItems = computed<NavItem[]>(() => [
                 icon: Trophy,
                 badge: 'Beta',
             },
-            ...(campaignFeaturesEnabled.value && isAuthenticated.value
+            // Authed users with campaign access see the full Campaigns link
+            // (Beta badge now that the feature is approaching open beta).
+            // Authed users WITHOUT access see a teaser entry routing to the
+            // public coming-soon page — keeps discovery alive while gating
+            // the actual feature.
+            ...(isAuthenticated.value && campaignFeaturesEnabled.value
                 ? [
                       {
                           title: 'Campaigns',
                           href: route('campaigns.index'),
                           icon: Trophy,
-                          badge: 'Alpha',
+                          badge: 'Beta',
                       },
                   ]
-                : []),
+                : isAuthenticated.value
+                  ? [
+                        {
+                            title: 'Campaigns',
+                            href: route('campaigns.preview'),
+                            icon: Trophy,
+                            badge: 'Soon',
+                        },
+                    ]
+                  : []),
             {
                 title: 'Articles',
                 href: route('blog.index'),
@@ -219,64 +260,7 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: 'Factions',
         collapsible: true,
         collapsed: false,
-        items: [
-            {
-                title: 'Arcanists',
-                href: route('factions.view', 'arcanists'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'arcanists' },
-            },
-            {
-                title: 'Bayou',
-                href: route('factions.view', 'bayou'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'bayou' },
-            },
-            {
-                title: "Explorer's Society",
-                href: route('factions.view', 'explorers_society'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'explorers_society' },
-            },
-            {
-                title: 'Guild',
-                href: route('factions.view', 'guild'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'guild' },
-            },
-            {
-                title: 'Neverborn',
-                href: route('factions.view', 'neverborn'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'neverborn' },
-            },
-            {
-                title: 'Outcasts',
-                href: route('factions.view', 'outcasts'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'outcasts' },
-            },
-            {
-                title: 'Resurrectionists',
-                href: route('factions.view', 'resurrectionists'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'resurrectionists' },
-            },
-            {
-                title: 'Ten Thunders',
-                href: route('factions.view', 'ten_thunders'),
-                icon: FactionLogo,
-                icon_class: 'w-8 h-8',
-                icon_props: { faction: 'ten_thunders' },
-            },
-        ],
+        items: malifauxFactionItems.value,
     },
     {
         title: 'Tools',
@@ -284,7 +268,12 @@ const mainNavItems = computed<NavItem[]>(() => [
         collapsed: false,
         items: [
             {
-                title: 'Compare',
+                title: 'Community Crews',
+                href: route('tools.crew_builder.index'),
+                icon: Library,
+            },
+            {
+                title: 'Compare Characters',
                 href: route('tools.compare'),
                 icon: Scale,
             },
@@ -320,15 +309,17 @@ const mainNavItems = computed<NavItem[]>(() => [
         collapsible: true,
         collapsed: false,
         items: [
-            {
-                title: 'Actions',
-                href: route('actions.index'),
-                icon: Swords,
-            },
+            // Order intentionally mirrors TOS sidebar: abilities (passive) →
+            // actions (AP-spending) → triggers (action modifiers).
             {
                 title: 'Abilities',
                 href: route('abilities.index'),
                 icon: Shield,
+            },
+            {
+                title: 'Actions',
+                href: route('actions.index'),
+                icon: Swords,
             },
             {
                 title: 'Triggers',
@@ -395,7 +386,17 @@ const footerNavItems: NavItem[] = [
 
 <template>
     <Sidebar collapsible="offcanvas" variant="sidebar">
-        <SidebarHeader>
+        <!-- Header tint = subtle visual cue for which game system is active.
+             TOS gets a slate gradient, Malifaux gets a warm card-color band.
+             Beyond the GameSystemSwitcher pill, this is the only chrome that
+             changes between systems — keeps users oriented after a switch. -->
+        <SidebarHeader
+            :class="
+                isTos
+                    ? 'bg-gradient-to-b from-slate-200/60 to-transparent dark:from-slate-800/40'
+                    : 'bg-gradient-to-b from-amber-100/40 to-transparent dark:from-amber-900/20'
+            "
+        >
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
@@ -410,6 +411,9 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
             <div class="px-2 pb-1 sm:hidden">
                 <GameSystemSwitcher />
+            </div>
+            <div class="px-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                {{ isTos ? 'The Other Side' : 'Malifaux' }}
             </div>
         </SidebarHeader>
 

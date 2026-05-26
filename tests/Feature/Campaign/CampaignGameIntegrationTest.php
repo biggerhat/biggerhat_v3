@@ -105,13 +105,16 @@ it('Games/Show payload campaign_context is null for non-campaign games', functio
 it('submitCrew rejects characters not in the player crew arsenal', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 
-    // Stock the arsenal with one character only.
+    // Stock the arsenal with the allowed character + the master so the only
+    // non-arsenal pick is the forbidden one. Otherwise faker's random master
+    // name leaks into the error string and breaks the exact-match assertion.
     $allowed = Character::factory()->create(['cost' => 6]);
+    $master = Character::factory()->create();
     CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $allowed->id]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $master->id]);
 
     // Build a crew including an outside character.
     $forbidden = Character::factory()->create(['cost' => 7, 'name' => 'Disallowed Model']);
-    $master = Character::factory()->create();
     $build = CrewBuild::create([
         'user_id' => $userA->id,
         'master_id' => $master->id,

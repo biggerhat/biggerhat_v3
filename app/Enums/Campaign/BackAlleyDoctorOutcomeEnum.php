@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums;
+namespace App\Enums\Campaign;
 
 use App\Interfaces\HasDefaultEnumMethods;
 use App\Traits\UsesEnumLabels;

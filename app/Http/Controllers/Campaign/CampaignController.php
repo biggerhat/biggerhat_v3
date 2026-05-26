@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\CampaignPlayerRoleEnum;
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreCampaignRequest;
 use App\Http\Requests\Campaign\UpdateCampaignRequest;

@@ -5,6 +5,7 @@ use App\Http\Controllers\Campaign\CampaignAftermathController;
 use App\Http\Controllers\Campaign\CampaignController;
 use App\Http\Controllers\Campaign\CampaignGameController;
 use App\Http\Controllers\Campaign\CampaignInvitationController;
+use App\Http\Controllers\Campaign\CampaignTeaserController;
 use App\Http\Controllers\Campaign\CrewLifecycleController;
 use App\Http\Controllers\Campaign\LeaderBuilderController;
 use App\Http\Controllers\Campaign\LeaderSearchController;
@@ -22,6 +23,13 @@ use Illuminate\Support\Facades\Route;
  * Admin catalog routes live in routes/admin.php under /admin/campaign/*
  * and use the same gate plus per-action permission checks.
  */
+// Teaser / coming-soon page — OUTSIDE the campaign.access gate so anyone
+// can read the marketing copy and request access. Redirects to /campaigns
+// for users who already have access (super_admin, use_campaign_mode, or the
+// global feature flag enabled).
+Route::get('/campaigns/preview', [CampaignTeaserController::class, 'show'])
+    ->name('campaigns.preview');
+
 Route::middleware(['campaign.access'])->group(function () {
     // Invitation accept screen is BEFORE the auth gate so unauthenticated
     // users can land here and bounce to login. The controller redirects

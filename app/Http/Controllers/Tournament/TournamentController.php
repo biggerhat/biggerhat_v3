@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Tournament;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
@@ -9,7 +9,7 @@ use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
-use App\Http\Controllers\Tournament\BroadcastsTournamentUpdates;
+use App\Http\Controllers\Controller;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;

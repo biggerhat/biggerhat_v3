@@ -14,7 +14,6 @@ import {
     BookOpen,
     Clock,
     Coins,
-    Crown,
     Eraser,
     ExternalLink,
     FileImage,
@@ -115,7 +114,6 @@ const adminGroups: AdminNavGroup[] = [
         // hidden while the feature is pre-release.
         title: 'Campaign — Catalog',
         items: [
-            { title: 'Leader Archetypes', href: route('admin.campaign.leader-archetypes.index'), icon: Crown, permission: 'view_campaign_catalog' },
             {
                 title: 'Crew Card Effects',
                 href: route('admin.campaign.crew-card-effects.index'),

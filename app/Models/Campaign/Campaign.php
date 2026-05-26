@@ -2,7 +2,7 @@
 
 namespace App\Models\Campaign;
 
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Models\User;
 use Database\Factories\Campaign\CampaignFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

@@ -2,7 +2,7 @@
 
 namespace App\Policies\Campaign;
 
-use App\Enums\CampaignPlayerRoleEnum;
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\User;
 

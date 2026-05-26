@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Enums\LeaderTagEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 
 /**
  * Pure-function service for M4E Campaign Mode (Index of the Untold) mechanics.

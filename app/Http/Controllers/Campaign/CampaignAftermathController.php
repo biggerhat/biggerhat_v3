@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\AdvancementTableEnum;
-use App\Enums\BackAlleyDoctorOutcomeEnum;
+use App\Enums\Campaign\AdvancementTableEnum;
+use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\AdvancementAbility;
@@ -17,7 +17,6 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignLeaderAdvancement;
-use App\Models\Campaign\CampaignLeaderXpTrack;
 use App\Models\Campaign\CrewCardEffect;
 use App\Models\Campaign\Equipment;
 use App\Models\Campaign\Injury;
@@ -523,12 +522,7 @@ class CampaignAftermathController extends Controller
         $advanced = $this->lockAndAdvance($aftermath, 4, function (CampaignAftermath $locked) use ($leader, $data) {
             // Lazy-init the XP track to the canonical 27-box layout the first
             // time we touch it.
-            $xp = CampaignLeaderXpTrack::firstOrCreate(
-                ['custom_character_id' => $leader->id],
-                ['track' => CampaignLeaderXpTrack::defaultTrack()],
-            );
-
-            $track = $xp->track;
+            $track = $leader->xp_track ?? CustomCharacter::defaultXpTrack();
             $toFill = (int) $data['xp_earned'];
             foreach ($track as $i => $box) {
                 if ($toFill <= 0) {
@@ -539,7 +533,7 @@ class CampaignAftermathController extends Controller
                     $toFill--;
                 }
             }
-            $xp->update(['track' => $track]);
+            $leader->update(['xp_track' => $track]);
 
             foreach (($data['advancements'] ?? []) as $a) {
                 CampaignLeaderAdvancement::create([
@@ -711,16 +705,11 @@ class CampaignAftermathController extends Controller
             return null;
         }
 
-        $xp = CampaignLeaderXpTrack::firstOrCreate(
-            ['custom_character_id' => $leader->id],
-            ['track' => CampaignLeaderXpTrack::defaultTrack()],
-        );
-
         return [
             'leader_id' => $leader->id,
             'leader_name' => $leader->name,
             'tag' => $leader->tag,
-            'track' => $xp->track,
+            'track' => $leader->xp_track ?? CustomCharacter::defaultXpTrack(),
         ];
     }
 

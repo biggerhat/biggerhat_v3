@@ -2,8 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\BackAlleyDoctorOutcomeEnum;
-use App\Enums\LeaderArchetypeEnum;
+use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Models\Campaign\AdvancementAbility;
 use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
@@ -12,7 +11,6 @@ use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CrewCardEffect;
 use App\Models\Campaign\Equipment;
 use App\Models\Campaign\Injury;
-use App\Models\Campaign\LeaderArchetype;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\SummoningAdvancement;
 use App\Models\Campaign\Totem;
@@ -33,7 +31,7 @@ class CampaignCatalogSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedArchetypes();
+        // Archetypes live entirely on LeaderArchetypeEnum — no seeding needed.
         $this->seedCrewCardEffects();
         $this->seedEquipment();
         $this->seedInjuries();
@@ -43,46 +41,6 @@ class CampaignCatalogSeeder extends Seeder
         $this->seedTotems();
         $this->seedSummoningAdvancements();
         $this->seedWeeklyEvents();
-    }
-
-    private function seedArchetypes(): void
-    {
-        if (LeaderArchetype::query()->exists()) {
-            return;
-        }
-
-        // All 5 archetypes — Leader Builder dropdown is non-functional without them.
-        LeaderArchetype::factory()->create([
-            'slug' => LeaderArchetypeEnum::LuckyUpstart->value,
-            'name' => 'Lucky Upstart',
-            'df' => 5, 'wp' => 5, 'sp' => 6, 'health' => 12,
-            'attack_actions_count' => 1, 'attack_action_cost_cap' => 6, 'attack_gets_trigger' => false,
-            'tactical_actions_count' => 1, 'tactical_action_cost_cap' => 6,
-            'abilities_count' => 1, 'ability_cost_cap' => 6,
-            'special_notes' => 'Starts with a free equipment item rolled on creation.',
-        ]);
-
-        LeaderArchetype::factory()->create();
-
-        LeaderArchetype::factory()->heavyHitter()->create();
-
-        LeaderArchetype::factory()->create([
-            'slug' => LeaderArchetypeEnum::Schemer->value,
-            'name' => 'Schemer',
-            'df' => 5, 'wp' => 6, 'sp' => 7, 'health' => 12,
-            'attack_actions_count' => 1, 'attack_action_cost_cap' => 6,
-            'tactical_actions_count' => 2, 'tactical_action_cost_cap' => 8,
-            'abilities_count' => 1, 'ability_cost_cap' => 7,
-        ]);
-
-        LeaderArchetype::factory()->create([
-            'slug' => LeaderArchetypeEnum::TalentedIndividual->value,
-            'name' => 'Talented Individual',
-            'df' => 5, 'wp' => 5, 'sp' => 6, 'health' => 13,
-            'attack_actions_count' => 1, 'attack_action_cost_cap' => 8,
-            'tactical_actions_count' => 1, 'tactical_action_cost_cap' => 8,
-            'abilities_count' => 2, 'ability_cost_cap' => 7,
-        ]);
     }
 
     private function seedCrewCardEffects(): void

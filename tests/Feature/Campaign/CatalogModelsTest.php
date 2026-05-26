@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Models\Campaign\AdvancementAbility;
 use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
@@ -8,14 +9,12 @@ use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CrewCardEffect;
 use App\Models\Campaign\Equipment;
 use App\Models\Campaign\Injury;
-use App\Models\Campaign\LeaderArchetype;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\SummoningAdvancement;
 use App\Models\Campaign\Totem;
 use App\Models\Campaign\WeeklyEvent;
 
 it('builds every catalog model via factory without error', function () {
-    expect(LeaderArchetype::factory()->create())->toBeInstanceOf(LeaderArchetype::class);
     expect(CrewCardEffect::factory()->create())->toBeInstanceOf(CrewCardEffect::class);
     expect(Equipment::factory()->create())->toBeInstanceOf(Equipment::class);
     expect(Injury::factory()->create())->toBeInstanceOf(Injury::class);
@@ -30,17 +29,16 @@ it('builds every catalog model via factory without error', function () {
     expect(WeeklyEvent::factory()->create())->toBeInstanceOf(WeeklyEvent::class);
 });
 
-it('LeaderArchetype heavyHitter state matches rulebook stats', function () {
-    $hh = LeaderArchetype::factory()->heavyHitter()->create();
+it('LeaderArchetypeEnum exposes the rulebook stat caps', function () {
+    $hh = LeaderArchetypeEnum::HeavyHitter;
+    expect($hh->attackGetsTrigger())->toBeTrue();
+    expect($hh->attackActionsCount())->toBe(2);
+    expect($hh->abilitiesCount())->toBe(1);
 
-    expect($hh->df)->toBe(6);
-    expect($hh->wp)->toBe(4);
-    expect($hh->sp)->toBe(6);
-    expect($hh->health)->toBe(14);
-    expect($hh->attack_gets_trigger)->toBeTrue();
-    expect($hh->attack_action_cost_cap)->toBe(10);
-    expect($hh->tactical_action_cost_cap)->toBe(5);
-    expect($hh->abilities_count)->toBe(0);
+    // dataset() round-trips into the wire shape consumed by LeaderBuilder.vue.
+    $dataset = LeaderArchetypeEnum::dataset();
+    expect($dataset)->toHaveCount(count(LeaderArchetypeEnum::cases()));
+    expect($dataset[0])->toHaveKeys(['slug', 'name', 'df', 'wp', 'sp', 'health', 'attack_actions_count']);
 });
 
 it('Equipment::scopeBarterableAt returns always-available + below-or-equal-flip rows', function () {

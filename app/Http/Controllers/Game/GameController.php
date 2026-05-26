@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Game;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
@@ -11,6 +11,7 @@ use App\Events\GamePlayerJoined;
 use App\Events\GameStatusChanged;
 use App\Events\TournamentUpdated;
 use App\Http\Controllers\Concerns\BuildsPageMeta;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;

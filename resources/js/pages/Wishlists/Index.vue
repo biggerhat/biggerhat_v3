@@ -59,7 +59,9 @@ function confirmDelete() {
 
         <PageBanner title="My Wishlists">
             <template #subtitle>
-                <div class="px-2 text-sm text-muted-foreground">Track packages, characters, and miniatures you want to add to your collection.</div>
+                <div class="px-2 text-sm text-muted-foreground">
+                    Packages, characters, and miniatures you'd like to buy — your shopping list before they move to <strong>My Collection</strong>.
+                </div>
             </template>
         </PageBanner>
 

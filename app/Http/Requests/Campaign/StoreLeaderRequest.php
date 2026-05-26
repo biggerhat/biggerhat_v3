@@ -3,12 +3,11 @@
 namespace App\Http\Requests\Campaign;
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\LeaderArchetypeEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\FactionEnum;
-use App\Enums\LeaderArchetypeEnum;
-use App\Enums\LeaderTagEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\LeaderArchetype;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -91,7 +90,7 @@ class StoreLeaderRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $archetype = $this->loadArchetype($this->input('archetype'));
+            $archetype = LeaderArchetypeEnum::tryFrom((string) $this->input('archetype'));
             if (! $archetype) {
                 return;
             }
@@ -100,52 +99,44 @@ class StoreLeaderRequest extends FormRequest
             $attack = $actions->where('category', 'attack');
             $tactical = $actions->where('category', 'tactical');
             $abilities = collect($this->input('abilities', []));
+            $name = $archetype->label();
 
-            if ($attack->count() > $archetype->attack_actions_count) {
+            if ($attack->count() > $archetype->attackActionsCount()) {
                 $validator->errors()->add(
                     'actions',
-                    "Archetype {$archetype->name} allows at most {$archetype->attack_actions_count} attack action(s)."
+                    "Archetype {$name} allows at most {$archetype->attackActionsCount()} attack action(s)."
                 );
             }
             foreach ($attack as $i => $a) {
-                if (($a['stone_cost'] ?? 0) > $archetype->attack_action_cost_cap) {
+                if (($a['stone_cost'] ?? 0) > $archetype->attackActionCostCap()) {
                     $validator->errors()->add(
                         "actions.{$i}.stone_cost",
-                        "Attack action exceeds the cost cap of {$archetype->attack_action_cost_cap}."
+                        "Attack action exceeds the cost cap of {$archetype->attackActionCostCap()}."
                     );
                 }
             }
 
-            if ($tactical->count() > $archetype->tactical_actions_count) {
+            if ($tactical->count() > $archetype->tacticalActionsCount()) {
                 $validator->errors()->add(
                     'actions',
-                    "Archetype {$archetype->name} allows at most {$archetype->tactical_actions_count} tactical action(s)."
+                    "Archetype {$name} allows at most {$archetype->tacticalActionsCount()} tactical action(s)."
                 );
             }
             foreach ($tactical as $i => $a) {
-                if (($a['stone_cost'] ?? 0) > $archetype->tactical_action_cost_cap) {
+                if (($a['stone_cost'] ?? 0) > $archetype->tacticalActionCostCap()) {
                     $validator->errors()->add(
                         "actions.{$i}.stone_cost",
-                        "Tactical action exceeds the cost cap of {$archetype->tactical_action_cost_cap}."
+                        "Tactical action exceeds the cost cap of {$archetype->tacticalActionCostCap()}."
                     );
                 }
             }
 
-            if ($abilities->count() > $archetype->abilities_count) {
+            if ($abilities->count() > $archetype->abilitiesCount()) {
                 $validator->errors()->add(
                     'abilities',
-                    "Archetype {$archetype->name} allows at most {$archetype->abilities_count} abilit(y/ies)."
+                    "Archetype {$name} allows at most {$archetype->abilitiesCount()} abilit(y/ies)."
                 );
             }
         });
-    }
-
-    private function loadArchetype(?string $slug): ?LeaderArchetype
-    {
-        if (! $slug) {
-            return null;
-        }
-
-        return LeaderArchetype::query()->where('slug', $slug)->first();
     }
 }

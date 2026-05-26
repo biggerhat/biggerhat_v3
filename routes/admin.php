@@ -17,7 +17,6 @@ use App\Http\Controllers\Admin\Campaign\BackAlleyDoctorResultAdminController as 
 use App\Http\Controllers\Admin\Campaign\CrewCardEffectAdminController as CampaignCrewCardEffectAdminController;
 use App\Http\Controllers\Admin\Campaign\EquipmentAdminController as CampaignEquipmentAdminController;
 use App\Http\Controllers\Admin\Campaign\InjuryAdminController as CampaignInjuryAdminController;
-use App\Http\Controllers\Admin\Campaign\LeaderArchetypeAdminController as CampaignLeaderArchetypeAdminController;
 use App\Http\Controllers\Admin\Campaign\LuckyMissAdminController as CampaignLuckyMissAdminController;
 use App\Http\Controllers\Admin\Campaign\SummoningAdvancementAdminController as CampaignSummoningAdvancementAdminController;
 use App\Http\Controllers\Admin\Campaign\TotemAdminController as CampaignTotemAdminController;
@@ -491,7 +490,6 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
             });
         };
 
-        $crud(CampaignLeaderArchetypeAdminController::class, 'leader-archetypes', 'leader-archetypes', 'archetype');
         $crud(CampaignCrewCardEffectAdminController::class, 'crew-card-effects', 'crew-card-effects', 'effect');
         $crud(CampaignEquipmentAdminController::class, 'equipment', 'equipment', 'equipment');
         $crud(CampaignInjuryAdminController::class, 'injuries', 'injuries', 'injury');

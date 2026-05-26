@@ -45,9 +45,7 @@ class CustomUpgradeController extends Controller
 
     public function edit(CustomUpgrade $customUpgrade): Response
     {
-        if ($customUpgrade->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $customUpgrade);
 
         return inertia('Tools/CardCreator/UpgradeEditor', [
             'upgrade' => $customUpgrade,
@@ -58,9 +56,7 @@ class CustomUpgradeController extends Controller
 
     public function update(Request $request, CustomUpgrade $customUpgrade): JsonResponse
     {
-        if ($customUpgrade->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $customUpgrade);
 
         $validated = $this->validateUpgrade($request);
 
@@ -73,9 +69,7 @@ class CustomUpgradeController extends Controller
 
     public function destroy(CustomUpgrade $customUpgrade): JsonResponse
     {
-        if ($customUpgrade->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $customUpgrade);
 
         $customUpgrade->delete();
 

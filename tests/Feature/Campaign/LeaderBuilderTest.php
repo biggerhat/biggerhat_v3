@@ -1,15 +1,14 @@
 <?php
 
+use App\Enums\Campaign\LeaderArchetypeEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
-use App\Enums\LeaderArchetypeEnum;
-use App\Enums\LeaderTagEnum;
 use App\Enums\PermissionEnum;
 use App\Models\Action;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignPlayer;
-use App\Models\Campaign\LeaderArchetype;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
@@ -40,10 +39,7 @@ function crewFor(User $user): CampaignCrew
     return CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
 }
 
-it('renders the Leader Builder for the crew owner', function () {
-    LeaderArchetype::factory()->heavyHitter()->create();
-    LeaderArchetype::factory()->create(['slug' => LeaderArchetypeEnum::Generalist->value, 'name' => 'Generalist']);
-
+it('renders the Leader Builder for the crew owner with all 5 archetypes from the enum', function () {
     $user = leaderUser();
     $crew = crewFor($user);
 
@@ -53,13 +49,12 @@ it('renders the Leader Builder for the crew owner', function () {
         ->assertInertia(fn ($page) => $page
             ->component('Campaigns/LeaderBuilder')
             ->where('crew.share_code', $crew->share_code)
-            ->has('archetypes', 2)
+            ->has('archetypes', count(LeaderArchetypeEnum::cases()))
+            ->where('archetypes.0.slug', LeaderArchetypeEnum::LuckyUpstart->value)
         );
 });
 
 it('blocks non-owner from the Leader Builder', function () {
-    LeaderArchetype::factory()->create(['slug' => LeaderArchetypeEnum::Generalist->value]);
-
     $owner = leaderUser();
     $other = leaderUser();
     $crew = crewFor($owner);
@@ -69,14 +64,7 @@ it('blocks non-owner from the Leader Builder', function () {
         ->assertForbidden();
 });
 
-it('saves a new leader as a CustomCharacter with campaign columns set', function () {
-    LeaderArchetype::factory()->create([
-        'slug' => LeaderArchetypeEnum::Generalist->value, 'name' => 'Generalist',
-        'df' => 5, 'wp' => 5, 'sp' => 6, 'health' => 14,
-        'attack_actions_count' => 1, 'attack_action_cost_cap' => 7,
-        'tactical_actions_count' => 1, 'tactical_action_cost_cap' => 7,
-        'abilities_count' => 1, 'ability_cost_cap' => 7,
-    ]);
+it('saves a new leader as a CustomCharacter with campaign columns set from the enum', function () {
     $user = leaderUser();
     $crew = crewFor($user);
     $k1 = Keyword::factory()->create();
@@ -99,18 +87,18 @@ it('saves a new leader as a CustomCharacter with campaign columns set', function
         ->assertRedirect();
 
     $leader = CustomCharacter::firstWhere('campaign_crew_id', $crew->id);
+    $generalist = LeaderArchetypeEnum::Generalist;
     expect($leader)->not->toBeNull();
     expect($leader->is_campaign_leader)->toBeTrue();
-    expect($leader->archetype)->toBe(LeaderArchetypeEnum::Generalist->value);
+    expect($leader->archetype)->toBe($generalist->value);
     expect($leader->tag)->toBe(LeaderTagEnum::Bruiser->value);
-    expect($leader->campaign_df)->toBe(5);
-    expect($leader->campaign_health)->toBe(14);
+    expect($leader->campaign_df)->toBe($generalist->df());
+    expect($leader->campaign_health)->toBe($generalist->health());
     expect($leader->current)->toBeTrue();
     expect($leader->keywords)->toHaveCount(2);
 });
 
 it('demotes the previous current leader when saving a new one', function () {
-    LeaderArchetype::factory()->create(['slug' => LeaderArchetypeEnum::Generalist->value]);
     $user = leaderUser();
     $crew = crewFor($user);
     $k1 = Keyword::factory()->create();
@@ -147,17 +135,11 @@ it('demotes the previous current leader when saving a new one', function () {
 });
 
 it('rejects an attack action over the archetype cost cap', function () {
-    LeaderArchetype::factory()->create([
-        'slug' => LeaderArchetypeEnum::Schemer->value, 'name' => 'Schemer',
-        'df' => 6, 'wp' => 5, 'sp' => 7, 'health' => 13,
-        'attack_actions_count' => 1, 'attack_action_cost_cap' => 4,
-        'tactical_actions_count' => 2, 'tactical_action_cost_cap' => 8,
-        'abilities_count' => 1, 'ability_cost_cap' => 8,
-    ]);
     $user = leaderUser();
     $crew = crewFor($user);
     $k1 = Keyword::factory()->create();
     $k2 = Keyword::factory()->create();
+    $cap = LeaderArchetypeEnum::Schemer->attackActionCostCap();
 
     $this->actingAs($user)
         ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
@@ -169,7 +151,7 @@ it('rejects an attack action over the archetype cost cap', function () {
             'size' => 2, 'base' => 30,
             'actions' => [[
                 'name' => 'Big Punch', 'type' => 'attack', 'category' => 'attack',
-                'stone_cost' => 9, 'is_signature' => false, 'triggers' => [],
+                'stone_cost' => $cap + 3, 'is_signature' => false, 'triggers' => [],
             ]],
         ])
         ->assertSessionHasErrors();
@@ -178,12 +160,7 @@ it('rejects an attack action over the archetype cost cap', function () {
 });
 
 it('rejects too many abilities for the archetype', function () {
-    LeaderArchetype::factory()->create([
-        'slug' => LeaderArchetypeEnum::HeavyHitter->value, 'name' => 'Heavy Hitter',
-        'attack_actions_count' => 1, 'attack_action_cost_cap' => 10,
-        'tactical_actions_count' => 1, 'tactical_action_cost_cap' => 5,
-        'abilities_count' => 0, 'ability_cost_cap' => 0,
-    ]);
+    // HeavyHitter caps abilities at 1; submitting 2 must fail.
     $user = leaderUser();
     $crew = crewFor($user);
     $k1 = Keyword::factory()->create();
@@ -199,6 +176,7 @@ it('rejects too many abilities for the archetype', function () {
             'size' => 2, 'base' => 40,
             'abilities' => [
                 ['name' => 'Tough'],
+                ['name' => 'Hardy'],
             ],
         ])
         ->assertSessionHasErrors();

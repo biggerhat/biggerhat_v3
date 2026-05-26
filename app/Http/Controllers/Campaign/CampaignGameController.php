@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\DeploymentEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameRoleEnum;

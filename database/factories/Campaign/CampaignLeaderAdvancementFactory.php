@@ -2,7 +2,7 @@
 
 namespace Database\Factories\Campaign;
 
-use App\Enums\AdvancementTableEnum;
+use App\Enums\Campaign\AdvancementTableEnum;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
 use Illuminate\Database\Eloquent\Factories\Factory;

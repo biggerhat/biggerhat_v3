@@ -138,7 +138,7 @@ it('refuses to play against yourself', function () {
 
 it('refuses to start a game on a non-active campaign', function () {
     [$campaign, , $crewB, $organizer] = twoCrewCampaign();
-    $campaign->update(['status' => \App\Enums\CampaignStatusEnum::Planning]);
+    $campaign->update(['status' => \App\Enums\Campaign\CampaignStatusEnum::Planning]);
 
     $this->actingAs($organizer)
         ->post(route('campaigns.games.store', $campaign), [

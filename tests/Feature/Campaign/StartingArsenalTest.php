@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;

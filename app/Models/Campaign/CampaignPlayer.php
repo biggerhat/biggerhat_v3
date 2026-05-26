@@ -2,7 +2,7 @@
 
 namespace App\Models\Campaign;
 
-use App\Enums\CampaignPlayerRoleEnum;
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Models\User;
 use Database\Factories\Campaign\CampaignPlayerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

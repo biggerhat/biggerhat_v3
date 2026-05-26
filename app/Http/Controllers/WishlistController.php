@@ -12,6 +12,7 @@ use App\Models\WishlistItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class WishlistController extends Controller
 {
@@ -40,11 +41,7 @@ class WishlistController extends Controller
 
     public function show(Wishlist $wishlist)
     {
-        abort_unless(
-            $wishlist->is_public || Auth::id() === $wishlist->user_id,
-            403,
-            'This wishlist is private.'
-        );
+        $this->authorize('view', $wishlist);
 
         return inertia('Wishlists/Show', [
             ...$this->buildWishlistData($wishlist),
@@ -56,11 +53,9 @@ class WishlistController extends Controller
     {
         $wishlist = Wishlist::where('share_code', $shareCode)->firstOrFail();
 
-        abort_unless(
-            $wishlist->is_public || Auth::id() === $wishlist->user_id,
-            403,
-            'This wishlist is private.'
-        );
+        // viewShare honors the `is_public` flag and supports anonymous viewers
+        // — the `share` route lives outside auth middleware, unlike `show`.
+        abort_unless(Gate::allows('viewShare', $wishlist), 403, 'This wishlist is private.');
 
         return inertia('Wishlists/Show', [
             ...$this->buildWishlistData($wishlist),
@@ -71,7 +66,7 @@ class WishlistController extends Controller
 
     public function update(Request $request, Wishlist $wishlist)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('update', $wishlist);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -84,7 +79,7 @@ class WishlistController extends Controller
 
     public function destroy(Wishlist $wishlist)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('delete', $wishlist);
 
         $wishlist->delete();
 
@@ -93,7 +88,7 @@ class WishlistController extends Controller
 
     public function addItem(Request $request, Wishlist $wishlist)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('update', $wishlist);
 
         $validated = $request->validate([
             'type' => 'required|in:character,miniature,package',
@@ -120,7 +115,7 @@ class WishlistController extends Controller
 
     public function removeItem(Wishlist $wishlist, WishlistItem $wishlistItem)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('update', $wishlist);
         abort_unless($wishlistItem->wishlist_id === $wishlist->id, 404);
 
         $wishlistItem->delete();
@@ -130,7 +125,7 @@ class WishlistController extends Controller
 
     public function addKeyword(Request $request, Wishlist $wishlist)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('update', $wishlist);
 
         $validated = $request->validate([
             'keyword_id' => 'required|exists:keywords,id',
@@ -164,7 +159,7 @@ class WishlistController extends Controller
 
     public function togglePublic(Wishlist $wishlist)
     {
-        abort_unless(Auth::id() === $wishlist->user_id, 403);
+        $this->authorize('update', $wishlist);
 
         $wishlist->update(['is_public' => ! $wishlist->is_public]);
 

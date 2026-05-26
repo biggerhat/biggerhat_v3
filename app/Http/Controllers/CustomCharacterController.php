@@ -57,9 +57,7 @@ class CustomCharacterController extends Controller
 
     public function edit(CustomCharacter $customCharacter): Response
     {
-        if ($customCharacter->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $customCharacter);
 
         return inertia('Tools/CardCreator/Editor', [
             'character' => $customCharacter,
@@ -69,9 +67,7 @@ class CustomCharacterController extends Controller
 
     public function update(Request $request, CustomCharacter $customCharacter): JsonResponse
     {
-        if ($customCharacter->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $customCharacter);
 
         $validated = $this->validateCharacter($request);
 
@@ -84,9 +80,7 @@ class CustomCharacterController extends Controller
 
     public function destroy(CustomCharacter $customCharacter): JsonResponse
     {
-        if ($customCharacter->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $customCharacter);
 
         $customCharacter->delete();
 

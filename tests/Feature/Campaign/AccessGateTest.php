@@ -62,3 +62,29 @@ it('lets anyone through when the feature flag is on globally', function () {
         ->get('/__test/campaign-gate')
         ->assertOk();
 });
+
+it('shows the campaign teaser to authed users without campaign access', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('campaigns.preview'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Campaigns/Teaser'));
+});
+
+it('shows the campaign teaser to anonymous visitors too (no auth required)', function () {
+    // Teaser is intentionally outside the campaign.access middleware so
+    // unauthenticated traffic can land on it from external marketing.
+    $this->get(route('campaigns.preview'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Campaigns/Teaser'));
+});
+
+it('redirects users with campaign access from the teaser to the live index', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(PermissionEnum::UseCampaignMode->value);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.preview'))
+        ->assertRedirect(route('campaigns.index'));
+});

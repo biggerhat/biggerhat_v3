@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\PermissionEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;

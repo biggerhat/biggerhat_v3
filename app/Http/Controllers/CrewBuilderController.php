@@ -13,6 +13,7 @@ use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class CrewBuilderController extends Controller
 {
@@ -221,9 +222,7 @@ class CrewBuilderController extends Controller
 
     public function update(Request $request, CrewBuild $crewBuild)
     {
-        if (Auth::id() !== $crewBuild->user_id) {
-            abort(403);
-        }
+        $this->authorize('update', $crewBuild);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -257,9 +256,7 @@ class CrewBuilderController extends Controller
 
     public function destroy(CrewBuild $crewBuild)
     {
-        if (Auth::id() !== $crewBuild->user_id) {
-            abort(403);
-        }
+        $this->authorize('delete', $crewBuild);
 
         $crewBuild->delete();
 
@@ -268,9 +265,7 @@ class CrewBuilderController extends Controller
 
     public function details(CrewBuild $crewBuild)
     {
-        if (Auth::id() !== $crewBuild->user_id) {
-            abort(403);
-        }
+        $this->authorize('view', $crewBuild);
 
         $master = Character::with(['keywords', 'crewUpgrades.keywords', 'totem'])
             ->find($crewBuild->master_id);
@@ -475,8 +470,10 @@ class CrewBuilderController extends Controller
         /** @var CrewBuild $build */
         $build = CrewBuild::where('share_code', $shareCode)->firstOrFail();
 
-        // Private builds are only viewable by their owner
-        if (! $build->is_public && Auth::id() !== $build->user_id) {
+        // Private builds are only viewable by their owner. CrewBuildPolicy::viewShare
+        // returns true when the build is public OR the viewer owns it; we render
+        // the Private placeholder for the fallback rather than aborting outright.
+        if (! Gate::allows('viewShare', $build)) {
             return inertia('Tools/CrewBuilder/Private');
         }
 
@@ -524,7 +521,7 @@ class CrewBuilderController extends Controller
     {
         $build = CrewBuild::where('share_code', $shareCode)->firstOrFail();
 
-        if (! $build->is_public && Auth::id() !== $build->user_id) {
+        if (! Gate::allows('viewShare', $build)) {
             abort(404);
         }
 

@@ -2,8 +2,8 @@
 
 namespace Database\Factories\Campaign;
 
-use App\Enums\CampaignPlayerRoleEnum;
-use App\Enums\CampaignStatusEnum;
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\User;

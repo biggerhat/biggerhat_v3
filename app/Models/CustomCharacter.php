@@ -50,7 +50,32 @@ class CustomCharacter extends Model
             'current' => 'boolean',
             'annihilated_at' => 'datetime',
             'replaced_at' => 'datetime',
+            'xp_track' => 'array',
         ];
+    }
+
+    /**
+     * Canonical 27-box Leadership Experience chart (rulebook pg 31, 13 + 7 + 7).
+     * Tier numbers per the printed track; a null tier means the XP point is
+     * earned without triggering an advancement at that position. Used to lazy-
+     * initialize a leader's `xp_track` column on first read.
+     *
+     * @return array<int, array{index: int, filled: bool, tier: int|null}>
+     */
+    public static function defaultXpTrack(): array
+    {
+        $row1 = [1, 1, 2, null, 3, null, 4, null, 1, null, 2, null, 4];
+        $row2 = [null, null, 1, null, 2, 1, null];
+        $row3 = [null, null, null, 1, null, 2, 4];
+
+        $track = [];
+        $index = 0;
+        foreach (array_merge($row1, $row2, $row3) as $tier) {
+            $track[] = ['index' => $index, 'filled' => false, 'tier' => $tier];
+            $index++;
+        }
+
+        return $track;
     }
 
     protected $appends = [

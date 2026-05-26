@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Game;
 
 use App\Enums\GameStatusEnum;
 use App\Enums\TournamentGameResultEnum;
@@ -8,6 +8,7 @@ use App\Events\GameCrewMemberUpdated;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;

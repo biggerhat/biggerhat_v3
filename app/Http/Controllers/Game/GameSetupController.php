@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Game;
 
 use App\Enums\CharacterStationEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\SubmitCrewRequest;
 use App\Http\Requests\Games\SubmitFactionRequest;
 use App\Http\Requests\Games\SubmitMasterRequest;

@@ -26,9 +26,9 @@ use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\GameController;
-use App\Http\Controllers\GamePlayController;
-use App\Http\Controllers\GameSetupController;
+use App\Http\Controllers\Game\GameController;
+use App\Http\Controllers\Game\GamePlayController;
+use App\Http\Controllers\Game\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
@@ -37,13 +37,13 @@ use App\Http\Controllers\RandomCharacterController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
-use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\WishlistController;
 use App\Models\BlogPost;
@@ -408,7 +408,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
     Route::post('/{tournament}/games/{game}/complete-tracker', [TournamentGameController::class, 'completeTrackerGame'])->name('games.complete_tracker');
-    Route::get('/{tournament}/export.csv', [\App\Http\Controllers\TournamentController::class, 'exportCsv'])->name('export_csv');
+    Route::get('/{tournament}/export.csv', [\App\Http\Controllers\Tournament\TournamentController::class, 'exportCsv'])->name('export_csv');
 });
 
 Route::prefix('collection')->name('collection.')->group(function () {

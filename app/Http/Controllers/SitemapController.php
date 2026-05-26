@@ -11,11 +11,9 @@ use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use App\Models\Keyword;
 use App\Models\Lore;
-use App\Models\Marker;
 use App\Models\Package;
 use App\Models\Scheme;
 use App\Models\Strategy;
-use App\Models\Token;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
@@ -105,11 +103,11 @@ class SitemapController extends Controller
                     }
                 });
 
-            // Keyword / Marker / Token / Upgrade / Package / Blueprint / Lore /
-            // Scheme / Strategy / Channel — generic entity walks.
+            // Keyword / Upgrade / Package / Blueprint / Lore / Scheme / Strategy /
+            // Channel — generic entity walks. Markers and Tokens are skipped —
+            // they only have index pages (no per-row view route), so they're
+            // already covered by the static URLs section above.
             $this->collectByModel($urls, Keyword::class, 'keywords.view', 'slug', priority: '0.7');
-            $this->collectByModel($urls, Marker::class, 'markers.view', 'slug', priority: '0.5');
-            $this->collectByModel($urls, Token::class, 'tokens.view', 'slug', priority: '0.5');
             $this->collectByModel($urls, Upgrade::class, 'upgrades.view', 'slug', priority: '0.7');
             $this->collectByModel($urls, Package::class, 'packages.view', 'slug', priority: '0.6');
             $this->collectByModel($urls, Blueprint::class, 'blueprints.view', 'slug', priority: '0.6');

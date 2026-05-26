@@ -22,6 +22,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Support\CampaignAccess;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -74,12 +75,21 @@ class GameController extends Controller
             'label' => $s->label(),
         ]);
 
-        $formats = collect(\App\Enums\GameFormatEnum::cases())->map(fn (\App\Enums\GameFormatEnum $f) => [
-            'value' => $f->value,
-            'label' => $f->label(),
-            'default_encounter_size' => $f->defaultEncounterSize(),
-            'uses_scenario' => $f->usesScenario(),
-        ]);
+        // Campaign format is only available to users who can access the
+        // wrapping Campaign Mode UI — a standalone Campaign-format Game with
+        // no campaign_games wrapper isn't meaningful. Mirrors the
+        // CampaignAccess::canUse() gate used by the campaign.access middleware.
+        $canUseCampaign = CampaignAccess::canUse(request()->user());
+
+        $formats = collect(\App\Enums\GameFormatEnum::cases())
+            ->reject(fn (\App\Enums\GameFormatEnum $f) => $f === \App\Enums\GameFormatEnum::Campaign && ! $canUseCampaign)
+            ->map(fn (\App\Enums\GameFormatEnum $f) => [
+                'value' => $f->value,
+                'label' => $f->label(),
+                'default_encounter_size' => $f->defaultEncounterSize(),
+                'uses_scenario' => $f->usesScenario(),
+            ])
+            ->values();
 
         return inertia('Games/Create', [
             'seasons' => $seasons,

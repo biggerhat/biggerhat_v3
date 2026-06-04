@@ -27,54 +27,54 @@ return new class extends Migration
         // ──────────────────────────────────────────────────────────────
         Schema::table('abilities', function (Blueprint $table) {
             // Advancement gating (from advancement_ability)
-            $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description');
-            $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value');
-            $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available');
+            $this->addColumnIfMissing($table, 'abilities', 'campaign_flip_value', fn () => $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description'));
+            $this->addColumnIfMissing($table, 'abilities', 'campaign_is_always_available', fn () => $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value'));
+            $this->addColumnIfMissing($table, 'abilities', 'campaign_joker_freechoice', fn () => $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available'));
 
             // Crew Card effect classification (from crew_card_effects)
-            $table->boolean('is_crew_card_effect')->default(false)->after('campaign_joker_freechoice');
-            $table->boolean('requires_token_choice')->default(false)->after('is_crew_card_effect');
-            $table->boolean('requires_marker_choice')->default(false)->after('requires_token_choice');
-            $table->boolean('requires_upgrade_type_choice')->default(false)->after('requires_marker_choice');
+            $this->addColumnIfMissing($table, 'abilities', 'is_crew_card_effect', fn () => $table->boolean('is_crew_card_effect')->default(false)->after('campaign_joker_freechoice'));
+            $this->addColumnIfMissing($table, 'abilities', 'requires_token_choice', fn () => $table->boolean('requires_token_choice')->default(false)->after('is_crew_card_effect'));
+            $this->addColumnIfMissing($table, 'abilities', 'requires_marker_choice', fn () => $table->boolean('requires_marker_choice')->default(false)->after('requires_token_choice'));
+            $this->addColumnIfMissing($table, 'abilities', 'requires_upgrade_type_choice', fn () => $table->boolean('requires_upgrade_type_choice')->default(false)->after('requires_marker_choice'));
 
-            $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_ab_mode_flip');
-            $table->index(['game_mode_type', 'is_crew_card_effect'], 'idx_ab_mode_crew_card');
+            $this->addIndexIfMissing($table, 'abilities', 'idx_ab_mode_flip', fn () => $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_ab_mode_flip'));
+            $this->addIndexIfMissing($table, 'abilities', 'idx_ab_mode_crew_card', fn () => $table->index(['game_mode_type', 'is_crew_card_effect'], 'idx_ab_mode_crew_card'));
         });
 
         // ──────────────────────────────────────────────────────────────
         // actions — absorbs advancement_action + summoning_advancement_catalog
         // ──────────────────────────────────────────────────────────────
         Schema::table('actions', function (Blueprint $table) {
-            $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description');
-            $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value');
-            $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available');
-            $table->boolean('campaign_grants_signature')->default(false)->after('campaign_joker_freechoice');
+            $this->addColumnIfMissing($table, 'actions', 'campaign_flip_value', fn () => $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description'));
+            $this->addColumnIfMissing($table, 'actions', 'campaign_is_always_available', fn () => $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value'));
+            $this->addColumnIfMissing($table, 'actions', 'campaign_joker_freechoice', fn () => $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available'));
+            $this->addColumnIfMissing($table, 'actions', 'campaign_grants_signature', fn () => $table->boolean('campaign_grants_signature')->default(false)->after('campaign_joker_freechoice'));
             // 'attack' | 'tactical' | 'summoning' — disambiguates which Aftermath
             // advancement picker the row feeds.
-            $table->string('campaign_advancement_kind', 24)->nullable()->after('campaign_grants_signature');
+            $this->addColumnIfMissing($table, 'actions', 'campaign_advancement_kind', fn () => $table->string('campaign_advancement_kind', 24)->nullable()->after('campaign_grants_signature'));
 
-            $table->index(['game_mode_type', 'campaign_advancement_kind'], 'idx_ac_mode_kind');
-            $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_ac_mode_flip');
+            $this->addIndexIfMissing($table, 'actions', 'idx_ac_mode_kind', fn () => $table->index(['game_mode_type', 'campaign_advancement_kind'], 'idx_ac_mode_kind'));
+            $this->addIndexIfMissing($table, 'actions', 'idx_ac_mode_flip', fn () => $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_ac_mode_flip'));
         });
 
         // ──────────────────────────────────────────────────────────────
         // triggers — absorbs advancement_attack_mod + advancement_tactical_mod
         // ──────────────────────────────────────────────────────────────
         Schema::table('triggers', function (Blueprint $table) {
-            $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description');
-            $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value');
-            $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available');
-            $table->boolean('campaign_grants_signature')->default(false)->after('campaign_joker_freechoice');
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_flip_value', fn () => $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('description'));
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_is_always_available', fn () => $table->boolean('campaign_is_always_available')->default(false)->after('campaign_flip_value'));
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_joker_freechoice', fn () => $table->boolean('campaign_joker_freechoice')->default(false)->after('campaign_is_always_available'));
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_grants_signature', fn () => $table->boolean('campaign_grants_signature')->default(false)->after('campaign_joker_freechoice'));
             // 'trigger' (regular new trigger), 'skl' (Skl boost), 'signature',
             // 'joker' (free-choice). Matches the old `advancement_*` modifier_type column.
-            $table->string('campaign_modifier_type', 16)->nullable()->after('campaign_grants_signature');
-            $table->unsignedTinyInteger('campaign_skl_from')->nullable()->after('campaign_modifier_type');
-            $table->unsignedTinyInteger('campaign_skl_to')->nullable()->after('campaign_skl_from');
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_modifier_type', fn () => $table->string('campaign_modifier_type', 16)->nullable()->after('campaign_grants_signature'));
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_skl_from', fn () => $table->unsignedTinyInteger('campaign_skl_from')->nullable()->after('campaign_modifier_type'));
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_skl_to', fn () => $table->unsignedTinyInteger('campaign_skl_to')->nullable()->after('campaign_skl_from'));
             // 'attack' vs 'tactical' — which advancement picker.
-            $table->string('campaign_advancement_kind', 24)->nullable()->after('campaign_skl_to');
+            $this->addColumnIfMissing($table, 'triggers', 'campaign_advancement_kind', fn () => $table->string('campaign_advancement_kind', 24)->nullable()->after('campaign_skl_to'));
 
-            $table->index(['game_mode_type', 'campaign_advancement_kind'], 'idx_tr_mode_kind');
-            $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_tr_mode_flip');
+            $this->addIndexIfMissing($table, 'triggers', 'idx_tr_mode_kind', fn () => $table->index(['game_mode_type', 'campaign_advancement_kind'], 'idx_tr_mode_kind'));
+            $this->addIndexIfMissing($table, 'triggers', 'idx_tr_mode_flip', fn () => $table->index(['game_mode_type', 'campaign_flip_value'], 'idx_tr_mode_flip'));
         });
 
         // ──────────────────────────────────────────────────────────────
@@ -83,47 +83,47 @@ return new class extends Migration
         Schema::table('upgrades', function (Blueprint $table) {
             // Discriminator — 'equipment' vs 'injury' (the two distinct upgrade
             // kinds Campaign Mode introduces). Null for Standard upgrades.
-            $table->string('campaign_upgrade_kind', 24)->nullable()->after('description');
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_upgrade_kind', fn () => $table->string('campaign_upgrade_kind', 24)->nullable()->after('description'));
 
             // Equipment-specific columns (from equipment_catalog)
-            $table->unsignedTinyInteger('campaign_br')->nullable()->after('campaign_upgrade_kind');
-            $table->unsignedTinyInteger('campaign_cc')->nullable()->after('campaign_br');
-            $table->string('campaign_pool_suit_a', 12)->nullable()->after('campaign_cc');
-            $table->string('campaign_pool_suit_b', 12)->nullable()->after('campaign_pool_suit_a');
-            $table->boolean('campaign_is_always_available')->default(false)->after('campaign_pool_suit_b');
-            $table->boolean('campaign_ttw_only')->default(false)->after('campaign_is_always_available');
-            $table->boolean('campaign_is_omens_mark')->default(false)->after('campaign_ttw_only');
-            $table->boolean('campaign_is_unique')->default(false)->after('campaign_is_omens_mark');
-            $table->boolean('campaign_leader_only')->default(false)->after('campaign_is_unique');
-            $table->boolean('campaign_non_unique_only')->default(false)->after('campaign_leader_only');
-            $table->boolean('campaign_annihilate_after_game')->default(false)->after('campaign_non_unique_only');
-            $table->boolean('campaign_is_red_joker_entry')->default(false)->after('campaign_annihilate_after_game');
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_br', fn () => $table->unsignedTinyInteger('campaign_br')->nullable()->after('campaign_upgrade_kind'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_cc', fn () => $table->unsignedTinyInteger('campaign_cc')->nullable()->after('campaign_br'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_pool_suit_a', fn () => $table->string('campaign_pool_suit_a', 12)->nullable()->after('campaign_cc'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_pool_suit_b', fn () => $table->string('campaign_pool_suit_b', 12)->nullable()->after('campaign_pool_suit_a'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_always_available', fn () => $table->boolean('campaign_is_always_available')->default(false)->after('campaign_pool_suit_b'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_ttw_only', fn () => $table->boolean('campaign_ttw_only')->default(false)->after('campaign_is_always_available'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_omens_mark', fn () => $table->boolean('campaign_is_omens_mark')->default(false)->after('campaign_ttw_only'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_unique', fn () => $table->boolean('campaign_is_unique')->default(false)->after('campaign_is_omens_mark'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_leader_only', fn () => $table->boolean('campaign_leader_only')->default(false)->after('campaign_is_unique'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_non_unique_only', fn () => $table->boolean('campaign_non_unique_only')->default(false)->after('campaign_leader_only'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_annihilate_after_game', fn () => $table->boolean('campaign_annihilate_after_game')->default(false)->after('campaign_non_unique_only'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_red_joker_entry', fn () => $table->boolean('campaign_is_red_joker_entry')->default(false)->after('campaign_annihilate_after_game'));
 
             // Injury-specific columns (from injury_catalog)
-            $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('campaign_is_red_joker_entry');
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_flip_value', fn () => $table->unsignedTinyInteger('campaign_flip_value')->nullable()->after('campaign_is_red_joker_entry'));
             // 'pc' | 'te' | 'black_joker' | 'red_joker'
-            $table->string('campaign_suit_pool', 16)->nullable()->after('campaign_flip_value');
-            $table->boolean('campaign_is_traitor')->default(false)->after('campaign_suit_pool');
-            $table->boolean('campaign_is_close_call')->default(false)->after('campaign_is_traitor');
-            $table->boolean('campaign_annihilates_model')->default(false)->after('campaign_is_close_call');
-            $table->boolean('campaign_reflip_if_no_triggers')->default(false)->after('campaign_annihilates_model');
-            $table->boolean('campaign_reflip_if_master_or_totem')->default(false)->after('campaign_reflip_if_no_triggers');
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_suit_pool', fn () => $table->string('campaign_suit_pool', 16)->nullable()->after('campaign_flip_value'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_traitor', fn () => $table->boolean('campaign_is_traitor')->default(false)->after('campaign_suit_pool'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_is_close_call', fn () => $table->boolean('campaign_is_close_call')->default(false)->after('campaign_is_traitor'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_annihilates_model', fn () => $table->boolean('campaign_annihilates_model')->default(false)->after('campaign_is_close_call'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_reflip_if_no_triggers', fn () => $table->boolean('campaign_reflip_if_no_triggers')->default(false)->after('campaign_annihilates_model'));
+            $this->addColumnIfMissing($table, 'upgrades', 'campaign_reflip_if_master_or_totem', fn () => $table->boolean('campaign_reflip_if_master_or_totem')->default(false)->after('campaign_reflip_if_no_triggers'));
 
-            $table->index(['game_mode_type', 'campaign_upgrade_kind'], 'idx_up_mode_kind');
-            $table->index(['game_mode_type', 'campaign_upgrade_kind', 'campaign_br'], 'idx_up_mode_kind_br');
-            $table->index(['game_mode_type', 'campaign_upgrade_kind', 'campaign_flip_value'], 'idx_up_mode_kind_flip');
-            $table->index(['campaign_pool_suit_a', 'campaign_pool_suit_b'], 'idx_up_camp_pools');
+            $this->addIndexIfMissing($table, 'upgrades', 'idx_up_mode_kind', fn () => $table->index(['game_mode_type', 'campaign_upgrade_kind'], 'idx_up_mode_kind'));
+            $this->addIndexIfMissing($table, 'upgrades', 'idx_up_mode_kind_br', fn () => $table->index(['game_mode_type', 'campaign_upgrade_kind', 'campaign_br'], 'idx_up_mode_kind_br'));
+            $this->addIndexIfMissing($table, 'upgrades', 'idx_up_mode_kind_flip', fn () => $table->index(['game_mode_type', 'campaign_upgrade_kind', 'campaign_flip_value'], 'idx_up_mode_kind_flip'));
+            $this->addIndexIfMissing($table, 'upgrades', 'idx_up_camp_pools', fn () => $table->index(['campaign_pool_suit_a', 'campaign_pool_suit_b'], 'idx_up_camp_pools'));
         });
     }
 
     public function down(): void
     {
         Schema::table('upgrades', function (Blueprint $table) {
-            $table->dropIndex('idx_up_camp_pools');
-            $table->dropIndex('idx_up_mode_kind_flip');
-            $table->dropIndex('idx_up_mode_kind_br');
-            $table->dropIndex('idx_up_mode_kind');
-            $table->dropColumn([
+            $this->dropIndexIfExists($table, 'upgrades', 'idx_up_camp_pools');
+            $this->dropIndexIfExists($table, 'upgrades', 'idx_up_mode_kind_flip');
+            $this->dropIndexIfExists($table, 'upgrades', 'idx_up_mode_kind_br');
+            $this->dropIndexIfExists($table, 'upgrades', 'idx_up_mode_kind');
+            $this->dropColumnsIfExist($table, 'upgrades', [
                 'campaign_upgrade_kind',
                 'campaign_br', 'campaign_cc',
                 'campaign_pool_suit_a', 'campaign_pool_suit_b',
@@ -137,9 +137,9 @@ return new class extends Migration
         });
 
         Schema::table('triggers', function (Blueprint $table) {
-            $table->dropIndex('idx_tr_mode_flip');
-            $table->dropIndex('idx_tr_mode_kind');
-            $table->dropColumn([
+            $this->dropIndexIfExists($table, 'triggers', 'idx_tr_mode_flip');
+            $this->dropIndexIfExists($table, 'triggers', 'idx_tr_mode_kind');
+            $this->dropColumnsIfExist($table, 'triggers', [
                 'campaign_flip_value', 'campaign_is_always_available', 'campaign_joker_freechoice',
                 'campaign_grants_signature', 'campaign_modifier_type',
                 'campaign_skl_from', 'campaign_skl_to', 'campaign_advancement_kind',
@@ -147,22 +147,62 @@ return new class extends Migration
         });
 
         Schema::table('actions', function (Blueprint $table) {
-            $table->dropIndex('idx_ac_mode_flip');
-            $table->dropIndex('idx_ac_mode_kind');
-            $table->dropColumn([
+            $this->dropIndexIfExists($table, 'actions', 'idx_ac_mode_flip');
+            $this->dropIndexIfExists($table, 'actions', 'idx_ac_mode_kind');
+            $this->dropColumnsIfExist($table, 'actions', [
                 'campaign_flip_value', 'campaign_is_always_available', 'campaign_joker_freechoice',
                 'campaign_grants_signature', 'campaign_advancement_kind',
             ]);
         });
 
         Schema::table('abilities', function (Blueprint $table) {
-            $table->dropIndex('idx_ab_mode_crew_card');
-            $table->dropIndex('idx_ab_mode_flip');
-            $table->dropColumn([
+            $this->dropIndexIfExists($table, 'abilities', 'idx_ab_mode_crew_card');
+            $this->dropIndexIfExists($table, 'abilities', 'idx_ab_mode_flip');
+            $this->dropColumnsIfExist($table, 'abilities', [
                 'campaign_flip_value', 'campaign_is_always_available', 'campaign_joker_freechoice',
                 'is_crew_card_effect',
                 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice',
             ]);
         });
+    }
+
+    /**
+     * Register a column on the blueprint only if it doesn't already exist —
+     * makes a partial / re-run of this migration idempotent.
+     */
+    private function addColumnIfMissing(Blueprint $table, string $tableName, string $column, callable $define): void
+    {
+        if (! Schema::hasColumn($tableName, $column)) {
+            $define();
+        }
+    }
+
+    /**
+     * Register an index on the blueprint only if it doesn't already exist.
+     */
+    private function addIndexIfMissing(Blueprint $table, string $tableName, string $index, callable $define): void
+    {
+        if (! Schema::hasIndex($tableName, $index)) {
+            $define();
+        }
+    }
+
+    private function dropIndexIfExists(Blueprint $table, string $tableName, string $index): void
+    {
+        if (Schema::hasIndex($tableName, $index)) {
+            $table->dropIndex($index);
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $columns
+     */
+    private function dropColumnsIfExist(Blueprint $table, string $tableName, array $columns): void
+    {
+        $existing = array_filter($columns, fn (string $column) => Schema::hasColumn($tableName, $column));
+
+        if ($existing !== []) {
+            $table->dropColumn(array_values($existing));
+        }
     }
 };

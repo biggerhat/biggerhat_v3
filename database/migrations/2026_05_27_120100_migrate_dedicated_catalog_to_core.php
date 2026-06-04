@@ -553,6 +553,7 @@ return new class extends Migration
         return (int) DB::table('users')->insertGetId([
             'name' => 'System (Totem Templates)',
             'email' => $email,
+            'slug' => Str::slug('System (Totem Templates)'),
             'password' => bcrypt(Str::random(40)),
             'email_verified_at' => now(),
             'created_at' => now(),

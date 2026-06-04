@@ -23,7 +23,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('campaign_leader_advancements', function (Blueprint $table) {
-            $table->unsignedBigInteger('from_equipment_id')->nullable()->after('catalog_core_id');
+            $table->unsignedBigInteger('from_equipment_id')->nullable();
             $table->index('from_equipment_id', 'idx_cla_from_equipment');
         });
     }

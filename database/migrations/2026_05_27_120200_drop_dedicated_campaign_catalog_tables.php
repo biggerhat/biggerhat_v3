@@ -49,6 +49,16 @@ return new class extends Migration
             });
         }
 
+        // campaign_aftermath_injury.resulting_injury_id FKs to injury_catalog.
+        // Drop the constraint before injury_catalog goes; the column itself
+        // is no longer read by app code so we drop it too.
+        $this->tryDropForeign('campaign_aftermath_injury', ['resulting_injury_id']);
+        if (Schema::hasColumn('campaign_aftermath_injury', 'resulting_injury_id')) {
+            Schema::table('campaign_aftermath_injury', function (Blueprint $table) {
+                $table->dropColumn('resulting_injury_id');
+            });
+        }
+
         // campaign_leader_advancements.catalog_id was polymorphic — no FK to
         // drop. There's a composite index on (source_table, catalog_id) that
         // must be dropped before the column can go.

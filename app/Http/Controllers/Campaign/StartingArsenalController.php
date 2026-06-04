@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
+use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CrewCardEffect;
 use App\Models\Character;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
@@ -45,8 +46,11 @@ class StartingArsenalController extends Controller
             'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id', 'scrip', 'crew_card_effect_id']),
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
-            'crew_card_effects' => fn () => CrewCardEffect::orderBy('name')
-                ->get(['id', 'name', 'body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
+            'crew_card_effects' => fn () => Ability::query()
+                ->where('is_crew_card_effect', true)
+                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                ->orderBy('name')
+                ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
             'locked' => $campaign->status !== CampaignStatusEnum::Planning,
@@ -168,7 +172,13 @@ class StartingArsenalController extends Controller
             // Standard scope filters out non-standard mode content, but campaign
             // hires draw from standard characters (the M4E catalog).
             ->standard()
+            // Pg 15: the Leader IS the master, built separately. Pg 52: Totems
+            // only enter the arsenal via a Tier-3 Totem Advancement. Neither
+            // station should appear in the starting-arsenal hireable pool.
+            // Masters filter on the station column directly; totems are
+            // identified by being referenced as some master's `has_totem_id`.
             ->whereNotIn('station', [CharacterStationEnum::Master->value])
+            ->whereDoesntHave('isTotemFor')
             ->whereNotNull('cost')
             ->where('cost', '>', 0)
             ->when(! empty($keywordIds) && $crew->faction !== null, function ($q) use ($keywordIds, $crew) {

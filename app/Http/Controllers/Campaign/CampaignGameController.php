@@ -60,7 +60,7 @@ class CampaignGameController extends Controller
             'my_crew' => $myCrew,
             'opponents' => $opponents,
             'my_arsenal_ss' => $myCrew ? $this->arsenalSs($myCrew) : 0,
-            'my_cr' => $myCrew ? CampaignRules::campaignRating(0, 0, 0) : 0,
+            'my_cr' => $myCrew?->campaignRating() ?? 0,
         ]);
     }
 
@@ -101,11 +101,13 @@ class CampaignGameController extends Controller
         $arsenalB = $this->arsenalSs($opponentCrew);
         $encounterSize = CampaignRules::maxEncounterSize($arsenalA, $arsenalB);
 
-        // CR / ss-bonus placeholders (Phase 9 brings equipment + advancements
-        // online; the formulas already exist).
-        $crA = CampaignRules::campaignRating(0, 0, 0);
-        $crB = CampaignRules::campaignRating(0, 0, 0);
-        $ssBonus = CampaignRules::ssPoolBonusForLower($crA, $crB);
+        $crA = $myCrew->campaignRating();
+        $crB = $opponentCrew->campaignRating();
+        // Bonus goes to the LOWER-rated crew (pg 19). We store ssBonus as the
+        // amount, with the receiving crew determined at use-site by comparing crA/crB.
+        $ssBonus = $crA <= $crB
+            ? CampaignRules::ssPoolBonusForLower($crA, $crB)
+            : CampaignRules::ssPoolBonusForLower($crB, $crA);
 
         // Generate scenario triple just like the standard flow (pg 19 — campaign
         // games use scenario).
@@ -200,7 +202,7 @@ class CampaignGameController extends Controller
             'campaign' => $campaign->only(['id', 'name', 'status', 'current_week', 'length_weeks', 'is_solo']),
             'my_crew' => $myCrew,
             'my_arsenal_ss' => $this->arsenalSs($myCrew),
-            'my_cr' => CampaignRules::campaignRating(0, 0, 0),
+            'my_cr' => $myCrew->campaignRating(),
         ]);
     }
 
@@ -236,7 +238,7 @@ class CampaignGameController extends Controller
             ['name' => $request->user()->name."'s Crew"],
         );
 
-        $crA = CampaignRules::campaignRating(0, 0, 0);
+        $crA = $myCrew->campaignRating();
         $arsenalA = $this->arsenalSs($myCrew);
         // Solo games skip the encounter-size negotiation. Use the arsenal size
         // directly so downstream UI has a reasonable number for the record.

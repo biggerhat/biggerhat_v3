@@ -68,12 +68,12 @@ class ArsenalSheetController extends Controller
         $leader = $crew->leader;
         $totem = $crew->totem;
 
-        // Campaign Rating placeholder — equipment + advancements aren't tracked
-        // yet (Phases 8–9), but we expose the formula now so the UI shape stays
-        // stable once those land.
-        $equipmentCount = 0;
-        $advancementCount = 0;
-        $injuryCount = 0;
+        // Campaign Rating (pg 19): equipment + leader/totem advancements − injuries.
+        // All three counters come from the consolidated post-refactor sources:
+        // campaign_equipment, campaign_leader_advancements, campaign_arsenal_model_injuries.
+        $equipmentCount = $crew->activeEquipmentCount();
+        $advancementCount = $crew->activeLeaderAdvancementCount();
+        $injuryCount = $crew->activeInjuryCount();
         $cr = CampaignRules::campaignRating($equipmentCount, $advancementCount, $injuryCount);
 
         return inertia('Campaigns/ArsenalSheet', [

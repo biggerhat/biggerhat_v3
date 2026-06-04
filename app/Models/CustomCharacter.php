@@ -46,11 +46,29 @@ class CustomCharacter extends Model
             // ints and trips equality comparisons.
             'is_campaign_leader' => 'boolean',
             'is_campaign_totem' => 'boolean',
+            'is_campaign_totem_template' => 'boolean',
+            'is_campaign_black_joker_totem' => 'boolean',
+            'is_campaign_red_joker_totem' => 'boolean',
+            'campaign_is_black_joker_totem' => 'boolean',
+            'campaign_is_red_joker_totem' => 'boolean',
+            'campaign_totem_special_replace' => 'boolean',
+            'campaign_is_mini_master' => 'boolean',
             'miraculous_recovery_used' => 'boolean',
             'current' => 'boolean',
             'annihilated_at' => 'datetime',
             'replaced_at' => 'datetime',
             'xp_track' => 'array',
+            // Integer casts on campaign-mode stat columns. SQLite returns
+            // strings for numeric columns by default, which trips comparison
+            // operators (e.g. campaign_totem_flip_value === $flipped). Cast
+            // them explicitly so reads return PHP ints.
+            'campaign_health' => 'integer',
+            'campaign_df' => 'integer',
+            'campaign_wp' => 'integer',
+            'campaign_sp' => 'integer',
+            'campaign_size' => 'integer',
+            'campaign_br' => 'integer',
+            'campaign_totem_flip_value' => 'integer',
         ];
     }
 

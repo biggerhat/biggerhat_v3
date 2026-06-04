@@ -112,52 +112,75 @@ const adminGroups: AdminNavGroup[] = [
         // M4E Campaign Mode (Index of the Untold) catalog admin. Whole section is
         // additionally gated below on `campaign_features_enabled` so it stays
         // hidden while the feature is pre-release.
+        //
+        // Post Catalog Consolidation: equipment / injuries / crew card effects /
+        // advancement-* / summoning / totems all live on the core catalog
+        // (upgrades / abilities / actions / triggers / custom_characters with
+        // game_mode_type='campaign'). The links below are filtered shortcuts
+        // into the core admin pages. Only flip-value lookup tables with no
+        // core analog (Lucky Miss / Back-Alley Doctor / Weekly Events) retain
+        // their dedicated admin.
         title: 'Campaign — Catalog',
         items: [
             {
                 title: 'Crew Card Effects',
-                href: route('admin.campaign.crew-card-effects.index'),
+                href: route('admin.abilities.index') + '?game_mode=campaign&crew_card=1',
                 icon: ArrowUpCircle,
                 permission: 'view_campaign_catalog',
             },
-            { title: 'Equipment', href: route('admin.campaign.equipment.index'), icon: Package, permission: 'view_campaign_catalog' },
-            { title: 'Injuries', href: route('admin.campaign.injuries.index'), icon: AlertTriangle, permission: 'view_campaign_catalog' },
-            { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
             {
-                title: 'Back-Alley Doctor',
-                href: route('admin.campaign.back-alley-doctor.index'),
-                icon: Activity,
+                title: 'Equipment',
+                href: route('admin.upgrades.index') + '?game_mode=campaign&campaign_upgrade_kind=equipment',
+                icon: Package,
                 permission: 'view_campaign_catalog',
             },
             {
-                title: 'Advancement — Attack',
-                href: route('admin.campaign.advancement-attack-mod.index'),
+                title: 'Injuries',
+                href: route('admin.upgrades.index') + '?game_mode=campaign&campaign_upgrade_kind=injury',
+                icon: AlertTriangle,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Advancement — Attack Mod',
+                href: route('admin.triggers.index') + '?game_mode=campaign&campaign_advancement_kind=attack',
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
-                title: 'Advancement — Tactical',
-                href: route('admin.campaign.advancement-tactical-mod.index'),
+                title: 'Advancement — Tactical Mod',
+                href: route('admin.triggers.index') + '?game_mode=campaign&campaign_advancement_kind=tactical',
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
                 title: 'Advancement — Action',
-                href: route('admin.campaign.advancement-action.index'),
+                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=action',
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
                 title: 'Advancement — Ability',
-                href: route('admin.campaign.advancement-ability.index'),
+                href: route('admin.abilities.index') + '?game_mode=campaign&crew_card=0',
                 icon: Shield,
                 permission: 'view_campaign_catalog',
             },
-            { title: 'Totems', href: route('admin.campaign.totems.index'), icon: Puzzle, permission: 'view_campaign_catalog' },
             {
                 title: 'Summoning Advancements',
-                href: route('admin.campaign.summoning-advancements.index'),
+                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=summoning',
                 icon: Puzzle,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Totem Templates',
+                href: route('admin.custom_cards.index') + '?kind=character&is_campaign_totem_template=1',
+                icon: Puzzle,
+                permission: 'view_campaign_catalog',
+            },
+            { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
+            {
+                title: 'Back-Alley Doctor',
+                href: route('admin.campaign.back-alley-doctor.index'),
+                icon: Activity,
                 permission: 'view_campaign_catalog',
             },
             { title: 'Weekly Events', href: route('admin.campaign.weekly-events.index'), icon: Newspaper, permission: 'view_campaign_catalog' },

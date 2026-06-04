@@ -4,11 +4,11 @@ use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
+use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignPlayer;
-use App\Models\Campaign\CrewCardEffect;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
@@ -46,7 +46,7 @@ function freshCrewWithKeyword(User $user, Keyword $kw): CampaignCrew
 }
 
 it('renders the Starting Arsenal page for the crew owner', function () {
-    CrewCardEffect::factory()->create();
+    Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -62,7 +62,7 @@ it('renders the Starting Arsenal page for the crew owner', function () {
 });
 
 it('blocks non-owner from the wizard', function () {
-    CrewCardEffect::factory()->create();
+    Ability::factory()->crewCardEffect()->create();
     $owner = arsenalUser();
     $other = arsenalUser();
     $kw = Keyword::factory()->create();
@@ -74,7 +74,7 @@ it('blocks non-owner from the wizard', function () {
 });
 
 it('saves arsenal models + crew card effect + computed scrip', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -111,7 +111,7 @@ it('saves arsenal models + crew card effect + computed scrip', function () {
 });
 
 it('caps leftover scrip at 3 even with tiny arsenal', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -130,7 +130,7 @@ it('caps leftover scrip at 3 even with tiny arsenal', function () {
 });
 
 it('rejects over-budget hires', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -151,7 +151,7 @@ it('rejects over-budget hires', function () {
 });
 
 it('refuses to save out-of-keyword non-versatile models', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -172,7 +172,7 @@ it('refuses to save out-of-keyword non-versatile models', function () {
 });
 
 it('allows Versatile-in-faction even when not in-keyword', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
@@ -194,7 +194,7 @@ it('allows Versatile-in-faction even when not in-keyword', function () {
 });
 
 it('locks once the campaign is active', function () {
-    $effect = CrewCardEffect::factory()->create();
+    $effect = Ability::factory()->crewCardEffect()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);

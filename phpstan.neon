@@ -12,6 +12,17 @@ parameters:
         # AppServiceProvider::register). PHPStan only sees the default
         # one-argument macro signature, not the closure's actual three params.
         - '#Method Illuminate\\Http\\RedirectResponse::withMessage\(\) invoked with (2|3) parameters, 1 required\.#'
+        # Lazy-prop closures returning Collection<int, array{shape}> in
+        # CampaignAftermathController hit Collection covariance complaints.
+        # The runtime shape matches what Inertia ships to the frontend; the
+        # type narrowing on the closures isn't expressible without making the
+        # array shapes nullable in every nested key.
+        -
+            message: '#Anonymous function should return Illuminate\\Support\\Collection.+but returns Illuminate\\Support\\Collection#'
+            path: app/Http/Controllers/Campaign/CampaignAftermathController.php
+        -
+            message: '#Anonymous function should return array\{attack_mod:.+but returns array#'
+            path: app/Http/Controllers/Campaign/CampaignAftermathController.php
     scanFiles:
         - _ide_helper_models.php
     treatPhpDocTypesAsCertain: false

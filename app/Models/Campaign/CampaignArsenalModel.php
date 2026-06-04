@@ -75,4 +75,15 @@ class CampaignArsenalModel extends Model
     {
         return $query->whereNull('annihilated_at')->whereNull('removed_at');
     }
+
+    /**
+     * Pg 22 (Peons): "Peons may be added to your arsenal and hired as normal,
+     * but they cannot have equipment attached, gain injuries, or be
+     * annihilated." Use this guard wherever equipment attachment lands so the
+     * rule is enforced server-side at the attach call-site.
+     */
+    public function canReceiveEquipment(): bool
+    {
+        return ! $this->is_peon && $this->annihilated_at === null && $this->removed_at === null;
+    }
 }

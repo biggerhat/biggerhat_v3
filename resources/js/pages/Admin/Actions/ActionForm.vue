@@ -3,6 +3,7 @@ import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -95,6 +96,12 @@ const formInfo = ref({
     damage: null,
     triggers: [],
     characters: [],
+    // Campaign-only fields — surfaced when game_mode_type === 'campaign'.
+    campaign_advancement_kind: null as string | null, // 'action' | 'summoning'
+    campaign_flip_value: null as number | null,
+    campaign_is_always_available: false,
+    campaign_joker_freechoice: false,
+    campaign_grants_signature: false,
 });
 
 const submit = () => {
@@ -118,6 +125,13 @@ onMounted(() => {
     formInfo.value.damage = props.action?.damage ?? null;
     formInfo.value.description = props.action?.description ?? null;
     formInfo.value.internal_notes = props.action?.internal_notes ?? null;
+
+    // Campaign-only — hydrate from the action if present.
+    formInfo.value.campaign_advancement_kind = props.action?.campaign_advancement_kind ?? null;
+    formInfo.value.campaign_flip_value = props.action?.campaign_flip_value ?? null;
+    formInfo.value.campaign_is_always_available = props.action?.campaign_is_always_available ?? false;
+    formInfo.value.campaign_joker_freechoice = props.action?.campaign_joker_freechoice ?? false;
+    formInfo.value.campaign_grants_signature = props.action?.campaign_grants_signature ?? false;
 
     props.action?.triggers.forEach((trigger) => {
         formInfo.value.triggers.push(trigger.name);
@@ -312,6 +326,56 @@ onMounted(() => {
                                 <InputError :message="usePage().props.errors.characters" />
                             </div>
                         </div>
+
+                        <!-- Campaign-only fields — surfaced when Campaign Mode is active. -->
+                        <fieldset
+                            v-if="formInfo.game_mode_type === 'campaign'"
+                            class="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3"
+                        >
+                            <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Campaign Mode — Advancement</legend>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="campaign_advancement_kind">Advancement Kind</Label>
+                                    <Select id="campaign_advancement_kind" v-model="formInfo.campaign_advancement_kind">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Action or Summoning" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="action">Action (new action picker)</SelectItem>
+                                            <SelectItem value="summoning">Summoning (free-pick statblock)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="campaign_flip_value">Flip Value (1–13)</Label>
+                                    <Input id="campaign_flip_value" type="number" min="1" max="13" v-model.number="formInfo.campaign_flip_value" />
+                                    <p class="text-[11px] text-muted-foreground">Leave blank for always-available / summoning entries.</p>
+                                </div>
+                            </div>
+                            <div class="grid gap-2 md:grid-cols-3">
+                                <label class="flex items-center gap-2 text-sm">
+                                    <Checkbox
+                                        :checked="formInfo.campaign_is_always_available"
+                                        @update:checked="(v: boolean) => (formInfo.campaign_is_always_available = v)"
+                                    />
+                                    <span>Always available</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <Checkbox
+                                        :checked="formInfo.campaign_joker_freechoice"
+                                        @update:checked="(v: boolean) => (formInfo.campaign_joker_freechoice = v)"
+                                    />
+                                    <span>Joker "Choose freely"</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <Checkbox
+                                        :checked="formInfo.campaign_grants_signature"
+                                        @update:checked="(v: boolean) => (formInfo.campaign_grants_signature = v)"
+                                    />
+                                    <span>Grants signature</span>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
                 </form>
             </CardContent>

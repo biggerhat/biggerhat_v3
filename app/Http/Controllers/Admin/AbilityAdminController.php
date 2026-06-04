@@ -73,7 +73,27 @@ class AbilityAdminController extends Controller
             'costs_stone' => ['required', 'boolean'],
             'description' => ['nullable', 'string'],
             'characters' => ['nullable', 'array'],
+            // Campaign-only — accept but zero out unless game_mode is campaign.
+            'campaign_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            'campaign_is_always_available' => ['sometimes', 'boolean'],
+            'campaign_joker_freechoice' => ['sometimes', 'boolean'],
+            'is_crew_card_effect' => ['sometimes', 'boolean'],
+            'requires_token_choice' => ['sometimes', 'boolean'],
+            'requires_marker_choice' => ['sometimes', 'boolean'],
+            'requires_upgrade_type_choice' => ['sometimes', 'boolean'],
         ]);
+
+        // Zero out campaign-only fields if the ability isn't campaign mode.
+        // Keeps Standard ability rows clean of campaign metadata.
+        if ($validated['game_mode_type'] !== GameModeTypeEnum::Campaign->value) {
+            $validated['campaign_flip_value'] = null;
+            $validated['campaign_is_always_available'] = false;
+            $validated['campaign_joker_freechoice'] = false;
+            $validated['is_crew_card_effect'] = false;
+            $validated['requires_token_choice'] = false;
+            $validated['requires_marker_choice'] = false;
+            $validated['requires_upgrade_type_choice'] = false;
+        }
 
         $characters = Character::whereIn('display_name', $validated['characters'])->get();
         unset($validated['characters']);

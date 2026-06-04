@@ -3,19 +3,18 @@
 namespace Database\Seeders;
 
 use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
-use App\Models\Campaign\AdvancementAbility;
-use App\Models\Campaign\AdvancementAction;
-use App\Models\Campaign\AdvancementAttackMod;
-use App\Models\Campaign\AdvancementTacticalMod;
+use App\Enums\GameModeTypeEnum;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\Campaign\BackAlleyDoctorResult;
-use App\Models\Campaign\CrewCardEffect;
-use App\Models\Campaign\Equipment;
-use App\Models\Campaign\Injury;
 use App\Models\Campaign\LuckyMiss;
-use App\Models\Campaign\SummoningAdvancement;
-use App\Models\Campaign\Totem;
 use App\Models\Campaign\WeeklyEvent;
+use App\Models\CustomCharacter;
+use App\Models\Trigger;
+use App\Models\Upgrade;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Dev/CI convenience seeder for Campaign Mode (Index of the Untold) catalogs.
@@ -23,9 +22,16 @@ use Illuminate\Database\Seeder;
  * NOT the rulebook — placeholder content so the Leader Builder, Starting
  * Arsenal, Weekly Hire, and Aftermath wizard are end-to-end clickable in
  * local dev and feature tests. Real catalog data is entered through the
- * admin UI under /admin/campaign/* by a human with the book in hand.
+ * admin UI under the consolidated core admin pages by a human with the book
+ * in hand.
  *
- * Idempotent: skips any table that already has rows.
+ * Idempotent: skips any seed-group that already has rows.
+ *
+ * Post-consolidation: equipment / injuries live on the `upgrades` table,
+ * crew card effects + ability advancements live on `abilities`, action +
+ * summoning advancements live on `actions`, attack/tactical mods live on
+ * `triggers`, totems live on `custom_characters`. All are filtered via
+ * `game_mode_type = 'campaign'` + a discriminator column where needed.
  */
 class CampaignCatalogSeeder extends Seeder
 {
@@ -37,59 +43,78 @@ class CampaignCatalogSeeder extends Seeder
         $this->seedInjuries();
         $this->seedLuckyMiss();
         $this->seedBackAlleyDoctor();
-        $this->seedAdvancements();
+        $this->seedAttackMods();
+        $this->seedTacticalMods();
+        $this->seedAdvancementActions();
+        $this->seedAdvancementAbilities();
         $this->seedTotems();
         $this->seedSummoningAdvancements();
         $this->seedWeeklyEvents();
     }
 
+    private function campaignAbilityQuery()
+    {
+        return Ability::query()->where('game_mode_type', GameModeTypeEnum::Campaign->value);
+    }
+
     private function seedCrewCardEffects(): void
     {
-        if (CrewCardEffect::query()->exists()) {
+        $exists = $this->campaignAbilityQuery()->where('is_crew_card_effect', true)->exists();
+        if ($exists) {
             return;
         }
 
         foreach (['Expert Coordination', 'Heavy Blow', 'Shape the Landscape', 'Prepared For Anything', 'Loot Their Stash'] as $name) {
-            CrewCardEffect::factory()->create(['name' => $name]);
+            Ability::factory()->create([
+                'name' => $name,
+                'description' => "Placeholder body for {$name}.",
+                'game_mode_type' => GameModeTypeEnum::Campaign->value,
+                'is_crew_card_effect' => true,
+                'requires_token_choice' => false,
+                'requires_marker_choice' => false,
+                'requires_upgrade_type_choice' => false,
+            ]);
         }
     }
 
     private function seedEquipment(): void
     {
-        if (Equipment::query()->exists()) {
+        if (Upgrade::query()->where('campaign_upgrade_kind', 'equipment')->exists()) {
             return;
         }
 
-        // Mix of BR ranges so the Barter flip surfaces real options at every band.
         foreach ([1, 3, 5, 7, 9, 11, 13] as $br) {
-            Equipment::factory()->create([
+            Upgrade::factory()->campaignEquipment()->create([
                 'name' => "Placeholder Equipment BR{$br}",
-                'br' => $br,
-                'cc' => max(1, (int) floor($br / 4)),
+                'campaign_br' => $br,
+                'campaign_cc' => max(1, (int) floor($br / 4)),
             ]);
         }
 
-        Equipment::factory()->alwaysAvailable()->create(['name' => 'Battered Trinket']);
-        Equipment::factory()->alwaysAvailable()->create(['name' => 'Spare Soulstone']);
-        Equipment::factory()->thoseWhoThirst()->create(['name' => 'Whispering Shard', 'br' => 7]);
+        Upgrade::factory()->campaignEquipmentAlwaysAvailable()->create(['name' => 'Battered Trinket']);
+        Upgrade::factory()->campaignEquipmentAlwaysAvailable()->create(['name' => 'Spare Soulstone']);
+        Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Whispering Shard', 'campaign_br' => 7]);
     }
 
     private function seedInjuries(): void
     {
-        if (Injury::query()->exists()) {
+        if (Upgrade::query()->where('campaign_upgrade_kind', 'injury')->exists()) {
             return;
         }
 
         foreach ([1, 4, 7, 10] as $fv) {
-            Injury::factory()->create([
+            Upgrade::factory()->campaignInjury()->create([
                 'name' => "Lingering Wound {$fv}",
-                'flip_value' => $fv,
-                'suit_pool' => 'pc',
+                'campaign_flip_value' => $fv,
+                'campaign_suit_pool' => 'pc',
             ]);
         }
 
-        Injury::factory()->killedOff()->create();
-        Injury::factory()->traitor()->create();
+        Upgrade::factory()->campaignInjuryKilledOff()->create();
+        Upgrade::factory()->campaignInjury()->create([
+            'name' => 'Traitor',
+            'campaign_is_traitor' => true,
+        ]);
     }
 
     private function seedLuckyMiss(): void
@@ -166,94 +191,152 @@ class CampaignCatalogSeeder extends Seeder
         ]);
     }
 
-    private function seedAdvancements(): void
+    private function seedAttackMods(): void
     {
-        // Each of the four flip-based advancement tables: mix of trigger /
-        // skl-boost / signature / always-available so the Phase 4 picker has
-        // something at every band.
-        if (! AdvancementAttackMod::query()->exists()) {
-            foreach ([2, 5, 8, 11] as $fv) {
-                AdvancementAttackMod::factory()->create([
-                    'name' => "Attack Trigger {$fv}",
-                    'flip_value' => $fv,
-                    'modifier_type' => 'trigger',
-                    'suit' => 'crow',
-                ]);
-            }
-            AdvancementAttackMod::factory()->sklBoost(5, 6)->create([
-                'name' => 'Sharpened Aim',
-                'flip_value' => 7,
-            ]);
-            AdvancementAttackMod::factory()->signature()->create([
-                'name' => "Master's Strike",
-                'flip_value' => 12,
-            ]);
+        if (Trigger::query()->where('campaign_advancement_kind', 'attack')->exists()) {
+            return;
         }
 
-        if (! AdvancementTacticalMod::query()->exists()) {
-            foreach ([2, 6, 9, 12] as $fv) {
-                AdvancementTacticalMod::factory()->create([
-                    'name' => "Tactical Trigger {$fv}",
-                    'flip_value' => $fv,
-                    'modifier_type' => 'trigger',
-                    'suit' => 'tome',
-                ]);
-            }
-            AdvancementTacticalMod::factory()->alwaysAvailable()->create([
-                'name' => 'Refined Technique',
+        foreach ([2, 5, 8, 11] as $fv) {
+            Trigger::factory()->campaignAdvancementAttack()->create([
+                'name' => "Attack Trigger {$fv}",
+                'campaign_flip_value' => $fv,
+                'campaign_modifier_type' => 'trigger',
+                'suits' => 'crow',
             ]);
+        }
+        Trigger::factory()->campaignAdvancementAttack()->create([
+            'name' => 'Sharpened Aim',
+            'campaign_flip_value' => 7,
+            'campaign_modifier_type' => 'skl',
+            'campaign_skl_from' => 5,
+            'campaign_skl_to' => 6,
+        ]);
+        Trigger::factory()->campaignAdvancementAttack()->create([
+            'name' => "Master's Strike",
+            'campaign_flip_value' => 12,
+            'campaign_modifier_type' => 'signature',
+            'campaign_grants_signature' => true,
+        ]);
+    }
+
+    private function seedTacticalMods(): void
+    {
+        if (Trigger::query()->where('campaign_advancement_kind', 'tactical')->exists()) {
+            return;
         }
 
-        if (! AdvancementAction::query()->exists()) {
-            foreach ([3, 6, 9, 12] as $fv) {
-                AdvancementAction::factory()->create([
-                    'name' => "Learned Action {$fv}",
-                    'flip_value' => $fv,
-                ]);
-            }
-            AdvancementAction::factory()->alwaysAvailable()->create([
-                'name' => 'Push Off',
+        foreach ([2, 6, 9, 12] as $fv) {
+            Trigger::factory()->campaignAdvancementTactical()->create([
+                'name' => "Tactical Trigger {$fv}",
+                'campaign_flip_value' => $fv,
+                'campaign_modifier_type' => 'trigger',
+                'suits' => 'tome',
             ]);
+        }
+        Trigger::factory()->campaignAdvancementTactical()->create([
+            'name' => 'Refined Technique',
+            'campaign_is_always_available' => true,
+        ]);
+    }
+
+    private function seedAdvancementActions(): void
+    {
+        if (Action::query()->where('campaign_advancement_kind', 'action')->exists()) {
+            return;
         }
 
-        if (! AdvancementAbility::query()->exists()) {
-            foreach ([4, 7, 10, 13] as $fv) {
-                AdvancementAbility::factory()->create([
-                    'name' => "Gained Ability {$fv}",
-                    'flip_value' => $fv,
-                ]);
-            }
-            AdvancementAbility::factory()->alwaysAvailable()->create([
-                'name' => 'Stoic Resolve',
+        foreach ([3, 6, 9, 12] as $fv) {
+            Action::factory()->create([
+                'name' => "Learned Action {$fv}",
+                'game_mode_type' => GameModeTypeEnum::Campaign->value,
+                'campaign_advancement_kind' => 'action',
+                'campaign_flip_value' => $fv,
             ]);
         }
+        Action::factory()->create([
+            'name' => 'Push Off',
+            'game_mode_type' => GameModeTypeEnum::Campaign->value,
+            'campaign_advancement_kind' => 'action',
+            'campaign_is_always_available' => true,
+        ]);
+    }
+
+    private function seedAdvancementAbilities(): void
+    {
+        $exists = $this->campaignAbilityQuery()
+            ->where('is_crew_card_effect', false)
+            ->whereNotNull('campaign_flip_value')
+            ->exists();
+        if ($exists) {
+            return;
+        }
+
+        foreach ([4, 7, 10, 13] as $fv) {
+            Ability::factory()->create([
+                'name' => "Gained Ability {$fv}",
+                'game_mode_type' => GameModeTypeEnum::Campaign->value,
+                'is_crew_card_effect' => false,
+                'campaign_flip_value' => $fv,
+            ]);
+        }
+        Ability::factory()->create([
+            'name' => 'Stoic Resolve',
+            'game_mode_type' => GameModeTypeEnum::Campaign->value,
+            'is_crew_card_effect' => false,
+            'campaign_is_always_available' => true,
+        ]);
     }
 
     private function seedTotems(): void
     {
-        if (Totem::query()->exists()) {
+        if (CustomCharacter::query()->where('is_campaign_totem_template', true)->exists()) {
             return;
         }
 
+        $systemUserId = $this->ensureSystemUser();
+
         foreach ([3, 7, 11] as $fv) {
-            Totem::factory()->create([
+            CustomCharacter::factory()->create([
+                'user_id' => $systemUserId,
                 'name' => "Spirit Familiar {$fv}",
-                'flip_value' => $fv,
+                'display_name' => "Spirit Familiar {$fv}",
+                'is_campaign_totem' => true,
+                'is_campaign_totem_template' => true,
+                'campaign_totem_flip_value' => $fv,
             ]);
         }
 
-        Totem::factory()->snivelingCoward()->create();
-        Totem::factory()->miniMaster()->create();
+        CustomCharacter::factory()->create([
+            'user_id' => $systemUserId,
+            'name' => 'Sniveling Coward',
+            'display_name' => 'Sniveling Coward',
+            'is_campaign_totem' => true,
+            'is_campaign_totem_template' => true,
+            'campaign_is_black_joker_totem' => true,
+        ]);
+        CustomCharacter::factory()->create([
+            'user_id' => $systemUserId,
+            'name' => 'Mini Master',
+            'display_name' => 'Mini Master',
+            'is_campaign_totem' => true,
+            'is_campaign_totem_template' => true,
+            'campaign_is_mini_master' => true,
+        ]);
     }
 
     private function seedSummoningAdvancements(): void
     {
-        if (SummoningAdvancement::query()->exists()) {
+        if (Action::query()->where('campaign_advancement_kind', 'summoning')->exists()) {
             return;
         }
 
         foreach (['Lesser Familiar', 'Bound Specter', 'Animated Effigy', 'Conjured Servant'] as $name) {
-            SummoningAdvancement::factory()->create(['name' => $name]);
+            Action::factory()->create([
+                'name' => $name,
+                'game_mode_type' => GameModeTypeEnum::Campaign->value,
+                'campaign_advancement_kind' => 'summoning',
+            ]);
         }
     }
 
@@ -275,5 +358,20 @@ class CampaignCatalogSeeder extends Seeder
             'flip_value' => null,
             'is_black_joker' => true,
         ]);
+    }
+
+    private function ensureSystemUser(): int
+    {
+        $email = 'system-totem-templates@biggerhat.local';
+
+        return (int) (User::query()->where('email', $email)->value('id')
+            ?? DB::table('users')->insertGetId([
+                'name' => 'System (Totem Templates)',
+                'email' => $email,
+                'password' => bcrypt(\Illuminate\Support\Str::random(40)),
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
     }
 }

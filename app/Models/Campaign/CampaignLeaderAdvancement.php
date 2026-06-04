@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $source_aftermath_id
  * @property AdvancementTableEnum $source_table
  * @property int|null $catalog_id
+ * @property int|null $catalog_core_id
+ * @property int|null $from_equipment_id
  * @property int $applied_to_action_index
  * @property int|null $applied_to_custom_character_id
  * @property int $position_in_xp_track
@@ -27,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CustomCharacter $leader
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property-read CustomCharacter|null $appliedToCustomCharacter
+ * @property-read CampaignEquipment|null $fromEquipment
  */
 class CampaignLeaderAdvancement extends Model
 {
@@ -67,5 +70,16 @@ class CampaignLeaderAdvancement extends Model
     public function appliedToCustomCharacter(): BelongsTo
     {
         return $this->belongsTo(CustomCharacter::class, 'applied_to_custom_character_id');
+    }
+
+    /**
+     * The piece of Equipment that supplied the action this advancement
+     * modifies (pg 31): "if the action is from a piece of equipment, the
+     * leader must always take that equipment if possible going forward".
+     * Null for advancements unrelated to equipment.
+     */
+    public function fromEquipment(): BelongsTo
+    {
+        return $this->belongsTo(CampaignEquipment::class, 'from_equipment_id');
     }
 }

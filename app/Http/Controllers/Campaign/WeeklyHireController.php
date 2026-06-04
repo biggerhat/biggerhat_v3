@@ -139,6 +139,7 @@ class WeeklyHireController extends Controller
     {
         return CampaignArsenalModel::query()
             ->where('campaign_crew_id', $crew->id)
+            ->active()
             ->where('acquired_via', 'hire')
             ->where('acquired_week', $week)
             ->count();
@@ -179,7 +180,10 @@ class WeeklyHireController extends Controller
 
         $query = Character::query()
             ->standard()
+            // Masters and Totems aren't hireable — see StartingArsenalController
+            // for the rationale (pg 15 + pg 52).
             ->whereNotIn('station', [CharacterStationEnum::Master->value])
+            ->whereDoesntHave('isTotemFor')
             ->whereNotNull('cost')
             ->where('cost', '>', 0)
             ->when($crew->faction !== null, function ($q) use ($keywordIds, $crew) {

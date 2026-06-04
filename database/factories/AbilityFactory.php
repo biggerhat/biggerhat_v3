@@ -28,4 +28,19 @@ class AbilityFactory extends Factory
             'description' => $this->faker->sentence(random_int(5, 20)),
         ];
     }
+
+    /**
+     * A Campaign Mode Crew Card Effect (post-Catalog-Consolidation
+     * replacement for the old `crew_card_effects` table).
+     */
+    public function crewCardEffect(): static
+    {
+        return $this->state(fn () => [
+            'game_mode_type' => GameModeTypeEnum::Campaign,
+            'is_crew_card_effect' => true,
+            'requires_token_choice' => false,
+            'requires_marker_choice' => false,
+            'requires_upgrade_type_choice' => false,
+        ]);
+    }
 }

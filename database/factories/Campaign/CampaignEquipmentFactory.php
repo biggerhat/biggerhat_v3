@@ -4,7 +4,7 @@ namespace Database\Factories\Campaign;
 
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
-use App\Models\Campaign\Equipment;
+use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +18,7 @@ class CampaignEquipmentFactory extends Factory
     {
         return [
             'campaign_crew_id' => CampaignCrew::factory(),
-            'equipment_catalog_id' => Equipment::factory(),
+            'equipment_upgrade_id' => Upgrade::factory()->campaignEquipment(),
             'source' => 'barter',
             'acquired_aftermath_id' => null,
         ];

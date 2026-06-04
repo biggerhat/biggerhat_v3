@@ -118,7 +118,47 @@ class UpgradeAdminController extends Controller
             'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
+            // Campaign-only — accept but zero out below unless mode is campaign.
+            'campaign_upgrade_kind' => ['nullable', 'string', 'in:equipment,injury'],
+            'campaign_br' => ['nullable', 'integer', 'min:1', 'max:13'],
+            'campaign_cc' => ['nullable', 'integer', 'min:0'],
+            'campaign_pool_suit_a' => ['nullable', 'string', 'max:12'],
+            'campaign_pool_suit_b' => ['nullable', 'string', 'max:12'],
+            'campaign_is_always_available' => ['sometimes', 'boolean'],
+            'campaign_ttw_only' => ['sometimes', 'boolean'],
+            'campaign_is_omens_mark' => ['sometimes', 'boolean'],
+            'campaign_is_unique' => ['sometimes', 'boolean'],
+            'campaign_leader_only' => ['sometimes', 'boolean'],
+            'campaign_non_unique_only' => ['sometimes', 'boolean'],
+            'campaign_annihilate_after_game' => ['sometimes', 'boolean'],
+            'campaign_is_red_joker_entry' => ['sometimes', 'boolean'],
+            'campaign_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            'campaign_suit_pool' => ['nullable', 'string', 'in:pc,te,black_joker,red_joker'],
+            'campaign_is_traitor' => ['sometimes', 'boolean'],
+            'campaign_is_close_call' => ['sometimes', 'boolean'],
+            'campaign_annihilates_model' => ['sometimes', 'boolean'],
+            'campaign_reflip_if_no_triggers' => ['sometimes', 'boolean'],
+            'campaign_reflip_if_master_or_totem' => ['sometimes', 'boolean'],
         ]);
+
+        // Zero out campaign-only fields if the upgrade isn't campaign mode.
+        if ($validated['game_mode_type'] !== GameModeTypeEnum::Campaign->value) {
+            $campaignCols = [
+                'campaign_upgrade_kind', 'campaign_br', 'campaign_cc',
+                'campaign_pool_suit_a', 'campaign_pool_suit_b',
+                'campaign_is_always_available', 'campaign_ttw_only', 'campaign_is_omens_mark',
+                'campaign_is_unique', 'campaign_leader_only', 'campaign_non_unique_only',
+                'campaign_annihilate_after_game', 'campaign_is_red_joker_entry',
+                'campaign_flip_value', 'campaign_suit_pool',
+                'campaign_is_traitor', 'campaign_is_close_call', 'campaign_annihilates_model',
+                'campaign_reflip_if_no_triggers', 'campaign_reflip_if_master_or_totem',
+            ];
+            foreach ($campaignCols as $col) {
+                $validated[$col] = in_array($col, ['campaign_upgrade_kind', 'campaign_br', 'campaign_cc', 'campaign_pool_suit_a', 'campaign_pool_suit_b', 'campaign_flip_value', 'campaign_suit_pool'], true)
+                    ? null
+                    : false;
+            }
+        }
 
         $validated['domain'] = UpgradeDomainTypeEnum::Character->value;
 

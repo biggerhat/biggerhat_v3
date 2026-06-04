@@ -3,6 +3,7 @@
 namespace App\Models\Campaign;
 
 use App\Enums\FactionEnum;
+use App\Models\Ability;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Models\User;
@@ -37,8 +38,18 @@ use Illuminate\Support\Str;
  * @property-read \App\Models\User|null $user
  * @property-read Keyword|null $keywordOne
  * @property-read Keyword|null $keywordTwo
- * @property-read CrewCardEffect|null $crewCardEffect
+ * @property-read Ability|null $crewCardEffect
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignArsenalModel> $arsenalModels
+ * @property-read int|null $arsenal_models_count
+ * @property-read CustomCharacter|null $leader
+ * @property-read CustomCharacter|null $totem
+ *
+ * @method static \Database\Factories\Campaign\CampaignCrewFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
+ *
+ * @mixin \Eloquent
  */
 class CampaignCrew extends Model
 {
@@ -97,7 +108,7 @@ class CampaignCrew extends Model
 
     public function crewCardEffect(): BelongsTo
     {
-        return $this->belongsTo(CrewCardEffect::class);
+        return $this->belongsTo(Ability::class, 'crew_card_effect_id');
     }
 
     public function arsenalModels(): HasMany
@@ -124,5 +135,63 @@ class CampaignCrew extends Model
         return $this->hasOne(CustomCharacter::class, 'campaign_crew_id')
             ->where('is_campaign_totem', true)
             ->where('current', true);
+    }
+
+    /**
+     * Active equipment count for Campaign Rating (pg 19). Excludes annihilated
+     * instances. Each per-crew equipment row counts (the same catalog row can
+     * be present multiple times in a crew).
+     */
+    public function activeEquipmentCount(): int
+    {
+        return CampaignEquipment::query()
+            ->where('campaign_crew_id', $this->id)
+            ->active()
+            ->count();
+    }
+
+    /**
+     * Advancements on the current Leader + Totem for Campaign Rating (pg 19).
+     * Counts rows on CampaignLeaderAdvancement scoped to the leader and (if
+     * present) totem CustomCharacter rows.
+     */
+    public function activeLeaderAdvancementCount(): int
+    {
+        $ids = [$this->leader?->id, $this->totem?->id];
+        $ids = array_filter($ids);
+        if ($ids === []) {
+            return 0;
+        }
+
+        return CampaignLeaderAdvancement::query()
+            ->whereIn('custom_character_id', $ids)
+            ->count();
+    }
+
+    /**
+     * Injuries across the crew's active arsenal models for Campaign Rating
+     * (pg 19). Annihilated arsenal models do not contribute to CR — they are
+     * out of the arsenal entirely.
+     */
+    public function activeInjuryCount(): int
+    {
+        return \DB::table('campaign_arsenal_model_injuries as i')
+            ->join('campaign_arsenal_models as m', 'm.id', '=', 'i.campaign_arsenal_model_id')
+            ->where('m.campaign_crew_id', $this->id)
+            ->whereNull('m.annihilated_at')
+            ->count();
+    }
+
+    /**
+     * Campaign Rating (pg 19): equipment + leader/totem advancements − injuries.
+     * Pure aggregation; the formula itself lives in CampaignRules.
+     */
+    public function campaignRating(): int
+    {
+        return \App\Services\CampaignRules::campaignRating(
+            $this->activeEquipmentCount(),
+            $this->activeLeaderAdvancementCount(),
+            $this->activeInjuryCount(),
+        );
     }
 }

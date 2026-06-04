@@ -37,7 +37,7 @@ class StoreStartingArsenalRequest extends FormRequest
             'hires' => ['nullable', 'array'],
             'hires.*.character_id' => ['required', 'integer', 'exists:characters,id'],
             'hires.*.label' => ['nullable', 'string', 'max:64'],
-            'crew_card_effect_id' => ['required', 'integer', 'exists:crew_card_effects,id'],
+            'crew_card_effect_id' => ['required', 'integer', 'exists:abilities,id'],
         ];
     }
 }

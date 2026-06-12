@@ -23,7 +23,7 @@ class PrintBonanzaLootDeckController extends Controller
         $data = [];
 
         foreach ($lootCards as $lootCard) {
-            $data[] = [
+            $data["images"][] = [
                 "image" => base64_encode(Storage::disk('public')->get($lootCard->image)),
                 "name" => $lootCard->name,
             ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LootCard;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -20,7 +21,13 @@ class PrintBonanzaLootDeckController extends Controller
     {
         $lootCards = LootCard::all();
         $data = [];
-        $data['images'] = $lootCards->toArray();
+
+        foreach ($lootCards as $lootCard) {
+            $data[] = [
+                "image" => base64_encode(Storage::disk('public')->get($lootCard->image)),
+                "name" => $lootCard->name,
+            ];
+        }
 
         $pdf = Pdf::loadView('PDF.BonanzaDeck', $data);
 

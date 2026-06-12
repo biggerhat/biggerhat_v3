@@ -65,7 +65,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
 </script>
 
 <template>
-    <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm', theme.border]">
+    <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm w-[2.75in] h-[4.75in]', theme.border]">
         <header :class="['flex items-center gap-2 border-b px-3 py-1.5', theme.header]">
             <span class="inline-flex items-baseline gap-1 font-mono text-lg font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
@@ -116,7 +116,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </span>
         </div>
 
-        <section :class="['space-y-1.5 px-3 py-2.5', mirrored ? 'rotate-180' : '']">
+        <section :class="['space-y-1.5 px-3 py-2.5 my-auto', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
                 <span v-if="sideB.title" class="truncate text-sm font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>

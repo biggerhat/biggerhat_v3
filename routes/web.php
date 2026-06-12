@@ -32,6 +32,7 @@ use App\Http\Controllers\Game\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PDFController;
+use App\Http\Controllers\PrintBonanzaLootDeckController;
 use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\RandomCharacterController;
 use App\Http\Controllers\ScenarioGeneratorController;
@@ -251,6 +252,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/scheme-paths', [\App\Http\Controllers\SchemePathController::class, 'index'])->name('scheme_paths');
     Route::get('/random-character', RandomCharacterController::class)->name('random_character');
     Route::get('/bonanza-loot-deck', BonanzaLootDeckController::class)->name('bonanza_loot_deck');
+    Route::get('/bonanza-loot-deck/print', PrintBonanzaLootDeckController::class)->name('bonanza_loot_deck.print');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');

@@ -10,7 +10,7 @@
 </head>
 <body>
 @foreach($images as $image)
-    <img src="{{ $image["image"] }}" style="width:2.75in; height:4.75in; vertical-align: top; margin-left: 1px; margin-right:1px; margin-bottom: 2px;" alt="{{ $image["name"] }}" />
+    <img src="data:image/jpg;base64,{{ $image["image"] }}" style="width:2.75in; height:4.75in; vertical-align: top; margin-left: 1px; margin-right:1px; margin-bottom: 2px;" alt="{{ $image["name"] }}" />
 @endforeach
 </body>
 </html>

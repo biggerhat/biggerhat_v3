@@ -5,8 +5,8 @@ import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Head } from '@inertiajs/vue3';
-import { Coins, Search } from 'lucide-vue-next';
+import {Head, router} from '@inertiajs/vue3';
+import {Coins, Search, Printer, Dice6} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface ActionTrigger {
@@ -81,6 +81,10 @@ interface LootCardEntry {
 const props = defineProps<{
     cards: LootCardEntry[];
 }>();
+
+const generatePDF = () => {
+    window.open(route('tools.bonanza_loot_deck.print'), '_blank');
+};
 
 const suitFilter = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');
 const search = ref('');
@@ -163,6 +167,16 @@ const cardsBySuit = computed(() => {
                         <TabsTrigger value="joker" class="text-xs">Jokers</TabsTrigger>
                     </TabsList>
                 </Tabs>
+                <div class="relative">
+                    <button
+                        type="button"
+                        aria-label="Print the Bonanza Deck"
+                        class="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        @click="generatePDF()"
+                    >
+                        <Printer class="size-4" />
+                    </button>
+                </div>
             </div>
 
             <EmptyState

@@ -1,0 +1,15 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(./vendor/bin/sail test*)",
+            "Bash(./vendor/bin/sail artisan test*)",
+            "Bash(composer stan*)",
+            "Bash(php artisan test*)",
+            "Bash(php artisan route:list*)",
+            "Bash(npx vue-tsc --noEmit*)",
+            "Bash(npx eslint*)",
+            "Bash(./vendor/bin/pint --test*)",
+            "Bash(./vendor/bin/phpstan*)"
+        ]
+    }
+}

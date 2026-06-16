@@ -65,17 +65,17 @@ const sideHasContent = (side: LootCardSide): boolean =>
 </script>
 
 <template>
-    <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm w-[2.75in] h-[4.75in]', theme.border]">
-        <header :class="['flex items-center gap-2 border-b px-3 py-1.5', theme.header]">
-            <span class="inline-flex items-baseline gap-1 font-mono text-lg font-bold tabular-nums leading-none text-foreground">
-                {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
+    <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm w-[2.75in] h-[4.75in] text-[8px]', theme.border]">
+        <header :class="['flex items-center gap-2 border-b px-3 py-0.5 text-[10px]', theme.header]">
+            <span class="inline-flex items-baseline gap-1 font-mono font-bold tabular-nums leading-none text-foreground">
+                {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="inline-block" />
             </span>
-            <span v-if="name" class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{{ name }}</span>
+            <span v-if="name" class="min-w-0 flex-1 truncate text-center font-semibold text-foreground">{{ name }}</span>
             <span v-else class="flex-1"></span>
             <button
                 v-if="!hideToggle"
                 type="button"
-                class="rounded border bg-background/70 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                class="rounded border bg-background/70 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
                 :title="mirrored ? 'View both sides right-side up' : 'View as printed card (Side B rotated)'"
                 @click="mirrored = !mirrored"
             >
@@ -83,10 +83,10 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </button>
         </header>
 
-        <section class="space-y-1.5 px-3 py-2.5">
-            <div class="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <span class="rounded bg-primary/15 px-1 py-0 text-primary">A</span>
-                <span v-if="sideA.title" class="truncate text-sm font-semibold normal-case tracking-normal text-foreground">{{ sideA.title }}</span>
+        <section class="flex-1 space-y-1.5 px-3 py-0.5">
+            <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
+                <span class="rounded bg-primary/15 px-1 py-0">A</span>
+                <span v-if="sideA.title" class="truncate font-semibold normal-case tracking-normal text-foreground">{{ sideA.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideA)"
@@ -95,10 +95,10 @@ const sideHasContent = (side: LootCardSide): boolean =>
                 :actions="sideA.actions"
                 :triggers="sideA.triggers"
             />
-            <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">Side A not yet entered</p>
+            <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 italic text-muted-foreground">Side A not yet entered</p>
         </section>
 
-        <div :class="['relative flex items-center justify-center border-y px-3 py-1.5', theme.divider]">
+        <div :class="['relative flex items-center justify-center border-y px-3 py-0.5', theme.divider]">
             <div class="absolute inset-x-3 top-1/2 h-px bg-border/60" />
             <img
                 v-if="image"
@@ -109,17 +109,17 @@ const sideHasContent = (side: LootCardSide): boolean =>
             />
             <span
                 v-else
-                class="relative inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                class="relative inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 font-mono font-semibold uppercase tracking-widest text-muted-foreground"
             >
                 <GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-3 inline-block" />
                 {{ valueLabel }}
             </span>
         </div>
 
-        <section :class="['space-y-1.5 px-3 py-2.5 my-auto', mirrored ? 'rotate-180' : '']">
-            <div class="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <section :class="['space-y-1.5 px-3 py-0.5', mirrored ? 'rotate-180' : '']">
+            <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
-                <span v-if="sideB.title" class="truncate text-sm font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>
+                <span v-if="sideB.title" class="truncate font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideB)"
@@ -128,17 +128,14 @@ const sideHasContent = (side: LootCardSide): boolean =>
                 :actions="sideB.actions"
                 :triggers="sideB.triggers"
             />
-            <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 text-[11px] italic text-muted-foreground">Side B not yet entered</p>
+            <p v-else class="rounded-md border border-dashed bg-muted/10 p-2 italic text-muted-foreground">Side B not yet entered</p>
         </section>
 
-        <footer v-if="name" :class="['flex items-center justify-between gap-2 border-t px-3 py-1.5', theme.header, mirrored ? 'rotate-180' : '']">
-            <span class="inline-flex items-baseline gap-1 font-mono text-lg font-bold tabular-nums leading-none text-foreground">
-                {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
+        <footer v-if="name" :class="['flex items-center gap-2 border-t px-3 py-0.5 text-[10px]', theme.header, mirrored ? 'rotate-180' : '']">
+            <span class="inline-flex items-baseline gap-1 font-mono font-bold tabular-nums leading-none text-foreground">
+                {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="inline-block" />
             </span>
-            <span class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">{{ name }}</span>
-            <span class="invisible inline-flex items-baseline gap-1 font-mono text-lg font-bold leading-none" aria-hidden="true">
-                {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="h-5 inline-block" />
-            </span>
+            <span class="min-w-0 flex-1 truncate text-center font-semibold text-foreground">{{ name }}</span>
         </footer>
     </div>
 </template>

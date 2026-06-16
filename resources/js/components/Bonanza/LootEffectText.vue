@@ -136,17 +136,17 @@ const actionWithSignature = (action: LootActionRef): LootActionRef & { is_signat
 <template>
     <div class="space-y-1.5">
         <template v-for="(segment, i) in segments" :key="`seg-${i}`">
-            <p v-if="segment.type === 'text'" class="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                <GameText :text="segment.value" icon-class="h-3.5 inline-block align-text-bottom" />
+            <p v-if="segment.type === 'text'" class="whitespace-pre-line leading-relaxed text-muted-foreground">
+                <GameText :text="segment.value" icon-class="text-[9px] inline-block align-text-bottom" />
             </p>
             <LootAbilityDisplay v-else-if="segment.type === 'ability'" :ability="segment.entity" />
-            <ActionCard v-else-if="segment.type === 'action'" :action="actionWithSignature(segment.entity)" hide-footer />
+            <ActionCard v-else-if="segment.type === 'action'" :action="actionWithSignature(segment.entity)" hide-footer for-loot-card />
             <LootTriggerDisplay v-else-if="segment.type === 'trigger'" :trigger="segment.entity" />
         </template>
 
         <!-- Attached but not name-dropped in the prose — render below. -->
         <LootAbilityDisplay v-for="a in leftoverAbilities" :key="`lab-${a.id}`" :ability="a" />
-        <ActionCard v-for="a in leftoverActions" :key="`lac-${a.id}`" :action="actionWithSignature(a)" hide-footer />
+        <ActionCard v-for="a in leftoverActions" :key="`lac-${a.id}`" :action="actionWithSignature(a)" hide-footer for-loot-card />
         <LootTriggerDisplay v-for="t in leftoverTriggers" :key="`ltr-${t.id}`" :trigger="t" />
     </div>
 </template>

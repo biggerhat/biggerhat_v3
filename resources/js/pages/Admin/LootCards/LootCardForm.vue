@@ -214,7 +214,7 @@ const previewActions = (rows: { slug: string; is_signature_action: boolean }[]) 
         .map((row) => {
             const base = actionLookup.value[row.slug];
             if (!base) return null;
-            return { ...base, is_signature: row.is_signature_action };
+            return { ...base, pivot: { is_signature_action: row.is_signature_action }, is_signature: row.is_signature_action };
         })
         .filter(Boolean) as Linked[];
 const previewTriggers = (slugs: string[]) => slugs.map((s) => triggerLookup.value[s]).filter(Boolean) as Linked[];
@@ -275,18 +275,16 @@ const submit = async () => {
     form.value = isJoker.value ? null : newValue.value;
     form.value_label = derivedValueLabel.value;
 
-    // Manual upload wins; otherwise capture the live preview.
+    // Manual upload wins; otherwise always capture the live preview (even after a remove).
     if (imageFile.value) {
         form.image = imageFile.value;
-    } else if (!removeImage.value) {
+    } else {
         capturing.value = true;
         try {
             form.image = await captureCardImage();
         } finally {
             capturing.value = false;
         }
-    } else {
-        form.image = null;
     }
 
     const url = isCreate.value ? route('admin.loot_cards.store') : route('admin.loot_cards.update', props.card!.slug);
@@ -435,8 +433,8 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
                                         <Checkbox
-                                            :model-value="row.is_signature_action"
-                                            @update:model-value="toggleSignature(sideAActionRows, row.slug)"
+                                            :checked="row.is_signature_action"
+                                            @update:checked="toggleSignature(sideAActionRows, row.slug)"
                                         />
                                         Signature
                                     </label>
@@ -484,8 +482,8 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
                                         <Checkbox
-                                            :model-value="row.is_signature_action"
-                                            @update:model-value="toggleSignature(sideBActionRows, row.slug)"
+                                            :checked="row.is_signature_action"
+                                            @update:checked="toggleSignature(sideBActionRows, row.slug)"
                                         />
                                         Signature
                                     </label>
@@ -512,7 +510,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
 
         <!-- Offscreen capture target. 420px ≈ the xl 3-col display cell, so
              the captured PNG renders 1:1 instead of being downscaled. -->
-        <div ref="previewRef" aria-hidden="true" class="pointer-events-none fixed -left-[9999px] top-0 w-[420px] select-none">
+        <div ref="previewRef" aria-hidden="true" class="pointer-events-none fixed -left-[9999px] top-0 select-none">
             <BonanzaSplitCard
                 :name="(form.name as string) || ''"
                 :suit="previewSuit"

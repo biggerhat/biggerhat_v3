@@ -50,9 +50,10 @@ interface ActionData {
 const props = withDefaults(
     defineProps<{
         action: ActionData;
+        forLootCard?: boolean;
         hideFooter?: boolean;
     }>(),
-    { hideFooter: false },
+    { hideFooter: false, forLootCard: false },
 );
 
 const showUpgradeIcon = computed(() => (props.action.characters_count ?? 0) === 0 && (props.action.upgrades?.length ?? 0) > 0);
@@ -65,65 +66,65 @@ const formatActionType = (type?: string) => {
 
 <template>
     <Card class="flex flex-col overflow-hidden">
-        <div class="flex items-center border-b bg-secondary px-3 py-1.5 text-xs font-semibold">
+        <div :class="['flex items-center border-b bg-secondary px-3 font-semibold', forLootCard ? 'py-0.5 text-[8px]' : 'py-1.5 text-xs']">
             <span class="flex-1">{{ formatActionType(action.action_type ?? action.type) }} Action</span>
-            <span class="w-10 text-center text-muted-foreground">Rg</span>
-            <span class="w-10 text-center text-muted-foreground">Stat</span>
-            <span class="w-10 text-center text-muted-foreground">Rst</span>
-            <span class="w-10 text-center text-muted-foreground">TN</span>
-            <span class="w-10 text-center text-muted-foreground">Dmg</span>
+            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Rg</span>
+            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Stat</span>
+            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Rst</span>
+            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">TN</span>
+            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Dmg</span>
         </div>
-        <div class="flex items-center border-b px-3 py-2">
+        <div :class="['flex items-center border-b px-3', forLootCard ? 'py-1' : 'py-2']">
             <div class="inline-flex min-w-0 flex-1 items-center gap-1">
-                <GameIcon v-if="action.is_signature" type="signature_action" class-name="h-4 inline-block shrink-0" />
-                <GameIcon v-for="n in action.stone_cost ?? 0" :key="n" type="soulstone" class-name="h-4 inline-block shrink-0" />
+                <GameIcon v-if="action.is_signature" type="signature_action" :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'" />
+                <GameIcon v-for="n in action.stone_cost ?? 0" :key="n" type="soulstone" :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'" />
                 <span class="font-semibold">{{ action.name }}</span>
             </div>
-            <span class="w-10 text-center text-sm">
+            <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">
                 <span class="inline-flex items-center justify-center gap-0.5">
-                    <GameIcon v-if="action.range_type" :type="action.range_type" class-name="h-3.5 inline-block" />
+                    <GameIcon v-if="action.range_type" :type="action.range_type" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
                     {{ action.range != null ? action.range + '"' : '-' }}
                 </span>
             </span>
-            <span class="w-10 text-center text-sm">
+            <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">
                 <template v-if="action.stat != null">
                     <span class="inline-flex items-center justify-center gap-0.5">
                         {{ action.stat }}
                         <template v-if="action.stat_suits">
-                            <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                            <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
                         </template>
                     </span>
                 </template>
                 <template v-else>-</template>
             </span>
-            <span class="w-10 text-center text-sm">{{ action.resisted_by ?? '-' }}</span>
-            <span class="w-10 text-center text-sm">
+            <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">{{ action.resisted_by ?? '-' }}</span>
+            <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">
                 <template v-if="action.target_number != null">
                     <span class="inline-flex items-center justify-center gap-0.5">
                         {{ action.target_number }}
                         <template v-if="action.target_suits">
-                            <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" class-name="h-3.5 inline-block" />
+                            <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
                         </template>
                     </span>
                 </template>
                 <template v-else>-</template>
             </span>
-            <span class="w-10 text-center text-sm">{{ action.damage ?? '-' }}</span>
+            <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">{{ action.damage ?? '-' }}</span>
         </div>
-        <div v-if="action.description" class="px-3 py-2">
-            <p class="text-xs leading-relaxed text-muted-foreground">
-                <GameText :text="action.description" icon-class="h-4 inline-block align-text-bottom" />
+        <div v-if="action.description" :class="['px-3', forLootCard ? 'py-1' : 'py-2']">
+            <p :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']">
+                <GameText :text="action.description" :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'" />
             </p>
         </div>
-        <div v-if="action.triggers?.length" class="space-y-1 border-t px-3 py-2">
-            <div v-for="(trigger, tidx) in action.triggers" :key="tidx" class="text-xs leading-relaxed text-muted-foreground">
+        <div v-if="action.triggers?.length" :class="['space-y-1 border-t px-3', forLootCard ? 'py-1' : 'py-2']">
+            <div v-for="(trigger, tidx) in action.triggers" :key="tidx" :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']">
                 <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
-                    <GameIcon v-if="trigger.suits" :type="trigger.suits" class-name="h-3.5 inline-block" />
-                    <GameIcon v-for="n in trigger.stone_cost ?? 0" :key="n" type="soulstone" class-name="h-3.5 inline-block" />
+                    <GameIcon v-if="trigger.suits" :type="trigger.suits" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
+                    <GameIcon v-for="n in trigger.stone_cost ?? 0" :key="n" type="soulstone" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
                     {{ trigger.name }}:
                 </span>
                 {{ ' ' }}
-                <GameText v-if="trigger.description" :text="trigger.description" :max-length="120" icon-class="h-4 inline-block align-text-bottom" />
+                <GameText v-if="trigger.description" :text="trigger.description" :max-length="120" :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'" />
             </div>
         </div>
         <div v-if="!hideFooter" class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">

@@ -27,6 +27,7 @@ interface Linked {
     range_type?: string | null;
     stat?: number | null;
     stat_suits?: string | null;
+    stat_modifier?: string | null;
     resisted_by?: string | null;
     target_number?: number | null;
     target_suits?: string | null;

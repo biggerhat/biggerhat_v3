@@ -23,6 +23,7 @@ export interface LootActionRef {
     range_type?: string | null;
     stat?: number | null;
     stat_suits?: string | null;
+    stat_modifier?: string | null;
     resisted_by?: string | null;
     target_number?: number | null;
     target_suits?: string | null;
@@ -134,7 +135,7 @@ const actionWithSignature = (action: LootActionRef): LootActionRef & { is_signat
 </script>
 
 <template>
-    <div class="space-y-1.5">
+    <div class="space-y-1">
         <template v-for="(segment, i) in segments" :key="`seg-${i}`">
             <p v-if="segment.type === 'text'" class="whitespace-pre-line leading-relaxed text-muted-foreground">
                 <GameText :text="segment.value" icon-class="text-[9px] inline-block align-text-bottom" />

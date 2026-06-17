@@ -36,6 +36,7 @@ interface ActionData {
     range?: number | string | null;
     stat?: number | string | null;
     stat_suits?: string | null;
+    stat_modifier?: string | null;
     resisted_by?: string | null;
     target_number?: number | string | null;
     target_suits?: string | null;
@@ -90,6 +91,7 @@ const formatActionType = (type?: string) => {
                 <template v-if="action.stat != null">
                     <span class="inline-flex items-center justify-center gap-0.5">
                         {{ action.stat }}
+                        <GameIcon v-if="action.stat_modifier" :type="action.stat_modifier" :class-name="forLootCard ? 'text-[11px] inline-block' : 'h-4.5 inline-block'" />
                         <template v-if="action.stat_suits">
                             <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
                         </template>

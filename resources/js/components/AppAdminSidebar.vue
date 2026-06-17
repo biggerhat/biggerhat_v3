@@ -176,6 +176,7 @@ const adminGroups: AdminNavGroup[] = [
                 icon: Puzzle,
                 permission: 'view_campaign_catalog',
             },
+            { title: 'Crew Cards', href: route('admin.campaign.crew-cards.index'), icon: Newspaper, permission: 'view_campaign_catalog' },
             { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
             {
                 title: 'Back-Alley Doctor',

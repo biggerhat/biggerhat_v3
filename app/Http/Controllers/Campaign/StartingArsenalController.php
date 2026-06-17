@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
-use App\Enums\GameModeTypeEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
-use App\Models\Ability;
 use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Character;
@@ -46,9 +45,7 @@ class StartingArsenalController extends Controller
             'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id', 'scrip', 'crew_card_effect_id']),
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
-            'crew_card_effects' => fn () => Ability::query()
-                ->where('is_crew_card_effect', true)
-                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+            'crew_card_effects' => fn () => CampaignCrewCard::query()
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,

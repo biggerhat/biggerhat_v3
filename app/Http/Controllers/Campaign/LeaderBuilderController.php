@@ -40,7 +40,7 @@ class LeaderBuilderController extends Controller
             'faction_enum' => FactionEnum::toSelectOptions(),
             'base_enum' => BaseSizeEnum::toSelectOptions(),
             'all_keywords' => fn () => Keyword::query()
-                ->select('id', 'name', 'faction')
+                ->select('id', 'name')
                 ->orderBy('name')
                 ->get(),
         ]);

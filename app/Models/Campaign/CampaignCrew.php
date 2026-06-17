@@ -3,7 +3,6 @@
 namespace App\Models\Campaign;
 
 use App\Enums\FactionEnum;
-use App\Models\Ability;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Models\User;
@@ -38,7 +37,7 @@ use Illuminate\Support\Str;
  * @property-read \App\Models\User|null $user
  * @property-read Keyword|null $keywordOne
  * @property-read Keyword|null $keywordTwo
- * @property-read Ability|null $crewCardEffect
+ * @property-read CampaignCrewCard|null $crewCardEffect
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignArsenalModel> $arsenalModels
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
@@ -108,7 +107,7 @@ class CampaignCrew extends Model
 
     public function crewCardEffect(): BelongsTo
     {
-        return $this->belongsTo(Ability::class, 'crew_card_effect_id');
+        return $this->belongsTo(CampaignCrewCard::class, 'crew_card_effect_id');
     }
 
     public function arsenalModels(): HasMany

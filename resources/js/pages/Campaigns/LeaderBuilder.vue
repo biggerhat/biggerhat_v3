@@ -38,7 +38,6 @@ interface ArchetypeRow {
 interface KeywordRow {
     id: number;
     name: string;
-    faction: string;
 }
 
 interface TriggerData {

@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/composables/useConfirm';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const confirmDialog = useConfirm();
+const page = usePage();
+const authUserId = computed(() => (page.props.auth as any)?.user?.id ?? null);
 
 interface UserMini {
     id: number;
@@ -53,7 +55,7 @@ interface CampaignData {
     invitations: InvitationRow[];
 }
 
-const props = defineProps<{ campaign: CampaignData; is_organizer: boolean }>();
+const props = defineProps<{ campaign: CampaignData; is_organizer: boolean; all_arsenals_complete: boolean }>();
 
 const statusVariant = computed((): 'default' | 'outline' | 'destructive' | 'secondary' => {
     switch (props.campaign.status) {
@@ -146,7 +148,8 @@ const deleteCampaign = async (id: number) => {
             <Button
                 v-if="is_organizer && campaign.status === 'planning'"
                 @click="startCampaign(campaign.id)"
-                :disabled="!campaign.is_solo && campaign.players.length < 2"
+                :disabled="(!campaign.is_solo && campaign.players.length < 2) || !all_arsenals_complete"
+                :title="!all_arsenals_complete ? 'All players must complete Starting Arsenal first' : undefined"
             >
                 Start Campaign
             </Button>
@@ -206,21 +209,23 @@ const deleteCampaign = async (id: number) => {
                                 <Link :href="route('campaigns.crews.arsenal.show', [campaign.id, c.share_code])">
                                     <Button size="sm" class="w-full">Arsenal Sheet</Button>
                                 </Link>
-                                <Link :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])">
-                                    <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
-                                </Link>
-                                <Link
-                                    v-if="campaign.status === 'planning'"
-                                    :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, c.share_code])"
-                                >
-                                    <Button size="sm" variant="outline" class="w-full">Starting Arsenal</Button>
-                                </Link>
-                                <Link
-                                    v-if="campaign.status === 'active'"
-                                    :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, c.share_code])"
-                                >
-                                    <Button size="sm" variant="outline" class="w-full">Weekly Hire</Button>
-                                </Link>
+                                <template v-if="campaign.is_solo || c.user?.id === authUserId">
+                                    <Link :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])">
+                                        <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
+                                    </Link>
+                                    <Link
+                                        v-if="campaign.status === 'planning'"
+                                        :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, c.share_code])"
+                                    >
+                                        <Button size="sm" variant="outline" class="w-full">Starting Arsenal</Button>
+                                    </Link>
+                                    <Link
+                                        v-if="campaign.status === 'active'"
+                                        :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, c.share_code])"
+                                    >
+                                        <Button size="sm" variant="outline" class="w-full">Weekly Hire</Button>
+                                    </Link>
+                                </template>
                             </div>
                         </li>
                     </ul>
@@ -261,7 +266,7 @@ const deleteCampaign = async (id: number) => {
             </CardContent>
         </Card>
 
-        <div v-if="is_organizer && campaign.status === 'planning'" class="mt-8 flex justify-end">
+        <div v-if="is_organizer && (campaign.status === 'planning' || campaign.status === 'ended')" class="mt-8 flex justify-end">
             <Button variant="destructive" size="sm" @click="deleteCampaign(campaign.id)">Delete Campaign</Button>
         </div>
     </div>

@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\CacheAdminController;
 use App\Http\Controllers\Admin\Campaign\BackAlleyDoctorResultAdminController as CampaignBackAlleyDoctorResultAdminController;
 use App\Http\Controllers\Admin\Campaign\CrewCardAdminController as CampaignCrewCardAdminController;
 use App\Http\Controllers\Admin\Campaign\LuckyMissAdminController as CampaignLuckyMissAdminController;
+use App\Http\Controllers\Admin\Campaign\TotemTemplateAdminController as CampaignTotemTemplateAdminController;
 use App\Http\Controllers\Admin\Campaign\WeeklyEventAdminController as CampaignWeeklyEventAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
@@ -488,6 +489,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         // game_mode_type=campaign). These three remain dedicated because they
         // have no core-catalog analog (pure flip-value lookup tables).
         $crud(CampaignCrewCardAdminController::class, 'crew-cards', 'crew-cards', 'crewCard');
+        $crud(CampaignTotemTemplateAdminController::class, 'totem-templates', 'totem-templates', 'totemTemplate');
         $crud(CampaignLuckyMissAdminController::class, 'lucky-miss', 'lucky-miss', 'luckyMiss');
         $crud(CampaignBackAlleyDoctorResultAdminController::class, 'back-alley-doctor', 'back-alley-doctor', 'doctorResult');
         $crud(CampaignWeeklyEventAdminController::class, 'weekly-events', 'weekly-events', 'weeklyEvent');

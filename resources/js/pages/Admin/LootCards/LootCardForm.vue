@@ -433,10 +433,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                 <li v-for="row in sideAActionRows" :key="`a-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-                                        <Checkbox
-                                            :checked="row.is_signature_action"
-                                            @update:checked="toggleSignature(sideAActionRows, row.slug)"
-                                        />
+                                        <Checkbox :checked="row.is_signature_action" @update:checked="toggleSignature(sideAActionRows, row.slug)" />
                                         Signature
                                     </label>
                                 </li>
@@ -482,10 +479,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                                 <li v-for="row in sideBActionRows" :key="`b-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
                                     <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-                                        <Checkbox
-                                            :checked="row.is_signature_action"
-                                            @update:checked="toggleSignature(sideBActionRows, row.slug)"
-                                        />
+                                        <Checkbox :checked="row.is_signature_action" @update:checked="toggleSignature(sideBActionRows, row.slug)" />
                                         Signature
                                     </label>
                                 </li>

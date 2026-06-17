@@ -13,8 +13,8 @@ use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
@@ -213,12 +213,15 @@ class CampaignAftermathController extends Controller
                         'body' => $a->description,
                     ]),
                 'crew_card' => CampaignCrewCard::query()
+                    ->with(['actions:id,name', 'abilities:id,name'])
                     ->orderBy('name')
                     ->get()
                     ->map(fn (CampaignCrewCard $c) => [
                         'id' => $c->id,
                         'name' => $c->name,
                         'body' => $c->description,
+                        'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
+                        'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
                     ]),
             ] : null,
         ]);
@@ -366,7 +369,7 @@ class CampaignAftermathController extends Controller
         $ineligible = [];
         foreach ($items as $eq) {
             $eligible = $eq->campaign_is_always_available
-                || ($eq->campaign_br !== null && $eq->campaign_br <= $data['flip_value']);
+                || ($eq->campaign_br !== null && $eq->campaign_br === $data['flip_value']);
             // Red joker enables ttw_only items; otherwise they're filtered out.
             if ($eq->campaign_ttw_only && ! $data['is_red_joker']) {
                 $eligible = false;
@@ -473,6 +476,9 @@ class CampaignAftermathController extends Controller
             'attempts.*.flip_value' => ['required', 'integer', 'min:1', 'max:13'],
             'attempts.*.suit_pool' => ['required', 'string', 'in:pc,te'],
             'attempts.*.cheated' => ['nullable', 'boolean'],
+            // Required when the doctor outcome is AddedInjury (Oops).
+            'attempts.*.added_injury_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            'attempts.*.added_injury_suit_pool' => ['nullable', 'string', 'in:pc,te'],
         ]);
 
         $attempts = $data['attempts'] ?? [];
@@ -537,7 +543,57 @@ class CampaignAftermathController extends Controller
                 if ($removesInjury) {
                     DB::table('campaign_arsenal_model_injuries')->where('id', $pivot->id)->delete();
                 }
-                // AddedInjury (Oops) and NoEffect leave the original injury attached.
+
+                // GainedUndead / GainedConstruct: append the characteristic to
+                // the model's gained_characteristics JSON column.
+                if ($outcome === BackAlleyDoctorOutcomeEnum::GainedUndead || $outcome === BackAlleyDoctorOutcomeEnum::GainedConstruct) {
+                    $newCharacteristic = $outcome === BackAlleyDoctorOutcomeEnum::GainedUndead ? 'Undead' : 'Construct';
+                    $current = $model->gained_characteristics ?? [];
+                    if (! in_array($newCharacteristic, $current, true)) {
+                        $current[] = $newCharacteristic;
+                        $model->update(['gained_characteristics' => $current]);
+                    }
+                }
+
+                // AddedInjury (Oops): add a NEW injury using the provided flip.
+                if ($outcome === BackAlleyDoctorOutcomeEnum::AddedInjury) {
+                    $newFlip = $attempt['added_injury_flip_value'] ?? null;
+                    $newPool = $attempt['added_injury_suit_pool'] ?? null;
+                    if ($newFlip !== null && $newPool !== null) {
+                        $newInjury = Upgrade::query()
+                            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                            ->where('campaign_upgrade_kind', 'injury')
+                            ->where('campaign_suit_pool', $newPool)
+                            ->where('campaign_flip_value', $newFlip)
+                            ->first();
+                        $newAttaches = $newInjury && ! str_contains(strtolower($newInjury->name), 'flesh wound');
+                        if ($newAttaches && ! $newInjury->campaign_annihilates_model) {
+                            $dupCheck = DB::table('campaign_arsenal_model_injuries')
+                                ->where('campaign_arsenal_model_id', $model->id)
+                                ->where('injury_upgrade_id', $newInjury->id)
+                                ->exists();
+                            if (! $dupCheck) {
+                                DB::table('campaign_arsenal_model_injuries')->insert([
+                                    'campaign_arsenal_model_id' => $model->id,
+                                    'injury_upgrade_id' => $newInjury->id,
+                                    'acquired_aftermath_id' => $locked->id,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ]);
+                                $injCount = DB::table('campaign_arsenal_model_injuries')
+                                    ->where('campaign_arsenal_model_id', $model->id)
+                                    ->count();
+                                if ($injCount >= 3) {
+                                    $model->update(['annihilated_at' => now()]);
+                                }
+                            }
+                        } elseif ($newInjury?->campaign_annihilates_model) {
+                            $model->update(['annihilated_at' => now()]);
+                        }
+                    }
+                }
+
+                // NoEffect and AddedInjury leave the original injury attached.
 
                 DB::table('campaign_aftermath_doctor')->insert([
                     'campaign_aftermath_id' => $locked->id,
@@ -580,7 +636,8 @@ class CampaignAftermathController extends Controller
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
-        if ($aftermath->current_phase < 1 || $aftermath->current_phase >= 6) {
+        // Phase 2 (Payday) is mandatory and cannot be skipped (pg 21).
+        if ($aftermath->current_phase < 1 || $aftermath->current_phase >= 6 || $aftermath->current_phase === 2) {
             return redirect()->back();
         }
 
@@ -631,7 +688,7 @@ class CampaignAftermathController extends Controller
             'advancements.*.source_table' => ['required', 'string', Rule::enum(AdvancementTableEnum::class)],
             'advancements.*.catalog_id' => ['nullable', 'integer'],
             'advancements.*.applied_to_action_index' => ['nullable', 'integer'],
-            'advancements.*.position_in_xp_track' => ['required', 'integer', 'min:0', 'max:26'],
+            'advancements.*.position_in_xp_track' => ['required', 'integer', 'min:0', 'max:38'],
             'advancements.*.free_choice' => ['nullable', 'array'],
             // Optional: the originating equipment for an attack/tactical
             // modifier that targets an equipment-derived action (pg 31).
@@ -663,7 +720,7 @@ class CampaignAftermathController extends Controller
         }
 
         $advanced = $this->lockAndAdvance($aftermath, 4, function (CampaignAftermath $locked) use ($leader, $data) {
-            // Lazy-init the XP track to the canonical 27-box layout the first
+            // Lazy-init the XP track to the canonical 39-box layout the first
             // time we touch it.
             $track = $leader->xp_track ?? CustomCharacter::defaultXpTrack();
             $toFill = (int) $data['xp_earned'];
@@ -760,21 +817,72 @@ class CampaignAftermathController extends Controller
                     continue;
                 }
 
+                // Peons never suffer injuries (pg 34).
+                if ($model->is_peon) {
+                    continue;
+                }
+
                 if ($attaches && ! $injury->campaign_annihilates_model) {
-                    DB::table('campaign_arsenal_model_injuries')->insert([
-                        'campaign_arsenal_model_id' => $model->id,
-                        'injury_upgrade_id' => $injury->id,
-                        'acquired_aftermath_id' => $locked->id,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-
-                    $count = DB::table('campaign_arsenal_model_injuries')
+                    // No duplicate injuries: if the model already has this
+                    // injury, skip the insert rather than stacking it.
+                    $alreadyHas = DB::table('campaign_arsenal_model_injuries')
                         ->where('campaign_arsenal_model_id', $model->id)
-                        ->count();
+                        ->where('injury_upgrade_id', $injury->id)
+                        ->exists();
 
-                    if ($count >= 3) {
-                        $model->update(['annihilated_at' => now()]);
+                    if (! $alreadyHas) {
+                        DB::table('campaign_arsenal_model_injuries')->insert([
+                            'campaign_arsenal_model_id' => $model->id,
+                            'injury_upgrade_id' => $injury->id,
+                            'acquired_aftermath_id' => $locked->id,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $count = DB::table('campaign_arsenal_model_injuries')
+                            ->where('campaign_arsenal_model_id', $model->id)
+                            ->count();
+
+                        if ($count >= 3) {
+                            $model->update(['annihilated_at' => now()]);
+                        }
+
+                        // Titled models: cascade injury to all title siblings
+                        // sharing the same title_group_key (pg 18).
+                        if ($model->title_group_key !== null) {
+                            $siblings = CampaignArsenalModel::query()
+                                ->where('campaign_crew_id', $model->campaign_crew_id)
+                                ->where('title_group_key', $model->title_group_key)
+                                ->where('id', '!=', $model->id)
+                                ->whereNull('annihilated_at')
+                                ->lockForUpdate()
+                                ->get();
+
+                            foreach ($siblings as $sibling) {
+                                $siblingAlreadyHas = DB::table('campaign_arsenal_model_injuries')
+                                    ->where('campaign_arsenal_model_id', $sibling->id)
+                                    ->where('injury_upgrade_id', $injury->id)
+                                    ->exists();
+
+                                if (! $siblingAlreadyHas) {
+                                    DB::table('campaign_arsenal_model_injuries')->insert([
+                                        'campaign_arsenal_model_id' => $sibling->id,
+                                        'injury_upgrade_id' => $injury->id,
+                                        'acquired_aftermath_id' => $locked->id,
+                                        'created_at' => now(),
+                                        'updated_at' => now(),
+                                    ]);
+
+                                    $siblingCount = DB::table('campaign_arsenal_model_injuries')
+                                        ->where('campaign_arsenal_model_id', $sibling->id)
+                                        ->count();
+
+                                    if ($siblingCount >= 3) {
+                                        $sibling->update(['annihilated_at' => now()]);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

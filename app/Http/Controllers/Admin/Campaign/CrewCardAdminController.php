@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin\Campaign;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Campaign\StoreCrewCardRequest;
 use App\Http\Requests\Admin\Campaign\UpdateCrewCardRequest;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\Campaign\CampaignCrewCard;
 use Illuminate\Http\Request;
 
@@ -18,26 +20,53 @@ class CrewCardAdminController extends Controller
         ]);
     }
 
+    private function formProps(): array
+    {
+        return [
+            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name']),
+            'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
+        ];
+    }
+
     public function create(Request $request)
     {
-        return inertia('Admin/Campaign/CrewCard/Form');
+        return inertia('Admin/Campaign/CrewCard/Form', $this->formProps());
     }
 
     public function edit(Request $request, CampaignCrewCard $crewCard)
     {
-        return inertia('Admin/Campaign/CrewCard/Form', ['item' => $crewCard]);
+        $crewCard->load(['actions:id,name', 'abilities:id,name']);
+
+        return inertia('Admin/Campaign/CrewCard/Form', array_merge(
+            ['item' => $crewCard],
+            $this->formProps(),
+        ));
     }
 
     public function store(StoreCrewCardRequest $request)
     {
-        $row = CampaignCrewCard::create($request->validated());
+        $validated = $request->validated();
+        $actionIds = $validated['action_ids'] ?? [];
+        $abilityIds = $validated['ability_ids'] ?? [];
+        unset($validated['action_ids'], $validated['ability_ids']);
+
+        $row = CampaignCrewCard::create($validated);
+        $row->actions()->sync($actionIds);
+        $row->abilities()->sync($abilityIds);
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$row->name} created.");
     }
 
     public function update(UpdateCrewCardRequest $request, CampaignCrewCard $crewCard)
     {
-        $crewCard->update($request->validated());
+        $validated = $request->validated();
+        $actionIds = $validated['action_ids'] ?? [];
+        $abilityIds = $validated['ability_ids'] ?? [];
+        unset($validated['action_ids'], $validated['ability_ids']);
+
+        $crewCard->update($validated);
+        $crewCard->actions()->sync($actionIds);
+        $crewCard->abilities()->sync($abilityIds);
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$crewCard->name} updated.");
     }

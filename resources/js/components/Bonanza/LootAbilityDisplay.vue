@@ -24,8 +24,11 @@ defineProps<{
                 v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type"
                 class="inline-flex items-center gap-0.5 text-muted-foreground"
             >
-                (<GameIcon v-if="ability.suits && ability.suits !== 'soulstone'" :type="ability.suits" class-name="text-[9px] inline-block" /><template
-                    v-if="ability.defensive_ability_type"
+                (<GameIcon
+                    v-if="ability.suits && ability.suits !== 'soulstone'"
+                    :type="ability.suits"
+                    class-name="text-[9px] inline-block"
+                /><template v-if="ability.defensive_ability_type"
                     ><template v-if="ability.suits && ability.suits !== 'soulstone'">, </template
                     ><GameIcon :type="ability.defensive_ability_type" class-name="text-[9px] inline-block" /></template
                 >)

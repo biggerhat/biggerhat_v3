@@ -5,8 +5,8 @@ import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {Head, router} from '@inertiajs/vue3';
-import {Coins, Search, Printer, Dice6} from 'lucide-vue-next';
+import { Head } from '@inertiajs/vue3';
+import { Coins, Printer, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface ActionTrigger {

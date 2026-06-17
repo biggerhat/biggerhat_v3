@@ -172,7 +172,7 @@ const adminGroups: AdminNavGroup[] = [
             },
             {
                 title: 'Totem Templates',
-                href: route('admin.custom_cards.index') + '?kind=character&is_campaign_totem_template=1',
+                href: route('admin.campaign.totem-templates.index'),
                 icon: Puzzle,
                 permission: 'view_campaign_catalog',
             },

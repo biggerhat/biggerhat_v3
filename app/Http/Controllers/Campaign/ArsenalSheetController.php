@@ -59,7 +59,8 @@ class ArsenalSheetController extends Controller
         $crew->load([
             'leader',
             'totem',
-            'crewCardEffect',
+            'crewCardEffect.actions:id,name,type,stat,description',
+            'crewCardEffect.abilities:id,name,description',
             'keywordOne:id,name,faction',
             'keywordTwo:id,name,faction',
             'arsenalModels' => fn ($q) => $q->active()->with('character:id,display_name,cost,faction,station'),

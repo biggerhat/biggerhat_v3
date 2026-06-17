@@ -77,13 +77,26 @@ const formatActionType = (type?: string) => {
         </div>
         <div :class="['flex items-center border-b px-3', forLootCard ? 'py-0.5' : 'py-2']">
             <div class="inline-flex min-w-0 flex-1 items-center gap-1">
-                <GameIcon v-if="action.is_signature" type="signature_action" :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'" />
-                <GameIcon v-for="n in action.stone_cost ?? 0" :key="n" type="soulstone" :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'" />
+                <GameIcon
+                    v-if="action.is_signature"
+                    type="signature_action"
+                    :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'"
+                />
+                <GameIcon
+                    v-for="n in action.stone_cost ?? 0"
+                    :key="n"
+                    type="soulstone"
+                    :class-name="forLootCard ? 'text-[9px] inline-block shrink-0' : 'h-4 inline-block shrink-0'"
+                />
                 <span class="font-semibold">{{ action.name }}</span>
             </div>
             <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">
                 <span class="inline-flex items-center justify-center gap-0.5">
-                    <GameIcon v-if="action.range_type" :type="action.range_type" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
+                    <GameIcon
+                        v-if="action.range_type"
+                        :type="action.range_type"
+                        :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'"
+                    />
                     {{ action.range != null ? action.range + '"' : '-' }}
                 </span>
             </span>
@@ -91,9 +104,18 @@ const formatActionType = (type?: string) => {
                 <template v-if="action.stat != null">
                     <span class="inline-flex items-center justify-center gap-0.5">
                         {{ action.stat }}
-                        <GameIcon v-if="action.stat_modifier" :type="action.stat_modifier" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-4.5 inline-block'" />
+                        <GameIcon
+                            v-if="action.stat_modifier"
+                            :type="action.stat_modifier"
+                            :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-4.5 inline-block'"
+                        />
                         <template v-if="action.stat_suits">
-                            <GameIcon v-for="suit in action.stat_suits.split(' ')" :key="suit" :type="suit" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
+                            <GameIcon
+                                v-for="suit in action.stat_suits.split(' ')"
+                                :key="suit"
+                                :type="suit"
+                                :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'"
+                            />
                         </template>
                     </span>
                 </template>
@@ -105,7 +127,12 @@ const formatActionType = (type?: string) => {
                     <span class="inline-flex items-center justify-center gap-0.5">
                         {{ action.target_number }}
                         <template v-if="action.target_suits">
-                            <GameIcon v-for="suit in action.target_suits.split(' ')" :key="suit" :type="suit" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
+                            <GameIcon
+                                v-for="suit in action.target_suits.split(' ')"
+                                :key="suit"
+                                :type="suit"
+                                :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'"
+                            />
                         </template>
                     </span>
                 </template>
@@ -115,18 +142,39 @@ const formatActionType = (type?: string) => {
         </div>
         <div v-if="action.description" :class="['px-3', forLootCard ? 'py-0.5' : 'py-2']">
             <p :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']">
-                <GameText :text="action.description" :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'" />
+                <GameText
+                    :text="action.description"
+                    :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'"
+                />
             </p>
         </div>
         <div v-if="action.triggers?.length" :class="['space-y-0.5 border-t px-3', forLootCard ? 'py-0.5' : 'py-2']">
-            <div v-for="(trigger, tidx) in action.triggers" :key="tidx" :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']">
+            <div
+                v-for="(trigger, tidx) in action.triggers"
+                :key="tidx"
+                :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']"
+            >
                 <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
-                    <GameIcon v-if="trigger.suits" :type="trigger.suits" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
-                    <GameIcon v-for="n in trigger.stone_cost ?? 0" :key="n" type="soulstone" :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'" />
+                    <GameIcon
+                        v-if="trigger.suits"
+                        :type="trigger.suits"
+                        :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'"
+                    />
+                    <GameIcon
+                        v-for="n in trigger.stone_cost ?? 0"
+                        :key="n"
+                        type="soulstone"
+                        :class-name="forLootCard ? 'text-[9px] inline-block' : 'h-3.5 inline-block'"
+                    />
                     {{ trigger.name }}:
                 </span>
                 {{ ' ' }}
-                <GameText v-if="trigger.description" :text="trigger.description" :max-length="120" :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'" />
+                <GameText
+                    v-if="trigger.description"
+                    :text="trigger.description"
+                    :max-length="120"
+                    :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'"
+                />
             </div>
         </div>
         <div v-if="!hideFooter" class="mt-auto flex flex-wrap items-center gap-1.5 border-t px-3 py-1.5 text-xs">

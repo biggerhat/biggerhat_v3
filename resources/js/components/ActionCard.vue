@@ -148,11 +148,11 @@ const formatActionType = (type?: string) => {
                 />
             </p>
         </div>
-        <div v-if="action.triggers?.length" :class="['space-y-0.5 border-t px-3', forLootCard ? 'py-0.5' : 'py-2']">
+        <div v-if="action.triggers?.length" :class="['border-t px-3', forLootCard ? 'py-0' : 'space-y-0.5 py-2']">
             <div
                 v-for="(trigger, tidx) in action.triggers"
                 :key="tidx"
-                :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']"
+                :class="['leading-tight text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs leading-relaxed']"
             >
                 <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
                     <GameIcon
@@ -172,7 +172,6 @@ const formatActionType = (type?: string) => {
                 <GameText
                     v-if="trigger.description"
                     :text="trigger.description"
-                    :max-length="120"
                     :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'"
                 />
             </div>

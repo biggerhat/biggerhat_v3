@@ -83,10 +83,10 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </button>
         </header>
 
-        <section class="flex-1 space-y-1.5 px-3 py-0.5">
+        <section class="flex-1 min-h-0 overflow-hidden space-y-1 px-3 py-0.5">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0">A</span>
-                <span v-if="sideA.title" class="truncate font-semibold normal-case tracking-normal text-foreground">{{ sideA.title }}</span>
+                <span v-if="sideA.title" class="min-w-0 font-semibold normal-case tracking-normal text-foreground">{{ sideA.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideA)"
@@ -116,10 +116,10 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </span>
         </div>
 
-        <section :class="['space-y-1.5 px-3 py-0.5', mirrored ? 'rotate-180' : '']">
+        <section :class="['flex-1 min-h-0 overflow-hidden space-y-1 px-3 py-0.5', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
-                <span v-if="sideB.title" class="truncate font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>
+                <span v-if="sideB.title" class="min-w-0 font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideB)"

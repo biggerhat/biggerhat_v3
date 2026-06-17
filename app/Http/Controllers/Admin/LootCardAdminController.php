@@ -43,8 +43,8 @@ class LootCardAdminController extends Controller
     public function edit(Request $request, LootCard $lootCard): \Inertia\Response|\Inertia\ResponseFactory
     {
         $lootCard->load([
-            'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
-            'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,resisted_by,target_number,target_suits,damage,description',
+            'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+            'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
             'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
             'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
             'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
@@ -70,7 +70,7 @@ class LootCardAdminController extends Controller
                 ->with(['triggers:id,name,slug,suits,stone_cost,description'])
                 ->get([
                     'id', 'name', 'slug', 'type', 'is_signature', 'stone_cost', 'range',
-                    'range_type', 'stat', 'stat_suits', 'resisted_by', 'target_number',
+                    'range_type', 'stat', 'stat_suits', 'stat_modifier', 'resisted_by', 'target_number',
                     'target_suits', 'damage', 'description',
                 ]),
             'all_abilities' => fn () => Ability::query()

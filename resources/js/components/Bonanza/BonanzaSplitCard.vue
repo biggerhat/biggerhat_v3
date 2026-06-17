@@ -86,7 +86,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
         <section class="min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0">A</span>
-                <span v-if="sideA.title" :class="['min-w-0 truncate font-semibold normal-case tracking-normal text-foreground', sideA.title.length > 35 ? 'text-[7px]' : '']">{{ sideA.title }}</span>
+                <span v-if="sideA.title" :class="['min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground', sideA.title.length > 35 ? 'text-[7px]' : '']">{{ sideA.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideA)"
@@ -119,7 +119,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
         <section :class="['min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
-                <span v-if="sideB.title" :class="['min-w-0 truncate font-semibold normal-case tracking-normal text-foreground', sideB.title.length > 35 ? 'text-[7px]' : '']">{{ sideB.title }}</span>
+                <span v-if="sideB.title" :class="['min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground', sideB.title.length > 35 ? 'text-[7px]' : '']">{{ sideB.title }}</span>
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideB)"

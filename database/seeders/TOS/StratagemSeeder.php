@@ -26,7 +26,7 @@ class StratagemSeeder extends Seeder
                 'slug' => 'volley-fire',
                 'name' => 'Volley Fire',
                 'allegiance' => $kingsEmpire,
-                'type' => $kingsEmpire?->type,
+                'type' => null,
                 'tactical_cost' => 1,
                 'effect' => "Choose a friendly King's Empire Fireteam. It may immediately take a Missile Action.",
             ],
@@ -42,19 +42,24 @@ class StratagemSeeder extends Seeder
                 'slug' => 'burning-ritual',
                 'name' => 'Burning Ritual',
                 'allegiance' => $cult,
-                'type' => $cult?->type,
+                'type' => null,
                 'tactical_cost' => 3,
                 'effect' => 'Discard two Fate cards. A friendly Cult Fireteam regenerates one Killed model.',
             ],
         ];
 
+        // Rulebook p. 13: a Stratagem keys to a specific Allegiance OR an
+        // Allegiance Type, never both. Enforce that here so seeded data matches
+        // the `prohibits` validation on Store/UpdateStratagemRequest.
         foreach ($rows as $row) {
+            $allegianceId = $row['allegiance']?->id;
+
             Stratagem::updateOrCreate(
                 ['slug' => $row['slug']],
                 [
                     'name' => $row['name'],
-                    'allegiance_id' => $row['allegiance']?->id,
-                    'allegiance_type' => $row['type']?->value,
+                    'allegiance_id' => $allegianceId,
+                    'allegiance_type' => $allegianceId === null ? $row['type']?->value : null,
                     'tactical_cost' => $row['tactical_cost'],
                     'effect' => $row['effect'],
                 ],

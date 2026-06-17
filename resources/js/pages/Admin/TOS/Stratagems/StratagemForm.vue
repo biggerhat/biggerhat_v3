@@ -12,6 +12,7 @@ import { computed, onMounted, ref } from 'vue';
 
 interface StratagemRow {
     id: number;
+    slug: string;
     name: string;
     allegiance_id: number | null;
     allegiance_type: string | null;
@@ -27,6 +28,14 @@ const props = defineProps<{
     allegiance_types: TosSelectOption[];
 }>();
 
+// Rulebook p. 13: a Stratagem is scoped to a specific Allegiance OR an
+// Allegiance Type OR neither (universal) — never both. The segmented control
+// mirrors the suits/margin/none control on TriggerForm and guarantees only one
+// of the two fields is ever populated, so the `prohibits` validation never fires.
+type ScopeType = 'allegiance' | 'type' | 'universal';
+
+const scope = ref<ScopeType>('universal');
+
 const formInfo = ref({
     name: '' as string,
     allegiance_id: null as number | null,
@@ -37,6 +46,12 @@ const formInfo = ref({
     sort_order: 0 as number,
 });
 
+function setScope(next: ScopeType) {
+    scope.value = next;
+    if (next !== 'allegiance') formInfo.value.allegiance_id = null;
+    if (next !== 'type') formInfo.value.allegiance_type = null;
+}
+
 const existingImage = computed<string | null>(() => {
     const path = props.stratagem?.image_path;
     if (!path) return null;
@@ -44,8 +59,11 @@ const existingImage = computed<string | null>(() => {
 });
 
 const submit = () => {
-    if (props.stratagem) router.post(route('admin.tos.stratagems.update', props.stratagem.slug), formInfo.value);
-    else router.post(route('admin.tos.stratagems.store'), formInfo.value);
+    // forceFormData because image_path is a File — without it Inertia JSON-encodes
+    // the payload and the file silently becomes a string (matches AllegianceForm).
+    const options = { forceFormData: true };
+    if (props.stratagem) router.post(route('admin.tos.stratagems.update', props.stratagem.slug), formInfo.value, options);
+    else router.post(route('admin.tos.stratagems.store'), formInfo.value, options);
 };
 
 onMounted(() => {
@@ -56,6 +74,13 @@ onMounted(() => {
     formInfo.value.tactical_cost = props.stratagem.tactical_cost;
     formInfo.value.effect = props.stratagem.effect;
     formInfo.value.sort_order = props.stratagem.sort_order;
+
+    // Derive scope from the record. allegiance_id wins if both happen to be set
+    // (rulebook p. 13: specific Allegiance beats type) — setScope then clears the
+    // counterpart so a legacy record with both never re-submits both.
+    if (props.stratagem.allegiance_id !== null) setScope('allegiance');
+    else if (props.stratagem.allegiance_type !== null) setScope('type');
+    else setScope('universal');
 });
 </script>
 
@@ -72,27 +97,67 @@ onMounted(() => {
                     <Input id="name" v-model="formInfo.name" />
                     <InputError :message="usePage().props.errors.name" />
                 </div>
-                <p class="text-[11px] text-muted-foreground">
-                    Leave Allegiance blank and pick Allegiance Type to make the Stratagem available to any Allegiance of that type (rulebook p. 13).
-                </p>
-                <div class="grid gap-3 md:grid-cols-2">
-                    <div>
-                        <Label for="allegiance_id">Allegiance (specific)</Label>
+                <div>
+                    <Label>Scope</Label>
+                    <div
+                        class="mt-1 inline-flex items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium"
+                        role="group"
+                        aria-label="Stratagem scope"
+                    >
+                        <button
+                            type="button"
+                            class="inline-flex h-7 items-center rounded px-3 transition-colors"
+                            :class="
+                                scope === 'allegiance' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            "
+                            @click="setScope('allegiance')"
+                        >
+                            Specific Allegiance
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex h-7 items-center rounded px-3 transition-colors"
+                            :class="scope === 'type' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                            @click="setScope('type')"
+                        >
+                            Allegiance Type
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex h-7 items-center rounded px-3 transition-colors"
+                            :class="
+                                scope === 'universal' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            "
+                            @click="setScope('universal')"
+                        >
+                            Universal
+                        </button>
+                    </div>
+                    <p class="mt-1 text-[11px] text-muted-foreground">
+                        A Stratagem keys to a specific Allegiance, OR to an Allegiance Type (available to any Allegiance of that type), OR is Universal —
+                        never both (rulebook p. 13).
+                    </p>
+                </div>
+                <div>
+                    <div v-if="scope === 'allegiance'">
+                        <Label for="allegiance_id">Allegiance</Label>
                         <Select v-model.number="formInfo.allegiance_id">
-                            <SelectTrigger><SelectValue placeholder="Allegiance (optional)" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Choose an Allegiance" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem v-for="a in allegiances" :key="a.id" :value="a.id">{{ a.name }}</SelectItem>
                             </SelectContent>
                         </Select>
+                        <InputError :message="usePage().props.errors.allegiance_id" />
                     </div>
-                    <div>
+                    <div v-else-if="scope === 'type'">
                         <Label for="allegiance_type">Allegiance Type</Label>
                         <Select v-model="formInfo.allegiance_type">
-                            <SelectTrigger><SelectValue placeholder="Type (optional)" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Choose a Type" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem v-for="t in allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
                             </SelectContent>
                         </Select>
+                        <InputError :message="usePage().props.errors.allegiance_type" />
                     </div>
                 </div>
                 <div>

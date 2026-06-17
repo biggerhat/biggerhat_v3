@@ -5,12 +5,6 @@ import { computed } from 'vue';
 
 const page = usePage<SharedData>();
 
-/**
- * UI-only gate while TOS is pre-release — hide the switcher from anyone
- * without the `view_tos` permission. Remove the `v-if="canViewTos"` below
- * (or grant the permission to a public role) when TOS goes fully public.
- */
-const canViewTos = computed(() => page.props.auth?.can_view_tos === true);
 const current = computed(() => page.props.currentGameSystem.slug);
 
 /**
@@ -36,7 +30,6 @@ function switchTo(target: 'malifaux' | 'tos') {
 
 <template>
     <div
-        v-if="canViewTos"
         class="inline-flex h-8 items-center rounded-md border border-input bg-background/60 p-0.5 text-[11px] font-medium"
         role="group"
         aria-label="Game system"

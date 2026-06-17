@@ -6,8 +6,11 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\FactionEnum;
+use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Character;
+use App\Models\CustomCharacter;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -136,6 +139,47 @@ class StoreLeaderRequest extends FormRequest
                     'abilities',
                     "Archetype {$name} allows at most {$archetype->abilitiesCount()} abilit(y/ies)."
                 );
+            }
+            foreach ($abilities as $i => $ab) {
+                $sourceId = $ab['source_id'] ?? null;
+                if ($sourceId) {
+                    $cost = Ability::query()->whereKey((int) $sourceId)->value('cost') ?? 0;
+                    if ($cost > $archetype->abilityCostCap()) {
+                        $validator->errors()->add(
+                            "abilities.{$i}.source_id",
+                            "Ability exceeds the cost cap of {$archetype->abilityCostCap()} ss."
+                        );
+                    }
+                }
+            }
+
+            // Leader name must not match an existing Malifaux model (pg 17).
+            $leaderName = (string) $this->input('name', '');
+            if ($leaderName !== '') {
+                $nameClash = Character::query()
+                    ->whereRaw('LOWER(display_name) = ?', [strtolower($leaderName)])
+                    ->exists();
+                if ($nameClash) {
+                    $validator->errors()->add('name', 'This name already belongs to an existing Malifaux model. Choose a different name.');
+                }
+            }
+
+            // At least one chosen keyword must have a model in the declared faction (pg 15).
+            $faction = $this->input('faction');
+            $keyword1 = $this->input('keyword_1_id');
+            $keyword2 = $this->input('keyword_2_id');
+            $keywordIds = array_filter([(int) $keyword1, (int) $keyword2]);
+            if ($faction && ! empty($keywordIds)) {
+                $hasModelInFaction = Character::query()
+                    ->whereHas('keywords', fn ($q) => $q->whereIn('keywords.id', $keywordIds))
+                    ->where('faction', $faction)
+                    ->exists();
+                if (! $hasModelInFaction) {
+                    $validator->errors()->add(
+                        'keyword_1_id',
+                        'At least one chosen keyword must have a model belonging to the declared faction.'
+                    );
+                }
             }
         });
     }

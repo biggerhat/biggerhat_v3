@@ -65,7 +65,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
 </script>
 
 <template>
-    <div :class="['relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm w-[2.75in] h-[4.75in] text-[8px]', theme.border]">
+    <div :class="['relative flex h-[4.75in] w-[2.75in] flex-col overflow-hidden rounded-xl border bg-card text-[8px] shadow-sm', theme.border]">
         <header :class="['flex items-center gap-2 border-b px-3 py-0.5 text-[10px]', theme.header]">
             <span class="inline-flex items-baseline gap-1 font-mono font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="inline-block" />
@@ -83,7 +83,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </button>
         </header>
 
-        <section class="flex-1 min-h-0 overflow-hidden space-y-0.5 px-2 py-px">
+        <section class="min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0">A</span>
                 <span v-if="sideA.title" class="min-w-0 truncate font-semibold normal-case tracking-normal text-foreground">{{ sideA.title }}</span>
@@ -116,7 +116,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
             </span>
         </div>
 
-        <section :class="['flex-1 min-h-0 overflow-hidden space-y-0.5 px-2 py-px', mirrored ? 'rotate-180' : '']">
+        <section :class="['min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
                 <span v-if="sideB.title" class="min-w-0 truncate font-semibold normal-case tracking-normal text-foreground">{{ sideB.title }}</span>

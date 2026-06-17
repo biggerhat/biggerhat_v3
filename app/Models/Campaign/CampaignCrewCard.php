@@ -2,7 +2,10 @@
 
 namespace App\Models\Campaign;
 
+use App\Models\Ability;
+use App\Models\Action;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -19,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $requires_upgrade_type_choice
  * @property \Carbon\CarbonImmutable $created_at
  * @property \Carbon\CarbonImmutable $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
@@ -38,6 +43,18 @@ class CampaignCrewCard extends Model
             'requires_marker_choice' => 'boolean',
             'requires_upgrade_type_choice' => 'boolean',
         ];
+    }
+
+    /** @return BelongsToMany<Action, $this> */
+    public function actions(): BelongsToMany
+    {
+        return $this->belongsToMany(Action::class, 'campaign_crew_card_actions');
+    }
+
+    /** @return BelongsToMany<Ability, $this> */
+    public function abilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Ability::class, 'campaign_crew_card_abilities');
     }
 
     public function crews(): HasMany

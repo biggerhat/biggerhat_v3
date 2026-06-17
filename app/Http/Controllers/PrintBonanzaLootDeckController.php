@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\LootCard;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Response;
-use Inertia\ResponseFactory;
 
 /**
  * Public reference for the Bonanza Brawl Loot Deck. The 54 cards plus their
@@ -23,9 +21,9 @@ class PrintBonanzaLootDeckController extends Controller
         $data = [];
 
         foreach ($lootCards as $lootCard) {
-            $data["images"][] = [
-                "image" => base64_encode(Storage::disk('public')->get($lootCard->image)),
-                "name" => $lootCard->name,
+            $data['images'][] = [
+                'image' => base64_encode(Storage::disk('public')->get($lootCard->image)),
+                'name' => $lootCard->name,
             ];
         }
 

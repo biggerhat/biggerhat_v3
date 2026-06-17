@@ -73,7 +73,7 @@ class CustomCharacter extends Model
     }
 
     /**
-     * Canonical 27-box Leadership Experience chart (rulebook pg 31, 13 + 7 + 7).
+     * Canonical 39-box Leadership Experience chart (rulebook pg 31, 13 + 13 + 13).
      * Tier numbers per the printed track; a null tier means the XP point is
      * earned without triggering an advancement at that position. Used to lazy-
      * initialize a leader's `xp_track` column on first read.
@@ -83,8 +83,8 @@ class CustomCharacter extends Model
     public static function defaultXpTrack(): array
     {
         $row1 = [1, 1, 2, null, 3, null, 4, null, 1, null, 2, null, 4];
-        $row2 = [null, null, 1, null, 2, 1, null];
-        $row3 = [null, null, null, 1, null, 2, 4];
+        $row2 = [null, null, null, 1, null, null, 2, 1, null, null, null, 3, null];
+        $row3 = [null, null, 1, null, null, null, null, 2, null, null, null, null, 4];
 
         $track = [];
         $index = 0;

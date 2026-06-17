@@ -29,6 +29,11 @@ interface ArsenalRow {
     label: string | null;
     character: CharRow | null;
 }
+interface CrewCardLinkedItem {
+    id: number;
+    name: string;
+}
+
 interface CrewCardEffectRow {
     id: number;
     name: string;
@@ -36,6 +41,8 @@ interface CrewCardEffectRow {
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
+    actions: CrewCardLinkedItem[];
+    abilities: CrewCardLinkedItem[];
 }
 interface CrewData {
     id: number;
@@ -225,7 +232,17 @@ const submit = () => {
                             :class="selectedCrewCardEffectId === e.id ? 'border-primary bg-primary/10' : ''"
                         >
                             <p class="font-medium">{{ e.name }}</p>
-                            <p class="text-xs text-muted-foreground">{{ e.body }}</p>
+                            <p v-if="e.body" class="text-xs text-muted-foreground">{{ e.body }}</p>
+                            <div v-if="e.abilities.length || e.actions.length" class="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+                                <p v-if="e.abilities.length">
+                                    <span class="font-semibold">Abilities:</span>
+                                    {{ e.abilities.map((a) => a.name).join(', ') }}
+                                </p>
+                                <p v-if="e.actions.length">
+                                    <span class="font-semibold">Actions:</span>
+                                    {{ e.actions.map((a) => a.name).join(', ') }}
+                                </p>
+                            </div>
                         </button>
                     </li>
                 </ul>

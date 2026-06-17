@@ -18,10 +18,27 @@ interface KeywordRow {
     faction: string;
 }
 
+interface CrewCardLinkedItem {
+    id: number;
+    name: string;
+}
+
+interface CrewCardLinkedAbility extends CrewCardLinkedItem {
+    description: string | null;
+}
+
+interface CrewCardLinkedAction extends CrewCardLinkedItem {
+    type: string;
+    stat: number | null;
+    description: string | null;
+}
+
 interface CrewCardEffectRow {
     id: number;
     name: string;
     body: string;
+    actions: CrewCardLinkedAction[];
+    abilities: CrewCardLinkedAbility[];
 }
 
 interface ActionData {
@@ -352,11 +369,29 @@ const totemRendererProps = computed(() => {
                 <Card>
                     <CardHeader><CardTitle>Crew Card</CardTitle></CardHeader>
                     <CardContent>
-                        <div v-if="crew.crew_card_effect">
+                        <div v-if="crew.crew_card_effect" class="space-y-2">
                             <p class="font-medium">{{ crew.crew_card_effect.name }}</p>
-                            <p class="mt-1 text-xs text-muted-foreground">
+                            <p v-if="crew.crew_card_effect.body" class="text-xs text-muted-foreground">
                                 <GameText :text="crew.crew_card_effect.body" />
                             </p>
+                            <div v-if="crew.crew_card_effect.abilities.length" class="space-y-1">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                                <div v-for="ab in crew.crew_card_effect.abilities" :key="ab.id" class="text-xs">
+                                    <span class="font-medium">{{ ab.name }}</span>
+                                    <span v-if="ab.description" class="text-muted-foreground"> — <GameText :text="ab.description" /> </span>
+                                </div>
+                            </div>
+                            <div v-if="crew.crew_card_effect.actions.length" class="space-y-1">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                                <div v-for="ac in crew.crew_card_effect.actions" :key="ac.id" class="text-xs">
+                                    <span class="font-medium">{{ ac.name }}</span>
+                                    <span class="text-muted-foreground">
+                                        ({{ ac.type }}<template v-if="ac.stat !== null">, {{ ac.stat }}</template
+                                        >)</span
+                                    >
+                                    <span v-if="ac.description" class="text-muted-foreground"> — <GameText :text="ac.description" /> </span>
+                                </div>
+                            </div>
                         </div>
                         <p v-else class="text-sm text-muted-foreground">
                             No crew card effect picked.

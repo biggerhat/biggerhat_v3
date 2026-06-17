@@ -8,9 +8,9 @@ use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
 use App\Models\Campaign\Campaign;
-use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Character;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
@@ -46,6 +46,7 @@ class StartingArsenalController extends Controller
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
             'crew_card_effects' => fn () => CampaignCrewCard::query()
+                ->with(['actions:id,name', 'abilities:id,name'])
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
@@ -99,7 +100,11 @@ class StartingArsenalController extends Controller
             );
         }
 
-        if ($totalCost > self::STARTING_BUDGET_SS) {
+        // Starting Anew (pg 36): crews starting fresh keep their existing scrip
+        // bonus and spend from it rather than the standard 25 ss budget.
+        $isStartingAnew = $crew->starting_anew_at !== null;
+
+        if (! $isStartingAnew && $totalCost > self::STARTING_BUDGET_SS) {
             return redirect()->back()->withMessage(
                 'Starting arsenal cost '.$totalCost.' ss exceeds the '.self::STARTING_BUDGET_SS.' ss budget.',
                 null,
@@ -107,7 +112,12 @@ class StartingArsenalController extends Controller
             );
         }
 
-        $leftoverScrip = min(self::MAX_LEFTOVER_SCRIP, self::STARTING_BUDGET_SS - $totalCost);
+        // Starting Anew: leftover is whatever scrip remains after the hire cost
+        // (no max cap since the crew's bonus may legitimately exceed 3). Standard
+        // start: leftover is capped at 3 per pg 15.
+        $leftoverScrip = $isStartingAnew
+            ? max(0, $crew->scrip - $totalCost)
+            : min(self::MAX_LEFTOVER_SCRIP, self::STARTING_BUDGET_SS - $totalCost);
 
         DB::transaction(function () use ($crew, $hires, $data, $leftoverScrip) {
             // One-shot semantics: wipe + re-create. Players are free to

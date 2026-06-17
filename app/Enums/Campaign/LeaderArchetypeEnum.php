@@ -27,50 +27,48 @@ enum LeaderArchetypeEnum: string implements HasDefaultEnumMethods
     public function df(): int
     {
         return match ($this) {
-            self::LuckyUpstart, self::Schemer, self::TalentedIndividual => 5,
-            self::Generalist => 5,
-            self::HeavyHitter => 6,
+            self::Generalist, self::TalentedIndividual => 5,
+            default => 6,
         };
     }
 
     public function wp(): int
     {
         return match ($this) {
-            self::LuckyUpstart, self::TalentedIndividual => 5,
-            self::Generalist, self::HeavyHitter, self::Schemer => 6,
+            self::HeavyHitter => 4,
+            self::LuckyUpstart => 6,
+            default => 5,
         };
     }
 
     public function sp(): int
     {
         return match ($this) {
-            self::LuckyUpstart, self::TalentedIndividual, self::Generalist => 6,
-            self::HeavyHitter => 5,
             self::Schemer => 7,
+            self::TalentedIndividual => 5,
+            default => 6,
         };
     }
 
     public function health(): int
     {
         return match ($this) {
-            self::LuckyUpstart, self::Generalist, self::Schemer => 12,
-            self::HeavyHitter, self::TalentedIndividual => 13,
+            self::Schemer, self::TalentedIndividual => 13,
+            default => 14,
         };
     }
 
     public function attackActionsCount(): int
     {
-        return match ($this) {
-            self::HeavyHitter => 2,
-            default => 1,
-        };
+        return 1;
     }
 
     public function attackActionCostCap(): int
     {
         return match ($this) {
-            self::HeavyHitter => 9,
-            self::TalentedIndividual => 8,
+            self::HeavyHitter => 10,
+            self::Generalist => 7,
+            self::Schemer => 5,
             default => 6,
         };
     }
@@ -88,6 +86,7 @@ enum LeaderArchetypeEnum: string implements HasDefaultEnumMethods
     {
         return match ($this) {
             self::Schemer => 2,
+            self::LuckyUpstart => 0,
             default => 1,
         };
     }
@@ -95,7 +94,9 @@ enum LeaderArchetypeEnum: string implements HasDefaultEnumMethods
     public function tacticalActionCostCap(): int
     {
         return match ($this) {
-            self::Schemer, self::TalentedIndividual => 8,
+            self::Schemer => 8,
+            self::HeavyHitter => 5,
+            self::Generalist => 7,
             default => 6,
         };
     }
@@ -104,6 +105,7 @@ enum LeaderArchetypeEnum: string implements HasDefaultEnumMethods
     {
         return match ($this) {
             self::TalentedIndividual => 2,
+            self::HeavyHitter => 0,
             default => 1,
         };
     }
@@ -111,7 +113,8 @@ enum LeaderArchetypeEnum: string implements HasDefaultEnumMethods
     public function abilityCostCap(): int
     {
         return match ($this) {
-            self::TalentedIndividual, self::Schemer => 7,
+            self::Schemer, self::TalentedIndividual => 8,
+            self::Generalist => 7,
             default => 6,
         };
     }

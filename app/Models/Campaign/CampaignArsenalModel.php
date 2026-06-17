@@ -40,6 +40,7 @@ class CampaignArsenalModel extends Model
     {
         return [
             'is_peon' => 'boolean',
+            'gained_characteristics' => 'array',
             'annihilated_at' => 'immutable_datetime',
             'removed_at' => 'immutable_datetime',
         ];

@@ -159,9 +159,12 @@ class WeeklyHireController extends Controller
 
         foreach ($models as $m) {
             $inKeywordId = $m->keywords->whereIn('id', $keywordIds)->first()?->id;
+            // Versatile models in the declared faction are hired without surcharge
+            // (pg 18 — versatile is equivalent to in-keyword for cost purposes).
+            $isVersatile = $m->characteristics->contains(fn ($c) => strtolower($c->name) === 'versatile');
             $map[$m->id] = [
                 'cost' => (int) ($m->cost ?? 0),
-                'out_of_keyword' => $inKeywordId === null,
+                'out_of_keyword' => $inKeywordId === null && ! $isVersatile,
                 'has_keyword_id' => $inKeywordId,
                 'name' => $m->display_name,
             ];

@@ -20,6 +20,10 @@ class UpdateCrewCardRequest extends FormRequest
             'requires_token_choice' => ['required', 'boolean'],
             'requires_marker_choice' => ['required', 'boolean'],
             'requires_upgrade_type_choice' => ['required', 'boolean'],
+            'action_ids' => ['nullable', 'array'],
+            'action_ids.*' => ['integer', 'exists:actions,id'],
+            'ability_ids' => ['nullable', 'array'],
+            'ability_ids.*' => ['integer', 'exists:abilities,id'],
         ];
     }
 }

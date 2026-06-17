@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,6 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 
+interface OptionRow {
+    id: number;
+    name: string;
+}
+
 interface CrewCardRow {
     id: number;
     name: string;
@@ -16,9 +22,15 @@ interface CrewCardRow {
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
+    actions: OptionRow[];
+    abilities: OptionRow[];
 }
 
-const props = defineProps<{ item?: CrewCardRow | null }>();
+const props = defineProps<{
+    item?: CrewCardRow | null;
+    all_actions: OptionRow[];
+    all_abilities: OptionRow[];
+}>();
 
 const form = ref({
     name: '',
@@ -26,6 +38,8 @@ const form = ref({
     requires_token_choice: false,
     requires_marker_choice: false,
     requires_upgrade_type_choice: false,
+    action_ids: [] as string[],
+    ability_ids: [] as string[],
 });
 
 const submit = () => {
@@ -35,7 +49,13 @@ const submit = () => {
 
 onMounted(() => {
     if (!props.item) return;
-    Object.assign(form.value, props.item);
+    form.value.name = props.item.name;
+    form.value.description = props.item.description;
+    form.value.requires_token_choice = props.item.requires_token_choice;
+    form.value.requires_marker_choice = props.item.requires_marker_choice;
+    form.value.requires_upgrade_type_choice = props.item.requires_upgrade_type_choice;
+    form.value.action_ids = props.item.actions.map((a) => String(a.id));
+    form.value.ability_ids = props.item.abilities.map((a) => String(a.id));
 });
 </script>
 
@@ -56,6 +76,30 @@ onMounted(() => {
                     <Label for="description">Description</Label>
                     <Textarea id="description" v-model="form.description" rows="5" placeholder="The rule text that appears on the card..." />
                     <InputError :message="usePage().props.errors.description" />
+                </div>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <Label>Linked Actions</Label>
+                        <SearchableMultiselect
+                            v-model="form.action_ids"
+                            placeholder="Search actions..."
+                            :options="all_actions"
+                            option-value="id"
+                            option-label="name"
+                        />
+                        <InputError :message="usePage().props.errors.action_ids" />
+                    </div>
+                    <div>
+                        <Label>Linked Abilities</Label>
+                        <SearchableMultiselect
+                            v-model="form.ability_ids"
+                            placeholder="Search abilities..."
+                            :options="all_abilities"
+                            option-value="id"
+                            option-label="name"
+                        />
+                        <InputError :message="usePage().props.errors.ability_ids" />
+                    </div>
                 </div>
                 <div class="space-y-2">
                     <p class="text-sm font-medium">Choice requirements</p>

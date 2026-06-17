@@ -96,9 +96,14 @@ class CampaignController extends Controller
             'invitations.user:id,name,email',
         ]);
 
+        $incompleteCrew = $campaign->crews()
+            ->whereDoesntHave('arsenalModels', fn ($q) => $q->whereNull('annihilated_at')->whereNull('removed_at'))
+            ->exists();
+
         return inertia('Campaigns/Show', [
             'campaign' => $campaign,
             'is_organizer' => $request->user()->can('update', $campaign),
+            'all_arsenals_complete' => ! $incompleteCrew,
         ]);
     }
 
@@ -139,6 +144,21 @@ class CampaignController extends Controller
                 null,
                 \App\Enums\MessageTypeEnum::error,
             );
+        }
+
+        // Require Starting Arsenal completion before starting. For solo, the
+        // organizer's crew must have at least one arsenal model. For multiplayer,
+        // every crew must have completed their arsenal.
+        $incompleteCrew = $campaign->crews()
+            ->whereDoesntHave('arsenalModels', fn ($q) => $q->whereNull('annihilated_at')->whereNull('removed_at'))
+            ->exists();
+
+        if ($incompleteCrew) {
+            $message = $campaign->is_solo
+                ? 'Complete your Starting Arsenal before starting the campaign.'
+                : 'All players must complete their Starting Arsenal before the campaign can start.';
+
+            return redirect()->back()->withMessage($message, null, \App\Enums\MessageTypeEnum::error);
         }
 
         $campaign->update([

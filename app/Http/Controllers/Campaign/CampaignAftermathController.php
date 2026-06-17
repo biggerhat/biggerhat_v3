@@ -14,6 +14,7 @@ use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
@@ -178,7 +179,6 @@ class CampaignAftermathController extends Controller
                     ]),
                 'ability' => Ability::query()
                     ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-                    ->where('is_crew_card_effect', false)
                     ->orderBy('campaign_flip_value')
                     ->orderBy('name')
                     ->get()
@@ -212,15 +212,13 @@ class CampaignAftermathController extends Controller
                         'name' => $a->name,
                         'body' => $a->description,
                     ]),
-                'crew_card' => Ability::query()
-                    ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-                    ->where('is_crew_card_effect', true)
+                'crew_card' => CampaignCrewCard::query()
                     ->orderBy('name')
                     ->get()
-                    ->map(fn (Ability $a) => [
-                        'id' => $a->id,
-                        'name' => $a->name,
-                        'body' => $a->description,
+                    ->map(fn (CampaignCrewCard $c) => [
+                        'id' => $c->id,
+                        'name' => $c->name,
+                        'body' => $c->description,
                     ]),
             ] : null,
         ]);

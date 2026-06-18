@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CampaignCrew $crewA
  * @property-read CampaignCrew $crewB
  * @property-read \App\Models\Game|null $baseGame
+ * @mixin IdeHelperCampaignGame
  */
 class CampaignGame extends Model
 {

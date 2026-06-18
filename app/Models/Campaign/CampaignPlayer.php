@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $campaign_id
  * @property int $user_id
  * @property CampaignPlayerRoleEnum $role
+ * @mixin IdeHelperCampaignPlayer
  */
 class CampaignPlayer extends Model
 {

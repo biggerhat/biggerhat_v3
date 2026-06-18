@@ -114,7 +114,9 @@ class CompanyController extends Controller
         $garrisonUnitIds = null;
         $garrisonAssetIds = null;
         if ($company->garrison_id) {
-            $garrisonUnitIds = $company->garrison->garrisonUnits()->distinct()->pluck('unit_id');
+            // reorder() drops the relation's ORDER BY position — MySQL rejects
+            // DISTINCT combined with an ORDER BY column that isn't selected.
+            $garrisonUnitIds = $company->garrison->garrisonUnits()->reorder()->distinct()->pluck('unit_id');
             $garrisonAssetIds = $company->garrison->assets()->pluck('tos_assets.id');
         }
 

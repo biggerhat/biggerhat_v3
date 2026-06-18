@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
  * Catalog entry for the Lucky Miss table (pg 36) — positive upgrades flipped
  * when an injury/doctor result is a red joker. Any-joker → Doppelganger
  * (free copy in the arsenal).
+ *
+ * @mixin IdeHelperLuckyMiss
  */
 class LuckyMiss extends Model
 {

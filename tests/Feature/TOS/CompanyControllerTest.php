@@ -52,6 +52,21 @@ it('blocks viewing another user\'s Company', function () {
     $this->actingAs($this->user)->get(route('tos.companies.view', $company->slug))->assertForbidden();
 });
 
+it('views a Company restricted to a Garrison pool without error', function () {
+    // Regression: the garrison hire-pool lookup ran DISTINCT + ORDER BY position,
+    // which MySQL rejects. The view must render for a garrison-bound Company.
+    $alle = Allegiance::factory()->earth()->create();
+    $garrison = \App\Models\TOS\Garrison::factory()->forAllegiance($alle)->create();
+    $unit = Unit::factory()->create();
+    // Declare the same unit twice so DISTINCT actually has to collapse rows.
+    \App\Models\TOS\GarrisonUnit::create(['garrison_id' => $garrison->id, 'unit_id' => $unit->id, 'position' => 1, 'is_commander' => false]);
+    \App\Models\TOS\GarrisonUnit::create(['garrison_id' => $garrison->id, 'unit_id' => $unit->id, 'position' => 2, 'is_commander' => false]);
+
+    $company = Company::factory()->forUser($this->user)->forAllegiance($alle)->create(['garrison_id' => $garrison->id]);
+
+    $this->actingAs($this->user)->get(route('tos.companies.view', $company->slug))->assertOk();
+});
+
 it('rejects adding a unit that is not hireable into the Company\'s Allegiance', function () {
     $earth = Allegiance::factory()->earth()->create();
     $malifaux = Allegiance::factory()->malifaux()->create();

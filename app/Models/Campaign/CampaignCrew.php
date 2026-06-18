@@ -42,13 +42,12 @@ use Illuminate\Support\Str;
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
  * @property-read CustomCharacter|null $totem
- *
  * @method static \Database\Factories\Campaign\CampaignCrewFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperCampaignCrew
  */
 class CampaignCrew extends Model
 {
@@ -138,14 +137,17 @@ class CampaignCrew extends Model
 
     /**
      * Active equipment count for Campaign Rating (pg 19). Excludes annihilated
-     * instances. Each per-crew equipment row counts (the same catalog row can
-     * be present multiple times in a crew).
+     * instances and equipment acquired via routes that "never count towards
+     * your campaign rating" (Lucky Upstart / leader-build Special, Loot Their
+     * Stash). Each remaining per-crew equipment row counts (the same catalog
+     * row can be present multiple times in a crew).
      */
     public function activeEquipmentCount(): int
     {
         return CampaignEquipment::query()
             ->where('campaign_crew_id', $this->id)
             ->active()
+            ->countsTowardCr()
             ->count();
     }
 

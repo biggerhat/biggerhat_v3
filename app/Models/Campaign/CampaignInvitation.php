@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
  * @property \Carbon\CarbonImmutable|null $expires_at
  * @property-read Campaign $campaign
  * @property-read \App\Models\User|null $user
+ * @mixin IdeHelperCampaignInvitation
  */
 class CampaignInvitation extends Model
 {

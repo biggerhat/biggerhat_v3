@@ -101,7 +101,7 @@ class CrewBuilderController extends Controller
                         'title' => $c->title,
                         'slug' => $c->slug,
                         'faction' => $c->getRawOriginal('faction'),
-                        'station' => $c->station->value,
+                        'station' => $c->station?->value,
                         'cost' => $c->cost,
                         'health' => $c->health,
                         'speed' => $c->speed,

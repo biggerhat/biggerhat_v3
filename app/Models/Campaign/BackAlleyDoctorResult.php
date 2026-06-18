@@ -9,7 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Catalog entry for one of the Phase 5 Back-Alley Doctor outcomes (pg 33).
+ * 
  * Range-based — rows cover BJ / 1-8 / 9 / 10 / 11 / 12-13 / RJ.
+ *
+ * @mixin IdeHelperBackAlleyDoctorResult
  */
 class BackAlleyDoctorResult extends Model
 {

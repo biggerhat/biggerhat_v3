@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignInvitation> $invitations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignWeek> $weeks
+ * @mixin IdeHelperCampaign
  */
 class Campaign extends Model
 {

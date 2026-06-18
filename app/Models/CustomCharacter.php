@@ -10,6 +10,7 @@ use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -111,11 +112,36 @@ class CustomCharacter extends Model
 
     public function getFactionColorAttribute(): string
     {
-        return $this->faction->color();
+        // Totem templates may have no faction (it's inherited from the leader
+        // when the totem is added to a crew, pg 52).
+        return $this->faction?->color() ?? 'neutral';
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Actions linked to a totem template (pg 52). Only rows flagged
+     * is_campaign_totem_template populate this; the `is_signature_action` pivot
+     * marks signature (f) actions.
+     *
+     * @return BelongsToMany<Action, $this>
+     */
+    public function campaignTotemActions(): BelongsToMany
+    {
+        return $this->belongsToMany(Action::class, 'campaign_totem_template_actions')
+            ->withPivot('is_signature_action');
+    }
+
+    /**
+     * Abilities linked to a totem template (pg 52).
+     *
+     * @return BelongsToMany<Ability, $this>
+     */
+    public function campaignTotemAbilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Ability::class, 'campaign_totem_template_abilities');
     }
 }

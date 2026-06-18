@@ -2,10 +2,10 @@
 
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
-use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Character;
 use App\Models\User;
@@ -113,7 +113,7 @@ it('returns 404 for an unknown share code', function () {
 });
 
 it('exposes arsenal models + crew card effect in the payload', function () {
-    $effect = Ability::factory()->crewCardEffect()->create(['name' => 'Expert Coordination']);
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Expert Coordination']);
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
     $crew->update(['crew_card_effect_id' => $effect->id, 'scrip' => 2]);
@@ -153,6 +153,12 @@ it('computes Campaign Rating as equipment + advancements − injuries', function
     \App\Models\Campaign\CampaignEquipment::factory()->create([
         'campaign_crew_id' => $crew->id,
         'annihilated_at' => now(),
+    ]);
+    // Equipment that "never counts towards your campaign rating" (pg 19, e.g.
+    // Lucky Upstart Special) must not bump the CR equipment tally either.
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'excludes_from_cr' => true,
     ]);
 
     // 2 active arsenal models + 1 with 2 injuries + 1 annihilated (must not count).

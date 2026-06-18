@@ -5,8 +5,8 @@ namespace App\Http\Requests\Campaign;
 use App\Enums\BaseSizeEnum;
 use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
-use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Character;
@@ -63,6 +63,7 @@ class StoreLeaderRequest extends FormRequest
             'actions.*.category' => ['required', 'string', Rule::in(['attack', 'tactical'])],
             'actions.*.stone_cost' => ['nullable', 'integer'],
             'actions.*.source_id' => ['nullable', 'integer', 'exists:actions,id'],
+            'actions.*.source_character_id' => ['nullable', 'integer', 'exists:characters,id'],
             'actions.*.description' => ['nullable', 'string'],
             'actions.*.range' => ['nullable'],
             'actions.*.range_type' => ['nullable', 'string'],
@@ -87,6 +88,7 @@ class StoreLeaderRequest extends FormRequest
             'abilities.*.costs_stone' => ['boolean'],
             'abilities.*.description' => ['nullable', 'string'],
             'abilities.*.source_id' => ['nullable', 'integer', 'exists:abilities,id'],
+            'abilities.*.source_character_id' => ['nullable', 'integer', 'exists:characters,id'],
         ];
     }
 
@@ -141,12 +143,15 @@ class StoreLeaderRequest extends FormRequest
                 );
             }
             foreach ($abilities as $i => $ab) {
-                $sourceId = $ab['source_id'] ?? null;
-                if ($sourceId) {
-                    $cost = Ability::query()->whereKey((int) $sourceId)->value('cost') ?? 0;
+                // The cap is the SOURCE MODEL's cost ("an ally of cost N or less",
+                // pg 17) — abilities carry no cost of their own — so read it off
+                // the chosen source character.
+                $sourceCharacterId = $ab['source_character_id'] ?? null;
+                if ($sourceCharacterId) {
+                    $cost = Character::query()->whereKey((int) $sourceCharacterId)->value('cost') ?? 0;
                     if ($cost > $archetype->abilityCostCap()) {
                         $validator->errors()->add(
-                            "abilities.{$i}.source_id",
+                            "abilities.{$i}.source_character_id",
                             "Ability exceeds the cost cap of {$archetype->abilityCostCap()} ss."
                         );
                     }
@@ -180,6 +185,40 @@ class StoreLeaderRequest extends FormRequest
                         'At least one chosen keyword must have a model belonging to the declared faction.'
                     );
                 }
+            }
+
+            // Actions/abilities must come from a valid source (pg 17): a
+            // cost-bearing model that shares a chosen keyword and is neither a
+            // master nor a totem. Verified authoritatively against the submitted
+            // source_character_id rather than trusting client cost fields.
+            $verifySource = function (?int $characterId, ?int $sourceId, string $relation, string $field) use ($validator, $keywordIds) {
+                // Custom entries with no catalog source are exempt from the rule.
+                if ($sourceId === null) {
+                    return;
+                }
+                if ($characterId === null || empty($keywordIds)) {
+                    $validator->errors()->add($field, 'This must be chosen from an existing model.');
+
+                    return;
+                }
+                $valid = Character::query()
+                    ->whereKey($characterId)
+                    ->where('cost', '>=', 1)
+                    ->whereNotIn('station', [CharacterStationEnum::Master->value])
+                    ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'))
+                    ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                    ->whereHas($relation, fn ($r) => $r->whereKey($sourceId))
+                    ->exists();
+                if (! $valid) {
+                    $validator->errors()->add($field, 'Must be taken from a non-master, non-totem ally (with a cost) that shares a chosen keyword.');
+                }
+            };
+
+            foreach ((array) $this->input('actions', []) as $i => $a) {
+                $verifySource($a['source_character_id'] ?? null, $a['source_id'] ?? null, 'actions', "actions.{$i}.source_character_id");
+            }
+            foreach ((array) $this->input('abilities', []) as $i => $ab) {
+                $verifySource($ab['source_character_id'] ?? null, $ab['source_id'] ?? null, 'abilities', "abilities.{$i}.source_character_id");
             }
         });
     }

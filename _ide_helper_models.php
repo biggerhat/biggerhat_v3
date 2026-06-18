@@ -26,6 +26,13 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $campaign_flip_value
+ * @property int $campaign_is_always_available
+ * @property int $campaign_joker_freechoice
+ * @property int $is_crew_card_effect
+ * @property int $requires_token_choice
+ * @property int $requires_marker_choice
+ * @property int $requires_upgrade_type_choice
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -41,6 +48,9 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignJokerFreechoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCostsStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereDefensiveAbilityType($value)
@@ -48,7 +58,11 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereGameModeType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereIsCrewCardEffect($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresMarkerChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresTokenChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresUpgradeTypeChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereSuits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereUpdatedAt($value)
@@ -83,6 +97,11 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $campaign_flip_value
+ * @property int $campaign_is_always_available
+ * @property int $campaign_joker_freechoice
+ * @property int $campaign_grants_signature
+ * @property string|null $campaign_advancement_kind
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -100,6 +119,11 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignAdvancementKind($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignGrantsSignature($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignJokerFreechoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDamage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDeletedAt($value)
@@ -297,6 +321,638 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperBlueprint {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Catalog entry for one of the Phase 5 Back-Alley Doctor outcomes (pg 33).
+ * 
+ * Range-based — rows cover BJ / 1-8 / 9 / 10 / 11 / 12-13 / RJ.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $body
+ * @property int|null $flip_value_min
+ * @property int|null $flip_value_max
+ * @property bool $is_black_joker
+ * @property bool $is_red_joker
+ * @property \App\Enums\Campaign\BackAlleyDoctorOutcomeEnum $outcome_kind
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\BackAlleyDoctorResultFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereFlipValueMax($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereFlipValueMin($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereIsBlackJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereIsRedJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereOutcomeKind($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BackAlleyDoctorResult whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBackAlleyDoctorResult {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * A Malifaux 4E Campaign Mode game. One per group of players. The organizer
+ * creates it and invites others; each invited user gets a `CampaignCrew` row
+ * once they accept. Status transitions: planning → active → ended.
+ *
+ * @property int $id
+ * @property string $name
+ * @property int $length_weeks
+ * @property int $current_week
+ * @property int $organizer_user_id
+ * @property CampaignStatusEnum $status
+ * @property array<string, bool>|null $optional_rules
+ * @property bool $competitive
+ * @property bool $weekly_event_active
+ * @property bool $is_solo
+ * @property \Carbon\CarbonImmutable|null $started_at
+ * @property \Carbon\CarbonImmutable|null $ended_at
+ * @property-read \App\Models\User|null $organizer
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignPlayer> $players
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignInvitation> $invitations
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignWeek> $weeks
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read int|null $crews_count
+ * @property-read int|null $invitations_count
+ * @property-read int|null $players_count
+ * @property-read int|null $weeks_count
+ * @method static \Database\Factories\Campaign\CampaignFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereCompetitive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereCurrentWeek($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereEndedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereIsSolo($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereLengthWeeks($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereOptionalRules($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereOrganizerUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereStartedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereWeeklyEventActive($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaign {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * One Aftermath flow per crew per game. The fate-deck-no-reshuffle invariant
+ * is preserved by snapshotting the drawn hand at Phase 1 start and persisting
+ * `hand_drawn` server-side — refreshing the wizard mid-flow resumes on the
+ * same hand.
+ * 
+ * `hand_drawn` is the immutable snapshot of cards drawn in Phase 1:
+ *     [{ value: int, suit: string, is_joker: bool }, ...]
+ * 
+ * `hand_used` is an append-only audit log of phase events for the history
+ * panel — currently written by the skip-phase advance() endpoint:
+ *     [{ phase: int, used_for: string, notes: string, at: ISO8601 }, ...]
+ *
+ * @property int $id
+ * @property int $campaign_game_id
+ * @property int $campaign_crew_id
+ * @property int $current_phase
+ * @property array<int, array{value: int, suit: string, is_joker: bool}>|null $hand_drawn
+ * @property array<int, array{phase: int, used_for: string, notes: string, at: string}>|null $hand_used
+ * @property int $scrip_earned
+ * @property string $status
+ * @property-read CampaignGame $campaignGame
+ * @property-read CampaignCrew $crew
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\CampaignAftermathFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereCampaignCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereCampaignGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereCurrentPhase($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereHandDrawn($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereHandUsed($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereScripEarned($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignAftermath {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * One non-leader model owned by a campaign crew's arsenal. Annihilated
+ * models stay around for history (annihilated_at != null) and are excluded
+ * from active hiring/scoring queries via the `active()` scope.
+ *
+ * @property int $id
+ * @property int $campaign_crew_id
+ * @property int $character_id
+ * @property int|null $miniature_id
+ * @property string|null $label
+ * @property bool $is_peon
+ * @property string|null $title_group_key
+ * @property int|null $acquired_week
+ * @property string $acquired_via
+ * @property int|null $granted_keyword_id
+ * @property \Carbon\CarbonImmutable|null $annihilated_at
+ * @property \Carbon\CarbonImmutable|null $removed_at
+ * @property array<array-key, mixed>|null $gained_characteristics
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Character $character
+ * @property-read \App\Models\Campaign\CampaignCrew $crew
+ * @property-read \App\Models\Keyword|null $grantedKeyword
+ * @property-read \App\Models\Miniature|null $miniature
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel active()
+ * @method static \Database\Factories\Campaign\CampaignArsenalModelFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereAcquiredVia($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereAcquiredWeek($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereAnnihilatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCampaignCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGainedCharacteristics($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGrantedKeywordId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereIsPeon($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereLabel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereMiniatureId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereRemovedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereTitleGroupKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignArsenalModel {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Pivot row: one injury upgrade attached to one arsenal model (pg 34). A model
+ * may hold up to two injuries; the third (distinct) injury annihilates it. The
+ * same injury is never stacked twice on one model — a duplicate flip is ignored
+ * ("the model got lucky and suffers no injury this game").
+ *
+ * @property int $id
+ * @property int $campaign_arsenal_model_id
+ * @property int $injury_upgrade_id
+ * @property int|null $acquired_aftermath_id
+ * @property \Carbon\CarbonImmutable $created_at
+ * @property \Carbon\CarbonImmutable $updated_at
+ * @property-read CampaignArsenalModel $arsenalModel
+ * @property-read Upgrade $injury
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereAcquiredAftermathId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereCampaignArsenalModelId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereInjuryUpgradeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignArsenalModelInjury {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * A player's arsenal entry inside a Campaign. Created automatically when the
+ * user accepts an invitation. Initially stub — name + share_code only — and
+ * the player completes it during Leader Build + Starting Arsenal flows
+ * (Phases 4-5 of the plan).
+ *
+ * @property int $id
+ * @property int $campaign_id
+ * @property int $user_id
+ * @property string $name
+ * @property string $share_code
+ * @property FactionEnum|null $faction
+ * @property int|null $keyword_1_id
+ * @property int|null $keyword_2_id
+ * @property int|null $crew_card_effect_id
+ * @property int $scrip
+ * @property int $total_wins
+ * @property \Carbon\CarbonImmutable|null $retired_at
+ * @property \Carbon\CarbonImmutable|null $starting_anew_at
+ * @property-read Campaign $campaign
+ * @property-read \App\Models\User|null $user
+ * @property-read Keyword|null $keywordOne
+ * @property-read Keyword|null $keywordTwo
+ * @property-read CampaignCrewCard|null $crewCardEffect
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignArsenalModel> $arsenalModels
+ * @property-read int|null $arsenal_models_count
+ * @property-read CustomCharacter|null $leader
+ * @property-read CustomCharacter|null $totem
+ * @method static \Database\Factories\Campaign\CampaignCrewFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCampaignId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardEffectId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereKeyword1Id($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereKeyword2Id($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereRetiredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereScrip($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereShareCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereStartingAnewAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereTotalWins($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignCrew {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * A starting Crew Card option for the Starting Arsenal wizard (pg 15).
+ * 
+ * These replace the interim approach of tagging Ability rows with
+ * is_crew_card_effect=true — crew cards can have richer structure than
+ * a single ability description allows.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string|null $description
+ * @property bool $requires_token_choice
+ * @property bool $requires_marker_choice
+ * @property bool $requires_upgrade_type_choice
+ * @property \Carbon\CarbonImmutable $created_at
+ * @property \Carbon\CarbonImmutable $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
+ * @property-read int|null $abilities_count
+ * @property-read int|null $actions_count
+ * @property-read int|null $crews_count
+ * @method static \Database\Factories\Campaign\CampaignCrewCardFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresMarkerChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresTokenChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresUpgradeTypeChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignCrewCard {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * One row per per-crew equipment instance — multiple copies of the same
+ * underlying Equipment catalog row stack as separate rows. Annihilated
+ * instances stay around for history; `active()` scope filters them out.
+ * 
+ * Post-Catalog-Consolidation: `equipment_upgrade_id` points at an upgrades
+ * row with `game_mode_type=campaign` + `campaign_upgrade_kind=equipment`.
+ *
+ * @property int $id
+ * @property int $campaign_crew_id
+ * @property int|null $equipment_upgrade_id
+ * @property string $source
+ * @property int|null $acquired_aftermath_id
+ * @property \Carbon\CarbonImmutable|null $annihilated_at
+ * @property-read Upgrade|null $catalog
+ * @property-read \App\Models\Campaign\CampaignCrew|null $crew
+ * @method static Builder<static>|CampaignEquipment active()
+ * @method static Builder<static>|CampaignEquipment countsTowardCr()
+ * @method static \Database\Factories\Campaign\CampaignEquipmentFactory factory($count = null, $state = [])
+ * @method static Builder<static>|CampaignEquipment newModelQuery()
+ * @method static Builder<static>|CampaignEquipment newQuery()
+ * @method static Builder<static>|CampaignEquipment query()
+ * @property int $excludes_from_cr
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereAcquiredAftermathId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereAnnihilatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereCampaignCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereEquipmentUpgradeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereExcludesFromCr($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereSource($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignEquipment whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignEquipment {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Campaign-context wrapper around a standard Game. Lives 1:1 with the base
+ * `games` row (linked by `base_game_id`) and carries the campaign-only
+ * fields: encounter math, CR snapshots taken at game-start time, ss-pool
+ * bonus for the lower-rated crew, scoring fields populated during Aftermath.
+ *
+ * @property int $id
+ * @property int $campaign_id
+ * @property int $week_number
+ * @property int $crew_a_id
+ * @property int $crew_b_id
+ * @property int|null $base_game_id
+ * @property int $encounter_size
+ * @property int $cr_a
+ * @property int $cr_b
+ * @property int $ss_bonus_to_lower
+ * @property int|null $winner_crew_id
+ * @property int|null $withdrew_crew_id
+ * @property int|null $withdrew_turn
+ * @property int $vp_a
+ * @property int $vp_b
+ * @property int $schemes_completed_a
+ * @property int $schemes_completed_b
+ * @property int|null $weekly_event_id
+ * @property string $status
+ * @property-read Campaign $campaign
+ * @property-read CampaignCrew $crewA
+ * @property-read CampaignCrew $crewB
+ * @property-read \App\Models\Game|null $baseGame
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\CampaignGameFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereBaseGameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCampaignId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCrA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCrB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCrewAId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereCrewBId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereEncounterSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereSchemesCompletedA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereSchemesCompletedB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereSsBonusToLower($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereVpA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereVpB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereWeekNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereWeeklyEventId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereWinnerCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereWithdrewCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignGame whereWithdrewTurn($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignGame {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Pending invitation. Either keyed to an existing user (typical) or by email
+ * (for someone without an account yet). Token is the URL-safe identifier the
+ * invitee uses to land on the accept page.
+ *
+ * @property int $id
+ * @property int $campaign_id
+ * @property int|null $user_id
+ * @property string|null $email
+ * @property string $token
+ * @property \Carbon\CarbonImmutable|null $accepted_at
+ * @property \Carbon\CarbonImmutable|null $expires_at
+ * @property-read Campaign $campaign
+ * @property-read \App\Models\User|null $user
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\CampaignInvitationFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation pending()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereAcceptedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereCampaignId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereExpiresAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignInvitation whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignInvitation {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * One advancement gained by a Leader (or routed to its Totem). The renderer
+ * walks these to compose the final action/ability list and any trigger / Skl
+ * modifications applied to the underlying CustomCharacter actions.
+ *
+ * @property int $id
+ * @property int $custom_character_id
+ * @property int|null $source_aftermath_id
+ * @property AdvancementTableEnum $source_table
+ * @property int|null $catalog_id
+ * @property int|null $catalog_core_id
+ * @property int|null $from_equipment_id
+ * @property int $applied_to_action_index
+ * @property int|null $applied_to_custom_character_id
+ * @property int $position_in_xp_track
+ * @property array<string, mixed>|null $free_choice
+ * @property \Carbon\CarbonImmutable|null $acquired_at
+ * @property-read CustomCharacter $leader
+ * @property-read CampaignAftermath|null $sourceAftermath
+ * @property-read CustomCharacter|null $appliedToCustomCharacter
+ * @property-read CampaignEquipment|null $fromEquipment
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\CampaignLeaderAdvancementFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAcquiredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToActionIndex($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToCustomCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereCatalogCoreId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereCustomCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereFreeChoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereFromEquipmentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement wherePositionInXpTrack($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereSourceAftermathId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereSourceTable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignLeaderAdvancement {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Pivot for campaign membership. Distinct from `campaign_crews` (which is
+ * one-per-player and carries arsenal data) so we can record co-organizers
+ * who don't run a crew, and so role transitions don't touch crew rows.
+ *
+ * @property int $id
+ * @property int $campaign_id
+ * @property int $user_id
+ * @property CampaignPlayerRoleEnum $role
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Campaign\Campaign $campaign
+ * @property-read \App\Models\User $user
+ * @method static \Database\Factories\Campaign\CampaignPlayerFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereCampaignId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignPlayer whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignPlayer {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * One row per calendar week of a campaign. Stores the rolled Weekly Event
+ * (if optional rule enabled) and per-week organizer notes.
+ *
+ * @property int $id
+ * @property int $campaign_id
+ * @property int $week_number
+ * @property \Carbon\CarbonImmutable|null $starts_at
+ * @property int|null $weekly_event_id
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Campaign\Campaign $campaign
+ * @property-read \App\Models\Campaign\WeeklyEvent|null $weeklyEvent
+ * @method static \Database\Factories\Campaign\CampaignWeekFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereCampaignId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereStartsAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereWeekNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignWeek whereWeeklyEventId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignWeek {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Catalog entry for the Lucky Miss table (pg 36) — positive upgrades flipped
+ * when an injury/doctor result is a red joker. Any-joker → Doppelganger
+ * (free copy in the arsenal).
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $body
+ * @property int|null $flip_value
+ * @property bool $is_doppelganger
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\LuckyMissFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereIsDoppelganger($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperLuckyMiss {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Catalog entry for a Weekly Event (pg 148–149). Rolled at the start of a
+ * week when the campaign has the weekly_events optional rule enabled. Some
+ * events place special terrain markers; "Bullet with Your Name on It" only
+ * fires once per campaign (reflips on second occurrence).
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $body
+ * @property int|null $flip_value
+ * @property bool $is_black_joker
+ * @property bool $is_red_joker
+ * @property array<array-key, mixed>|null $terrain_marker_def
+ * @property bool $requires_placement
+ * @property bool $is_one_time
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\WeeklyEventFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereBody($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereIsBlackJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereIsOneTime($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereIsRedJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereRequiresPlacement($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereTerrainMarkerDef($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|WeeklyEvent whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperWeeklyEvent {}
 }
 
 namespace App\Models{
@@ -556,19 +1212,40 @@ namespace App\Models{
  *
  * @property int $id
  * @property int $user_id
+ * @property int|null $campaign_crew_id
+ * @property bool $is_campaign_leader
+ * @property bool $is_campaign_totem
+ * @property bool $is_campaign_totem_template
+ * @property int|null $campaign_totem_flip_value
+ * @property bool $campaign_is_black_joker_totem
+ * @property bool $campaign_is_red_joker_totem
+ * @property bool $campaign_totem_special_replace
+ * @property bool $campaign_is_mini_master
+ * @property string|null $archetype
+ * @property string|null $tag
+ * @property int|null $campaign_size
+ * @property int|null $campaign_health
+ * @property int|null $campaign_df
+ * @property int|null $campaign_wp
+ * @property int|null $campaign_sp
+ * @property bool $miraculous_recovery_used
+ * @property \Illuminate\Support\Carbon|null $annihilated_at
+ * @property \Illuminate\Support\Carbon|null $replaced_at
+ * @property bool $current
+ * @property array<array-key, mixed>|null $xp_track
  * @property string $share_code
  * @property bool $is_public
  * @property string $name
  * @property string|null $title
  * @property string $display_name
  * @property string $slug
- * @property \App\Enums\FactionEnum $faction
+ * @property \App\Enums\FactionEnum|null $faction
  * @property \App\Enums\FactionEnum|null $second_faction
  * @property \App\Enums\CharacterStationEnum|null $station
  * @property int|null $cost
  * @property int $health
  * @property int|null $size
- * @property \App\Enums\BaseSizeEnum $base
+ * @property \App\Enums\BaseSizeEnum|null $base
  * @property int $defense
  * @property \App\Enums\SuitEnum|null $defense_suit
  * @property int $willpower
@@ -588,6 +1265,10 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $campaignTotemAbilities
+ * @property-read int|null $campaign_totem_abilities_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $campaignTotemActions
+ * @property-read int|null $campaign_totem_actions_count
  * @property-read string $faction_color
  * @property-read \App\Models\User $user
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter newModelQuery()
@@ -596,11 +1277,25 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereAbilities($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereActions($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereAnnihilatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereArchetype($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereBase($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignDf($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignHealth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsBlackJokerTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsMiniMaster($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsRedJokerTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignSp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignTotemFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignTotemSpecialReplace($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignWp($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCharacteristics($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCurrent($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDefense($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDefenseSuit($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDeletedAt($value)
@@ -609,13 +1304,18 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereGeneratesStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereHealth($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignLeader($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignTotemTemplate($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsUnhirable($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereKeywords($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereLinkedCrewUpgrades($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereLinkedTotems($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereMiraculousRecoveryUsed($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereReplacedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSecondFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereShareCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSize($value)
@@ -623,11 +1323,13 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSpeed($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereStation($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereSummonTargetNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereTag($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereTitle($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereWillpower($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereWillpowerSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereXpTrack($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter withTrashed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter withoutTrashed()
  * @mixin \Eloquent
@@ -2696,6 +3398,14 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $campaign_flip_value
+ * @property int $campaign_is_always_available
+ * @property int $campaign_joker_freechoice
+ * @property int $campaign_grants_signature
+ * @property string|null $campaign_modifier_type
+ * @property int|null $campaign_skl_from
+ * @property int|null $campaign_skl_to
+ * @property string|null $campaign_advancement_kind
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
  * @method static \Database\Factories\TriggerFactory factory($count = null, $state = [])
@@ -2705,6 +3415,14 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger toSelectOptions(string $column, $primaryKeyColumn = 'id')
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignAdvancementKind($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignGrantsSignature($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignJokerFreechoice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignModifierType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignSklTo($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDescription($value)
@@ -2744,6 +3462,26 @@ namespace App\Models{
  * @property \App\Enums\UpgradeLimitationEnum|null $limitations
  * @property \App\Enums\FactionEnum|null $faction
  * @property \App\Enums\UpgradeTypeEnum|null $type
+ * @property string|null $campaign_upgrade_kind
+ * @property int|null $campaign_br
+ * @property int|null $campaign_cc
+ * @property string|null $campaign_pool_suit_a
+ * @property string|null $campaign_pool_suit_b
+ * @property int $campaign_is_always_available
+ * @property int $campaign_ttw_only
+ * @property int $campaign_is_omens_mark
+ * @property int $campaign_is_unique
+ * @property int $campaign_leader_only
+ * @property int $campaign_non_unique_only
+ * @property int $campaign_annihilate_after_game
+ * @property int $campaign_is_red_joker_entry
+ * @property int|null $campaign_flip_value
+ * @property string|null $campaign_suit_pool
+ * @property int $campaign_is_traitor
+ * @property int $campaign_is_close_call
+ * @property int $campaign_annihilates_model
+ * @property int $campaign_reflip_if_no_triggers
+ * @property int $campaign_reflip_if_master_or_totem
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
@@ -2774,6 +3512,26 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereBackImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignAnnihilateAfterGame($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignAnnihilatesModel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignBr($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignCc($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsCloseCall($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsOmensMark($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsRedJokerEntry($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsTraitor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignIsUnique($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignLeaderOnly($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignNonUniqueOnly($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignPoolSuitA($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignPoolSuitB($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignReflipIfMasterOrTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignReflipIfNoTriggers($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignSuitPool($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignTtwOnly($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCampaignUpgradeKind($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCombinationImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Upgrade whereDeletedAt($value)

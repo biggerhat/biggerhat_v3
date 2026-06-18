@@ -26,6 +26,22 @@ class LeaderSearchController extends Controller
 {
     use AuthorizesCampaignAccess;
 
+    /**
+     * Constraint shared by the action/ability search filter and the eager-load:
+     * a valid source is a cost-bearing model that shares a crew keyword and is
+     * neither a master nor a totem (pg 17).
+     *
+     * @param  array<int, int>  $keywordIds
+     */
+    private function validSourceCharacterFilter(array $keywordIds): \Closure
+    {
+        return function ($q) use ($keywordIds) {
+            $q->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                ->whereNotIn('station', [CharacterStationEnum::Master->value])
+                ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'));
+        };
+    }
+
     public function actions(Request $request, Campaign $campaign, CampaignCrew $crew): JsonResponse
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
@@ -41,17 +57,17 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
+        $sourceFilter = $this->validSourceCharacterFilter($keywordIds);
+
         $actions = Action::query()
             ->where('name', 'LIKE', "%{$q}%")
             ->when($maxCost !== null, fn ($qq) => $qq->where(function ($n) use ($maxCost) {
                 $n->whereNull('stone_cost')->orWhere('stone_cost', '<=', $maxCost);
             }))
-            ->whereHas('characters', function ($q) use ($keywordIds) {
-                $q->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                    ->whereNotIn('station', [CharacterStationEnum::Master->value])
-                    ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'));
-            })
-            ->with('triggers')
+            ->whereHas('characters', $sourceFilter)
+            // Eager-load one valid source character so the picker can submit it;
+            // the save-time validator re-verifies it (pg 17).
+            ->with(['triggers', 'characters' => $sourceFilter])
             ->limit(25)
             ->orderBy('name')
             ->get();
@@ -73,6 +89,7 @@ class LeaderSearchController extends Controller
             'damage' => $a->damage,
             'description' => $a->description,
             'source_id' => $a->id,
+            'source_character_id' => $a->characters->first()?->id,
             'triggers' => $a->triggers->map(fn (Trigger $t) => [
                 'name' => $t->name,
                 'suits' => $t->suits,
@@ -98,6 +115,8 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
+        $sourceFilter = $this->validSourceCharacterFilter($keywordIds);
+
         $abilities = Ability::query()
             ->where('name', 'LIKE', "%{$q}%")
             // Abilities don't carry stone_cost directly the same way actions do
@@ -105,11 +124,8 @@ class LeaderSearchController extends Controller
             // supplied we treat any costs_stone=true ability as ≥1 and filter
             // out via cap if cap is 0. Otherwise unfiltered.
             ->when($maxCost === 0, fn ($qq) => $qq->where('costs_stone', false))
-            ->whereHas('characters', function ($q) use ($keywordIds) {
-                $q->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                    ->whereNotIn('station', [CharacterStationEnum::Master->value])
-                    ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'));
-            })
+            ->whereHas('characters', $sourceFilter)
+            ->with(['characters' => $sourceFilter])
             ->limit(25)
             ->orderBy('name')
             ->get();
@@ -122,6 +138,7 @@ class LeaderSearchController extends Controller
             'costs_stone' => (bool) $a->costs_stone,
             'description' => $a->description,
             'source_id' => $a->id,
+            'source_character_id' => $a->characters->first()?->id,
         ])->values());
     }
 }

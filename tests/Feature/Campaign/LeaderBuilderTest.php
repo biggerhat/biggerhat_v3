@@ -39,6 +39,19 @@ function crewFor(User $user): CampaignCrew
     return CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
 }
 
+/**
+ * A keyword that has at least one model in the given faction — required by the
+ * Leader Build rule "at least one chosen keyword must have a model belonging to
+ * the declared faction" (pg 15).
+ */
+function keywordWithModelInFaction(FactionEnum $faction): Keyword
+{
+    $kw = Keyword::factory()->create();
+    Character::factory()->create(['faction' => $faction])->keywords()->attach($kw);
+
+    return $kw;
+}
+
 it('renders the Leader Builder for the crew owner with all 5 archetypes from the enum', function () {
     $user = leaderUser();
     $crew = crewFor($user);
@@ -67,7 +80,7 @@ it('blocks non-owner from the Leader Builder', function () {
 it('saves a new leader as a CustomCharacter with campaign columns set from the enum', function () {
     $user = leaderUser();
     $crew = crewFor($user);
-    $k1 = Keyword::factory()->create();
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
     $k2 = Keyword::factory()->create();
 
     $this->actingAs($user)
@@ -101,7 +114,7 @@ it('saves a new leader as a CustomCharacter with campaign columns set from the e
 it('demotes the previous current leader when saving a new one', function () {
     $user = leaderUser();
     $crew = crewFor($user);
-    $k1 = Keyword::factory()->create();
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
     $k2 = Keyword::factory()->create();
 
     // First save
@@ -182,6 +195,40 @@ it('rejects too many abilities for the archetype', function () {
         ->assertSessionHasErrors();
 });
 
+it('rejects an ability whose source model exceeds the ability cost cap', function () {
+    // Regression: the cap previously read a non-existent `abilities.cost`
+    // column. It now reads the source model's cost (pg 17).
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
+    $k2 = Keyword::factory()->create();
+
+    $ability = \App\Models\Ability::factory()->create();
+    // Generalist ability cap is 7; the source ally costs 10 → reject.
+    $ally = Character::factory()->create(['faction' => FactionEnum::Resurrectionists, 'cost' => 10, 'station' => CharacterStationEnum::Minion]);
+    $ally->keywords()->attach($k1);
+    $ally->abilities()->attach($ability);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Over Cap',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => FactionEnum::Resurrectionists->value,
+            'keyword_1_id' => $k1->id, 'keyword_2_id' => $k2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [],
+            'abilities' => [[
+                'name' => $ability->name,
+                'source_id' => $ability->id,
+                'source_character_id' => $ally->id,
+            ]],
+        ])
+        ->assertSessionHasErrors('abilities.0.source_character_id');
+
+    expect(CustomCharacter::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
+});
+
 it('search/actions returns matches filtered by crew keyword and cost cap', function () {
     $user = leaderUser();
     $crew = crewFor($user);
@@ -226,4 +273,66 @@ it('search/actions excludes masters', function () {
         ->getJson(route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?q=Master&max_cost=10')
         ->assertOk()
         ->assertJsonCount(0);
+});
+
+it('save accepts an action sourced from a valid in-keyword ally', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
+    $k2 = Keyword::factory()->create();
+
+    $action = Action::factory()->create(['stone_cost' => 5]);
+    $ally = Character::factory()->create(['faction' => FactionEnum::Resurrectionists, 'cost' => 6, 'station' => CharacterStationEnum::Minion]);
+    $ally->keywords()->attach($k1);
+    $ally->actions()->attach($action);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Valid Source Leader',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => FactionEnum::Resurrectionists->value,
+            'keyword_1_id' => $k1->id, 'keyword_2_id' => $k2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [[
+                'name' => $action->name, 'type' => 'attack', 'category' => 'attack',
+                'stone_cost' => 5, 'is_signature' => false, 'triggers' => [],
+                'source_id' => $action->id, 'source_character_id' => $ally->id,
+            ]],
+            'abilities' => [],
+        ])
+        ->assertRedirect();
+
+    expect(CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->exists())->toBeTrue();
+});
+
+it('save rejects an action sourced from a master (pg 17)', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
+    $k2 = Keyword::factory()->create();
+
+    $action = Action::factory()->create(['stone_cost' => 5]);
+    $master = Character::factory()->create(['faction' => FactionEnum::Resurrectionists, 'cost' => null, 'station' => CharacterStationEnum::Master]);
+    $master->keywords()->attach($k1);
+    $master->actions()->attach($action);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Master Source Leader',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => FactionEnum::Resurrectionists->value,
+            'keyword_1_id' => $k1->id, 'keyword_2_id' => $k2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [[
+                'name' => $action->name, 'type' => 'attack', 'category' => 'attack',
+                'stone_cost' => 5, 'is_signature' => false, 'triggers' => [],
+                'source_id' => $action->id, 'source_character_id' => $master->id,
+            ]],
+            'abilities' => [],
+        ])
+        ->assertSessionHasErrors('actions.0.source_character_id');
+
+    expect(CustomCharacter::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
 });

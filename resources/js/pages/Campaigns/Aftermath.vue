@@ -70,6 +70,9 @@ const props = defineProps<{
     aftermath: AftermathData;
     is_owner: boolean;
     killed_models: KilledModelRow[];
+    // True when killed_models comes from a tracker run; false (solo / manually
+    // logged) means it's the full roster and the player picks who actually died.
+    kills_are_authoritative: boolean;
     // Phase-gated lazy props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
     crew_injuries?: InjuryPivotRow[] | null;
@@ -126,10 +129,16 @@ const barterPurchases = ref<number[]>([]);
 
 const eligibleEquipment = computed(() =>
     equipment_catalog.value.filter((e) => {
-        if (e.ttw_only && !barterForm.value.is_red_joker) return false;
+        // Those Who Thirst items are only reachable via a red-joker flip.
+        if (e.ttw_only) return barterForm.value.is_red_joker;
         if (e.is_always_available) return true;
         if (e.br === null) return false;
-        return e.br <= barterForm.value.flip_value;
+        // BR must match the flip value exactly (pg 21), and — when keyed to a
+        // suit pool — the flip's suit must be in that pool.
+        if (e.br !== barterForm.value.flip_value) return false;
+        const pools = [e.pool_suit_a, e.pool_suit_b].filter(Boolean).map((p) => (p as string).toLowerCase());
+        if (pools.length === 0) return true;
+        return pools.includes(barterForm.value.flip_suit.trim().toLowerCase());
     }),
 );
 
@@ -195,10 +204,13 @@ const xpForm = ref({
     lost: false,
 });
 
+// Mirror of CampaignRules::xpFromGame — the conditional bonuses only count for
+// the Leader's actual tag, so this preview matches the server's computed total.
 const totalXp = computed(() => {
+    const tag = xp_track.value?.tag;
     let xp = 1; // always +1 for playing
-    if (xpForm.value.bruiser_killed) xp++;
-    if (xpForm.value.strategist_interacted) xp++;
+    if (tag === 'bruiser' && xpForm.value.bruiser_killed) xp++;
+    if (tag === 'strategist' && xpForm.value.strategist_interacted) xp++;
     if (xpForm.value.lost) xp++;
     return Math.min(3, xp);
 });
@@ -226,6 +238,9 @@ interface QueuedAdvancement {
     source_table: string;
     catalog_id: number | null;
     applied_to_action_index: number;
+    // The fate card flipped for this advancement (pg 38-52). Null for tables
+    // that don't flip (Summoning, Crew Card).
+    flip_value: number | null;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -244,11 +259,29 @@ const advancementsQueued = computed<QueuedAdvancement[]>(() => {
                 source_table: defaultTableForTier(box.tier),
                 catalog_id: null,
                 applied_to_action_index: -1,
+                flip_value: 13,
             });
         }
     }
     return queue;
 });
+
+// Tables that involve a fate flip when advancing. Summoning is free choice and
+// Crew Card has no flip, so they skip the flip input + filter.
+const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
+const tableNeedsFlip = (table: string): boolean => FLIP_TABLES.includes(table);
+
+/**
+ * Catalog rows eligible for an advancement given its flipped value: Totem needs
+ * an exact match, the other flip tables allow "the value or lower" (plus
+ * always-available rows); non-flip tables show everything.
+ */
+const eligibleCatalogRows = (adv: QueuedAdvancement): CatalogRow[] => {
+    const rows = catalogRowsFor(adv.source_table);
+    if (!tableNeedsFlip(adv.source_table) || adv.flip_value == null) return rows;
+    if (adv.source_table === 'totem') return rows.filter((r) => r.flip_value === adv.flip_value);
+    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (adv.flip_value ?? 0));
+};
 
 function defaultTableForTier(tier: number): string {
     if (tier === 1) return 'attack_mod';
@@ -287,7 +320,11 @@ const catalogRowsFor = (table: string): CatalogRow[] => {
 
 const submitAdvanceLeader = () => {
     router.post(route('campaigns.aftermaths.advance-leader', props.aftermath.id), {
-        xp_earned: totalXp.value,
+        // Send the raw in-game facts; the server gates the bonuses by the
+        // Leader's tag and computes the XP total via CampaignRules.
+        bruiser_killed_non_peon: xpForm.value.bruiser_killed,
+        strategist_interacted: xpForm.value.strategist_interacted,
+        lost: xpForm.value.lost,
         advancements: advancementsQueued.value
             .filter((a) => a.catalog_id !== null)
             .map((a) => ({
@@ -295,6 +332,9 @@ const submitAdvanceLeader = () => {
                 catalog_id: a.catalog_id,
                 applied_to_action_index: a.applied_to_action_index,
                 position_in_xp_track: a.position_in_xp_track,
+                // Only the flip tables carry a value; the server enforces the
+                // "this value or lower" (or exact, for Totem) ceiling.
+                flip_value: tableNeedsFlip(a.source_table) ? a.flip_value : null,
                 free_choice: null,
             })),
     } as Record<string, unknown>);
@@ -305,11 +345,23 @@ interface DoctorAttempt {
     injury_pivot_id: number;
     flip_value: number;
     suit_pool: 'pc' | 'te';
+    is_red_joker: boolean;
+    // Lucky Miss table result rolled after a red-joker annihilation.
+    lucky_miss_flip_value: number;
+    // The Lucky Miss flip was itself a joker → Doppelganger.
+    lucky_miss_is_joker: boolean;
 }
 const doctorAttempts = ref<DoctorAttempt[]>([]);
 
 const addDoctorAttempt = (pivotId: number) => {
-    doctorAttempts.value.push({ injury_pivot_id: pivotId, flip_value: 1, suit_pool: 'pc' });
+    doctorAttempts.value.push({
+        injury_pivot_id: pivotId,
+        flip_value: 1,
+        suit_pool: 'pc',
+        is_red_joker: false,
+        lucky_miss_flip_value: 1,
+        lucky_miss_is_joker: false,
+    });
 };
 
 const removeDoctorAttempt = (idx: number) => doctorAttempts.value.splice(idx, 1);
@@ -325,10 +377,25 @@ interface InjuryFlip {
     arsenal_model_id: number;
     flip_value: number;
     suit_pool: 'pc' | 'te';
+    is_red_joker: boolean;
+    // Black joker = Traitor (the model defects).
+    is_black_joker: boolean;
+    // Lucky Miss table result rolled when the kill flip is a red joker.
+    lucky_miss_flip_value: number;
+    // The Lucky Miss flip was itself a joker → Doppelganger.
+    lucky_miss_is_joker: boolean;
 }
 const injuryFlips = ref<InjuryFlip[]>([]);
 const addInjuryFlip = (modelId: number) => {
-    injuryFlips.value.push({ arsenal_model_id: modelId, flip_value: 1, suit_pool: 'pc' });
+    injuryFlips.value.push({
+        arsenal_model_id: modelId,
+        flip_value: 1,
+        suit_pool: 'pc',
+        is_red_joker: false,
+        is_black_joker: false,
+        lucky_miss_flip_value: 1,
+        lucky_miss_is_joker: false,
+    });
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
 
@@ -496,7 +563,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
 
                 <div class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                        Eligible items (flip ≤ {{ barterForm.flip_value }}, scrip ≤ {{ aftermath.crew.scrip }})
+                        Eligible items (BR = {{ barterForm.flip_value }}{{ barterForm.flip_suit ? ' of ' + barterForm.flip_suit : '' }}, or always-available)
                     </p>
                     <ul class="max-h-64 space-y-1 overflow-y-auto pr-1">
                         <li
@@ -603,9 +670,14 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 {{ opt.label }}
                             </option>
                         </select>
+                        <label v-if="tableNeedsFlip(adv.source_table)" class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            Flipped card
+                            <Input type="number" min="1" max="13" v-model.number="adv.flip_value" class="h-8 w-20" />
+                            <span>{{ adv.source_table === 'totem' ? '(exact match)' : '(this value or lower)' }}</span>
+                        </label>
                         <select v-model="adv.catalog_id" class="h-8 w-full rounded border px-2 text-xs">
                             <option :value="null">— pick a row —</option>
-                            <option v-for="row in catalogRowsFor(adv.source_table)" :key="row.id" :value="row.id">
+                            <option v-for="row in eligibleCatalogRows(adv)" :key="row.id" :value="row.id">
                                 {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
                             </option>
                         </select>
@@ -647,13 +719,29 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                 <div v-if="doctorAttempts.length" class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Attempts ({{ doctorAttempts.length }} scrip)</p>
                     <ul class="space-y-2">
-                        <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex items-center gap-2 text-sm">
+                        <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">injury pivot #{{ att.injury_pivot_id }}</span>
-                            <Input type="number" min="1" max="13" v-model.number="att.flip_value" class="h-8 w-16" />
-                            <select v-model="att.suit_pool" class="h-8 rounded border px-2 text-xs">
-                                <option value="pc">Ram/Crow</option>
-                                <option value="te">Tome/Mask</option>
-                            </select>
+                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Checkbox :checked="att.is_red_joker" @update:checked="(v: boolean) => (att.is_red_joker = v)" />
+                                Red Joker
+                            </label>
+                            <template v-if="att.is_red_joker">
+                                <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <Checkbox :checked="att.lucky_miss_is_joker" @update:checked="(v: boolean) => (att.lucky_miss_is_joker = v)" />
+                                    Joker (Doppelganger)
+                                </label>
+                                <template v-if="!att.lucky_miss_is_joker">
+                                    <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
+                                    <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
+                                </template>
+                            </template>
+                            <template v-else>
+                                <Input type="number" min="1" max="13" v-model.number="att.flip_value" class="h-8 w-16" />
+                                <select v-model="att.suit_pool" class="h-8 rounded border px-2 text-xs">
+                                    <option value="pc">Ram/Crow</option>
+                                    <option value="te">Tome/Mask</option>
+                                </select>
+                            </template>
                             <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>
                     </ul>
@@ -675,7 +763,11 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
-                <p class="text-xs uppercase text-muted-foreground">Killed-this-game models (manual selection)</p>
+                <p v-if="kills_are_authoritative" class="text-xs uppercase text-muted-foreground">Models killed this game (from the tracker)</p>
+                <p v-else class="rounded-md border border-dashed bg-muted/20 p-2 text-xs text-muted-foreground">
+                    No tracker data for this game — the full roster is shown below. Flip <strong>only</strong> for the non-peon models that were
+                    actually killed this game (pg 34).
+                </p>
                 <ul class="space-y-1">
                     <li v-for="m in killed_models" :key="m.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
                         <span>
@@ -689,13 +781,42 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                 <div v-if="injuryFlips.length" class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Flips</p>
                     <ul class="space-y-2">
-                        <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex items-center gap-2 text-sm">
+                        <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">model #{{ f.arsenal_model_id }}</span>
-                            <Input type="number" min="1" max="13" v-model.number="f.flip_value" class="h-8 w-16" />
-                            <select v-model="f.suit_pool" class="h-8 rounded border px-2 text-xs">
-                                <option value="pc">Ram/Crow</option>
-                                <option value="te">Tome/Mask</option>
-                            </select>
+                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Checkbox
+                                    :checked="f.is_red_joker"
+                                    @update:checked="(v: boolean) => { f.is_red_joker = v; if (v) f.is_black_joker = false; }"
+                                />
+                                Red Joker
+                            </label>
+                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Checkbox
+                                    :checked="f.is_black_joker"
+                                    @update:checked="(v: boolean) => { f.is_black_joker = v; if (v) f.is_red_joker = false; }"
+                                />
+                                Black Joker (Traitor)
+                            </label>
+                            <template v-if="f.is_black_joker">
+                                <span class="text-[11px] text-muted-foreground">Model defects to the opponent.</span>
+                            </template>
+                            <template v-else-if="f.is_red_joker">
+                                <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <Checkbox :checked="f.lucky_miss_is_joker" @update:checked="(v: boolean) => (f.lucky_miss_is_joker = v)" />
+                                    Joker (Doppelganger)
+                                </label>
+                                <template v-if="!f.lucky_miss_is_joker">
+                                    <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
+                                    <Input type="number" min="1" max="13" v-model.number="f.lucky_miss_flip_value" class="h-8 w-16" />
+                                </template>
+                            </template>
+                            <template v-else>
+                                <Input type="number" min="1" max="13" v-model.number="f.flip_value" class="h-8 w-16" />
+                                <select v-model="f.suit_pool" class="h-8 rounded border px-2 text-xs">
+                                    <option value="pc">Ram/Crow</option>
+                                    <option value="te">Tome/Mask</option>
+                                </select>
+                            </template>
                             <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
                         </li>
                     </ul>

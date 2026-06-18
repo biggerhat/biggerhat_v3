@@ -22,6 +22,8 @@ use App\Http\Controllers\API\V1\TOS\ActionController as TosActionController;
 use App\Http\Controllers\API\V1\TOS\AllegianceCardController as TosAllegianceCardController;
 use App\Http\Controllers\API\V1\TOS\AllegianceController as TosAllegianceController;
 use App\Http\Controllers\API\V1\TOS\AssetController as TosAssetController;
+use App\Http\Controllers\API\V1\TOS\CompanyController as TosCompanyController;
+use App\Http\Controllers\API\V1\TOS\GarrisonController as TosGarrisonController;
 use App\Http\Controllers\API\V1\TOS\SpecialUnitRuleController as TosSpecialUnitRuleController;
 use App\Http\Controllers\API\V1\TOS\StratagemController as TosStratagemController;
 use App\Http\Controllers\API\V1\TOS\TriggerController as TosTriggerController;
@@ -79,4 +81,11 @@ Route::prefix('tos')->name('tos.')->group(function () {
     // Trigger model doesn't override getRouteKeyName but the table has unique slug — bind by slug.
     Route::get('triggers', [TosTriggerController::class, 'index'])->name('triggers.index');
     Route::get('triggers/{trigger:slug}', [TosTriggerController::class, 'show'])->name('triggers.show');
+
+    // Public builds — the TOS analog of Malifaux crew builds. Listed by public
+    // flag, fetched by share code (not the user-facing slug).
+    Route::get('companies', [TosCompanyController::class, 'index'])->name('companies.index');
+    Route::get('companies/{shareCode}', [TosCompanyController::class, 'show'])->name('companies.show');
+    Route::get('garrisons', [TosGarrisonController::class, 'index'])->name('garrisons.index');
+    Route::get('garrisons/{shareCode}', [TosGarrisonController::class, 'show'])->name('garrisons.show');
 });

@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  * week when the campaign has the weekly_events optional rule enabled. Some
  * events place special terrain markers; "Bullet with Your Name on It" only
  * fires once per campaign (reflips on second occurrence).
+ *
+ * @mixin IdeHelperWeeklyEvent
  */
 class WeeklyEvent extends Model
 {

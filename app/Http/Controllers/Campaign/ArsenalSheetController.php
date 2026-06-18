@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Campaign;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\LuckyMiss;
 use App\Services\CampaignRules;
 use Illuminate\Http\Request;
 
@@ -63,8 +64,14 @@ class ArsenalSheetController extends Controller
             'crewCardEffect.abilities:id,name,description',
             'keywordOne:id,name,faction',
             'keywordTwo:id,name,faction',
-            'arsenalModels' => fn ($q) => $q->active()->with('character:id,display_name,cost,faction,station'),
+            'arsenalModels' => fn ($q) => $q->active()->with([
+                'character:id,display_name,cost,faction,station',
+                'injuries.injury:id,name',
+            ]),
         ]);
+
+        // Resolve gained Lucky Miss ids to names for display.
+        $luckyMissNames = LuckyMiss::query()->pluck('name', 'id');
 
         $leader = $crew->leader;
         $totem = $crew->totem;
@@ -85,7 +92,21 @@ class ArsenalSheetController extends Controller
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
                     'crew_card_effect' => $crew->crewCardEffect,
-                    'arsenal_models' => $crew->arsenalModels,
+                    'arsenal_models' => $crew->arsenalModels->map(fn ($m) => [
+                        'id' => $m->id,
+                        'character_id' => $m->character_id,
+                        'label' => $m->label,
+                        'is_peon' => $m->is_peon,
+                        'ignored_for_limits' => $m->ignored_for_limits,
+                        'acquired_via' => $m->acquired_via,
+                        'character' => $m->character,
+                        'injuries' => $m->injuries->map(fn ($i) => $i->injury?->name)->filter()->values(),
+                        'gained_characteristics' => $m->gained_characteristics ?? [],
+                        'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
+                            ->map(fn ($id) => $luckyMissNames[$id] ?? null)
+                            ->filter()
+                            ->values(),
+                    ]),
                 ],
             ),
             'leader' => $leader,

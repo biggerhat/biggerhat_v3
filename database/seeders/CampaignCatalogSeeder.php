@@ -155,10 +155,10 @@ class CampaignCatalogSeeder extends Seeder
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Patched Up',
-            'body' => 'Targeted injury is removed.',
+            'name' => 'How many fingers do you need?',
+            'body' => 'Annihilate the chosen injury, then reflip on the injury chart for a new one.',
             'flip_value_min' => 9, 'flip_value_max' => 9,
-            'outcome_kind' => BackAlleyDoctorOutcomeEnum::Removed->value,
+            'outcome_kind' => BackAlleyDoctorOutcomeEnum::RemovedAndReflip->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([

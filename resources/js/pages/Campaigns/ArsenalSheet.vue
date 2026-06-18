@@ -106,7 +106,12 @@ interface ArsenalRow {
     character_id: number;
     label: string | null;
     is_peon: boolean;
+    ignored_for_limits: boolean;
+    acquired_via: string;
     character: { id: number; display_name: string; cost: number | null; station: string } | null;
+    injuries: string[];
+    gained_characteristics: string[];
+    lucky_miss: string[];
 }
 
 interface CrewData {
@@ -452,7 +457,24 @@ const totemRendererProps = computed(() => {
                             </div>
                             <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ model.character?.cost ?? 0 }} ss</Badge>
                         </div>
-                        <!-- Equipment + injury chips slot in here once Phase 9 lands -->
+                        <div
+                            v-if="
+                                model.injuries.length ||
+                                model.gained_characteristics.length ||
+                                model.lucky_miss.length ||
+                                model.acquired_via === 'doppelganger' ||
+                                model.acquired_via === 'traitor'
+                            "
+                            class="mt-2 flex flex-wrap gap-1"
+                        >
+                            <Badge v-if="model.acquired_via === 'doppelganger'" variant="secondary" class="text-[10px]">Doppelganger</Badge>
+                            <Badge v-if="model.acquired_via === 'traitor'" variant="secondary" class="text-[10px]">Defected</Badge>
+                            <Badge v-for="inj in model.injuries" :key="`i-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
+                            <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
+                            <Badge v-for="lm in model.lucky_miss" :key="`l-${lm}`" class="bg-green-600 text-[10px] text-white hover:bg-green-600">
+                                {{ lm }}
+                            </Badge>
+                        </div>
                     </div>
                 </div>
                 <p v-else class="text-sm text-muted-foreground">

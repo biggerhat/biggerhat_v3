@@ -13,6 +13,7 @@ TOS is the sibling game system living alongside Malifaux in the same codebase.
 | Models | `app/Models/TOS/*` |
 | Public controllers | `app/Http/Controllers/TOS/Database/*` |
 | Admin controllers | `app/Http/Controllers/TOS/Admin/*` |
+| Public API (V1) | `app/Http/Controllers/API/V1/TOS/*` + `app/Http/Resources/API/V1/TOS/*`, routed under the `tos` group in `routes/api_v1.php`. Mirror the Malifaux V1 controllers: paginated `index` + `show`, slug binding, a Resource for catalog reads, and a `@tags` PHPDoc so Scramble documents it. Build endpoints (Companies/Garrisons) mirror `CrewBuildController` — public-only, fetched by `share_code`, flat paginator shape. |
 | FormRequests | `app/Http/Requests/TOS/Admin/*` |
 | Enums | `app/Enums/TOS/*` |
 | Traits | `app/Traits/TOS/*` (`GeneratesTosSlug`, `HandlesTosImageUpload`) |

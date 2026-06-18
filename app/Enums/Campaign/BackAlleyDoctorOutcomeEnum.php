@@ -12,11 +12,14 @@ use App\Traits\UsesEnumSelectOptions;
  *
  *   - NoEffect: doctor pockets the scrip, injury stays attached
  *   - Removed: clean removal of the targeted injury pivot row
- *   - AddedInjury ("Oops"): doctor inflicts a new injury upgrade instead
+ *   - RemovedAndReflip (flip 9, "How many fingers do you need?"): the targeted
+ *     injury is annihilated, then the model reflips on the injury chart for a
+ *     fresh injury (pg 33)
+ *   - AddedInjury ("Oops"): the original stays and the doctor inflicts a NEW
+ *     injury upgrade on top
  *   - GainedUndead / GainedConstruct: injury removed + model gains a
  *     characteristic (mark on arsenal sheet)
- *   - LuckyMissReflip: red joker — annihilate + reflip on the Lucky Miss
- *     table (handled separately)
+ *   - LuckyMissReflip: red joker — annihilate + reflip on the Lucky Miss table
  */
 enum BackAlleyDoctorOutcomeEnum: string implements HasDefaultEnumMethods
 {
@@ -25,6 +28,7 @@ enum BackAlleyDoctorOutcomeEnum: string implements HasDefaultEnumMethods
 
     case NoEffect = 'no_effect';
     case Removed = 'removed';
+    case RemovedAndReflip = 'removed_and_reflip';
     case AddedInjury = 'added_injury';
     case GainedUndead = 'gained_undead';
     case GainedConstruct = 'gained_construct';

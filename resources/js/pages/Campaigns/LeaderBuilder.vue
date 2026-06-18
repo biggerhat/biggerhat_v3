@@ -65,6 +65,9 @@ interface ActionData {
     damage: string | null;
     description: string | null;
     source_id: number | null;
+    // The model this action was picked from — sent so the server can verify it's
+    // a valid (non-master/non-totem, cost-bearing, in-keyword) source (pg 17).
+    source_character_id: number | null;
     triggers: TriggerData[];
 }
 
@@ -75,6 +78,7 @@ interface AbilityData {
     costs_stone: boolean;
     description: string | null;
     source_id: number | null;
+    source_character_id: number | null;
 }
 
 interface CrewData {

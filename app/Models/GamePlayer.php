@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property User $user
+ *
  * @mixin IdeHelperGamePlayer
  */
 class GamePlayer extends Model

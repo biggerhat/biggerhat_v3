@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property-read CustomCharacter|null $appliedToCustomCharacter
  * @property-read CampaignEquipment|null $fromEquipment
+ *
  * @mixin IdeHelperCampaignLeaderAdvancement
  */
 class CampaignLeaderAdvancement extends Model

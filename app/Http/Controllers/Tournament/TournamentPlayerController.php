@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tournament;
 
+use App\Enums\FactionEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TournamentPlayerController extends Controller
 {
@@ -41,7 +43,10 @@ class TournamentPlayerController extends Controller
         $validated = $request->validate([
             'display_name' => ['required', 'string', 'max:255'],
             'user_id' => ['nullable', 'exists:users,id'],
-            'faction' => ['required', 'string'],
+            // Validate against the enum — `faction` is cast to FactionEnum on
+            // the model, so a non-enum string would crash on read (which is why
+            // standings/pairing read getRawOriginal('faction') defensively).
+            'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
             'is_ringer' => ['sometimes', 'boolean'],
             'meta_id' => ['nullable', 'integer', 'exists:metas,id'],
             // Convenience: lets the registration form create a new meta inline.
@@ -79,7 +84,7 @@ class TournamentPlayerController extends Controller
 
         $validated = $request->validate([
             'display_name' => ['sometimes', 'string', 'max:255'],
-            'faction' => ['nullable', 'string'],
+            'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'is_ringer' => ['sometimes', 'boolean'],
             'is_disqualified' => ['sometimes', 'boolean'],
             'dropped_after_round' => ['sometimes', 'nullable', 'integer', 'min:0'],

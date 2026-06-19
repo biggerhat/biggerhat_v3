@@ -69,11 +69,11 @@ const formatActionType = (type?: string) => {
     <Card class="flex flex-col overflow-hidden">
         <div :class="['flex items-center border-b bg-secondary px-3 font-semibold', forLootCard ? 'py-px text-[8px]' : 'py-1.5 text-xs']">
             <span class="flex-1">{{ formatActionType(action.action_type ?? action.type) }} Action</span>
-            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Rg</span>
-            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Stat</span>
-            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Rst</span>
-            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">TN</span>
-            <span :class="['text-center text-muted-foreground', forLootCard ? 'w-5' : 'w-10']">Dmg</span>
+            <span :class="['text-center', forLootCard ? 'w-5' : 'w-10 text-muted-foreground']">Rg</span>
+            <span :class="['text-center', forLootCard ? 'w-5' : 'w-10 text-muted-foreground']">Stat</span>
+            <span :class="['text-center', forLootCard ? 'w-5' : 'w-10 text-muted-foreground']">Rst</span>
+            <span :class="['text-center', forLootCard ? 'w-5' : 'w-10 text-muted-foreground']">TN</span>
+            <span :class="['text-center', forLootCard ? 'w-5' : 'w-10 text-muted-foreground']">Dmg</span>
         </div>
         <div :class="['flex items-center border-b px-3', forLootCard ? 'py-0.5' : 'py-2']">
             <div class="inline-flex min-w-0 flex-1 items-center gap-1">
@@ -141,7 +141,7 @@ const formatActionType = (type?: string) => {
             <span :class="['text-center', forLootCard ? 'w-5 text-[8px]' : 'w-10 text-sm']">{{ action.damage ?? '-' }}</span>
         </div>
         <div v-if="action.description" :class="['px-3', forLootCard ? 'py-0.5' : 'py-2']">
-            <p :class="['leading-relaxed text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs']">
+            <p :class="['leading-relaxed', forLootCard ? 'text-[8px]' : 'text-xs text-muted-foreground']">
                 <GameText
                     :text="action.description"
                     :icon-class="forLootCard ? 'text-[9px] inline-block align-text-bottom' : 'h-4 inline-block align-text-bottom'"
@@ -152,9 +152,9 @@ const formatActionType = (type?: string) => {
             <div
                 v-for="(trigger, tidx) in action.triggers"
                 :key="tidx"
-                :class="['leading-tight text-muted-foreground', forLootCard ? 'text-[8px]' : 'text-xs leading-relaxed']"
+                :class="['leading-tight', forLootCard ? 'text-[8px]' : 'text-xs leading-relaxed text-muted-foreground']"
             >
-                <span class="inline-flex items-center gap-0.5 font-semibold text-foreground">
+                <span :class="['inline-flex items-center gap-0.5 font-semibold', forLootCard ? '' : 'text-muted-foreground' ]">
                     <GameIcon
                         v-if="trigger.suits"
                         :type="trigger.suits"

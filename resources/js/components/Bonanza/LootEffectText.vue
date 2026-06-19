@@ -135,9 +135,9 @@ const actionWithSignature = (action: LootActionRef): LootActionRef & { is_signat
 </script>
 
 <template>
-    <div class="space-y-0.5">
+    <div class="space-y-0.5 text-black">
         <template v-for="(segment, i) in segments" :key="`seg-${i}`">
-            <p v-if="segment.type === 'text'" class="whitespace-pre-line leading-relaxed text-muted-foreground">
+            <p v-if="segment.type === 'text'" class="whitespace-pre-line leading-relaxed">
                 <GameText :text="segment.value" icon-class="text-[9px] inline-block align-text-bottom" />
             </p>
             <LootAbilityDisplay v-else-if="segment.type === 'ability'" :ability="segment.entity" />

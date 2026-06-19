@@ -108,7 +108,9 @@ onMounted(() => {
                             type="button"
                             class="inline-flex h-7 items-center rounded px-3 transition-colors"
                             :class="
-                                scope === 'allegiance' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                scope === 'allegiance'
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
                             "
                             @click="setScope('allegiance')"
                         >
@@ -134,8 +136,8 @@ onMounted(() => {
                         </button>
                     </div>
                     <p class="mt-1 text-[11px] text-muted-foreground">
-                        A Stratagem keys to a specific Allegiance, OR to an Allegiance Type (available to any Allegiance of that type), OR is Universal —
-                        never both (rulebook p. 13).
+                        A Stratagem keys to a specific Allegiance, OR to an Allegiance Type (available to any Allegiance of that type), OR is
+                        Universal — never both (rulebook p. 13).
                     </p>
                 </div>
                 <div>

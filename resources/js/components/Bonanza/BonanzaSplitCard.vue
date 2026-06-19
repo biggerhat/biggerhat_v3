@@ -29,32 +29,34 @@ const suitIconType = computed(() => {
     return ['crow', 'mask', 'ram', 'tome'].includes(s) ? s : null;
 });
 
-// Full class names so Tailwind picks them up at build time.
+// Full class names so Tailwind picks them up at build time. Accents are a touch
+// deeper (600 borders, 20% headers) so the printer-friendly capture still reads
+// clearly on paper while staying low-ink.
 const suitThemes: Record<string, { border: string; header: string; divider: string }> = {
     crow: {
-        border: 'border-green-500/40 dark:border-green-500/30',
-        header: 'bg-green-500/10 dark:bg-green-500/15',
-        divider: 'bg-green-500/5 dark:bg-green-500/10',
+        border: 'border-green-600/60 dark:border-green-500/40',
+        header: 'bg-green-500/20 dark:bg-green-500/15',
+        divider: 'bg-green-500/10 dark:bg-green-500/10',
     },
     mask: {
-        border: 'border-purple-500/40 dark:border-purple-500/30',
-        header: 'bg-purple-500/10 dark:bg-purple-500/15',
-        divider: 'bg-purple-500/5 dark:bg-purple-500/10',
+        border: 'border-purple-600/60 dark:border-purple-500/40',
+        header: 'bg-purple-500/20 dark:bg-purple-500/15',
+        divider: 'bg-purple-500/10 dark:bg-purple-500/10',
     },
     ram: {
-        border: 'border-red-500/40 dark:border-red-500/30',
-        header: 'bg-red-500/10 dark:bg-red-500/15',
-        divider: 'bg-red-500/5 dark:bg-red-500/10',
+        border: 'border-red-600/60 dark:border-red-500/40',
+        header: 'bg-red-500/20 dark:bg-red-500/15',
+        divider: 'bg-red-500/10 dark:bg-red-500/10',
     },
     tome: {
-        border: 'border-blue-500/40 dark:border-blue-500/30',
-        header: 'bg-blue-500/10 dark:bg-blue-500/15',
-        divider: 'bg-blue-500/5 dark:bg-blue-500/10',
+        border: 'border-blue-600/60 dark:border-blue-500/40',
+        header: 'bg-blue-500/20 dark:bg-blue-500/15',
+        divider: 'bg-blue-500/10 dark:bg-blue-500/10',
     },
     joker: {
-        border: 'border-amber-500/40 dark:border-amber-500/30',
-        header: 'bg-amber-500/10 dark:bg-amber-500/15',
-        divider: 'bg-amber-500/5 dark:bg-amber-500/10',
+        border: 'border-amber-600/60 dark:border-amber-500/40',
+        header: 'bg-amber-500/20 dark:bg-amber-500/15',
+        divider: 'bg-amber-500/10 dark:bg-amber-500/10',
     },
 };
 
@@ -70,7 +72,11 @@ const sideHasContent = (side: LootCardSide): boolean =>
             <span class="inline-flex items-baseline gap-1 font-mono font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="inline-block" />
             </span>
-            <span v-if="name" :class="['min-w-0 flex-1 truncate text-center font-semibold text-foreground', name.length > 35 ? 'text-[7px]' : 'text-[10px]']">{{ name }}</span>
+            <span
+                v-if="name"
+                :class="['min-w-0 flex-1 truncate text-center font-semibold text-foreground', name.length > 35 ? 'text-[7px]' : 'text-[10px]']"
+                >{{ name }}</span
+            >
             <span v-else class="flex-1"></span>
             <button
                 v-if="!hideToggle"
@@ -86,7 +92,14 @@ const sideHasContent = (side: LootCardSide): boolean =>
         <section class="min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0">A</span>
-                <span v-if="sideA.title" :class="['min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground', sideA.title.length > 35 ? 'text-[7px]' : '']">{{ sideA.title }}</span>
+                <span
+                    v-if="sideA.title"
+                    :class="[
+                        'min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground',
+                        sideA.title.length > 35 ? 'text-[7px]' : '',
+                    ]"
+                    >{{ sideA.title }}</span
+                >
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideA)"
@@ -119,7 +132,14 @@ const sideHasContent = (side: LootCardSide): boolean =>
         <section :class="['min-h-0 flex-1 space-y-0.5 overflow-hidden px-2 py-px', mirrored ? 'rotate-180' : '']">
             <div class="flex items-baseline gap-1.5 font-semibold uppercase tracking-wider text-muted-foreground">
                 <span class="rounded bg-primary/15 px-1 py-0 text-primary">B</span>
-                <span v-if="sideB.title" :class="['min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground', sideB.title.length > 35 ? 'text-[7px]' : '']">{{ sideB.title }}</span>
+                <span
+                    v-if="sideB.title"
+                    :class="[
+                        'min-w-0 flex-1 truncate font-semibold normal-case tracking-normal text-foreground',
+                        sideB.title.length > 35 ? 'text-[7px]' : '',
+                    ]"
+                    >{{ sideB.title }}</span
+                >
             </div>
             <LootEffectText
                 v-if="sideHasContent(sideB)"
@@ -135,7 +155,9 @@ const sideHasContent = (side: LootCardSide): boolean =>
             <span class="inline-flex items-baseline gap-1 font-mono font-bold tabular-nums leading-none text-foreground">
                 {{ valueLabel }}<GameIcon v-if="suitIconType" :type="suitIconType" class-name="inline-block" />
             </span>
-            <span :class="['min-w-0 flex-1 truncate text-center font-semibold text-foreground', name.length > 35 ? 'text-[7px]' : 'text-[10px]']">{{ name }}</span>
+            <span :class="['min-w-0 flex-1 truncate text-center font-semibold text-foreground', name.length > 35 ? 'text-[7px]' : 'text-[10px]']">{{
+                name
+            }}</span>
         </footer>
     </div>
 </template>

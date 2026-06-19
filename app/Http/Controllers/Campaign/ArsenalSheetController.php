@@ -62,8 +62,9 @@ class ArsenalSheetController extends Controller
             'totem',
             'crewCardEffect.actions:id,name,type,stat,description',
             'crewCardEffect.abilities:id,name,description',
-            'keywordOne:id,name,faction',
-            'keywordTwo:id,name,faction',
+            // Keywords have no faction column — the crew's faction is separate.
+            'keywordOne:id,name',
+            'keywordTwo:id,name',
             'arsenalModels' => fn ($q) => $q->active()->with([
                 'character:id,display_name,cost,faction,station',
                 'injuries.injury:id,name',

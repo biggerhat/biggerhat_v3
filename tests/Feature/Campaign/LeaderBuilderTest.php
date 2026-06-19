@@ -52,6 +52,39 @@ function keywordWithModelInFaction(FactionEnum $faction): Keyword
     return $kw;
 }
 
+it('saves a leader with a selected ability without error', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+
+    $ability = \App\Models\Ability::factory()->create();
+    $source = Character::factory()->create(['faction' => $faction, 'cost' => 1, 'station' => CharacterStationEnum::Minion]);
+    $source->keywords()->attach($kw1);
+    $source->abilities()->attach($ability);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Ability Leader',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [],
+            'abilities' => [[
+                'name' => $ability->name,
+                'source_id' => $ability->id,
+                'source_character_id' => $source->id,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect(CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->first()->abilities)
+        ->toHaveCount(1);
+});
+
 it('renders the Leader Builder for the crew owner with all 5 archetypes from the enum', function () {
     $user = leaderUser();
     $crew = crewFor($user);
@@ -65,6 +98,17 @@ it('renders the Leader Builder for the crew owner with all 5 archetypes from the
             ->has('archetypes', count(LeaderArchetypeEnum::cases()))
             ->where('archetypes.0.slug', LeaderArchetypeEnum::LuckyUpstart->value)
         );
+});
+
+it('offers the official characteristic catalog as picker options', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    \App\Models\Characteristic::factory()->create(['name' => 'Living']);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.leader.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('characteristic_options', fn ($opts) => collect($opts)->contains('Living')));
 });
 
 it('blocks non-owner from the Leader Builder', function () {
@@ -147,27 +191,35 @@ it('demotes the previous current leader when saving a new one', function () {
     expect($rows[1]->name)->toBe('Leader Two');
 });
 
-it('rejects an attack action over the archetype cost cap', function () {
+it('rejects an attack action whose source model exceeds the archetype cost cap', function () {
+    // pg 17: the cap is on the SOURCE ally's cost (≤), not the action's own cost.
     $user = leaderUser();
     $crew = crewFor($user);
-    $k1 = Keyword::factory()->create();
+    $faction = FactionEnum::Guild;
+    $k1 = keywordWithModelInFaction($faction);
     $k2 = Keyword::factory()->create();
-    $cap = LeaderArchetypeEnum::Schemer->attackActionCostCap();
+    $cap = LeaderArchetypeEnum::Generalist->attackActionCostCap(); // 7
+
+    $action = Action::factory()->create(['name' => 'Big Punch', 'type' => 'attack']);
+    $source = Character::factory()->create(['faction' => $faction, 'cost' => $cap + 3, 'station' => CharacterStationEnum::Minion]);
+    $source->keywords()->attach($k1);
+    $source->actions()->attach($action);
 
     $this->actingAs($user)
         ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
             'name' => 'Hopeful',
-            'archetype' => LeaderArchetypeEnum::Schemer->value,
-            'tag' => LeaderTagEnum::Strategist->value,
-            'faction' => FactionEnum::Arcanists->value,
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
             'keyword_1_id' => $k1->id, 'keyword_2_id' => $k2->id,
             'size' => 2, 'base' => 30,
             'actions' => [[
-                'name' => 'Big Punch', 'type' => 'attack', 'category' => 'attack',
-                'stone_cost' => $cap + 3, 'is_signature' => false, 'triggers' => [],
+                'name' => $action->name, 'type' => 'attack', 'category' => 'attack',
+                'source_id' => $action->id, 'source_character_id' => $source->id,
+                'is_signature' => false, 'triggers' => [],
             ]],
         ])
-        ->assertSessionHasErrors();
+        ->assertSessionHasErrors('actions.0.source_character_id');
 
     expect(CustomCharacter::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
 });
@@ -229,27 +281,29 @@ it('rejects an ability whose source model exceeds the ability cost cap', functio
     expect(CustomCharacter::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
 });
 
-it('search/actions returns matches filtered by crew keyword and cost cap', function () {
+it('search/actions returns matches filtered by crew keyword and source-ally cost cap', function () {
     $user = leaderUser();
     $crew = crewFor($user);
 
     $keyword = Keyword::factory()->create(['name' => 'Family']);
     $crew->update(['keyword_1_id' => $keyword->id]);
 
-    // Character (non-master) with the keyword owning the action.
-    $char = Character::factory()->create(['station' => CharacterStationEnum::Minion]);
+    // In-keyword ally within the cap → its action appears.
+    $char = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3]);
     $char->keywords()->attach($keyword);
-    $action = Action::factory()->create(['name' => 'Family Slap', 'stone_cost' => 3]);
+    $action = Action::factory()->create(['name' => 'Family Slap']);
     $action->characters()->attach($char);
 
-    // Out-of-keyword action — shouldn't appear.
-    $other = Character::factory()->create(['station' => CharacterStationEnum::Minion]);
-    $otherAction = Action::factory()->create(['name' => 'Family Bite', 'stone_cost' => 3]);
+    // Out-of-keyword ally → shouldn't appear.
+    $other = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3]);
+    $otherAction = Action::factory()->create(['name' => 'Family Bite']);
     $otherAction->characters()->attach($other);
 
-    // Cap-busting action — has the keyword but cost > cap, should not match.
-    $expensive = Action::factory()->create(['name' => 'Family Cannon', 'stone_cost' => 10]);
-    $expensive->characters()->attach($char);
+    // Over-cap ally (cost 10 > 5) → its action is excluded.
+    $expensiveAlly = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 10]);
+    $expensiveAlly->keywords()->attach($keyword);
+    $expensive = Action::factory()->create(['name' => 'Family Cannon']);
+    $expensive->characters()->attach($expensiveAlly);
 
     $this->actingAs($user)
         ->getJson(route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?q=Family&max_cost=5')

@@ -33,12 +33,15 @@ class LeaderSearchController extends Controller
      *
      * @param  array<int, int>  $keywordIds
      */
-    private function validSourceCharacterFilter(array $keywordIds): \Closure
+    private function validSourceCharacterFilter(array $keywordIds, ?int $maxCost = null): \Closure
     {
-        return function ($q) use ($keywordIds) {
+        return function ($q) use ($keywordIds, $maxCost) {
             $q->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
                 ->whereNotIn('station', [CharacterStationEnum::Master->value])
-                ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'));
+                ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'))
+                // Rulebook pg 17: borrowed from "an ally of cost N or less" — the
+                // cap is on the SOURCE model's cost (≤), not the action/ability.
+                ->when($maxCost !== null, fn ($qq) => $qq->where('cost', '<=', $maxCost));
         };
     }
 
@@ -57,13 +60,12 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
-        $sourceFilter = $this->validSourceCharacterFilter($keywordIds);
+        // The cap applies to the source ally's cost (≤), so it lives in the
+        // source-character filter rather than on the action's own stone_cost.
+        $sourceFilter = $this->validSourceCharacterFilter($keywordIds, $maxCost ?: null);
 
         $actions = Action::query()
             ->where('name', 'LIKE', "%{$q}%")
-            ->when($maxCost !== null, fn ($qq) => $qq->where(function ($n) use ($maxCost) {
-                $n->whereNull('stone_cost')->orWhere('stone_cost', '<=', $maxCost);
-            }))
             ->whereHas('characters', $sourceFilter)
             // Eager-load one valid source character so the picker can submit it;
             // the save-time validator re-verifies it (pg 17).
@@ -115,15 +117,11 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
-        $sourceFilter = $this->validSourceCharacterFilter($keywordIds);
+        // Cap is on the source ally's cost (≤), applied via the source filter.
+        $sourceFilter = $this->validSourceCharacterFilter($keywordIds, $maxCost ?: null);
 
         $abilities = Ability::query()
             ->where('name', 'LIKE', "%{$q}%")
-            // Abilities don't carry stone_cost directly the same way actions do
-            // (the column on abilities is `costs_stone` boolean); when a cap is
-            // supplied we treat any costs_stone=true ability as ≥1 and filter
-            // out via cap if cap is 0. Otherwise unfiltered.
-            ->when($maxCost === 0, fn ($qq) => $qq->where('costs_stone', false))
             ->whereHas('characters', $sourceFilter)
             ->with(['characters' => $sourceFilter])
             ->limit(25)

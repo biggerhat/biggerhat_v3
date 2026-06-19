@@ -563,7 +563,8 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
 
                 <div class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                        Eligible items (BR = {{ barterForm.flip_value }}{{ barterForm.flip_suit ? ' of ' + barterForm.flip_suit : '' }}, or always-available)
+                        Eligible items (BR = {{ barterForm.flip_value }}{{ barterForm.flip_suit ? ' of ' + barterForm.flip_suit : '' }}, or
+                        always-available)
                     </p>
                     <ul class="max-h-64 space-y-1 overflow-y-auto pr-1">
                         <li
@@ -786,14 +787,24 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_red_joker"
-                                    @update:checked="(v: boolean) => { f.is_red_joker = v; if (v) f.is_black_joker = false; }"
+                                    @update:checked="
+                                        (v: boolean) => {
+                                            f.is_red_joker = v;
+                                            if (v) f.is_black_joker = false;
+                                        }
+                                    "
                                 />
                                 Red Joker
                             </label>
                             <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_black_joker"
-                                    @update:checked="(v: boolean) => { f.is_black_joker = v; if (v) f.is_red_joker = false; }"
+                                    @update:checked="
+                                        (v: boolean) => {
+                                            f.is_black_joker = v;
+                                            if (v) f.is_red_joker = false;
+                                        }
+                                    "
                                 />
                                 Black Joker (Traitor)
                             </label>

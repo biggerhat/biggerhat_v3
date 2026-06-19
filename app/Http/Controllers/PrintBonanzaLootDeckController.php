@@ -7,30 +7,29 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Public reference for the Bonanza Brawl Loot Deck. The 54 cards plus their
- * canonical effects (filled in by an admin from the Wyrd doc). Per-game
- * loot-deck state — drawing, claiming, dropping markers — lives on the
- * Game Tracker; this is purely a lookup so players can see what each card
- * does mid-game without fishing through the rulebook.
+ * Printer-friendly PDF of the Bonanza Brawl Loot Deck. Tiles the generated
+ * card images (captured in light mode — white background, dark text, coloured
+ * suit borders, mirrored Side B) into a cut-grid so players can print and cut
+ * a usable deck.
  */
 class PrintBonanzaLootDeckController extends Controller
 {
     public function __invoke(): \Illuminate\Http\Response
     {
-        $lootCards = LootCard::all();
-        $data = [];
+        $images = LootCard::query()
+            ->whereNotNull('image')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (LootCard $card) => [
+                'image' => base64_encode(Storage::disk('public')->get($card->image)),
+                'name' => $card->name,
+            ])
+            ->all();
 
-        foreach ($lootCards as $lootCard) {
-            $data['images'][] = [
-                'image' => base64_encode(Storage::disk('public')->get($lootCard->image)),
-                'name' => $lootCard->name,
-            ];
-        }
+        $pdf = Pdf::loadView('PDF.BonanzaDeck', ['images' => $images])
+            ->setPaper('letter', 'portrait');
 
-        $pdf = Pdf::loadView('PDF.BonanzaDeck', $data);
-
-        $fileName = \Str::uuid();
-
-        return $pdf->stream("{$fileName}.pdf");
+        return $pdf->stream('bonanza-loot-deck.pdf');
     }
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import CardImage from '@/components/TOS/CardImage.vue';
 import CompanyCommanderPicker from '@/components/TOS/CompanyCommanderPicker.vue';
 import CompanyHiringPoolPane from '@/components/TOS/CompanyHiringPoolPane.vue';
 import CompanyRosterPane from '@/components/TOS/CompanyRosterPane.vue';
 import CompanyUnitDrawer from '@/components/TOS/CompanyUnitDrawer.vue';
-import CardImage from '@/components/TOS/CardImage.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
@@ -664,14 +664,25 @@ async function deleteCompany() {
             </Card>
 
             <!-- ═══ Allegiance + Envoy cards ═══ -->
-            <div v-if="company.allegiance.allegiance_cards?.length || company.envoy_allegiance?.allegiance_cards?.length" class="rounded-md border p-4">
+            <div
+                v-if="company.allegiance.allegiance_cards?.length || company.envoy_allegiance?.allegiance_cards?.length"
+                class="rounded-md border p-4"
+            >
                 <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Allegiance Cards</p>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div v-if="company.allegiance.allegiance_cards?.length">
-                        <p class="mb-1.5 text-[11px] font-semibold">{{ company.allegiance.name }} <span class="text-muted-foreground">— Primary</span></p>
+                        <p class="mb-1.5 text-[11px] font-semibold">
+                            {{ company.allegiance.name }} <span class="text-muted-foreground">— Primary</span>
+                        </p>
                         <div class="grid grid-cols-2 gap-2">
                             <Link v-for="c in company.allegiance.allegiance_cards" :key="c.id" :href="route('tos.allegiance_cards.view', c.slug)">
-                                <CardImage :src="c.image_path" :alt="c.name" :allegiance-slug="company.allegiance.slug" :placeholder-icon="Shield" aspect-class="aspect-[5/7]" />
+                                <CardImage
+                                    :src="c.image_path"
+                                    :alt="c.name"
+                                    :allegiance-slug="company.allegiance.slug"
+                                    :placeholder-icon="Shield"
+                                    aspect-class="aspect-[5/7]"
+                                />
                             </Link>
                         </div>
                     </div>
@@ -680,11 +691,23 @@ async function deleteCompany() {
                             {{ company.envoy_allegiance.name }} <span class="text-muted-foreground">— Envoy</span>
                         </p>
                         <div class="grid grid-cols-2 gap-2">
-                            <Link v-for="c in company.envoy_allegiance.allegiance_cards" :key="c.id" :href="route('tos.allegiance_cards.view', c.slug)">
-                                <CardImage :src="c.image_path" :alt="c.name" :allegiance-slug="company.envoy_allegiance.slug" :placeholder-icon="Shield" aspect-class="aspect-[5/7]" />
+                            <Link
+                                v-for="c in company.envoy_allegiance.allegiance_cards"
+                                :key="c.id"
+                                :href="route('tos.allegiance_cards.view', c.slug)"
+                            >
+                                <CardImage
+                                    :src="c.image_path"
+                                    :alt="c.name"
+                                    :allegiance-slug="company.envoy_allegiance.slug"
+                                    :placeholder-icon="Shield"
+                                    aspect-class="aspect-[5/7]"
+                                />
                             </Link>
                         </div>
-                        <p class="mt-1.5 text-[10px] italic text-muted-foreground">Standard effects only — “Primary Only” abilities don’t apply when taken as an Envoy.</p>
+                        <p class="mt-1.5 text-[10px] italic text-muted-foreground">
+                            Standard effects only — “Primary Only” abilities don’t apply when taken as an Envoy.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -694,7 +717,9 @@ async function deleteCompany() {
                 <div class="mb-3 flex items-center justify-between gap-2">
                     <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stratagem Deck</p>
                     <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span :class="deckFull ? 'font-semibold text-emerald-600' : ''">{{ company.stratagems.length }} / {{ stratagem_deck_size }}</span>
+                        <span :class="deckFull ? 'font-semibold text-emerald-600' : ''"
+                            >{{ company.stratagems.length }} / {{ stratagem_deck_size }}</span
+                        >
                         <span v-if="company.envoy_allegiance">· {{ deckEnvoyCount }} / {{ max_envoy_stratagems }} Envoy</span>
                     </div>
                 </div>
@@ -726,7 +751,12 @@ async function deleteCompany() {
                     >
                         <span class="flex items-center gap-1.5">
                             <Plus class="size-3 shrink-0" /> {{ s.name }}
-                            <Badge v-if="s.deck_source === 'envoy'" variant="outline" class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400">Envoy</Badge>
+                            <Badge
+                                v-if="s.deck_source === 'envoy'"
+                                variant="outline"
+                                class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
+                                >Envoy</Badge
+                            >
                         </span>
                         <span class="text-muted-foreground">{{ s.tactical_cost }}</span>
                     </button>

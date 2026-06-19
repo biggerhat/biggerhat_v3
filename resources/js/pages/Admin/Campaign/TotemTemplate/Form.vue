@@ -93,9 +93,7 @@ const toggleSignature = (id: string) => {
 // Resolve the chosen action ids back to {id, name} so each can show a Signature
 // toggle.
 const selectedActions = computed<OptionRow[]>(() =>
-    form.value.action_ids
-        .map((id) => props.all_actions.find((a) => String(a.id) === id))
-        .filter((a): a is OptionRow => !!a),
+    form.value.action_ids.map((id) => props.all_actions.find((a) => String(a.id) === id)).filter((a): a is OptionRow => !!a),
 );
 
 const submit = () => {

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import BonanzaSplitCard from '@/components/Bonanza/BonanzaSplitCard.vue';
-import { fetchFontEmbedCSS } from '@/components/CardCreator/utils';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { captureLootCardImage } from '@/composables/useLootCardCapture';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, ImageOff, Save, Trash2, Upload } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -244,19 +244,8 @@ const captureCardImage = async (): Promise<File | null> => {
     if (!previewRef.value) return null;
     const target = previewRef.value.firstElementChild as HTMLElement | null;
     if (!target) return null;
-    try {
-        const { toPng } = await import('html-to-image');
-        const fontEmbedCSS = await fetchFontEmbedCSS();
-        const dataUrl = await toPng(target, { pixelRatio: 2, skipFonts: true, fontEmbedCSS });
-        const blob = await (await fetch(dataUrl)).blob();
-        const slugBase = (form.name as string) || `loot-card-${Date.now()}`;
-        const filename = `${slugBase}.png`.replace(/[^\w.-]+/g, '-');
-        return new File([blob], filename, { type: 'image/png' });
-    } catch (e) {
-        // Best-effort: a font-embed or canvas-taint failure shouldn't block save.
-        console.error('Loot card image capture failed:', e);
-        return null;
-    }
+
+    return captureLootCardImage(target, (form.name as string) || `loot-card-${Date.now()}`);
 };
 
 const submit = async () => {

@@ -212,11 +212,7 @@ onMounted(() => {
 
                         <div class="flex flex-col space-y-1.5">
                             <Label for="tos_units">TOS Units</Label>
-                            <SearchableMultiselect
-                                v-model="formInfo.tos_units"
-                                placeholder="Select TOS Units"
-                                :options="props.tos_units"
-                            />
+                            <SearchableMultiselect v-model="formInfo.tos_units" placeholder="Select TOS Units" :options="props.tos_units" />
                             <InputError :message="usePage().props.errors.tos_units" />
                         </div>
                     </div>

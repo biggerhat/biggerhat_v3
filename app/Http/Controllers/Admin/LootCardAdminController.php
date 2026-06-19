@@ -32,6 +32,51 @@ class LootCardAdminController extends Controller
         ]);
     }
 
+    /**
+     * Batch "Regenerate print images" page. Ships every card's full render data
+     * so the client can re-render each BonanzaSplitCard offscreen, capture it in
+     * light mode (printer-friendly), and POST it back via storeImage().
+     */
+    public function regenerate(Request $request): \Inertia\Response|\Inertia\ResponseFactory
+    {
+        $cards = LootCard::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->with([
+                'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+                'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
+                'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                'sideATriggers:id,name,slug,suits,stone_cost,description',
+                'sideBTriggers:id,name,slug,suits,stone_cost,description',
+            ])
+            ->get();
+
+        return inertia('Admin/LootCards/Regenerate', ['cards' => $cards]);
+    }
+
+    /**
+     * Store a single regenerated card image (from the batch). Mirrors the image
+     * handling in update() but accepts just the file.
+     */
+    public function storeImage(Request $request, LootCard $lootCard): \Illuminate\Http\JsonResponse
+    {
+        $request->validate(['image' => ['required', 'file', 'max:30000', 'mimes:png,jpeg,jpg,webp']]);
+
+        if ($lootCard->image) {
+            Storage::disk('public')->delete($lootCard->image);
+        }
+        $extension = $request->file('image')->extension();
+        $filename = sprintf('%s_%s.%s', $lootCard->slug, Str::uuid(), $extension);
+        $path = "loot_cards/{$lootCard->slug}/{$filename}";
+        Storage::disk('public')->put($path, file_get_contents($request->file('image')));
+        $lootCard->update(['image' => $path]);
+
+        return response()->json(['image' => $path]);
+    }
+
     public function create(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/LootCards/LootCardForm', [

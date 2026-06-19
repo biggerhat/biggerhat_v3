@@ -148,7 +148,12 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                             <div class="flex items-center gap-1.5">
                                 <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
                                 <span class="truncate font-medium">{{ u.name }}</span>
-                                <Badge v-if="u.hire_category === 'envoy'" variant="outline" class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400">Envoy</Badge>
+                                <Badge
+                                    v-if="u.hire_category === 'envoy'"
+                                    variant="outline"
+                                    class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
+                                    >Envoy</Badge
+                                >
                                 <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
                             </div>
                             <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-vue-next';
+import { Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface LootCardRow {
@@ -66,6 +66,9 @@ const deleteCard = async (card: LootCardRow) => {
             </div>
             <div class="flex items-center gap-2">
                 <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
+                <Link :href="route('admin.loot_cards.regenerate')">
+                    <Button size="sm" variant="outline" class="gap-1.5"> <RefreshCw class="size-4" /> Regenerate Images </Button>
+                </Link>
                 <Link :href="route('admin.loot_cards.create')">
                     <Button size="sm" class="gap-1.5"> <Plus class="size-4" /> Add Card </Button>
                 </Link>

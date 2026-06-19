@@ -120,6 +120,7 @@ const props = defineProps<{
     faction_enum: SelectOpt[];
     base_enum: SelectOpt[];
     all_keywords: KeywordRow[];
+    characteristic_options: string[];
 }>();
 
 const form = ref({
@@ -220,6 +221,8 @@ const searchAbilities = async () => {
     }
     const url = new URL(route('campaigns.crews.leader.search.abilities', [props.campaign.id, props.crew.share_code]), window.location.origin);
     url.searchParams.set('q', abilitySearch.value);
+    // Cap on the source ally's cost (rulebook pg 17).
+    url.searchParams.set('max_cost', String(archetype.value?.ability_cost_cap ?? 99));
     const res = await fetch(url.toString());
     if (!res.ok) return;
     abilityResults.value = await res.json();
@@ -247,12 +250,11 @@ const removeAbility = (idx: number) => {
 };
 
 // ───────── Characteristics ─────────
-const newCharacteristic = ref('');
-const addCharacteristic = () => {
-    const c = newCharacteristic.value.trim();
+// Picked from the official catalog (props.characteristic_options), not freeform.
+const availableCharacteristics = computed(() => props.characteristic_options.filter((c) => !form.value.characteristics.includes(c)));
+const addCharacteristic = (c: string) => {
     if (!c || form.value.characteristics.length >= 2 || form.value.characteristics.includes(c)) return;
     form.value.characteristics.push(c);
-    newCharacteristic.value = '';
 };
 
 const removeCharacteristic = (i: number) => form.value.characteristics.splice(i, 1);
@@ -460,13 +462,19 @@ const submit = async () => {
         <Card class="mb-6">
             <CardHeader>
                 <CardTitle>4. Characteristics (optional, max 2)</CardTitle>
-                <p class="text-sm text-muted-foreground">e.g. Living, Construct, Spirit, Undead</p>
+                <p class="text-sm text-muted-foreground">Pick from the official characteristics (e.g. Living, Construct, Undead).</p>
             </CardHeader>
             <CardContent class="space-y-3">
-                <div class="flex gap-2">
-                    <Input v-model="newCharacteristic" placeholder="Add characteristic" @keydown.enter.prevent="addCharacteristic" />
-                    <Button variant="outline" @click="addCharacteristic" :disabled="form.characteristics.length >= 2">Add</Button>
-                </div>
+                <Select
+                    :model-value="''"
+                    :disabled="form.characteristics.length >= 2 || !availableCharacteristics.length"
+                    @update:model-value="(v) => addCharacteristic(String(v))"
+                >
+                    <SelectTrigger><SelectValue placeholder="Add a characteristic" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="c in availableCharacteristics" :key="c" :value="c">{{ c }}</SelectItem>
+                    </SelectContent>
+                </Select>
                 <div class="flex flex-wrap gap-2">
                     <Badge v-for="(c, i) in form.characteristics" :key="c" class="cursor-pointer" @click="removeCharacteristic(i)"> {{ c }} × </Badge>
                 </div>

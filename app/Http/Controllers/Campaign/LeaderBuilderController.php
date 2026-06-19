@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
@@ -43,6 +44,11 @@ class LeaderBuilderController extends Controller
                 ->select('id', 'name')
                 ->orderBy('name')
                 ->get(),
+            // Official characteristics from the catalog (pg 15 — pick the model's
+            // characteristics rather than free-typing).
+            'characteristic_options' => fn () => Characteristic::query()
+                ->orderBy('name')
+                ->pluck('name'),
         ]);
     }
 

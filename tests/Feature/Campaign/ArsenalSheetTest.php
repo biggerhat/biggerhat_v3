@@ -32,10 +32,15 @@ function crewFor2(User $owner): array
 {
     $campaign = Campaign::factory()->create(['organizer_user_id' => $owner->id]);
     CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $owner->id]);
+    // Declare keywords so the sheet's keywordOne/keywordTwo eager-load actually
+    // hits the keywords table (regression: it had selected a non-existent
+    // `faction` column).
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
         'user_id' => $owner->id,
         'faction' => FactionEnum::Resurrectionists->value,
+        'keyword_1_id' => \App\Models\Keyword::factory()->create()->id,
+        'keyword_2_id' => \App\Models\Keyword::factory()->create()->id,
     ]);
 
     return [$campaign, $crew];

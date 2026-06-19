@@ -113,10 +113,14 @@ class StoreLeaderRequest extends FormRequest
                 );
             }
             foreach ($attack as $i => $a) {
-                if (($a['stone_cost'] ?? 0) > $archetype->attackActionCostCap()) {
+                // The cap is the SOURCE MODEL's cost ("an ally of cost N or less",
+                // pg 17), read off the chosen source character.
+                $sourceCharacterId = $a['source_character_id'] ?? null;
+                if ($sourceCharacterId
+                    && (Character::query()->whereKey((int) $sourceCharacterId)->value('cost') ?? 0) > $archetype->attackActionCostCap()) {
                     $validator->errors()->add(
-                        "actions.{$i}.stone_cost",
-                        "Attack action exceeds the cost cap of {$archetype->attackActionCostCap()}."
+                        "actions.{$i}.source_character_id",
+                        "Attack action's source model exceeds the cost cap of {$archetype->attackActionCostCap()} ss."
                     );
                 }
             }
@@ -128,10 +132,12 @@ class StoreLeaderRequest extends FormRequest
                 );
             }
             foreach ($tactical as $i => $a) {
-                if (($a['stone_cost'] ?? 0) > $archetype->tacticalActionCostCap()) {
+                $sourceCharacterId = $a['source_character_id'] ?? null;
+                if ($sourceCharacterId
+                    && (Character::query()->whereKey((int) $sourceCharacterId)->value('cost') ?? 0) > $archetype->tacticalActionCostCap()) {
                     $validator->errors()->add(
-                        "actions.{$i}.stone_cost",
-                        "Tactical action exceeds the cost cap of {$archetype->tacticalActionCostCap()}."
+                        "actions.{$i}.source_character_id",
+                        "Tactical action's source model exceeds the cost cap of {$archetype->tacticalActionCostCap()} ss."
                     );
                 }
             }

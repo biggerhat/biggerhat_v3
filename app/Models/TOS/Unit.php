@@ -111,6 +111,12 @@ class Unit extends Model
         return $this->belongsToMany(Allegiance::class, 'tos_allegiance_unit', 'unit_id', 'allegiance_id');
     }
 
+    /** @return BelongsToMany<\App\Models\Lore, $this> */
+    public function lores(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Lore::class, 'lore_tos_unit', 'tos_unit_id', 'lore_id');
+    }
+
     public function specialUnitRules(): BelongsToMany
     {
         return $this->belongsToMany(SpecialUnitRule::class, 'tos_unit_special_rule', 'unit_id', 'special_unit_rule_id')
@@ -167,6 +173,27 @@ class Unit extends Model
         return $query->where(function (Builder $q) use ($allegiance) {
             $q->whereHas('allegiances', fn (Builder $inner) => $inner->where('tos_allegiances.id', $allegiance->id))
                 ->orWhereIn('restriction', $allegiance->typeValues());
+        });
+    }
+
+    /**
+     * The full hireable pool for a Company: everything hireable into the
+     * Primary Allegiance, plus — when an Envoy is taken — that Envoy's
+     * **Squad** units only (rulebook p. 30: "you may hire Squad units and
+     * Assets from your Envoy"). Assets are gated separately.
+     */
+    public function scopeHireableFor(Builder $query, Allegiance $primary, ?Allegiance $envoy = null): Builder
+    {
+        return $query->where(function (Builder $q) use ($primary, $envoy) {
+            $q->where(fn (Builder $p) => $p
+                ->whereHas('allegiances', fn (Builder $i) => $i->where('tos_allegiances.id', $primary->id))
+                ->orWhereIn('restriction', $primary->typeValues()));
+
+            if ($envoy) {
+                $q->orWhere(fn (Builder $e) => $e
+                    ->whereHas('allegiances', fn (Builder $i) => $i->where('tos_allegiances.id', $envoy->id))
+                    ->whereHas('specialUnitRules', fn (Builder $i) => $i->where('slug', 'squad')));
+            }
         });
     }
 }

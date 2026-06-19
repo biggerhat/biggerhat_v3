@@ -23,6 +23,7 @@ use Illuminate\Support\Str;
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
  * @property GameFormatEnum $format
+ *
  * @mixin IdeHelperGame
  */
 #[ObservedBy(GameObserver::class)]

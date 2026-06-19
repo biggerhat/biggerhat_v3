@@ -8,6 +8,7 @@ use Database\Factories\TOS\CompanyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -37,6 +38,7 @@ class Company extends Model
     {
         return [
             'is_public' => 'boolean',
+            'format' => \App\Enums\TOS\GarrisonFormatEnum::class,
         ];
     }
 
@@ -60,6 +62,7 @@ class Company extends Model
 
         static::deleting(function (self $company) {
             $company->companyUnits()->get()->each->delete();
+            $company->stratagems()->detach();
         });
     }
 
@@ -71,6 +74,17 @@ class Company extends Model
     public function allegiance(): BelongsTo
     {
         return $this->belongsTo(Allegiance::class);
+    }
+
+    /**
+     * Optional second Allegiance taken as an Envoy (June 2026 errata — Envoy
+     * Cards were folded into the Allegiance Card). Units/Assets/Stratagems of
+     * the Envoy's Allegiance become hireable (subject to the Envoy spend cap),
+     * and the Envoy Allegiance Card applies its Standard tier only.
+     */
+    public function envoyAllegiance(): BelongsTo
+    {
+        return $this->belongsTo(Allegiance::class, 'envoy_allegiance_id');
     }
 
     /**
@@ -89,6 +103,18 @@ class Company extends Model
     {
         return $this->hasMany(CompanyUnit::class)->orderBy('position');
     }
+
+    /** The Company's Stratagem Deck (General + Primary + up to two Envoy). */
+    public function stratagems(): BelongsToMany
+    {
+        return $this->belongsToMany(Stratagem::class, 'tos_company_stratagems', 'company_id', 'stratagem_id');
+    }
+
+    /** Rulebook deck size (p. 13). */
+    public const STRATAGEM_DECK_SIZE = 6;
+
+    /** Max Stratagems that may come from the Envoy's Allegiance (p. 30). */
+    public const MAX_ENVOY_STRATAGEMS = 2;
 
     /**
      * The (single) commander row, if one has been picked. Maintained purely
@@ -113,8 +139,9 @@ class Company extends Model
     }
 
     /**
-     * Total Scrip the Commander brings to the Company (rulebook p. 9).
-     * Multiple-Commander setups sum (defensive — usually 1).
+     * Total Scrip the Commander(s) bring to the Company (rulebook p. 9), plus
+     * any flat format bonus (e.g. "One Commander +10 Scrip"). Multiple-
+     * Commander formats (Two Commanders, Theater of War) sum every Commander.
      */
     public function scripBudget(): int
     {
@@ -125,7 +152,29 @@ class Company extends Model
             }
         }
 
-        return $sum;
+        return $sum + ($this->format?->scripBonus() ?? 0);
+    }
+
+    /**
+     * How many Commanders this Company may field. Driven by the play format
+     * (game size); defaults to 1 when no format has been chosen yet.
+     */
+    public function maxCommandersFielded(): int
+    {
+        return $this->format?->commandersFielded() ?? 1;
+    }
+
+    /** Current Commander count — used to gate adding another one. */
+    public function commanderCount(): int
+    {
+        $count = 0;
+        foreach ($this->loadedCompanyUnits() as $cu) {
+            if ($cu->is_commander) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -157,6 +206,75 @@ class Company extends Model
     public function scripRemaining(): int
     {
         return $this->scripBudget() - $this->scripSpent();
+    }
+
+    /**
+     * Scrip spent on Envoy-sourced hires — non-Commander Units and Assets that
+     * belong to the Envoy Allegiance (and not the Primary). Rulebook p. 30
+     * caps this at 50% of the total budget.
+     */
+    public function envoyScripSpent(): int
+    {
+        if (! $this->envoy_allegiance_id) {
+            return 0;
+        }
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, CompanyUnit> $units */
+        $units = $this->companyUnits()
+            ->with(['unit:id,scrip', 'unit.allegiances:id', 'assets:id,scrip_cost', 'assets.allegiances:id'])
+            ->get();
+
+        $sum = 0;
+        foreach ($units as $cu) {
+            if (! $cu->is_commander && $this->belongsToEnvoyOnly($cu->unit)) {
+                $sum += (int) ($cu->unit->scrip ?? 0);
+            }
+            foreach ($cu->assets as $asset) {
+                if ($this->belongsToEnvoyOnly($asset)) {
+                    $sum += (int) ($asset->scrip_cost ?? 0);
+                }
+            }
+        }
+
+        return $sum;
+    }
+
+    /** Half the total budget (rounded down) — the Envoy spend ceiling. */
+    public function envoyScripCap(): int
+    {
+        return intdiv($this->scripBudget(), 2);
+    }
+
+    /**
+     * How many deck Stratagems are Envoy-sourced — i.e. in the deck but not
+     * available to the Primary Allegiance (so they're there via the Envoy).
+     * Capped at MAX_ENVOY_STRATAGEMS.
+     */
+    public function envoyStratagemCount(): int
+    {
+        if (! $this->envoy_allegiance_id) {
+            return 0;
+        }
+
+        $primaryIds = Stratagem::availableTo($this->allegiance)->pluck('id');
+
+        return $this->stratagems()->whereNotIn('tos_stratagems.id', $primaryIds)->count();
+    }
+
+    /**
+     * Whether a Unit/Asset (with `allegiances` loaded) is sourced from the
+     * Envoy — i.e. in the Envoy Allegiance but not the Primary.
+     *
+     * @param  Unit|Asset|null  $model
+     */
+    public function belongsToEnvoyOnly($model): bool
+    {
+        if (! $model || ! $this->envoy_allegiance_id || ! $model->relationLoaded('allegiances')) {
+            return false;
+        }
+
+        return $model->allegiances->contains('id', $this->envoy_allegiance_id)
+            && ! $model->allegiances->contains('id', $this->allegiance_id);
     }
 
     /**

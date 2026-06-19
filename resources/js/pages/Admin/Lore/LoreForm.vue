@@ -46,6 +46,13 @@ const props = defineProps({
             return [];
         },
     },
+    tos_units: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
@@ -54,6 +61,7 @@ const formInfo = ref({
     remove_file: false,
     lore_media: [] as string[],
     characters: [] as string[],
+    tos_units: [] as string[],
     new_media: [] as NewMediaEntry[],
 });
 
@@ -78,6 +86,10 @@ onMounted(() => {
 
     props.lore?.characters?.forEach((character: any) => {
         formInfo.value.characters.push(character.display_name);
+    });
+
+    props.lore?.tos_units?.forEach((unit: any) => {
+        formInfo.value.tos_units.push(unit.slug);
     });
 });
 </script>
@@ -196,6 +208,16 @@ onMounted(() => {
                                 option-value="name"
                             />
                             <InputError :message="usePage().props.errors.characters" />
+                        </div>
+
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="tos_units">TOS Units</Label>
+                            <SearchableMultiselect
+                                v-model="formInfo.tos_units"
+                                placeholder="Select TOS Units"
+                                :options="props.tos_units"
+                            />
+                            <InputError :message="usePage().props.errors.tos_units" />
                         </div>
                     </div>
                 </form>

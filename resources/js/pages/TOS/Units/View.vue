@@ -31,6 +31,7 @@ interface Unit {
     special_unit_rules: any[];
     sculpts: Sculpt[];
     combined_arms_child: Unit | null;
+    lores: { id: number; name: string; media: { id: number; name: string }[] }[];
 }
 
 defineProps<{
@@ -107,6 +108,18 @@ defineProps<{
                 <Link :href="route('tos.units.view', unit.combined_arms_child.slug)" class="text-primary hover:underline">
                     {{ unit.combined_arms_child.name }}
                 </Link>
+            </div>
+
+            <div v-if="unit.lores?.length" class="rounded-md border p-4">
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lore</p>
+                <ul class="space-y-1.5 text-sm">
+                    <li v-for="lore in unit.lores" :key="lore.id" class="flex flex-wrap items-baseline gap-x-2">
+                        <span class="font-medium">{{ lore.name }}</span>
+                        <span v-if="lore.media?.length" class="text-xs text-muted-foreground">
+                            {{ lore.media.map((m) => m.name).join(', ') }}
+                        </span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>

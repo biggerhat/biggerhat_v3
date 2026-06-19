@@ -47,6 +47,20 @@ The resolved system is exposed on the shared Inertia data as `currentGameSystem`
 - **UnitSculpt** has `front_image`, `back_image`, `combination_image` (same column shape as Malifaux `Miniature`). The combo image is auto-generated from front+back via GD in `SculptAdminController::regenerateComboImage()` using `HandlesTosImageUpload::generateTosComboImage()`.
 - **TOS Packages share Malifaux's `Package` model** via the polymorphic `packageables` pivot. `Package::tosUnits()` + `Unit::packages()` relations let a Starter Box list TOS contents alongside Malifaux entries.
 
+## Company builder: format + Envoy (June 2026 errata)
+
+The Company builder (`CompanyController::view`/`addUnit`/`attachAsset`/`addStratagem`, `resources/js/pages/TOS/Companies/View.vue`) is **format- and Envoy-aware**. Two concepts to keep straight:
+
+- **`GarrisonFormatEnum` carries two distinct sets of methods.** The original `maxCommanders()` / `scripBudget()` / `stratagemCount()` describe a tournament **Garrison pool** (how much you *declare* — 2–3 commanders, 40–75 Scrip). The added `commandersFielded()` / `scripBonus()` describe how a single **Company plays** the format (the rulebook's "game size" = number of Commanders fielded; budget = sum of those Commanders' Scrip + a flat bonus). **Don't cross-wire them** — a Company reads `commandersFielded`/`scripBonus`; a Garrison reads the pool methods. Per-format commander counts come from the Fields of Glory packet (Theater of War = up to 2, No Man's Land = 1).
+- **Envoy = a second Allegiance** (`Company.envoy_allegiance_id`), not a card (Envoy Cards were removed). Rules it drives:
+  - **Hireable pool** = `Unit::hireableFor($primary, $envoy)` — the full Primary pool plus the Envoy's **Squad units only**. Assets match Primary ∪ Envoy. The picker chip is Direct / Envoy / Neutral.
+  - **Envoy spend cap** — Envoy-sourced Units + Assets (in the Envoy Allegiance, not the Primary) are capped at **50%** of total Scrip (`Company::envoyScripSpent()` / `envoyScripCap()` / `belongsToEnvoyOnly()`).
+  - **Allegiance Card tiers** — when an Allegiance is the Envoy, only its **Standard tier** applies; the **Primary tier** (`primaryAbilities`/`primaryActions`/`primaryTriggers`, the card's "Primary Only" section) is suppressed.
+- **Commanders** carry the `commander` Special Unit Rule and must belong to the Primary Allegiance or a Syndicate matching the Primary's Type (`commanderAllegianceEligible()`). They're drawn from a dedicated `commander_pool` (not the hire pool), capped by `maxCommandersFielded()`.
+- **Stratagem Deck** — `Company::stratagems()` (`tos_company_stratagems`), capped at `STRATAGEM_DECK_SIZE` (6) with at most `MAX_ENVOY_STRATAGEMS` (2) from the Envoy. Eligibility uses `Stratagem::availableTo($allegiance)`.
+
+> Not yet implemented: the "a Syndicate Commander forces the Envoy to be that Syndicate" cross-field rule — eligibility + the Syndicate commander pool exist, but the auto-constraint does not.
+
 ## TOS conventions
 
 - **Slugs**: the `GeneratesTosSlug` trait auto-generates `slug` on `creating` from the `name` column. Most entities append `-Str::random(4)` for disambiguation. Allegiance and SpecialUnitRule use canonical slugs (override `slugNeedsRandomSuffix(): bool` to return `false`).

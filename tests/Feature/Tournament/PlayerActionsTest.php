@@ -27,6 +27,30 @@ it('rejects adding a second ringer', function () {
         ->assertJsonFragment(['error' => 'Tournament already has a ringer']);
 });
 
+it('rejects adding a player with a faction outside the enum', function () {
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.players.add', $this->tournament->uuid), [
+            'display_name' => 'Typo Faction',
+            'faction' => 'gild', // not a FactionEnum value
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('faction');
+});
+
+it('rejects updating a player to a faction outside the enum', function () {
+    $player = TournamentPlayer::factory()->for($this->tournament)->create(['faction' => 'guild']);
+
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.players.update', [$this->tournament->uuid, $player]), [
+            'faction' => 'not_real',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('faction');
+
+    // The stored faction is untouched and still a valid enum value.
+    expect($player->fresh()->getRawOriginal('faction'))->toBe('guild');
+});
+
 it('rejects linking the same user to two players when adding', function () {
     $linkedUser = User::factory()->create();
     TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $linkedUser->id]);

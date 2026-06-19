@@ -87,6 +87,8 @@ Route::prefix('tos')->name('tos.')->group(function () {
         Route::post('/{company}/units/{companyUnit}/sculpt', 'updateSculpt')->name('units.sculpt');
         Route::post('/{company}/units/{companyUnit}/assets', 'attachAsset')->name('assets.attach');
         Route::post('/{company}/units/{companyUnit}/assets/{asset}/delete', 'detachAsset')->name('assets.detach');
+        Route::post('/{company}/stratagems', 'addStratagem')->name('stratagems.add');
+        Route::post('/{company}/stratagems/{stratagem}/delete', 'removeStratagem')->name('stratagems.remove');
     });
 
     // Public read-only Company view via share_code — no auth.

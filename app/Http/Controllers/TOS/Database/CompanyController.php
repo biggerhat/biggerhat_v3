@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers\TOS\Database;
 
+use App\Enums\TOS\GarrisonFormatEnum;
 use App\Http\Controllers\Controller;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Company;
 use App\Models\TOS\CompanyUnit;
 use App\Models\TOS\Garrison;
+use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * TOS Company Builder. One Company per click — pick an Allegiance, add Units
@@ -57,6 +60,13 @@ class CompanyController extends Controller
                 ->orderByDesc('updated_at')
                 ->get(['id', 'slug', 'name', 'allegiance_id', 'format', 'updated_at']),
             'preselect_garrison_id' => $preselectGarrisonId,
+            // Play formats (game size) for the standalone picker. A Garrison-
+            // linked Company inherits its Garrison's format instead.
+            'formats' => fn () => collect(GarrisonFormatEnum::cases())->map(fn (GarrisonFormatEnum $f) => [
+                'value' => $f->value,
+                'label' => $f->label(),
+                'description' => $f->description(),
+            ]),
         ]);
     }
 
@@ -66,17 +76,21 @@ class CompanyController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'allegiance_id' => ['required', 'integer', 'exists:tos_allegiances,id'],
             'garrison_id' => ['nullable', 'integer', 'exists:tos_garrisons,id'],
+            'format' => ['nullable', Rule::enum(GarrisonFormatEnum::class)],
+            // An Envoy is a second, different Allegiance (June 2026 errata).
+            'envoy_allegiance_id' => ['nullable', 'integer', 'exists:tos_allegiances,id', 'different:allegiance_id'],
             'notes' => ['nullable', 'string'],
         ]);
 
-        // If the user picked a Garrison, snap the allegiance to it (the
-        // Builder UI already locks the picker, but server-side enforcement
-        // means an out-of-band POST can't desync the two).
+        // If the user picked a Garrison, snap the allegiance + format to it
+        // (the Builder UI already locks the pickers, but server-side
+        // enforcement means an out-of-band POST can't desync them).
         if (! empty($validated['garrison_id'])) {
             $garrison = Garrison::where('id', $validated['garrison_id'])
                 ->where('user_id', Auth::id())
                 ->firstOrFail();
             $validated['allegiance_id'] = $garrison->allegiance_id;
+            $validated['format'] = $garrison->format->value;
         }
 
         $company = Company::create([
@@ -95,15 +109,23 @@ class CompanyController extends Controller
             // secondary_type is required because Unit::hireableInto reads
             // $allegiance->typeValues() which dereferences both type columns.
             'allegiance:id,slug,name,type,secondary_type,color_slug',
+            'allegiance.allegianceCards:id,allegiance_id,slug,name,image_path',
+            // Envoy (second Allegiance) widens the hireable pool + asset pool.
+            'envoyAllegiance:id,slug,name,type,secondary_type,color_slug',
+            'envoyAllegiance.allegianceCards:id,allegiance_id,slug,name,image_path',
             'garrison:id,slug,name,format,allegiance_id',
             'companyUnits.unit:id,slug,name,title,scrip,combined_arms_child_id,restriction',
             'companyUnits.unit.specialUnitRules:id,slug,name',
+            // Allegiances feed Asset::canAttachTo() when computing per-unit
+            // attachability for the attach-asset picker.
+            'companyUnits.unit.allegiances:id',
             // Sculpts include image columns now — the company-builder drawer
             // shows the FlipCard preview and lets the user switch sculpt
             // variants per company unit.
             'companyUnits.unit.sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
             'companyUnits.assets:id,slug,name,scrip_cost',
             'companyUnits.assets.limits',
+            'stratagems:id,slug,name,tactical_cost,allegiance_id,allegiance_type',
         ]);
 
         // Pre-compute the Garrison's pool ids when this Company is tied to
@@ -126,7 +148,7 @@ class CompanyController extends Controller
         // Crew Builder and Garrison Builder use. Inertia evaluates these
         // only on full visits or when the prop is explicitly requested.
         $hireableUnits = function () use ($company, $garrisonUnitIds) {
-            $hireableQuery = Unit::hireableInto($company->allegiance)
+            $hireableQuery = Unit::hireableFor($company->allegiance, $company->envoyAllegiance)
                 ->notCombinedArmsChild();
             if ($garrisonUnitIds !== null) {
                 $hireableQuery->whereIn('tos_units.id', $garrisonUnitIds);
@@ -141,20 +163,25 @@ class CompanyController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'slug', 'name', 'title', 'scrip', 'restriction', 'combined_arms_child_id'])
                 ->map(function (Unit $u) use ($company) {
-                    // hire_category drives the Direct/Neutral chip in the
-                    // picker (mirrors Crew Builder's in-keyword vs OOK).
+                    // hire_category drives the picker chip: Direct (Primary),
+                    // Envoy (second Allegiance), or Neutral (restriction pool).
                     $direct = $u->allegiances->contains('id', $company->allegiance_id);
-                    $u->setAttribute('hire_category', $direct ? 'direct' : 'neutral');
+                    $envoy = ! $direct && $company->envoy_allegiance_id
+                        && $u->allegiances->contains('id', $company->envoy_allegiance_id);
+                    $u->setAttribute('hire_category', $direct ? 'direct' : ($envoy ? 'envoy' : 'neutral'));
 
                     return $u;
                 });
         };
 
         $availableAssets = function () use ($company, $garrisonAssetIds) {
+            // Assets matching the Primary or the Envoy Allegiance (or those
+            // with no Allegiance restriction at all) are offered.
+            $allegianceIds = array_filter([$company->allegiance_id, $company->envoy_allegiance_id]);
             $assetsQuery = Asset::query()
-                ->where(function ($q) use ($company) {
+                ->where(function ($q) use ($allegianceIds) {
                     $q->whereDoesntHave('allegiances')
-                        ->orWhereHas('allegiances', fn ($inner) => $inner->where('tos_allegiances.id', $company->allegiance_id));
+                        ->orWhereHas('allegiances', fn ($inner) => $inner->whereIn('tos_allegiances.id', $allegianceIds));
                 });
             if ($garrisonAssetIds !== null) {
                 $assetsQuery->whereIn('tos_assets.id', $garrisonAssetIds);
@@ -169,8 +196,66 @@ class CompanyController extends Controller
                     // Assets that are already in play without a round trip.
                     $a->setAttribute('already_attached', $company->hasAssetAttached($a));
 
+                    // Per-unit attachability (allegiance + non-Unique/non-Slot
+                    // limits) so the attach drawer only offers Assets the
+                    // targeted unit can actually take. Unique/slot collisions
+                    // are still enforced at attach time.
+                    $a->setAttribute(
+                        'attachable_company_unit_ids',
+                        $company->companyUnits
+                            ->filter(fn ($cu) => $cu->unit && $a->canAttachTo($cu->unit))
+                            ->pluck('id')
+                            ->values()
+                            ->all()
+                    );
+
                     return $a;
                 });
+        };
+
+        // Commanders eligible to lead: those carrying the Commander rule from
+        // the Primary Allegiance, or from a Syndicate matching the Primary's
+        // Type (rulebook p. 30). Drawn separately from the hire pool since a
+        // Syndicate Commander need not be in the Primary/Envoy hire pool.
+        $commanderPool = function () use ($company) {
+            $primaryTypes = $company->allegiance->typeValues();
+
+            return Unit::query()
+                ->whereHas('specialUnitRules', fn ($q) => $q->where('slug', 'commander'))
+                ->where(function ($q) use ($company, $primaryTypes) {
+                    $q->whereHas('allegiances', fn ($a) => $a->where('tos_allegiances.id', $company->allegiance_id))
+                        ->orWhereHas('allegiances', fn ($a) => $a->where('is_syndicate', true)
+                            ->where(fn ($t) => $t->whereIn('type', $primaryTypes)->orWhereIn('secondary_type', $primaryTypes)));
+                })
+                ->notCombinedArmsChild()
+                ->with([
+                    'specialUnitRules:id,slug,name',
+                    'sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
+                ])
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'title', 'scrip', 'restriction', 'combined_arms_child_id']);
+        };
+
+        // Stratagems eligible for the deck: those available to the Primary
+        // Allegiance, plus the Envoy's (flagged so the UI can show/limit them).
+        $availableStratagems = function () use ($company) {
+            $cols = ['id', 'slug', 'name', 'tactical_cost', 'allegiance_id', 'allegiance_type'];
+
+            $primary = Stratagem::availableTo($company->allegiance)
+                ->orderBy('name')->get($cols)
+                ->each(fn (Stratagem $s) => $s->setAttribute('deck_source', 'primary'));
+
+            if (! $company->envoyAllegiance) {
+                return $primary->values();
+            }
+
+            $primaryIds = $primary->pluck('id');
+            $envoy = Stratagem::availableTo($company->envoyAllegiance)
+                ->orderBy('name')->get($cols)
+                ->reject(fn (Stratagem $s) => $primaryIds->contains($s->id))
+                ->each(fn (Stratagem $s) => $s->setAttribute('deck_source', 'envoy'));
+
+            return $primary->merge($envoy)->sortBy('name')->values();
         };
 
         return inertia('TOS/Companies/View', [
@@ -179,6 +264,14 @@ class CompanyController extends Controller
             'scrip_spent' => $company->scripSpent(),
             'scrip_remaining' => $company->scripRemaining(),
             'has_commander' => $company->hasCommander(),
+            'commander_count' => $company->commanderCount(),
+            'max_commanders' => $company->maxCommandersFielded(),
+            'envoy_scrip_spent' => $company->envoyScripSpent(),
+            'envoy_scrip_cap' => $company->envoyScripCap(),
+            'available_stratagems' => $availableStratagems,
+            'stratagem_deck_size' => Company::STRATAGEM_DECK_SIZE,
+            'max_envoy_stratagems' => Company::MAX_ENVOY_STRATAGEMS,
+            'commander_pool' => $commanderPool,
             'hireable_units' => $hireableUnits,
             'available_assets' => $availableAssets,
             // Garrisons the user owns that can host this Company (same
@@ -328,6 +421,7 @@ class CompanyController extends Controller
             'companyUnits.unit.sculpts:id,unit_id,slug,name,front_image,back_image,combination_image',
             'companyUnits.assets:id,slug,name,scrip_cost',
             'companyUnits.assets.limits',
+            'stratagems:id,slug,name,tactical_cost,allegiance_id,allegiance_type',
         ]);
 
         return inertia('TOS/Companies/Shared', [
@@ -336,6 +430,28 @@ class CompanyController extends Controller
             'scrip_spent' => $company->scripSpent(),
             'scrip_remaining' => $company->scripRemaining(),
         ]);
+    }
+
+    /**
+     * A Commander is eligible if it belongs to the Company's Primary
+     * Allegiance, or to a Syndicate whose Type matches the Primary's
+     * (rulebook p. 30). Expects $unit->allegiances loaded.
+     */
+    private function commanderAllegianceEligible(Company $company, Unit $unit): bool
+    {
+        if ($unit->allegiances->contains('id', $company->allegiance_id)) {
+            return true;
+        }
+
+        $primaryTypes = $company->allegiance->typeValues();
+
+        foreach ($unit->allegiances as $allegiance) {
+            if ($allegiance->is_syndicate && array_intersect($allegiance->typeValues(), $primaryTypes)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function addUnit(Request $request, Company $company): RedirectResponse
@@ -355,11 +471,31 @@ class CompanyController extends Controller
         // implicit query — predictable cost regardless of which guard fires.
         $company->load(['companyUnits.unit:id,scrip', 'companyUnits.assets:id,scrip_cost']);
 
-        // Reject hires the rules wouldn't allow — keeps the saved company
-        // valid.
-        $isHireable = Unit::hireableInto($company->allegiance)->where('tos_units.id', $unit->id)->exists();
-        if (! $isHireable) {
-            return back()->withErrors(['unit_id' => "{$unit->name} can't be hired into this Allegiance."]);
+        if ($promotingCommander) {
+            // Commanders have their own eligibility (rulebook p. 30): they must
+            // carry the Commander rule and belong to the Primary Allegiance or
+            // a Syndicate matching the Primary's Type.
+            $unit->loadMissing(['specialUnitRules:id,slug', 'allegiances:id,is_syndicate,type,secondary_type']);
+            if (! $unit->specialUnitRules->contains('slug', 'commander')) {
+                return back()->withErrors(['unit_id' => "{$unit->name} is not a Commander."]);
+            }
+            if (! $this->commanderAllegianceEligible($company, $unit)) {
+                return back()->withErrors(['unit_id' => "{$unit->name} must belong to your Allegiance or a matching Syndicate."]);
+            }
+            // Format commander cap. A single-Commander format swaps the existing
+            // Commander out; multi-Commander formats reject once the cap is hit.
+            $cap = $company->maxCommandersFielded();
+            if ($cap > 1 && $company->commanderCount() >= $cap) {
+                return back()->withErrors(['unit_id' => "This format allows only {$cap} Commanders — remove one first."]);
+            }
+        } else {
+            // Reject hires the rules wouldn't allow — keeps the saved company
+            // valid. Envoy units are limited to Squad units (handled by the scope).
+            $isHireable = Unit::hireableFor($company->allegiance, $company->envoyAllegiance)
+                ->where('tos_units.id', $unit->id)->exists();
+            if (! $isHireable) {
+                return back()->withErrors(['unit_id' => "{$unit->name} can't be hired into this Company's Allegiance or Envoy."]);
+            }
         }
 
         // When this Company is being built from a Garrison, the unit must
@@ -385,12 +521,24 @@ class CompanyController extends Controller
                     'unit_id' => "Hiring {$unit->name} ({$cost} Scrip) would exceed the Commander's budget by ".($cost - $company->scripRemaining()).' Scrip.',
                 ]);
             }
+
+            // Envoy spend cap (rulebook p. 30) — Envoy-sourced hires can't
+            // exceed 50% of the total Scrip.
+            if ($company->envoy_allegiance_id) {
+                $unit->loadMissing('allegiances:id');
+                if ($company->belongsToEnvoyOnly($unit) && $company->envoyScripSpent() + $cost > $company->envoyScripCap()) {
+                    return back()->withErrors([
+                        'unit_id' => "Envoy hires are capped at {$company->envoyScripCap()} Scrip (50% of your total).",
+                    ]);
+                }
+            }
         }
 
         DB::transaction(function () use ($company, $unit, $promotingCommander) {
-            // Only one Commander per Company — flip the flag off everywhere
-            // else first when promoting a new one.
-            if ($promotingCommander) {
+            // Single-Commander formats swap: a new promotion demotes the
+            // existing Commander. Multi-Commander formats keep both (the cap
+            // was already enforced above).
+            if ($promotingCommander && $company->maxCommandersFielded() === 1) {
                 $company->companyUnits()->update(['is_commander' => false]);
             }
 
@@ -547,6 +695,17 @@ class CompanyController extends Controller
             ]);
         }
 
+        // Envoy spend cap (rulebook p. 30) — Envoy-sourced Assets count toward
+        // the 50%-of-total ceiling alongside Envoy Units.
+        if ($company->envoy_allegiance_id) {
+            $asset->loadMissing('allegiances:id');
+            if ($company->belongsToEnvoyOnly($asset) && $company->envoyScripSpent() + $cost > $company->envoyScripCap()) {
+                return back()->withErrors([
+                    'asset_id' => "Envoy hires are capped at {$company->envoyScripCap()} Scrip (50% of your total).",
+                ]);
+            }
+        }
+
         $companyUnit->assets()->syncWithoutDetaching([$asset->id]);
 
         return back();
@@ -558,6 +717,51 @@ class CompanyController extends Controller
         abort_unless($companyUnit->company_id === $company->id, 404);
 
         $companyUnit->assets()->detach($asset->id);
+
+        return back();
+    }
+
+    /**
+     * Add a Stratagem to the Company's deck. Enforces the deck size (6), the
+     * Allegiance/Envoy availability, and the two-Envoy-Stratagem cap (p. 13/30).
+     */
+    public function addStratagem(Request $request, Company $company): RedirectResponse
+    {
+        $this->authorizeCompany($company);
+
+        $validated = $request->validate([
+            'stratagem_id' => ['required', 'integer', 'exists:tos_stratagems,id'],
+        ]);
+
+        $stratagem = Stratagem::findOrFail($validated['stratagem_id']);
+
+        if ($company->stratagems()->count() >= Company::STRATAGEM_DECK_SIZE) {
+            return back()->withErrors(['stratagem_id' => 'Your Stratagem Deck is full ('.Company::STRATAGEM_DECK_SIZE.' cards).']);
+        }
+
+        $availableToPrimary = Stratagem::availableTo($company->allegiance)->whereKey($stratagem->id)->exists();
+        $availableToEnvoy = $company->envoyAllegiance
+            && Stratagem::availableTo($company->envoyAllegiance)->whereKey($stratagem->id)->exists();
+
+        if (! $availableToPrimary && ! $availableToEnvoy) {
+            return back()->withErrors(['stratagem_id' => "{$stratagem->name} isn't available to your Allegiance or Envoy."]);
+        }
+
+        // Envoy-only Stratagems count against the two-card Envoy limit.
+        if (! $availableToPrimary && $company->envoyStratagemCount() >= Company::MAX_ENVOY_STRATAGEMS) {
+            return back()->withErrors(['stratagem_id' => 'You may include at most '.Company::MAX_ENVOY_STRATAGEMS.' Envoy Stratagems.']);
+        }
+
+        $company->stratagems()->syncWithoutDetaching([$stratagem->id]);
+
+        return back();
+    }
+
+    public function removeStratagem(Company $company, Stratagem $stratagem): RedirectResponse
+    {
+        $this->authorizeCompany($company);
+
+        $company->stratagems()->detach($stratagem->id);
 
         return back();
     }

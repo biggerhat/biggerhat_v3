@@ -476,12 +476,16 @@ namespace App\Models\Campaign{
  * @property int|null $granted_keyword_id
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property \Carbon\CarbonImmutable|null $removed_at
+ * @property bool $ignored_for_limits
  * @property array<array-key, mixed>|null $gained_characteristics
+ * @property array<array-key, mixed>|null $gained_lucky_miss_ids
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Character $character
  * @property-read \App\Models\Campaign\CampaignCrew $crew
  * @property-read \App\Models\Keyword|null $grantedKeyword
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Campaign\CampaignArsenalModelInjury> $injuries
+ * @property-read int|null $injuries_count
  * @property-read \App\Models\Miniature|null $miniature
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel active()
  * @method static \Database\Factories\Campaign\CampaignArsenalModelFactory factory($count = null, $state = [])
@@ -495,8 +499,10 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGainedCharacteristics($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGainedLuckyMissIds($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGrantedKeywordId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereIgnoredForLimits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereIsPeon($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereLabel($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereMiniatureId($value)
@@ -523,7 +529,7 @@ namespace App\Models\Campaign{
  * @property \Carbon\CarbonImmutable $created_at
  * @property \Carbon\CarbonImmutable $updated_at
  * @property-read CampaignArsenalModel $arsenalModel
- * @property-read Upgrade $injury
+ * @property-read Upgrade|null $injury
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury query()
@@ -1867,6 +1873,8 @@ namespace App\Models{
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LoreMedia> $media
  * @property-read int|null $media_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Unit> $tosUnits
+ * @property-read int|null $tos_units_count
  * @method static \Database\Factories\LoreFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Lore newQuery()
@@ -2591,6 +2599,8 @@ namespace App\Models\TOS{
  * @property int $id
  * @property int $user_id
  * @property int $allegiance_id
+ * @property \App\Enums\TOS\GarrisonFormatEnum|null $format
+ * @property int|null $envoy_allegiance_id
  * @property int|null $garrison_id
  * @property string $slug
  * @property string|null $share_code
@@ -2604,7 +2614,10 @@ namespace App\Models\TOS{
  * @property-read int|null $commander_unit_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\CompanyUnit> $companyUnits
  * @property-read int|null $company_units_count
+ * @property-read \App\Models\TOS\Allegiance|null $envoyAllegiance
  * @property-read \App\Models\TOS\Garrison|null $garrison
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Stratagem> $stratagems
+ * @property-read int|null $stratagems_count
  * @property-read \App\Models\User $user
  * @method static \Database\Factories\TOS\CompanyFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newModelQuery()
@@ -2612,6 +2625,8 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereAllegianceId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereEnvoyAllegianceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereFormat($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereGarrisonId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereIsPublic($value)
@@ -2880,6 +2895,8 @@ namespace App\Models\TOS{
  * @property-read int|null $allegiances_count
  * @property-read Unit|null $combinedArmsChild
  * @property-read Unit|null $combinedArmsParent
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Lore> $lores
+ * @property-read int|null $lores_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $packages
  * @property-read int|null $packages_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSculpt> $sculpts
@@ -2890,6 +2907,7 @@ namespace App\Models\TOS{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\SpecialUnitRule> $specialUnitRules
  * @property-read int|null $special_unit_rules_count
  * @method static \Database\Factories\TOS\UnitFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit hireableFor(\App\Models\TOS\Allegiance $primary, ?\App\Models\TOS\Allegiance $envoy = null)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit hireableInto(\App\Models\TOS\Allegiance $allegiance)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Unit newQuery()

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Character;
 use App\Models\Lore;
 use App\Models\LoreMedia;
+use App\Models\TOS\Unit as TosUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -17,7 +18,7 @@ class LoreAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Lore/Index', [
-            'lores' => Lore::with('media', 'characters')->orderBy('name', 'ASC')->get(),
+            'lores' => Lore::with('media', 'characters', 'tosUnits')->orderBy('name', 'ASC')->get(),
         ]);
     }
 
@@ -30,20 +31,39 @@ class LoreAdminController extends Controller
             ]),
             'media_types' => fn () => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'tos_units' => fn () => $this->tosUnitOptions(),
         ]);
     }
 
     public function edit(Request $request, Lore $lore)
     {
         return inertia('Admin/Lore/LoreForm', [
-            'lore' => $lore->loadMissing(['media', 'characters']),
+            'lore' => $lore->loadMissing(['media', 'characters', 'tosUnits']),
             'lore_media' => fn () => LoreMedia::orderBy('name')->get()->map(fn (LoreMedia $m) => [
                 'name' => $m->name,
                 'value' => $m->name,
             ]),
             'media_types' => fn () => LoreMediaTypeEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'slug'),
+            'tos_units' => fn () => $this->tosUnitOptions(),
         ]);
+    }
+
+    /**
+     * TOS Unit options for the link picker — keyed by slug (Unit names collide
+     * across title variants, so slug is the stable handle).
+     *
+     * @return array<int, array{name: string, value: string}>
+     */
+    private function tosUnitOptions(): array
+    {
+        return TosUnit::orderBy('name')
+            ->get(['slug', 'name', 'title'])
+            ->map(fn (TosUnit $u) => [
+                'name' => $u->title ? "{$u->name} — {$u->title}" : $u->name,
+                'value' => $u->slug,
+            ])
+            ->all();
     }
 
     public function store(Request $request)
@@ -76,6 +96,7 @@ class LoreAdminController extends Controller
             'remove_file' => ['nullable', 'boolean'],
             'lore_media' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
+            'tos_units' => ['nullable', 'array'],
             // Inline new media creation (array of objects)
             'new_media' => ['nullable', 'array'],
             'new_media.*.name' => ['required_with:new_media', 'string', 'max:255'],
@@ -114,6 +135,7 @@ class LoreAdminController extends Controller
         }
 
         $characters = Character::whereIn('display_name', $validated['characters'] ?? [])->get();
+        $tosUnitIds = TosUnit::whereIn('slug', $validated['tos_units'] ?? [])->pluck('id');
 
         if (! $lore) {
             $lore = Lore::create(['name' => $validated['name'], ...$fileData]);
@@ -123,6 +145,7 @@ class LoreAdminController extends Controller
 
         $lore->media()->sync($mediaIds);
         $lore->characters()->sync($characters->pluck('id'));
+        $lore->tosUnits()->sync($tosUnitIds);
 
         return $lore;
     }

@@ -22,15 +22,15 @@ interface UnitMin {
     restriction: string | null;
     combined_arms_child_id: number | null;
     special_unit_rules: SpecialRule[];
-    hire_category?: 'direct' | 'neutral';
+    hire_category?: 'direct' | 'envoy' | 'neutral';
 }
 
-type PoolFilter = 'all' | 'direct' | 'neutral' | 'commander';
+type PoolFilter = 'all' | 'direct' | 'envoy' | 'neutral' | 'commander';
 type PoolSort = 'name' | 'scrip';
 
 const props = defineProps<{
     pool: UnitMin[];
-    counts: { all: number; direct: number; neutral: number; commander: number };
+    counts: { all: number; direct: number; envoy: number; neutral: number; commander: number };
     filterText: string;
     poolFilter: PoolFilter;
     poolSort: PoolSort;
@@ -48,12 +48,13 @@ const emit = defineEmits<{
     (e: 'hire', u: UnitMin, asCommander: boolean): void;
 }>();
 
-const filters: Array<{ key: PoolFilter; label: string }> = [
+const filters = computed<Array<{ key: PoolFilter; label: string }>>(() => [
     { key: 'all', label: 'All' },
     { key: 'direct', label: 'Direct' },
+    // Only surface the Envoy filter when an Envoy actually contributes units.
+    ...(props.counts.envoy > 0 ? [{ key: 'envoy' as const, label: 'Envoy' }] : []),
     { key: 'neutral', label: 'Neutral' },
-    { key: 'commander', label: 'Cmdr' },
-];
+]);
 const sorts: Array<{ key: PoolSort; label: string }> = [
     { key: 'name', label: 'Name' },
     { key: 'scrip', label: 'Scrip' },
@@ -147,7 +148,8 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                             <div class="flex items-center gap-1.5">
                                 <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
                                 <span class="truncate font-medium">{{ u.name }}</span>
-                                <Badge v-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                                <Badge v-if="u.hire_category === 'envoy'" variant="outline" class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400">Envoy</Badge>
+                                <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
                             </div>
                             <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
                         </div>

@@ -75,6 +75,36 @@ enum GarrisonFormatEnum: string implements HasDefaultEnumMethods
         };
     }
 
+    // ── Company-play semantics ──────────────────────────────────────────
+    // The methods above (maxCommanders/scripBudget/stratagemCount) describe a
+    // tournament *Garrison pool*. The two below describe how a single Company
+    // actually plays the format: the rulebook's "game size" is the number of
+    // Commanders fielded, and the budget is the sum of those Commanders' Scrip
+    // (Fields of Glory packet). They are intentionally distinct from the pool
+    // numbers above.
+
+    /**
+     * Maximum Commanders a Company fields under this format. One-Commander
+     * games (incl. +10) and No Man's Land field one; Two Commanders and
+     * Theater of War (whose later rounds are 2-Commander) field up to two.
+     */
+    public function commandersFielded(): int
+    {
+        return match ($this) {
+            self::OneCommander, self::OneCommanderPlus10, self::NoMansLand => 1,
+            self::TwoCommanders, self::TheaterOfWar => 2,
+        };
+    }
+
+    /** Flat Scrip added on top of the fielded Commanders' Scrip ratings. */
+    public function scripBonus(): int
+    {
+        return match ($this) {
+            self::OneCommanderPlus10 => 10,
+            default => 0,
+        };
+    }
+
     public function description(): string
     {
         return match ($this) {

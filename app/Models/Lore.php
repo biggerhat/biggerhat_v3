@@ -32,4 +32,10 @@ class Lore extends Model
     {
         return $this->belongsToMany(Character::class, 'character_lore');
     }
+
+    /** @return BelongsToMany<\App\Models\TOS\Unit, $this> */
+    public function tosUnits(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\TOS\Unit::class, 'lore_tos_unit', 'lore_id', 'tos_unit_id');
+    }
 }

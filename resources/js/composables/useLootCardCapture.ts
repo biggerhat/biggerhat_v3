@@ -15,7 +15,9 @@ export async function captureLootCardImage(target: HTMLElement, name: string): P
     try {
         const { toPng } = await import('html-to-image');
         const fontEmbedCSS = await fetchFontEmbedCSS();
-        const dataUrl = await toPng(target, { pixelRatio: 2, skipFonts: true, fontEmbedCSS });
+        // The card renders at its CSS size (2.75in = 264px at 96dpi). pixelRatio
+        // 300/96 captures it at ~300 DPI for crisp printing at tarot size.
+        const dataUrl = await toPng(target, { pixelRatio: 300 / 96, skipFonts: true, fontEmbedCSS });
         const blob = await (await fetch(dataUrl)).blob();
         const filename = `${name || 'loot-card'}.png`.replace(/[^\w.-]+/g, '-');
         return new File([blob], filename, { type: 'image/png' });

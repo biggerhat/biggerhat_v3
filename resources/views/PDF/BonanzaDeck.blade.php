@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <title>Bonanza Loot Deck — Print</title>
     <style>
-        /* Cut-grid of the printer-friendly card images: 3 across x 2 down per
-           Letter page, safe margins, faint guide around each card for cutting. */
+        /* Cut-grid of the printer-friendly card images at full tarot size
+           (2.75in x 4.75in): 2 across x 2 down (4 per Letter page), safe
+           margins, faint guide around each card for cutting. */
         @page { margin: 0.3in; }
         * { box-sizing: border-box; }
         body { margin: 0; }
@@ -22,13 +23,13 @@
         }
         .cell img {
             display: block;
-            width: 2.5in;
-            height: 4.318in; /* preserves the 2.75:4.75 card aspect */
+            width: 2.75in;  /* full tarot size */
+            height: 4.75in;
         }
     </style>
 </head>
 <body>
-@foreach(array_chunk($images, 6) as $page)
+@foreach(array_chunk($images, 4) as $page)
     <div class="page">
         @foreach($page as $image)
             <span class="cell">

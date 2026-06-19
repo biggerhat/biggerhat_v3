@@ -4,6 +4,7 @@ import CompanyCommanderPicker from '@/components/TOS/CompanyCommanderPicker.vue'
 import CompanyHiringPoolPane from '@/components/TOS/CompanyHiringPoolPane.vue';
 import CompanyRosterPane from '@/components/TOS/CompanyRosterPane.vue';
 import CompanyUnitDrawer from '@/components/TOS/CompanyUnitDrawer.vue';
+import CardImage from '@/components/TOS/CardImage.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,12 +18,28 @@ import { computed, ref } from 'vue';
 
 const confirmDialog = useConfirm();
 
+interface AllegianceCardMin {
+    id: number;
+    slug: string;
+    name: string;
+    image_path: string | null;
+}
+
+interface StratagemMin {
+    id: number;
+    slug: string;
+    name: string;
+    tactical_cost: number;
+    deck_source?: 'primary' | 'envoy';
+}
+
 interface Allegiance {
     id: number;
     slug: string;
     name: string;
     type: string;
     color_slug: string | null;
+    allegiance_cards?: AllegianceCardMin[];
 }
 
 interface SpecialRule {
@@ -51,7 +68,7 @@ interface UnitMin {
     combined_arms_child_id: number | null;
     special_unit_rules: SpecialRule[];
     sculpts?: Sculpt[];
-    hire_category?: 'direct' | 'neutral';
+    hire_category?: 'direct' | 'envoy' | 'neutral';
 }
 
 interface AssetLimit {
@@ -67,6 +84,8 @@ interface AssetMin {
     scrip_cost: number;
     limits?: AssetLimit[];
     already_attached?: boolean;
+    // Company-unit ids this Asset can legally attach to (server-computed).
+    attachable_company_unit_ids?: number[];
 }
 
 interface CompanyUnit {
@@ -86,8 +105,10 @@ interface Company {
     is_public: boolean;
     name: string;
     allegiance: Allegiance;
+    envoy_allegiance: Allegiance | null;
     notes: string | null;
     company_units: CompanyUnit[];
+    stratagems: StratagemMin[];
     garrison_id: number | null;
     garrison: { id: number; slug: string; name: string; format: string } | null;
 }
@@ -107,6 +128,14 @@ const props = defineProps<{
     scrip_spent: number;
     scrip_remaining: number;
     has_commander: boolean;
+    commander_count: number;
+    max_commanders: number;
+    envoy_scrip_spent: number;
+    envoy_scrip_cap: number;
+    available_stratagems: StratagemMin[];
+    stratagem_deck_size: number;
+    max_envoy_stratagems: number;
+    commander_pool: UnitMin[];
     hireable_units: UnitMin[];
     available_assets: AssetMin[];
     available_garrisons: AvailableGarrison[];
@@ -114,26 +143,33 @@ const props = defineProps<{
 
 // ── Hiring pool filter state ─────────────────────────────────────────────
 const filterText = ref('');
-type PoolFilter = 'all' | 'direct' | 'neutral' | 'commander';
+type PoolFilter = 'all' | 'direct' | 'envoy' | 'neutral' | 'commander';
 const poolFilter = ref<PoolFilter>('all');
 type PoolSort = 'name' | 'scrip';
 const poolSort = ref<PoolSort>('name');
 
 const isCommanderEligible = (u: UnitMin) => u.special_unit_rules.some((r) => r.slug === 'commander');
 
+// Commanders are hired through the dedicated picker, never as regular units —
+// so they're stripped from the Step-2 hiring pool entirely.
+const poolUnits = computed(() => props.hireable_units.filter((u) => !isCommanderEligible(u)));
+
+// Whether the Company can still take another Commander (format-capped).
+const canAddCommander = computed(() => props.commander_count < props.max_commanders);
+
 const augmentedPool = computed(() => {
     const text = filterText.value.trim().toLowerCase();
-    const filtered = props.hireable_units.filter((u) => {
+    const filtered = poolUnits.value.filter((u) => {
         if (text && !u.name.toLowerCase().includes(text) && !(u.title?.toLowerCase().includes(text) ?? false)) {
             return false;
         }
         switch (poolFilter.value) {
             case 'direct':
                 return u.hire_category === 'direct';
+            case 'envoy':
+                return u.hire_category === 'envoy';
             case 'neutral':
                 return u.hire_category === 'neutral';
-            case 'commander':
-                return isCommanderEligible(u);
             default:
                 return true;
         }
@@ -146,10 +182,11 @@ const augmentedPool = computed(() => {
 });
 
 const filterCounts = computed(() => ({
-    all: props.hireable_units.length,
-    direct: props.hireable_units.filter((u) => u.hire_category === 'direct').length,
-    neutral: props.hireable_units.filter((u) => u.hire_category === 'neutral').length,
-    commander: props.hireable_units.filter(isCommanderEligible).length,
+    all: poolUnits.value.length,
+    direct: poolUnits.value.filter((u) => u.hire_category === 'direct').length,
+    envoy: poolUnits.value.filter((u) => u.hire_category === 'envoy').length,
+    neutral: poolUnits.value.filter((u) => u.hire_category === 'neutral').length,
+    commander: 0,
 }));
 
 // ── Budget helpers ───────────────────────────────────────────────────────
@@ -197,7 +234,17 @@ const accentBg = computed(() => (props.company.allegiance.color_slug ? `bg-${pro
 // this list so the heavy controller queries are skipped server-side; the
 // asset-attach flow opts those back in to refresh the `already_attached`
 // annotation.
-const reloadOnly = ['company', 'scrip_budget', 'scrip_spent', 'scrip_remaining', 'has_commander'];
+const reloadOnly = [
+    'company',
+    'scrip_budget',
+    'scrip_spent',
+    'scrip_remaining',
+    'has_commander',
+    'commander_count',
+    'max_commanders',
+    'envoy_scrip_spent',
+    'envoy_scrip_cap',
+];
 const reloadOnlyWithAssets = [...reloadOnly, 'available_assets'];
 
 // ── Hire / remove ────────────────────────────────────────────────────────
@@ -303,9 +350,16 @@ function openAssetDialog(cu: CompanyUnit) {
 }
 
 const filteredAssets = computed(() => {
+    const targetId = assetDialogTarget.value?.id ?? null;
     const text = assetDialogFilter.value.trim().toLowerCase();
-    if (!text) return props.available_assets;
-    return props.available_assets.filter((a) => a.name.toLowerCase().includes(text));
+
+    return props.available_assets.filter((a) => {
+        // Only offer Assets the targeted unit can actually take.
+        if (targetId !== null && a.attachable_company_unit_ids && !a.attachable_company_unit_ids.includes(targetId)) {
+            return false;
+        }
+        return text === '' || a.name.toLowerCase().includes(text);
+    });
 });
 
 function attachAsset(asset: AssetMin) {
@@ -396,6 +450,32 @@ const garrisonFormatLabel: Record<string, string> = {
     theater_of_war: 'Theater of War',
     no_mans_land: "No Man's Land",
 };
+
+// ── Stratagem deck ───────────────────────────────────────────────────────
+const stratagemFilter = ref('');
+const deckIds = computed(() => new Set(props.company.stratagems.map((s) => s.id)));
+const envoyStratagemIds = computed(() => new Set(props.available_stratagems.filter((s) => s.deck_source === 'envoy').map((s) => s.id)));
+const deckEnvoyCount = computed(() => props.company.stratagems.filter((s) => envoyStratagemIds.value.has(s.id)).length);
+const deckFull = computed(() => props.company.stratagems.length >= props.stratagem_deck_size);
+const envoyDeckFull = computed(() => deckEnvoyCount.value >= props.max_envoy_stratagems);
+
+const availableStratagemList = computed(() => {
+    const text = stratagemFilter.value.trim().toLowerCase();
+    return props.available_stratagems.filter((s) => !deckIds.value.has(s.id) && (!text || s.name.toLowerCase().includes(text)));
+});
+
+function stratagemDisabled(s: StratagemMin): boolean {
+    return deckFull.value || (s.deck_source === 'envoy' && envoyDeckFull.value);
+}
+
+function addStratagem(s: StratagemMin) {
+    if (stratagemDisabled(s)) return;
+    router.post(route('tos.companies.stratagems.add', props.company.slug), { stratagem_id: s.id }, { preserveScroll: true, only: reloadOnly });
+}
+
+function removeStratagem(s: StratagemMin) {
+    router.post(route('tos.companies.stratagems.remove', [props.company.slug, s.slug]), {}, { preserveScroll: true, only: reloadOnly });
+}
 
 async function copyShareLink() {
     const url = window.location.origin + route('tos.companies.shared', props.company.share_code, false);
@@ -572,13 +652,92 @@ async function deleteCompany() {
                     <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div class="h-full transition-all duration-300 ease-out" :class="budgetBarClass" :style="{ width: `${budgetPercent}%` }" />
                     </div>
+
+                    <p
+                        v-if="company.envoy_allegiance"
+                        class="mt-1.5 text-[11px]"
+                        :class="envoy_scrip_spent > envoy_scrip_cap ? 'text-rose-600' : 'text-muted-foreground'"
+                    >
+                        Envoy spend: {{ envoy_scrip_spent }} / {{ envoy_scrip_cap }} Scrip (50% cap)
+                    </p>
                 </CardContent>
             </Card>
 
-            <!-- ═══ Step 1: Commander picker ═══ -->
+            <!-- ═══ Allegiance + Envoy cards ═══ -->
+            <div v-if="company.allegiance.allegiance_cards?.length || company.envoy_allegiance?.allegiance_cards?.length" class="rounded-md border p-4">
+                <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Allegiance Cards</p>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div v-if="company.allegiance.allegiance_cards?.length">
+                        <p class="mb-1.5 text-[11px] font-semibold">{{ company.allegiance.name }} <span class="text-muted-foreground">— Primary</span></p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <Link v-for="c in company.allegiance.allegiance_cards" :key="c.id" :href="route('tos.allegiance_cards.view', c.slug)">
+                                <CardImage :src="c.image_path" :alt="c.name" :allegiance-slug="company.allegiance.slug" :placeholder-icon="Shield" aspect-class="aspect-[5/7]" />
+                            </Link>
+                        </div>
+                    </div>
+                    <div v-if="company.envoy_allegiance?.allegiance_cards?.length">
+                        <p class="mb-1.5 text-[11px] font-semibold">
+                            {{ company.envoy_allegiance.name }} <span class="text-muted-foreground">— Envoy</span>
+                        </p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <Link v-for="c in company.envoy_allegiance.allegiance_cards" :key="c.id" :href="route('tos.allegiance_cards.view', c.slug)">
+                                <CardImage :src="c.image_path" :alt="c.name" :allegiance-slug="company.envoy_allegiance.slug" :placeholder-icon="Shield" aspect-class="aspect-[5/7]" />
+                            </Link>
+                        </div>
+                        <p class="mt-1.5 text-[10px] italic text-muted-foreground">Standard effects only — “Primary Only” abilities don’t apply when taken as an Envoy.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ Stratagem Deck ═══ -->
+            <div class="rounded-md border p-4">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stratagem Deck</p>
+                    <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span :class="deckFull ? 'font-semibold text-emerald-600' : ''">{{ company.stratagems.length }} / {{ stratagem_deck_size }}</span>
+                        <span v-if="company.envoy_allegiance">· {{ deckEnvoyCount }} / {{ max_envoy_stratagems }} Envoy</span>
+                    </div>
+                </div>
+
+                <div v-if="company.stratagems.length" class="mb-3 flex flex-wrap gap-1.5">
+                    <span
+                        v-for="s in company.stratagems"
+                        :key="s.id"
+                        class="inline-flex items-center gap-1 rounded border bg-muted/40 px-2 py-1 text-[11px]"
+                    >
+                        <span :class="envoyStratagemIds.has(s.id) ? 'text-sky-600 dark:text-sky-400' : ''">{{ s.name }}</span>
+                        <span class="text-muted-foreground">({{ s.tactical_cost }})</span>
+                        <button type="button" class="text-muted-foreground hover:text-rose-600" aria-label="Remove" @click="removeStratagem(s)">
+                            <X class="size-3" />
+                        </button>
+                    </span>
+                </div>
+                <p v-else class="mb-3 text-[11px] text-muted-foreground">No Stratagems selected yet.</p>
+
+                <Input v-model="stratagemFilter" placeholder="Search Stratagems…" class="mb-2 h-8 text-xs" />
+                <div class="max-h-48 space-y-1 overflow-y-auto">
+                    <button
+                        v-for="s in availableStratagemList"
+                        :key="s.id"
+                        type="button"
+                        :disabled="stratagemDisabled(s)"
+                        class="flex w-full items-center justify-between gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
+                        @click="addStratagem(s)"
+                    >
+                        <span class="flex items-center gap-1.5">
+                            <Plus class="size-3 shrink-0" /> {{ s.name }}
+                            <Badge v-if="s.deck_source === 'envoy'" variant="outline" class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400">Envoy</Badge>
+                        </span>
+                        <span class="text-muted-foreground">{{ s.tactical_cost }}</span>
+                    </button>
+                    <p v-if="!availableStratagemList.length" class="py-2 text-center text-[11px] text-muted-foreground">No Stratagems match.</p>
+                </div>
+            </div>
+
+            <!-- ═══ Step 1: Commander picker (shown until the format's Commander slots are full) ═══ -->
             <CompanyCommanderPicker
-                v-if="!has_commander"
-                :pool="hireable_units"
+                v-if="canAddCommander"
+                :pool="commander_pool"
                 :allegiance-slug="company.allegiance.slug"
                 :allegiance-name="company.allegiance.name"
                 :allegiance-color-slug="company.allegiance.color_slug"
@@ -586,8 +745,8 @@ async function deleteCompany() {
                 @hire="(u) => hireUnit(u, true)"
             />
 
-            <!-- ═══ Step 2: Roster + Hiring Pool (only after Commander set) ═══ -->
-            <template v-else>
+            <!-- ═══ Step 2: Roster + Hiring Pool (once at least one Commander is set) ═══ -->
+            <template v-if="has_commander">
                 <div class="hidden lg:grid lg:grid-cols-5 lg:gap-4">
                     <div class="lg:col-span-3">
                         <CompanyRosterPane

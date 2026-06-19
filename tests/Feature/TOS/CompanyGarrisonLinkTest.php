@@ -36,8 +36,13 @@ it('rejects hiring a Unit that is not in the Garrison pool', function () {
     // Hire the in-pool unit as Commander so the scrip-pool gate (which
     // demands a Commander before any other hire) doesn't mask the
     // Garrison-pool gate we're actually testing.
+    $commanderRule = \App\Models\TOS\SpecialUnitRule::where('slug', 'commander')->first()
+        ?? \App\Models\TOS\SpecialUnitRule::factory()->create(['slug' => 'commander', 'name' => 'Commander']);
     $inPool = Unit::factory()->create(['scrip' => 18, 'name' => 'Insider']);
     $strange = Unit::factory()->create(['scrip' => 5, 'name' => 'Outsider']);
+    // Both are Commander-eligible so this test isolates the Garrison-pool gate.
+    $inPool->specialUnitRules()->attach($commanderRule->id);
+    $strange->specialUnitRules()->attach($commanderRule->id);
     $this->allegiance->units()->attach([$inPool->id, $strange->id]);
     GarrisonUnit::create(['garrison_id' => $garrison->id, 'unit_id' => $inPool->id, 'is_commander' => true]);
 

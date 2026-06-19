@@ -69,6 +69,7 @@ class UnitController extends Controller
             'unit.specialUnitRules',
             'unit.sculpts',
             'unit.combinedArmsChild',
+            'unit.lores.media',
         ]);
 
         return inertia('TOS/Units/View', [

@@ -6,6 +6,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Check, Shield } from 'lucide-vue-next';
@@ -30,18 +31,33 @@ interface GarrisonOption {
     updated_at: string;
 }
 
+interface FormatOption {
+    value: string;
+    label: string;
+    description: string;
+}
+
 const props = defineProps<{
     allegiances: Allegiance[];
     garrisons: GarrisonOption[];
     preselect_garrison_id: number | null;
+    formats: FormatOption[];
 }>();
+
+const NONE = 'none';
 
 const form = useForm({
     name: '',
     allegiance_id: null as number | null,
     garrison_id: props.preselect_garrison_id,
+    format: null as string | null,
+    envoy_allegiance_id: null as number | null,
     notes: '',
 });
+
+// Sentinel-backed local bindings (Reka Select disallows empty-string values).
+const formatSelection = ref<string>(NONE);
+const envoySelection = ref<string>(NONE);
 
 // When the user picks a Garrison, the allegiance is snapped to match —
 // the picker below is locked and the chosen allegiance card is highlighted.
@@ -51,14 +67,22 @@ const linkedGarrison = computed<GarrisonOption | null>(() =>
 
 if (linkedGarrison.value) {
     form.allegiance_id = linkedGarrison.value.allegiance_id;
+    formatSelection.value = linkedGarrison.value.format || NONE;
 }
 
 function selectGarrison(g: GarrisonOption | null) {
     form.garrison_id = g?.id ?? null;
     if (g) {
         form.allegiance_id = g.allegiance_id;
+        // A Garrison-linked Company inherits (and locks to) the Garrison's format.
+        formatSelection.value = g.format || NONE;
     }
 }
+
+// Envoy is a second, different Allegiance from the Primary.
+const envoyOptions = computed(() => props.allegiances.filter((a) => a.id !== form.allegiance_id));
+
+const selectedFormat = computed<FormatOption | null>(() => props.formats.find((f) => f.value === formatSelection.value) ?? null);
 
 const typeFilter = ref<'all' | 'earth' | 'malifaux'>('all');
 
@@ -74,6 +98,10 @@ const groupedAllegiances = computed(() => {
 });
 
 function submit() {
+    form.format = formatSelection.value === NONE ? null : formatSelection.value;
+    // Drop the Envoy if it collides with the Primary (e.g. Primary changed after picking).
+    form.envoy_allegiance_id =
+        envoySelection.value === NONE || Number(envoySelection.value) === form.allegiance_id ? null : Number(envoySelection.value);
     form.post(route('tos.companies.store'));
 }
 </script>
@@ -255,7 +283,46 @@ function submit() {
                         <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.allegiance_id }}</p>
                     </div>
 
-                    <!-- Step 3: Notes -->
+                    <!-- Step 3: Format (game size) -->
+                    <div class="space-y-1.5">
+                        <Label>Format <span class="text-muted-foreground">(optional)</span></Label>
+                        <p class="text-[11px] text-muted-foreground">
+                            <span v-if="linkedGarrison">Inherited from your Garrison.</span>
+                            <span v-else>Game size — sets the Commander limit and any Scrip bonus.</span>
+                        </p>
+                        <Select v-model="formatSelection" :disabled="!!linkedGarrison">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Casual (no format)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="NONE">Casual (no format)</SelectItem>
+                                <SelectItem v-for="f in formats" :key="f.value" :value="f.value">{{ f.label }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p v-if="selectedFormat" class="text-[11px] text-muted-foreground">{{ selectedFormat.description }}</p>
+                    </div>
+
+                    <!-- Step 4: Envoy (second Allegiance) -->
+                    <div class="space-y-1.5">
+                        <Label>Envoy <span class="text-muted-foreground">(optional)</span></Label>
+                        <p class="text-[11px] text-muted-foreground">
+                            A second Allegiance — its Squad units &amp; Assets become hireable (Standard card effects only).
+                        </p>
+                        <Select v-model="envoySelection">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="No Envoy" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="NONE">No Envoy</SelectItem>
+                                <SelectItem v-for="a in envoyOptions" :key="a.id" :value="String(a.id)">
+                                    {{ a.name }}<span v-if="a.is_syndicate"> (Syndicate)</span>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p v-if="form.errors.envoy_allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.envoy_allegiance_id }}</p>
+                    </div>
+
+                    <!-- Step 5: Notes -->
                     <div class="space-y-1.5">
                         <Label for="notes">Notes <span class="text-muted-foreground">(optional)</span></Label>
                         <Textarea id="notes" v-model="form.notes" rows="3" placeholder="Strategy, planned matchups, list-building notes…" />

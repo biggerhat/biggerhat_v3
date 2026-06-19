@@ -4,6 +4,7 @@ import CardImage from '@/components/TOS/CardImage.vue';
 import CompanyCommanderPicker from '@/components/TOS/CompanyCommanderPicker.vue';
 import CompanyHiringPoolPane from '@/components/TOS/CompanyHiringPoolPane.vue';
 import CompanyRosterPane from '@/components/TOS/CompanyRosterPane.vue';
+import CompanyStratagemPane from '@/components/TOS/CompanyStratagemPane.vue';
 import CompanyUnitDrawer from '@/components/TOS/CompanyUnitDrawer.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
@@ -106,6 +107,7 @@ interface Company {
     name: string;
     allegiance: Allegiance;
     envoy_allegiance: Allegiance | null;
+    format: string | null;
     notes: string | null;
     company_units: CompanyUnit[];
     stratagems: StratagemMin[];
@@ -452,24 +454,11 @@ const garrisonFormatLabel: Record<string, string> = {
 };
 
 // ── Stratagem deck ───────────────────────────────────────────────────────
-const stratagemFilter = ref('');
-const deckIds = computed(() => new Set(props.company.stratagems.map((s) => s.id)));
-const envoyStratagemIds = computed(() => new Set(props.available_stratagems.filter((s) => s.deck_source === 'envoy').map((s) => s.id)));
-const deckEnvoyCount = computed(() => props.company.stratagems.filter((s) => envoyStratagemIds.value.has(s.id)).length);
-const deckFull = computed(() => props.company.stratagems.length >= props.stratagem_deck_size);
-const envoyDeckFull = computed(() => deckEnvoyCount.value >= props.max_envoy_stratagems);
-
-const availableStratagemList = computed(() => {
-    const text = stratagemFilter.value.trim().toLowerCase();
-    return props.available_stratagems.filter((s) => !deckIds.value.has(s.id) && (!text || s.name.toLowerCase().includes(text)));
-});
-
-function stratagemDisabled(s: StratagemMin): boolean {
-    return deckFull.value || (s.deck_source === 'envoy' && envoyDeckFull.value);
-}
+// The deck UI + its counting/limit logic live in CompanyStratagemPane; here we
+// just persist add/remove (the pane disables over-limit picks).
+const stratagemCount = computed(() => props.company.stratagems.length);
 
 function addStratagem(s: StratagemMin) {
-    if (stratagemDisabled(s)) return;
     router.post(route('tos.companies.stratagems.add', props.company.slug), { stratagem_id: s.id }, { preserveScroll: true, only: reloadOnly });
 }
 
@@ -712,58 +701,6 @@ async function deleteCompany() {
                 </div>
             </div>
 
-            <!-- ═══ Stratagem Deck ═══ -->
-            <div class="rounded-md border p-4">
-                <div class="mb-3 flex items-center justify-between gap-2">
-                    <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stratagem Deck</p>
-                    <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span :class="deckFull ? 'font-semibold text-emerald-600' : ''"
-                            >{{ company.stratagems.length }} / {{ stratagem_deck_size }}</span
-                        >
-                        <span v-if="company.envoy_allegiance">· {{ deckEnvoyCount }} / {{ max_envoy_stratagems }} Envoy</span>
-                    </div>
-                </div>
-
-                <div v-if="company.stratagems.length" class="mb-3 flex flex-wrap gap-1.5">
-                    <span
-                        v-for="s in company.stratagems"
-                        :key="s.id"
-                        class="inline-flex items-center gap-1 rounded border bg-muted/40 px-2 py-1 text-[11px]"
-                    >
-                        <span :class="envoyStratagemIds.has(s.id) ? 'text-sky-600 dark:text-sky-400' : ''">{{ s.name }}</span>
-                        <span class="text-muted-foreground">({{ s.tactical_cost }})</span>
-                        <button type="button" class="text-muted-foreground hover:text-rose-600" aria-label="Remove" @click="removeStratagem(s)">
-                            <X class="size-3" />
-                        </button>
-                    </span>
-                </div>
-                <p v-else class="mb-3 text-[11px] text-muted-foreground">No Stratagems selected yet.</p>
-
-                <Input v-model="stratagemFilter" placeholder="Search Stratagems…" class="mb-2 h-8 text-xs" />
-                <div class="max-h-48 space-y-1 overflow-y-auto">
-                    <button
-                        v-for="s in availableStratagemList"
-                        :key="s.id"
-                        type="button"
-                        :disabled="stratagemDisabled(s)"
-                        class="flex w-full items-center justify-between gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
-                        @click="addStratagem(s)"
-                    >
-                        <span class="flex items-center gap-1.5">
-                            <Plus class="size-3 shrink-0" /> {{ s.name }}
-                            <Badge
-                                v-if="s.deck_source === 'envoy'"
-                                variant="outline"
-                                class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
-                                >Envoy</Badge
-                            >
-                        </span>
-                        <span class="text-muted-foreground">{{ s.tactical_cost }}</span>
-                    </button>
-                    <p v-if="!availableStratagemList.length" class="py-2 text-center text-[11px] text-muted-foreground">No Stratagems match.</p>
-                </div>
-            </div>
-
             <!-- ═══ Step 1: Commander picker (shown until the format's Commander slots are full) ═══ -->
             <CompanyCommanderPicker
                 v-if="canAddCommander"
@@ -775,41 +712,65 @@ async function deleteCompany() {
                 @hire="(u) => hireUnit(u, true)"
             />
 
-            <!-- ═══ Step 2: Roster + Hiring Pool (once at least one Commander is set) ═══ -->
+            <!-- ═══ Build + Stratagems (once at least one Commander is set) ═══ -->
             <template v-if="has_commander">
-                <div class="hidden lg:grid lg:grid-cols-5 lg:gap-4">
-                    <div class="lg:col-span-3">
-                        <CompanyRosterPane
-                            :renderable-units="renderableUnits"
-                            :child-by-parent="childByParentUnitId"
-                            :allegiance-bg="accentBg"
-                            :allegiance-slug="company.allegiance.slug"
-                            :allegiance-color-slug="company.allegiance.color_slug"
-                            @preview="openRosterDrawer"
-                            @remove="removeUnit"
-                            @attach="openAssetDialog"
-                            @detach="detachAsset"
+                <!-- xl: Build (Roster | Hiring side-by-side) + a Stratagems tab -->
+                <Tabs default-value="build" class="hidden lg:block">
+                    <TabsList>
+                        <TabsTrigger value="build">Build</TabsTrigger>
+                        <TabsTrigger value="stratagems">
+                            Stratagems
+                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ stratagemCount }} / {{ stratagem_deck_size }}</Badge>
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="build" class="mt-3">
+                        <div class="grid grid-cols-5 gap-4">
+                            <div class="col-span-3">
+                                <CompanyRosterPane
+                                    :renderable-units="renderableUnits"
+                                    :child-by-parent="childByParentUnitId"
+                                    :allegiance-bg="accentBg"
+                                    :allegiance-slug="company.allegiance.slug"
+                                    :allegiance-color-slug="company.allegiance.color_slug"
+                                    @preview="openRosterDrawer"
+                                    @remove="removeUnit"
+                                    @attach="openAssetDialog"
+                                    @detach="detachAsset"
+                                />
+                            </div>
+                            <div class="col-span-2">
+                                <CompanyHiringPoolPane
+                                    v-model:filter-text="filterText"
+                                    v-model:pool-filter="poolFilter"
+                                    v-model:pool-sort="poolSort"
+                                    :pool="augmentedPool"
+                                    :counts="filterCounts"
+                                    :has-commander="has_commander"
+                                    :scrip-remaining="scrip_remaining"
+                                    :allegiance-slug="company.allegiance.slug"
+                                    :allegiance-color-slug="company.allegiance.color_slug"
+                                    @preview="openPoolDrawer"
+                                    @hire="hireUnit"
+                                />
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="stratagems" class="mt-3">
+                        <CompanyStratagemPane
+                            :deck="company.stratagems"
+                            :available="available_stratagems"
+                            :deck-size="stratagem_deck_size"
+                            :max-envoy="max_envoy_stratagems"
+                            :has-envoy="!!company.envoy_allegiance"
+                            @add="addStratagem"
+                            @remove="removeStratagem"
                         />
-                    </div>
-                    <div class="lg:col-span-2">
-                        <CompanyHiringPoolPane
-                            v-model:filter-text="filterText"
-                            v-model:pool-filter="poolFilter"
-                            v-model:pool-sort="poolSort"
-                            :pool="augmentedPool"
-                            :counts="filterCounts"
-                            :has-commander="has_commander"
-                            :scrip-remaining="scrip_remaining"
-                            :allegiance-slug="company.allegiance.slug"
-                            :allegiance-color-slug="company.allegiance.color_slug"
-                            @preview="openPoolDrawer"
-                            @hire="hireUnit"
-                        />
-                    </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
 
+                <!-- mobile: Roster | Hiring | Stratagems -->
                 <Tabs default-value="roster" class="lg:hidden">
-                    <TabsList class="grid w-full grid-cols-2">
+                    <TabsList class="grid w-full grid-cols-3">
                         <TabsTrigger value="roster">
                             Roster
                             <Badge v-if="renderableUnits.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
@@ -817,8 +778,12 @@ async function deleteCompany() {
                             </Badge>
                         </TabsTrigger>
                         <TabsTrigger value="pool">
-                            Hiring Pool
+                            Hiring
                             <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ filterCounts.all }}</Badge>
+                        </TabsTrigger>
+                        <TabsTrigger value="stratagems">
+                            Stratagems
+                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ stratagemCount }}</Badge>
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="roster" class="mt-3">
@@ -847,6 +812,17 @@ async function deleteCompany() {
                             :allegiance-color-slug="company.allegiance.color_slug"
                             @preview="openPoolDrawer"
                             @hire="hireUnit"
+                        />
+                    </TabsContent>
+                    <TabsContent value="stratagems" class="mt-3">
+                        <CompanyStratagemPane
+                            :deck="company.stratagems"
+                            :available="available_stratagems"
+                            :deck-size="stratagem_deck_size"
+                            :max-envoy="max_envoy_stratagems"
+                            :has-envoy="!!company.envoy_allegiance"
+                            @add="addStratagem"
+                            @remove="removeStratagem"
                         />
                     </TabsContent>
                 </Tabs>

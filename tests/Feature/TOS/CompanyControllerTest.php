@@ -572,3 +572,22 @@ it('updateSculpt blocks the owner of another user\'s Company', function () {
 
     expect($cu->fresh()->sculpt_id)->toBeNull();
 });
+
+it('views a company when an available asset has an allegiance-value limit (regression: missing slug)', function () {
+    $alle = Allegiance::factory()->earth()->create();
+    $company = Company::factory()->forUser($this->user)->forAllegiance($alle)->create();
+    $cmdr = commanderUnit($alle, ['scrip' => 10]);
+    CompanyUnit::create(['company_id' => $company->id, 'unit_id' => $cmdr->id, 'is_commander' => true, 'is_combined_arms_child' => false, 'position' => 0]);
+
+    // Asset in the pool with an Allegiance limit keyed by VALUE (slug) — forces
+    // AssetLimit::matchesByAllegiance to read the unit allegiance's slug/name.
+    $asset = Asset::factory()->create();
+    $asset->allegiances()->sync([$alle->id]);
+    $asset->limits()->create([
+        'limit_type' => 'restricted',
+        'parameter_type' => 'allegiance',
+        'parameter_value' => $alle->slug,
+    ]);
+
+    $this->actingAs($this->user)->get(route('tos.companies.view', $company->slug))->assertOk();
+});

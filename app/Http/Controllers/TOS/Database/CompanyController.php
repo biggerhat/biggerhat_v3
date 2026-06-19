@@ -118,7 +118,9 @@ class CompanyController extends Controller
             'companyUnits.unit.specialUnitRules:id,slug,name',
             // Allegiances feed Asset::canAttachTo() when computing per-unit
             // attachability for the attach-asset picker.
-            'companyUnits.unit.allegiances:id',
+            // slug + name are needed because Asset::canAttachTo → AssetLimit
+            // ::matchesByAllegiance reads each unit allegiance's slug/name.
+            'companyUnits.unit.allegiances:id,slug,name',
             // Sculpts include image columns now — the company-builder drawer
             // shows the FlipCard preview and lets the user switch sculpt
             // variants per company unit.

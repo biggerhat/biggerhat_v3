@@ -27,7 +27,12 @@ class PrintBonanzaLootDeckController extends Controller
         ])->filter(fn ($img) => $img['data'] !== null)->values()->all();
 
         if (extension_loaded('imagick')) {
-            return $this->renderWithImagick($images);
+            try {
+                return $this->renderWithImagick($images);
+            } catch (\Throwable) {
+                // Imagick loaded but PDF delegate missing or image read failed
+                // (common on older distros) — fall through to DomPDF.
+            }
         }
 
         return $this->renderWithDomPdf($images);

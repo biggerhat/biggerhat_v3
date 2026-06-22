@@ -6,7 +6,6 @@
         'tome'  => ['border' => '#2563eb', 'bg' => '#dbeafe', 'light' => '#eff6ff'],
         'joker' => ['border' => '#d97706', 'bg' => '#fef3c7', 'light' => '#fffbeb'],
     ];
-
     $suitSymbols = [
         'crow' => "\u{2666}", 'mask' => "\u{2663}",
         'ram'  => "\u{2665}", 'tome' => "\u{2660}", 'joker' => "\u{2605}",
@@ -17,14 +16,47 @@
         return trim(preg_replace_callback('/\{\{\s*(\w+)\s*\}\}/', fn ($m) => '(' . ucfirst(strtolower($m[1])) . ')', $text));
     };
 
-    $statLine = function ($action): string {
-        $parts = [];
-        if (! is_null($action->range)) $parts[] = 'Rng ' . $action->range . ($action->range_type ? ' ' . $action->range_type : '"');
-        if (! is_null($action->stat)) $parts[] = 'Stat ' . $action->stat . ($action->stat_suits ?? '');
-        if (! empty($action->resisted_by)) $parts[] = 'vs ' . $action->resisted_by;
-        if (! is_null($action->target_number)) $parts[] = 'TN ' . $action->target_number . ($action->target_suits ?? '');
-        if (! is_null($action->damage) && $action->damage !== '') $parts[] = 'Dmg ' . $action->damage;
-        return implode(' · ', $parts);
+    $renderAction = function ($action) use ($cleanText): string {
+        $type = ucfirst($action->type ?? 'melee');
+        $rg = $action->range !== null ? $action->range . '"' : '-';
+        $stat = $action->stat !== null ? $action->stat . ($action->stat_suits ?? '') : '-';
+        $rst = $action->resisted_by ?: '-';
+        $tn = $action->target_number !== null ? $action->target_number . ($action->target_suits ?? '') : '-';
+        $dmg = ($action->damage !== null && $action->damage !== '') ? $action->damage : '-';
+        $stone = $action->stone_cost ? str_repeat('◆', $action->stone_cost) . ' ' : '';
+
+        $h = '<table style="width:100%;border-collapse:collapse;margin:1pt 0;">';
+        // Header row
+        $h .= '<tr style="background:#f3f4f6;font-size:4pt;font-weight:bold;text-align:center;">';
+        $h .= '<td style="text-align:left;padding:0 2pt;width:45%;">' . e($type) . ' Action</td>';
+        $h .= '<td style="width:11%;padding:0 1pt;">Rg</td>';
+        $h .= '<td style="width:11%;padding:0 1pt;">Stat</td>';
+        $h .= '<td style="width:11%;padding:0 1pt;">Rst</td>';
+        $h .= '<td style="width:11%;padding:0 1pt;">TN</td>';
+        $h .= '<td style="width:11%;padding:0 1pt;">Dmg</td>';
+        $h .= '</tr>';
+        // Values row
+        $h .= '<tr style="font-size:4.5pt;text-align:center;border-bottom:0.5pt solid #ddd;">';
+        $h .= '<td style="text-align:left;padding:1pt 2pt;font-weight:bold;">' . e($stone . $action->name) . '</td>';
+        $h .= '<td style="padding:1pt;">' . e($rg) . '</td>';
+        $h .= '<td style="padding:1pt;">' . e($stat) . '</td>';
+        $h .= '<td style="padding:1pt;">' . e($rst) . '</td>';
+        $h .= '<td style="padding:1pt;">' . e($tn) . '</td>';
+        $h .= '<td style="padding:1pt;">' . e($dmg) . '</td>';
+        $h .= '</tr>';
+        $h .= '</table>';
+
+        // Description
+        if ($action->description) {
+            $h .= '<div style="padding:0 2pt;font-size:4.5pt;">' . e($cleanText($action->description)) . '</div>';
+        }
+        // Triggers
+        foreach ($action->triggers as $trigger) {
+            $suits = $trigger->suits ? ' (' . e($trigger->suits) . ')' : '';
+            $h .= '<div style="padding:0 2pt 0 6pt;font-size:4pt;"><b>' . e($trigger->name) . '</b>' . $suits . ': ' . e($cleanText($trigger->description)) . '</div>';
+        }
+
+        return $h;
     };
 @endphp
 <!DOCTYPE html>
@@ -52,9 +84,9 @@
             margin: 0.03in;
         }
 
-        .card-header {
+        .card-hdr {
             padding: 1.5pt 4pt;
-            font-size: 6pt;
+            font-size: 5.5pt;
             font-weight: bold;
             border-bottom: 0.75pt solid #ccc;
             white-space: nowrap;
@@ -62,12 +94,10 @@
         }
         .suit-sym { font-size: 7pt; margin-right: 1pt; }
 
-        .side {
-            padding: 2pt 4pt 1pt;
-        }
+        .side { padding: 2pt 3pt 1pt; }
         .side-lbl {
             display: inline-block;
-            font-size: 5pt;
+            font-size: 4.5pt;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.3pt;
@@ -75,14 +105,13 @@
             border-radius: 1pt;
             margin-right: 2pt;
         }
-        .side-title { font-weight: bold; font-size: 5.5pt; }
-
+        .side-title { font-weight: bold; font-size: 5pt; }
         .effect { margin-top: 1pt; white-space: pre-line; }
 
         .divider {
             text-align: center;
             padding: 1pt 0;
-            font-size: 5.5pt;
+            font-size: 5pt;
             font-weight: bold;
             border-top: 0.75pt dashed #ccc;
             border-bottom: 0.75pt dashed #ccc;
@@ -92,10 +121,16 @@
             margin: 1pt 0;
             padding-left: 3pt;
             border-left: 1pt solid #ccc;
+            font-size: 4.5pt;
         }
         .en-name { font-weight: bold; }
-        .en-stat { font-family: DejaVu Sans Mono, monospace; font-size: 4.5pt; color: #444; }
-        .trig-line { padding-left: 5pt; font-size: 4.5pt; }
+
+        /* Side B: reversed text (physical card orientation) */
+        .side-b { direction: ltr; }
+        .side-b-rotate {
+            transform: rotate(180deg);
+            transform-origin: center center;
+        }
     </style>
 </head>
 <body>
@@ -106,60 +141,80 @@
                 $suit = strtolower($card->suit);
                 $colors = $suitColors[$suit] ?? $suitColors['joker'];
                 $symbol = $suitSymbols[$suit] ?? '?';
-                $sides = [
-                    ['letter' => 'A', 'title' => $card->title_a, 'effect' => $card->effect_a,
-                     'abilities' => $card->sideAAbilities, 'actions' => $card->sideAActions, 'triggers' => $card->sideATriggers],
-                    ['letter' => 'B', 'title' => $card->title_b, 'effect' => $card->effect_b,
-                     'abilities' => $card->sideBAbilities, 'actions' => $card->sideBActions, 'triggers' => $card->sideBTriggers],
-                ];
             @endphp
             <div class="card" style="border-color: {{ $colors['border'] }}">
-                <div class="card-header" style="background: {{ $colors['bg'] }}; border-color: {{ $colors['border'] }}40">
+                {{-- ═══ Header ═══ --}}
+                <div class="card-hdr" style="background: {{ $colors['bg'] }}; border-color: {{ $colors['border'] }}40">
                     <span class="suit-sym" style="color: {{ $colors['border'] }}">{{ $symbol }}</span>
                     {{ $card->value_label }}
                     @if($card->name) — {{ $card->name }}@endif
                 </div>
 
-                @foreach($sides as $idx => $side)
-                    @if($idx === 1)
-                        <div class="divider" style="background: {{ $colors['light'] }}; color: {{ $colors['border'] }}">
-                            {{ $symbol }} {{ $card->value_label }} · {{ ucfirst($suit) }}
-                        </div>
+                {{-- ═══ Side A (right-side-up) ═══ --}}
+                <div class="side">
+                    <span class="side-lbl" style="background: {{ $colors['bg'] }}; color: {{ $colors['border'] }}">A</span>
+                    @if($card->title_a)<span class="side-title">{{ $card->title_a }}</span>@endif
+
+                    @if($card->effect_a)
+                        <div class="effect">{{ $cleanText($card->effect_a) }}</div>
                     @endif
 
-                    <div class="side">
-                        <span class="side-lbl" style="background: {{ $colors['bg'] }}; color: {{ $colors['border'] }}">{{ $side['letter'] }}</span>
-                        @if($side['title'])<span class="side-title">{{ $side['title'] }}</span>@endif
+                    @foreach($card->sideAAbilities as $ability)
+                        <div class="entity">
+                            <span class="en-name">{{ $ability->name }}@if($ability->costs_stone) (Stone)@endif.</span>
+                            @if($ability->description) {{ $cleanText($ability->description) }}@endif
+                        </div>
+                    @endforeach
 
-                        @if($side['effect'])
-                            <div class="effect">{{ $cleanText($side['effect']) }}</div>
-                        @endif
+                    @foreach($card->sideAActions as $action)
+                        {!! $renderAction($action) !!}
+                    @endforeach
 
-                        @foreach($side['abilities'] as $ability)
-                            <div class="entity">
-                                <span class="en-name">{{ $ability->name }}@if($ability->costs_stone) (Stone)@endif.</span>
-                                @if($ability->description) {{ $cleanText($ability->description) }}@endif
-                            </div>
-                        @endforeach
+                    @foreach($card->sideATriggers as $trigger)
+                        <div class="entity">
+                            <span class="en-name">{{ $trigger->name }}</span>@if($trigger->suits) ({{ $trigger->suits }})@endif: {{ $cleanText($trigger->description) }}
+                        </div>
+                    @endforeach
+                </div>
 
-                        @foreach($side['actions'] as $action)
-                            <div class="entity">
-                                <span class="en-name">{{ $action->name }}@if($action->stone_cost) [{{ $action->stone_cost }}ss]@endif</span>
-                                @if($statLine($action))<span class="en-stat"> — {{ $statLine($action) }}</span>@endif
-                                @if($action->description)<div>{{ $cleanText($action->description) }}</div>@endif
-                                @foreach($action->triggers as $trigger)
-                                    <div class="trig-line"><span class="en-name">{{ $trigger->name }}</span>@if($trigger->suits) ({{ $trigger->suits }})@endif: {{ $cleanText($trigger->description) }}</div>
-                                @endforeach
-                            </div>
-                        @endforeach
+                {{-- ═══ Divider ═══ --}}
+                <div class="divider" style="background: {{ $colors['light'] }}; color: {{ $colors['border'] }}">
+                    {{ $symbol }} {{ $card->value_label }} · {{ ucfirst($suit) }}
+                </div>
 
-                        @foreach($side['triggers'] as $trigger)
-                            <div class="entity">
-                                <span class="en-name">{{ $trigger->name }}</span>@if($trigger->suits) ({{ $trigger->suits }})@endif: {{ $cleanText($trigger->description) }}
-                            </div>
-                        @endforeach
-                    </div>
-                @endforeach
+                {{-- ═══ Side B (rotated 180° — physical card orientation) ═══ --}}
+                <div class="side side-b-rotate">
+                    <span class="side-lbl" style="background: {{ $colors['bg'] }}; color: {{ $colors['border'] }}">B</span>
+                    @if($card->title_b)<span class="side-title">{{ $card->title_b }}</span>@endif
+
+                    @if($card->effect_b)
+                        <div class="effect">{{ $cleanText($card->effect_b) }}</div>
+                    @endif
+
+                    @foreach($card->sideBAbilities as $ability)
+                        <div class="entity">
+                            <span class="en-name">{{ $ability->name }}@if($ability->costs_stone) (Stone)@endif.</span>
+                            @if($ability->description) {{ $cleanText($ability->description) }}@endif
+                        </div>
+                    @endforeach
+
+                    @foreach($card->sideBActions as $action)
+                        {!! $renderAction($action) !!}
+                    @endforeach
+
+                    @foreach($card->sideBTriggers as $trigger)
+                        <div class="entity">
+                            <span class="en-name">{{ $trigger->name }}</span>@if($trigger->suits) ({{ $trigger->suits }})@endif: {{ $cleanText($trigger->description) }}
+                        </div>
+                    @endforeach
+                </div>
+
+                {{-- ═══ Footer (rotated with Side B) ═══ --}}
+                <div class="card-hdr side-b-rotate" style="background: {{ $colors['bg'] }}; border-bottom:none; border-top: 0.75pt solid {{ $colors['border'] }}40">
+                    <span class="suit-sym" style="color: {{ $colors['border'] }}">{{ $symbol }}</span>
+                    {{ $card->value_label }}
+                    @if($card->name) — {{ $card->name }}@endif
+                </div>
             </div>
         @endforeach
     </div>

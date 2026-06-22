@@ -528,6 +528,16 @@ async function deleteCompany() {
                                 <span class="mx-1 opacity-50">·</span>
                                 <span class="capitalize">{{ company.allegiance.type }}</span>
                             </p>
+                            <p v-if="company.format || company.envoy_allegiance" class="truncate text-[11px] text-muted-foreground">
+                                <span v-if="company.format">{{ garrisonFormatLabel[company.format] ?? company.format }}</span>
+                                <template v-if="company.envoy_allegiance">
+                                    <span v-if="company.format" class="mx-1 opacity-50">·</span>
+                                    <span class="text-sky-600 dark:text-sky-400">Envoy:</span>
+                                    <Link :href="route('tos.allegiances.view', company.envoy_allegiance.slug)" class="hover:text-foreground hover:underline">{{
+                                        company.envoy_allegiance.name
+                                    }}</Link>
+                                </template>
+                            </p>
                             <div
                                 v-if="company.garrison"
                                 class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
@@ -649,57 +659,60 @@ async function deleteCompany() {
                     >
                         Envoy spend: {{ envoy_scrip_spent }} / {{ envoy_scrip_cap }} Scrip (50% cap)
                     </p>
+
+                    <!-- Allegiance + Envoy card art — the crew-card thumbnails, folded into the summary header. -->
+                    <div
+                        v-if="company.allegiance.allegiance_cards?.length || company.envoy_allegiance?.allegiance_cards?.length"
+                        class="mt-3 flex flex-wrap gap-x-6 gap-y-3 border-t pt-3"
+                    >
+                        <div v-if="company.allegiance.allegiance_cards?.length">
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                {{ company.allegiance.name }} · Primary
+                            </p>
+                            <div class="flex gap-1.5">
+                                <Link
+                                    v-for="c in company.allegiance.allegiance_cards"
+                                    :key="c.id"
+                                    :href="route('tos.allegiance_cards.view', c.slug)"
+                                    class="w-16"
+                                >
+                                    <CardImage
+                                        :src="c.image_path"
+                                        :alt="c.name"
+                                        :allegiance-slug="company.allegiance.slug"
+                                        :placeholder-icon="Shield"
+                                        aspect-class="aspect-[5/7]"
+                                    />
+                                </Link>
+                            </div>
+                        </div>
+                        <div v-if="company.envoy_allegiance?.allegiance_cards?.length">
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                                {{ company.envoy_allegiance.name }} · Envoy
+                            </p>
+                            <div class="flex gap-1.5">
+                                <Link
+                                    v-for="c in company.envoy_allegiance.allegiance_cards"
+                                    :key="c.id"
+                                    :href="route('tos.allegiance_cards.view', c.slug)"
+                                    class="w-16"
+                                >
+                                    <CardImage
+                                        :src="c.image_path"
+                                        :alt="c.name"
+                                        :allegiance-slug="company.envoy_allegiance.slug"
+                                        :placeholder-icon="Shield"
+                                        aspect-class="aspect-[5/7]"
+                                    />
+                                </Link>
+                            </div>
+                            <p class="mt-1 text-[9px] italic text-muted-foreground">
+                                Standard effects only — “Primary Only” doesn’t apply as an Envoy.
+                            </p>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
-
-            <!-- ═══ Allegiance + Envoy cards ═══ -->
-            <div
-                v-if="company.allegiance.allegiance_cards?.length || company.envoy_allegiance?.allegiance_cards?.length"
-                class="rounded-md border p-4"
-            >
-                <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Allegiance Cards</p>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div v-if="company.allegiance.allegiance_cards?.length">
-                        <p class="mb-1.5 text-[11px] font-semibold">
-                            {{ company.allegiance.name }} <span class="text-muted-foreground">— Primary</span>
-                        </p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <Link v-for="c in company.allegiance.allegiance_cards" :key="c.id" :href="route('tos.allegiance_cards.view', c.slug)">
-                                <CardImage
-                                    :src="c.image_path"
-                                    :alt="c.name"
-                                    :allegiance-slug="company.allegiance.slug"
-                                    :placeholder-icon="Shield"
-                                    aspect-class="aspect-[5/7]"
-                                />
-                            </Link>
-                        </div>
-                    </div>
-                    <div v-if="company.envoy_allegiance?.allegiance_cards?.length">
-                        <p class="mb-1.5 text-[11px] font-semibold">
-                            {{ company.envoy_allegiance.name }} <span class="text-muted-foreground">— Envoy</span>
-                        </p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <Link
-                                v-for="c in company.envoy_allegiance.allegiance_cards"
-                                :key="c.id"
-                                :href="route('tos.allegiance_cards.view', c.slug)"
-                            >
-                                <CardImage
-                                    :src="c.image_path"
-                                    :alt="c.name"
-                                    :allegiance-slug="company.envoy_allegiance.slug"
-                                    :placeholder-icon="Shield"
-                                    aspect-class="aspect-[5/7]"
-                                />
-                            </Link>
-                        </div>
-                        <p class="mt-1.5 text-[10px] italic text-muted-foreground">
-                            Standard effects only — “Primary Only” abilities don’t apply when taken as an Envoy.
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             <!-- ═══ Step 1: Commander picker (shown until the format's Commander slots are full) ═══ -->
             <CompanyCommanderPicker

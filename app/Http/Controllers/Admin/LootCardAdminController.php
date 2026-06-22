@@ -44,6 +44,11 @@ class LootCardAdminController extends Controller
             ->orderBy('id')
             ->get(['id', 'slug', 'name', 'suit', 'value_label']);
 
+        // Disable SSR for this request — the page renders BonanzaSplitCard
+        // offscreen for capture, which the SSR Node process can't handle
+        // (times out on prod).
+        config(['inertia.ssr.enabled' => false]);
+
         return inertia('Admin/LootCards/Regenerate', ['cards' => $cards]);
     }
 

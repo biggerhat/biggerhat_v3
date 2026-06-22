@@ -19,30 +19,24 @@ class PrintBonanzaLootDeckController extends Controller
             ->whereNotNull('image')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
-
-        $images = $cards->map(fn (LootCard $card) => [
-            'data' => Storage::disk('public')->get($card->image),
-            'name' => $card->name,
-        ])->filter(fn ($img) => $img['data'] !== null)->values()->all();
+            ->get(['id', 'slug', 'name', 'image', 'sort_order']);
 
         if (extension_loaded('imagick')) {
             try {
-                return $this->renderWithImagick($images);
+                return $this->renderWithImagick($cards);
             } catch (\Throwable) {
-                // Imagick loaded but PDF delegate missing or image read failed
-                // (common on older distros) — fall through to DomPDF.
             }
         }
 
-        return $this->renderWithDomPdf($images);
+        return $this->renderWithDomPdf($cards);
     }
 
     /**
-     * @param  array<int, array{data: string, name: string}>  $images
+     * @param  \Illuminate\Database\Eloquent\Collection<int, LootCard>  $cards
      */
-    private function renderWithImagick(array $images): \Illuminate\Http\Response
+    private function renderWithImagick($cards): \Illuminate\Http\Response
     {
+        @ini_set('memory_limit', '512M');
         @set_time_limit(120);
 
         $dpi = 300;
@@ -56,27 +50,34 @@ class PrintBonanzaLootDeckController extends Controller
         $gapX = (int) (($pageW - $cols * $cardW) / ($cols + 1));
         $gapY = (int) (($pageH - $rows * $cardH) / ($rows + 1));
 
-        $pdf = new \Imagick;
-        $pdf->setResolution($dpi, $dpi);
+        // Write pages to a temp file instead of accumulating in memory.
+        $tmpFile = tempnam(sys_get_temp_dir(), 'bonanza_').'.pdf';
 
-        foreach (array_chunk($images, $perPage) as $pageImages) {
+        $first = true;
+        foreach ($cards->chunk($perPage) as $pageCards) {
             $page = new \Imagick;
             $page->newImage($pageW, $pageH, new \ImagickPixel('white'));
             $page->setImageResolution($dpi, $dpi);
             $page->setImageFormat('pdf');
 
             $i = 0;
-            foreach ($pageImages as $image) {
+            foreach ($pageCards as $card) {
                 $x = $gapX + ($i % $cols) * ($cardW + $gapX);
                 $y = $gapY + intdiv($i, $cols) * ($cardH + $gapY);
                 $i++;
 
                 try {
+                    $blob = Storage::disk('public')->get($card->image);
+                    if (! $blob) {
+                        continue;
+                    }
                     $img = new \Imagick;
-                    $img->readImageBlob($image['data']);
+                    $img->readImageBlob($blob);
+                    unset($blob);
                     $img->resizeImage($cardW, $cardH, \Imagick::FILTER_LANCZOS, 1);
                     $page->compositeImage($img, \Imagick::COMPOSITE_OVER, $x, $y);
                     $img->clear();
+                    $img->destroy();
                 } catch (\Throwable) {
                 }
 
@@ -88,26 +89,37 @@ class PrintBonanzaLootDeckController extends Controller
                 $page->drawImage($draw);
             }
 
-            $pdf->addImage($page);
+            // Flatten to a single raster layer (frees composite overhead).
+            $page->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            $page->setImageCompression(\Imagick::COMPRESSION_JPEG);
+            $page->setImageCompressionQuality(85);
+
+            if ($first) {
+                $page->writeImage($tmpFile);
+                $first = false;
+            } else {
+                // Append pages to the existing PDF file.
+                $existing = new \Imagick;
+                $existing->readImage($tmpFile);
+                $existing->addImage($page);
+                $existing->writeImages($tmpFile, true);
+                $existing->clear();
+                $existing->destroy();
+            }
+
             $page->clear();
+            $page->destroy();
         }
 
-        if ($pdf->getNumberImages() === 0) {
-            $blank = new \Imagick;
-            $blank->newImage($pageW, $pageH, new \ImagickPixel('white'));
-            $blank->setImageResolution($dpi, $dpi);
-            $blank->setImageFormat('pdf');
-            $pdf->addImage($blank);
-            $blank->clear();
+        if (! file_exists($tmpFile) || filesize($tmpFile) === 0) {
+            @unlink($tmpFile);
+            throw new \RuntimeException('Failed to generate PDF');
         }
 
-        $pdf->setImageFormat('pdf');
-        $pdf->setImageCompression(\Imagick::COMPRESSION_JPEG);
-        $pdf->setImageCompressionQuality(92);
-        $blob = $pdf->getImagesBlob();
-        $pdf->clear();
+        $content = file_get_contents($tmpFile);
+        @unlink($tmpFile);
 
-        return response($blob, 200, [
+        return response($content, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="bonanza-loot-deck.pdf"',
         ]);
@@ -115,12 +127,12 @@ class PrintBonanzaLootDeckController extends Controller
 
     /**
      * DomPDF fallback — tiles base64-encoded card images into a simple HTML grid.
-     * Slower than Imagick on large decks but universally available.
      *
-     * @param  array<int, array{data: string, name: string}>  $images
+     * @param  \Illuminate\Database\Eloquent\Collection<int, LootCard>  $cards
      */
-    private function renderWithDomPdf(array $images): \Illuminate\Http\Response
+    private function renderWithDomPdf($cards): \Illuminate\Http\Response
     {
+        @ini_set('memory_limit', '512M');
         @set_time_limit(120);
 
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bonanza Loot Deck</title><style>'
@@ -133,11 +145,17 @@ class PrintBonanzaLootDeckController extends Controller
             .'.cell img { display: block; width: 2.75in; height: 4.75in; }'
             .'</style></head><body>';
 
-        foreach (array_chunk($images, 4) as $page) {
+        foreach ($cards->chunk(4) as $page) {
             $html .= '<div class="page">';
-            foreach ($page as $image) {
-                $b64 = base64_encode($image['data']);
-                $html .= '<span class="cell"><img src="data:image/png;base64,'.$b64.'" alt="'.e($image['name']).'" /></span>';
+            foreach ($page as $card) {
+                $data = Storage::disk('public')->get($card->image);
+                if (! $data) {
+                    continue;
+                }
+                $b64 = base64_encode($data);
+                unset($data);
+                $html .= '<span class="cell"><img src="data:image/png;base64,'.$b64.'" alt="'.e($card->name).'" /></span>';
+                unset($b64);
             }
             $html .= '</div>';
         }

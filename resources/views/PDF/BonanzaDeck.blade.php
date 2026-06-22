@@ -92,14 +92,34 @@
             font-family: 'M4E-Symbols';
             src: url(data:font/opentype;base64,{{ $fontB64 }}) format('opentype');
         }
-        @page { size: letter portrait; margin: 0.25in; }
+        @page { size: letter portrait; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Helvetica, Arial, sans-serif; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
         .gi { font-family: 'M4E-Symbols'; font-weight: normal; }
 
-        .page { display: flex; flex-wrap: wrap; gap: 0.06in; align-content: flex-start; page-break-after: always; }
+        /* Each page fills the whole sheet (cards inset by the 0.25in padding) so
+           "Fit to page" in a viewer/printer can't enlarge the cards past tarot. */
+        .page {
+            position: relative;
+            width: 8.5in;
+            height: 11in;
+            padding: 0.25in;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.06in;
+            align-content: flex-start;
+            page-break-after: always;
+        }
         .page:last-child { page-break-after: auto; }
+
+        /* Corner crop marks: define the sheet extent (so "fit to page" can't
+           enlarge the cards) and give a cut/trim reference. */
+        .cmark { position: absolute; width: 0.14in; height: 0.14in; }
+        .cmark-tl { top: 0.12in; left: 0.12in; border-top: 0.5pt solid #888; border-left: 0.5pt solid #888; }
+        .cmark-tr { top: 0.12in; right: 0.12in; border-top: 0.5pt solid #888; border-right: 0.5pt solid #888; }
+        .cmark-bl { bottom: 0.12in; left: 0.12in; border-bottom: 0.5pt solid #888; border-left: 0.5pt solid #888; }
+        .cmark-br { bottom: 0.12in; right: 0.12in; border-bottom: 0.5pt solid #888; border-right: 0.5pt solid #888; }
 
         .card {
             width: 2.75in;
@@ -149,6 +169,8 @@
 <body>
 @foreach($cards->chunk(4) as $pageCards)
     <div class="page">
+        <span class="cmark cmark-tl"></span><span class="cmark cmark-tr"></span>
+        <span class="cmark cmark-bl"></span><span class="cmark cmark-br"></span>
         @foreach($pageCards as $card)
             @php
                 $suit = strtolower($card->suit);

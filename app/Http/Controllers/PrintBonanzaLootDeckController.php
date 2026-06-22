@@ -16,7 +16,7 @@ class PrintBonanzaLootDeckController extends Controller
 {
     public function __invoke(BonanzaDeckPdfGenerator $generator): \Illuminate\Http\Response
     {
-        if (! $generator->exists()) {
+        if ($generator->isStale()) {
             @set_time_limit(180);
             $generator->generate();
         }

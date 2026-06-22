@@ -64,6 +64,27 @@ class BonanzaDeckPdfGenerator
         return Storage::disk('public')->exists(self::PATH);
     }
 
+    /**
+     * Stale when there is no cache, or a card has been edited since it was
+     * built. Lets the print route self-heal even if the queue worker that
+     * normally pre-warms the cache isn't running. (Admin edits always touch
+     * the card row — including pivot-only changes via update() — so max
+     * updated_at reliably reflects the last change.)
+     */
+    public function isStale(): bool
+    {
+        if (! $this->exists()) {
+            return true;
+        }
+
+        $latest = LootCard::max('updated_at');
+        if ($latest === null) {
+            return false;
+        }
+
+        return strtotime((string) $latest) > (int) $this->generatedAt();
+    }
+
     /** Public URL of the cached PDF (null if not yet generated). */
     public function url(): ?string
     {

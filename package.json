@@ -47,6 +47,7 @@
         "html-to-image": "^1.11.13",
         "laravel-vite-plugin": "^1.0",
         "lucide-vue-next": "^0.468.0",
+        "puppeteer": "^25.1.0",
         "qrcode": "^1.5.4",
         "radix-vue": "^1.9.11",
         "reka-ui": "^2.3.0",

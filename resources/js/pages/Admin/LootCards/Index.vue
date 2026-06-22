@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { Download, FileText, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-vue-next';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 interface LootCardRow {
     id: number;
@@ -28,9 +28,53 @@ interface LootCardRow {
 
 const props = defineProps<{
     cards: LootCardRow[];
+    pdf: { url: string | null; generated_at: number | null };
 }>();
 
 const search = ref('');
+
+// ── Print PDF status (live via Reverb) ───────────────────────────────────
+type PdfStatus = 'idle' | 'generating' | 'ready' | 'failed';
+const pdfStatus = ref<PdfStatus>('idle');
+const pdfUrl = ref<string | null>(props.pdf.url);
+const pdfGeneratedAt = ref<number | null>(props.pdf.generated_at);
+const pdfError = ref<string | null>(null);
+
+const pdfGeneratedLabel = computed(() => {
+    if (!pdfGeneratedAt.value) return 'never generated';
+    return new Date(pdfGeneratedAt.value * 1000).toLocaleString();
+});
+
+const regeneratePdf = () => {
+    pdfStatus.value = 'generating';
+    pdfError.value = null;
+    router.post(route('admin.loot_cards.generate_pdf'), {}, { preserveScroll: true, preserveState: true });
+};
+
+interface PdfStatusEvent {
+    status: PdfStatus;
+    url: string | null;
+    generated_at: number | null;
+    message: string | null;
+}
+
+onMounted(() => {
+    if (!window.Echo) return;
+    window.Echo.channel('bonanza-deck').listen('.pdf.status', (e: PdfStatusEvent) => {
+        pdfStatus.value = e.status;
+        if (e.status === 'ready') {
+            pdfUrl.value = e.url;
+            pdfGeneratedAt.value = e.generated_at;
+        }
+        if (e.status === 'failed') {
+            pdfError.value = e.message ?? 'PDF generation failed.';
+        }
+    });
+});
+
+onUnmounted(() => {
+    window.Echo?.leave('bonanza-deck');
+});
 
 const filtered = computed(() => {
     const q = search.value.trim().toLowerCase();
@@ -66,14 +110,38 @@ const deleteCard = async (card: LootCardRow) => {
             </div>
             <div class="flex items-center gap-2">
                 <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
-                <Link :href="route('admin.loot_cards.regenerate')">
-                    <Button size="sm" variant="outline" class="gap-1.5"> <RefreshCw class="size-4" /> Regenerate Images </Button>
-                </Link>
                 <Link :href="route('admin.loot_cards.create')">
                     <Button size="sm" class="gap-1.5"> <Plus class="size-4" /> Add Card </Button>
                 </Link>
             </div>
         </div>
+
+        <!-- Print deck PDF — server-rendered (headless Chrome), cached, refreshed on every card edit. -->
+        <Card>
+            <CardContent class="flex flex-wrap items-center justify-between gap-3 p-3">
+                <div class="flex items-center gap-2.5">
+                    <FileText class="size-5 shrink-0 text-muted-foreground" />
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold">Print Deck PDF</p>
+                        <p class="text-xs text-muted-foreground">
+                            <span v-if="pdfStatus === 'generating'" class="inline-flex items-center gap-1 text-amber-600">
+                                <Loader2 class="size-3 animate-spin" /> Generating…
+                            </span>
+                            <span v-else-if="pdfStatus === 'failed'" class="text-rose-600">{{ pdfError }}</span>
+                            <span v-else>Last generated: {{ pdfGeneratedLabel }}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a v-if="pdfUrl" :href="pdfUrl" target="_blank" rel="noopener">
+                        <Button size="sm" variant="outline" class="gap-1.5"> <Download class="size-4" /> Download </Button>
+                    </a>
+                    <Button size="sm" variant="outline" class="gap-1.5" :disabled="pdfStatus === 'generating'" @click="regeneratePdf">
+                        <RefreshCw class="size-4" :class="pdfStatus === 'generating' ? 'animate-spin' : ''" /> Regenerate PDF
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
 
         <Card>
             <CardContent class="p-3">

@@ -66,6 +66,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
 
         Route::controller(\App\Http\Controllers\Admin\LootCardAdminController::class)->prefix('loot-cards')->name('loot_cards.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::post('/generate-pdf', 'generatePdf')->name('generate_pdf');
             Route::get('/regenerate', 'regenerate')->name('regenerate');
             Route::get('/{lootCard}/data', 'cardData')->name('data');
             Route::get('/create', 'create')->name('create');

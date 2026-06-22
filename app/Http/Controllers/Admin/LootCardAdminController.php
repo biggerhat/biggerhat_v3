@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateBonanzaLootDeckPdf;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\LootCard;
 use App\Models\Trigger;
+use App\Services\BonanzaDeckPdfGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,7 +21,7 @@ use Illuminate\Support\Str;
  */
 class LootCardAdminController extends Controller
 {
-    public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
+    public function index(Request $request, BonanzaDeckPdfGenerator $generator): \Inertia\Response|\Inertia\ResponseFactory
     {
         $cards = LootCard::query()
             ->orderBy('sort_order')
@@ -29,7 +31,22 @@ class LootCardAdminController extends Controller
 
         return inertia('Admin/LootCards/Index', [
             'cards' => $cards,
+            'pdf' => [
+                'url' => $generator->url(),
+                'generated_at' => $generator->generatedAt(),
+            ],
         ]);
+    }
+
+    /**
+     * Queue a background regeneration of the cached print PDF. Progress is
+     * broadcast over Reverb (BonanzaDeckPdfStatus) to the admin page.
+     */
+    public function generatePdf(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        GenerateBonanzaLootDeckPdf::dispatch();
+
+        return redirect()->route('admin.loot_cards.index')->withMessage('Print PDF regeneration queued.');
     }
 
     /**
@@ -165,6 +182,8 @@ class LootCardAdminController extends Controller
         $this->handleImage($request, $card, $validated);
         $this->syncSideRelations($card, $validated);
 
+        GenerateBonanzaLootDeckPdf::dispatch();
+
         return redirect()->route('admin.loot_cards.index')->withMessage("{$card->name} created.");
     }
 
@@ -175,6 +194,8 @@ class LootCardAdminController extends Controller
             Storage::disk('public')->delete($lootCard->image);
         }
         $lootCard->delete();
+
+        GenerateBonanzaLootDeckPdf::dispatch();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$name} deleted.");
     }
@@ -187,6 +208,8 @@ class LootCardAdminController extends Controller
 
         $cardFields = collect($validated)->only(['name', 'title_a', 'title_b', 'effect_a', 'effect_b', 'image'])->all();
         $lootCard->update($cardFields);
+
+        GenerateBonanzaLootDeckPdf::dispatch();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$lootCard->name} updated.");
     }

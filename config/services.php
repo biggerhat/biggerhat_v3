@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Headless-Chrome (Browsershot) binary overrides for PDF rendering. Leave
+    // null to use Browsershot's auto-detection; set on servers where node /
+    // chrome live at non-standard paths.
+    'browsershot' => [
+        'node_binary' => env('BROWSERSHOT_NODE_BINARY'),
+        'npm_binary' => env('BROWSERSHOT_NPM_BINARY'),
+        'chrome_path' => env('BROWSERSHOT_CHROME_PATH'),
+    ],
+
 ];

@@ -33,28 +33,38 @@ class LootCardAdminController extends Controller
     }
 
     /**
-     * Batch "Regenerate print images" page. Ships every card's full render data
-     * so the client can re-render each BonanzaSplitCard offscreen, capture it in
-     * light mode (printer-friendly), and POST it back via storeImage().
+     * Batch "Regenerate print images" page. Ships only the card list (lightweight);
+     * the Vue page fetches each card's full render data one at a time via
+     * cardData() to avoid a massive upfront payload + SSR timeout.
      */
     public function regenerate(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         $cards = LootCard::query()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->with([
-                'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
-                'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
-                'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
-                'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
-                'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
-                'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
-                'sideATriggers:id,name,slug,suits,stone_cost,description',
-                'sideBTriggers:id,name,slug,suits,stone_cost,description',
-            ])
-            ->get();
+            ->get(['id', 'slug', 'name', 'suit', 'value_label']);
 
         return inertia('Admin/LootCards/Regenerate', ['cards' => $cards]);
+    }
+
+    /**
+     * JSON endpoint returning a single card's full render data (side relations
+     * included) — consumed by the Regenerate page one card at a time.
+     */
+    public function cardData(LootCard $lootCard): \Illuminate\Http\JsonResponse
+    {
+        $lootCard->load([
+            'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+            'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+            'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideATriggers:id,name,slug,suits,stone_cost,description',
+            'sideBTriggers:id,name,slug,suits,stone_cost,description',
+        ]);
+
+        return response()->json($lootCard);
     }
 
     /**

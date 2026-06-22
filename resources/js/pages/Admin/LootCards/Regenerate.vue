@@ -5,32 +5,17 @@ import { captureLootCardImage } from '@/composables/useLootCardCapture';
 import { Head, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import { ArrowLeft } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 
-interface EntityRef {
-    id: number;
-    name: string;
-    [key: string]: unknown;
-}
-interface Card {
+interface CardStub {
     id: number;
     slug: string;
     name: string;
     suit: string;
     value_label: string;
-    title_a: string | null;
-    title_b: string | null;
-    effect_a: string | null;
-    effect_b: string | null;
-    side_a_actions: EntityRef[];
-    side_b_actions: EntityRef[];
-    side_a_abilities: EntityRef[];
-    side_b_abilities: EntityRef[];
-    side_a_triggers: EntityRef[];
-    side_b_triggers: EntityRef[];
 }
 
-const props = defineProps<{ cards: Card[] }>();
+const props = defineProps<{ cards: CardStub[] }>();
 
 const total = props.cards.length;
 const running = ref(false);
@@ -39,6 +24,9 @@ const current = ref('');
 const errors = ref<string[]>([]);
 const finished = ref(false);
 
+// Only one card's full data lives in memory at a time.
+const activeCard = ref<Record<string, unknown> | null>(null);
+
 const regenerate = async () => {
     if (running.value) return;
     running.value = true;
@@ -46,39 +34,63 @@ const regenerate = async () => {
     done.value = 0;
     errors.value = [];
 
-    // Force light mode once for the whole batch (printer-friendly capture);
-    // captureLootCardImage then no-ops its own toggle. Restored at the end.
     const root = document.documentElement;
     const wasDark = root.classList.contains('dark');
     if (wasDark) root.classList.remove('dark');
 
     try {
-        for (const card of props.cards) {
-            current.value = card.name;
-            const host = document.querySelector(`[data-cap="${card.id}"]`);
+        for (const stub of props.cards) {
+            current.value = stub.name;
+
+            // 1. Fetch this card's full render data.
+            let data: Record<string, unknown>;
+            try {
+                const resp = await axios.get(route('admin.loot_cards.data', stub.slug));
+                data = resp.data;
+            } catch {
+                errors.value.push(`${stub.name}: fetch failed`);
+                done.value++;
+                continue;
+            }
+
+            // 2. Mount the card component.
+            activeCard.value = data;
+            await nextTick();
+            await new Promise((r) => setTimeout(r, 100));
+
+            // 3. Capture it.
+            const host = document.querySelector('[data-cap]');
             const target = host?.firstElementChild as HTMLElement | null;
             if (!target) {
-                errors.value.push(`${card.name}: nothing to capture`);
+                errors.value.push(`${stub.name}: nothing to capture`);
+                activeCard.value = null;
                 done.value++;
                 continue;
             }
-            const file = await captureLootCardImage(target, card.name);
+            const file = await captureLootCardImage(target, stub.name);
             if (!file) {
-                errors.value.push(`${card.name}: capture failed`);
+                errors.value.push(`${stub.name}: capture failed`);
+                activeCard.value = null;
                 done.value++;
                 continue;
             }
+
+            // 4. Upload it.
             try {
                 const fd = new FormData();
                 fd.append('image', file);
-                await axios.post(route('admin.loot_cards.image', card.slug), fd);
+                await axios.post(route('admin.loot_cards.image', stub.slug), fd);
             } catch {
-                errors.value.push(`${card.name}: upload failed`);
+                errors.value.push(`${stub.name}: upload failed`);
             }
+
+            // 5. Tear down before the next card.
+            activeCard.value = null;
             done.value++;
         }
     } finally {
         if (wasDark) root.classList.add('dark');
+        activeCard.value = null;
         current.value = '';
         running.value = false;
         finished.value = true;
@@ -96,8 +108,8 @@ const regenerate = async () => {
         <div>
             <h1 class="text-xl font-bold">Regenerate Print Images</h1>
             <p class="mt-1 text-sm text-muted-foreground">
-                Re-captures every card image in printer-friendly light mode (white background, dark text, coloured suit borders). Run this once after
-                a styling change so the existing {{ total }} cards match. Keep this tab focused while it runs.
+                Re-captures every card image in printer-friendly light mode (white background, dark text, coloured suit borders) at 300 DPI. Processes one
+                card at a time to stay within memory limits. Keep this tab focused while it runs.
             </p>
         </div>
 
@@ -113,28 +125,27 @@ const regenerate = async () => {
             <li v-for="(e, i) in errors" :key="i">{{ e }}</li>
         </ul>
 
-        <!-- Offscreen render targets: one BonanzaSplitCard per card, matching the
-             form's capture config (mirror, no toggle, no inline image). -->
+        <!-- Single offscreen render target — one card at a time. -->
         <div aria-hidden="true" class="pointer-events-none fixed -left-[9999px] top-0 select-none">
-            <div v-for="card in cards" :key="card.id" :data-cap="card.id">
+            <div v-if="activeCard" data-cap>
                 <BonanzaSplitCard
-                    :name="card.name"
-                    :suit="card.suit"
-                    :value-label="card.value_label"
+                    :name="(activeCard.name as string) ?? ''"
+                    :suit="(activeCard.suit as string) ?? ''"
+                    :value-label="(activeCard.value_label as string) ?? ''"
                     :image="null"
                     :side-a="{
-                        title: card.title_a,
-                        effect: card.effect_a,
-                        abilities: card.side_a_abilities,
-                        actions: card.side_a_actions,
-                        triggers: card.side_a_triggers,
+                        title: (activeCard.title_a as string) ?? null,
+                        effect: (activeCard.effect_a as string) ?? null,
+                        abilities: (activeCard.side_a_abilities as []) ?? [],
+                        actions: (activeCard.side_a_actions as []) ?? [],
+                        triggers: (activeCard.side_a_triggers as []) ?? [],
                     }"
                     :side-b="{
-                        title: card.title_b,
-                        effect: card.effect_b,
-                        abilities: card.side_b_abilities,
-                        actions: card.side_b_actions,
-                        triggers: card.side_b_triggers,
+                        title: (activeCard.title_b as string) ?? null,
+                        effect: (activeCard.effect_b as string) ?? null,
+                        abilities: (activeCard.side_b_abilities as []) ?? [],
+                        actions: (activeCard.side_b_actions as []) ?? [],
+                        triggers: (activeCard.side_b_triggers as []) ?? [],
                     }"
                     :mirror="true"
                     :hide-toggle="true"

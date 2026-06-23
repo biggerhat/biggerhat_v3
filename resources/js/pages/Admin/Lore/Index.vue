@@ -3,7 +3,7 @@ import AdminActions from '@/components/AdminActions.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { valueUpdater } from '@/lib/utils';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
@@ -71,9 +71,18 @@ const columns: ColumnDef<any>[] = [
 
 const props = defineProps<{
     lores: any[];
+    sort: string;
+    direction: string;
 }>();
 
 const globalFilter = ref('');
+
+const sortOptions = [
+    { label: 'Name', sort: 'name', direction: 'asc' },
+    { label: 'Newest', sort: 'created_at', direction: 'desc' },
+    { label: 'Oldest', sort: 'created_at', direction: 'asc' },
+];
+const isActiveSort = (o: { sort: string; direction: string }) => props.sort === o.sort && props.direction === o.direction;
 
 const table = useVueTable({
     get data() {
@@ -106,6 +115,21 @@ const table = useVueTable({
                 :model-value="globalFilter"
                 @update:model-value="table.setGlobalFilter($event)"
             />
+            <div class="flex items-center gap-1">
+                <span class="text-xs text-muted-foreground">Sort:</span>
+                <Link
+                    v-for="o in sortOptions"
+                    :key="o.label"
+                    :href="route('admin.lores.index', { sort: o.sort, direction: o.direction })"
+                    preserve-scroll
+                    :class="[
+                        'rounded-md border px-2 py-1 text-xs transition-colors',
+                        isActiveSort(o) ? 'border-primary bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted',
+                    ]"
+                >
+                    {{ o.label }}
+                </Link>
+            </div>
             <div>Total {{ props.lores.length }}</div>
             <Button @click="router.get(route('admin.lores.create'))"> Create New Lore </Button>
         </div>

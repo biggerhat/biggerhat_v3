@@ -75,13 +75,15 @@ function handleKey(e: KeyboardEvent) {
                     />
                 </div>
                 <div class="tos-face absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
-                    <CardImage
-                        :src="backImage"
-                        :alt="backAlt"
-                        :allegiance-slug="allegianceSlug"
-                        :placeholder-icon="placeholderIcon"
-                        :aspect-class="aspectClass"
-                    />
+                    <slot name="back">
+                        <CardImage
+                            :src="backImage"
+                            :alt="backAlt"
+                            :allegiance-slug="allegianceSlug"
+                            :placeholder-icon="placeholderIcon"
+                            :aspect-class="aspectClass"
+                        />
+                    </slot>
                 </div>
             </div>
         </div>

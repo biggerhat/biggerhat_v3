@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
+import FlipCard from '@/components/TOS/FlipCard.vue';
 import TosSuits from '@/components/TosSuits.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Package, Swords } from 'lucide-vue-next';
+import { ArrowLeft, Ban, Package, Swords } from 'lucide-vue-next';
 
 interface Limit {
     id: number;
@@ -94,7 +95,27 @@ const describeLimit = (l: Limit): string => {
 
             <Card class="overflow-hidden">
                 <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,260px)_1fr]">
+                    <!-- Disable-able Assets flip to a Disabled backside (placeholder art for now). -->
+                    <FlipCard
+                        v-if="asset.disable_count != null"
+                        :front-image="asset.image_path"
+                        :front-alt="asset.name"
+                        :back-alt="`${asset.name} (Disabled)`"
+                        :allegiance-slug="asset.allegiances[0]?.slug ?? null"
+                        :placeholder-icon="Package"
+                    >
+                        <template #back>
+                            <div
+                                class="flex aspect-[5/7] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground"
+                            >
+                                <Ban class="size-10 opacity-40" />
+                                <span class="text-sm font-bold uppercase tracking-wider">Disabled</span>
+                                <span class="px-4 text-center text-[10px] opacity-70">Backside art coming soon</span>
+                            </div>
+                        </template>
+                    </FlipCard>
                     <CardImage
+                        v-else
                         :src="asset.image_path"
                         :alt="asset.name"
                         :allegiance-slug="asset.allegiances[0]?.slug ?? null"

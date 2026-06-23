@@ -31,8 +31,13 @@ class GenerateBonanzaLootDeckPdf implements ShouldBeUnique, ShouldQueue
         try {
             $generator->generate();
         } catch (\Throwable $e) {
-            BonanzaDeckPdfStatus::dispatch('failed', message: $e->getMessage());
-            throw $e;
+            // Best-effort cache warming: a render failure must not bubble up
+            // (it would break the card-save request that dispatched this under
+            // a sync queue, and the print route regenerates on demand anyway).
+            report($e);
+            BonanzaDeckPdfStatus::dispatch('failed', null, null, $e->getMessage());
+
+            return;
         }
 
         BonanzaDeckPdfStatus::dispatch('ready', $generator->url(), $generator->generatedAt());

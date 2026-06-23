@@ -957,6 +957,10 @@ class GameController extends Controller
     {
         $characters = Character::standard()
             ->where('is_hidden', false)
+            // Bonanza hires a single non-Leader model — Masters are never
+            // fielded, so they're excluded from the model-select even when
+            // their derived bonanzaCost() lands within the budget.
+            ->where('station', '!=', 'master')
             ->with('miniatures')
             ->orderBy('name')
             ->orderBy('title')

@@ -28,4 +28,4 @@ tokens, soulstones, schemes/VP, turns. Solo and 2-player (real-time) modes.
 - See [bonanza-loot.md](bonanza-loot.md) for the Bonanza mode specifics.
 
 ## Tests
-`tests/Feature/Games/*`, `tests/Feature/Game/*`. Bonanza: `tests/Feature/Games/BonanzaBrawlTest.php`.
+`tests/Feature/Games/*` (e.g. `BonanzaBrawlTest.php`, `GameModeTypeTest.php`).

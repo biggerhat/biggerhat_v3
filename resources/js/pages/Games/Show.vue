@@ -104,6 +104,14 @@ interface CrewMember {
     game_player_id: number;
 }
 
+interface CrewReferences {
+    version?: number;
+    markers?: Array<{ id: number; name: string; slug?: string; description?: string | null; base?: string | null }>;
+    tokens?: Array<{ id: number; name: string; slug?: string; description?: string | null }>;
+    upgrades?: Array<{ id: number; name: string; slug?: string; front_image?: string | null; back_image?: string | null; type?: string | null }>;
+    characters?: unknown[];
+}
+
 interface GamePlayer {
     id: number;
     slot: number;
@@ -122,7 +130,9 @@ interface GamePlayer {
     is_game_complete: boolean;
     crew_members: CrewMember[];
     master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
-    crew_build: { id: number; crew_upgrade_id: number | null } | null;
+    crew_build: { id: number; crew_upgrade_id: number | null; references?: CrewReferences } | null;
+    // Bonanza/crew-skipped players carry server-derived references here instead.
+    references?: CrewReferences;
     active_crew_upgrade_id: number | null;
     crew_upgrade_power_bars: Record<string, number> | null;
     user: { id: number; name: string } | null;
@@ -1136,7 +1146,9 @@ const loadReferences = (target: 'my' | 'opponent') => {
     const refs = target === 'my' ? myReferences : opponentReferences;
     if (refs.value) return;
     const player = target === 'my' ? myPlayer.value : opponent.value;
-    refs.value = player?.crew_build?.references ?? null;
+    // Bonanza/crew-skipped players have no crew_build — the server attaches
+    // derived references directly on the player instead.
+    refs.value = player?.crew_build?.references ?? player?.references ?? null;
 };
 
 const toggleMyRefs = () => loadReferences('my');

@@ -835,6 +835,16 @@ class GameController extends Controller
             $crewBuild = $player->crewBuild;
             if ($crewBuild) {
                 $crewBuild->ensureReferences();
+
+                continue;
+            }
+
+            // Bonanza (and other crew-skipped) players have no CrewBuild, so
+            // derive references straight from the fielded models' characters —
+            // otherwise the References panel + token list stay empty.
+            $characterIds = $player->crewMembers->pluck('character_id')->filter()->unique()->values()->all();
+            if (! empty($characterIds)) {
+                $player->setAttribute('references', CrewBuild::computeReferences($characterIds));
             }
         }
     }

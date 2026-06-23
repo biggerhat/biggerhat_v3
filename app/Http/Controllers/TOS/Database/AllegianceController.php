@@ -304,11 +304,28 @@ class AllegianceController extends Controller
         $total = 0;
         $byRule = [];
         $totalScrip = 0;
+        // Commanders are tallied in their own section and carry an outlier
+        // cost, so they're excluded from the roster average (and not
+        // double-counted under Champion, which every Commander also is).
+        $nonCommanderTotal = 0;
+        $nonCommanderScrip = 0;
 
         foreach ($units as $unit) {
+            $rules = $unit->specialUnitRules ?? collect();
+            $isCommander = $rules->contains(fn ($r) => $r->slug === 'commander');
+
             $total++;
             $totalScrip += (int) ($unit->scrip ?? 0);
-            foreach ($unit->specialUnitRules ?? [] as $rule) {
+
+            if (! $isCommander) {
+                $nonCommanderTotal++;
+                $nonCommanderScrip += (int) ($unit->scrip ?? 0);
+            }
+
+            foreach ($rules as $rule) {
+                if ($isCommander && $rule->slug === 'champion') {
+                    continue;
+                }
                 $key = $rule->slug;
                 if (! isset($byRule[$key])) {
                     $byRule[$key] = ['slug' => $rule->slug, 'name' => $rule->name, 'count' => 0];
@@ -322,7 +339,7 @@ class AllegianceController extends Controller
         return [
             'total' => $total,
             'total_scrip' => $totalScrip,
-            'average_scrip' => $total > 0 ? round($totalScrip / $total, 1) : null,
+            'average_scrip' => $nonCommanderTotal > 0 ? round($nonCommanderScrip / $nonCommanderTotal, 1) : null,
             'by_rule' => $byRule,
         ];
     }

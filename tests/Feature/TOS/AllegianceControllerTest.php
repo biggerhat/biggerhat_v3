@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\TOS\Allegiance;
+use App\Models\TOS\SpecialUnitRule;
+use App\Models\TOS\Unit;
 
 it('renders the TOS landing hub', function () {
     $earth = Allegiance::factory()->earth()->create(['name' => 'King\'s Empire']);
@@ -69,4 +71,36 @@ it('renders the Earth-side type page pooling units across all Earth allegiances 
 
 it('returns 404 for an invalid type slug', function () {
     $this->get(route('tos.allegiances.viewByType', 'made-up'))->assertNotFound();
+});
+
+it('averages roster scrip excluding Commanders and does not count them as Champions', function () {
+    $a = Allegiance::factory()->create(['slug' => 'guild', 'name' => 'Guild']);
+    $commander = SpecialUnitRule::factory()->create(['slug' => 'commander', 'name' => 'Commander']);
+    $champion = SpecialUnitRule::factory()->create(['slug' => 'champion', 'name' => 'Champion']);
+
+    // Rank-and-file: 3, 3, 4, 6 → average 4. The scrip-6 one is a (non-commander) Champion.
+    foreach ([3, 3, 4] as $scrip) {
+        Unit::factory()->withSides()->create(['scrip' => $scrip])->allegiances()->sync([$a->id]);
+    }
+    $champUnit = Unit::factory()->withSides()->create(['scrip' => 6]);
+    $champUnit->allegiances()->sync([$a->id]);
+    $champUnit->specialUnitRules()->sync([$champion->id]);
+
+    // Commander (also a Champion by the rules), outlier scrip 18.
+    $cmdr = Unit::factory()->withSides()->create(['scrip' => 18]);
+    $cmdr->allegiances()->sync([$a->id]);
+    $cmdr->specialUnitRules()->sync([$commander->id, $champion->id]);
+
+    $this->get(route('tos.allegiances.view', $a->slug))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('statistics.total', 5)
+            ->where('statistics.average_scrip', fn ($v) => (float) $v === 4.0)
+            ->where('statistics.by_rule', function ($rules) {
+                $rules = collect($rules);
+
+                return $rules->firstWhere('slug', 'commander')['count'] === 1
+                    && $rules->firstWhere('slug', 'champion')['count'] === 1; // commander excluded
+            })
+        );
 });

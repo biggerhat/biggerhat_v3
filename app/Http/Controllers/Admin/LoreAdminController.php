@@ -17,8 +17,18 @@ class LoreAdminController extends Controller
 {
     public function index(Request $request)
     {
+        // Sort by name, or by creation date (Newest/Oldest) so admins can find
+        // recently-entered lore. `id` is the stable creation-order tiebreak.
+        $sort = $request->get('sort') === 'created_at' ? 'created_at' : 'name';
+        $direction = $request->get('direction') === 'desc' ? 'desc' : 'asc';
+
         return inertia('Admin/Lore/Index', [
-            'lores' => Lore::with('media', 'characters', 'tosUnits')->orderBy('name', 'ASC')->get(),
+            'lores' => Lore::with('media', 'characters', 'tosUnits')
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
+                ->get(),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 

@@ -9,6 +9,7 @@ use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @mixin IdeHelperStrategy
@@ -39,5 +40,11 @@ class Strategy extends Model
     public function getImageUrlAttribute(): ?string
     {
         return $this->image ? "/storage/{$this->image}" : null;
+    }
+
+    /** Tokens this Strategy introduces (e.g. Plant Explosives → Explosive). */
+    public function tokens(): BelongsToMany
+    {
+        return $this->belongsToMany(Token::class, 'strategy_token');
     }
 }

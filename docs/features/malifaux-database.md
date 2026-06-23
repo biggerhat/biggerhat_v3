@@ -40,4 +40,6 @@ Public prefixes → `Database\*Controller`:
 - API mirror: `app/Http/Controllers/API/` returns Laravel Resources for the bot/VTT.
 
 ## Tests
-`tests/Feature/` per resource (e.g. `CharacterControllerTest`, faction/scheme tests).
+`tests/Feature/` per resource (search/scheme/strategy/package tests, API
+resource tests under `tests/Feature/API/`). Coverage is uneven — confirm a
+resource has a test before assuming one.

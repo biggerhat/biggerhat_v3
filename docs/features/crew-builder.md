@@ -35,4 +35,4 @@ references panel, reused in the tracker). Admin crew tools:
 - `crew_data` is a plain id array — not a relation; resolve characters explicitly.
 
 ## Tests
-`tests/Feature/` crew-builder + references tests; `CrewBuild` model tests.
+`tests/Feature/Tools/CrewBuilderTest.php`.

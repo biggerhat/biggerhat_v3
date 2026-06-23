@@ -30,5 +30,5 @@ be tagged with the models they discuss.
   taggable content.
 
 ## Tests
-`tests/Feature/` channel + transmission controller tests (CRUD, ownership,
-publish gating).
+No dedicated feature tests yet — add under `tests/Feature/` (channel ownership,
+transmission CRUD/publish gating) when touching this area.

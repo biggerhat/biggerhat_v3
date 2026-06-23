@@ -28,5 +28,6 @@ inverse relations.
   TOS Unit; don't assume a single game system per entry.
 
 ## Tests
-`tests/Feature/TOS/LoreUnitLinkTest.php` (TOS-unit link) + lore controller/admin
-tests.
+`tests/Feature/TOS/LoreUnitLinkTest.php` (TOS-unit link),
+`tests/Feature/API/V1/LoreApiTest.php` (API). No dedicated admin-controller
+test yet.

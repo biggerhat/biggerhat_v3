@@ -32,5 +32,5 @@ JSON stat/ability/action payloads).
   match official rendering.
 
 ## Tests
-`tests/Feature/` custom-card controller tests (CRUD gate, store validation,
-share resolution) + model tests.
+No dedicated feature tests yet — add under `tests/Feature/` (CRUD gate, store
+validation, share-code resolution) when touching this area.

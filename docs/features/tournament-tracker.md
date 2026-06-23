@@ -24,11 +24,21 @@ match can spawn/track a live Game.
 (e.g. `tracker_abandoned`, `tracker_score`). Include the Echo socket id so
 `broadcast(...)->toOthers()` skips the originator (see `composables/useTournament.ts`).
 
+## Services (`app/Services/`)
+The real logic lives in services, not the controllers:
+- `TournamentPairingService` — Swiss `regeneratePairings()` (per round, not upfront).
+- `TournamentStandingsService` — standings math.
+- `TournamentStateMachine` — round/tournament status transitions.
+- `TournamentTrackerGameFactory` — spawns the linked `Game` for a pairing.
+
 ## Conventions / Gotchas
-- Swiss pairing + standings logic lives in the round/player controllers — pairings are generated per round, not all upfront.
-- Game-tracker hybrid: abandoning/scoring a linked `Game` broadcasts a `TournamentUpdated` so the TO's view updates live (see `GameController::abandon`).
+- `TournamentGame::game()` → `belongsTo(Game, 'game_id')`. Pairings regenerate
+  during round Setup (reverting InProgress games first), not mid-round.
+- Game-tracker hybrid: abandoning/scoring a linked `Game` broadcasts a
+  `TournamentUpdated` so the TO's view updates live (see `GameController::abandon`).
 - Admin overrides: `Admin\TournamentOverrideAdminController` (`admin/tournaments`).
 
 ## Tests
-`tests/Feature/Tournament*` / `tests/Feature/Tournaments/*`. Cover pairing
-generation, standings math, RSVP gating, and the linked-game score/abandon flow.
+`tests/Feature/Tournament/` — incl. `PairingServiceTest`, `StandingsServiceTest`,
+`StateMachineTest`, `RoundLifecycleTest`, `RsvpTest`, `DropPlayerTest`,
+`ScenarioPropagationTest`, `PublicViewPageTest`.

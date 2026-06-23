@@ -104,3 +104,24 @@ it('averages roster scrip excluding Commanders and does not count them as Champi
             })
         );
 });
+
+it('excludes Commanders from the Champion unit filter', function () {
+    $a = Allegiance::factory()->create(['slug' => 'guild', 'name' => 'Guild']);
+    $champion = SpecialUnitRule::factory()->create(['slug' => 'champion', 'name' => 'Champion']);
+    $commander = SpecialUnitRule::factory()->create(['slug' => 'commander', 'name' => 'Commander']);
+
+    $champUnit = Unit::factory()->withSides()->create(['name' => 'Lone Champion']);
+    $champUnit->allegiances()->sync([$a->id]);
+    $champUnit->specialUnitRules()->sync([$champion->id]);
+
+    // A Commander is also a Champion, but shouldn't surface under the filter.
+    $cmdr = Unit::factory()->withSides()->create(['name' => 'The Commander']);
+    $cmdr->allegiances()->sync([$a->id]);
+    $cmdr->specialUnitRules()->sync([$commander->id, $champion->id]);
+
+    $this->get(route('tos.allegiances.view', ['allegiance' => $a->slug, 'special_rule' => 'champion']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('units', 1)
+            ->where('units.0.name', 'Lone Champion'));
+});

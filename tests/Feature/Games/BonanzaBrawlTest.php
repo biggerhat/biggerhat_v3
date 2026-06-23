@@ -206,13 +206,17 @@ it('excludes Masters from the Bonanza model-select prop', function () {
     Miniature::factory()->for($master, 'character')->create();
     $minion = Character::factory()->create(['station' => 'minion', 'faction' => 'arcanists', 'name' => 'Ice Gamin', 'display_name' => 'Ice Gamin', 'cost' => 4]);
     Miniature::factory()->for($minion, 'character')->create();
+    // A NULL-station model (totem/peon): must still be offered — a bare
+    // `station != 'master'` would wrongly drop it (NULL != 'master' isn't true).
+    $totem = Character::factory()->create(['station' => null, 'faction' => 'arcanists', 'name' => 'Wendigo', 'display_name' => 'Wendigo', 'cost' => 4]);
+    Miniature::factory()->for($totem, 'character')->create();
 
     $this->actingAs($creator)->get(route('games.show', $game->uuid))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('masters', function ($masters) {
             $names = collect($masters)->pluck('name');
 
-            return ! $names->contains('Rasputina') && $names->contains('Ice Gamin');
+            return ! $names->contains('Rasputina') && $names->contains('Ice Gamin') && $names->contains('Wendigo');
         }));
 });
 

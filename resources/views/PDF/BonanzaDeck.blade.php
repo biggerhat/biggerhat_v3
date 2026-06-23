@@ -4,12 +4,39 @@
     $fontPath = public_path('font/M4E-Symbols.otf');
     $fontB64 = is_file($fontPath) ? base64_encode(file_get_contents($fontPath)) : '';
 
-    // Mirrors GameIcon's glyph map.
+    // Token/type → M4E glyph. Merges GameIcon's type keys (used by ability
+    // suits / defensive_ability_type / action stat suits) with GameText's
+    // {{token}} aliases (fortitude → physical_defense glyph, etc.) so card
+    // text renders the same icons the web does.
     $glyphs = [
-        'crow' => 'c', 'mask' => 'm', 'ram' => 'r', 'tome' => 't',
+        // Suits
+        'crow' => 'c', 'crows' => 'c', 'mask' => 'm', 'masks' => 'm',
+        'ram' => 'r', 'rams' => 'r', 'tome' => 't', 'tomes' => 't',
+        // Range types
         'melee' => 'y', 'missile' => 'z', 'magic' => 'q', 'pulse' => 'p',
-        'positive' => '+', 'negative' => '-',
+        // Modifiers
+        'positive' => '+', 'negative' => '-', '+' => '+', '-' => '-',
+        // Soulstone
+        'soulstone' => 's', 'soulstones' => 's', 'stone' => 's',
+        // Signature action
+        'signature_action' => 'f', 'signatureaction' => 'f', 'signature' => 'f', 'saction' => 'f',
+        // Defensive icons — GameIcon type keys + their GameText text aliases.
+        'physical_defense' => 'u', 'fortitude' => 'u',
+        'magical_defense' => 'x', 'warding' => 'x',
+        'unusual_defense' => 'v', 'unusual' => 'v', 'unusualdefense' => 'v',
     ];
+
+    // Render a space-separated key string ("crow", "physical_defense", …) into
+    // M4E glyph spans, skipping anything unmapped.
+    $renderGlyphList = function (?string $value) use (&$glyphs): string {
+        if (! $value) return '';
+        $out = '';
+        foreach (explode(' ', $value) as $key) {
+            $key = strtolower(trim($key));
+            if (isset($glyphs[$key])) $out .= '<span class="gi">' . $glyphs[$key] . '</span>';
+        }
+        return $out;
+    };
 
     $suitThemes = [
         'crow'  => ['border' => '#16a34a', 'header' => '#dcfce7', 'divider' => '#f0fdf4', 'glyph' => '#15803d'],
@@ -68,12 +95,18 @@
         return $h . '</div>';
     };
 
-    $renderSide = function ($title, $effect, $abilities, $actions, $triggers) use ($renderTokens, $renderAction): string {
+    $renderSide = function ($title, $effect, $abilities, $actions, $triggers) use ($renderTokens, $renderAction, $renderGlyphList): string {
         $h = '';
         if ($title) $h .= '<div class="side-title">' . e($title) . '</div>';
         if ($effect) $h .= '<div class="effect">' . nl2br($renderTokens($effect)) . '</div>';
         foreach ($abilities as $a) {
-            $h .= '<div class="abil"><b>' . e($a->name) . ($a->costs_stone ? ' <span class="gi">s</span>' : '') . '.</b> ' . $renderTokens($a->description) . '</div>';
+            // [soulstone] Name (suit, defensive-icon). Description — mirrors LootAbilityDisplay.
+            $stone = $a->costs_stone ? '<span class="gi">s</span> ' : '';
+            $suitG = ($a->suits && $a->suits !== 'soulstone') ? $renderGlyphList($a->suits) : '';
+            $defG = $renderGlyphList($a->defensive_ability_type ?? null);
+            $parens = ($suitG || $defG) ? ' (' . $suitG . ($suitG && $defG ? ' ' : '') . $defG . ')' : '';
+            $desc = $a->description ? ' ' . $renderTokens($a->description) : '';
+            $h .= '<div class="abil">' . $stone . '<b>' . e($a->name) . '</b>' . $parens . '.' . $desc . '</div>';
         }
         foreach ($actions as $a) $h .= $renderAction($a);
         foreach ($triggers as $t) {
@@ -129,8 +162,8 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            font-size: 8px;
-            line-height: 1.25;
+            font-size: 9px;
+            line-height: 1.2;
         }
 
         .hdr, .ftr {
@@ -157,12 +190,12 @@
 
         .act { margin: 2px 0; }
         .act-tbl { width: 100%; border-collapse: collapse; }
-        .act-hdr td { font-size: 6px; font-weight: bold; text-align: center; padding: 0 1px; }
+        .act-hdr td { font-size: 6.5px; font-weight: bold; text-align: center; padding: 0 1px; }
         .act-hdr .act-name, .act-val .act-name { text-align: left; width: 44%; }
-        .act-val td { font-size: 7px; text-align: center; padding: 0 1px; border-bottom: 0.5px solid #ddd; }
+        .act-val td { font-size: 8px; text-align: center; padding: 0 1px; border-bottom: 0.5px solid #ddd; }
         .act-val .act-name { font-weight: bold; }
-        .act-desc { font-size: 7px; }
-        .trig { font-size: 6.5px; padding-left: 5px; }
+        .act-desc { font-size: 8px; }
+        .trig { font-size: 7.5px; padding-left: 5px; }
         .ftr-rot { transform: rotate(180deg); width: 100%; display: flex; align-items: center; gap: 4px; }
     </style>
 </head>

@@ -969,8 +969,11 @@ class GameController extends Controller
             ->where('is_hidden', false)
             // Bonanza hires a single non-Leader model — Masters are never
             // fielded, so they're excluded from the model-select even when
-            // their derived bonanzaCost() lands within the budget.
-            ->where('station', '!=', 'master')
+            // their derived bonanzaCost() lands within the budget. Keep
+            // NULL-station models (totems, peons, etc.): a bare
+            // `station != 'master'` would drop them since `NULL != 'master'`
+            // is not true in SQL.
+            ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', 'master'))
             ->with('miniatures')
             ->orderBy('name')
             ->orderBy('title')

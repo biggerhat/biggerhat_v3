@@ -23,6 +23,7 @@ class UpdateAssetRequest extends FormRequest
             'scrap_count' => ['nullable', 'integer', 'min:0'],
             'body' => ['nullable', 'string'],
             'image_path' => ['nullable', 'file', 'image', 'max:30000'],
+            'back_image_path' => ['nullable', 'file', 'image', 'max:30000'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
 
             'allegiance_ids' => ['nullable', 'array'],

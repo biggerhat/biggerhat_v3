@@ -2,6 +2,7 @@
 
 use App\Enums\TOS\SpecialUnitRuleEnum;
 use App\Models\TOS\Allegiance;
+use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 
@@ -29,6 +30,22 @@ it('filters via the titan friendly URL', function () {
 
     $this->get(route('tos.units.titan'))
         ->assertInertia(fn ($p) => $p->where('rule_filter', SpecialUnitRuleEnum::Titan->value)->has('units.data', 1));
+});
+
+it('excludes Commanders from the champions filter', function () {
+    $champRule = SpecialUnitRule::factory()->create(['slug' => 'champion', 'name' => 'Champion']);
+    $cmdrRule = SpecialUnitRule::factory()->create(['slug' => 'commander', 'name' => 'Commander']);
+
+    $champ = Unit::factory()->withSides()->create(['name' => 'Pure Champion']);
+    $champ->specialUnitRules()->sync([$champRule->id]);
+
+    // A Commander is also a Champion, but has its own listing.
+    $cmdr = Unit::factory()->withSides()->create(['name' => 'Cmdr Champion']);
+    $cmdr->specialUnitRules()->sync([$cmdrRule->id, $champRule->id]);
+
+    $this->get(route('tos.units.champion'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->has('units.data', 1)->where('units.data.0.name', 'Pure Champion'));
 });
 
 it('view resolves a unit by sculpt slug', function () {

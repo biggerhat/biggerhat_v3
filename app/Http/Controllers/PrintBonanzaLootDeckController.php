@@ -21,7 +21,7 @@ class PrintBonanzaLootDeckController extends Controller
             $generator->generate();
         }
 
-        $pdf = Storage::disk('public')->get(BonanzaDeckPdfGenerator::PATH);
+        $pdf = Storage::disk('public')->get($generator->cachePath());
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

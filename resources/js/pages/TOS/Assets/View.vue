@@ -28,6 +28,7 @@ interface Asset {
     scrap_count: number | null;
     body: string | null;
     image_path: string | null;
+    back_image_path: string | null;
     allegiances: Array<{ id: number; name: string; slug: string }>;
     abilities: Array<{ id: number; name: string; body: string | null }>;
     actions: Array<{
@@ -95,16 +96,17 @@ const describeLimit = (l: Limit): string => {
 
             <Card class="overflow-hidden">
                 <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,260px)_1fr]">
-                    <!-- Disable-able Assets flip to a Disabled backside (placeholder art for now). -->
+                    <!-- Disable-able Assets flip to their Disabled backside (real art when uploaded, placeholder otherwise). -->
                     <FlipCard
-                        v-if="asset.disable_count != null"
+                        v-if="asset.disable_count != null || asset.back_image_path"
                         :front-image="asset.image_path"
+                        :back-image="asset.back_image_path"
                         :front-alt="asset.name"
                         :back-alt="`${asset.name} (Disabled)`"
                         :allegiance-slug="asset.allegiances[0]?.slug ?? null"
                         :placeholder-icon="Package"
                     >
-                        <template #back>
+                        <template v-if="!asset.back_image_path" #back>
                             <div
                                 class="flex aspect-[5/7] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground"
                             >

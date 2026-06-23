@@ -1139,28 +1139,16 @@ const executeAbandon = async () => {
 };
 
 // ─── Crew References ───
-const myReferences = ref<any>(null);
-const opponentReferences = ref<any>(null);
+// References are reactive: the server augments each player's references with
+// general + Strategy tokens and the player's LIVE crew members (so summoned/
+// added models bring their tokens in — dynamic, never removed). Prefer
+// player.references; crew_build.references is the fallback for older payloads.
+const myReferences = computed<any>(() => myPlayer.value?.references ?? myPlayer.value?.crew_build?.references ?? null);
+const opponentReferences = computed<any>(() => opponent.value?.references ?? opponent.value?.crew_build?.references ?? null);
 
-const loadReferences = (target: 'my' | 'opponent') => {
-    const refs = target === 'my' ? myReferences : opponentReferences;
-    if (refs.value) return;
-    const player = target === 'my' ? myPlayer.value : opponent.value;
-    // Bonanza/crew-skipped players have no crew_build — the server attaches
-    // derived references directly on the player instead.
-    refs.value = player?.crew_build?.references ?? player?.references ?? null;
-};
-
-const toggleMyRefs = () => loadReferences('my');
-const toggleOpponentRefs = () => loadReferences('opponent');
-
-// Auto-load references when game is in progress
-onMounted(() => {
-    if (props.game.status === 'in_progress') {
-        toggleMyRefs();
-        toggleOpponentRefs();
-    }
-});
+// Kept as no-ops for the <details> @toggle bindings — references load reactively.
+const toggleMyRefs = () => {};
+const toggleOpponentRefs = () => {};
 
 // ─── Leave-confirmation guard for in-progress games ───
 //

@@ -23,6 +23,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\Token;
 use App\Support\CampaignAccess;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
@@ -186,7 +187,7 @@ class GameController extends Controller
 
         $eagerLoads = [
             'players.user:id,name',
-            'strategy',
+            'strategy.tokens',
         ];
 
         // Load crew members for scheme select (both players need to see crews) and gameplay
@@ -578,7 +579,7 @@ class GameController extends Controller
 
         $eagerLoads = [
             'players.user:id,name',
-            'strategy',
+            'strategy.tokens',
         ];
 
         if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned])) {
@@ -723,7 +724,7 @@ class GameController extends Controller
             'players.crewBuild',
             'players.master.crewUpgrades',
             'players.turns',
-            'strategy',
+            'strategy.tokens',
             'winner:id,name',
         ]);
         $this->ensureCrewReferences($game);
@@ -821,7 +822,11 @@ class GameController extends Controller
     }
 
     /**
-     * Ensure all crew builds in the game have valid pre-computed references.
+     * Build each player's tracker references and attach them to the player.
+     * The references are the union of: the crew build's stored references, the
+     * player's LIVE crew members (so models summoned/added mid-game bring their
+     * tokens — dynamic, never removed), plus the game's general tokens and the
+     * Strategy's tokens (which apply to every crew).
      */
     private function ensureCrewReferences(Game $game): void
     {
@@ -829,24 +834,60 @@ class GameController extends Controller
             return;
         }
 
+        // General tokens (Focus/Shielded/Impact…) + the game's Strategy tokens
+        // (e.g. Plant Explosives → Explosive) belong in every crew's references.
+        // Guard on the nullable FK (Bonanza has no Strategy) so we never touch
+        // the eager-loaded relation when it's absent.
+        $strategyTokens = $game->strategy_id ? $game->strategy->tokens : collect();
+        $extraTokens = Token::general()->get()
+            ->merge($strategyTokens)
+            ->unique('id')
+            ->map(fn (Token $t) => ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug, 'description' => $t->description])
+            ->values()
+            ->all();
+
         foreach ($game->players as $player) {
             /** @var GamePlayer $player */
-            /** @var CrewBuild|null $crewBuild */
-            $crewBuild = $player->crewBuild;
-            if ($crewBuild) {
-                $crewBuild->ensureReferences();
-
-                continue;
-            }
-
-            // Bonanza (and other crew-skipped) players have no CrewBuild, so
-            // derive references straight from the fielded models' characters —
-            // otherwise the References panel + token list stay empty.
-            $characterIds = $player->crewMembers->pluck('character_id')->filter()->unique()->values()->all();
-            if (! empty($characterIds)) {
-                $player->setAttribute('references', CrewBuild::computeReferences($characterIds));
-            }
+            $player->crewBuild?->ensureReferences();
+            $player->setAttribute('references', $this->buildPlayerReferences($player, $extraTokens));
         }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $extraTokens
+     * @return array<string, mixed>
+     */
+    private function buildPlayerReferences(GamePlayer $player, array $extraTokens): array
+    {
+        $base = is_array($player->crewBuild?->references)
+            ? $player->crewBuild->references
+            : ['markers' => [], 'tokens' => [], 'upgrades' => [], 'characters' => []];
+
+        // Live crew members cover models summoned/added during play.
+        $characterIds = $player->crewMembers->pluck('character_id')->filter()->unique()->values()->all();
+        $live = empty($characterIds) ? [] : CrewBuild::computeReferences($characterIds);
+
+        $merged = $this->mergeReferences($base, $live);
+        $merged['tokens'] = collect($merged['tokens'])->merge($extraTokens)->unique('id')->sortBy('name')->values()->all();
+
+        return $merged;
+    }
+
+    /**
+     * Union two reference payloads by id — never removes (per QA: "don't worry about removing").
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
+     * @return array<string, mixed>
+     */
+    private function mergeReferences(array $a, array $b): array
+    {
+        $out = ['version' => $a['version'] ?? CrewBuild::REFERENCES_VERSION];
+        foreach (['markers', 'tokens', 'upgrades', 'characters'] as $key) {
+            $out[$key] = collect($a[$key] ?? [])->merge($b[$key] ?? [])->unique('id')->values()->all();
+        }
+
+        return $out;
     }
 
     public function abandon(Game $game)

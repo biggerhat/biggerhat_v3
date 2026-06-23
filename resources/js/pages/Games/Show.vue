@@ -1693,22 +1693,47 @@ const toggleInlineCard = (memberId: number, crew: 'my' | 'opponent') => {
     }
 };
 
+// The crew (upgrade) card included in Expand All: prefer the active upgrade,
+// else the first one with card art.
+const crewUpgradeToExpand = (crew: 'my' | 'opponent'): number | null => {
+    const upgrades = crew === 'my' ? myCrewUpgrades.value : opponentCrewUpgrades.value;
+    const activeId = crew === 'my' ? myActiveUpgradeId.value : opponentActiveUpgradeId.value;
+    const withImage = upgrades.filter((u: any) => u.front_image);
+    if (!withImage.length) return null;
+    return (withImage.find((u: any) => u.id === activeId) ?? withImage[0]).id;
+};
+
 const toggleAllCards = (crew: 'my' | 'opponent') => {
     const members = crew === 'my' ? myCrewMembers : opponentCrewMembers;
     const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
+    const upgradeRef = crew === 'my' ? expandedMyCrewUpgradeId : expandedOppCrewUpgradeId;
+    const crewUpgradeId = crewUpgradeToExpand(crew);
+
     const allWithImages = members.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    const allExpanded = allWithImages.length > 0 && allWithImages.every((id: number) => set.value.has(id));
-    set.value = allExpanded ? new Set() : new Set(allWithImages);
+    const membersExpanded = allWithImages.length === 0 || allWithImages.every((id: number) => set.value.has(id));
+    const upgradeExpanded = crewUpgradeId === null || upgradeRef.value === crewUpgradeId;
+
+    if (membersExpanded && upgradeExpanded) {
+        set.value = new Set();
+        upgradeRef.value = null;
+    } else {
+        set.value = new Set(allWithImages);
+        upgradeRef.value = crewUpgradeId;
+    }
 };
 
 const allMyCardsExpanded = computed(() => {
     const ids = myCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    return ids.length > 0 && ids.every((id: number) => expandedMyCards.value.has(id));
+    const cu = crewUpgradeToExpand('my');
+    if (!ids.length && cu === null) return false;
+    return ids.every((id: number) => expandedMyCards.value.has(id)) && (cu === null || expandedMyCrewUpgradeId.value === cu);
 });
 
 const allOpponentCardsExpanded = computed(() => {
     const ids = opponentCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    return ids.length > 0 && ids.every((id: number) => expandedOpponentCards.value.has(id));
+    const cu = crewUpgradeToExpand('opponent');
+    if (!ids.length && cu === null) return false;
+    return ids.every((id: number) => expandedOpponentCards.value.has(id)) && (cu === null || expandedOppCrewUpgradeId.value === cu);
 });
 
 // ─── All-cards dialog (desktop wide-screen card grid) ───
@@ -4316,6 +4341,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Crew not tracked
                         </div>
                         <div v-else class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">No crew selected</div>
+
+                        <!-- Master's crew (upgrade) card — shown for both sides before turn 1. -->
+                        <div
+                            v-for="upgrade in (player.master?.crew_upgrades ?? []).filter(
+                                (u: any) => u.id === (player.active_crew_upgrade_id ?? player.crew_build?.crew_upgrade_id),
+                            )"
+                            :key="'scheme-cu-' + upgrade.id"
+                            class="mt-2"
+                        >
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Crew Card — {{ upgrade.name }}</p>
+                            <div class="max-w-[260px] [&_img]:w-full">
+                                <UpgradeFlipCard
+                                    :front-image="upgrade.front_image"
+                                    :back-image="upgrade.back_image"
+                                    :alt-text="upgrade.name"
+                                    :show-link="false"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </template>

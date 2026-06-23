@@ -10,6 +10,7 @@ use App\Models\GamePlayer;
 use App\Models\Miniature;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\Token;
 use App\Models\User;
 
 beforeEach(function () {
@@ -188,6 +189,59 @@ it('lets a Bonanza player pick a non-master character (any station) of their fac
     ])->assertOk();
 
     expect(GamePlayer::where('game_id', $game->id)->where('slot', 1)->first()->master_id)->toBe($enforcer->id);
+});
+
+it('excludes Masters from the Bonanza model-select prop', function () {
+    $creator = User::factory()->create();
+    $game = Game::factory()->bonanza()->create([
+        'creator_id' => $creator->id,
+        'is_solo' => true,
+        'status' => GameStatusEnum::MasterSelect,
+    ]);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $creator->id, 'slot' => 1, 'faction' => 'arcanists']);
+
+    // A Master (cost null → bonanzaCost caps at 10, so it WOULD clear the cost
+    // filter) plus a minion. Only the non-Leader minion should be offered.
+    $master = Character::factory()->create(['station' => 'master', 'faction' => 'arcanists', 'name' => 'Rasputina', 'display_name' => 'Rasputina', 'cost' => null, 'health' => 8]);
+    Miniature::factory()->for($master, 'character')->create();
+    $minion = Character::factory()->create(['station' => 'minion', 'faction' => 'arcanists', 'name' => 'Ice Gamin', 'display_name' => 'Ice Gamin', 'cost' => 4]);
+    Miniature::factory()->for($minion, 'character')->create();
+
+    $this->actingAs($creator)->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('masters', function ($masters) {
+            $names = collect($masters)->pluck('name');
+
+            return ! $names->contains('Rasputina') && $names->contains('Ice Gamin');
+        }));
+});
+
+it('derives References (with tokens) for the Bonanza model that has no crew build', function () {
+    $creator = User::factory()->create();
+    $game = Game::factory()->bonanza()->create([
+        'creator_id' => $creator->id,
+        'is_solo' => true,
+        'status' => GameStatusEnum::MasterSelect,
+    ]);
+
+    $model = Character::factory()->create(['station' => 'minion', 'faction' => 'arcanists', 'name' => 'Ice Golem', 'display_name' => 'Ice Golem', 'cost' => 8]);
+    Miniature::factory()->for($model, 'character')->create();
+    $token = Token::factory()->create(['name' => 'Frozen Heart']);
+    $model->tokens()->attach($token->id);
+
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $creator->id, 'slot' => 1, 'faction' => 'arcanists']);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => null, 'slot' => 2, 'opponent_name' => 'Opp']);
+
+    $this->actingAs($creator)->postJson(route('games.setup.master', $game->uuid), ['master_name' => 'Ice Golem'])->assertOk();
+
+    $this->actingAs($creator)->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('game.players', function ($players) {
+            $slotOne = collect($players)->firstWhere('slot', 1);
+            $tokens = collect($slotOne['references']['tokens'] ?? []);
+
+            return $tokens->contains('name', 'Frozen Heart');
+        }));
 });
 
 it('derives effective Bonanza cost for dash-cost models', function () {

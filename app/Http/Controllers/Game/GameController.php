@@ -835,6 +835,16 @@ class GameController extends Controller
             $crewBuild = $player->crewBuild;
             if ($crewBuild) {
                 $crewBuild->ensureReferences();
+
+                continue;
+            }
+
+            // Bonanza (and other crew-skipped) players have no CrewBuild, so
+            // derive references straight from the fielded models' characters —
+            // otherwise the References panel + token list stay empty.
+            $characterIds = $player->crewMembers->pluck('character_id')->filter()->unique()->values()->all();
+            if (! empty($characterIds)) {
+                $player->setAttribute('references', CrewBuild::computeReferences($characterIds));
             }
         }
     }
@@ -957,6 +967,10 @@ class GameController extends Controller
     {
         $characters = Character::standard()
             ->where('is_hidden', false)
+            // Bonanza hires a single non-Leader model — Masters are never
+            // fielded, so they're excluded from the model-select even when
+            // their derived bonanzaCost() lands within the budget.
+            ->where('station', '!=', 'master')
             ->with('miniatures')
             ->orderBy('name')
             ->orderBy('title')

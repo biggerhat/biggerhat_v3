@@ -6,6 +6,8 @@ use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Unit;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -56,6 +58,37 @@ it('admin store persists multiple limit rows at once', function () {
             AssetLimitTypeEnum::Slot->value,
         ])
         ->and($asset->allegiances->pluck('id'))->toContain($ke->id);
+});
+
+it('admin store + update persists and replaces the back (Disabled) image', function () {
+    Storage::fake('public');
+
+    $this->actingAs($this->admin)->post(route('admin.tos.assets.store'), [
+        'name' => 'Flippy Asset',
+        'scrip_cost' => 2,
+        'disable_count' => 1,
+        'image_path' => UploadedFile::fake()->image('front.png'),
+        'back_image_path' => UploadedFile::fake()->image('back.png'),
+    ])->assertRedirect(route('admin.tos.assets.index'));
+
+    $asset = Asset::where('name', 'Flippy Asset')->first();
+    expect($asset->image_path)->not->toBeNull()
+        ->and($asset->back_image_path)->not->toBeNull();
+    Storage::disk('public')->assertExists($asset->back_image_path);
+
+    // Update replaces the back image and removes the old file.
+    $old = $asset->back_image_path;
+    $this->actingAs($this->admin)->post(route('admin.tos.assets.update', $asset->slug), [
+        'name' => 'Flippy Asset',
+        'scrip_cost' => 2,
+        'disable_count' => 1,
+        'back_image_path' => UploadedFile::fake()->image('back2.png'),
+    ])->assertRedirect(route('admin.tos.assets.index'));
+
+    $asset->refresh();
+    expect($asset->back_image_path)->not->toBe($old);
+    Storage::disk('public')->assertMissing($old);
+    Storage::disk('public')->assertExists($asset->back_image_path);
 });
 
 it('admin store rejects an invalid limit_type enum value', function () {

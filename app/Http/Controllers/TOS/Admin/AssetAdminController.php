@@ -49,8 +49,9 @@ class AssetAdminController extends Controller
     {
         $data = $request->validated();
         $imagePath = $this->storeTosImage($request->file('image_path'), 'tos/assets');
+        $backImagePath = $this->storeTosImage($request->file('back_image_path'), 'tos/assets');
 
-        $asset = DB::transaction(function () use ($data, $imagePath) {
+        $asset = DB::transaction(function () use ($data, $imagePath, $backImagePath) {
             $asset = Asset::create([
                 'name' => $data['name'],
                 'scrip_cost' => $data['scrip_cost'],
@@ -58,6 +59,7 @@ class AssetAdminController extends Controller
                 'scrap_count' => $data['scrap_count'] ?? null,
                 'body' => $data['body'] ?? null,
                 'image_path' => $imagePath,
+                'back_image_path' => $backImagePath,
                 'sort_order' => $data['sort_order'] ?? 0,
             ]);
 
@@ -80,7 +82,13 @@ class AssetAdminController extends Controller
             $newImagePath = $this->storeTosImage($request->file('image_path'), 'tos/assets');
         }
 
-        DB::transaction(function () use ($asset, $data, $request, $newImagePath) {
+        $newBackImagePath = null;
+        if ($request->hasFile('back_image_path')) {
+            $this->deleteTosImage($asset->back_image_path);
+            $newBackImagePath = $this->storeTosImage($request->file('back_image_path'), 'tos/assets');
+        }
+
+        DB::transaction(function () use ($asset, $data, $request, $newImagePath, $newBackImagePath) {
             $payload = [
                 'name' => $data['name'],
                 'scrip_cost' => $data['scrip_cost'],
@@ -91,6 +99,9 @@ class AssetAdminController extends Controller
             ];
             if ($request->hasFile('image_path')) {
                 $payload['image_path'] = $newImagePath;
+            }
+            if ($request->hasFile('back_image_path')) {
+                $payload['back_image_path'] = $newBackImagePath;
             }
 
             $asset->update($payload);

@@ -29,6 +29,7 @@ interface AssetRow {
     scrap_count: number | null;
     body: string | null;
     image_path: string | null;
+    back_image_path: string | null;
     sort_order: number;
     allegiances: Array<{ id: number }>;
     abilities: Array<{ id: number }>;
@@ -62,6 +63,7 @@ const formInfo = ref({
     scrap_count: null as number | null,
     body: null as string | null,
     image_path: null as File | null,
+    back_image_path: null as File | null,
     sort_order: 0 as number,
     allegiance_ids: [] as string[],
     ability_ids: [] as string[],
@@ -71,6 +73,12 @@ const formInfo = ref({
 
 const existingImage = computed<string | null>(() => {
     const path = props.asset?.image_path;
+    if (!path) return null;
+    return path.startsWith('/') || path.startsWith('http') ? path : `/storage/${path}`;
+});
+
+const existingBackImage = computed<string | null>(() => {
+    const path = props.asset?.back_image_path;
     if (!path) return null;
     return path.startsWith('/') || path.startsWith('http') ? path : `/storage/${path}`;
 });
@@ -180,6 +188,26 @@ onMounted(() => {
                         {{ existingImage ? 'Choose a new file to replace, or leave empty to keep.' : 'PNG / JPG up to 30 MB.' }}
                     </p>
                     <InputError :message="usePage().props.errors.image_path" />
+                </div>
+
+                <div class="space-y-1.5">
+                    <Label for="back_image_path">Card Back (Disabled side)</Label>
+                    <img
+                        v-if="existingBackImage"
+                        :src="existingBackImage"
+                        :alt="formInfo.name ? `${formInfo.name} (back)` : 'Current back image'"
+                        class="h-40 w-auto rounded border object-cover"
+                    />
+                    <Input
+                        id="back_image_path"
+                        type="file"
+                        accept="image/*"
+                        @input="formInfo.back_image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                    />
+                    <p class="text-[11px] text-muted-foreground">
+                        {{ existingBackImage ? 'Choose a new file to replace, or leave empty to keep.' : 'The disabled-side art shown when the card flips.' }}
+                    </p>
+                    <InputError :message="usePage().props.errors.back_image_path" />
                 </div>
 
                 <div>

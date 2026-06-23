@@ -1150,6 +1150,34 @@ const opponentReferences = computed<any>(() => opponent.value?.references ?? opp
 const toggleMyRefs = () => {};
 const toggleOpponentRefs = () => {};
 
+// ── Quick Add: attach a token to multiple of your living models at once ──
+const quickAddOpen = ref(false);
+const quickAddToken = ref<{ id: number; name: string } | null>(null);
+const quickAddMemberIds = ref<number[]>([]);
+
+const openQuickAddToken = (token: { id: number; name: string }) => {
+    quickAddToken.value = token;
+    quickAddMemberIds.value = [];
+    quickAddOpen.value = true;
+};
+
+const toggleQuickAddMember = (id: number) => {
+    const i = quickAddMemberIds.value.indexOf(id);
+    if (i === -1) quickAddMemberIds.value.push(id);
+    else quickAddMemberIds.value.splice(i, 1);
+};
+
+const submitQuickAdd = async () => {
+    if (!quickAddToken.value || quickAddMemberIds.value.length === 0) return;
+    await fetch(route('games.play.crew.tokens.bulk', props.game.uuid), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({ token_id: quickAddToken.value.id, member_ids: quickAddMemberIds.value }),
+    });
+    quickAddOpen.value = false;
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
 // ─── Leave-confirmation guard for in-progress games ───
 //
 // We use exactly two mechanisms — no more — to keep behavior predictable:
@@ -5514,7 +5542,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
-                            <CrewBuilderReferences :references="myReferences" :loading="false" compact />
+                            <CrewBuilderReferences
+                                :references="myReferences"
+                                :loading="false"
+                                compact
+                                :enable-quick-add="!isObserver"
+                                @quick-add-token="openQuickAddToken"
+                            />
                         </details>
                     </div>
 
@@ -6732,6 +6766,33 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         @toggle="toggleToken"
         @remove="removeToken"
     />
+
+    <!-- Quick Add token to multiple models -->
+    <Dialog :open="quickAddOpen" @update:open="(v) => (quickAddOpen = v)">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add “{{ quickAddToken?.name }}” to models</DialogTitle>
+                <DialogDescription>Select your living models to attach this token to.</DialogDescription>
+            </DialogHeader>
+            <div class="max-h-[50vh] space-y-1 overflow-y-auto">
+                <label
+                    v-for="m in myCrewMembers"
+                    :key="m.id"
+                    class="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                >
+                    <input type="checkbox" :checked="quickAddMemberIds.includes(m.id)" class="size-4" @change="toggleQuickAddMember(m.id)" />
+                    <span class="min-w-0 flex-1 truncate">{{ m.display_name }}</span>
+                </label>
+                <p v-if="!myCrewMembers.length" class="py-3 text-center text-xs text-muted-foreground">No living models to add to.</p>
+            </div>
+            <div class="flex justify-end gap-2">
+                <Button variant="outline" @click="quickAddOpen = false">Cancel</Button>
+                <Button :disabled="!quickAddMemberIds.length" @click="submitQuickAdd">
+                    Add to {{ quickAddMemberIds.length }} model{{ quickAddMemberIds.length === 1 ? '' : 's' }}
+                </Button>
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <!-- Complete Game Confirmation Dialog -->
     <!-- Game Settings Dialog -->

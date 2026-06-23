@@ -24,6 +24,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\LootCard;
 use App\Models\Scheme;
+use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
@@ -102,6 +103,47 @@ class GamePlayController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Quick Add: attach one token to many of the player's live crew members at
+     * once. Members are validated to belong to the player (policy) and alive.
+     */
+    public function bulkAttachToken(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+
+        $validated = $request->validate([
+            'token_id' => ['required', 'integer', 'exists:tokens,id'],
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['integer'],
+        ]);
+
+        $token = Token::findOrFail($validated['token_id']);
+
+        $members = GameCrewMember::where('game_id', $game->id)
+            ->whereIn('id', $validated['member_ids'])
+            ->where('is_killed', false)
+            ->get();
+
+        // Authorize every member up front so we never half-apply then 403.
+        foreach ($members as $member) {
+            $this->authorize('updateCrewMember', [$game, $member]);
+        }
+
+        foreach ($members as $member) {
+            $tokens = collect($member->attached_tokens ?? []);
+            if (! $tokens->contains('id', $token->id)) {
+                $tokens->push(['id' => $token->id, 'name' => $token->name]);
+                $member->update(['attached_tokens' => $tokens->values()->all()]);
+            }
+        }
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'attached' => $members->count()]);
     }
 
     public function killCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse

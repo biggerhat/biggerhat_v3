@@ -344,6 +344,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::patch('/crew/{gameCrewMember}', [GamePlayController::class, 'updateCrewMember'])->name('crew.update');
         Route::post('/crew/{gameCrewMember}/kill', [GamePlayController::class, 'killCrewMember'])->name('crew.kill');
         Route::post('/crew/{gameCrewMember}/revive', [GamePlayController::class, 'reviveCrewMember'])->name('crew.revive');
+        Route::post('/crew/tokens/bulk', [GamePlayController::class, 'bulkAttachToken'])->name('crew.tokens.bulk');
         Route::post('/crew/summon', [GamePlayController::class, 'summonCrewMember'])->name('crew.summon');
         Route::post('/crew/{gameCrewMember}/replace', [GamePlayController::class, 'replaceCrewMember'])->name('crew.replace');
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');

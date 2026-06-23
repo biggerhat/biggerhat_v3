@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\GameStatusEnum;
+use App\Enums\TokenRemovalTimingEnum;
 use App\Enums\TournamentGameResultEnum;
 use App\Events\GameCrewMemberUpdated;
 use App\Events\GameStatusChanged;
@@ -144,6 +145,79 @@ class GamePlayController extends Controller
         }
 
         return response()->json(['success' => true, 'attached' => $members->count()]);
+    }
+
+    /**
+     * Strip every `end_of_turn` token off all of the game's models. Returns the
+     * removed {member, token} pairs so the client can offer an Undo. Called from
+     * the turn-advance paths; never throws so it can't block the turn.
+     *
+     * @return array<int, array{member_id: int, member_name: string, token_id: int, token_name: string}>
+     */
+    private function removeEndOfTurnTokens(Game $game): array
+    {
+        $endOfTurnIds = Token::where('removal_timing', TokenRemovalTimingEnum::EndOfTurn)->pluck('id');
+        if ($endOfTurnIds->isEmpty()) {
+            return [];
+        }
+
+        $removed = [];
+        foreach (GameCrewMember::where('game_id', $game->id)->get() as $member) {
+            [$keep, $drop] = collect($member->attached_tokens ?? [])
+                ->partition(fn ($t) => ! $endOfTurnIds->contains($t['id'] ?? null));
+
+            if ($drop->isNotEmpty()) {
+                $member->update(['attached_tokens' => $keep->values()->all()]);
+                foreach ($drop as $t) {
+                    $removed[] = [
+                        'member_id' => $member->id,
+                        'member_name' => $member->display_name,
+                        'token_id' => (int) $t['id'],
+                        'token_name' => $t['name'] ?? '',
+                    ];
+                }
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Undo an end-of-turn removal: re-attach the given {member, token} pairs.
+     */
+    public function restoreTokens(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+
+        $validated = $request->validate([
+            'tokens' => ['required', 'array', 'min:1'],
+            'tokens.*.member_id' => ['required', 'integer'],
+            'tokens.*.token_id' => ['required', 'integer'],
+            'tokens.*.token_name' => ['nullable', 'string'],
+        ]);
+
+        $byMember = collect($validated['tokens'])->groupBy('member_id');
+        $members = GameCrewMember::where('game_id', $game->id)
+            ->whereIn('id', $byMember->keys())
+            ->get();
+
+        foreach ($members as $member) {
+            $this->authorize('updateCrewMember', [$game, $member]);
+
+            $tokens = collect($member->attached_tokens ?? []);
+            foreach ($byMember[$member->id] as $t) {
+                if (! $tokens->contains('id', (int) $t['token_id'])) {
+                    $tokens->push(['id' => (int) $t['token_id'], 'name' => $t['token_name'] ?? '']);
+                }
+            }
+            $member->update(['attached_tokens' => $tokens->values()->all()]);
+        }
+
+        if (! $game->is_solo || $game->is_observable) {
+            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function killCrewMember(Game $game, GameCrewMember $gameCrewMember): JsonResponse
@@ -673,8 +747,9 @@ class GamePlayController extends Controller
             }
 
             $locked->increment('current_turn');
+            $removed = $this->removeEndOfTurnTokens($locked);
 
-            return ['game_complete' => false, 'current_turn' => $locked->current_turn];
+            return ['game_complete' => false, 'current_turn' => $locked->current_turn, 'removed_tokens' => $removed];
         });
 
         if (! $game->is_solo || $game->is_observable) {
@@ -927,6 +1002,7 @@ class GamePlayController extends Controller
                 ->where('game_player_id', $player->id)
                 ->update(['is_activated' => false]);
 
+            $removed = [];
             $bothDone = $locked->players()->where('is_turn_complete', true)->count() === 2;
             if ($bothDone) {
                 if ($locked->current_turn >= $locked->max_turns) {
@@ -938,9 +1014,10 @@ class GamePlayController extends Controller
 
                 $locked->increment('current_turn');
                 $locked->players()->update(['is_turn_complete' => false]);
+                $removed = $this->removeEndOfTurnTokens($locked);
             }
 
-            return ['both_done' => $bothDone, 'game_complete' => false];
+            return ['both_done' => $bothDone, 'game_complete' => false, 'removed_tokens' => $removed];
         });
 
         if (! empty($result['already_finalized'])) {
@@ -962,7 +1039,11 @@ class GamePlayController extends Controller
 
         broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
 
-        return response()->json(['success' => true, 'both_done' => $result['both_done']]);
+        return response()->json([
+            'success' => true,
+            'both_done' => $result['both_done'],
+            'removed_tokens' => $result['removed_tokens'] ?? [],
+        ]);
     }
 
     public function markComplete(Game $game): JsonResponse

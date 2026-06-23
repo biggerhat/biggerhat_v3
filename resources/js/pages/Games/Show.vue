@@ -1466,7 +1466,8 @@ const advanceBonanzaTurn = async () => {
         });
         if (!ok) return;
     }
-    postPlay(route('games.play.bonanza_next_turn', props.game.uuid));
+    const data = await postPlay(route('games.play.bonanza_next_turn', props.game.uuid));
+    showEndOfTurnUndoToast(data?.removed_tokens);
 };
 
 // ── Bonanza Loot Deck ──────────────────────────────────────────────────────
@@ -1831,10 +1832,46 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
             showError(err.error ?? 'Action failed. Please try again.');
             return;
         }
+        const data = await res.json().catch(() => ({}));
         router.reload({ only: ['game'], preserveScroll: true });
+        return data;
     } catch {
         showError('Network error. Please check your connection.');
     }
+};
+
+// ── Auto-removed end-of-turn tokens: surface an Undo toast ──
+interface RemovedToken {
+    member_id: number;
+    member_name: string;
+    token_id: number;
+    token_name: string;
+}
+
+const restoreEndOfTurnTokens = async (removed: RemovedToken[]) => {
+    await fetch(route('games.play.crew.tokens.restore', props.game.uuid), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({
+            tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
+        }),
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const showEndOfTurnUndoToast = (removed?: RemovedToken[]) => {
+    if (!removed?.length) return;
+    const counts = removed.reduce<Record<string, number>>((acc, r) => {
+        acc[r.token_name] = (acc[r.token_name] ?? 0) + 1;
+        return acc;
+    }, {});
+    const summary = Object.entries(counts)
+        .map(([name, n]) => (n > 1 ? `${name} ×${n}` : name))
+        .join(', ');
+    toast.warning('End-of-turn tokens removed', {
+        description: summary,
+        action: { label: 'Undo', onClick: () => restoreEndOfTurnTokens(removed) },
+    });
 };
 
 // Per-member AbortController for health PATCHes. Each click aborts any
@@ -2267,6 +2304,7 @@ const submitTurnScore = async () => {
               }
             : null;
 
+    let turnData: { removed_tokens?: RemovedToken[] } = {};
     try {
         const res = await fetch(route('games.play.turns.store', props.game.uuid), {
             method: 'POST',
@@ -2283,6 +2321,8 @@ const submitTurnScore = async () => {
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             console.error('Turn submit failed:', res.status, err);
+        } else {
+            turnData = await res.json().catch(() => ({}));
         }
     } catch (e) {
         console.error('Turn submit error:', e);
@@ -2298,6 +2338,7 @@ const submitTurnScore = async () => {
         preserveState: true,
         preserveScroll: true,
     });
+    showEndOfTurnUndoToast(turnData?.removed_tokens);
 };
 
 // Confirmation dialog for Submit Turn — users were locking in the wrong

@@ -83,6 +83,11 @@ class AllegianceController extends Controller
 
             if ($specialRule !== null && $specialRule !== '') {
                 $query->whereHas('specialUnitRules', fn ($q) => $q->where('slug', $specialRule));
+                // Commanders have their own section — exclude them from the
+                // Champion filter even though every Commander is also a Champion.
+                if ($specialRule === 'champion') {
+                    $query->whereDoesntHave('specialUnitRules', fn ($q) => $q->where('slug', 'commander'));
+                }
             }
 
             $units = $query->orderBy($sort, $direction)->orderBy('name')->get();
@@ -184,6 +189,11 @@ class AllegianceController extends Controller
 
             if ($specialRule !== null && $specialRule !== '') {
                 $query->whereHas('specialUnitRules', fn ($q) => $q->where('slug', $specialRule));
+                // Commanders have their own section — exclude them from the
+                // Champion filter even though every Commander is also a Champion.
+                if ($specialRule === 'champion') {
+                    $query->whereDoesntHave('specialUnitRules', fn ($q) => $q->where('slug', 'commander'));
+                }
             }
 
             $units = $query->orderBy($sort, $direction)->orderBy('name')->get();

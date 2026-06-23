@@ -6,6 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BiggerHat v3 is a Wyrd Games database and tool suite covering **two sibling game systems**: **Malifaux** and **The Other Side (TOS)**. Built with Laravel 12 + Vue 3 + Inertia.js. The active game system is resolved per-request and surfaced as `currentGameSystem` on shared Inertia data; a mode switcher in the header lets users flip between games.
 
+## Feature reference docs
+
+Before exploring a feature, read its map in [`docs/features/`](docs/features/) —
+file locations, models/enums, conventions, and gotchas (saves re-discovery):
+- [game-tracker.md](docs/features/game-tracker.md) — live play tracker (`Games/Show.vue` is ~6.7k lines; grep, don't read whole)
+- [tournament-tracker.md](docs/features/tournament-tracker.md) — Swiss rounds, standings, game-tracker hybrid
+- [malifaux-database.md](docs/features/malifaux-database.md) — characters/abilities/actions/etc. browse + admin
+- [tos-database.md](docs/features/tos-database.md) — TOS browse + Company Builder (see also [docs/tos-conventions.md](docs/tos-conventions.md))
+- [bonanza-loot.md](docs/features/bonanza-loot.md) — loot deck, Browsershot print PDF (hash-busted cache), tracker mode
+- [crew-builder.md](docs/features/crew-builder.md) — `CrewBuild` + references payload
+- [custom-card-creator.md](docs/features/custom-card-creator.md) — homebrew cards, client-side render
+- [campaign-mode.md](docs/features/campaign-mode.md) — feature-flagged multi-week campaign
+- [lore-linking.md](docs/features/lore-linking.md) — Lore ↔ Characters/TOS Units pivots
+- [aethervox-channels.md](docs/features/aethervox-channels.md) — "Across the Aethervox" channels/transmissions
+
+Shared gotchas: SSR is enabled (tests don't catch SSR-path 500s); the
+`M4E-Symbols` font + `GameText.tagToIconType` is the canonical game-text
+token→icon map; TOS images + the Bonanza deck PDF are cached.
+
 ## Development Commands
 
 ```bash

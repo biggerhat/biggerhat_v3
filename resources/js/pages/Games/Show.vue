@@ -557,6 +557,13 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 'tokens',
                 'character_upgrades',
                 'all_markers',
+                // Bonanza props are status-gated (populate only at in_progress),
+                // and the master-submit step is what flips Bonanza to in_progress
+                // — so they must reload here or the loot-deck Select button and
+                // crew cards stay empty until a manual refresh.
+                'starting_crews',
+                'loot_card_catalog',
+                'bonanza_crew_upgrades',
             ],
             preserveScroll: true,
             preserveState: true,
@@ -5499,7 +5506,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </button>
                             </div>
                         </div>
-                        <Button v-if="!isObserver" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(1)">
+                        <Button v-if="!isObserver && !isBonanza" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(1)">
                             <Plus class="size-3" /> Summon
                         </Button>
                         <!-- Crew References -->
@@ -5945,9 +5952,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </button>
                             </div>
                         </div>
-                        <!-- Solo: summon for opponent -->
+                        <!-- Solo: summon for opponent (not in Bonanza — solo-vs-loot, no summoning) -->
                         <Button
-                            v-if="isSolo && !isObserver && opponentCrewMembers.length"
+                            v-if="isSolo && !isObserver && !isBonanza && opponentCrewMembers.length"
                             variant="outline"
                             size="sm"
                             class="mt-2 w-full gap-1 text-xs"

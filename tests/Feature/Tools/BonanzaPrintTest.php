@@ -5,8 +5,9 @@ use Illuminate\Support\Facades\Storage;
 
 it('serves the cached print PDF without re-rendering', function () {
     Storage::fake('public');
-    // Pre-seed the cache so the controller streams it instead of invoking Chrome.
-    Storage::disk('public')->put(BonanzaDeckPdfGenerator::PATH, '%PDF-1.4 fake');
+    // Pre-seed the cache (at the template-hashed path) so the controller
+    // streams it instead of invoking Chrome.
+    Storage::disk('public')->put(app(BonanzaDeckPdfGenerator::class)->cachePath(), '%PDF-1.4 fake');
 
     $resp = $this->get(route('tools.bonanza_loot_deck.print'));
 

@@ -38,6 +38,11 @@ class UnitController extends Controller
 
         if ($rule !== null && $rule !== '') {
             $query->whereHas('specialUnitRules', fn ($q) => $q->where('slug', $rule));
+            // Commanders have their own listing — exclude them from the
+            // Champion filter even though every Commander is also a Champion.
+            if ($rule === 'champion') {
+                $query->whereDoesntHave('specialUnitRules', fn ($q) => $q->where('slug', 'commander'));
+            }
         }
 
         if ($nameSearch) {

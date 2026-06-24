@@ -391,11 +391,7 @@ const saveScenarioFromDrawer = async () => {
         deployment: editDeployment.value || null,
         scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
     };
-    const savePromise = fetch(route('games.scenario.update', props.game.uuid), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify(body),
-    }).then((res) => {
+    const savePromise = gameApi.put(route('games.scenario.update', props.game.uuid), body).then((res) => {
         if (!res.ok) throw new Error(`status ${res.status}`);
         return res;
     });
@@ -415,16 +411,13 @@ const saveScenarioFromDrawer = async () => {
     }
 };
 
-// Re-roll the scenario (deployment/strategy/scheme pool). Uses raw fetch + an
+// Re-roll the scenario (deployment/strategy/scheme pool). Uses gameApi + an
 // explicit router.reload — same pattern as saveScenarioFromDrawer — because
 // `router.post` to a same-page redirect was not consistently re-pulling the
 // `game` / `schemes` / `deployment` props, leaving the UI stale even though
 // the DB had been updated.
 const regenerateScenario = async () => {
-    const regenPromise = fetch(route('games.scenario.regenerate', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeaders() },
-    }).then((res) => {
+    const regenPromise = gameApi.post(route('games.scenario.regenerate', props.game.uuid)).then((res) => {
         if (!res.ok) throw new Error(`status ${res.status}`);
         return res;
     });
@@ -533,11 +526,7 @@ const confirmPendingScheme = async () => {
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
     submitting.value = true;
     try {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify(body),
-        });
+        const res = await gameApi.post(endpoint, body);
         if (!res.ok) {
             console.error('Setup failed:', res.status);
             submitting.value = false;
@@ -784,11 +773,7 @@ const skipOpponentCrew = async () => {
     if (titleId) {
         const title = opponentTitleOptions.value.find((t: any) => t.id === titleId);
         if (title) {
-            await fetch(route('games.setup.master', props.game.uuid), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-                body: JSON.stringify({ master_name: title.display_name, slot: opponentSlot.value }),
-            });
+            await gameApi.post(route('games.setup.master', props.game.uuid), { master_name: title.display_name, slot: opponentSlot.value });
         }
     }
     postSetup(route('games.setup.crew.skip', props.game.uuid), {});
@@ -874,14 +859,9 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
         if (identifiedSchemeId) {
             payload.identified_scheme_id = identifiedSchemeId;
         }
-        const res = await fetch(route('games.play.turns.store', props.game.uuid), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify(payload),
-        });
+        const res = await gameApi.post(route('games.play.turns.store', props.game.uuid), payload);
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            console.error('Opponent turn submit failed:', res.status, err);
+            console.error('Opponent turn submit failed:', res.status, res.data);
         }
     } catch (e) {
         console.error('Opponent turn submit error:', e);
@@ -1122,10 +1102,7 @@ watch(gameSettingsOpen, (open) => {
 const expandedTurn = ref<number | null>(null);
 const executeAbandon = async () => {
     abandonDialogOpen.value = false;
-    await fetch(route('games.abandon', props.game.uuid), {
-        method: 'POST',
-        headers: { ...csrfHeaders(), Accept: 'application/json' },
-    });
+    await gameApi.post(route('games.abandon', props.game.uuid));
     router.visit(route('games.index'));
 };
 
@@ -1334,17 +1311,13 @@ let schemeNotesDebounce: ReturnType<typeof setTimeout>;
 const saveSchemeNotes = () => {
     clearTimeout(schemeNotesDebounce);
     schemeNotesDebounce = setTimeout(() => {
-        fetch(route('games.play.scheme-notes', props.game.uuid), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify({
-                scheme_notes: {
-                    note: schemeNote.value || null,
-                    selected_model: schemeSelectedModel.value || null,
-                    selected_marker: schemeSelectedMarker.value || null,
-                    terrain_note: schemeTerrainNote.value || null,
-                },
-            }),
+        gameApi.patch(route('games.play.scheme-notes', props.game.uuid), {
+            scheme_notes: {
+                note: schemeNote.value || null,
+                selected_model: schemeSelectedModel.value || null,
+                selected_marker: schemeSelectedMarker.value || null,
+                terrain_note: schemeTerrainNote.value || null,
+            },
         });
     }, 800);
 };
@@ -1508,16 +1481,12 @@ const attachableMembers = computed<any[]>(() => {
 
 const drawLoot = async () => {
     try {
-        const res = await fetch(route('games.play.loot.draw', props.game.uuid), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        });
+        const res = await gameApi.post(route('games.play.loot.draw', props.game.uuid));
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(err.error ?? 'Could not draw a loot card.');
+            showError((res.data.error as string) ?? 'Could not draw a loot card.');
             return;
         }
-        const data = await res.json();
+        const data = res.data as any;
         // Open the side-picker; pre-select the only living member if just one.
         lootSidePicker.value = { type: 'attach', card: data.card };
         const candidates = attachableMembers.value;
@@ -1814,15 +1783,11 @@ const showError = (msg: string) => toast.error(msg);
 
 const postPlay = async (url: string, method: string = 'POST', body?: Record<string, unknown>) => {
     try {
-        const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', ...csrfHeaders() } };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(err.error ?? 'Action failed. Please try again.');
+        const { ok, data } = method === 'PATCH' ? await gameApi.patch(url, body) : await gameApi.post(url, body);
+        if (!ok) {
+            showError((data.error as string) ?? 'Action failed. Please try again.');
             return;
         }
-        const data = await res.json().catch(() => ({}));
         router.reload({ only: ['game'], preserveScroll: true });
         return data;
     } catch {
@@ -1889,6 +1854,8 @@ const setHealth = (member: CrewMember, target: number) => {
     const controller = new AbortController();
     healthAborts.set(member.id, controller);
 
+    // Stays on raw fetch (not gameApi): rapid HP taps abort the in-flight
+    // request via controller.signal, which gameApi.patch doesn't model.
     fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
@@ -1936,10 +1903,8 @@ const toggleActivated = async (member: any) => {
     const oldValue = member.is_activated;
     // Optimistic update for instant UI feedback
     member.is_activated = !member.is_activated;
-    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ is_activated: member.is_activated }),
+    const res = await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
+        is_activated: member.is_activated,
     });
     if (!res.ok) {
         member.is_activated = oldValue;
@@ -1970,17 +1935,14 @@ const killMember = async (member: any) => {
     member.is_killed = true;
     member.current_health = 0;
 
-    const res = await fetch(route('games.play.crew.kill', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'POST',
-        headers: { ...csrfHeaders(), Accept: 'application/json' },
-    });
+    const res = await gameApi.post(route('games.play.crew.kill', { game: props.game.uuid, gameCrewMember: member.id }));
     if (!res.ok) {
         member.is_killed = false;
         member.current_health = prevHealth;
         router.reload({ only: ['game'], preserveScroll: true });
         return;
     }
-    const data = await res.json().catch(() => ({}));
+    const data = res.data as any;
 
     if (data.replacements?.length) {
         const isMyMember = myPlayer.value?.crew_members?.some((m: any) => m.id === member.id);
@@ -2030,14 +1992,9 @@ const confirmReplaceOnDeath = async () => {
                 is_activated: replaceOnDeathWasActivated.value,
             };
             if (isSolo.value) body.slot = replaceOnDeathSlot.value;
-            const res = await fetch(route('games.play.crew.summon', props.game.uuid), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...csrfHeaders(), Accept: 'application/json' },
-                body: JSON.stringify(body),
-            });
+            const res = await gameApi.post(route('games.play.crew.summon', props.game.uuid), body);
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                if (err.at_limit) {
+                if (res.data.at_limit) {
                     hitLimit = true;
                     break;
                 }
@@ -2250,18 +2207,13 @@ const submitEditTurn = async () => {
     if (!editTurnTarget.value) return;
     editTurnSubmitting.value = true;
     try {
-        const res = await fetch(route('games.play.turns.edit', { game: props.game.uuid, turn: editTurnTarget.value.turnId }), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify({
-                strategy_points: editTurnStrategy.value,
-                scheme_points: editTurnScheme.value,
-                ...(isSolo.value ? { slot: editTurnTarget.value.slot } : {}),
-            }),
+        const res = await gameApi.patch(route('games.play.turns.edit', { game: props.game.uuid, turn: editTurnTarget.value.turnId }), {
+            strategy_points: editTurnStrategy.value,
+            scheme_points: editTurnScheme.value,
+            ...(isSolo.value ? { slot: editTurnTarget.value.slot } : {}),
         });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(err.error ?? 'Failed to update turn score.');
+            showError((res.data.error as string) ?? 'Failed to update turn score.');
             return;
         }
         editTurnDialogOpen.value = false;
@@ -2292,23 +2244,18 @@ const submitTurnScore = async () => {
 
     let turnData: { removed_tokens?: RemovedToken[] } = {};
     try {
-        const res = await fetch(route('games.play.turns.store', props.game.uuid), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-            body: JSON.stringify({
-                strategy_points: strategyPoints.value,
-                strategy_bonus_used: strategyPoints.value === 2 || (strategyPoints.value === 1 && strategyBonusOnly.value),
-                scheme_points: schemePoints.value,
-                scheme_action: schemeAction,
-                next_scheme_id: nextSchemeId.value,
-                next_scheme_notes: nextNotes,
-            }),
+        const res = await gameApi.post<{ removed_tokens?: RemovedToken[] }>(route('games.play.turns.store', props.game.uuid), {
+            strategy_points: strategyPoints.value,
+            strategy_bonus_used: strategyPoints.value === 2 || (strategyPoints.value === 1 && strategyBonusOnly.value),
+            scheme_points: schemePoints.value,
+            scheme_action: schemeAction,
+            next_scheme_id: nextSchemeId.value,
+            next_scheme_notes: nextNotes,
         });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            console.error('Turn submit failed:', res.status, err);
+            console.error('Turn submit failed:', res.status, res.data);
         } else {
-            turnData = await res.json().catch(() => ({}));
+            turnData = res.data;
         }
     } catch (e) {
         console.error('Turn submit error:', e);
@@ -2345,20 +2292,12 @@ const markGameComplete = async () => {
         if (result === 'cancel') return;
         if (oppIdentifiedSchemeId.value) {
             // Set the identified scheme as opponent's current for final scoring
-            await fetch(route('games.setup.scheme', props.game.uuid), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-                body: JSON.stringify({ scheme_id: oppIdentifiedSchemeId.value, slot: opponentSlot.value }),
-            });
+            await gameApi.post(route('games.setup.scheme', props.game.uuid), { scheme_id: oppIdentifiedSchemeId.value, slot: opponentSlot.value });
         }
     }
 
-    const res = await fetch(route('games.play.complete', props.game.uuid), {
-        method: 'POST',
-        headers: { ...csrfHeaders(), Accept: 'application/json' },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (data.game_complete) {
+    const res = await gameApi.post(route('games.play.complete', props.game.uuid));
+    if (res.data.game_complete) {
         router.visit(route('games.show', props.game.uuid));
     } else {
         router.reload({ only: ['game'], preserveScroll: true });
@@ -2456,12 +2395,8 @@ const summonCharacter = async (characterId: number, miniatureId: number | null =
     if (miniatureId) body.miniature_id = miniatureId;
     if (isSolo.value) body.slot = summonForSlot.value;
 
-    const res = await fetch(route('games.play.crew.summon', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}) as Record<string, unknown>);
+    const res = await gameApi.post(route('games.play.crew.summon', props.game.uuid), body);
+    const data = res.data;
     summonDialogOpen.value = false;
     summonSearch.value = '';
     summonResults.value = [];
@@ -2594,13 +2529,13 @@ const onSculptChange = async (miniatureId: string) => {
     // was triggering an Inertia visit that the leave-guard / beforeunload machinery
     // could flag while a dialog was in the teardown path. Broadcast (GameCrewMemberUpdated)
     // still fires for the other player in 2P; they get updated via useGameChannel.
-    const res = await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ display_name: mini.display_name, front_image: mini.front_image, back_image: mini.back_image }),
+    const { ok } = await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
+        display_name: mini.display_name,
+        front_image: mini.front_image,
+        back_image: mini.back_image,
     });
 
-    if (!res.ok && previewMember.value) {
+    if (!ok && previewMember.value) {
         // Roll back optimistic state on failure.
         previewMember.value.front_image = prev.front_image;
         previewMember.value.back_image = prev.back_image;
@@ -2619,13 +2554,9 @@ const onCrewMemberNotesChange = async (payload: {
     // Optimistic local update so the next debounce cycle has the latest.
     previewMember.value.notes = payload.notes;
     previewMember.value.attached_upgrades = payload.attached_upgrades;
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({
-            notes: payload.notes,
-            attached_upgrades: payload.attached_upgrades,
-        }),
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: previewMember.value.id }), {
+        notes: payload.notes,
+        attached_upgrades: payload.attached_upgrades,
     });
 };
 
@@ -2658,10 +2589,8 @@ const removeTokenFromInfo = async () => {
     if (!tokenInfoMember.value || !tokenInfoData.value) return;
     const current = tokenInfoMember.value.attached_tokens ?? [];
     const updated = current.filter((t: any) => t.id !== tokenInfoData.value!.id);
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenInfoMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_tokens: updated }),
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenInfoMember.value.id }), {
+        attached_tokens: updated,
     });
     tokenInfoDrawerOpen.value = false;
     router.reload({ only: ['game'], preserveScroll: true });
@@ -2670,11 +2599,7 @@ const removeTokenFromInfo = async () => {
 const quickRemoveToken = async (member: any, tokenId: number) => {
     const current = member.attached_tokens ?? [];
     const updated = current.filter((t: any) => t.id !== tokenId);
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_tokens: updated }),
-    });
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_tokens: updated });
     router.reload({ only: ['game'], preserveScroll: true });
 };
 
@@ -2712,10 +2637,8 @@ const toggleToken = async (tokenId: number, tokenName: string) => {
     const updated = has ? current.filter((t: any) => t.id !== tokenId) : [...current, { id: tokenId, name: tokenName }];
     // Optimistic update for responsive dialog
     tokenMember.value = { ...tokenMember.value, attached_tokens: updated };
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_tokens: updated }),
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
+        attached_tokens: updated,
     });
     router.reload({ only: ['game'], preserveScroll: true });
 };
@@ -2725,10 +2648,8 @@ const removeToken = async (tokenId: number) => {
     const current = tokenMember.value.attached_tokens ?? [];
     const updated = current.filter((t: any) => t.id !== tokenId);
     tokenMember.value = { ...tokenMember.value, attached_tokens: updated };
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_tokens: updated }),
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
+        attached_tokens: updated,
     });
     router.reload({ only: ['game'], preserveScroll: true });
 };
@@ -2804,10 +2725,8 @@ const toggleUpgrade = async (upgrade: {
     }
     const updated = has ? current.filter((u: any) => u.id !== upgrade.id) : [...current, newRow];
     upgradeMember.value = { ...upgradeMember.value, attached_upgrades: updated };
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: upgradeMember.value.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_upgrades: updated }),
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: upgradeMember.value.id }), {
+        attached_upgrades: updated,
     });
     router.reload({ only: ['game'], preserveScroll: true });
 };
@@ -2818,11 +2737,7 @@ const toggleUpgrade = async (upgrade: {
 const setMemberUpgradePowerBar = async (member: any, upgradeId: number, value: number) => {
     const list: any[] = (member.attached_upgrades ?? []).map((u: any) => (u.id === upgradeId ? { ...u, current_power_bar: value } : u));
     member.attached_upgrades = list;
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_upgrades: list }),
-    });
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_upgrades: list });
 };
 
 // Lookup max power bar for a character upgrade — the catalog row is the source
@@ -2838,11 +2753,7 @@ const setCrewUpgradePowerBar = async (player: any, upgradeId: number, value: num
     player.crew_upgrade_power_bars = map;
     const body: Record<string, any> = { upgrade_id: upgradeId, current_power_bar: value };
     if (slot) body.slot = slot;
-    await fetch(route('games.play.crew-upgrade-power-bar', { game: props.game.uuid }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify(body),
-    });
+    await gameApi.patch(route('games.play.crew-upgrade-power-bar', { game: props.game.uuid }), body);
 };
 
 const crewUpgradePowerCurrent = (player: any, upgradeId: number, max: number): number => {
@@ -2855,11 +2766,7 @@ const crewUpgradePowerCurrent = (player: any, upgradeId: number, max: number): n
 const quickRemoveUpgrade = async (member: any, upgradeId: number) => {
     const updated = (member.attached_upgrades ?? []).filter((u: any) => u.id !== upgradeId);
     member.attached_upgrades = updated;
-    await fetch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ attached_upgrades: updated }),
-    });
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_upgrades: updated });
     router.reload({ only: ['game'], preserveScroll: true });
 };
 

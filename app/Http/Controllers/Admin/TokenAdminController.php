@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\TokenRemovalTimingEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
 use App\Models\Token;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TokenAdminController extends Controller
 {
@@ -36,6 +38,8 @@ class TokenAdminController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'removal_timing' => ['nullable', Rule::enum(TokenRemovalTimingEnum::class)],
+            'is_general' => ['boolean'],
             'characters' => ['nullable', 'array'],
             'upgrades' => ['nullable', 'array'],
         ]);
@@ -58,6 +62,8 @@ class TokenAdminController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'removal_timing' => ['nullable', Rule::enum(TokenRemovalTimingEnum::class)],
+            'is_general' => ['boolean'],
             'characters' => ['nullable', 'array'],
             'upgrades' => ['nullable', 'array'],
         ]);
@@ -86,6 +92,7 @@ class TokenAdminController extends Controller
         return [
             'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
             'all_upgrades' => fn () => Upgrade::orderBy('name')->toSelectOptions('name', 'slug'),
+            'removal_timing_options' => TokenRemovalTimingEnum::toSelectOptions(),
         ];
     }
 }

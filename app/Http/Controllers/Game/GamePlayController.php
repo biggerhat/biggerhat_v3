@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\GameStatusEnum;
+use App\Enums\TokenRemovalTimingEnum;
 use App\Enums\TournamentGameResultEnum;
 use App\Events\GameCrewMemberUpdated;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -24,6 +26,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\LootCard;
 use App\Models\Scheme;
+use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +37,8 @@ use Illuminate\Support\Facades\DB;
 
 class GamePlayController extends Controller
 {
+    use BroadcastsGameEvents;
+
     private function assertInProgress(Game $game): void
     {
         if ($game->status !== GameStatusEnum::InProgress) {
@@ -97,9 +102,117 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update($validated);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Quick Add: attach one token to many of the player's live crew members at
+     * once. Members are validated to belong to the player (policy) and alive.
+     */
+    public function bulkAttachToken(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+
+        $validated = $request->validate([
+            'token_id' => ['required', 'integer', 'exists:tokens,id'],
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['integer'],
+        ]);
+
+        $token = Token::findOrFail($validated['token_id']);
+
+        $members = GameCrewMember::where('game_id', $game->id)
+            ->whereIn('id', $validated['member_ids'])
+            ->where('is_killed', false)
+            ->get();
+
+        // Authorize every member up front so we never half-apply then 403.
+        foreach ($members as $member) {
+            $this->authorize('updateCrewMember', [$game, $member]);
         }
+
+        foreach ($members as $member) {
+            $tokens = collect($member->attached_tokens ?? []);
+            if (! $tokens->contains('id', $token->id)) {
+                $tokens->push(['id' => $token->id, 'name' => $token->name]);
+                $member->update(['attached_tokens' => $tokens->values()->all()]);
+            }
+        }
+
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
+
+        return response()->json(['success' => true, 'attached' => $members->count()]);
+    }
+
+    /**
+     * Strip every `end_of_turn` token off all of the game's models. Returns the
+     * removed {member, token} pairs so the client can offer an Undo. Called from
+     * the turn-advance paths; never throws so it can't block the turn.
+     *
+     * @return array<int, array{member_id: int, member_name: string, token_id: int, token_name: string}>
+     */
+    private function removeEndOfTurnTokens(Game $game): array
+    {
+        $endOfTurnIds = Token::where('removal_timing', TokenRemovalTimingEnum::EndOfTurn)->pluck('id');
+        if ($endOfTurnIds->isEmpty()) {
+            return [];
+        }
+
+        $removed = [];
+        foreach (GameCrewMember::where('game_id', $game->id)->get() as $member) {
+            [$keep, $drop] = collect($member->attached_tokens ?? [])
+                ->partition(fn ($t) => ! $endOfTurnIds->contains($t['id'] ?? null));
+
+            if ($drop->isNotEmpty()) {
+                $member->update(['attached_tokens' => $keep->values()->all()]);
+                foreach ($drop as $t) {
+                    $removed[] = [
+                        'member_id' => $member->id,
+                        'member_name' => $member->display_name,
+                        'token_id' => (int) $t['id'],
+                        'token_name' => $t['name'] ?? '',
+                    ];
+                }
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Undo an end-of-turn removal: re-attach the given {member, token} pairs.
+     */
+    public function restoreTokens(Request $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+
+        $validated = $request->validate([
+            'tokens' => ['required', 'array', 'min:1'],
+            'tokens.*.member_id' => ['required', 'integer'],
+            'tokens.*.token_id' => ['required', 'integer'],
+            'tokens.*.token_name' => ['nullable', 'string'],
+        ]);
+
+        $byMember = collect($validated['tokens'])->groupBy('member_id');
+        $members = GameCrewMember::where('game_id', $game->id)
+            ->whereIn('id', $byMember->keys())
+            ->get();
+
+        foreach ($members as $member) {
+            $this->authorize('updateCrewMember', [$game, $member]);
+
+            $tokens = collect($member->attached_tokens ?? []);
+            foreach ($byMember[$member->id] as $t) {
+                if (! $tokens->contains('id', (int) $t['token_id'])) {
+                    $tokens->push(['id' => (int) $t['token_id'], 'name' => $t['token_name'] ?? '']);
+                }
+            }
+            $member->update(['attached_tokens' => $tokens->values()->all()]);
+        }
+
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true]);
     }
@@ -125,9 +238,7 @@ class GamePlayController extends Controller
             $gameCrewMember->update(['is_killed' => true, 'current_health' => 0]);
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'killed'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'killed'));
 
         // Check for replaces_on_death (quick existence check before eager loading)
         $replacements = [];
@@ -174,9 +285,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update(['is_killed' => false, 'current_health' => $gameCrewMember->max_health]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'revived'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'revived'));
 
         return response()->json(['success' => true]);
     }
@@ -279,9 +388,7 @@ class GamePlayController extends Controller
 
         $member = $result['member'];
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'summoned'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'summoned'));
 
         return response()->json(['success' => true, 'member_id' => $member->id]);
     }
@@ -322,9 +429,7 @@ class GamePlayController extends Controller
             'attached_markers' => [],
         ]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'replaced'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'replaced'));
 
         return back();
     }
@@ -378,9 +483,7 @@ class GamePlayController extends Controller
 
         $player->update(['active_crew_upgrade_id' => $validated['active_crew_upgrade_id']]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true]);
     }
@@ -418,9 +521,7 @@ class GamePlayController extends Controller
         $bars[(string) $upgrade->id] = $clamped;
         $player->update(['crew_upgrade_power_bars' => $bars]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true, 'current_power_bar' => $clamped]);
     }
@@ -433,9 +534,7 @@ class GamePlayController extends Controller
         $validated = $request->validated();
         $player->update(['soulstone_pool' => $validated['soulstone_pool']]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'soulstone_pool'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'soulstone_pool'));
 
         return response()->json(['success' => true]);
     }
@@ -467,9 +566,7 @@ class GamePlayController extends Controller
         $next = max(0, $player->total_points + (int) $validated['delta']);
         $player->update(['total_points' => $next]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'bonanza_vp'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'bonanza_vp'));
 
         return response()->json(['success' => true, 'total_points' => $next]);
     }
@@ -492,9 +589,7 @@ class GamePlayController extends Controller
             'sideBTriggers',
         ]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_drawn'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_drawn'));
 
         return response()->json([
             'success' => true,
@@ -528,9 +623,7 @@ class GamePlayController extends Controller
 
         $service->attachToMember($member, $card, $validated['side']);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_attached'));
 
         return response()->json([
             'success' => true,
@@ -556,9 +649,7 @@ class GamePlayController extends Controller
         $card = LootCard::findOrFail($validated['loot_card_id']);
         app(LootDeckService::class)->attachToMember($member, $card, $validated['side']);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_attached'));
 
         return response()->json(['success' => true]);
     }
@@ -582,9 +673,7 @@ class GamePlayController extends Controller
             return response()->json(['error' => 'Loot marker not found.'], 404);
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_yoinked'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_yoinked'));
 
         return response()->json(['success' => true, 'card_id' => $card->id]);
     }
@@ -631,8 +720,9 @@ class GamePlayController extends Controller
             }
 
             $locked->increment('current_turn');
+            $removed = $this->removeEndOfTurnTokens($locked);
 
-            return ['game_complete' => false, 'current_turn' => $locked->current_turn];
+            return ['game_complete' => false, 'current_turn' => $locked->current_turn, 'removed_tokens' => $removed];
         });
 
         if (! $game->is_solo || $game->is_observable) {
@@ -735,9 +825,7 @@ class GamePlayController extends Controller
 
         $this->syncToTournamentGame($game->fresh()->load('players.master'));
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameTurnAdvanced($game->fresh()));
 
         return response()->json(['success' => true, 'total_points' => $player->fresh()->total_points]);
     }
@@ -885,6 +973,7 @@ class GamePlayController extends Controller
                 ->where('game_player_id', $player->id)
                 ->update(['is_activated' => false]);
 
+            $removed = [];
             $bothDone = $locked->players()->where('is_turn_complete', true)->count() === 2;
             if ($bothDone) {
                 if ($locked->current_turn >= $locked->max_turns) {
@@ -896,9 +985,10 @@ class GamePlayController extends Controller
 
                 $locked->increment('current_turn');
                 $locked->players()->update(['is_turn_complete' => false]);
+                $removed = $this->removeEndOfTurnTokens($locked);
             }
 
-            return ['both_done' => $bothDone, 'game_complete' => false];
+            return ['both_done' => $bothDone, 'game_complete' => false, 'removed_tokens' => $removed];
         });
 
         if (! empty($result['already_finalized'])) {
@@ -920,7 +1010,11 @@ class GamePlayController extends Controller
 
         broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
 
-        return response()->json(['success' => true, 'both_done' => $result['both_done']]);
+        return response()->json([
+            'success' => true,
+            'both_done' => $result['both_done'],
+            'removed_tokens' => $result['removed_tokens'] ?? [],
+        ]);
     }
 
     public function markComplete(Game $game): JsonResponse
@@ -974,9 +1068,7 @@ class GamePlayController extends Controller
 
         $player->update(['is_game_complete' => false]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'cancel_complete'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'cancel_complete'));
 
         return back();
     }

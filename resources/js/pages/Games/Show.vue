@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { useGameChannel } from '@/composables/useGameChannel';
+import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
@@ -336,6 +337,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage<SharedData>();
+const gameApi = useGameApi();
 const currentUserId = computed(() => page.props.auth.user?.id);
 const myPlayer = computed(() => {
     if (props.is_observer) return props.game.players.find((p) => p.slot === 1);
@@ -530,15 +532,6 @@ const confirmPendingScheme = async () => {
     });
     pendingSchemeId.value = null;
 };
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-
-const csrfHeaders = (): Record<string, string> => {
-    // Prefer the XSRF-TOKEN cookie (stays in sync with session across partial reloads) over the meta tag
-    const cookie = document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='));
-    if (cookie) return { 'X-XSRF-TOKEN': decodeURIComponent(cookie.split('=')[1]) };
-    return { 'X-CSRF-TOKEN': csrfToken() };
-};
-
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
     submitting.value = true;
     try {
@@ -1139,28 +1132,43 @@ const executeAbandon = async () => {
 };
 
 // ─── Crew References ───
-const myReferences = ref<any>(null);
-const opponentReferences = ref<any>(null);
+// References are reactive: the server augments each player's references with
+// general + Strategy tokens and the player's LIVE crew members (so summoned/
+// added models bring their tokens in — dynamic, never removed). Prefer
+// player.references; crew_build.references is the fallback for older payloads.
+const myReferences = computed<any>(() => myPlayer.value?.references ?? myPlayer.value?.crew_build?.references ?? null);
+const opponentReferences = computed<any>(() => opponent.value?.references ?? opponent.value?.crew_build?.references ?? null);
 
-const loadReferences = (target: 'my' | 'opponent') => {
-    const refs = target === 'my' ? myReferences : opponentReferences;
-    if (refs.value) return;
-    const player = target === 'my' ? myPlayer.value : opponent.value;
-    // Bonanza/crew-skipped players have no crew_build — the server attaches
-    // derived references directly on the player instead.
-    refs.value = player?.crew_build?.references ?? player?.references ?? null;
+// Kept as no-ops for the <details> @toggle bindings — references load reactively.
+const toggleMyRefs = () => {};
+const toggleOpponentRefs = () => {};
+
+// ── Quick Add: attach a token to multiple of your living models at once ──
+const quickAddOpen = ref(false);
+const quickAddToken = ref<{ id: number; name: string } | null>(null);
+const quickAddMemberIds = ref<number[]>([]);
+
+const openQuickAddToken = (token: { id: number; name: string }) => {
+    quickAddToken.value = token;
+    quickAddMemberIds.value = [];
+    quickAddOpen.value = true;
 };
 
-const toggleMyRefs = () => loadReferences('my');
-const toggleOpponentRefs = () => loadReferences('opponent');
+const toggleQuickAddMember = (id: number) => {
+    const i = quickAddMemberIds.value.indexOf(id);
+    if (i === -1) quickAddMemberIds.value.push(id);
+    else quickAddMemberIds.value.splice(i, 1);
+};
 
-// Auto-load references when game is in progress
-onMounted(() => {
-    if (props.game.status === 'in_progress') {
-        toggleMyRefs();
-        toggleOpponentRefs();
-    }
-});
+const submitQuickAdd = async () => {
+    if (!quickAddToken.value || quickAddMemberIds.value.length === 0) return;
+    await gameApi.post(route('games.play.crew.tokens.bulk', props.game.uuid), {
+        token_id: quickAddToken.value.id,
+        member_ids: quickAddMemberIds.value,
+    });
+    quickAddOpen.value = false;
+    router.reload({ only: ['game'], preserveScroll: true });
+};
 
 // ─── Leave-confirmation guard for in-progress games ───
 //
@@ -1450,7 +1458,8 @@ const advanceBonanzaTurn = async () => {
         });
         if (!ok) return;
     }
-    postPlay(route('games.play.bonanza_next_turn', props.game.uuid));
+    const data = await postPlay(route('games.play.bonanza_next_turn', props.game.uuid));
+    showEndOfTurnUndoToast(data?.removed_tokens);
 };
 
 // ── Bonanza Loot Deck ──────────────────────────────────────────────────────
@@ -1677,22 +1686,47 @@ const toggleInlineCard = (memberId: number, crew: 'my' | 'opponent') => {
     }
 };
 
+// The crew (upgrade) card included in Expand All: prefer the active upgrade,
+// else the first one with card art.
+const crewUpgradeToExpand = (crew: 'my' | 'opponent'): number | null => {
+    const upgrades = crew === 'my' ? myCrewUpgrades.value : opponentCrewUpgrades.value;
+    const activeId = crew === 'my' ? myActiveUpgradeId.value : opponentActiveUpgradeId.value;
+    const withImage = upgrades.filter((u: any) => u.front_image);
+    if (!withImage.length) return null;
+    return (withImage.find((u: any) => u.id === activeId) ?? withImage[0]).id;
+};
+
 const toggleAllCards = (crew: 'my' | 'opponent') => {
     const members = crew === 'my' ? myCrewMembers : opponentCrewMembers;
     const set = crew === 'my' ? expandedMyCards : expandedOpponentCards;
+    const upgradeRef = crew === 'my' ? expandedMyCrewUpgradeId : expandedOppCrewUpgradeId;
+    const crewUpgradeId = crewUpgradeToExpand(crew);
+
     const allWithImages = members.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    const allExpanded = allWithImages.length > 0 && allWithImages.every((id: number) => set.value.has(id));
-    set.value = allExpanded ? new Set() : new Set(allWithImages);
+    const membersExpanded = allWithImages.length === 0 || allWithImages.every((id: number) => set.value.has(id));
+    const upgradeExpanded = crewUpgradeId === null || upgradeRef.value === crewUpgradeId;
+
+    if (membersExpanded && upgradeExpanded) {
+        set.value = new Set();
+        upgradeRef.value = null;
+    } else {
+        set.value = new Set(allWithImages);
+        upgradeRef.value = crewUpgradeId;
+    }
 };
 
 const allMyCardsExpanded = computed(() => {
     const ids = myCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    return ids.length > 0 && ids.every((id: number) => expandedMyCards.value.has(id));
+    const cu = crewUpgradeToExpand('my');
+    if (!ids.length && cu === null) return false;
+    return ids.every((id: number) => expandedMyCards.value.has(id)) && (cu === null || expandedMyCrewUpgradeId.value === cu);
 });
 
 const allOpponentCardsExpanded = computed(() => {
     const ids = opponentCrewMembers.value.filter((m: any) => m.front_image).map((m: any) => m.id);
-    return ids.length > 0 && ids.every((id: number) => expandedOpponentCards.value.has(id));
+    const cu = crewUpgradeToExpand('opponent');
+    if (!ids.length && cu === null) return false;
+    return ids.every((id: number) => expandedOpponentCards.value.has(id)) && (cu === null || expandedOppCrewUpgradeId.value === cu);
 });
 
 // ─── All-cards dialog (desktop wide-screen card grid) ───
@@ -1790,10 +1824,42 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
             showError(err.error ?? 'Action failed. Please try again.');
             return;
         }
+        const data = await res.json().catch(() => ({}));
         router.reload({ only: ['game'], preserveScroll: true });
+        return data;
     } catch {
         showError('Network error. Please check your connection.');
     }
+};
+
+// ── Auto-removed end-of-turn tokens: surface an Undo toast ──
+interface RemovedToken {
+    member_id: number;
+    member_name: string;
+    token_id: number;
+    token_name: string;
+}
+
+const restoreEndOfTurnTokens = async (removed: RemovedToken[]) => {
+    await gameApi.post(route('games.play.crew.tokens.restore', props.game.uuid), {
+        tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
+const showEndOfTurnUndoToast = (removed?: RemovedToken[]) => {
+    if (!removed?.length) return;
+    const counts = removed.reduce<Record<string, number>>((acc, r) => {
+        acc[r.token_name] = (acc[r.token_name] ?? 0) + 1;
+        return acc;
+    }, {});
+    const summary = Object.entries(counts)
+        .map(([name, n]) => (n > 1 ? `${name} ×${n}` : name))
+        .join(', ');
+    toast.warning('End-of-turn tokens removed', {
+        description: summary,
+        action: { label: 'Undo', onClick: () => restoreEndOfTurnTokens(removed) },
+    });
 };
 
 // Per-member AbortController for health PATCHes. Each click aborts any
@@ -2226,6 +2292,7 @@ const submitTurnScore = async () => {
               }
             : null;
 
+    let turnData: { removed_tokens?: RemovedToken[] } = {};
     try {
         const res = await fetch(route('games.play.turns.store', props.game.uuid), {
             method: 'POST',
@@ -2242,6 +2309,8 @@ const submitTurnScore = async () => {
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             console.error('Turn submit failed:', res.status, err);
+        } else {
+            turnData = await res.json().catch(() => ({}));
         }
     } catch (e) {
         console.error('Turn submit error:', e);
@@ -2257,6 +2326,7 @@ const submitTurnScore = async () => {
         preserveState: true,
         preserveScroll: true,
     });
+    showEndOfTurnUndoToast(turnData?.removed_tokens);
 };
 
 // Confirmation dialog for Submit Turn — users were locking in the wrong
@@ -4300,6 +4370,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Crew not tracked
                         </div>
                         <div v-else class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">No crew selected</div>
+
+                        <!-- Master's crew (upgrade) card — shown for both sides before turn 1. -->
+                        <div
+                            v-for="upgrade in (player.master?.crew_upgrades ?? []).filter(
+                                (u: any) => u.id === (player.active_crew_upgrade_id ?? player.crew_build?.crew_upgrade_id),
+                            )"
+                            :key="'scheme-cu-' + upgrade.id"
+                            class="mt-2"
+                        >
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Crew Card — {{ upgrade.name }}</p>
+                            <div class="max-w-[260px] [&_img]:w-full">
+                                <UpgradeFlipCard
+                                    :front-image="upgrade.front_image"
+                                    :back-image="upgrade.back_image"
+                                    :alt-text="upgrade.name"
+                                    :show-link="false"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -5526,7 +5615,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
-                            <CrewBuilderReferences :references="myReferences" :loading="false" compact />
+                            <CrewBuilderReferences
+                                :references="myReferences"
+                                :loading="false"
+                                compact
+                                :enable-quick-add="!isObserver"
+                                @quick-add-token="openQuickAddToken"
+                            />
                         </details>
                     </div>
 
@@ -6744,6 +6839,33 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         @toggle="toggleToken"
         @remove="removeToken"
     />
+
+    <!-- Quick Add token to multiple models -->
+    <Dialog :open="quickAddOpen" @update:open="(v) => (quickAddOpen = v)">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add “{{ quickAddToken?.name }}” to models</DialogTitle>
+                <DialogDescription>Select your living models to attach this token to.</DialogDescription>
+            </DialogHeader>
+            <div class="max-h-[50vh] space-y-1 overflow-y-auto">
+                <label
+                    v-for="m in myCrewMembers"
+                    :key="m.id"
+                    class="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                >
+                    <input type="checkbox" :checked="quickAddMemberIds.includes(m.id)" class="size-4" @change="toggleQuickAddMember(m.id)" />
+                    <span class="min-w-0 flex-1 truncate">{{ m.display_name }}</span>
+                </label>
+                <p v-if="!myCrewMembers.length" class="py-3 text-center text-xs text-muted-foreground">No living models to add to.</p>
+            </div>
+            <div class="flex justify-end gap-2">
+                <Button variant="outline" @click="quickAddOpen = false">Cancel</Button>
+                <Button :disabled="!quickAddMemberIds.length" @click="submitQuickAdd">
+                    Add to {{ quickAddMemberIds.length }} model{{ quickAddMemberIds.length === 1 ? '' : 's' }}
+                </Button>
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <!-- Complete Game Confirmation Dialog -->
     <!-- Game Settings Dialog -->

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,13 @@ const props = defineProps({
             return [];
         },
     },
+    all_tokens: {
+        type: Array as () => Array<{ name: string; value: number }>,
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
@@ -42,6 +50,7 @@ const formInfo = ref({
     scoring: null,
     additional_scoring: null,
     image: null,
+    token_ids: [] as Array<number | string>,
 });
 
 const submit = () => {
@@ -56,6 +65,7 @@ onMounted(() => {
     formInfo.value.rules = props.strategy?.rules ?? null;
     formInfo.value.scoring = props.strategy?.scoring ?? null;
     formInfo.value.additional_scoring = props.strategy?.additional_scoring ?? null;
+    props.strategy?.tokens?.forEach((t: any) => formInfo.value.token_ids.push(t.id));
 });
 </script>
 
@@ -102,6 +112,11 @@ onMounted(() => {
                                 </SelectContent>
                             </Select>
                             <InputError :message="usePage().props.errors.suit" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label>Tokens (introduced by this Strategy, e.g. Explosive)</Label>
+                            <SearchableMultiselect v-model="formInfo.token_ids" placeholder="Link tokens" :options="props.all_tokens" />
+                            <InputError :message="usePage().props.errors.token_ids" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="setup">Setup</Label>

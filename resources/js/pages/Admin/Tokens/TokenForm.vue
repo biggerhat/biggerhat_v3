@@ -31,11 +31,20 @@ const props = defineProps({
             return {};
         },
     },
+    removal_timing_options: {
+        type: Array as () => Array<{ name: string; value: string }>,
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
     name: null,
     description: null,
+    removal_timing: null as string | null,
+    is_general: false,
     characters: [] as string[],
     upgrades: [] as string[],
 });
@@ -47,6 +56,8 @@ const submit = () => {
 onMounted(() => {
     formInfo.value.name = props.token?.name ?? null;
     formInfo.value.description = props.token?.description ?? null;
+    formInfo.value.removal_timing = props.token?.removal_timing ?? null;
+    formInfo.value.is_general = props.token?.is_general ?? false;
 
     props.token?.characters?.forEach((c: any) => {
         formInfo.value.characters.push(c.slug);
@@ -78,6 +89,22 @@ onMounted(() => {
                             <Label for="description">Description</Label>
                             <Textarea id="description" v-model="formInfo.description" placeholder="Type the token description here." />
                             <InputError :message="usePage().props.errors.description" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="removal_timing">Auto-removal timing</Label>
+                            <select
+                                id="removal_timing"
+                                v-model="formInfo.removal_timing"
+                                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                            >
+                                <option :value="null">Persists (manual removal)</option>
+                                <option v-for="opt in props.removal_timing_options" :key="opt.value" :value="opt.value">{{ opt.name }}</option>
+                            </select>
+                            <InputError :message="usePage().props.errors.removal_timing" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input id="is_general" v-model="formInfo.is_general" type="checkbox" class="size-4 rounded border-input" />
+                            <Label for="is_general">General token — show in every crew's tracker references</Label>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <SearchableMultiselect v-model="formInfo.characters" placeholder="Linked Characters" :options="props.all_characters" />

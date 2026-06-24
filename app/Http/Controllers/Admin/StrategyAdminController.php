@@ -6,6 +6,7 @@ use App\Enums\PoolSeasonEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Strategy;
+use App\Models\Token;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Storage;
@@ -25,15 +26,17 @@ class StrategyAdminController extends Controller
         return inertia('Admin/Strategies/StrategyForm', [
             'seasons' => PoolSeasonEnum::toSelectOptions(),
             'suits' => SuitEnum::toSelectOptions(),
+            'all_tokens' => Token::orderBy('name')->toSelectOptions('name', 'id'),
         ]);
     }
 
     public function edit(Request $request, Strategy $strategy)
     {
         return inertia('Admin/Strategies/StrategyForm', [
-            'strategy' => $strategy,
+            'strategy' => $strategy->load('tokens:id'),
             'seasons' => PoolSeasonEnum::toSelectOptions(),
             'suits' => SuitEnum::toSelectOptions(),
+            'all_tokens' => Token::orderBy('name')->toSelectOptions('name', 'id'),
         ]);
     }
 
@@ -70,11 +73,16 @@ class StrategyAdminController extends Controller
             'scoring' => ['nullable', 'string'],
             'additional_scoring' => ['nullable', 'string'],
             'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
+            'token_ids' => ['nullable', 'array'],
+            'token_ids.*' => ['integer', 'exists:tokens,id'],
         ]);
+
+        $tokenIds = $validated['token_ids'] ?? [];
+        unset($validated['token_ids']);
 
         // Handle Images
         $nameSlug = Str::slug($validated['name']);
-        if ($validated['image']) {
+        if (! empty($validated['image'])) {
             $extension = $validated['image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s.%s', Str::slug($nameSlug), $uuid, $extension);
@@ -90,6 +98,8 @@ class StrategyAdminController extends Controller
         } else {
             $strategy->update($validated);
         }
+
+        $strategy->tokens()->sync($tokenIds);
 
         return $strategy;
     }

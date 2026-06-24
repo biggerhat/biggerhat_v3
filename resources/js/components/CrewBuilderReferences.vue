@@ -59,12 +59,14 @@ const props = withDefaults(
         loading: boolean;
         compact?: boolean;
         editable?: boolean;
+        enableQuickAdd?: boolean;
     }>(),
-    { compact: false, editable: false },
+    { compact: false, editable: false, enableQuickAdd: false },
 );
 
 const emit = defineEmits<{
     'add-reference': [type: 'characters' | 'upgrades' | 'markers' | 'tokens', item: any];
+    'quick-add-token': [token: ReferenceToken];
 }>();
 
 // ─── Drawers ───
@@ -286,15 +288,25 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
             <TabsContent value="tokens">
                 <div v-if="!references?.tokens.length" class="py-4 text-center text-xs text-muted-foreground">No tokens</div>
                 <div v-else class="max-h-[30vh] space-y-0.5 overflow-y-auto">
-                    <button
+                    <div
                         v-for="token in references.tokens"
                         :key="token.id"
-                        class="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-                        @click="openTextDrawer(token.name, 'Token', token.description)"
+                        class="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                     >
-                        <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ token.name }}</span>
-                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
-                    </button>
+                        <button class="flex min-w-0 flex-1 items-center gap-2 text-left" @click="openTextDrawer(token.name, 'Token', token.description)">
+                            <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ token.name }}</span>
+                            <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
+                        </button>
+                        <button
+                            v-if="enableQuickAdd"
+                            type="button"
+                            class="shrink-0 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            title="Add to models"
+                            @click.stop="emit('quick-add-token', token)"
+                        >
+                            <Plus class="size-3" />
+                        </button>
+                    </div>
                 </div>
                 <Button
                     v-if="editable"

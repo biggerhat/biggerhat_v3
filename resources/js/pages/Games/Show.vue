@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { useGameChannel } from '@/composables/useGameChannel';
+import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
@@ -336,6 +337,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage<SharedData>();
+const gameApi = useGameApi();
 const currentUserId = computed(() => page.props.auth.user?.id);
 const myPlayer = computed(() => {
     if (props.is_observer) return props.game.players.find((p) => p.slot === 1);
@@ -530,15 +532,6 @@ const confirmPendingScheme = async () => {
     });
     pendingSchemeId.value = null;
 };
-const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-
-const csrfHeaders = (): Record<string, string> => {
-    // Prefer the XSRF-TOKEN cookie (stays in sync with session across partial reloads) over the meta tag
-    const cookie = document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='));
-    if (cookie) return { 'X-XSRF-TOKEN': decodeURIComponent(cookie.split('=')[1]) };
-    return { 'X-CSRF-TOKEN': csrfToken() };
-};
-
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
     submitting.value = true;
     try {
@@ -1169,10 +1162,9 @@ const toggleQuickAddMember = (id: number) => {
 
 const submitQuickAdd = async () => {
     if (!quickAddToken.value || quickAddMemberIds.value.length === 0) return;
-    await fetch(route('games.play.crew.tokens.bulk', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({ token_id: quickAddToken.value.id, member_ids: quickAddMemberIds.value }),
+    await gameApi.post(route('games.play.crew.tokens.bulk', props.game.uuid), {
+        token_id: quickAddToken.value.id,
+        member_ids: quickAddMemberIds.value,
     });
     quickAddOpen.value = false;
     router.reload({ only: ['game'], preserveScroll: true });
@@ -1849,12 +1841,8 @@ interface RemovedToken {
 }
 
 const restoreEndOfTurnTokens = async (removed: RemovedToken[]) => {
-    await fetch(route('games.play.crew.tokens.restore', props.game.uuid), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-        body: JSON.stringify({
-            tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
-        }),
+    await gameApi.post(route('games.play.crew.tokens.restore', props.game.uuid), {
+        tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
     });
     router.reload({ only: ['game'], preserveScroll: true });
 };

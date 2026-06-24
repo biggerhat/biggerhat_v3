@@ -33,11 +33,12 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
-import { useGameChannel } from '@/composables/useGameChannel';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
+import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
+import { GAME_FINISHED_STATUSES, GAME_SETUP_STATUSES, GameFormat, GameStatus } from '@/types/game';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
@@ -237,13 +238,13 @@ interface GameData {
     id: number;
     uuid: string;
     name: string | null;
-    status: string;
+    status: GameStatus;
     creator_id: number;
     encounter_size: number;
     season: string;
-    /** 'standard' | 'bonanza_brawl'. Drives whether the scenario panel renders,
-     *  whether SchemeSelect fires, and whether the manual-VP widget shows. */
-    format: string;
+    /** Drives whether the scenario panel renders, whether SchemeSelect fires,
+     *  and whether the manual-VP widget shows. See {@link GameFormat}. */
+    format: GameFormat;
     /** Bonanza per-game loot deck state. Null on standard-format games. */
     loot_state: {
         deck: number[];
@@ -354,7 +355,7 @@ const isObserver = computed(() => props.is_observer);
 // Bonanza Brawl: 11ss single-model FFA, no scenario, manual VP. Used to gate
 // the standard-format scenario panel + the per-turn scheme/strategy scoring
 // widgets, and to show a rules-summary banner on the gameplay surface.
-const isBonanza = computed(() => props.game.format === 'bonanza_brawl');
+const isBonanza = computed(() => props.game.format === GameFormat.BonanzaBrawl);
 // Resolve the actual slot numbers rather than hardcoding 1/2 — solo games
 // created from a tournament round can place the registered user in slot 2
 // (see TournamentTrackerGameFactory::createForGame), which breaks anything
@@ -366,10 +367,7 @@ const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id ==
 
 // Scenario editing
 const isCreator = computed(() => currentUserId.value === props.game.creator_id);
-const canEditScenario = computed(() => {
-    const editableStatuses = ['setup', 'faction_select', 'master_select', 'crew_select', 'scheme_select'];
-    return editableStatuses.includes(props.game.status) && isCreator.value;
-});
+const canEditScenario = computed(() => GAME_SETUP_STATUSES.includes(props.game.status) && isCreator.value);
 const editScenarioOpen = ref(false);
 const editStrategy = ref<string>(String(props.game.strategy?.id ?? ''));
 const editDeployment = ref<string>(props.deployment?.value ?? '');
@@ -978,9 +976,9 @@ const isOpponentSetupPhase = computed(() => {
     // their own setup, so we never enter the opponent-half of any phase.
     if (isBonanza.value) return false;
     const status = props.game.status;
-    if (status === 'faction_select') return myStepDone('faction') && !opponentStepDone('faction');
-    if (status === 'master_select') return myStepDone('master') && !opponentStepDone('master');
-    if (status === 'crew_select') return myStepDone('crew') && !opponentStepDone('crew');
+    if (status === GameStatus.FactionSelect) return myStepDone('faction') && !opponentStepDone('faction');
+    if (status === GameStatus.MasterSelect) return myStepDone('master') && !opponentStepDone('master');
+    if (status === GameStatus.CrewSelect) return myStepDone('crew') && !opponentStepDone('crew');
     return false;
 });
 
@@ -991,7 +989,7 @@ let turnBannerTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
     () => props.game.current_turn,
     (turn) => {
-        if (props.game.status === 'in_progress' && turn > lastSeenTurn.value) {
+        if (props.game.status === GameStatus.InProgress && turn > lastSeenTurn.value) {
             lastSeenTurn.value = turn;
             turnBanner.value = true;
             if (turnBannerTimer) clearTimeout(turnBannerTimer);
@@ -1190,7 +1188,7 @@ const confirmLeaveOpen = ref(false);
 const pendingNavigation = ref<null | (() => void)>(null);
 let inertiaBeforeRemover: (() => void) | null = null;
 
-const isGameInProgress = computed(() => props.game.status === 'in_progress');
+const isGameInProgress = computed(() => props.game.status === GameStatus.InProgress);
 
 const handleBeforeUnload = (e: BeforeUnloadEvent) => {
     if (!isGameInProgress.value) return;
@@ -1503,9 +1501,9 @@ const lootCardSuitIcon = (suit: string | null | undefined): string | null => {
 // `any` for crew-member computeds, and we follow that pattern.
 const attachableMembers = computed<any[]>(() => {
     if (isSolo.value) {
-        return props.game.players.flatMap((p) => p.crew_members ?? []).filter((m: any) => !m.is_killed);
+        return props.game.players.flatMap((p) => p.crew_members ?? []).filter((m) => !m.is_killed);
     }
-    return (myPlayer.value?.crew_members ?? []).filter((m: any) => !m.is_killed);
+    return (myPlayer.value?.crew_members ?? []).filter((m) => !m.is_killed);
 });
 
 const drawLoot = async () => {
@@ -1655,10 +1653,10 @@ const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     postPlay(route('games.play.crew-upgrade', props.game.uuid), 'PATCH', payload);
 };
 
-const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
-const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
-const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => !m.is_killed) ?? []);
-const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m: any) => m.is_killed) ?? []);
+const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => m.is_killed) ?? []);
+const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m) => m.is_killed) ?? []);
 
 // Inline card preview — track expanded members per crew via Set
 const expandedMyCards = ref(new Set<number>());
@@ -2908,21 +2906,21 @@ const stepLabels: Record<string, string> = { faction: 'Faction', master: 'Master
 // short step name and used elsewhere for the breadcrumb dots.
 const observerSetupLabel = computed(() => {
     switch (props.game.status) {
-        case 'setup':
+        case GameStatus.Setup:
             return 'Waiting for opponent';
-        case 'faction_select':
+        case GameStatus.FactionSelect:
             return 'Selecting Factions';
-        case 'master_select':
+        case GameStatus.MasterSelect:
             return 'Selecting Masters';
-        case 'crew_select':
+        case GameStatus.CrewSelect:
             return 'Building Crews';
-        case 'scheme_select':
+        case GameStatus.SchemeSelect:
             return 'Selecting Schemes';
         default:
             return 'Game Setup';
     }
 });
-const statusOrder = ['faction_select', 'master_select', 'crew_select', 'scheme_select', 'in_progress'];
+const statusOrder = [GameStatus.FactionSelect, GameStatus.MasterSelect, GameStatus.CrewSelect, GameStatus.SchemeSelect, GameStatus.InProgress];
 const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > statusOrder.indexOf(step + '_select');
 </script>
 
@@ -2934,11 +2932,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             `Game - ${game.encounter_size}ss`
         "
         :description="`${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''} · ${
-            game.status === 'completed'
+            game.status === GameStatus.Completed
                 ? 'Completed'
-                : game.status === 'abandoned'
+                : game.status === GameStatus.Abandoned
                   ? 'Abandoned'
-                  : game.status === 'in_progress'
+                  : game.status === GameStatus.InProgress
                     ? 'In progress'
                     : 'Setup'
         }`"
@@ -3042,7 +3040,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                  most-common Bonanza VP events. Negative values floor at 0
                  server-side. -->
             <Card
-                v-if="isBonanza && game.status === 'in_progress' && !isObserver"
+                v-if="isBonanza && game.status === GameStatus.InProgress && !isObserver"
                 class="mb-4 border-purple-500/30 bg-purple-500/5 dark:bg-purple-500/10"
             >
                 <CardContent class="flex flex-wrap items-center gap-3 p-3">
@@ -3089,7 +3087,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                  dropped marker list (with Yoink). The Dealer normally manages
                  the deck off-table, but this panel lets a solo or remote player
                  run it through the tracker. -->
-            <Card v-if="isBonanza && game.status === 'in_progress'" class="mb-4 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
+            <Card v-if="isBonanza && game.status === GameStatus.InProgress" class="mb-4 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
                 <CardContent class="flex flex-col gap-3 p-3">
                     <div class="flex flex-wrap items-center gap-3">
                         <div class="flex items-center gap-2">
@@ -3276,14 +3274,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Dialog>
 
             <!-- Game Header (hidden during gameplay — info is in the Game tab) -->
-            <div v-if="game.status !== 'in_progress'" class="mb-6 flex flex-wrap items-center gap-3">
+            <div v-if="game.status !== GameStatus.InProgress" class="mb-6 flex flex-wrap items-center gap-3">
                 <Swords class="size-6 text-primary" />
                 <h1 class="text-xl font-bold">{{ game.name || game.encounter_size + 'ss Encounter' }}</h1>
                 <Badge variant="secondary" class="text-xs">{{ game.season_label }}</Badge>
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
                 <Badge
-                    v-if="game.is_observable && game.status !== 'completed' && game.status !== 'abandoned'"
+                    v-if="game.is_observable && !GAME_FINISHED_STATUSES.includes(game.status)"
                     variant="outline"
                     class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400"
                     >Public</Badge
@@ -3302,7 +3300,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- Scenario (hidden during gameplay and completed; Bonanza Brawl
                  has no scenario at all) -->
-            <div v-if="!isBonanza && game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6">
+            <div v-if="!isBonanza && game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
                 <!-- Mobile: compact text rows -->
                 <div class="space-y-1.5 sm:hidden">
                     <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
@@ -3409,10 +3407,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- Players (hidden during gameplay — shown in Game tab) -->
-            <h3 v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-3 text-lg font-semibold">
+            <h3 v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-3 text-lg font-semibold">
                 Players
             </h3>
-            <Card v-if="game.status !== 'in_progress' && game.status !== 'completed' && game.status !== 'abandoned'" class="mb-6">
+            <Card v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
                 <CardContent class="p-4 sm:p-6">
                     <!-- Bonanza is personal-tracking only — slot 2 is inert, so the
                          player grid drops to a single column showing just the user. -->
@@ -3438,9 +3436,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <!-- Solo opponent: editable name -->
-                                    <template
-                                        v-if="isSolo && !isObserver && !player.user && game.status !== 'completed' && game.status !== 'abandoned'"
-                                    >
+                                    <template v-if="isSolo && !isObserver && !player.user && !GAME_FINISHED_STATUSES.includes(game.status)">
                                         <template v-if="editingOpponentName">
                                             <Input
                                                 v-model="opponentNameInput"
@@ -3468,9 +3464,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         v-if="
                                             isSolo ||
                                             player.user?.id === currentUserId ||
-                                            game.status === 'scheme_select' ||
-                                            game.status === 'in_progress' ||
-                                            game.status === 'completed'
+                                            game.status === GameStatus.SchemeSelect ||
+                                            game.status === GameStatus.InProgress ||
+                                            game.status === GameStatus.Completed
                                         "
                                     >
                                         {{ player.master_name }}
@@ -3479,7 +3475,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         {{ player.master_name.split(',')[0] }}
                                     </template>
                                 </div>
-                                <div v-if="game.status === 'in_progress' || game.status === 'completed'" class="mt-1 text-sm font-bold">
+                                <div
+                                    v-if="game.status === GameStatus.InProgress || game.status === GameStatus.Completed"
+                                    class="mt-1 text-sm font-bold"
+                                >
                                     {{ player.total_points }} VP
                                 </div>
                             </div>
@@ -3488,10 +3487,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                     <!-- Solo: swap roles button (suppressed in Bonanza — no opponent
                          to swap with in the personal-tracker mode). -->
-                    <div
-                        v-if="isSolo && !isBonanza && !isObserver && game.status !== 'completed' && game.status !== 'abandoned'"
-                        class="mt-3 flex justify-center"
-                    >
+                    <div v-if="isSolo && !isBonanza && !isObserver && !GAME_FINISHED_STATUSES.includes(game.status)" class="mt-3 flex justify-center">
                         <Button variant="ghost" size="sm" class="gap-1.5 text-xs text-muted-foreground" @click="swapRoles">
                             <RotateCcw class="size-3" />
                             Swap Attacker / Defender
@@ -3537,7 +3533,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- ═══ LOBBY ═══ -->
-            <template v-if="game.status === 'setup' && !isSolo && !isObserver">
+            <template v-if="game.status === GameStatus.Setup && !isSolo && !isObserver">
                 <Card v-if="isCreator" class="mb-6">
                     <CardContent class="p-4 sm:p-6">
                         <h2 class="mb-3 font-semibold">Invite Opponent</h2>
@@ -3567,10 +3563,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                  interactive lobby/faction/master/crew/scheme pickers so
                  spectators can't see (or click) buttons that aren't theirs
                  to use. -->
-            <Card
-                v-if="isObserver && ['setup', 'faction_select', 'master_select', 'crew_select', 'scheme_select'].includes(game.status)"
-                class="mb-6 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5"
-            >
+            <Card v-if="isObserver && GAME_SETUP_STATUSES.includes(game.status)" class="mb-6 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5">
                 <CardContent class="p-4 text-center sm:p-6">
                     <Loader2 class="mx-auto mb-3 size-6 animate-spin text-muted-foreground" />
                     <h2 class="mb-1 font-semibold">{{ observerSetupLabel }}</h2>
@@ -3582,7 +3575,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ FACTION SELECT ═══ -->
             <Card
-                v-if="game.status === 'faction_select' && !isObserver"
+                v-if="game.status === GameStatus.FactionSelect && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -3688,7 +3681,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ MASTER SELECT ═══ -->
             <Card
-                v-if="game.status === 'master_select' && !isObserver"
+                v-if="game.status === GameStatus.MasterSelect && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -3896,7 +3889,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- ═══ CREW SELECT ═══ -->
             <Card
-                v-if="game.status === 'crew_select' && !isObserver"
+                v-if="game.status === GameStatus.CrewSelect && !isObserver"
                 class="mb-6"
                 :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
             >
@@ -4222,7 +4215,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ SCHEME SELECT ═══ -->
-            <template v-if="game.status === 'scheme_select' && !isObserver">
+            <template v-if="game.status === GameStatus.SchemeSelect && !isObserver">
                 <Card class="mb-6">
                     <CardContent class="p-4 sm:p-6">
                         <h2 class="mb-1 font-semibold">Select Your Scheme</h2>
@@ -4379,7 +4372,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             :key="'scheme-cu-' + upgrade.id"
                             class="mt-2"
                         >
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Crew Card — {{ upgrade.name }}</p>
+                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Crew Card — {{ upgrade.name }}
+                            </p>
                             <div class="max-w-[260px] [&_img]:w-full">
                                 <UpgradeFlipCard
                                     :front-image="upgrade.front_image"
@@ -4394,7 +4389,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </template>
 
             <!-- ═══ IN PROGRESS ═══ -->
-            <template v-if="game.status === 'in_progress'">
+            <template v-if="game.status === GameStatus.InProgress">
                 <!-- Mobile: 3-tab switcher (scenario / my crew / opponent).
                      Bonanza skips the opponent tab — the format is a personal
                      tracker so there's no opponent panel to switch to. -->
@@ -5607,7 +5602,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </button>
                             </div>
                         </div>
-                        <Button v-if="!isObserver && !isBonanza" variant="outline" size="sm" class="mt-2 w-full gap-1 text-xs" @click="openSummonForSlot(1)">
+                        <Button
+                            v-if="!isObserver && !isBonanza"
+                            variant="outline"
+                            size="sm"
+                            class="mt-2 w-full gap-1 text-xs"
+                            @click="openSummonForSlot(1)"
+                        >
                             <Plus class="size-3" /> Summon
                         </Button>
                         <!-- Crew References -->
@@ -6086,15 +6087,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </template>
 
             <!-- ═══ COMPLETED / ABANDONED ═══ -->
-            <template v-if="game.status === 'completed' || game.status === 'abandoned'">
+            <template v-if="GAME_FINISHED_STATUSES.includes(game.status)">
                 <!-- Result banner -->
                 <Card class="mb-4 overflow-hidden">
                     <CardContent class="p-0">
                         <div
                             class="px-4 py-3 text-center"
-                            :class="game.status === 'abandoned' ? 'bg-muted' : game.is_tie ? 'bg-muted' : 'bg-amber-500/10'"
+                            :class="game.status === GameStatus.Abandoned ? 'bg-muted' : game.is_tie ? 'bg-muted' : 'bg-amber-500/10'"
                         >
-                            <div v-if="game.status === 'abandoned'" class="text-lg font-bold text-muted-foreground">Game Abandoned</div>
+                            <div v-if="game.status === GameStatus.Abandoned" class="text-lg font-bold text-muted-foreground">Game Abandoned</div>
                             <div v-else-if="game.is_tie" class="text-lg font-bold">Draw!</div>
                             <div v-else-if="game.winner" class="text-lg font-bold text-amber-700 dark:text-amber-400">
                                 {{ game.winner.name }} Wins!
@@ -6136,7 +6137,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Card>
 
                 <!-- Share button -->
-                <div v-if="game.status === 'completed'" class="mb-4 flex justify-center gap-2">
+                <div v-if="game.status === GameStatus.Completed" class="mb-4 flex justify-center gap-2">
                     <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copySummaryLink">
                         <Copy class="size-3" />
                         {{ summaryLinkCopied ? 'Copied!' : 'Share Summary' }}

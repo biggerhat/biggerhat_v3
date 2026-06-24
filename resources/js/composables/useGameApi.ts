@@ -37,5 +37,6 @@ export function useGameApi() {
         csrfToken,
         post: <T = Record<string, unknown>>(url: string, body?: unknown) => request<T>(url, 'POST', body),
         patch: <T = Record<string, unknown>>(url: string, body?: unknown) => request<T>(url, 'PATCH', body),
+        put: <T = Record<string, unknown>>(url: string, body?: unknown) => request<T>(url, 'PUT', body),
     };
 }

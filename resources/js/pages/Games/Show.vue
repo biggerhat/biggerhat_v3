@@ -36,6 +36,7 @@ import { useConfirm } from '@/composables/useConfirm';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
+import { categoryColor, categoryLabel, factionBackground, playerName } from '@/lib/gameDisplay';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import { GAME_FINISHED_STATUSES, GAME_SETUP_STATUSES, GameFormat, GameStatus } from '@/types/game';
@@ -730,7 +731,6 @@ const opponentMatchingCrews = computed(() => {
     }
     return crews;
 });
-const playerName = (player: GamePlayer | undefined) => player?.user?.name ?? player?.opponent_name ?? 'Opponent';
 
 const selectedOpponentFaction = ref<string | null>(null);
 const selectedOpponentMasterName = ref<string | null>(null);
@@ -2781,29 +2781,6 @@ const openAttachedUpgradePreview = (upgrade: any) => {
 };
 
 // Crew display helpers
-const factionBackground = (faction: string): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${faction}`;
-    }
-};
-
-const categoryLabel = (cat: string): string =>
-    ({ leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' })[cat] ?? cat;
-
-const categoryColor = (cat: string): string =>
-    ({
-        leader: 'bg-amber-400/20 text-amber-200',
-        totem: 'bg-purple-400/20 text-purple-200',
-        'in-keyword': 'bg-green-400/20 text-green-200',
-        versatile: 'bg-blue-400/20 text-blue-200',
-        ook: 'bg-red-400/20 text-red-200',
-    })[cat] ?? '';
 
 const setupSteps = ['faction', 'master', 'crew', 'scheme'] as const;
 const stepLabels: Record<string, string> = { faction: 'Faction', master: 'Master', crew: 'Crew', scheme: 'Scheme' };

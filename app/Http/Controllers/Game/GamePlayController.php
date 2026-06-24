@@ -10,6 +10,7 @@ use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -36,6 +37,8 @@ use Illuminate\Support\Facades\DB;
 
 class GamePlayController extends Controller
 {
+    use BroadcastsGameEvents;
+
     private function assertInProgress(Game $game): void
     {
         if ($game->status !== GameStatusEnum::InProgress) {
@@ -99,9 +102,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update($validated);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true]);
     }
@@ -140,9 +141,7 @@ class GamePlayController extends Controller
             }
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true, 'attached' => $members->count()]);
     }
@@ -213,9 +212,7 @@ class GamePlayController extends Controller
             $member->update(['attached_tokens' => $tokens->values()->all()]);
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true]);
     }
@@ -241,9 +238,7 @@ class GamePlayController extends Controller
             $gameCrewMember->update(['is_killed' => true, 'current_health' => 0]);
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'killed'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'killed'));
 
         // Check for replaces_on_death (quick existence check before eager loading)
         $replacements = [];
@@ -290,9 +285,7 @@ class GamePlayController extends Controller
 
         $gameCrewMember->update(['is_killed' => false, 'current_health' => $gameCrewMember->max_health]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'revived'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'revived'));
 
         return response()->json(['success' => true]);
     }
@@ -395,9 +388,7 @@ class GamePlayController extends Controller
 
         $member = $result['member'];
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'summoned'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'summoned'));
 
         return response()->json(['success' => true, 'member_id' => $member->id]);
     }
@@ -438,9 +429,7 @@ class GamePlayController extends Controller
             'attached_markers' => [],
         ]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'replaced'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'replaced'));
 
         return back();
     }
@@ -494,9 +483,7 @@ class GamePlayController extends Controller
 
         $player->update(['active_crew_upgrade_id' => $validated['active_crew_upgrade_id']]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true]);
     }
@@ -534,9 +521,7 @@ class GamePlayController extends Controller
         $bars[(string) $upgrade->id] = $clamped;
         $player->update(['crew_upgrade_power_bars' => $bars]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'updated'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
         return response()->json(['success' => true, 'current_power_bar' => $clamped]);
     }
@@ -549,9 +534,7 @@ class GamePlayController extends Controller
         $validated = $request->validated();
         $player->update(['soulstone_pool' => $validated['soulstone_pool']]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'soulstone_pool'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'soulstone_pool'));
 
         return response()->json(['success' => true]);
     }
@@ -583,9 +566,7 @@ class GamePlayController extends Controller
         $next = max(0, $player->total_points + (int) $validated['delta']);
         $player->update(['total_points' => $next]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'bonanza_vp'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'bonanza_vp'));
 
         return response()->json(['success' => true, 'total_points' => $next]);
     }
@@ -608,9 +589,7 @@ class GamePlayController extends Controller
             'sideBTriggers',
         ]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_drawn'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_drawn'));
 
         return response()->json([
             'success' => true,
@@ -644,9 +623,7 @@ class GamePlayController extends Controller
 
         $service->attachToMember($member, $card, $validated['side']);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_attached'));
 
         return response()->json([
             'success' => true,
@@ -672,9 +649,7 @@ class GamePlayController extends Controller
         $card = LootCard::findOrFail($validated['loot_card_id']);
         app(LootDeckService::class)->attachToMember($member, $card, $validated['side']);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_attached'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_attached'));
 
         return response()->json(['success' => true]);
     }
@@ -698,9 +673,7 @@ class GamePlayController extends Controller
             return response()->json(['error' => 'Loot marker not found.'], 404);
         }
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'loot_yoinked'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_yoinked'));
 
         return response()->json(['success' => true, 'card_id' => $card->id]);
     }
@@ -852,9 +825,7 @@ class GamePlayController extends Controller
 
         $this->syncToTournamentGame($game->fresh()->load('players.master'));
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameTurnAdvanced($game->fresh()));
 
         return response()->json(['success' => true, 'total_points' => $player->fresh()->total_points]);
     }
@@ -1097,9 +1068,7 @@ class GamePlayController extends Controller
 
         $player->update(['is_game_complete' => false]);
 
-        if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameCrewMemberUpdated($game, 'cancel_complete'))->toOthers();
-        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'cancel_complete'));
 
         return back();
     }

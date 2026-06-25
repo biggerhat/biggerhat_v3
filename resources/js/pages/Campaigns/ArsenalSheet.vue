@@ -157,15 +157,24 @@ interface EquipmentItem {
     br: number | null;
 }
 
+interface XpBox {
+    index: number;
+    filled: boolean;
+    tier: number | null;
+}
 const props = defineProps<{
     campaign: CampaignData;
     crew: CrewData;
     leader: CustomCharacterData | null;
     totem: CustomCharacterData | null;
+    leader_xp_track: XpBox[] | null;
     equipment: EquipmentItem[];
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
 }>();
+
+const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
+const xpFilled = computed(() => xpTrack.value.filter((b) => b.filled).length);
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
@@ -427,21 +436,25 @@ const totemRendererProps = computed(() => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Leadership Experience</CardTitle>
-                        <p class="text-[10px] text-muted-foreground">XP track per pg 31 — populated by Aftermath flow (Phase 9).</p>
+                        <p class="text-[10px] text-muted-foreground">
+                            XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
+                            <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
+                        </p>
                     </CardHeader>
                     <CardContent>
-                        <!-- 27-box track placeholder. Rows: 13 + 7 + 7 per the chart. -->
-                        <div class="space-y-1">
-                            <div class="grid-cols-13 grid gap-0.5">
-                                <div v-for="n in 13" :key="`r1-${n}`" class="aspect-square rounded-sm border bg-muted/30"></div>
-                            </div>
-                            <div class="grid grid-cols-7 gap-0.5">
-                                <div v-for="n in 7" :key="`r2-${n}`" class="aspect-square rounded-sm border bg-muted/30"></div>
-                            </div>
-                            <div class="grid grid-cols-7 gap-0.5">
-                                <div v-for="n in 7" :key="`r3-${n}`" class="aspect-square rounded-sm border bg-muted/30"></div>
+                        <!-- Real 39-box track from the leader's xp_track; numbered boxes are advancement tiers. -->
+                        <div v-if="xpTrack.length" class="grid-cols-13 grid gap-0.5">
+                            <div
+                                v-for="box in xpTrack"
+                                :key="box.index"
+                                class="relative flex aspect-square items-center justify-center rounded-sm border text-[8px]"
+                                :class="box.filled ? 'border-primary bg-primary/70 text-primary-foreground' : 'bg-muted/30'"
+                                :title="box.tier ? `Tier ${box.tier} advancement` : undefined"
+                            >
+                                <span v-if="box.tier" class="font-bold">{{ box.tier }}</span>
                             </div>
                         </div>
+                        <p v-else class="text-sm text-muted-foreground">No leader yet.</p>
                     </CardContent>
                 </Card>
             </div>

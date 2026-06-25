@@ -99,7 +99,7 @@ it('blocks non-owners from viewing the wizard', function () {
         ->assertForbidden();
 });
 
-it('Phase 1 draws a hand sized by withdraw flag + schemes', function () {
+it('Phase 1 records the entitled hand size (player draws their own cards)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -115,7 +115,7 @@ it('Phase 1 draws a hand sized by withdraw flag + schemes', function () {
 
     $aftermath->refresh();
     expect($aftermath->current_phase)->toBe(2);
-    expect($aftermath->hand_drawn)->toHaveCount(3); // 1 + 2 schemes
+    expect($aftermath->hand_drawn)->toBe(['size' => 3]); // 1 + 2 schemes — no cards dealt
 });
 
 it('Phase 2 Payday auto-adds scrip + advances to Barter', function () {

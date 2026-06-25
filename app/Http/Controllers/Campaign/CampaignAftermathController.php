@@ -22,7 +22,6 @@ use App\Models\CustomCharacter;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use App\Services\CampaignRules;
-use App\Services\FateDeck;
 use App\Support\Campaign\AftermathCatalog;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
@@ -117,17 +116,15 @@ class CampaignAftermathController extends Controller
             $data['schemes_completed'],
         );
 
-        $hand = [];
-        for ($i = 0; $i < $size; $i++) {
-            $hand[] = FateDeck::draw();
-        }
-
-        $advanced = $this->lockAndAdvance($aftermath, 1, function (CampaignAftermath $locked) use ($hand) {
+        // The player draws their own aftermath hand from their physical fate
+        // deck (pg 20) — we record only the entitled size so the wizard can tell
+        // them how many to draw, rather than dealing cards for them.
+        $advanced = $this->lockAndAdvance($aftermath, 1, function (CampaignAftermath $locked) use ($size) {
             if ($locked->hand_drawn) {
                 return;
             }
             $locked->update([
-                'hand_drawn' => $hand,
+                'hand_drawn' => ['size' => $size],
                 'current_phase' => 2,
             ]);
         });
@@ -137,7 +134,7 @@ class CampaignAftermathController extends Controller
         }
 
         return redirect()->route('campaigns.aftermaths.show', $aftermath)
-            ->withMessage(sprintf('Drew %d card(s). On to Payday.', $size));
+            ->withMessage(sprintf('Draw %d card(s) from your fate deck. On to Payday.', $size));
     }
 
     public function payday(Request $request, CampaignAftermath $aftermath)

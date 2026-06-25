@@ -19,7 +19,9 @@ interface AftermathData {
     campaign_game_id: number;
     campaign_crew_id: number;
     current_phase: number;
-    hand_drawn: HandCard[] | null;
+    // Only the entitled hand size — the player draws the actual cards from their
+    // own fate deck (pg 20).
+    hand_drawn: { size: number } | null;
     hand_used: HandCard[] | null;
     scrip_earned: number;
     status: string;
@@ -491,7 +493,10 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
         <Card v-if="aftermath.current_phase === 1" class="mb-4">
             <CardHeader>
                 <CardTitle>Phase 1 — Draw Aftermath Hand</CardTitle>
-                <p class="text-sm text-muted-foreground">Hand size = 1 (no withdraw) + 1 per scheme completed (cap 3, total cap 4).</p>
+                <p class="text-sm text-muted-foreground">
+                    Tells you how many cards to draw — you draw them from your own fate deck. Hand size = 1 (no withdraw) + 1 per scheme completed
+                    (cap 3, total cap 4).
+                </p>
             </CardHeader>
             <CardContent class="space-y-3">
                 <label class="flex items-start gap-2 text-sm">
@@ -505,22 +510,18 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <Label>Schemes completed (0–3)</Label>
                     <Input type="number" min="0" max="3" v-model.number="handForm.schemes_completed" />
                 </div>
-                <Button :disabled="!is_owner" @click="drawHand">Draw Hand</Button>
+                <Button :disabled="!is_owner" @click="drawHand">Confirm — draw my hand</Button>
             </CardContent>
         </Card>
 
-        <!-- Show drawn hand if past phase 1 -->
-        <Card v-if="aftermath.hand_drawn?.length" class="mb-4">
-            <CardHeader
-                ><CardTitle class="text-base">Aftermath Hand ({{ aftermath.hand_drawn.length }})</CardTitle></CardHeader
-            >
+        <!-- Reminder of the hand the player should draw (past phase 1) -->
+        <Card v-if="aftermath.hand_drawn" class="mb-4">
+            <CardHeader><CardTitle class="text-base">Aftermath Hand</CardTitle></CardHeader>
             <CardContent>
-                <div class="flex flex-wrap gap-2">
-                    <Badge v-for="(c, i) in aftermath.hand_drawn" :key="i" class="text-xs"> {{ c.value }} {{ c.suit }} </Badge>
-                </div>
-                <p class="mt-2 text-[10px] text-muted-foreground">
-                    Hand persisted server-side — fate deck does not reshuffle until Aftermath ends (pg 21).
+                <p class="text-sm">
+                    Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck to cheat barter flips.
                 </p>
+                <p class="mt-2 text-[10px] text-muted-foreground">Your fate deck does not reshuffle until the Aftermath ends (pg 21).</p>
             </CardContent>
         </Card>
 

@@ -124,6 +124,7 @@ interface CrewData {
     keyword_one: KeywordRow | null;
     keyword_two: KeywordRow | null;
     crew_card_effect: CrewCardEffectRow | null;
+    crew_card_choice: { type: string; id: number; name: string } | null;
     arsenal_models: ArsenalRow[];
 }
 
@@ -148,11 +149,20 @@ interface ViewMode {
     share_url: string;
 }
 
+interface EquipmentItem {
+    id: number;
+    source: string;
+    name: string;
+    cc: number | null;
+    br: number | null;
+}
+
 const props = defineProps<{
     campaign: CampaignData;
     crew: CrewData;
     leader: CustomCharacterData | null;
     totem: CustomCharacterData | null;
+    equipment: EquipmentItem[];
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
 }>();
@@ -376,6 +386,9 @@ const totemRendererProps = computed(() => {
                     <CardContent>
                         <div v-if="crew.crew_card_effect" class="space-y-2">
                             <p class="font-medium">{{ crew.crew_card_effect.name }}</p>
+                            <p v-if="crew.crew_card_choice" class="text-xs">
+                                <span class="font-semibold capitalize">{{ crew.crew_card_choice.type }}:</span> {{ crew.crew_card_choice.name }}
+                            </p>
                             <p v-if="crew.crew_card_effect.body" class="text-xs text-muted-foreground">
                                 <GameText :text="crew.crew_card_effect.body" />
                             </p>
@@ -431,13 +444,6 @@ const totemRendererProps = computed(() => {
                         </div>
                     </CardContent>
                 </Card>
-
-                <Card>
-                    <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
-                    <CardContent>
-                        <p class="text-sm text-muted-foreground">No equipment yet. Earned through Aftermath Barter (Phase 9).</p>
-                    </CardContent>
-                </Card>
             </div>
         </div>
 
@@ -487,6 +493,28 @@ const totemRendererProps = computed(() => {
                         Pick starting arsenal
                     </Link>
                 </p>
+            </CardContent>
+        </Card>
+
+        <!-- Equipment — listed below the models (like the crew builder) -->
+        <Card class="mt-6">
+            <CardHeader>
+                <CardTitle>Equipment ({{ equipment.length }})</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div v-if="equipment.length" class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    <div v-for="eq in equipment" :key="eq.id" class="flex items-start justify-between gap-2 rounded-md border p-3 text-sm">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-medium">{{ eq.name }}</p>
+                            <p class="text-[10px] capitalize text-muted-foreground">{{ eq.source }}</p>
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                            <Badge v-if="eq.br != null" variant="outline" class="text-[10px] tabular-nums">BR {{ eq.br }}</Badge>
+                            <Badge v-if="eq.cc != null" variant="outline" class="text-[10px] tabular-nums">{{ eq.cc }} cc</Badge>
+                        </div>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-muted-foreground">No equipment yet. Earned through Aftermath Barter.</p>
             </CardContent>
         </Card>
 

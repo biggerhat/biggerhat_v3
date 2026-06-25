@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const toast = useToast();
 
@@ -44,6 +44,15 @@ interface CrewCardEffectRow {
     actions: CrewCardLinkedItem[];
     abilities: CrewCardLinkedItem[];
 }
+interface ChoiceOption {
+    id: number;
+    name: string;
+}
+interface CrewCardChoiceOptions {
+    tokens: ChoiceOption[];
+    markers: ChoiceOption[];
+    upgrades: ChoiceOption[];
+}
 interface CrewData {
     id: number;
     share_code: string;
@@ -53,6 +62,7 @@ interface CrewData {
     keyword_2_id: number | null;
     scrip: number;
     crew_card_effect_id: number | null;
+    crew_card_choice: { type: string; id: number; name: string } | null;
 }
 interface CampaignData {
     id: number;
@@ -66,6 +76,7 @@ const props = defineProps<{
     arsenal: ArsenalRow[];
     hireable: CharRow[];
     crew_card_effects: CrewCardEffectRow[];
+    crew_card_choice_options: CrewCardChoiceOptions;
     starting_budget_ss: number;
     max_leftover_scrip: number;
     locked: boolean;
@@ -82,6 +93,28 @@ const hires = ref<Array<{ character_id: number; label: string | null; cost: numb
 );
 
 const selectedCrewCardEffectId = ref<number | null>(props.crew.crew_card_effect_id);
+
+// Crew cards that require a token/marker/upgrade choice (pg 17) surface a
+// constrained picker. Choice resets when the selected card changes.
+const selectedCrewCardChoiceId = ref<number | null>(props.crew.crew_card_choice?.id ?? null);
+const selectedCrewCard = computed(() => props.crew_card_effects.find((e) => e.id === selectedCrewCardEffectId.value) ?? null);
+const requiredChoiceType = computed<'token' | 'marker' | 'upgrade' | null>(() => {
+    const c = selectedCrewCard.value;
+    if (!c) return null;
+    if (c.requires_token_choice) return 'token';
+    if (c.requires_marker_choice) return 'marker';
+    if (c.requires_upgrade_type_choice) return 'upgrade';
+    return null;
+});
+const choiceOptions = computed<ChoiceOption[]>(() => {
+    if (requiredChoiceType.value === 'token') return props.crew_card_choice_options.tokens;
+    if (requiredChoiceType.value === 'marker') return props.crew_card_choice_options.markers;
+    if (requiredChoiceType.value === 'upgrade') return props.crew_card_choice_options.upgrades;
+    return [];
+});
+watch(selectedCrewCardEffectId, () => {
+    selectedCrewCardChoiceId.value = null;
+});
 
 const filter = ref('');
 const filteredHireable = computed(() => {
@@ -122,9 +155,17 @@ const submit = () => {
         toast.warning('Pick a Crew Card effect before saving.');
         return;
     }
+    if (requiredChoiceType.value && !selectedCrewCardChoiceId.value) {
+        toast.warning(`This crew card requires choosing a ${requiredChoiceType.value}.`);
+        return;
+    }
     router.post(route('campaigns.crews.starting-arsenal.update', [props.campaign.id, props.crew.share_code]), {
         hires: hires.value.map((h) => ({ character_id: h.character_id, label: h.label })),
         crew_card_effect_id: selectedCrewCardEffectId.value,
+        crew_card_choice:
+            requiredChoiceType.value && selectedCrewCardChoiceId.value
+                ? { type: requiredChoiceType.value, id: selectedCrewCardChoiceId.value }
+                : null,
     });
 };
 </script>
@@ -246,6 +287,25 @@ const submit = () => {
                         </button>
                     </li>
                 </ul>
+
+                <!-- Constrained pick for crew cards that require a token/marker/upgrade (pg 17). -->
+                <div v-if="requiredChoiceType" class="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <label class="text-xs font-medium">
+                        Choose a {{ requiredChoiceType }} — listed on a crew card of a master sharing your keywords
+                    </label>
+                    <select
+                        v-model.number="selectedCrewCardChoiceId"
+                        :disabled="locked"
+                        class="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                    >
+                        <option :value="null">— pick a {{ requiredChoiceType }} —</option>
+                        <option v-for="opt in choiceOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
+                    </select>
+                    <p v-if="choiceOptions.length === 0" class="mt-1 text-[11px] text-muted-foreground">
+                        No eligible {{ requiredChoiceType }}s found for your keywords.
+                    </p>
+                </div>
+
                 <p v-if="crew_card_effects.length === 0" class="text-sm text-muted-foreground">
                     No crew card effects in the catalog yet. Have an admin seed them via the Campaign admin pages.
                 </p>

@@ -210,7 +210,9 @@ class StoreLeaderRequest extends FormRequest
                 $valid = Character::query()
                     ->whereKey($characterId)
                     ->where('cost', '>=', 1)
-                    ->whereNotIn('station', [CharacterStationEnum::Master->value])
+                    // "Not a master" — Enforcers/Henchmen/Uniques carry a NULL
+                    // station; a whereNotIn drops NULLs (`NULL NOT IN (...)` ≠ true).
+                    ->where(fn ($w) => $w->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
                     ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'))
                     ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
                     ->whereHas($relation, fn ($r) => $r->whereKey($sourceId))

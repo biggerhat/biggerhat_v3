@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Campaign;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\LuckyMiss;
 use App\Services\CampaignRules;
 use Illuminate\Http\Request;
@@ -88,7 +89,7 @@ class ArsenalSheetController extends Controller
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -112,6 +113,21 @@ class ArsenalSheetController extends Controller
             ),
             'leader' => $leader,
             'totem' => $totem,
+            // The crew's earned equipment (pg 20 Barter) — attachable to any
+            // model when hiring. Shown on the arsenal sheet below the models.
+            'equipment' => CampaignEquipment::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->active()
+                ->with('catalog:id,name,campaign_cc,campaign_br')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (CampaignEquipment $e) => [
+                    'id' => $e->id,
+                    'source' => $e->source,
+                    'name' => $e->catalog->name,
+                    'cc' => $e->catalog->campaign_cc,
+                    'br' => $e->catalog->campaign_br,
+                ]),
             'campaign_rating' => [
                 'value' => $cr,
                 'equipment_count' => $equipmentCount,

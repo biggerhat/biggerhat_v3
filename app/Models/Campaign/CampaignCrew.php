@@ -64,6 +64,7 @@ class CampaignCrew extends Model
             'faction' => FactionEnum::class,
             'retired_at' => 'immutable_datetime',
             'starting_anew_at' => 'immutable_datetime',
+            'crew_card_choice' => 'array',
         ];
     }
 

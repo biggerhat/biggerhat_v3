@@ -11,6 +11,7 @@ use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Character;
 use App\Models\CrewBuild;
+use App\Models\CustomCharacter;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -181,4 +182,29 @@ it('submitCrew arsenal check is a no-op for non-campaign games', function () {
             'slot' => 1,
         ])
         ->assertOk();
+});
+
+it('Master Select for a campaign game offers the player campaign leader', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup(); // format=Campaign, CrewSelect (a master-prop status)
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-001',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'masters',
+            fn ($masters) => collect($masters)->count() === 1 && collect($masters)->first()['name'] === 'Mortimer Vance',
+        ));
 });

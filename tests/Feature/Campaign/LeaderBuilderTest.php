@@ -390,3 +390,22 @@ it('save rejects an action sourced from a master (pg 17)', function () {
 
     expect(CustomCharacter::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
 });
+
+it('leader action search includes actions from NULL-station (Unique) allies', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $kw = Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $kw->id, 'faction' => FactionEnum::Guild->value]);
+
+    // Enforcers/Henchmen/Uniques carry a NULL station (characteristics, not stations).
+    $action = Action::factory()->create(['name' => 'Heavy Swing']);
+    $enforcer = Character::factory()->create(['cost' => 8, 'station' => null, 'faction' => FactionEnum::Guild]);
+    $enforcer->keywords()->attach($kw);
+    $enforcer->actions()->attach($action);
+
+    $res = $this->actingAs($user)->getJson(
+        route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?q=Heavy&max_cost=10'
+    )->assertOk();
+
+    expect(collect($res->json())->pluck('name'))->toContain('Heavy Swing');
+});

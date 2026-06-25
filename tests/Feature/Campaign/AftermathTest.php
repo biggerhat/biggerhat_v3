@@ -99,7 +99,7 @@ it('blocks non-owners from viewing the wizard', function () {
         ->assertForbidden();
 });
 
-it('Phase 1 draws a hand sized by withdraw flag + schemes', function () {
+it('Phase 1 records the entitled hand size (player draws their own cards)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -115,7 +115,7 @@ it('Phase 1 draws a hand sized by withdraw flag + schemes', function () {
 
     $aftermath->refresh();
     expect($aftermath->current_phase)->toBe(2);
-    expect($aftermath->hand_drawn)->toHaveCount(3); // 1 + 2 schemes
+    expect($aftermath->hand_drawn)->toBe(['size' => 3]); // 1 + 2 schemes — no cards dealt
 });
 
 it('Phase 2 Payday auto-adds scrip + advances to Barter', function () {
@@ -1256,4 +1256,22 @@ it('lockAndAdvance refuses mutations once the aftermath is locked', function () 
     // Phase did not advance — barter was refused because status === 'locked'.
     expect($aftermath->fresh()->current_phase)->toBe(3);
     expect($aftermath->fresh()->status)->toBe('locked');
+});
+
+it('Phase 3 Barter can be skipped with no flip and no scrip', function () {
+    [$user, , $crew, $game] = aftermathFixture(); // crew scrip = 0
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.barter', $aftermath), ['purchases' => []])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect($crew->fresh()->scrip)->toBe(0);
+    $this->assertDatabaseCount('campaign_aftermath_barter', 0);
 });

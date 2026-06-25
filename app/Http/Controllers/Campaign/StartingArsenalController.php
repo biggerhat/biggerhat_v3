@@ -12,6 +12,7 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Character;
+use App\Models\Upgrade;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,13 +43,17 @@ class StartingArsenalController extends Controller
 
         return inertia('Campaigns/StartingArsenal', [
             'campaign' => $campaign->only(['id', 'name', 'status']),
-            'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id', 'scrip', 'crew_card_effect_id']),
+            'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id', 'scrip', 'crew_card_effect_id', 'crew_card_choice']),
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
             'crew_card_effects' => fn () => CampaignCrewCard::query()
                 ->with(['actions:id,name', 'abilities:id,name'])
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
+            // Constrained pool for crew cards that require a token/marker/upgrade
+            // choice (pg 17): items listed on a crew card belonging to a master
+            // sharing either of the crew's keywords.
+            'crew_card_choice_options' => fn () => $this->crewCardChoiceOptions($crew),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
             'locked' => $campaign->status !== CampaignStatusEnum::Planning,
@@ -119,7 +124,30 @@ class StartingArsenalController extends Controller
             ? max(0, $crew->scrip - $totalCost)
             : min(self::MAX_LEFTOVER_SCRIP, self::STARTING_BUDGET_SS - $totalCost);
 
-        DB::transaction(function () use ($crew, $hires, $data, $leftoverScrip) {
+        // Crew cards that require a token/marker/upgrade choice (pg 17) must
+        // pick one of the constrained options; cards that don't store null.
+        $crewCard = CampaignCrewCard::find($data['crew_card_effect_id']);
+        $requiredType = match (true) {
+            (bool) $crewCard?->requires_token_choice => 'token',
+            (bool) $crewCard?->requires_marker_choice => 'marker',
+            (bool) $crewCard?->requires_upgrade_type_choice => 'upgrade',
+            default => null,
+        };
+        $crewCardChoice = null;
+        if ($requiredType !== null) {
+            $options = $this->crewCardChoiceOptions($crew)[$requiredType.'s'];
+            $picked = collect($options)->firstWhere('id', $data['crew_card_choice']['id'] ?? null);
+            if (! $picked) {
+                return redirect()->back()->withMessage(
+                    'This crew card requires choosing a '.$requiredType.' from a crew card of a master sharing your keywords.',
+                    null,
+                    MessageTypeEnum::error,
+                );
+            }
+            $crewCardChoice = ['type' => $requiredType, 'id' => $picked['id'], 'name' => $picked['name']];
+        }
+
+        DB::transaction(function () use ($crew, $hires, $data, $leftoverScrip, $crewCardChoice) {
             // One-shot semantics: wipe + re-create. Players are free to
             // re-do their starting arsenal during planning. Annihilated/
             // removed rows aren't touched (annihilated_at + removed_at flags).
@@ -145,6 +173,7 @@ class StartingArsenalController extends Controller
             $crew->update([
                 'scrip' => $leftoverScrip,
                 'crew_card_effect_id' => $data['crew_card_effect_id'],
+                'crew_card_choice' => $crewCardChoice,
             ]);
         });
 
@@ -184,7 +213,10 @@ class StartingArsenalController extends Controller
             // station should appear in the starting-arsenal hireable pool.
             // Masters filter on the station column directly; totems are
             // identified by being referenced as some master's `has_totem_id`.
-            ->whereNotIn('station', [CharacterStationEnum::Master->value])
+            // "Not a master" — Enforcers/Henchmen/Uniques carry a NULL station
+            // (henchman/enforcer are characteristics, not stations), and a plain
+            // whereNotIn would drop NULLs since `NULL NOT IN (...)` is not true.
+            ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
             ->whereDoesntHave('isTotemFor')
             ->whereNotNull('cost')
             ->where('cost', '>', 0)
@@ -199,5 +231,34 @@ class StartingArsenalController extends Controller
                         });
                 });
             });
+    }
+
+    /**
+     * Tokens / markers / upgrades available to a crew-card choice (pg 17):
+     * everything listed on a crew card (a crew-domain upgrade) belonging to a
+     * master that shares one of the crew's two keywords.
+     *
+     * @return array{tokens: list<array{id:int,name:string}>, markers: list<array{id:int,name:string}>, upgrades: list<array{id:int,name:string}>}
+     */
+    private function crewCardChoiceOptions(CampaignCrew $crew): array
+    {
+        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
+        if (empty($keywordIds)) {
+            return ['tokens' => [], 'markers' => [], 'upgrades' => []];
+        }
+
+        $crewCards = Upgrade::query()
+            ->forCrews()
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->with(['tokens:id,name', 'markers:id,name'])
+            ->get(['id', 'name']);
+
+        $shape = fn ($row) => ['id' => $row->id, 'name' => $row->name];
+
+        return [
+            'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'upgrades' => $crewCards->unique('id')->sortBy('name')->map($shape)->values()->all(),
+        ];
     }
 }

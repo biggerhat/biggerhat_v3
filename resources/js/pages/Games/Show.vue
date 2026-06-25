@@ -9,11 +9,15 @@ import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog
 import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameEditScenarioDrawer from '@/components/Game/GameEditScenarioDrawer.vue';
+import GameFactionSelectPanel from '@/components/Game/GameFactionSelectPanel.vue';
 import GameLeaveDialog from '@/components/Game/GameLeaveDialog.vue';
 import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
+import GameSchemeSelectPanel from '@/components/Game/GameSchemeSelectPanel.vue';
+import GameSetupLobby from '@/components/Game/GameSetupLobby.vue';
 import GameSubmitTurnDialog from '@/components/Game/GameSubmitTurnDialog.vue';
+import GameSummaryPanel from '@/components/Game/GameSummaryPanel.vue';
 import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
@@ -36,9 +40,21 @@ import { useConfirm } from '@/composables/useConfirm';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
+import { categoryColor, categoryLabel, factionBackground, playerName } from '@/lib/gameDisplay';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
-import { GAME_FINISHED_STATUSES, GAME_SETUP_STATUSES, GameFormat, GameStatus } from '@/types/game';
+import {
+    GAME_FINISHED_STATUSES,
+    GAME_SETUP_STATUSES,
+    GameFormat,
+    GameStatus,
+    type CrewMember,
+    type DeploymentData,
+    type GameData,
+    type LootCardSummary,
+    type LootMarker,
+    type SchemeData,
+} from '@/types/game';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
@@ -62,7 +78,6 @@ import {
     Pencil,
     Plus,
     Puzzle,
-    QrCode,
     Replace,
     RotateCcw,
     Search,
@@ -77,89 +92,6 @@ import {
     X,
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-
-interface CrewMember {
-    id: number;
-    character_id: number | null;
-    display_name: string;
-    faction: string | null;
-    current_health: number;
-    max_health: number;
-    defense: number | null;
-    willpower: number | null;
-    speed: number | null;
-    size: number | null;
-    cost: number;
-    station: string | null;
-    hiring_category: string;
-    front_image: string | null;
-    back_image: string | null;
-    is_killed: boolean;
-    is_summoned: boolean;
-    is_activated: boolean;
-    is_custom: boolean;
-    attached_tokens: { id: number; name: string }[];
-    attached_upgrades: { id: number; name: string; current_power_bar?: number | null }[];
-    attached_markers: { id: number; name: string }[];
-    notes: string | null;
-    sort_order: number;
-    game_player_id: number;
-}
-
-interface CrewReferences {
-    version?: number;
-    markers?: Array<{ id: number; name: string; slug?: string; description?: string | null; base?: string | null }>;
-    tokens?: Array<{ id: number; name: string; slug?: string; description?: string | null }>;
-    upgrades?: Array<{ id: number; name: string; slug?: string; front_image?: string | null; back_image?: string | null; type?: string | null }>;
-    characters?: unknown[];
-}
-
-interface GamePlayer {
-    id: number;
-    slot: number;
-    faction: string | null;
-    master_name: string | null;
-    master_id: number | null;
-    crew_build_id: number | null;
-    crew_skipped: boolean;
-    current_scheme_id: number | null;
-    scheme_notes: { note?: string; selected_model?: string; selected_marker?: string; terrain_note?: string } | null;
-    role: string | null;
-    total_points: number;
-    soulstone_pool: number;
-    opponent_name: string | null;
-    is_turn_complete: boolean;
-    is_game_complete: boolean;
-    crew_members: CrewMember[];
-    master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
-    crew_build: { id: number; crew_upgrade_id: number | null; references?: CrewReferences } | null;
-    // Bonanza/crew-skipped players carry server-derived references here instead.
-    references?: CrewReferences;
-    active_crew_upgrade_id: number | null;
-    crew_upgrade_power_bars: Record<string, number> | null;
-    user: { id: number; name: string } | null;
-}
-
-interface SchemeData {
-    id: number;
-    name: string;
-    slug: string;
-    image_url: string | null;
-    prerequisite: string | null;
-    reveal: string | null;
-    scoring: string | null;
-    requirements: any[];
-    next_scheme_one_id: number | null;
-    next_scheme_two_id: number | null;
-    next_scheme_three_id: number | null;
-}
-
-interface DeploymentData {
-    value: string;
-    label: string;
-    description: string;
-    image_url: string | null;
-}
 
 interface FactionInfo {
     name: string;
@@ -185,7 +117,7 @@ interface MasterOption {
     titles: MasterTitle[];
 }
 
-interface CrewMember {
+interface CrewOptionMember {
     display_name: string;
     faction: string;
     cost: number;
@@ -205,65 +137,7 @@ interface CrewOption {
     soulstone_pool: number;
     ook_count: number;
     is_over_budget: boolean;
-    members: CrewMember[];
-}
-
-interface LootMarker {
-    id: string;
-    card_id: number;
-    side: 'a' | 'b';
-    dropped_by_player_id: number | null;
-}
-
-interface LootCardSummary {
-    id: number;
-    name: string;
-    title_a: string | null;
-    title_b: string | null;
-    effect_a: string | null;
-    effect_b: string | null;
-    image: string | null;
-    suit: string | null;
-    value: number | null;
-    value_label: string | null;
-    side_a_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
-    side_b_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
-    side_a_abilities: { id: number; name: string }[];
-    side_b_abilities: { id: number; name: string }[];
-    side_a_triggers: { id: number; name: string }[];
-    side_b_triggers: { id: number; name: string }[];
-}
-
-interface GameData {
-    id: number;
-    uuid: string;
-    name: string | null;
-    status: GameStatus;
-    creator_id: number;
-    encounter_size: number;
-    season: string;
-    /** Drives whether the scenario panel renders, whether SchemeSelect fires,
-     *  and whether the manual-VP widget shows. See {@link GameFormat}. */
-    format: GameFormat;
-    /** Bonanza per-game loot deck state. Null on standard-format games. */
-    loot_state: {
-        deck: number[];
-        discard: number[];
-        dropped_markers: LootMarker[];
-    } | null;
-    current_turn: number;
-    max_turns: number;
-    is_tie: boolean;
-    is_solo: boolean;
-    is_observable: boolean;
-    settings: { auto_soulstone_on_kill?: boolean } | null;
-    winner_slot: number | null;
-    strategy: { id: number; name: string; slug: string } | null;
-    players: GamePlayer[];
-    winner: { id: number; name: string } | null;
-    created_at: string;
-    started_at: string | null;
-    completed_at: string | null;
+    members: CrewOptionMember[];
 }
 
 const props = defineProps<{
@@ -448,81 +322,10 @@ const openSchemeDrawer = (scheme: SchemeData) => {
 };
 
 // Lobby
-const joinUrl = computed(() => route('games.join', props.game.uuid));
-const linkCopied = ref(false);
-const copyJoinLink = async () => {
-    await navigator.clipboard.writeText(joinUrl.value);
-    linkCopied.value = true;
-    setTimeout(() => (linkCopied.value = false), 2000);
-};
 
 // Setup submission
 const submitting = ref(false);
 
-// Scheme setup: pending selection with requirement fields
-const pendingSchemeId = ref<number | null>(null);
-const pendingSchemeModel = ref('');
-const pendingSchemeMarker = ref('');
-const pendingSchemeTerrainNote = ref('');
-const pendingScheme = computed(() => (pendingSchemeId.value ? props.schemes.find((s) => s.id === pendingSchemeId.value) : null));
-const pendingSchemeReqs = computed(() => pendingScheme.value?.requirements ?? []);
-const pendingModelReq = computed(() => pendingSchemeReqs.value.find((r: any) => r.type === 'select_model') ?? null);
-const pendingHasMarkerReq = computed(() => pendingSchemeReqs.value.some((r: any) => r.type === 'select_marker'));
-const pendingHasTerrainReq = computed(() => pendingSchemeReqs.value.some((r: any) => r.type === 'terrain_note'));
-const pendingModelLabel = computed(() => {
-    const req = pendingModelReq.value;
-    if (!req) return '';
-    const parts: string[] = [];
-    if (req.unique) parts.push('Unique');
-    parts.push(req.allegiance === 'friendly' ? 'Friendly' : 'Enemy');
-    parts.push('Model');
-    if (req.cost_operator && req.cost_value != null) parts.push(`(Cost ${req.cost_operator} ${req.cost_value})`);
-    return parts.join(' ');
-});
-const pendingModelOptions = computed(() => {
-    const req = pendingModelReq.value;
-    if (!req) return [];
-    const pool = req.allegiance === 'friendly' ? [...(myPlayer.value?.crew_members ?? [])] : [...(opponent.value?.crew_members ?? [])];
-    return pool.filter((m: any) => {
-        if (req.unique && (m.station === 'minion' || m.station === 'peon')) return false;
-        if (req.cost_operator && req.cost_value != null && m.cost != null) {
-            const cost = m.cost as number;
-            const target = req.cost_value as number;
-            if (req.cost_operator === '>' && !(cost > target)) return false;
-            if (req.cost_operator === '<' && !(cost < target)) return false;
-            if (req.cost_operator === '>=' && !(cost >= target)) return false;
-            if (req.cost_operator === '<=' && !(cost <= target)) return false;
-        }
-        return true;
-    });
-});
-const selectPendingScheme = (schemeId: number) => {
-    pendingSchemeId.value = schemeId;
-    pendingSchemeModel.value = '';
-    pendingSchemeMarker.value = '';
-    pendingSchemeTerrainNote.value = '';
-};
-const confirmPendingScheme = async () => {
-    if (!pendingSchemeId.value) return;
-    // Scheme + its notes save atomically in one setup-endpoint call. The
-    // standalone scheme-notes endpoint is in_progress-gated and can't be
-    // used pregame, so folding the notes into the scheme submit avoids a
-    // silent 422 that previously dropped the user's selections.
-    const notes: Record<string, string | null> = {
-        note: null,
-        selected_model: pendingSchemeModel.value || null,
-        selected_marker: pendingSchemeMarker.value || null,
-        terrain_note: pendingSchemeTerrainNote.value || null,
-    };
-    const hasNotes = notes.selected_model || notes.selected_marker || notes.terrain_note;
-
-    await postSetup(route('games.setup.scheme', props.game.uuid), {
-        scheme_id: pendingSchemeId.value,
-        ...(isSolo.value ? { slot: mySlot.value } : {}),
-        ...(hasNotes ? { scheme_notes: notes } : {}),
-    });
-    pendingSchemeId.value = null;
-};
 const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
     submitting.value = true;
     try {
@@ -730,7 +533,6 @@ const opponentMatchingCrews = computed(() => {
     }
     return crews;
 });
-const playerName = (player: GamePlayer | undefined) => player?.user?.name ?? player?.opponent_name ?? 'Opponent';
 
 const selectedOpponentFaction = ref<string | null>(null);
 const selectedOpponentMasterName = ref<string | null>(null);
@@ -1086,20 +888,11 @@ const openQR = (url: string, title: string) => {
     qrDialogOpen.value = true;
 };
 
-// Share summary
-const summaryLinkCopied = ref(false);
-const copySummaryLink = async () => {
-    await navigator.clipboard.writeText(route('games.summary', props.game.uuid));
-    summaryLinkCopied.value = true;
-    setTimeout(() => (summaryLinkCopied.value = false), 2000);
-};
-
 const completeDialogOpen = ref(false);
 const gameSettingsOpen = ref(false);
 watch(gameSettingsOpen, (open) => {
     if (open && spectateOn.value) generateSpectateQR();
 });
-const expandedTurn = ref<number | null>(null);
 const executeAbandon = async () => {
     abandonDialogOpen.value = false;
     await gameApi.post(route('games.abandon', props.game.uuid));
@@ -2114,13 +1907,6 @@ const allKnownSchemes = computed(() => {
 });
 const findScheme = (id: number | null | undefined) => (id ? allKnownSchemes.value.get(id) : undefined);
 
-// Summary helper: get scheme info for a turn — reads directly from stored scheme_action
-const getTurnSchemeInfo = (player: any, turnNumber: number): { schemeId: number | null; action: string | null } => {
-    const turn = (player.turns ?? []).find((t: any) => t.turn_number === turnNumber);
-    if (!turn) return { schemeId: null, action: null };
-    return { schemeId: turn.scheme_id ?? null, action: turn.scheme_action ?? null };
-};
-
 // Summary helper: find a player's turn data by turn number (avoids repeated .find() in template)
 const getPlayerTurn = (player: any, turnNumber: number) => {
     return (player.turns ?? []).find((t: any) => t.turn_number === turnNumber);
@@ -2781,29 +2567,6 @@ const openAttachedUpgradePreview = (upgrade: any) => {
 };
 
 // Crew display helpers
-const factionBackground = (faction: string): string => {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${faction}`;
-    }
-};
-
-const categoryLabel = (cat: string): string =>
-    ({ leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' })[cat] ?? cat;
-
-const categoryColor = (cat: string): string =>
-    ({
-        leader: 'bg-amber-400/20 text-amber-200',
-        totem: 'bg-purple-400/20 text-purple-200',
-        'in-keyword': 'bg-green-400/20 text-green-200',
-        versatile: 'bg-blue-400/20 text-blue-200',
-        ook: 'bg-red-400/20 text-red-200',
-    })[cat] ?? '';
 
 const setupSteps = ['faction', 'master', 'crew', 'scheme'] as const;
 const stepLabels: Record<string, string> = { faction: 'Faction', master: 'Master', crew: 'Crew', scheme: 'Scheme' };
@@ -3440,31 +3203,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- ═══ LOBBY ═══ -->
-            <template v-if="game.status === GameStatus.Setup && !isSolo && !isObserver">
-                <Card v-if="isCreator" class="mb-6">
-                    <CardContent class="p-4 sm:p-6">
-                        <h2 class="mb-3 font-semibold">Invite Opponent</h2>
-                        <p class="mb-4 text-sm text-muted-foreground">Share this link with your opponent to join the game.</p>
-                        <div class="flex items-center gap-2">
-                            <Input :model-value="joinUrl" readonly class="text-xs" />
-                            <Button variant="outline" size="sm" class="shrink-0 gap-1.5" @click="copyJoinLink">
-                                <Check v-if="linkCopied" class="size-4 text-green-500" />
-                                <Copy v-else class="size-4" />
-                                {{ linkCopied ? 'Copied' : 'Copy' }}
-                            </Button>
-                            <Button variant="outline" size="sm" class="shrink-0" @click="openQR(joinUrl, 'Join Game')">
-                                <QrCode class="size-4" />
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card v-else class="mb-6">
-                    <CardContent class="p-4 text-center sm:p-6">
-                        <Loader2 class="mx-auto mb-3 size-6 animate-spin text-muted-foreground" />
-                        <p class="text-sm text-muted-foreground">Waiting for the host to start the game...</p>
-                    </CardContent>
-                </Card>
-            </template>
+            <GameSetupLobby
+                v-if="game.status === GameStatus.Setup && !isSolo && !isObserver"
+                :game="game"
+                :is-creator="isCreator"
+                @open-qr="openQR"
+            />
 
             <!-- Observer placeholder during setup steps. Replaces the
                  interactive lobby/faction/master/crew/scheme pickers so
@@ -3481,110 +3225,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ FACTION SELECT ═══ -->
-            <Card
+            <GameFactionSelectPanel
                 v-if="game.status === GameStatus.FactionSelect && !isObserver"
-                class="mb-6"
-                :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
-            >
-                <CardContent class="p-4 sm:p-6">
-                    <!-- Solo: two-phase faction select -->
-                    <template v-if="isSolo">
-                        <template v-if="!myStepDone('faction')">
-                            <h2 class="mb-1 font-semibold">Select Your Faction</h2>
-                            <p class="mb-4 text-xs text-muted-foreground">Choose the faction you'll play this game.</p>
-                            <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
-                                <button
-                                    v-for="(faction, key) in factions"
-                                    :key="key"
-                                    class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                                    :class="selectedFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
-                                    @click="selectedFaction = key as string"
-                                >
-                                    <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                                    <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
-                                </button>
-                            </div>
-                            <div v-if="selectedFaction" class="mt-4 flex justify-center">
-                                <Button
-                                    :disabled="submitting"
-                                    @click="postSetup(route('games.setup.faction', game.uuid), { faction: selectedFaction, slot: mySlot })"
-                                >
-                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                    Confirm Faction
-                                </Button>
-                            </div>
-                        </template>
-                        <template v-else-if="!opponentStepDone('faction')">
-                            <div class="mb-3 flex items-center gap-2">
-                                <FactionLogo :faction="myPlayer!.faction!" class-name="size-6" />
-                                <Check class="size-4 text-green-500" />
-                            </div>
-                            <h2 class="mb-1 font-semibold">
-                                Select Opponent's Faction
-                                <Badge variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
-                                    >Opponent</Badge
-                                >
-                            </h2>
-                            <p class="mb-4 text-xs text-muted-foreground">Choose the faction for your opponent.</p>
-                            <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
-                                <button
-                                    v-for="(faction, key) in factions"
-                                    :key="key"
-                                    class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                                    :class="selectedOpponentFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
-                                    @click="selectedOpponentFaction = key as string"
-                                >
-                                    <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                                    <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
-                                </button>
-                            </div>
-                            <div v-if="selectedOpponentFaction" class="mt-4 flex justify-center">
-                                <Button :disabled="submitting" @click="selectOpponentFaction">
-                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                    Confirm Opponent Faction
-                                </Button>
-                            </div>
-                        </template>
-                    </template>
-
-                    <!-- Normal 2-player faction select -->
-                    <template v-else>
-                        <h2 class="mb-1 font-semibold">Select Your Faction</h2>
-                        <p v-if="myStepDone('faction')" class="mb-4 text-xs text-muted-foreground">
-                            <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
-                        </p>
-                        <p v-else class="mb-4 text-xs text-muted-foreground">Choose the faction you'll play this game.</p>
-
-                        <template v-if="!myStepDone('faction')">
-                            <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
-                                <button
-                                    v-for="(faction, key) in factions"
-                                    :key="key"
-                                    class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                                    :class="selectedFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
-                                    @click="selectedFaction = key as string"
-                                >
-                                    <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                                    <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
-                                </button>
-                            </div>
-                            <div v-if="selectedFaction" class="mt-4 flex justify-center">
-                                <Button
-                                    :disabled="submitting"
-                                    @click="postSetup(route('games.setup.faction', game.uuid), { faction: selectedFaction })"
-                                >
-                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                    Confirm Faction
-                                </Button>
-                            </div>
-                        </template>
-                        <div v-else class="flex items-center justify-center gap-2 py-4">
-                            <FactionLogo :faction="myPlayer!.faction!" class-name="size-12" />
-                            <Check class="size-5 text-green-500" />
-                        </div>
-                    </template>
-                </CardContent>
-            </Card>
+                :factions="factions"
+                :is-solo="isSolo"
+                :submitting="submitting"
+                :is-opponent-setup-phase="isOpponentSetupPhase"
+                :my-faction="myPlayer?.faction ?? null"
+                :faction-step-done="myStepDone('faction')"
+                :opponent-faction-step-done="opponentStepDone('faction')"
+                v-model:selected-faction="selectedFaction"
+                v-model:selected-opponent-faction="selectedOpponentFaction"
+                @confirm-faction="
+                    postSetup(route('games.setup.faction', game.uuid), { faction: selectedFaction, ...(isSolo ? { slot: mySlot } : {}) })
+                "
+                @confirm-opponent-faction="selectOpponentFaction"
+            />
 
             <!-- ═══ MASTER SELECT ═══ -->
             <Card
@@ -4122,178 +3778,21 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </Card>
 
             <!-- ═══ SCHEME SELECT ═══ -->
-            <template v-if="game.status === GameStatus.SchemeSelect && !isObserver">
-                <Card class="mb-6">
-                    <CardContent class="p-4 sm:p-6">
-                        <h2 class="mb-1 font-semibold">Select Your Scheme</h2>
-                        <p v-if="myStepDone('scheme') && !isSolo" class="mb-4 text-xs text-muted-foreground">
-                            <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
-                        </p>
-                        <p v-else-if="!myStepDone('scheme')" class="mb-4 text-xs text-muted-foreground">
-                            Choose one scheme from the pool for Turn 1.
-                            <template v-if="isSolo"> You can set the opponent's scheme during gameplay.</template>
-                        </p>
-
-                        <template v-if="!myStepDone('scheme')">
-                            <!-- Scheme list -->
-                            <div class="grid gap-2 sm:grid-cols-3">
-                                <div
-                                    v-for="scheme in schemes"
-                                    :key="scheme.id"
-                                    class="flex items-center gap-2 rounded-lg border p-3 transition-colors"
-                                    :class="pendingSchemeId === scheme.id ? 'border-primary bg-primary/5' : ''"
-                                >
-                                    <div class="min-w-0 flex-1">
-                                        <button class="text-sm font-medium text-primary hover:underline" @click="openSchemeDrawer(scheme)">
-                                            {{ scheme.name }}
-                                        </button>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        class="shrink-0 text-xs"
-                                        :variant="pendingSchemeId === scheme.id ? 'default' : 'outline'"
-                                        :disabled="submitting"
-                                        @click="selectPendingScheme(scheme.id)"
-                                    >
-                                        {{ pendingSchemeId === scheme.id ? 'Selected' : 'Select' }}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <!-- Requirement fields + confirm (shown when a scheme is selected) -->
-                            <div v-if="pendingScheme" class="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                                <div class="mb-2 text-sm font-medium">{{ pendingScheme.name }} — Setup</div>
-
-                                <!-- Prerequisite hint -->
-                                <div v-if="pendingScheme.prerequisite" class="mb-3 text-[11px] italic text-muted-foreground">
-                                    {{ pendingScheme.prerequisite }}
-                                </div>
-
-                                <div v-if="pendingSchemeReqs.length" class="mb-3 space-y-2">
-                                    <!-- Model selection -->
-                                    <div v-if="pendingModelReq">
-                                        <label class="text-[10px] uppercase text-muted-foreground">{{ pendingModelLabel }}</label>
-                                        <select
-                                            v-if="pendingModelOptions.length"
-                                            v-model="pendingSchemeModel"
-                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                        >
-                                            <option value="">Select...</option>
-                                            <option v-for="m in pendingModelOptions" :key="m.id" :value="m.display_name">
-                                                {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
-                                            </option>
-                                        </select>
-                                        <input
-                                            v-else
-                                            v-model="pendingSchemeModel"
-                                            type="text"
-                                            placeholder="Type model name..."
-                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                        />
-                                    </div>
-
-                                    <!-- Marker selection -->
-                                    <div v-if="pendingHasMarkerReq">
-                                        <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
-                                        <select v-model="pendingSchemeMarker" class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs">
-                                            <option value="">Select...</option>
-                                            <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Terrain note -->
-                                    <div v-if="pendingHasTerrainReq">
-                                        <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
-                                        <input
-                                            v-model="pendingSchemeTerrainNote"
-                                            type="text"
-                                            placeholder="e.g. the building on the left..."
-                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div v-else class="mb-3 text-xs text-muted-foreground">No additional selections required for this scheme.</div>
-
-                                <div class="flex items-center gap-2">
-                                    <Button size="sm" :disabled="submitting" @click="confirmPendingScheme">
-                                        <Loader2 v-if="submitting" class="mr-1.5 size-3 animate-spin" />
-                                        Confirm Scheme
-                                    </Button>
-                                    <Button size="sm" variant="ghost" @click="pendingSchemeId = null">Cancel</Button>
-                                </div>
-                            </div>
-                        </template>
-                        <div v-else class="py-4 text-center text-sm text-muted-foreground">
-                            <Check class="inline size-5 text-green-500" /> Scheme selected
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <!-- Crew lists visible during scheme select -->
-                <div class="mb-6 grid gap-4 sm:grid-cols-2">
-                    <div v-for="player in game.players" :key="'scheme-crew-' + player.id">
-                        <h3 class="mb-2 text-sm font-semibold">
-                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="mr-1 inline size-4" />
-                            {{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}
-                            <span v-if="player.master_name" class="ml-1 text-xs font-normal text-muted-foreground">— {{ player.master_name }}</span>
-                        </h3>
-                        <div v-if="player.crew_members?.length" class="space-y-0.5">
-                            <div
-                                v-for="member in player.crew_members"
-                                :key="member.id"
-                                :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
-                            >
-                                <div class="flex min-w-0 items-center gap-1.5">
-                                    <span
-                                        class="truncate font-medium"
-                                        :class="member.front_image ? 'cursor-pointer hover:underline' : ''"
-                                        @click="openMemberPreview(member)"
-                                        >{{ member.display_name }}</span
-                                    >
-                                    <Badge
-                                        v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
-                                        :class="categoryColor(member.hiring_category)"
-                                        class="shrink-0 px-1 py-0 text-[9px]"
-                                    >
-                                        {{ categoryLabel(member.hiring_category) }}
-                                    </Badge>
-                                </div>
-                                <div v-if="member.cost > 0" class="flex shrink-0 items-center font-bold">
-                                    {{ member.cost }}
-                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                </div>
-                            </div>
-                        </div>
-                        <div v-else-if="player.crew_skipped" class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-                            Crew not tracked
-                        </div>
-                        <div v-else class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">No crew selected</div>
-
-                        <!-- Master's crew (upgrade) card — shown for both sides before turn 1. -->
-                        <div
-                            v-for="upgrade in (player.master?.crew_upgrades ?? []).filter(
-                                (u: any) => u.id === (player.active_crew_upgrade_id ?? player.crew_build?.crew_upgrade_id),
-                            )"
-                            :key="'scheme-cu-' + upgrade.id"
-                            class="mt-2"
-                        >
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                Crew Card — {{ upgrade.name }}
-                            </p>
-                            <div class="max-w-[260px] [&_img]:w-full">
-                                <UpgradeFlipCard
-                                    :front-image="upgrade.front_image"
-                                    :back-image="upgrade.back_image"
-                                    :alt-text="upgrade.name"
-                                    :show-link="false"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </template>
+            <GameSchemeSelectPanel
+                v-if="game.status === GameStatus.SchemeSelect && !isObserver"
+                :game="game"
+                :schemes="schemes"
+                :all-markers="all_markers"
+                :is-solo="isSolo"
+                :my-slot="mySlot"
+                :scheme-step-done="myStepDone('scheme')"
+                :submitting="submitting"
+                :my-player="myPlayer"
+                :opponent-player="opponent"
+                @open-scheme="openSchemeDrawer"
+                @open-member-preview="openMemberPreview"
+                @confirm="(payload) => postSetup(route('games.setup.scheme', game.uuid), payload)"
+            />
 
             <!-- ═══ IN PROGRESS ═══ -->
             <template v-if="game.status === GameStatus.InProgress">
@@ -5994,512 +5493,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </template>
 
             <!-- ═══ COMPLETED / ABANDONED ═══ -->
-            <template v-if="GAME_FINISHED_STATUSES.includes(game.status)">
-                <!-- Result banner -->
-                <Card class="mb-4 overflow-hidden">
-                    <CardContent class="p-0">
-                        <div
-                            class="px-4 py-3 text-center"
-                            :class="game.status === GameStatus.Abandoned ? 'bg-muted' : game.is_tie ? 'bg-muted' : 'bg-amber-500/10'"
-                        >
-                            <div v-if="game.status === GameStatus.Abandoned" class="text-lg font-bold text-muted-foreground">Game Abandoned</div>
-                            <div v-else-if="game.is_tie" class="text-lg font-bold">Draw!</div>
-                            <div v-else-if="game.winner" class="text-lg font-bold text-amber-700 dark:text-amber-400">
-                                {{ game.winner.name }} Wins!
-                            </div>
-                            <div v-else-if="isSolo && game.winner_slot" class="text-lg font-bold text-amber-700 dark:text-amber-400">
-                                {{ game.winner_slot === 1 ? playerName(myPlayer) : playerName(opponentPlayer) }} Wins!
-                            </div>
-                        </div>
-
-                        <!-- Final scores side by side. Bonanza is single-column
-                             (only the user) and skips the Attacker/Defender role. -->
-                        <div :class="['border-t', isBonanza ? '' : 'grid grid-cols-2 divide-x']">
-                            <div
-                                v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
-                                :key="'final-' + player.id"
-                                class="p-3 text-center"
-                            >
-                                <div class="flex items-center justify-center gap-1.5">
-                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
-                                    <span class="text-xs font-medium">{{ playerName(player) }}</span>
-                                    <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-[8px] capitalize">{{
-                                        player.role
-                                    }}</Badge>
-                                </div>
-                                <div v-if="player.master_name" class="mt-0.5 text-[10px] text-muted-foreground">{{ player.master_name }}</div>
-                                <div
-                                    class="mt-1 text-2xl font-bold"
-                                    :class="
-                                        (game.winner?.id === player.user?.id && game.winner) || (isSolo && game.winner_slot === player.slot)
-                                            ? 'text-amber-600 dark:text-amber-400'
-                                            : ''
-                                    "
-                                >
-                                    {{ player.total_points }} <span class="text-sm font-normal text-muted-foreground">VP</span>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <!-- Share button -->
-                <div v-if="game.status === GameStatus.Completed" class="mb-4 flex justify-center gap-2">
-                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copySummaryLink">
-                        <Copy class="size-3" />
-                        {{ summaryLinkCopied ? 'Copied!' : 'Share Summary' }}
-                    </Button>
-                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="openQR(route('games.summary', game.uuid), 'Game Summary')">
-                        <QrCode class="size-3" />
-                        QR Code
-                    </Button>
-                </div>
-
-                <!-- Starting Crews -->
-                <div v-if="starting_crews && Object.keys(starting_crews).length" class="mb-4 grid gap-4 sm:grid-cols-2">
-                    <div v-for="player in game.players" :key="'start-crew-' + player.id">
-                        <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Starting Crew</h3>
-                        <div
-                            v-if="!starting_crews[player.slot]?.length"
-                            class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground"
-                        >
-                            No crew tracked
-                        </div>
-                        <div v-else class="space-y-0.5">
-                            <div
-                                v-for="(member, mIdx) in starting_crews[player.slot]"
-                                :key="'sc-' + player.slot + '-' + mIdx"
-                                :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
-                            >
-                                <div class="flex min-w-0 items-center gap-1.5">
-                                    <span class="truncate font-medium">{{ member.display_name }}</span>
-                                    <Badge
-                                        v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
-                                        :class="categoryColor(member.hiring_category)"
-                                        class="shrink-0 px-1 py-0 text-[9px]"
-                                    >
-                                        {{ categoryLabel(member.hiring_category) }}
-                                    </Badge>
-                                </div>
-                                <div v-if="member.cost > 0" class="flex shrink-0 items-center font-bold">
-                                    {{ member.cost }}
-                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Scoring Breakdown -->
-                <Card class="mb-4">
-                    <CardContent class="p-4">
-                        <h3 class="mb-3 text-sm font-semibold">Scoring Breakdown</h3>
-                        <div class="grid grid-cols-2 divide-x">
-                            <div v-for="player in game.players" :key="'score-bk-' + player.id" class="space-y-2 px-3 first:pl-0 last:pr-0">
-                                <div class="flex items-center gap-1.5 text-xs font-medium">
-                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3.5" />
-                                    {{ playerName(player) }}
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div class="rounded bg-muted/50 p-2 text-center">
-                                        <div class="text-lg font-bold">
-                                            {{ player.turns?.reduce((s: number, t: any) => s + (t.strategy_points ?? 0), 0) ?? 0 }}
-                                        </div>
-                                        <div class="text-[10px] text-muted-foreground">Strategy VP</div>
-                                    </div>
-                                    <div class="rounded bg-muted/50 p-2 text-center">
-                                        <div class="text-lg font-bold">
-                                            {{ player.turns?.reduce((s: number, t: any) => s + (t.scheme_points ?? 0), 0) ?? 0 }}
-                                        </div>
-                                        <div class="text-[10px] text-muted-foreground">Scheme VP</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <!-- Scheme Timeline -->
-                <Card class="mb-4">
-                    <CardContent class="p-4">
-                        <h3 class="mb-3 text-sm font-semibold">Scheme Timeline</h3>
-                        <div class="grid grid-cols-2 divide-x">
-                            <div v-for="player in game.players" :key="'scheme-tl-' + player.id" class="space-y-1.5 px-3 first:pl-0 last:pr-0">
-                                <div class="flex items-center gap-1.5 text-xs font-medium">
-                                    <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3.5" />
-                                    {{ playerName(player) }}
-                                </div>
-                                <div
-                                    v-for="turn in (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number)"
-                                    :key="'stl-' + player.id + '-' + turn.turn_number"
-                                    class="flex items-center gap-1.5 text-[11px]"
-                                >
-                                    <span class="w-5 shrink-0 text-muted-foreground">T{{ turn.turn_number }}</span>
-                                    <template v-if="turn.scheme_id && findScheme(turn.scheme_id)">
-                                        <button
-                                            class="truncate font-medium hover:text-primary"
-                                            @click="openSchemeDrawer(findScheme(turn.scheme_id)!)"
-                                        >
-                                            {{ findScheme(turn.scheme_id)?.name }}
-                                        </button>
-                                    </template>
-                                    <span v-else class="italic text-muted-foreground">Hidden</span>
-                                    <Badge
-                                        v-if="turn.scheme_action === 'scored'"
-                                        variant="outline"
-                                        class="shrink-0 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
-                                        >+{{ turn.scheme_points }}</Badge
-                                    >
-                                    <Badge
-                                        v-else-if="turn.scheme_action === 'discarded'"
-                                        variant="outline"
-                                        class="shrink-0 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
-                                        >Discarded</Badge
-                                    >
-                                    <Badge v-else-if="turn.scheme_action === 'held'" variant="outline" class="shrink-0 px-1 py-0 text-[8px]"
-                                        >Held</Badge
-                                    >
-                                </div>
-                                <div v-if="!(player.turns ?? []).length" class="text-xs text-muted-foreground">No turns recorded</div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <!-- Compact scenario rolldown -->
-                <details class="mb-4 rounded-lg border">
-                    <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
-                        Encounter Details
-                    </summary>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1 border-t px-3 py-2 text-xs">
-                        <div v-if="deployment">
-                            <span class="text-muted-foreground">Deployment:</span>
-                            <button class="ml-1 font-medium hover:text-primary" @click="deploymentDrawerOpen = true">{{ deployment.label }}</button>
-                        </div>
-                        <div v-if="deployment?.image_url" class="my-2 flex justify-center">
-                            <img :src="deployment.image_url" :alt="deployment.label" class="max-h-48 rounded-lg" loading="lazy" />
-                        </div>
-                        <div v-if="game.strategy">
-                            <span class="text-muted-foreground">Strategy:</span>
-                            <button class="ml-1 font-medium hover:text-primary" @click="strategyDrawerOpen = true">{{ game.strategy.name }}</button>
-                        </div>
-                        <div v-if="schemes.length">
-                            <span class="text-muted-foreground">Scheme Pool:</span>
-                            <span v-for="(scheme, idx) in schemes" :key="scheme.id">
-                                <span v-if="idx > 0">, </span>
-                                <button class="font-medium hover:text-primary" @click="openSchemeDrawer(scheme)">{{ scheme.name }}</button>
-                            </span>
-                        </div>
-                        <div>
-                            <span class="text-muted-foreground">Size:</span>
-                            <span class="ml-1 font-medium">{{ game.encounter_size }}ss</span>
-                        </div>
-                        <div>
-                            <span class="text-muted-foreground">Season:</span>
-                            <span class="ml-1 font-medium">{{ game.season_label }}</span>
-                        </div>
-                    </div>
-                </details>
-
-                <!-- Turn-by-turn breakdown with scheme info -->
-                <div v-if="game.players[0]?.turns?.length" class="mb-4 space-y-2">
-                    <h3 class="text-sm font-semibold">Turn-by-Turn Breakdown</h3>
-
-                    <div v-for="turn in Math.max(...game.players.map((p: any) => p.turns?.length ?? 0))" :key="'detail-' + turn">
-                        <Card class="overflow-hidden">
-                            <button
-                                class="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-muted/50"
-                                @click="expandedTurn === turn ? (expandedTurn = null) : (expandedTurn = turn)"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-semibold">Turn {{ turn }}</span>
-                                    <div class="flex items-center gap-2 text-[11px]">
-                                        <template v-for="player in game.players" :key="'tscore-' + player.id + '-' + turn">
-                                            <span class="flex items-center gap-1">
-                                                <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3" />
-                                                <span class="font-bold">
-                                                    +{{
-                                                        (getPlayerTurn(player, turn)?.strategy_points ?? 0) +
-                                                        (getPlayerTurn(player, turn)?.scheme_points ?? 0)
-                                                    }}
-                                                </span>
-                                                <span class="text-muted-foreground">
-                                                    ({{
-                                                        player.turns
-                                                            ?.filter((t: any) => t.turn_number <= turn)
-                                                            .reduce(
-                                                                (sum: number, t: any) => sum + (t.strategy_points ?? 0) + (t.scheme_points ?? 0),
-                                                                0,
-                                                            )
-                                                    }})
-                                                </span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                </div>
-                                <ChevronDown
-                                    class="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200"
-                                    :class="expandedTurn === turn ? 'rotate-180' : ''"
-                                />
-                            </button>
-
-                            <div v-if="expandedTurn === turn" class="border-t">
-                                <div class="grid grid-cols-2 divide-x">
-                                    <div v-for="player in game.players" :key="'tdetail-' + player.id + '-' + turn" class="p-3">
-                                        <div class="mb-2 flex items-center gap-1.5">
-                                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3.5" />
-                                            <span class="text-xs font-semibold">{{ playerName(player) }}</span>
-                                        </div>
-
-                                        <!-- Scores -->
-                                        <div class="space-y-0.5 text-xs">
-                                            <div class="flex justify-between">
-                                                <span class="text-muted-foreground">Strategy</span>
-                                                <span class="font-medium">+{{ getPlayerTurn(player, turn)?.strategy_points ?? 0 }}</span>
-                                            </div>
-                                            <div class="flex justify-between">
-                                                <span class="text-muted-foreground">Scheme</span>
-                                                <span class="font-medium">+{{ getPlayerTurn(player, turn)?.scheme_points ?? 0 }}</span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Scheme used this turn -->
-                                        <div
-                                            v-if="getTurnSchemeInfo(player, turn).schemeId || getTurnSchemeInfo(player, turn).action"
-                                            class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]"
-                                        >
-                                            <template v-if="getTurnSchemeInfo(player, turn).schemeId">
-                                                <span class="text-muted-foreground">Scheme:</span>
-                                                <button
-                                                    class="ml-1 font-medium hover:text-primary"
-                                                    @click="openSchemeDrawer(findScheme(getTurnSchemeInfo(player, turn).schemeId)!)"
-                                                >
-                                                    {{ findScheme(getTurnSchemeInfo(player, turn).schemeId)?.name }}
-                                                </button>
-                                            </template>
-                                            <span v-else class="text-muted-foreground">Scheme: Hidden</span>
-                                            <Badge
-                                                v-if="getTurnSchemeInfo(player, turn).action === 'held'"
-                                                variant="outline"
-                                                class="ml-1 border-blue-500/50 px-1 py-0 text-[8px] text-blue-600 dark:text-blue-400"
-                                                >Held</Badge
-                                            >
-                                            <Badge
-                                                v-if="getTurnSchemeInfo(player, turn).action === 'scored'"
-                                                variant="outline"
-                                                class="ml-1 border-green-500/50 px-1 py-0 text-[8px] text-green-600 dark:text-green-400"
-                                                >Scored</Badge
-                                            >
-                                            <Badge
-                                                v-if="getTurnSchemeInfo(player, turn).action === 'discarded'"
-                                                variant="outline"
-                                                class="ml-1 border-amber-500/50 px-1 py-0 text-[8px] text-amber-600 dark:text-amber-400"
-                                                >Discarded</Badge
-                                            >
-
-                                            <!-- Scheme notes for this turn -->
-                                            <template v-if="getPlayerTurn(player, turn)?.scheme_notes">
-                                                <div
-                                                    v-if="getPlayerTurn(player, turn).scheme_notes.selected_model"
-                                                    class="mt-1 text-muted-foreground"
-                                                >
-                                                    <span class="font-medium">Target:</span>
-                                                    {{ getPlayerTurn(player, turn).scheme_notes.selected_model }}
-                                                </div>
-                                                <div
-                                                    v-if="getPlayerTurn(player, turn).scheme_notes.selected_marker"
-                                                    class="mt-0.5 text-muted-foreground"
-                                                >
-                                                    <span class="font-medium">Marker:</span>
-                                                    {{ getPlayerTurn(player, turn).scheme_notes.selected_marker }}
-                                                </div>
-                                                <div
-                                                    v-if="getPlayerTurn(player, turn).scheme_notes.terrain_note"
-                                                    class="mt-0.5 text-muted-foreground"
-                                                >
-                                                    <span class="font-medium">Terrain:</span>
-                                                    {{ getPlayerTurn(player, turn).scheme_notes.terrain_note }}
-                                                </div>
-                                                <div v-if="getPlayerTurn(player, turn).scheme_notes.note" class="mt-0.5 italic text-muted-foreground">
-                                                    {{ getPlayerTurn(player, turn).scheme_notes.note }}
-                                                </div>
-                                            </template>
-                                        </div>
-
-                                        <!-- Crew snapshot -->
-                                        <div v-if="getPlayerTurn(player, turn)?.crew_snapshot?.length" class="mt-2">
-                                            <div class="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Crew</div>
-                                            <div class="space-y-0.5">
-                                                <div
-                                                    :key="'snap-' + turn + '-' + player.id + '-' + mIdx"
-                                                    v-for="(member, mIdx) in getPlayerTurn(player, turn).crew_snapshot"
-                                                >
-                                                    <div
-                                                        :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                                        class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
-                                                        :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
-                                                    >
-                                                        <div class="flex min-w-0 items-center gap-1">
-                                                            <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                            <Badge
-                                                                v-if="member.is_summoned"
-                                                                class="bg-cyan-400/20 px-0.5 py-0 text-[8px] text-cyan-200"
-                                                                >S</Badge
-                                                            >
-                                                        </div>
-                                                        <div class="flex items-center gap-1">
-                                                            <template v-if="member.attached_tokens?.length">
-                                                                <div
-                                                                    v-for="token in member.attached_tokens"
-                                                                    :key="token.id"
-                                                                    class="rounded bg-cyan-900/50 px-0.5 text-[8px] text-cyan-200"
-                                                                >
-                                                                    {{ token.name }}
-                                                                </div>
-                                                            </template>
-                                                            <span class="flex items-center gap-0.5 font-bold">
-                                                                <Heart
-                                                                    class="size-2.5"
-                                                                    :class="
-                                                                        member.is_killed
-                                                                            ? 'text-red-400'
-                                                                            : member.current_health <= Math.ceil(member.max_health / 2)
-                                                                              ? 'text-red-300'
-                                                                              : ''
-                                                                    "
-                                                                />
-                                                                {{ member.current_health }}/{{ member.max_health }}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <!-- Attached upgrades in snapshot -->
-                                                    <div v-if="member.attached_upgrades?.length" class="space-y-0.5 pl-3">
-                                                        <div
-                                                            v-for="upgrade in member.attached_upgrades"
-                                                            :key="'su-' + upgrade.id"
-                                                            class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-[9px] text-amber-300"
-                                                        >
-                                                            <ArrowUpCircle class="size-2 shrink-0" />
-                                                            <template v-if="(upgrade as any).loot_side">
-                                                                <span class="rounded bg-amber-400 px-0.5 text-[8px] font-bold text-black">
-                                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                                </span>
-                                                                <span
-                                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                                    class="rounded border border-white/30 bg-black/30 px-0.5 font-mono text-[8px] tabular-nums"
-                                                                >
-                                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label }}
-                                                                </span>
-                                                            </template>
-                                                            <span class="truncate">{{ upgrade.name }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div v-else-if="player.faction" class="mt-2 text-[10px] text-muted-foreground">No crew tracked</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
-                </div>
-
-                <!-- Final crew states with crew upgrades -->
-                <div class="mb-6 grid gap-4 sm:grid-cols-2">
-                    <div v-for="player in game.players" :key="'crew-' + player.id">
-                        <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Final Crew</h3>
-                        <div
-                            v-if="!player.crew_members?.length && player.faction"
-                            class="flex items-center gap-2 rounded-md border border-dashed p-3"
-                        >
-                            <FactionLogo :faction="player.faction" class-name="size-6" />
-                            <div class="text-xs">
-                                <div v-if="player.master_name" class="font-medium">{{ player.master_name }}</div>
-                                <span class="text-muted-foreground">No crew tracked</span>
-                            </div>
-                        </div>
-                        <template v-else>
-                            <!-- Crew upgrades -->
-                            <div v-if="player.master?.crew_upgrades?.length" class="mb-1.5 space-y-0.5">
-                                <div
-                                    v-for="upgrade in player.master.crew_upgrades"
-                                    :key="'fu-' + upgrade.id"
-                                    class="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm"
-                                    :class="[
-                                        player.crew_build?.crew_upgrade_id === upgrade.id
-                                            ? 'border-amber-500/50 bg-amber-500/10'
-                                            : 'border-border/50 bg-accent/30 opacity-60',
-                                        upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
-                                    ]"
-                                    @click="openUpgradePreview(upgrade)"
-                                >
-                                    <Star
-                                        class="size-3.5 shrink-0"
-                                        :class="
-                                            player.crew_build?.crew_upgrade_id === upgrade.id
-                                                ? 'fill-amber-500 text-amber-500'
-                                                : 'text-muted-foreground'
-                                        "
-                                    />
-                                    <span class="font-semibold">{{ upgrade.name }}</span>
-                                </div>
-                            </div>
-                            <!-- Crew members -->
-                            <div class="space-y-1">
-                                <div
-                                    v-for="member in player.crew_members"
-                                    :key="member.id"
-                                    :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                    class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-                                    :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
-                                >
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex min-w-0 items-center gap-1">
-                                            <span
-                                                class="truncate text-sm font-semibold"
-                                                :class="member.front_image ? 'cursor-pointer hover:underline' : ''"
-                                                @click="openMemberPreview(member)"
-                                            >
-                                                {{ member.display_name }}
-                                            </span>
-                                            <Badge
-                                                v-if="member.is_summoned"
-                                                variant="secondary"
-                                                class="bg-cyan-500/20 px-1 py-0 text-[9px] text-cyan-200"
-                                                >Summoned</Badge
-                                            >
-                                        </div>
-                                        <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                            <Heart
-                                                class="size-3"
-                                                :class="
-                                                    member.is_killed
-                                                        ? 'text-red-400'
-                                                        : member.current_health <= Math.ceil(member.max_health / 2)
-                                                          ? 'text-red-300'
-                                                          : ''
-                                                "
-                                            />
-                                            {{ member.current_health }}/{{ member.max_health }}
-                                        </span>
-                                    </div>
-                                    <div v-if="member.attached_tokens?.length" class="mt-0.5 flex flex-wrap gap-1">
-                                        <Badge
-                                            v-for="token in member.attached_tokens"
-                                            :key="token.id"
-                                            variant="secondary"
-                                            class="border border-cyan-500/50 bg-cyan-900/60 px-1 py-0 text-[9px] text-cyan-200"
-                                            >{{ token.name }}</Badge
-                                        >
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </template>
+            <GameSummaryPanel
+                v-if="GAME_FINISHED_STATUSES.includes(game.status)"
+                :game="game"
+                :is-solo="isSolo"
+                :is-bonanza="isBonanza"
+                :deployment="deployment"
+                :schemes="schemes"
+                :starting-crews="starting_crews"
+                :my-player="myPlayer"
+                :opponent-player="opponentPlayer"
+                :scheme-lookup="allKnownSchemes"
+                :loot-card-catalog="lootCardCatalog"
+                @open-scheme="openSchemeDrawer"
+                @open-deployment="deploymentDrawerOpen = true"
+                @open-strategy="strategyDrawerOpen = true"
+                @open-qr="openQR"
+                @open-member-preview="openMemberPreview"
+                @open-upgrade-preview="openUpgradePreview"
+            />
         </div>
     </div>
 

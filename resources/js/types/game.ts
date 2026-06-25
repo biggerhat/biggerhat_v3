@@ -95,6 +95,8 @@ export interface GamePlayer {
     opponent_name: string | null;
     is_turn_complete: boolean;
     is_game_complete: boolean;
+    /** Recorded scoring turns (loosely typed — turn rows carry varying snapshot shapes). */
+    turns?: any[];
     crew_members: CrewMember[];
     master: { id: number; crew_upgrades: any[]; crew_upgrade_mode: string | null } | null;
     crew_build: { id: number; crew_upgrade_id: number | null; references?: CrewReferences } | null;
@@ -160,6 +162,7 @@ export interface GameData {
     creator_id: number;
     encounter_size: number;
     season: string;
+    season_label?: string;
     /** Drives whether the scenario panel renders, whether SchemeSelect fires,
      *  and whether the manual-VP widget shows. See {@link GameFormat}. */
     format: GameFormat;

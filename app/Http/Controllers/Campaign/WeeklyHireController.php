@@ -184,8 +184,9 @@ class WeeklyHireController extends Controller
         $query = Character::query()
             ->standard()
             // Masters and Totems aren't hireable — see StartingArsenalController
-            // for the rationale (pg 15 + pg 52).
-            ->whereNotIn('station', [CharacterStationEnum::Master->value])
+            // for the rationale (pg 15 + pg 52). Enforcers/Henchmen/Uniques carry
+            // a NULL station, so exclude only masters without dropping NULLs.
+            ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
             ->whereDoesntHave('isTotemFor')
             ->whereNotNull('cost')
             ->where('cost', '>', 0)

@@ -184,7 +184,10 @@ class StartingArsenalController extends Controller
             // station should appear in the starting-arsenal hireable pool.
             // Masters filter on the station column directly; totems are
             // identified by being referenced as some master's `has_totem_id`.
-            ->whereNotIn('station', [CharacterStationEnum::Master->value])
+            // "Not a master" — Enforcers/Henchmen/Uniques carry a NULL station
+            // (henchman/enforcer are characteristics, not stations), and a plain
+            // whereNotIn would drop NULLs since `NULL NOT IN (...)` is not true.
+            ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
             ->whereDoesntHave('isTotemFor')
             ->whereNotNull('cost')
             ->where('cost', '>', 0)

@@ -212,3 +212,19 @@ it('locks once the campaign is active', function () {
 
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
 });
+
+it('includes NULL-station (Henchman/Enforcer/Unique) models in the hireable pool', function () {
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw); // faction Arcanists
+
+    // Henchman/Enforcer/Unique are characteristics, not stations — these models
+    // carry a NULL station. A whereNotIn('station', [master]) wrongly drops them.
+    $unique = Character::factory()->create(['cost' => 8, 'station' => null, 'faction' => FactionEnum::Arcanists]);
+    $unique->keywords()->attach($kw);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.starting-arsenal.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('hireable', fn ($models) => collect($models)->contains('id', $unique->id)));
+});

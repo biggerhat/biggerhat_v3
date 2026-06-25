@@ -37,7 +37,10 @@ class LeaderSearchController extends Controller
     {
         return function ($q) use ($keywordIds, $maxCost) {
             $q->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                ->whereNotIn('station', [CharacterStationEnum::Master->value])
+                // "Not a master" — Enforcers/Henchmen/Uniques carry a NULL station
+                // (those are characteristics, not stations); a whereNotIn drops
+                // NULLs since `NULL NOT IN (...)` is not true.
+                ->where(fn ($w) => $w->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
                 ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'))
                 // Rulebook pg 17: borrowed from "an ally of cost N or less" — the
                 // cap is on the SOURCE model's cost (≤), not the action/ability.

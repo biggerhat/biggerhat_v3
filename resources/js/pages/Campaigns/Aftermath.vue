@@ -519,7 +519,8 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader><CardTitle class="text-base">Aftermath Hand</CardTitle></CardHeader>
             <CardContent>
                 <p class="text-sm">
-                    Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck to cheat barter flips.
+                    Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck. Keep them in hand to cheat
+                    flips throughout the Aftermath — barter, the doctor, and determining injuries.
                 </p>
                 <p class="mt-2 text-[10px] text-muted-foreground">Your fate deck does not reshuffle until the Aftermath ends (pg 21).</p>
             </CardContent>

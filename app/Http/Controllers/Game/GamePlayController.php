@@ -100,11 +100,29 @@ class GamePlayController extends Controller
             }
         }
 
+        // "Until end of activation" tokens fall off the moment a model is
+        // activated for the turn. Strip them on the false → true transition and
+        // report them so the client can reflect the removal without a reload.
+        $removedTokens = [];
+        if (! empty($validated['is_activated']) && ! $gameCrewMember->is_activated) {
+            $endOfActivationIds = Token::where('removal_timing', TokenRemovalTimingEnum::EndOfActivation)->pluck('id');
+            if ($endOfActivationIds->isNotEmpty()) {
+                $source = array_key_exists('attached_tokens', $validated)
+                    ? $validated['attached_tokens']
+                    : ($gameCrewMember->attached_tokens ?? []);
+                [$keep, $drop] = collect($source)->partition(fn ($t) => ! $endOfActivationIds->contains($t['id'] ?? null));
+                if ($drop->isNotEmpty()) {
+                    $validated['attached_tokens'] = $keep->values()->all();
+                    $removedTokens = $drop->map(fn ($t) => ['id' => (int) ($t['id'] ?? 0), 'name' => $t['name'] ?? ''])->values()->all();
+                }
+            }
+        }
+
         $gameCrewMember->update($validated);
 
         $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'removed_tokens' => $removedTokens]);
     }
 
     /**

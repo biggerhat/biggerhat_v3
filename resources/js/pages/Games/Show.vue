@@ -1534,12 +1534,21 @@ const toggleActivated = async (member: any) => {
     const oldValue = member.is_activated;
     // Optimistic update for instant UI feedback
     member.is_activated = !member.is_activated;
-    const res = await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), {
-        is_activated: member.is_activated,
-    });
+    const res = await gameApi.patch<{ removed_tokens?: { id: number; name: string }[] }>(
+        route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }),
+        { is_activated: member.is_activated },
+    );
     if (!res.ok) {
         member.is_activated = oldValue;
         router.reload({ only: ['game'], preserveScroll: true });
+        return;
+    }
+    // End-of-activation tokens fall off as the model activates — reflect the
+    // server's removal locally so they disappear without a reload.
+    const removed = res.data.removed_tokens ?? [];
+    if (removed.length) {
+        const removedIds = new Set(removed.map((t) => t.id));
+        member.attached_tokens = (member.attached_tokens ?? []).filter((t: any) => !removedIds.has(t.id));
     }
 };
 

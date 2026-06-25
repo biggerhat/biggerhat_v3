@@ -1257,3 +1257,21 @@ it('lockAndAdvance refuses mutations once the aftermath is locked', function () 
     expect($aftermath->fresh()->current_phase)->toBe(3);
     expect($aftermath->fresh()->status)->toBe('locked');
 });
+
+it('Phase 3 Barter can be skipped with no flip and no scrip', function () {
+    [$user, , $crew, $game] = aftermathFixture(); // crew scrip = 0
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.barter', $aftermath), ['purchases' => []])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect($crew->fresh()->scrip)->toBe(0);
+    $this->assertDatabaseCount('campaign_aftermath_barter', 0);
+});

@@ -226,13 +226,15 @@ class CampaignAftermathController extends Controller
         }
 
         $data = $request->validate([
-            'flip_value' => ['required', 'integer', 'min:1', 'max:13'],
+            // Nullable so a player with no scrip (or nothing to buy) can skip
+            // Barter: a null flip advances the phase without purchasing anything.
+            'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
             // The barter flip's suit gates which suit-pool an item can come from
             // (equipment is keyed "BR n of Ram/Crow" etc., pg 22-28). Constrained
             // to the four Malifaux suits; null is allowed for always-available /
             // red-joker-only purchases that don't need a suit match.
             'flip_suit' => ['nullable', 'string', Rule::in(['ram', 'crow', 'mask', 'tome'])],
-            'is_red_joker' => ['required', 'boolean'],
+            'is_red_joker' => ['nullable', 'boolean'],
             'purchases' => ['nullable', 'array'],
             // Equipment lives on `upgrades` post-consolidation. The `exists`
             // rule requires the row to be campaign-mode equipment specifically.
@@ -241,6 +243,8 @@ class CampaignAftermathController extends Controller
 
         $crew = $aftermath->crew;
         $purchaseIds = $data['purchases'] ?? [];
+        $flipValue = $data['flip_value'] ?? null;
+        $isRedJoker = (bool) ($data['is_red_joker'] ?? false);
         $flipSuit = isset($data['flip_suit']) ? strtolower(trim((string) $data['flip_suit'])) : null;
 
         // Eligibility check + cost tally. Filter to campaign equipment upgrades.
@@ -254,14 +258,14 @@ class CampaignAftermathController extends Controller
         foreach ($items as $eq) {
             if ($eq->campaign_ttw_only) {
                 // Those Who Thirst items are only reachable via a red-joker flip.
-                $eligible = (bool) $data['is_red_joker'];
+                $eligible = $isRedJoker;
             } elseif ($eq->campaign_is_always_available) {
                 $eligible = true;
             } else {
                 // BR must equal the flip value exactly (pg 21), AND — when the
                 // item is keyed to a suit pool — the flip's suit must be in that
                 // pool. Items with no pool suits match on value alone.
-                $valueMatches = $eq->campaign_br !== null && $eq->campaign_br === $data['flip_value'];
+                $valueMatches = $eq->campaign_br !== null && $eq->campaign_br === $flipValue;
                 $pools = array_map('strtolower', array_filter([$eq->campaign_pool_suit_a, $eq->campaign_pool_suit_b]));
                 $suitMatches = $pools === [] || ($flipSuit !== null && in_array($flipSuit, $pools, true));
                 $eligible = $valueMatches && $suitMatches;
@@ -273,7 +277,7 @@ class CampaignAftermathController extends Controller
 
         if (! empty($ineligible)) {
             return redirect()->back()->withMessage(
-                'Some items are not barterable at flip '.$data['flip_value'].': '.implode(', ', $ineligible),
+                'Some items are not barterable at flip '.($flipValue ?? '—').': '.implode(', ', $ineligible),
                 null,
                 MessageTypeEnum::error,
             );
@@ -287,7 +291,7 @@ class CampaignAftermathController extends Controller
             );
         }
 
-        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $data, $totalCc) {
+        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $totalCc, $flipValue, $flipSuit, $isRedJoker) {
             foreach ($items as $eq) {
                 CampaignEquipment::create([
                     'campaign_crew_id' => $crew->id,
@@ -304,16 +308,20 @@ class CampaignAftermathController extends Controller
                 $crew->decrement('scrip', $totalCc);
             }
 
-            DB::table('campaign_aftermath_barter')->insert([
-                'campaign_aftermath_id' => $locked->id,
-                'raw_flip_value' => $data['flip_value'],
-                'raw_flip_suit' => $data['flip_suit'] ?? null,
-                'cheated_to' => null,
-                'purchases' => json_encode($items->pluck('id')->all()),
-                'red_joker_ttw_flip_value' => $data['is_red_joker'] ? $data['flip_value'] : null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            // Only record a flip when one actually happened — a skipped Barter
+            // (null flip / nothing bought) just advances the phase.
+            if ($flipValue !== null) {
+                DB::table('campaign_aftermath_barter')->insert([
+                    'campaign_aftermath_id' => $locked->id,
+                    'raw_flip_value' => $flipValue,
+                    'raw_flip_suit' => $flipSuit,
+                    'cheated_to' => null,
+                    'purchases' => json_encode($items->pluck('id')->all()),
+                    'red_joker_ttw_flip_value' => $isRedJoker ? $flipValue : null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             $locked->update(['current_phase' => 4]);
         });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Campaign;
 
+use App\Enums\ActionTypeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
@@ -48,6 +49,25 @@ class LeaderSearchController extends Controller
         };
     }
 
+    /**
+     * Keyword ids that constrain the source pool. The in-progress builder passes
+     * the form's keywords (leader/crew may be unsaved) as query params; fall back
+     * to whatever the crew has persisted.
+     *
+     * @return array<int, int>
+     */
+    private function resolveKeywordIds(Request $request, CampaignCrew $crew): array
+    {
+        $fromRequest = array_filter([
+            $request->integer('keyword_1_id') ?: null,
+            $request->integer('keyword_2_id') ?: null,
+        ]);
+
+        return ! empty($fromRequest)
+            ? array_values($fromRequest)
+            : array_values(array_filter([$crew->keyword_1_id, $crew->keyword_2_id]));
+    }
+
     public function actions(Request $request, Campaign $campaign, CampaignCrew $crew): JsonResponse
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
@@ -58,7 +78,7 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
-        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
+        $keywordIds = $this->resolveKeywordIds($request, $crew);
         if (empty($keywordIds)) {
             return response()->json([]);
         }
@@ -67,8 +87,14 @@ class LeaderSearchController extends Controller
         // source-character filter rather than on the action's own stone_cost.
         $sourceFilter = $this->validSourceCharacterFilter($keywordIds, $maxCost ?: null);
 
+        // Constrain to the category being picked so Tacticals can't be added as
+        // Attacks (and vice versa); absent/invalid type returns both.
+        $type = (string) $request->get('type', '');
+        $typeFilter = in_array($type, [ActionTypeEnum::Attack->value, ActionTypeEnum::Tactical->value], true) ? $type : null;
+
         $actions = Action::query()
             ->where('name', 'LIKE', "%{$q}%")
+            ->when($typeFilter !== null, fn ($qq) => $qq->where('type', $typeFilter))
             ->whereHas('characters', $sourceFilter)
             // Eager-load one valid source character so the picker can submit it;
             // the save-time validator re-verifies it (pg 17).
@@ -115,7 +141,7 @@ class LeaderSearchController extends Controller
             return response()->json([]);
         }
 
-        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
+        $keywordIds = $this->resolveKeywordIds($request, $crew);
         if (empty($keywordIds)) {
             return response()->json([]);
         }

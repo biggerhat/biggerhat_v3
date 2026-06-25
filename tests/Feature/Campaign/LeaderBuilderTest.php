@@ -409,3 +409,40 @@ it('leader action search includes actions from NULL-station (Unique) allies', fu
 
     expect(collect($res->json())->pluck('name'))->toContain('Heavy Swing');
 });
+
+it('leader action search filters by the picked category — no Tacticals under Attack', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $kw = Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $kw->id, 'faction' => FactionEnum::Guild->value]);
+
+    $atk = Action::factory()->create(['name' => 'Cleaver Strike', 'type' => 'attack']);
+    $tac = Action::factory()->create(['name' => 'Cleaver Feint', 'type' => 'tactical']);
+    $ally = Character::factory()->create(['cost' => 6, 'station' => null, 'faction' => FactionEnum::Guild]);
+    $ally->keywords()->attach($kw);
+    $ally->actions()->attach([$atk->id, $tac->id]);
+
+    $names = collect($this->actingAs($user)->getJson(
+        route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?q=Cleaver&max_cost=10&type=attack',
+    )->assertOk()->json())->pluck('name');
+
+    expect($names)->toContain('Cleaver Strike');
+    expect($names)->not->toContain('Cleaver Feint');
+});
+
+it('leader action search accepts in-form keywords before the crew is saved', function () {
+    $user = leaderUser();
+    $crew = crewFor($user); // no keyword persisted on the crew
+    $kw = Keyword::factory()->create();
+
+    $action = Action::factory()->create(['name' => 'Borrowed Blade', 'type' => 'attack']);
+    $ally = Character::factory()->create(['cost' => 6, 'station' => null, 'faction' => FactionEnum::Guild]);
+    $ally->keywords()->attach($kw);
+    $ally->actions()->attach($action);
+
+    $names = collect($this->actingAs($user)->getJson(
+        route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code])."?q=Borrowed&max_cost=10&keyword_1_id={$kw->id}",
+    )->assertOk()->json())->pluck('name');
+
+    expect($names)->toContain('Borrowed Blade');
+});

@@ -171,6 +171,12 @@ const searchActions = async () => {
     const url = new URL(route('campaigns.crews.leader.search.actions', [props.campaign.id, props.crew.share_code]), window.location.origin);
     url.searchParams.set('q', actionSearch.value);
     url.searchParams.set('max_cost', String(actionCap.value));
+    // Only show actions of the category being picked (no Tacticals under Attack).
+    url.searchParams.set('type', actionPickerCategory.value);
+    // Use the keywords currently selected in the form so the picker works before
+    // the leader/crew is saved (the server falls back to the crew's saved ones).
+    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
+    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
     const res = await fetch(url.toString());
     if (!res.ok) return;
     actionResults.value = await res.json();
@@ -179,6 +185,11 @@ const searchActions = async () => {
 watch(actionSearch, (v) => {
     if (v.length < 2) actionResults.value = [];
     else searchActions();
+});
+
+// Re-run the search when toggling Attack/Tactical so the type filter applies.
+watch(actionPickerCategory, () => {
+    if (actionSearch.value.length >= 2) searchActions();
 });
 
 const addAction = (a: ActionData) => {
@@ -223,6 +234,9 @@ const searchAbilities = async () => {
     url.searchParams.set('q', abilitySearch.value);
     // Cap on the source ally's cost (rulebook pg 17).
     url.searchParams.set('max_cost', String(archetype.value?.ability_cost_cap ?? 99));
+    // In-form keywords so the picker works before the leader/crew is saved.
+    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
+    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
     const res = await fetch(url.toString());
     if (!res.ok) return;
     abilityResults.value = await res.json();

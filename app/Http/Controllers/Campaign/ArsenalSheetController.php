@@ -89,7 +89,7 @@ class ArsenalSheetController extends Controller
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,

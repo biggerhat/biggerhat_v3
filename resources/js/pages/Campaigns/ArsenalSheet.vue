@@ -124,6 +124,7 @@ interface CrewData {
     keyword_one: KeywordRow | null;
     keyword_two: KeywordRow | null;
     crew_card_effect: CrewCardEffectRow | null;
+    crew_card_choice: { type: string; id: number; name: string } | null;
     arsenal_models: ArsenalRow[];
 }
 
@@ -385,6 +386,9 @@ const totemRendererProps = computed(() => {
                     <CardContent>
                         <div v-if="crew.crew_card_effect" class="space-y-2">
                             <p class="font-medium">{{ crew.crew_card_effect.name }}</p>
+                            <p v-if="crew.crew_card_choice" class="text-xs">
+                                <span class="font-semibold capitalize">{{ crew.crew_card_choice.type }}:</span> {{ crew.crew_card_choice.name }}
+                            </p>
                             <p v-if="crew.crew_card_effect.body" class="text-xs text-muted-foreground">
                                 <GameText :text="crew.crew_card_effect.body" />
                             </p>

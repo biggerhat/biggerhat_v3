@@ -3,7 +3,9 @@
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Enums\PermissionEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
@@ -12,6 +14,8 @@ use App\Models\Campaign\CampaignPlayer;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
+use App\Models\Token;
+use App\Models\Upgrade;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -227,4 +231,42 @@ it('includes NULL-station (Henchman/Enforcer/Unique) models in the hireable pool
         ->get(route('campaigns.crews.starting-arsenal.edit', [$crew->campaign_id, $crew->share_code]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('hireable', fn ($models) => collect($models)->contains('id', $unique->id)));
+});
+
+it('stores a constrained crew-card token choice and rejects one outside the keyword pool', function () {
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    // A crew card (crew-domain upgrade) sharing the crew's keyword, with a token on it.
+    $token = Token::factory()->create(['name' => 'Fast']);
+    $crewCardUpgrade = Upgrade::factory()->create([
+        'domain' => UpgradeDomainTypeEnum::Crew->value,
+        'game_mode_type' => GameModeTypeEnum::Standard->value,
+    ]);
+    $crewCardUpgrade->keywords()->attach($kw);
+    $crewCardUpgrade->tokens()->attach($token);
+
+    $card = CampaignCrewCard::factory()->create(['requires_token_choice' => true]);
+
+    // Valid pick is stored.
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $card->id,
+            'crew_card_choice' => ['type' => 'token', 'id' => $token->id],
+        ])
+        ->assertRedirect();
+    expect($crew->fresh()->crew_card_choice)->toMatchArray(['type' => 'token', 'id' => $token->id, 'name' => 'Fast']);
+
+    // A token not on any keyword crew card is rejected.
+    $stray = Token::factory()->create();
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $card->id,
+            'crew_card_choice' => ['type' => 'token', 'id' => $stray->id],
+        ]);
+    // Unchanged from the first (valid) save — the rejected save never ran.
+    expect($crew->fresh()->crew_card_choice['id'])->toBe($token->id);
 });

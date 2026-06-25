@@ -38,6 +38,11 @@ class StoreStartingArsenalRequest extends FormRequest
             'hires.*.character_id' => ['required', 'integer', 'exists:characters,id'],
             'hires.*.label' => ['nullable', 'string', 'max:64'],
             'crew_card_effect_id' => ['required', 'integer', 'exists:campaign_crew_cards,id'],
+            // Token/marker/upgrade choice for crew cards that require one (pg 17).
+            // The controller validates the id against the keyword-constrained pool.
+            'crew_card_choice' => ['nullable', 'array'],
+            'crew_card_choice.type' => ['nullable', 'string', 'in:token,marker,upgrade'],
+            'crew_card_choice.id' => ['nullable', 'integer'],
         ];
     }
 }

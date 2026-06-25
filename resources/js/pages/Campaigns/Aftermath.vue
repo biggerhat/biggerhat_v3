@@ -660,13 +660,13 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <Checkbox checked disabled />
                             <span>+1 for playing the game (always)</span>
                         </label>
-                        <label class="flex items-start gap-2">
+                        <label v-if="xp_track?.tag === 'bruiser'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.bruiser_killed" @update:checked="(v: boolean) => (xpForm.bruiser_killed = v)" />
-                            <span>+1 Bruiser killed a non-peon enemy (only counts if Leader tagged Bruiser)</span>
+                            <span>+1 Bruiser killed a non-peon enemy</span>
                         </label>
-                        <label class="flex items-start gap-2">
+                        <label v-if="xp_track?.tag === 'strategist'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.strategist_interacted" @update:checked="(v: boolean) => (xpForm.strategist_interacted = v)" />
-                            <span>+1 Strategist Interacted in enemy DZ (only counts if Leader tagged Strategist)</span>
+                            <span>+1 Strategist Interacted in enemy DZ</span>
                         </label>
                         <label class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.lost" @update:checked="(v: boolean) => (xpForm.lost = v)" />

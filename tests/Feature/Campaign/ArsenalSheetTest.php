@@ -231,3 +231,35 @@ it('computes Campaign Rating as equipment + advancements − injuries', function
             ->where('campaign_rating.value', 4)
         );
 });
+
+it('exposes the leader Leadership Experience track with filled boxes', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    // Leader whose XP track has 2 boxes filled (as logged-game XP would).
+    $track = \App\Models\CustomCharacter::defaultXpTrack();
+    $track[0]['filled'] = true;
+    $track[1]['filled'] = true;
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-sheet-1',
+        'name' => 'Reva Cortinas',
+        'display_name' => 'Reva Cortinas',
+        'slug' => 'reva-cortinas',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'tag' => 'bruiser',
+        'health' => 12, 'defense' => 5, 'willpower' => 6, 'speed' => 5,
+        'xp_track' => $track,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'leader_xp_track',
+            fn ($t) => collect($t)->where('filled', true)->count() === 2 && count($t) === 39,
+        ));
+});

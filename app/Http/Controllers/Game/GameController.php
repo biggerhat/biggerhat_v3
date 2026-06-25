@@ -928,6 +928,14 @@ class GameController extends Controller
             return $this->buildBonanzaCharactersProp();
         }
 
+        // Campaign games: the player's master IS their custom-built campaign
+        // leader, not a catalog master — surface it as the (only) option.
+        if ($game->format === \App\Enums\GameFormatEnum::Campaign) {
+            $leaderOption = $this->campaignLeaderMasterOption($game);
+
+            return $leaderOption ? [$leaderOption] : [];
+        }
+
         $characters = Character::standard()->where('station', 'master')
             ->where('is_hidden', false)
             ->with('miniatures')
@@ -977,6 +985,45 @@ class GameController extends Controller
         }
 
         return $grouped;
+    }
+
+    /**
+     * The current player's campaign leader shaped as a master-select option, so
+     * a campaign game's Master Select offers the custom leader. Returns null off
+     * campaign games or before the leader has been built.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function campaignLeaderMasterOption(Game $game): ?array
+    {
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['crewA.leader', 'crewB.leader'])
+            ->first();
+        if (! $campaignGame) {
+            return null;
+        }
+
+        $leader = collect([$campaignGame->crewA, $campaignGame->crewB])
+            ->filter()
+            ->first(fn ($crew) => $crew->user_id === Auth::id())
+            ?->leader;
+        if (! $leader) {
+            return null;
+        }
+
+        return [
+            'name' => $leader->name,
+            'faction' => $leader->getRawOriginal('faction'),
+            'second_faction' => $leader->getRawOriginal('second_faction'),
+            'front_image' => $leader->getRawOriginal('front_image'),
+            'is_alternate_leader' => false,
+            'titles' => [[
+                'id' => $leader->id,
+                'display_name' => $leader->name,
+                'title' => null,
+            ]],
+        ];
     }
 
     /**

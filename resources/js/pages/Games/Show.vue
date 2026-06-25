@@ -11,6 +11,7 @@ import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameEditScenarioDrawer from '@/components/Game/GameEditScenarioDrawer.vue';
 import GameFactionSelectPanel from '@/components/Game/GameFactionSelectPanel.vue';
 import GameLeaveDialog from '@/components/Game/GameLeaveDialog.vue';
+import GameMasterSelectPanel from '@/components/Game/GameMasterSelectPanel.vue';
 import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
@@ -374,63 +375,12 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
 const selectedFaction = ref<string | null>(null);
 
 // Master select — two-step: name then title
-const availableMasters = computed(() => {
-    if (!myPlayer.value?.faction) return [];
-    const f = myPlayer.value.faction;
-    return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
-});
-
-const masterSearchQuery = ref('');
-
-const filteredMasters = computed(() => {
-    const q = masterSearchQuery.value.trim().toLowerCase();
-    const list = availableMasters.value;
-    if (!q) return list;
-    return list.filter((m) => {
-        if (m.name.toLowerCase().includes(q)) return true;
-        return (m.titles ?? []).some((t: { title?: string | null; display_name?: string | null }) => {
-            return (t.title ?? '').toLowerCase().includes(q) || (t.display_name ?? '').toLowerCase().includes(q);
-        });
-    });
-});
-
 const selectedMasterName = ref<string | null>(null);
 // For Bonanza, the user must pick a specific title (display_name) when a
 // model has multiple titles — no auto-select. For non-Bonanza, the base
 // master name is enough; title is picked during crew select. This holds
 // the title display_name to submit when one's been chosen.
 const selectedMasterTitle = ref<string | null>(null);
-
-const pickMaster = (master: { name: string; titles: { id: number; display_name: string | null; title?: string | null }[] }) => {
-    selectedMasterName.value = master.name;
-    // Only Bonanza requires the title at master-select (no crew step
-    // follows). Other formats defer the title pick to crew select, so
-    // we don't block the Confirm button here.
-    if (!isBonanza.value || master.titles.length <= 1) {
-        selectedMasterTitle.value = master.titles[0]?.display_name ?? master.name;
-    } else {
-        selectedMasterTitle.value = null;
-    }
-};
-
-const masterRequiresTitle = computed(() => {
-    if (!isBonanza.value || !selectedMasterName.value) return false;
-    const m = availableMasters.value.find((x) => x.name === selectedMasterName.value);
-    return (m?.titles?.length ?? 0) > 1;
-});
-
-const confirmMasterSelection = () => {
-    if (!selectedMasterName.value) return;
-    if (masterRequiresTitle.value && !selectedMasterTitle.value) return;
-    // Standard games submit the base name (title resolved during crew
-    // select). Bonanza submits the specific title display_name so the
-    // backend resolves to the exact titled character.
-    const body: Record<string, unknown> = {
-        master_name: isBonanza.value ? (selectedMasterTitle.value ?? selectedMasterName.value) : selectedMasterName.value,
-    };
-    if (isSolo.value) body.slot = mySlot.value;
-    postSetup(route('games.setup.master', props.game.uuid), body);
-};
 
 // Master title switching during crew select
 const masterTitleOptions = computed(() => {
@@ -536,11 +486,6 @@ const opponentMatchingCrews = computed(() => {
 
 const selectedOpponentFaction = ref<string | null>(null);
 const selectedOpponentMasterName = ref<string | null>(null);
-const opponentAvailableMasters = computed(() => {
-    const f = opponentPlayer.value?.faction;
-    if (!f) return [];
-    return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
-});
 const opponentStepDone = (step: string) => {
     if (!opponentPlayer.value) return false;
     switch (step) {
@@ -560,11 +505,6 @@ const opponentStepDone = (step: string) => {
 const selectOpponentFaction = () => {
     if (!selectedOpponentFaction.value) return;
     postSetup(route('games.setup.faction', props.game.uuid), { faction: selectedOpponentFaction.value, slot: opponentSlot.value });
-};
-
-const confirmOpponentMasterSelection = () => {
-    if (!selectedOpponentMasterName.value) return;
-    postSetup(route('games.setup.master', props.game.uuid), { master_name: selectedOpponentMasterName.value, slot: opponentSlot.value });
 };
 
 const selectedOpponentTitleForSkip = ref<number | null>(null);
@@ -3243,212 +3183,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             />
 
             <!-- ═══ MASTER SELECT ═══ -->
-            <Card
+            <GameMasterSelectPanel
                 v-if="game.status === GameStatus.MasterSelect && !isObserver"
-                class="mb-6"
-                :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''"
-            >
-                <CardContent class="p-4 sm:p-6">
-                    <h2 class="mb-1 font-semibold">
-                        <template v-if="isBonanza">
-                            {{ isSolo && myStepDone('master') ? "Select Opponent's Model" : 'Select Your Model' }}
-                        </template>
-                        <template v-else>
-                            {{ isSolo && myStepDone('master') ? "Select Opponent's Master" : 'Select Your Master' }}
-                        </template>
-                        <Badge
-                            v-if="isOpponentSetupPhase"
-                            variant="outline"
-                            class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
-                            >Opponent</Badge
-                        >
-                    </h2>
-                    <p v-if="myStepDone('master') && !isSolo" class="mb-4 text-xs text-muted-foreground">
-                        <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
-                    </p>
-                    <p v-else-if="!myStepDone('master')" class="mb-4 text-xs text-muted-foreground">
-                        <template v-if="isBonanza">
-                            Pick any single model from your faction within 11ss. Totems and dash-cost models cost
-                            <span class="font-medium">max wounds − 1 (capped at 10)</span>.
-                        </template>
-                        <template v-else>Choose the master for your crew.</template>
-                    </p>
-                    <p v-else class="mb-4 text-xs text-muted-foreground">
-                        <template v-if="isBonanza">Choose the model for the opponent.</template>
-                        <template v-else>Choose the master for the opponent.</template>
-                    </p>
-
-                    <template v-if="!myStepDone('master')">
-                        <div class="sticky top-0 z-10 -mx-3 mb-3 bg-background/95 px-3 pb-2 pt-1 backdrop-blur sm:-mx-0 sm:px-0">
-                            <div class="relative">
-                                <Search class="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                                <Input v-model="masterSearchQuery" placeholder="Search by name or title…" class="h-9 pl-7 text-sm" />
-                            </div>
-                            <div class="mt-1 text-[11px] text-muted-foreground">
-                                {{ filteredMasters.length }} of {{ availableMasters.length }}
-                                {{ availableMasters.length === 1 ? 'master' : 'masters' }}
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="filteredMasters.length === 0"
-                            class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
-                        >
-                            No masters match "{{ masterSearchQuery }}".
-                        </div>
-                        <!-- pb-24: room under the last row for the floating confirm bar. -->
-                        <div v-else class="grid grid-cols-1 gap-3 pb-24 sm:grid-cols-2 lg:grid-cols-3">
-                            <Card
-                                v-for="master in filteredMasters"
-                                :key="master.name"
-                                class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                :class="selectedMasterName === master.name ? 'ring-2 ring-primary' : ''"
-                                @click="pickMaster(master)"
-                            >
-                                <CardContent class="flex items-start gap-3 p-3">
-                                    <div v-if="master.front_image" class="shrink-0 overflow-hidden rounded-md">
-                                        <img
-                                            :src="'/storage/' + master.front_image"
-                                            :alt="master.name"
-                                            class="size-16 object-cover object-top"
-                                            loading="lazy"
-                                            decoding="async"
-                                        />
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="text-sm font-semibold">{{ master.name }}</span>
-                                            <Badge
-                                                v-if="master.is_alternate_leader"
-                                                variant="outline"
-                                                class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
-                                            >
-                                                Alt Leader
-                                            </Badge>
-                                            <!-- Bonanza-only: cost hint per the format's totem/peon derivation. -->
-                                            <Badge
-                                                v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
-                                                variant="outline"
-                                                class="border-purple-500/50 px-1 py-0 text-[9px] text-purple-600 dark:text-purple-300"
-                                                >{{ master.titles[0].bonanza_cost }}ss</Badge
-                                            >
-                                        </div>
-                                        <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
-                                            {{ master.titles.length }} titles — choose during crew select
-                                        </div>
-                                        <div v-else-if="isBonanza && master.titles.length > 1" class="mt-1 flex flex-wrap gap-1">
-                                            <button
-                                                v-for="t in master.titles"
-                                                :key="t.id"
-                                                type="button"
-                                                class="rounded border px-1.5 py-0.5 text-[10px] transition-colors"
-                                                :class="
-                                                    selectedMasterName === master.name && selectedMasterTitle === (t.display_name ?? master.name)
-                                                        ? 'border-primary bg-primary text-primary-foreground'
-                                                        : 'border-purple-500/40 text-purple-700 hover:bg-purple-500/10 dark:text-purple-300'
-                                                "
-                                                @click.stop="
-                                                    selectedMasterName = master.name;
-                                                    selectedMasterTitle = t.display_name ?? master.name;
-                                                "
-                                            >
-                                                {{ t.title || t.display_name }} · {{ t.bonanza_cost }}ss
-                                            </button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                        <Transition
-                            enter-active-class="transition duration-200 ease-out"
-                            leave-active-class="transition duration-150 ease-in"
-                            enter-from-class="translate-y-4 opacity-0"
-                            leave-to-class="translate-y-4 opacity-0"
-                        >
-                            <div
-                                v-if="selectedMasterName"
-                                class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
-                            >
-                                <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="text-[10px] uppercase tracking-wider text-muted-foreground">Selected</div>
-                                        <div class="truncate text-sm font-medium">{{ selectedMasterTitle ?? selectedMasterName }}</div>
-                                        <div
-                                            v-if="masterRequiresTitle && !selectedMasterTitle"
-                                            class="text-[11px] text-amber-600 dark:text-amber-400"
-                                        >
-                                            Pick a title to continue
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        class="h-9"
-                                        @click="
-                                            selectedMasterName = null;
-                                            selectedMasterTitle = null;
-                                        "
-                                        >Clear</Button
-                                    >
-                                    <Button
-                                        :disabled="submitting || (masterRequiresTitle && !selectedMasterTitle)"
-                                        class="h-9"
-                                        @click="confirmMasterSelection"
-                                    >
-                                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                        Confirm
-                                    </Button>
-                                </div>
-                            </div>
-                        </Transition>
-                    </template>
-                    <!-- My master done -->
-                    <template v-else-if="!isSolo || opponentStepDone('master')">
-                        <div class="py-4 text-center">
-                            <Badge variant="secondary" class="text-sm">{{ myPlayer!.master_name }}</Badge>
-                            <Check class="ml-2 inline size-5 text-green-500" />
-                        </div>
-                    </template>
-
-                    <!-- Solo: pick opponent master -->
-                    <template v-else-if="isSolo && myStepDone('master') && !opponentStepDone('master')">
-                        <div class="mb-3">
-                            <Badge variant="secondary" class="text-sm">{{ myPlayer!.master_name }}</Badge>
-                            <Check class="ml-2 inline size-4 text-green-500" />
-                        </div>
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            <Card
-                                v-for="master in opponentAvailableMasters"
-                                :key="master.name"
-                                class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                                :class="selectedOpponentMasterName === master.name ? 'ring-2 ring-primary' : ''"
-                                @click="selectedOpponentMasterName = master.name"
-                            >
-                                <CardContent class="flex items-start gap-3 p-3">
-                                    <div v-if="master.front_image" class="shrink-0 overflow-hidden rounded-md">
-                                        <img
-                                            :src="'/storage/' + master.front_image"
-                                            :alt="master.name"
-                                            class="size-16 object-cover object-top"
-                                            loading="lazy"
-                                            decoding="async"
-                                        />
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <span class="text-sm font-semibold">{{ master.name }}</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                        <div v-if="selectedOpponentMasterName" class="mt-4 flex justify-center">
-                            <Button :disabled="submitting" @click="confirmOpponentMasterSelection">
-                                <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                Confirm {{ selectedOpponentMasterName }}
-                            </Button>
-                        </div>
-                    </template>
-                </CardContent>
-            </Card>
+                :masters="masters"
+                :my-faction="myPlayer?.faction ?? null"
+                :opponent-faction="opponentPlayer?.faction ?? null"
+                :is-bonanza="isBonanza"
+                :is-solo="isSolo"
+                :submitting="submitting"
+                :my-slot="mySlot"
+                :is-opponent-setup-phase="isOpponentSetupPhase"
+                :master-step-done="myStepDone('master')"
+                :opponent-master-step-done="opponentStepDone('master')"
+                :my-master-name="myPlayer?.master_name ?? null"
+                v-model:selected-master-name="selectedMasterName"
+                v-model:selected-master-title="selectedMasterTitle"
+                v-model:selected-opponent-master-name="selectedOpponentMasterName"
+                @confirm="(body) => postSetup(route('games.setup.master', game.uuid), body)"
+                @confirm-opponent="(name) => postSetup(route('games.setup.master', game.uuid), { master_name: name, slot: opponentSlot })"
+            />
 
             <!-- ═══ CREW SELECT ═══ -->
             <Card

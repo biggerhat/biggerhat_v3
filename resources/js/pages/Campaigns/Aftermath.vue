@@ -703,7 +703,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Advancements ({{ advancementsQueued.length }})</legend>
                     <div v-for="(adv, idx) in advancementsQueued" :key="idx" class="space-y-2 border-b py-2 last:border-b-0">
                         <p class="text-xs">Box {{ adv.position_in_xp_track + 1 }} — Tier {{ adv.box_tier }} advancement</p>
-                        <select v-model="adv.source_table" class="h-8 w-full rounded border px-2 text-xs">
+                        <select v-model="adv.source_table" class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground">
                             <option v-for="opt in tableOptionsForTier(adv.box_tier)" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
@@ -713,7 +713,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <Input type="number" min="1" max="13" v-model.number="adv.flip_value" class="h-8 w-20" />
                             <span>{{ adv.source_table === 'totem' ? '(exact match)' : '(this value or lower)' }}</span>
                         </label>
-                        <select v-model="adv.catalog_id" class="h-8 w-full rounded border px-2 text-xs">
+                        <select v-model="adv.catalog_id" class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground">
                             <option :value="null">— pick a row —</option>
                             <option v-for="row in eligibleCatalogRows(adv)" :key="row.id" :value="row.id">
                                 {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
@@ -775,7 +775,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             </template>
                             <template v-else>
                                 <Input type="number" min="1" max="13" v-model.number="att.flip_value" class="h-8 w-16" />
-                                <select v-model="att.suit_pool" class="h-8 rounded border px-2 text-xs">
+                                <select v-model="att.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
                                     <option value="pc">Ram/Crow</option>
                                     <option value="te">Tome/Mask</option>
                                 </select>
@@ -860,7 +860,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             </template>
                             <template v-else>
                                 <Input type="number" min="1" max="13" v-model.number="f.flip_value" class="h-8 w-16" />
-                                <select v-model="f.suit_pool" class="h-8 rounded border px-2 text-xs">
+                                <select v-model="f.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
                                     <option value="pc">Ram/Crow</option>
                                     <option value="te">Tome/Mask</option>
                                 </select>

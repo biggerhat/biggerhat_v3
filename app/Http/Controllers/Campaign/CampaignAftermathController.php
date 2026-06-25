@@ -508,7 +508,10 @@ class CampaignAftermathController extends Controller
                 DB::table('campaign_aftermath_doctor')->insert([
                     'campaign_aftermath_id' => $locked->id,
                     'target_arsenal_model_id' => $model->id,
-                    'target_injury_id' => $pivot->id,
+                    // A "removed" outcome already deleted the injury pivot above,
+                    // so the audit row keeps a null reference (FK is nullOnDelete)
+                    // rather than a dangling id that fails the FK in MySQL.
+                    'target_injury_id' => $removesInjury ? null : $pivot->id,
                     // Null for red-joker flips, which carry no numeric value.
                     'flip_value' => $attempt['flip_value'] ?? null,
                     'cheated' => (bool) ($attempt['cheated'] ?? false),

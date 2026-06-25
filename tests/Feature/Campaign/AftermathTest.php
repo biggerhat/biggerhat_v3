@@ -1275,3 +1275,38 @@ it('Phase 3 Barter can be skipped with no flip and no scrip', function () {
     expect($crew->fresh()->scrip)->toBe(0);
     $this->assertDatabaseCount('campaign_aftermath_barter', 0);
 });
+
+it('Phase 5 Doctor logs a removed outcome with a null injury reference (no dangling FK)', function () {
+    // Tests run with FKs off; in MySQL the old code inserted the just-deleted
+    // injury id into the audit log and hit a foreign-key violation (500). The
+    // fix stores null for removed outcomes — assert that here.
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'flip_value' => 12, 'suit_pool' => 'pc']],
+        ])
+        ->assertRedirect();
+
+    $log = DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->first();
+    expect($log)->not->toBeNull();
+    expect($log->target_injury_id)->toBeNull();
+});

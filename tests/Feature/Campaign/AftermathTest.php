@@ -257,7 +257,7 @@ it('Phase 6 applies injuries to arsenal models from the catalog', function () {
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 3, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injury->id],
             ],
         ])
         ->assertRedirect();
@@ -291,7 +291,7 @@ it('Phase 6 annihilates a model that hits 3+ injuries', function () {
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injuryC->id],
             ],
         ])
         ->assertRedirect();
@@ -308,12 +308,12 @@ it('Phase 6 immediately annihilates on Killed Off injury', function () {
         'hand_drawn' => [],
     ]);
     $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
-    Upgrade::factory()->campaignInjuryKilledOff()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 13]); // flip 13 / pc
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 13]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 13, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $killedOff->id],
             ],
         ])
         ->assertRedirect();
@@ -439,16 +439,11 @@ it('Phase 3 Barter writes equipment rows + deducts scrip + advances', function (
         'current_phase' => 3,
         'hand_drawn' => [],
     ]);
-    // Helmet is BR 3 in the Ram/Crow pool (factory default). It's only
-    // barterable on an exact flip of 3 whose suit is in that pool (pg 21).
     $pistol = Upgrade::factory()->campaignEquipmentAlwaysAvailable()->create(['campaign_cc' => 1]);
     $helmet = Upgrade::factory()->campaignEquipment()->create(['campaign_br' => 3, 'campaign_cc' => 2]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 3,
-            'flip_suit' => 'ram',
-            'is_red_joker' => false,
             'purchases' => [$pistol->id, $helmet->id],
         ])
         ->assertRedirect();
@@ -458,7 +453,7 @@ it('Phase 3 Barter writes equipment rows + deducts scrip + advances', function (
     expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
-it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', function () {
+it('Phase 3 Barter buys any catalog item by id — flip/BR/suit is resolved at the table', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 10]);
     $aftermath = CampaignAftermath::factory()->create([
@@ -467,10 +462,10 @@ it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', func
         'current_phase' => 3,
         'hand_drawn' => [],
     ]);
-    // BR 3 keyed to the Ram/Crow pool — a Mask flip of the right value must
-    // not be enough (pg 22-28: equipment is keyed to a suit pool).
+    // An item the old flip/suit gate would have rejected is now purchasable —
+    // the player makes barter flips physically and just records the buy.
     $helmet = Upgrade::factory()->campaignEquipment()->create([
-        'campaign_br' => 3,
+        'campaign_br' => 8,
         'campaign_cc' => 2,
         'campaign_pool_suit_a' => 'ram',
         'campaign_pool_suit_b' => 'crow',
@@ -478,38 +473,13 @@ it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', func
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 3,
-            'flip_suit' => 'mask',
-            'is_red_joker' => false,
             'purchases' => [$helmet->id],
         ])
         ->assertRedirect();
 
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
-    expect($aftermath->fresh()->current_phase)->toBe(3);
-});
-
-it('Phase 3 Barter rejects items not barterable at this flip', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $crew->update(['scrip' => 10]);
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 3,
-        'hand_drawn' => [],
-    ]);
-    $expensive = Upgrade::factory()->campaignEquipment()->create(['campaign_br' => 8, 'campaign_cc' => 2]);
-
-    $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
-            'purchases' => [$expensive->id],
-        ])
-        ->assertRedirect();
-
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
-    expect($aftermath->fresh()->current_phase)->toBe(3);
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(1);
+    expect($crew->fresh()->scrip)->toBe(8);
+    expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
 it('Phase 3 Barter rejects when scrip is insufficient', function () {
@@ -525,8 +495,6 @@ it('Phase 3 Barter rejects when scrip is insufficient', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
             'purchases' => [$item->id],
         ])
         ->assertRedirect();
@@ -534,7 +502,7 @@ it('Phase 3 Barter rejects when scrip is insufficient', function () {
     expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
 });
 
-it('Phase 3 Barter on red joker enables ttw_only items', function () {
+it('Phase 3 Barter records a Those Who Thirst item with source joker', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 10]);
     $aftermath = CampaignAftermath::factory()->create([
@@ -547,13 +515,13 @@ it('Phase 3 Barter on red joker enables ttw_only items', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => true,
             'purchases' => [$ttw->id],
         ])
         ->assertRedirect();
 
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(1);
+    $eq = CampaignEquipment::where('campaign_crew_id', $crew->id)->first();
+    expect($eq)->not->toBeNull();
+    expect($eq->source)->toBe('joker');
 });
 
 it('Phase 3 Barter empty purchases still advances the phase', function () {
@@ -567,8 +535,6 @@ it('Phase 3 Barter empty purchases still advances the phase', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 7,
-            'is_red_joker' => false,
             'purchases' => [],
         ])
         ->assertRedirect();
@@ -595,14 +561,14 @@ it('Phase 5 Doctor removes an injury on a removed-outcome flip', function () {
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
     ]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 12, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -630,7 +596,7 @@ it('Phase 5 Doctor flip 9 removes the original injury and attaches the reflipped
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 9, 'flip_value_max' => 9, 'outcome_kind' => 'removed_and_reflip',
     ]);
 
@@ -639,10 +605,8 @@ it('Phase 5 Doctor flip 9 removes the original injury and attaches the reflipped
             'attempts' => [
                 [
                     'injury_pivot_id' => $pivotId,
-                    'flip_value' => 9,
-                    'suit_pool' => 'pc',
-                    'added_injury_flip_value' => 7,
-                    'added_injury_suit_pool' => 'te',
+                    'result_id' => $result->id,
+                    'added_injury_upgrade_id' => $reflipped->id,
                 ],
             ],
         ])
@@ -671,7 +635,7 @@ it('Phase 5 Doctor red joker annihilates the injury and applies a Lucky Miss', f
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => null, 'flip_value_max' => null, 'is_red_joker' => true, 'outcome_kind' => 'lucky_miss_reflip',
     ]);
     $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['flip_value' => 4, 'is_doppelganger' => false]);
@@ -679,7 +643,7 @@ it('Phase 5 Doctor red joker annihilates the injury and applies a Lucky Miss', f
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'is_red_joker' => true, 'lucky_miss_flip_value' => 4],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id, 'lucky_miss_flip_value' => 4],
             ],
         ])
         ->assertRedirect();
@@ -705,14 +669,14 @@ it('Phase 5 Doctor on no_effect leaves the injury attached but still costs scrip
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect',
     ]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -739,10 +703,12 @@ it('Phase 5 Doctor rejects when insufficient scrip', function () {
         'updated_at' => now(),
     ]);
 
+    $result = BackAlleyDoctorResult::factory()->create(['flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect']);
+
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -794,10 +760,12 @@ it("Phase 5 Doctor refuses an attempt targeting another crew's injury", function
         'updated_at' => now(),
     ]);
 
+    $result = BackAlleyDoctorResult::factory()->create(['flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect']);
+
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $foreignPivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $foreignPivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -1247,8 +1215,6 @@ it('lockAndAdvance refuses mutations once the aftermath is locked', function () 
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
             'purchases' => [],
         ])
         ->assertRedirect();
@@ -1274,4 +1240,67 @@ it('Phase 3 Barter can be skipped with no flip and no scrip', function () {
     expect($aftermath->fresh()->current_phase)->toBe(4);
     expect($crew->fresh()->scrip)->toBe(0);
     $this->assertDatabaseCount('campaign_aftermath_barter', 0);
+});
+
+it('Phase 5 Doctor logs a removed outcome with a null injury reference (no dangling FK)', function () {
+    // Tests run with FKs off; in MySQL the old code inserted the just-deleted
+    // injury id into the audit log and hit a foreign-key violation (500). The
+    // fix stores null for removed outcomes — assert that here.
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id]],
+        ])
+        ->assertRedirect();
+
+    $log = DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->first();
+    expect($log)->not->toBeNull();
+    expect($log->target_injury_id)->toBeNull();
+});
+
+it('Aftermath show pre-fills payday + draw-hand from the logged game scoring', function () {
+    [$user, , $crew, $game] = aftermathFixture(); // crew is crew_a
+    $game->update([
+        'vp_a' => 6, 'vp_b' => 3,
+        'schemes_completed_a' => 2,
+        'winner_crew_id' => $crew->id,
+        'cr_a' => 4, 'cr_b' => 1,
+    ]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 1,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('prefill.vp_self', 6)
+            ->where('prefill.vp_opponent', 3)
+            ->where('prefill.schemes_completed', 2)
+            ->where('prefill.won', true)
+            ->where('prefill.crew_cr', 4)
+            ->where('prefill.opponent_cr', 1)
+            ->etc());
 });

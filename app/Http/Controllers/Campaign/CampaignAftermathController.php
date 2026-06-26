@@ -93,9 +93,38 @@ class CampaignAftermathController extends Controller
             // the others. Read-side queries live in AftermathCatalog.
             'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::equipment() : null,
             'crew_injuries' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::crewInjuries($aftermath->campaign_crew_id) : null,
+            'doctor_results' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::doctorResults() : null,
+            // Phase 5 needs it too for the doctor "Oops" added-injury pick.
+            'injury_catalog' => fn () => in_array($aftermath->current_phase, [5, 6], true) ? AftermathCatalog::injuries() : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs() : null,
+            // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
+            // CR) forms from the logged game so the player confirms, not re-enters.
+            'prefill' => $this->aftermathPrefill($aftermath),
         ]);
+    }
+
+    /**
+     * The scoring the player already supplied when logging the game, mapped to
+     * this crew's perspective, so the Aftermath's draw-hand + payday steps come
+     * pre-filled. Tracked games that haven't scored yet just yield zeros.
+     *
+     * @return array<string, int|bool>
+     */
+    private function aftermathPrefill(CampaignAftermath $aftermath): array
+    {
+        $game = $aftermath->campaignGame;
+        $isCrewA = $game->crew_a_id === $aftermath->campaign_crew_id;
+
+        return [
+            'vp_self' => (int) ($isCrewA ? $game->vp_a : $game->vp_b),
+            'vp_opponent' => (int) ($isCrewA ? $game->vp_b : $game->vp_a),
+            'schemes_completed' => (int) ($isCrewA ? $game->schemes_completed_a : $game->schemes_completed_b),
+            'won' => $game->winner_crew_id === $aftermath->campaign_crew_id,
+            'withdrew' => $game->withdrew_crew_id === $aftermath->campaign_crew_id,
+            'crew_cr' => (int) ($isCrewA ? $game->cr_a : $game->cr_b),
+            'opponent_cr' => (int) ($isCrewA ? $game->cr_b : $game->cr_a),
+        ];
     }
 
     public function drawHand(Request $request, CampaignAftermath $aftermath)
@@ -223,15 +252,6 @@ class CampaignAftermathController extends Controller
         }
 
         $data = $request->validate([
-            // Nullable so a player with no scrip (or nothing to buy) can skip
-            // Barter: a null flip advances the phase without purchasing anything.
-            'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            // The barter flip's suit gates which suit-pool an item can come from
-            // (equipment is keyed "BR n of Ram/Crow" etc., pg 22-28). Constrained
-            // to the four Malifaux suits; null is allowed for always-available /
-            // red-joker-only purchases that don't need a suit match.
-            'flip_suit' => ['nullable', 'string', Rule::in(['ram', 'crow', 'mask', 'tome'])],
-            'is_red_joker' => ['nullable', 'boolean'],
             'purchases' => ['nullable', 'array'],
             // Equipment lives on `upgrades` post-consolidation. The `exists`
             // rule requires the row to be campaign-mode equipment specifically.
@@ -240,45 +260,16 @@ class CampaignAftermathController extends Controller
 
         $crew = $aftermath->crew;
         $purchaseIds = $data['purchases'] ?? [];
-        $flipValue = $data['flip_value'] ?? null;
-        $isRedJoker = (bool) ($data['is_red_joker'] ?? false);
-        $flipSuit = isset($data['flip_suit']) ? strtolower(trim((string) $data['flip_suit'])) : null;
 
-        // Eligibility check + cost tally. Filter to campaign equipment upgrades.
+        // The barter flip + BR/suit eligibility is resolved at the table by the
+        // player (pg 21-30); the app just records what they bought. Look up the
+        // chosen equipment by id, tally cc, and charge scrip.
         $items = Upgrade::query()
             ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
             ->where('campaign_upgrade_kind', 'equipment')
             ->whereIn('id', $purchaseIds)
             ->get();
         $totalCc = (int) $items->sum('campaign_cc');
-        $ineligible = [];
-        foreach ($items as $eq) {
-            if ($eq->campaign_ttw_only) {
-                // Those Who Thirst items are only reachable via a red-joker flip.
-                $eligible = $isRedJoker;
-            } elseif ($eq->campaign_is_always_available) {
-                $eligible = true;
-            } else {
-                // BR must equal the flip value exactly (pg 21), AND — when the
-                // item is keyed to a suit pool — the flip's suit must be in that
-                // pool. Items with no pool suits match on value alone.
-                $valueMatches = $eq->campaign_br !== null && $eq->campaign_br === $flipValue;
-                $pools = array_map('strtolower', array_filter([$eq->campaign_pool_suit_a, $eq->campaign_pool_suit_b]));
-                $suitMatches = $pools === [] || ($flipSuit !== null && in_array($flipSuit, $pools, true));
-                $eligible = $valueMatches && $suitMatches;
-            }
-            if (! $eligible) {
-                $ineligible[] = $eq->name;
-            }
-        }
-
-        if (! empty($ineligible)) {
-            return redirect()->back()->withMessage(
-                'Some items are not barterable at flip '.($flipValue ?? '—').': '.implode(', ', $ineligible),
-                null,
-                MessageTypeEnum::error,
-            );
-        }
 
         if ($totalCc > $crew->scrip) {
             return redirect()->back()->withMessage(
@@ -288,13 +279,11 @@ class CampaignAftermathController extends Controller
             );
         }
 
-        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $totalCc, $flipValue, $flipSuit, $isRedJoker) {
+        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $totalCc) {
             foreach ($items as $eq) {
                 CampaignEquipment::create([
                     'campaign_crew_id' => $crew->id,
-                    // Post-consolidation FK points at upgrades.id. Legacy
-                    // equipment_catalog_id stays null on new rows; Phase 5
-                    // drops the column entirely.
+                    // Post-consolidation FK points at upgrades.id.
                     'equipment_upgrade_id' => $eq->id,
                     'source' => $eq->campaign_ttw_only ? 'joker' : 'barter',
                     'acquired_aftermath_id' => $locked->id,
@@ -305,21 +294,6 @@ class CampaignAftermathController extends Controller
                 $crew->decrement('scrip', $totalCc);
             }
 
-            // Only record a flip when one actually happened — a skipped Barter
-            // (null flip / nothing bought) just advances the phase.
-            if ($flipValue !== null) {
-                DB::table('campaign_aftermath_barter')->insert([
-                    'campaign_aftermath_id' => $locked->id,
-                    'raw_flip_value' => $flipValue,
-                    'raw_flip_suit' => $flipSuit,
-                    'cheated_to' => null,
-                    'purchases' => json_encode($items->pluck('id')->all()),
-                    'red_joker_ttw_flip_value' => $isRedJoker ? $flipValue : null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
             $locked->update(['current_phase' => 4]);
         });
 
@@ -328,7 +302,9 @@ class CampaignAftermathController extends Controller
         }
 
         return redirect()->route('campaigns.aftermaths.show', $aftermath)
-            ->withMessage('Bartered '.$items->count().' item(s) for '.$totalCc.' scrip.');
+            ->withMessage($items->isEmpty()
+                ? 'Barter skipped. On to Advance Leader.'
+                : 'Bartered '.$items->count().' item(s) for '.$totalCc.' scrip. On to Advance Leader.');
     }
 
     /**
@@ -370,16 +346,13 @@ class CampaignAftermathController extends Controller
             // than silently `continue` past them later — otherwise a player
             // could drain their own scrip on non-resolving attempts.
             'attempts.*.injury_pivot_id' => ['required', 'integer', 'exists:campaign_arsenal_model_injuries,id'],
-            // A red-joker doctor flip resolves to the Red Joker row (annihilate +
-            // Lucky Miss, pg 33); flip_value is then only required for normal flips.
-            'attempts.*.is_red_joker' => ['nullable', 'boolean'],
-            'attempts.*.flip_value' => ['nullable', 'required_unless:attempts.*.is_red_joker,true', 'integer', 'min:1', 'max:13'],
-            'attempts.*.suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // The player makes the doctor flip at the table and picks the result
+            // they got from the chart (pg 33); the server applies its outcome.
+            'attempts.*.result_id' => ['required', 'integer', 'exists:back_alley_doctor_results,id'],
             'attempts.*.cheated' => ['nullable', 'boolean'],
-            // Required when the doctor outcome is AddedInjury (Oops) or flip 9
-            // (RemovedAndReflip) — the new injury rolled on the injury chart.
-            'attempts.*.added_injury_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'attempts.*.added_injury_suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // Required when the chosen result adds a new injury (Oops / flip 9
+            // RemovedAndReflip) — the injury picked from the chart.
+            'attempts.*.added_injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             // The Lucky Miss result rolled after a red-joker annihilation; or, if
             // that Lucky Miss flip is itself a joker, Doppelganger.
             'attempts.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
@@ -430,14 +403,8 @@ class CampaignAftermathController extends Controller
                     continue;
                 }
 
-                // Red-joker flips resolve to the dedicated Red Joker row; normal
-                // flips match by value range.
-                $result = ! empty($attempt['is_red_joker'])
-                    ? BackAlleyDoctorResult::query()->where('is_red_joker', true)->first()
-                    : BackAlleyDoctorResult::query()
-                        ->where('flip_value_min', '<=', $attempt['flip_value'])
-                        ->where('flip_value_max', '>=', $attempt['flip_value'])
-                        ->first();
+                // The player picked the result row they flipped at the table.
+                $result = BackAlleyDoctorResult::query()->whereKey($attempt['result_id'])->first();
 
                 $outcome = $result ? $result->outcome_kind : BackAlleyDoctorOutcomeEnum::NoEffect;
 
@@ -470,14 +437,12 @@ class CampaignAftermathController extends Controller
                 // the client-supplied reflip. attachInjury() enforces flesh-wound /
                 // duplicate / 3-injury annihilation / titled-cascade rules.
                 if ($outcome === BackAlleyDoctorOutcomeEnum::AddedInjury || $outcome === BackAlleyDoctorOutcomeEnum::RemovedAndReflip) {
-                    $newFlip = $attempt['added_injury_flip_value'] ?? null;
-                    $newPool = $attempt['added_injury_suit_pool'] ?? null;
-                    if ($newFlip !== null && $newPool !== null) {
+                    $newInjuryId = $attempt['added_injury_upgrade_id'] ?? null;
+                    if ($newInjuryId !== null) {
                         $newInjury = Upgrade::query()
                             ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                             ->where('campaign_upgrade_kind', 'injury')
-                            ->where('campaign_suit_pool', $newPool)
-                            ->where('campaign_flip_value', $newFlip)
+                            ->whereKey($newInjuryId)
                             ->first();
                         if ($newInjury) {
                             $model->attachInjury($newInjury, $locked->id);
@@ -508,9 +473,13 @@ class CampaignAftermathController extends Controller
                 DB::table('campaign_aftermath_doctor')->insert([
                     'campaign_aftermath_id' => $locked->id,
                     'target_arsenal_model_id' => $model->id,
-                    'target_injury_id' => $pivot->id,
-                    // Null for red-joker flips, which carry no numeric value.
-                    'flip_value' => $attempt['flip_value'] ?? null,
+                    // A "removed" outcome already deleted the injury pivot above,
+                    // so the audit row keeps a null reference (FK is nullOnDelete)
+                    // rather than a dangling id that fails the FK in MySQL.
+                    'target_injury_id' => $removesInjury ? null : $pivot->id,
+                    // No raw flip value any more — the player records the chosen
+                    // result row, not a flip number (column is nullable).
+                    'flip_value' => null,
                     'cheated' => (bool) ($attempt['cheated'] ?? false),
                     'outcome' => $outcome->value,
                     'created_at' => now(),
@@ -720,10 +689,9 @@ class CampaignAftermathController extends Controller
             'flips.*.is_black_joker' => ['nullable', 'boolean'],
             // Set when the Lucky Miss flip itself is a joker → Doppelganger.
             'flips.*.lucky_miss_is_joker' => ['nullable', 'boolean'],
-            // Present for a normal injury flip; absent for joker flips. A normal
-            // flip with no injury match is simply skipped.
-            'flips.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'flips.*.suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // The injury is now chosen directly (the player resolves the flip at
+            // the table and picks the matching injury); absent for joker flips.
+            'flips.*.injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             'flips.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
         ]);
 
@@ -779,12 +747,15 @@ class CampaignAftermathController extends Controller
                     continue;
                 }
 
-                // Injuries live on `upgrades` with campaign_upgrade_kind='injury'.
+                // The injury is chosen directly from the catalog now (the player
+                // resolves the flip at the table). No pick → nothing to attach.
+                if (empty($f['injury_upgrade_id'])) {
+                    continue;
+                }
                 $injury = Upgrade::query()
                     ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                     ->where('campaign_upgrade_kind', 'injury')
-                    ->where('campaign_suit_pool', $f['suit_pool'])
-                    ->where('campaign_flip_value', $f['flip_value'])
+                    ->whereKey($f['injury_upgrade_id'])
                     ->first();
 
                 if (! $injury) {

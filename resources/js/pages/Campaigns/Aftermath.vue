@@ -67,6 +67,16 @@ interface InjuryPivotRow {
     display_name: string;
     injury_name: string;
 }
+// Scoring captured when the game was logged, mapped to this crew's perspective.
+interface Prefill {
+    vp_self: number;
+    vp_opponent: number;
+    schemes_completed: number;
+    won: boolean;
+    withdrew: boolean;
+    crew_cr: number;
+    opponent_cr: number;
+}
 
 const props = defineProps<{
     aftermath: AftermathData;
@@ -75,6 +85,7 @@ const props = defineProps<{
     // True when killed_models comes from a tracker run; false (solo / manually
     // logged) means it's the full roster and the player picks who actually died.
     kills_are_authoritative: boolean;
+    prefill: Prefill;
     // Phase-gated lazy props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
     crew_injuries?: InjuryPivotRow[] | null;
@@ -100,9 +111,10 @@ const phaseStatus = (n: number): 'done' | 'current' | 'pending' => {
 };
 
 // ───────── Phase 1 ─────────
+// Pre-filled from the logged game; the player just confirms.
 const handForm = ref({
-    completed_without_withdrawing: true,
-    schemes_completed: 0,
+    completed_without_withdrawing: !props.prefill.withdrew,
+    schemes_completed: props.prefill.schemes_completed,
 });
 
 const drawHand = () => {
@@ -111,10 +123,10 @@ const drawHand = () => {
 
 // ───────── Phase 2 ─────────
 const paydayForm = ref({
-    vp: 0,
-    won: false,
-    crew_cr: 0,
-    opponent_cr: 0,
+    vp: props.prefill.vp_self,
+    won: props.prefill.won,
+    crew_cr: props.prefill.crew_cr,
+    opponent_cr: props.prefill.opponent_cr,
 });
 
 const submitPayday = () => {
@@ -122,67 +134,39 @@ const submitPayday = () => {
 };
 
 // ───────── Phase 3 (Barter) ─────────
-const barterForm = ref({
-    flip_value: 7,
-    flip_suit: '',
-    is_red_joker: false,
-});
+// The barter flip + BR/suit eligibility is resolved at the table (pg 21-30).
+// Here the player just searches the catalog by name and records what they
+// bought; the server charges the items' cc against scrip.
 const barterPurchases = ref<number[]>([]);
+const barterSearch = ref('');
 
-const itemPools = (e: EquipmentRow) => [e.pool_suit_a, e.pool_suit_b].filter(Boolean).map((p) => (p as string).toLowerCase());
+const barterMatches = computed(() => {
+    const q = barterSearch.value.trim().toLowerCase();
+    if (!q) return [];
+    return equipment_catalog.value.filter((e) => e.name.toLowerCase().includes(q) && !barterPurchases.value.includes(e.id)).slice(0, 25);
+});
 
-// Browse the whole catalog, filterable by BR number + suit (independent of the
-// flip), so players can see everything that exists rather than only what the
-// current flip unlocks.
-const filterBr = ref<number | null>(null);
-const filterSuit = ref('');
-const filteredEquipment = computed(() =>
-    equipment_catalog.value.filter((e) => {
-        if (filterBr.value != null && !e.is_always_available && e.br !== filterBr.value) return false;
-        const suit = filterSuit.value.trim().toLowerCase();
-        if (suit) {
-            const pools = itemPools(e);
-            if (pools.length === 0) return !!e.is_always_available;
-            if (!pools.includes(suit)) return false;
-        }
-        return true;
-    }),
+const purchasedItems = computed(() =>
+    barterPurchases.value.map((id) => equipment_catalog.value.find((e) => e.id === id)).filter((e): e is EquipmentRow => !!e),
 );
 
-// Whether an item can actually be bought at the CURRENT flip (the server
-// enforces the same rule). BR must equal the flip value exactly (pg 21); items
-// keyed to a suit pool also need the flip's suit.
-const isEligible = (e: EquipmentRow) => {
-    if (e.ttw_only) return barterForm.value.is_red_joker;
-    if (e.is_always_available) return true;
-    if (e.br === null || e.br !== barterForm.value.flip_value) return false;
-    const pools = itemPools(e);
-    return pools.length === 0 || pools.includes(barterForm.value.flip_suit.trim().toLowerCase());
+const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0));
+
+const addBarterItem = (id: number) => {
+    if (!barterPurchases.value.includes(id)) barterPurchases.value.push(id);
+    barterSearch.value = '';
 };
 
-const barterTotalCc = computed(() =>
-    barterPurchases.value.reduce((sum, id) => {
-        const item = equipment_catalog.value.find((e) => e.id === id);
-        return sum + (item?.cc ?? 0);
-    }, 0),
-);
-
-const toggleBarter = (id: number) => {
+const removeBarterItem = (id: number) => {
     const i = barterPurchases.value.indexOf(id);
     if (i >= 0) barterPurchases.value.splice(i, 1);
-    else barterPurchases.value.push(id);
 };
 
+// Buys whatever is in the list (an empty list just advances — a skipped Barter).
 const submitBarter = () => {
     router.post(route('campaigns.aftermaths.barter', props.aftermath.id), {
-        ...barterForm.value,
         purchases: barterPurchases.value,
     } as Record<string, unknown>);
-};
-
-// Advance past Barter without flipping or buying anything (e.g. no scrip).
-const skipBarter = () => {
-    router.post(route('campaigns.aftermaths.barter', props.aftermath.id), { purchases: [], is_red_joker: false } as Record<string, unknown>);
 };
 
 // ───────── Phase 4 (Advance Leader) ─────────
@@ -364,11 +348,13 @@ const submitAdvanceLeader = () => {
 };
 
 // ───────── Phase 5 (Doctor) ─────────
+// The doctor flip is made at the table (pg 33); the player picks the result row
+// they got. An "Oops" result then picks the added injury from the catalog.
 interface DoctorAttempt {
     injury_pivot_id: number;
-    flip_value: number;
-    suit_pool: 'pc' | 'te';
-    is_red_joker: boolean;
+    result_id: number | null;
+    cheated: boolean;
+    added_injury_upgrade_id: number | null;
     // Lucky Miss table result rolled after a red-joker annihilation.
     lucky_miss_flip_value: number;
     // The Lucky Miss flip was itself a joker → Doppelganger.
@@ -379,9 +365,9 @@ const doctorAttempts = ref<DoctorAttempt[]>([]);
 const addDoctorAttempt = (pivotId: number) => {
     doctorAttempts.value.push({
         injury_pivot_id: pivotId,
-        flip_value: 1,
-        suit_pool: 'pc',
-        is_red_joker: false,
+        result_id: null,
+        cheated: false,
+        added_injury_upgrade_id: null,
         lucky_miss_flip_value: 1,
         lucky_miss_is_joker: false,
     });
@@ -395,11 +381,23 @@ const submitDoctor = () => {
     } as Record<string, unknown>);
 };
 
+interface DoctorResultRow {
+    id: number;
+    name: string;
+    body: string;
+    outcome_kind: string;
+}
+const doctor_results = computed<DoctorResultRow[]>(() => (props as unknown as { doctor_results?: DoctorResultRow[] }).doctor_results ?? []);
+const doctorOutcome = (resultId: number | null) =>
+    resultId == null ? null : (doctor_results.value.find((r) => r.id === resultId)?.outcome_kind ?? null);
+
 // ───────── Phase 6 ─────────
-interface InjuryFlip {
+// The injury flip is made at the table (pg 34-36); the player picks the injury
+// that resulted directly from the catalog. Jokers stay explicit choices.
+interface InjuryEntry {
     arsenal_model_id: number;
-    flip_value: number;
-    suit_pool: 'pc' | 'te';
+    // The chosen injury upgrade (null until picked / when a joker is flipped).
+    injury_upgrade_id: number | null;
     is_red_joker: boolean;
     // Black joker = Traitor (the model defects).
     is_black_joker: boolean;
@@ -408,12 +406,11 @@ interface InjuryFlip {
     // The Lucky Miss flip was itself a joker → Doppelganger.
     lucky_miss_is_joker: boolean;
 }
-const injuryFlips = ref<InjuryFlip[]>([]);
+const injuryFlips = ref<InjuryEntry[]>([]);
 const addInjuryFlip = (modelId: number) => {
     injuryFlips.value.push({
         arsenal_model_id: modelId,
-        flip_value: 1,
-        suit_pool: 'pc',
+        injury_upgrade_id: null,
         is_red_joker: false,
         is_black_joker: false,
         lucky_miss_flip_value: 1,
@@ -421,6 +418,14 @@ const addInjuryFlip = (modelId: number) => {
     });
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
+
+interface InjuryCatalogRow {
+    id: number;
+    name: string;
+    suit_pool: string | null;
+    flip_value: number | null;
+}
+const injury_catalog = computed<InjuryCatalogRow[]>(() => (props as unknown as { injury_catalog?: InjuryCatalogRow[] }).injury_catalog ?? []);
 
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
@@ -519,7 +524,8 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader><CardTitle class="text-base">Aftermath Hand</CardTitle></CardHeader>
             <CardContent>
                 <p class="text-sm">
-                    Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck to cheat barter flips.
+                    Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck. Keep them in hand to cheat
+                    flips throughout the Aftermath — barter, the doctor, and determining injuries.
                 </p>
                 <p class="mt-2 text-[10px] text-muted-foreground">Your fate deck does not reshuffle until the Aftermath ends (pg 21).</p>
             </CardContent>
@@ -561,82 +567,57 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 3 — Barter</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    One flip determines what's available to buy this Aftermath. Always-available items appear at any flip; others need BR ≤ flip. Red
-                    joker enables Those Who Thirst.
+                    Make your barter flips at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
+                    Its cost is charged to your scrip.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
-                <div class="grid gap-3 md:grid-cols-3">
-                    <div>
-                        <Label>Flip value (1–13)</Label>
-                        <Input type="number" min="1" max="13" v-model.number="barterForm.flip_value" />
-                    </div>
-                    <div>
-                        <Label>Suit (optional)</Label>
-                        <Input v-model="barterForm.flip_suit" placeholder="ram / crow / mask / tome" />
-                    </div>
-                    <div class="flex items-end">
-                        <label class="flex items-center gap-2 text-sm">
-                            <Checkbox :checked="barterForm.is_red_joker" @update:checked="(v: boolean) => (barterForm.is_red_joker = v)" />
-                            <span>Red Joker (TTW gate)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="rounded-md border p-3">
-                    <div class="mb-2 flex flex-wrap items-end gap-2">
-                        <p class="mr-auto text-xs font-medium uppercase text-muted-foreground">Equipment catalog</p>
-                        <div>
-                            <Label class="text-[10px]">Filter BR</Label>
-                            <Input type="number" min="1" max="13" v-model.number="filterBr" placeholder="any" class="h-8 w-20 text-sm" />
-                        </div>
-                        <div>
-                            <Label class="text-[10px]">Filter suit</Label>
-                            <Input v-model="filterSuit" placeholder="any" class="h-8 w-28 text-sm" />
-                        </div>
-                    </div>
-                    <ul class="max-h-64 space-y-1 overflow-y-auto pr-1">
+                <div>
+                    <Label>Purchase equipment</Label>
+                    <Input v-model="barterSearch" placeholder="Search equipment by name…" :disabled="!is_owner" />
+                    <ul v-if="barterMatches.length" class="mt-1 max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
                         <li
-                            v-for="item in filteredEquipment"
+                            v-for="item in barterMatches"
                             :key="item.id"
-                            class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm"
-                            :class="isEligible(item) ? '' : 'opacity-50'"
+                            class="flex items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50"
                         >
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-medium">{{ item.name }}</p>
                                 <p class="text-[10px] text-muted-foreground">
-                                    BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }}
-                                    <template v-if="item.pool_suit_a || item.pool_suit_b">
-                                        of {{ [item.pool_suit_a, item.pool_suit_b].filter(Boolean).join('/') }} </template
-                                    >• CC {{ item.cc }}
+                                    BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
                                 </p>
                             </div>
-                            <Button
-                                size="sm"
-                                :variant="barterPurchases.includes(item.id) ? 'default' : 'outline'"
-                                :disabled="!is_owner || (!isEligible(item) && !barterPurchases.includes(item.id))"
-                                :title="isEligible(item) ? '' : 'Not available at the current flip'"
-                                @click="toggleBarter(item.id)"
-                            >
-                                {{ barterPurchases.includes(item.id) ? '✓' : 'Buy' }}
-                            </Button>
+                            <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
                         </li>
-                        <li v-if="filteredEquipment.length === 0" class="text-[11px] text-muted-foreground">
-                            No equipment matches the filter, or the catalog hasn't been seeded.
+                    </ul>
+                    <p v-else-if="barterSearch.trim()" class="mt-1 text-[11px] text-muted-foreground">No equipment matches that name.</p>
+                </div>
+
+                <div v-if="purchasedItems.length" class="rounded-md border p-3">
+                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Purchasing</p>
+                    <ul class="space-y-1">
+                        <li
+                            v-for="item in purchasedItems"
+                            :key="item.id"
+                            class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm"
+                        >
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate font-medium">{{ item.name }}</p>
+                                <p class="text-[10px] text-muted-foreground">CC {{ item.cc }}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" :disabled="!is_owner" @click="removeBarterItem(item.id)">Remove</Button>
                         </li>
                     </ul>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <span class="text-sm">
-                        Total: <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} scrip</Badge>
+                        Total:
+                        <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                     </span>
-                    <div class="flex gap-2">
-                        <Button variant="outline" :disabled="!is_owner" @click="skipBarter">Skip — buy nothing</Button>
-                        <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                            Confirm Barter &amp; advance
-                        </Button>
-                    </div>
+                    <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
+                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                    </Button>
                 </div>
             </CardContent>
         </Card>
@@ -659,13 +640,13 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <Checkbox checked disabled />
                             <span>+1 for playing the game (always)</span>
                         </label>
-                        <label class="flex items-start gap-2">
+                        <label v-if="xp_track?.tag === 'bruiser'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.bruiser_killed" @update:checked="(v: boolean) => (xpForm.bruiser_killed = v)" />
-                            <span>+1 Bruiser killed a non-peon enemy (only counts if Leader tagged Bruiser)</span>
+                            <span>+1 Bruiser killed a non-peon enemy</span>
                         </label>
-                        <label class="flex items-start gap-2">
+                        <label v-if="xp_track?.tag === 'strategist'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.strategist_interacted" @update:checked="(v: boolean) => (xpForm.strategist_interacted = v)" />
-                            <span>+1 Strategist Interacted in enemy DZ (only counts if Leader tagged Strategist)</span>
+                            <span>+1 Strategist Interacted in enemy DZ</span>
                         </label>
                         <label class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.lost" @update:checked="(v: boolean) => (xpForm.lost = v)" />
@@ -734,7 +715,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 5 — Back-Alley Doctor</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    Pay 1 scrip per attempt; flip on the doctor table (pg 33). The doctor keeps the scrip regardless.
+                    Pay 1 scrip per attempt and flip on the doctor table (pg 33), then pick the result you got. The doctor keeps the scrip regardless.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
@@ -759,11 +740,21 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <ul class="space-y-2">
                         <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">injury pivot #{{ att.injury_pivot_id }}</span>
-                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Checkbox :checked="att.is_red_joker" @update:checked="(v: boolean) => (att.is_red_joker = v)" />
-                                Red Joker
-                            </label>
-                            <template v-if="att.is_red_joker">
+                            <select v-model.number="att.result_id" class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground">
+                                <option :value="null">— pick the result —</option>
+                                <option v-for="r in doctor_results" :key="r.id" :value="r.id">{{ r.name }}</option>
+                            </select>
+                            <!-- "Oops" / flip-9 reflip — pick the new injury that was added. -->
+                            <select
+                                v-if="doctorOutcome(att.result_id) === 'added_injury' || doctorOutcome(att.result_id) === 'removed_and_reflip'"
+                                v-model.number="att.added_injury_upgrade_id"
+                                class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                            >
+                                <option :value="null">— added injury —</option>
+                                <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
+                            </select>
+                            <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
+                            <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                     <Checkbox :checked="att.lucky_miss_is_joker" @update:checked="(v: boolean) => (att.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
@@ -772,13 +763,6 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
                                     <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
-                            </template>
-                            <template v-else>
-                                <Input type="number" min="1" max="13" v-model.number="att.flip_value" class="h-8 w-16" />
-                                <select v-model="att.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
-                                    <option value="pc">Ram/Crow</option>
-                                    <option value="te">Tome/Mask</option>
-                                </select>
                             </template>
                             <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>
@@ -796,8 +780,8 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 6 — Determine Injuries</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    For each non-peon model killed this game, flip a card and apply the matching injury (pg 34–35). Models hitting 3+ injuries are
-                    annihilated.
+                    For each non-peon model killed this game, resolve the injury flip at the table (pg 34–35), then add the injury that resulted and
+                    pick it from the list. Models hitting 3+ injuries are annihilated.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
@@ -812,12 +796,12 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             {{ m.character?.display_name ?? '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
                         </span>
-                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m.id)">Flip</Button>
+                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m.id)">Add injury</Button>
                     </li>
                 </ul>
 
                 <div v-if="injuryFlips.length" class="rounded-md border p-3">
-                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Flips</p>
+                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Injuries</p>
                     <ul class="space-y-2">
                         <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">model #{{ f.arsenal_model_id }}</span>
@@ -859,10 +843,12 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 </template>
                             </template>
                             <template v-else>
-                                <Input type="number" min="1" max="13" v-model.number="f.flip_value" class="h-8 w-16" />
-                                <select v-model="f.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
-                                    <option value="pc">Ram/Crow</option>
-                                    <option value="te">Tome/Mask</option>
+                                <select
+                                    v-model.number="f.injury_upgrade_id"
+                                    class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                                >
+                                    <option :value="null">— pick the injury —</option>
+                                    <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
                                 </select>
                             </template>
                             <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>

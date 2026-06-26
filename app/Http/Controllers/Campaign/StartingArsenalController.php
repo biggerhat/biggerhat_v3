@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Campaign;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
+use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
 use App\Models\Campaign\Campaign;
@@ -234,11 +235,13 @@ class StartingArsenalController extends Controller
     }
 
     /**
-     * Tokens / markers / upgrades available to a crew-card choice (pg 17):
-     * everything listed on a crew card (a crew-domain upgrade) belonging to a
-     * master that shares one of the crew's two keywords.
+     * Options for a crew-card choice (pg 17-18) — everything listed on a crew
+     * card (a crew-domain upgrade) belonging to a master sharing one of the
+     * crew's keywords: its tokens, its markers, and the upgrade *types* it
+     * carries (pg 18: "an upgrade type listed on a … crew card"). Token/marker
+     * ids are ints; an upgrade-type id is its enum value (a string).
      *
-     * @return array{tokens: list<array{id:int,name:string}>, markers: list<array{id:int,name:string}>, upgrades: list<array{id:int,name:string}>}
+     * @return array{tokens: list<array{id:int,name:string}>, markers: list<array{id:int,name:string}>, upgrades: list<array{id:string,name:string}>}
      */
     private function crewCardChoiceOptions(CampaignCrew $crew): array
     {
@@ -251,14 +254,18 @@ class StartingArsenalController extends Controller
             ->forCrews()
             ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
             ->with(['tokens:id,name', 'markers:id,name'])
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'type']);
 
         $shape = fn ($row) => ['id' => $row->id, 'name' => $row->name];
 
         return [
             'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
             'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            'upgrades' => $crewCards->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            // Upgrade *types* carried by those crew cards (not the cards
+            // themselves) — keyed by the enum value so the pick is a real type.
+            'upgrades' => $crewCards->pluck('type')->filter()->unique()
+                ->map(fn (UpgradeTypeEnum $t) => ['id' => $t->value, 'name' => $t->label()])
+                ->sortBy('name')->values()->all(),
         ];
     }
 }

@@ -55,6 +55,9 @@ class StoreLeaderRequest extends FormRequest
             'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
             'characteristics' => ['nullable', 'array', 'max:2'],
             'characteristics.*' => ['string', 'max:64'],
+            // Lucky Upstart's free starter equipment pick (pg 17). Only honored
+            // server-side when the archetype is Lucky Upstart.
+            'lucky_upstart_equipment_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             // Actions / abilities — shape matches CardCreator/Editor; source_id
             // is the original Action/Ability row this was picked from.
             'actions' => ['nullable', 'array'],

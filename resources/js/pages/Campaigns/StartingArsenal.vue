@@ -45,7 +45,8 @@ interface CrewCardEffectRow {
     abilities: CrewCardLinkedItem[];
 }
 interface ChoiceOption {
-    id: number;
+    // int for a token/marker, enum-value string for an upgrade type.
+    id: number | string;
     name: string;
 }
 interface CrewCardChoiceOptions {
@@ -62,7 +63,7 @@ interface CrewData {
     keyword_2_id: number | null;
     scrip: number;
     crew_card_effect_id: number | null;
-    crew_card_choice: { type: string; id: number; name: string } | null;
+    crew_card_choice: { type: string; id: number | string; name: string } | null;
 }
 interface CampaignData {
     id: number;
@@ -96,7 +97,7 @@ const selectedCrewCardEffectId = ref<number | null>(props.crew.crew_card_effect_
 
 // Crew cards that require a token/marker/upgrade choice (pg 17) surface a
 // constrained picker. Choice resets when the selected card changes.
-const selectedCrewCardChoiceId = ref<number | null>(props.crew.crew_card_choice?.id ?? null);
+const selectedCrewCardChoiceId = ref<number | string | null>(props.crew.crew_card_choice?.id ?? null);
 const selectedCrewCard = computed(() => props.crew_card_effects.find((e) => e.id === selectedCrewCardEffectId.value) ?? null);
 const requiredChoiceType = computed<'token' | 'marker' | 'upgrade' | null>(() => {
     const c = selectedCrewCard.value;
@@ -293,8 +294,9 @@ const submit = () => {
                     <label class="text-xs font-medium">
                         Choose a {{ requiredChoiceType }} — listed on a crew card of a master sharing your keywords
                     </label>
+                    <!-- No .number: token/marker ids are ints, upgrade-type ids are enum strings. -->
                     <select
-                        v-model.number="selectedCrewCardChoiceId"
+                        v-model="selectedCrewCardChoiceId"
                         :disabled="locked"
                         class="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
                     >

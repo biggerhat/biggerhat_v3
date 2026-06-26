@@ -257,7 +257,7 @@ it('Phase 6 applies injuries to arsenal models from the catalog', function () {
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 3, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injury->id],
             ],
         ])
         ->assertRedirect();
@@ -291,7 +291,7 @@ it('Phase 6 annihilates a model that hits 3+ injuries', function () {
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injuryC->id],
             ],
         ])
         ->assertRedirect();
@@ -308,12 +308,12 @@ it('Phase 6 immediately annihilates on Killed Off injury', function () {
         'hand_drawn' => [],
     ]);
     $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
-    Upgrade::factory()->campaignInjuryKilledOff()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 13]); // flip 13 / pc
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 13]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
             'flips' => [
-                ['arsenal_model_id' => $model->id, 'flip_value' => 13, 'suit_pool' => 'pc'],
+                ['arsenal_model_id' => $model->id, 'injury_upgrade_id' => $killedOff->id],
             ],
         ])
         ->assertRedirect();

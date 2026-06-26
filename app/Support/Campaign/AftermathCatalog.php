@@ -49,6 +49,30 @@ class AftermathCatalog
     }
 
     /**
+     * Phase 6 — the full injury catalog. The player resolves the injury flip at
+     * the table (pg 34-36) and picks the matching injury by name from this list.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function injuries(): array
+    {
+        return Upgrade::query()
+            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+            ->where('campaign_upgrade_kind', 'injury')
+            ->orderBy('campaign_suit_pool')
+            ->orderBy('campaign_flip_value')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Upgrade $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'suit_pool' => $u->campaign_suit_pool,
+                'flip_value' => $u->campaign_flip_value,
+            ])
+            ->all();
+    }
+
+    /**
      * Phase 5 — the crew's treatable injuries (one row per attached injury).
      *
      * @return array<int, object>

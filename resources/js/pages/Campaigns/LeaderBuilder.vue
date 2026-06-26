@@ -69,6 +69,9 @@ interface ActionData {
     // a valid (non-master/non-totem, cost-bearing, in-keyword) source (pg 17).
     source_character_id: number | null;
     triggers: TriggerData[];
+    // Heavy Hitter keeps ONE trigger on its starting attack — the full set the
+    // player chooses from is held here client-side (stripped before submit).
+    available_triggers?: TriggerData[];
 }
 
 interface AbilityData {
@@ -209,12 +212,21 @@ const addAction = (a: ActionData) => {
     if (!(archetype.value?.attack_gets_trigger && cloned.category === 'attack')) {
         cloned.triggers = [];
     } else {
-        // Heavy Hitter keeps only ONE trigger — default to first, user can change.
+        // Heavy Hitter keeps ONE trigger — default to the first; the full set is
+        // kept in available_triggers so the player can pick a different one.
+        cloned.available_triggers = [...cloned.triggers];
         cloned.triggers = cloned.triggers.slice(0, 1);
     }
     form.value.actions.push(cloned);
     actionSearch.value = '';
     actionResults.value = [];
+};
+
+// Heavy Hitter: choose which of the source attack's triggers to keep.
+const setKeptTrigger = (actionIdx: number, sourceId: number | null) => {
+    const action = form.value.actions[actionIdx];
+    const chosen = action.available_triggers?.find((t) => t.source_id === sourceId);
+    if (chosen) action.triggers = [chosen];
 };
 
 const removeAction = (idx: number) => {
@@ -277,7 +289,16 @@ const removeCharacteristic = (i: number) => form.value.characteristics.splice(i,
 const submitting = ref(false);
 const submit = async () => {
     submitting.value = true;
-    router.post(route('campaigns.crews.leader.update', [props.campaign.id, props.crew.share_code]), form.value as Record<string, unknown>, {
+    // Strip the client-only available_triggers helper before posting.
+    const payload = {
+        ...form.value,
+        actions: form.value.actions.map((a) => {
+            const copy: ActionData = { ...a };
+            delete copy.available_triggers;
+            return copy;
+        }),
+    };
+    router.post(route('campaigns.crews.leader.update', [props.campaign.id, props.crew.share_code]), payload as Record<string, unknown>, {
         onFinish: () => (submitting.value = false),
     });
 };
@@ -425,11 +446,27 @@ const submit = async () => {
                 <div v-if="attackActions.length" class="space-y-1">
                     <p class="text-xs font-medium uppercase text-muted-foreground">Attack</p>
                     <div v-for="(a, idx) in form.actions" :key="`atk-${idx}`">
-                        <div v-if="a.category === 'attack'" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                            <span
-                                >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
-                            >
-                            <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                        <div v-if="a.category === 'attack'" class="space-y-1 rounded-md border p-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span
+                                    >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
+                                >
+                                <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                            </div>
+                            <!-- Heavy Hitter keeps one trigger — pick which when the source has several. -->
+                            <div v-if="(a.available_triggers?.length ?? 0) > 1" class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <span>Trigger:</span>
+                                <select
+                                    :value="a.triggers[0]?.source_id ?? ''"
+                                    @change="(e) => setKeptTrigger(idx, Number((e.target as HTMLSelectElement).value) || null)"
+                                    class="h-7 rounded border bg-background px-2 text-foreground"
+                                >
+                                    <option v-for="t in a.available_triggers" :key="t.source_id ?? t.name" :value="t.source_id ?? ''">
+                                        {{ t.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <p v-else-if="a.triggers.length" class="text-[11px] text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
                         </div>
                     </div>
                 </div>

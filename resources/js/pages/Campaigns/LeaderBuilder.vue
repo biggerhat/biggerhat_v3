@@ -69,6 +69,9 @@ interface ActionData {
     // a valid (non-master/non-totem, cost-bearing, in-keyword) source (pg 17).
     source_character_id: number | null;
     triggers: TriggerData[];
+    // Heavy Hitter keeps ONE trigger on its starting attack — the full set the
+    // player chooses from is held here client-side (stripped before submit).
+    available_triggers?: TriggerData[];
 }
 
 interface AbilityData {
@@ -121,6 +124,8 @@ const props = defineProps<{
     base_enum: SelectOpt[];
     all_keywords: KeywordRow[];
     characteristic_options: string[];
+    equipment_catalog: Array<{ id: number; name: string }>;
+    lucky_upstart_equipment_id: number | null;
 }>();
 
 const form = ref({
@@ -135,6 +140,7 @@ const form = ref({
     characteristics: props.leader?.characteristics ?? ([] as string[]),
     actions: props.leader?.actions ?? ([] as ActionData[]),
     abilities: props.leader?.abilities ?? ([] as AbilityData[]),
+    lucky_upstart_equipment_id: props.lucky_upstart_equipment_id ?? null,
 });
 
 const archetype = computed(() => props.archetypes.find((a) => a.slug === form.value.archetype) ?? null);
@@ -171,6 +177,12 @@ const searchActions = async () => {
     const url = new URL(route('campaigns.crews.leader.search.actions', [props.campaign.id, props.crew.share_code]), window.location.origin);
     url.searchParams.set('q', actionSearch.value);
     url.searchParams.set('max_cost', String(actionCap.value));
+    // Only show actions of the category being picked (no Tacticals under Attack).
+    url.searchParams.set('type', actionPickerCategory.value);
+    // Use the keywords currently selected in the form so the picker works before
+    // the leader/crew is saved (the server falls back to the crew's saved ones).
+    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
+    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
     const res = await fetch(url.toString());
     if (!res.ok) return;
     actionResults.value = await res.json();
@@ -179,6 +191,11 @@ const searchActions = async () => {
 watch(actionSearch, (v) => {
     if (v.length < 2) actionResults.value = [];
     else searchActions();
+});
+
+// Re-run the search when toggling Attack/Tactical so the type filter applies.
+watch(actionPickerCategory, () => {
+    if (actionSearch.value.length >= 2) searchActions();
 });
 
 const addAction = (a: ActionData) => {
@@ -198,12 +215,21 @@ const addAction = (a: ActionData) => {
     if (!(archetype.value?.attack_gets_trigger && cloned.category === 'attack')) {
         cloned.triggers = [];
     } else {
-        // Heavy Hitter keeps only ONE trigger — default to first, user can change.
+        // Heavy Hitter keeps ONE trigger — default to the first; the full set is
+        // kept in available_triggers so the player can pick a different one.
+        cloned.available_triggers = [...cloned.triggers];
         cloned.triggers = cloned.triggers.slice(0, 1);
     }
     form.value.actions.push(cloned);
     actionSearch.value = '';
     actionResults.value = [];
+};
+
+// Heavy Hitter: choose which of the source attack's triggers to keep.
+const setKeptTrigger = (actionIdx: number, sourceId: number | null) => {
+    const action = form.value.actions[actionIdx];
+    const chosen = action.available_triggers?.find((t) => t.source_id === sourceId);
+    if (chosen) action.triggers = [chosen];
 };
 
 const removeAction = (idx: number) => {
@@ -223,6 +249,9 @@ const searchAbilities = async () => {
     url.searchParams.set('q', abilitySearch.value);
     // Cap on the source ally's cost (rulebook pg 17).
     url.searchParams.set('max_cost', String(archetype.value?.ability_cost_cap ?? 99));
+    // In-form keywords so the picker works before the leader/crew is saved.
+    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
+    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
     const res = await fetch(url.toString());
     if (!res.ok) return;
     abilityResults.value = await res.json();
@@ -263,7 +292,16 @@ const removeCharacteristic = (i: number) => form.value.characteristics.splice(i,
 const submitting = ref(false);
 const submit = async () => {
     submitting.value = true;
-    router.post(route('campaigns.crews.leader.update', [props.campaign.id, props.crew.share_code]), form.value as Record<string, unknown>, {
+    // Strip the client-only available_triggers helper before posting.
+    const payload = {
+        ...form.value,
+        actions: form.value.actions.map((a) => {
+            const copy: ActionData = { ...a };
+            delete copy.available_triggers;
+            return copy;
+        }),
+    };
+    router.post(route('campaigns.crews.leader.update', [props.campaign.id, props.crew.share_code]), payload as Record<string, unknown>, {
         onFinish: () => (submitting.value = false),
     });
 };
@@ -314,6 +352,17 @@ const submit = async () => {
                         • Tactical: {{ archetype.tactical_actions_count }} (≤ cost {{ archetype.tactical_action_cost_cap }}) • Abilities:
                         {{ archetype.abilities_count }}
                     </p>
+                </div>
+                <div v-if="form.archetype === 'lucky_upstart'" class="md:col-span-2">
+                    <Label>Free starter equipment (Lucky Upstart)</Label>
+                    <select
+                        v-model.number="form.lucky_upstart_equipment_id"
+                        class="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                    >
+                        <option :value="null">— pick equipment —</option>
+                        <option v-for="e in equipment_catalog" :key="e.id" :value="e.id">{{ e.name }}</option>
+                    </select>
+                    <p class="mt-1 text-[11px] text-muted-foreground">Rolled free on creation; doesn't count toward Campaign Rating (pg 17).</p>
                 </div>
                 <div>
                     <Label>Faction (declared)</Label>
@@ -411,11 +460,27 @@ const submit = async () => {
                 <div v-if="attackActions.length" class="space-y-1">
                     <p class="text-xs font-medium uppercase text-muted-foreground">Attack</p>
                     <div v-for="(a, idx) in form.actions" :key="`atk-${idx}`">
-                        <div v-if="a.category === 'attack'" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                            <span
-                                >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
-                            >
-                            <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                        <div v-if="a.category === 'attack'" class="space-y-1 rounded-md border p-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span
+                                    >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
+                                >
+                                <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                            </div>
+                            <!-- Heavy Hitter keeps one trigger — pick which when the source has several. -->
+                            <div v-if="(a.available_triggers?.length ?? 0) > 1" class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <span>Trigger:</span>
+                                <select
+                                    :value="a.triggers[0]?.source_id ?? ''"
+                                    @change="(e) => setKeptTrigger(idx, Number((e.target as HTMLSelectElement).value) || null)"
+                                    class="h-7 rounded border bg-background px-2 text-foreground"
+                                >
+                                    <option v-for="t in a.available_triggers" :key="t.source_id ?? t.name" :value="t.source_id ?? ''">
+                                        {{ t.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <p v-else-if="a.triggers.length" class="text-[11px] text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
                         </div>
                     </div>
                 </div>

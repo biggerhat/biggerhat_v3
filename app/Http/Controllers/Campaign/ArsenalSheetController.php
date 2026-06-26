@@ -7,6 +7,7 @@ use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\LuckyMiss;
+use App\Models\CustomCharacter;
 use App\Services\CampaignRules;
 use Illuminate\Http\Request;
 
@@ -112,6 +113,10 @@ class ArsenalSheetController extends Controller
                 ],
             ),
             'leader' => $leader,
+            // Resolved Leadership Experience track (pg 31) — filled boxes come
+            // from logged-game XP via the Aftermath flow. Falls back to the
+            // empty canonical layout so a freshly built leader still renders.
+            'leader_xp_track' => $leader ? ($leader->xp_track ?? CustomCharacter::defaultXpTrack()) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
             // model when hiring. Shown on the arsenal sheet below the models.

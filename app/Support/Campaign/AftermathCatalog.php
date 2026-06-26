@@ -5,6 +5,7 @@ namespace App\Support\Campaign;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
@@ -44,6 +45,52 @@ class AftermathCatalog
                 'pool_suit_a' => $u->campaign_pool_suit_a,
                 'pool_suit_b' => $u->campaign_pool_suit_b,
                 'body' => $u->description,
+            ])
+            ->all();
+    }
+
+    /**
+     * Phase 5 — the Back-Alley Doctor result table. The player makes the doctor
+     * flip at the table (pg 33) and picks the result they got by name.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function doctorResults(): array
+    {
+        return BackAlleyDoctorResult::query()
+            ->orderByRaw('is_black_joker desc')
+            ->orderBy('flip_value_min')
+            ->orderByRaw('is_red_joker desc')
+            ->get()
+            ->map(fn (BackAlleyDoctorResult $r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+                'body' => $r->body,
+                'outcome_kind' => $r->outcome_kind->value,
+            ])
+            ->all();
+    }
+
+    /**
+     * Phase 6 — the full injury catalog. The player resolves the injury flip at
+     * the table (pg 34-36) and picks the matching injury by name from this list.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function injuries(): array
+    {
+        return Upgrade::query()
+            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+            ->where('campaign_upgrade_kind', 'injury')
+            ->orderBy('campaign_suit_pool')
+            ->orderBy('campaign_flip_value')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Upgrade $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'suit_pool' => $u->campaign_suit_pool,
+                'flip_value' => $u->campaign_flip_value,
             ])
             ->all();
     }

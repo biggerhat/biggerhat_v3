@@ -210,7 +210,10 @@ const deleteCampaign = async (id: number) => {
                                     <Button size="sm" class="w-full">Arsenal Sheet</Button>
                                 </Link>
                                 <template v-if="campaign.is_solo || c.user?.id === authUserId">
-                                    <Link :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])">
+                                    <Link
+                                        v-if="campaign.status === 'planning'"
+                                        :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])"
+                                    >
                                         <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
                                     </Link>
                                     <Link

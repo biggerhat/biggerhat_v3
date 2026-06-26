@@ -446,3 +446,33 @@ it('leader action search accepts in-form keywords before the crew is saved', fun
 
     expect($names)->toContain('Borrowed Blade');
 });
+
+it('Lucky Upstart leader records a free starter equipment excluded from CR', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+
+    $equip = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Lucky Charm']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Upstart',
+            'archetype' => LeaderArchetypeEnum::LuckyUpstart->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [],
+            'abilities' => [],
+            'lucky_upstart_equipment_id' => $equip->id,
+        ])
+        ->assertRedirect();
+
+    $eq = \App\Models\Campaign\CampaignEquipment::where('campaign_crew_id', $crew->id)
+        ->where('source', 'starting_lucky_upstart')->first();
+    expect($eq)->not->toBeNull();
+    expect($eq->equipment_upgrade_id)->toBe($equip->id);
+    expect((bool) $eq->excludes_from_cr)->toBeTrue();
+});

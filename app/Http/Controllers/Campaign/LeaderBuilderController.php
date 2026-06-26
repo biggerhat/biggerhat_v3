@@ -6,13 +6,16 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
+use App\Models\Upgrade;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +52,18 @@ class LeaderBuilderController extends Controller
             'characteristic_options' => fn () => Characteristic::query()
                 ->orderBy('name')
                 ->pluck('name'),
+            // Lucky Upstart picks a free starter equipment item (pg 17). Send the
+            // catalog + the crew's current pick so the picker is editable.
+            'equipment_catalog' => fn () => Upgrade::query()
+                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                ->where('campaign_upgrade_kind', 'equipment')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->all(),
+            'lucky_upstart_equipment_id' => CampaignEquipment::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->where('source', 'starting_lucky_upstart')
+                ->value('equipment_upgrade_id'),
         ]);
     }
 
@@ -136,6 +151,22 @@ class LeaderBuilderController extends Controller
                 ],
                 'characteristics' => $data['characteristics'] ?? [],
             ]);
+
+            // Lucky Upstart's free starter equipment (excluded from CR, pg 17).
+            // Idempotent on re-save: clear the prior starter, then re-create it
+            // only while the archetype is Lucky Upstart and an item was picked.
+            CampaignEquipment::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->where('source', 'starting_lucky_upstart')
+                ->delete();
+            if ($archetype === LeaderArchetypeEnum::LuckyUpstart && ! empty($data['lucky_upstart_equipment_id'])) {
+                CampaignEquipment::create([
+                    'campaign_crew_id' => $crew->id,
+                    'equipment_upgrade_id' => $data['lucky_upstart_equipment_id'],
+                    'source' => 'starting_lucky_upstart',
+                    'excludes_from_cr' => true,
+                ]);
+            }
         });
 
         return redirect()->route('campaigns.crews.leader.edit', [$campaign, $crew])

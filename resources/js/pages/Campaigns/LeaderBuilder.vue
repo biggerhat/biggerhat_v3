@@ -124,6 +124,8 @@ const props = defineProps<{
     base_enum: SelectOpt[];
     all_keywords: KeywordRow[];
     characteristic_options: string[];
+    equipment_catalog: Array<{ id: number; name: string }>;
+    lucky_upstart_equipment_id: number | null;
 }>();
 
 const form = ref({
@@ -138,6 +140,7 @@ const form = ref({
     characteristics: props.leader?.characteristics ?? ([] as string[]),
     actions: props.leader?.actions ?? ([] as ActionData[]),
     abilities: props.leader?.abilities ?? ([] as AbilityData[]),
+    lucky_upstart_equipment_id: props.lucky_upstart_equipment_id ?? null,
 });
 
 const archetype = computed(() => props.archetypes.find((a) => a.slug === form.value.archetype) ?? null);
@@ -349,6 +352,17 @@ const submit = async () => {
                         • Tactical: {{ archetype.tactical_actions_count }} (≤ cost {{ archetype.tactical_action_cost_cap }}) • Abilities:
                         {{ archetype.abilities_count }}
                     </p>
+                </div>
+                <div v-if="form.archetype === 'lucky_upstart'" class="md:col-span-2">
+                    <Label>Free starter equipment (Lucky Upstart)</Label>
+                    <select
+                        v-model.number="form.lucky_upstart_equipment_id"
+                        class="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                    >
+                        <option :value="null">— pick equipment —</option>
+                        <option v-for="e in equipment_catalog" :key="e.id" :value="e.id">{{ e.name }}</option>
+                    </select>
+                    <p class="mt-1 text-[11px] text-muted-foreground">Rolled free on creation; doesn't count toward Campaign Rating (pg 17).</p>
                 </div>
                 <div>
                     <Label>Faction (declared)</Label>

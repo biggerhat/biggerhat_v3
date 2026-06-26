@@ -93,7 +93,9 @@ class CampaignAftermathController extends Controller
             // the others. Read-side queries live in AftermathCatalog.
             'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::equipment() : null,
             'crew_injuries' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::crewInjuries($aftermath->campaign_crew_id) : null,
-            'injury_catalog' => fn () => $aftermath->current_phase === 6 ? AftermathCatalog::injuries() : null,
+            'doctor_results' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::doctorResults() : null,
+            // Phase 5 needs it too for the doctor "Oops" added-injury pick.
+            'injury_catalog' => fn () => in_array($aftermath->current_phase, [5, 6], true) ? AftermathCatalog::injuries() : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs() : null,
         ]);
@@ -318,16 +320,13 @@ class CampaignAftermathController extends Controller
             // than silently `continue` past them later — otherwise a player
             // could drain their own scrip on non-resolving attempts.
             'attempts.*.injury_pivot_id' => ['required', 'integer', 'exists:campaign_arsenal_model_injuries,id'],
-            // A red-joker doctor flip resolves to the Red Joker row (annihilate +
-            // Lucky Miss, pg 33); flip_value is then only required for normal flips.
-            'attempts.*.is_red_joker' => ['nullable', 'boolean'],
-            'attempts.*.flip_value' => ['nullable', 'required_unless:attempts.*.is_red_joker,true', 'integer', 'min:1', 'max:13'],
-            'attempts.*.suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // The player makes the doctor flip at the table and picks the result
+            // they got from the chart (pg 33); the server applies its outcome.
+            'attempts.*.result_id' => ['required', 'integer', 'exists:back_alley_doctor_results,id'],
             'attempts.*.cheated' => ['nullable', 'boolean'],
-            // Required when the doctor outcome is AddedInjury (Oops) or flip 9
-            // (RemovedAndReflip) — the new injury rolled on the injury chart.
-            'attempts.*.added_injury_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'attempts.*.added_injury_suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // Required when the chosen result adds a new injury (Oops / flip 9
+            // RemovedAndReflip) — the injury picked from the chart.
+            'attempts.*.added_injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             // The Lucky Miss result rolled after a red-joker annihilation; or, if
             // that Lucky Miss flip is itself a joker, Doppelganger.
             'attempts.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
@@ -378,14 +377,8 @@ class CampaignAftermathController extends Controller
                     continue;
                 }
 
-                // Red-joker flips resolve to the dedicated Red Joker row; normal
-                // flips match by value range.
-                $result = ! empty($attempt['is_red_joker'])
-                    ? BackAlleyDoctorResult::query()->where('is_red_joker', true)->first()
-                    : BackAlleyDoctorResult::query()
-                        ->where('flip_value_min', '<=', $attempt['flip_value'])
-                        ->where('flip_value_max', '>=', $attempt['flip_value'])
-                        ->first();
+                // The player picked the result row they flipped at the table.
+                $result = BackAlleyDoctorResult::query()->whereKey($attempt['result_id'])->first();
 
                 $outcome = $result ? $result->outcome_kind : BackAlleyDoctorOutcomeEnum::NoEffect;
 
@@ -418,14 +411,12 @@ class CampaignAftermathController extends Controller
                 // the client-supplied reflip. attachInjury() enforces flesh-wound /
                 // duplicate / 3-injury annihilation / titled-cascade rules.
                 if ($outcome === BackAlleyDoctorOutcomeEnum::AddedInjury || $outcome === BackAlleyDoctorOutcomeEnum::RemovedAndReflip) {
-                    $newFlip = $attempt['added_injury_flip_value'] ?? null;
-                    $newPool = $attempt['added_injury_suit_pool'] ?? null;
-                    if ($newFlip !== null && $newPool !== null) {
+                    $newInjuryId = $attempt['added_injury_upgrade_id'] ?? null;
+                    if ($newInjuryId !== null) {
                         $newInjury = Upgrade::query()
                             ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                             ->where('campaign_upgrade_kind', 'injury')
-                            ->where('campaign_suit_pool', $newPool)
-                            ->where('campaign_flip_value', $newFlip)
+                            ->whereKey($newInjuryId)
                             ->first();
                         if ($newInjury) {
                             $model->attachInjury($newInjury, $locked->id);
@@ -460,8 +451,9 @@ class CampaignAftermathController extends Controller
                     // so the audit row keeps a null reference (FK is nullOnDelete)
                     // rather than a dangling id that fails the FK in MySQL.
                     'target_injury_id' => $removesInjury ? null : $pivot->id,
-                    // Null for red-joker flips, which carry no numeric value.
-                    'flip_value' => $attempt['flip_value'] ?? null,
+                    // No raw flip value any more — the player records the chosen
+                    // result row, not a flip number (column is nullable).
+                    'flip_value' => null,
                     'cheated' => (bool) ($attempt['cheated'] ?? false),
                     'outcome' => $outcome->value,
                     'created_at' => now(),

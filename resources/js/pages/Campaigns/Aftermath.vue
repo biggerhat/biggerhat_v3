@@ -336,11 +336,13 @@ const submitAdvanceLeader = () => {
 };
 
 // ───────── Phase 5 (Doctor) ─────────
+// The doctor flip is made at the table (pg 33); the player picks the result row
+// they got. An "Oops" result then picks the added injury from the catalog.
 interface DoctorAttempt {
     injury_pivot_id: number;
-    flip_value: number;
-    suit_pool: 'pc' | 'te';
-    is_red_joker: boolean;
+    result_id: number | null;
+    cheated: boolean;
+    added_injury_upgrade_id: number | null;
     // Lucky Miss table result rolled after a red-joker annihilation.
     lucky_miss_flip_value: number;
     // The Lucky Miss flip was itself a joker → Doppelganger.
@@ -351,9 +353,9 @@ const doctorAttempts = ref<DoctorAttempt[]>([]);
 const addDoctorAttempt = (pivotId: number) => {
     doctorAttempts.value.push({
         injury_pivot_id: pivotId,
-        flip_value: 1,
-        suit_pool: 'pc',
-        is_red_joker: false,
+        result_id: null,
+        cheated: false,
+        added_injury_upgrade_id: null,
         lucky_miss_flip_value: 1,
         lucky_miss_is_joker: false,
     });
@@ -366,6 +368,16 @@ const submitDoctor = () => {
         attempts: doctorAttempts.value,
     } as Record<string, unknown>);
 };
+
+interface DoctorResultRow {
+    id: number;
+    name: string;
+    body: string;
+    outcome_kind: string;
+}
+const doctor_results = computed<DoctorResultRow[]>(() => (props as unknown as { doctor_results?: DoctorResultRow[] }).doctor_results ?? []);
+const doctorOutcome = (resultId: number | null) =>
+    resultId == null ? null : (doctor_results.value.find((r) => r.id === resultId)?.outcome_kind ?? null);
 
 // ───────── Phase 6 ─────────
 // The injury flip is made at the table (pg 34-36); the player picks the injury
@@ -691,7 +703,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 5 — Back-Alley Doctor</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    Pay 1 scrip per attempt; flip on the doctor table (pg 33). The doctor keeps the scrip regardless.
+                    Pay 1 scrip per attempt and flip on the doctor table (pg 33), then pick the result you got. The doctor keeps the scrip regardless.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
@@ -716,11 +728,21 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <ul class="space-y-2">
                         <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">injury pivot #{{ att.injury_pivot_id }}</span>
-                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Checkbox :checked="att.is_red_joker" @update:checked="(v: boolean) => (att.is_red_joker = v)" />
-                                Red Joker
-                            </label>
-                            <template v-if="att.is_red_joker">
+                            <select v-model.number="att.result_id" class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground">
+                                <option :value="null">— pick the result —</option>
+                                <option v-for="r in doctor_results" :key="r.id" :value="r.id">{{ r.name }}</option>
+                            </select>
+                            <!-- "Oops" / flip-9 reflip — pick the new injury that was added. -->
+                            <select
+                                v-if="doctorOutcome(att.result_id) === 'added_injury' || doctorOutcome(att.result_id) === 'removed_and_reflip'"
+                                v-model.number="att.added_injury_upgrade_id"
+                                class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                            >
+                                <option :value="null">— added injury —</option>
+                                <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
+                            </select>
+                            <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
+                            <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                     <Checkbox :checked="att.lucky_miss_is_joker" @update:checked="(v: boolean) => (att.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
@@ -729,13 +751,6 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
                                     <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
-                            </template>
-                            <template v-else>
-                                <Input type="number" min="1" max="13" v-model.number="att.flip_value" class="h-8 w-16" />
-                                <select v-model="att.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
-                                    <option value="pc">Ram/Crow</option>
-                                    <option value="te">Tome/Mask</option>
-                                </select>
                             </template>
                             <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>

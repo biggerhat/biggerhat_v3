@@ -354,7 +354,7 @@ const totemRendererProps = computed(() => {
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
                 <!-- Full editing (incl. action details) happens in the card editor —
                      the campaign builder can't change an action's stats/triggers. -->
-                <Link v-if="view_mode.is_owner && leader" :href="route('card_creator.edit', leader.id)">
+                <Link v-if="view_mode.is_owner && leader" :href="route('tools.card_creator.edit', leader.id)">
                     <Button size="sm">Edit Leader</Button>
                 </Link>
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>

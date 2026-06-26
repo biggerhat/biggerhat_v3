@@ -640,11 +640,13 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <Checkbox checked disabled />
                             <span>+1 for playing the game (always)</span>
                         </label>
-                        <label v-if="xp_track?.tag === 'bruiser'" class="flex items-start gap-2">
+                        <!-- Show the option matching the leader's tag; if the tag is
+                             unknown (older leader / not set), fall back to both. -->
+                        <label v-if="!xp_track?.tag || xp_track.tag === 'bruiser'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.bruiser_killed" @update:checked="(v: boolean) => (xpForm.bruiser_killed = v)" />
                             <span>+1 Bruiser killed a non-peon enemy</span>
                         </label>
-                        <label v-if="xp_track?.tag === 'strategist'" class="flex items-start gap-2">
+                        <label v-if="!xp_track?.tag || xp_track.tag === 'strategist'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.strategist_interacted" @update:checked="(v: boolean) => (xpForm.strategist_interacted = v)" />
                             <span>+1 Strategist Interacted in enemy DZ</span>
                         </label>

@@ -561,14 +561,14 @@ it('Phase 5 Doctor removes an injury on a removed-outcome flip', function () {
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
     ]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 12, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -596,7 +596,7 @@ it('Phase 5 Doctor flip 9 removes the original injury and attaches the reflipped
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 9, 'flip_value_max' => 9, 'outcome_kind' => 'removed_and_reflip',
     ]);
 
@@ -605,10 +605,8 @@ it('Phase 5 Doctor flip 9 removes the original injury and attaches the reflipped
             'attempts' => [
                 [
                     'injury_pivot_id' => $pivotId,
-                    'flip_value' => 9,
-                    'suit_pool' => 'pc',
-                    'added_injury_flip_value' => 7,
-                    'added_injury_suit_pool' => 'te',
+                    'result_id' => $result->id,
+                    'added_injury_upgrade_id' => $reflipped->id,
                 ],
             ],
         ])
@@ -637,7 +635,7 @@ it('Phase 5 Doctor red joker annihilates the injury and applies a Lucky Miss', f
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => null, 'flip_value_max' => null, 'is_red_joker' => true, 'outcome_kind' => 'lucky_miss_reflip',
     ]);
     $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['flip_value' => 4, 'is_doppelganger' => false]);
@@ -645,7 +643,7 @@ it('Phase 5 Doctor red joker annihilates the injury and applies a Lucky Miss', f
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'is_red_joker' => true, 'lucky_miss_flip_value' => 4],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id, 'lucky_miss_flip_value' => 4],
             ],
         ])
         ->assertRedirect();
@@ -671,14 +669,14 @@ it('Phase 5 Doctor on no_effect leaves the injury attached but still costs scrip
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect',
     ]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -705,10 +703,12 @@ it('Phase 5 Doctor rejects when insufficient scrip', function () {
         'updated_at' => now(),
     ]);
 
+    $result = BackAlleyDoctorResult::factory()->create(['flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect']);
+
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $pivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -760,10 +760,12 @@ it("Phase 5 Doctor refuses an attempt targeting another crew's injury", function
         'updated_at' => now(),
     ]);
 
+    $result = BackAlleyDoctorResult::factory()->create(['flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect']);
+
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
             'attempts' => [
-                ['injury_pivot_id' => $foreignPivotId, 'flip_value' => 5, 'suit_pool' => 'pc'],
+                ['injury_pivot_id' => $foreignPivotId, 'result_id' => $result->id],
             ],
         ])
         ->assertRedirect();
@@ -1260,13 +1262,13 @@ it('Phase 5 Doctor logs a removed outcome with a null injury reference (no dangl
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    BackAlleyDoctorResult::factory()->create([
+    $result = BackAlleyDoctorResult::factory()->create([
         'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
     ]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.doctor', $aftermath), [
-            'attempts' => [['injury_pivot_id' => $pivotId, 'flip_value' => 12, 'suit_pool' => 'pc']],
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id]],
         ])
         ->assertRedirect();
 

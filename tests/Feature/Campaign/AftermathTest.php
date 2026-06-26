@@ -1276,3 +1276,31 @@ it('Phase 5 Doctor logs a removed outcome with a null injury reference (no dangl
     expect($log)->not->toBeNull();
     expect($log->target_injury_id)->toBeNull();
 });
+
+it('Aftermath show pre-fills payday + draw-hand from the logged game scoring', function () {
+    [$user, , $crew, $game] = aftermathFixture(); // crew is crew_a
+    $game->update([
+        'vp_a' => 6, 'vp_b' => 3,
+        'schemes_completed_a' => 2,
+        'winner_crew_id' => $crew->id,
+        'cr_a' => 4, 'cr_b' => 1,
+    ]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 1,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('prefill.vp_self', 6)
+            ->where('prefill.vp_opponent', 3)
+            ->where('prefill.schemes_completed', 2)
+            ->where('prefill.won', true)
+            ->where('prefill.crew_cr', 4)
+            ->where('prefill.opponent_cr', 1)
+            ->etc());
+});

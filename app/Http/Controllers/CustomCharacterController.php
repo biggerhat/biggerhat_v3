@@ -71,6 +71,18 @@ class CustomCharacterController extends Controller
 
         $validated = $this->validateCharacter($request);
 
+        // A campaign leader can be edited here for action/ability detail, but the
+        // generic editor must not break its campaign invariants — it must stay a
+        // cost-0, stone-generating Master (pg 18). Campaign-only fields (tag,
+        // archetype, is_campaign_leader, current, campaign_*) aren't in the
+        // validated set, so update() preserves them untouched.
+        if ($customCharacter->is_campaign_leader) {
+            $validated['station'] = 'master';
+            $validated['generates_stone'] = true;
+            $validated['is_unhirable'] = false;
+            $validated['cost'] = null;
+        }
+
         $customCharacter->update($validated);
 
         return response()->json([

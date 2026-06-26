@@ -368,10 +368,12 @@ const submitDoctor = () => {
 };
 
 // ───────── Phase 6 ─────────
-interface InjuryFlip {
+// The injury flip is made at the table (pg 34-36); the player picks the injury
+// that resulted directly from the catalog. Jokers stay explicit choices.
+interface InjuryEntry {
     arsenal_model_id: number;
-    flip_value: number;
-    suit_pool: 'pc' | 'te';
+    // The chosen injury upgrade (null until picked / when a joker is flipped).
+    injury_upgrade_id: number | null;
     is_red_joker: boolean;
     // Black joker = Traitor (the model defects).
     is_black_joker: boolean;
@@ -380,12 +382,11 @@ interface InjuryFlip {
     // The Lucky Miss flip was itself a joker → Doppelganger.
     lucky_miss_is_joker: boolean;
 }
-const injuryFlips = ref<InjuryFlip[]>([]);
+const injuryFlips = ref<InjuryEntry[]>([]);
 const addInjuryFlip = (modelId: number) => {
     injuryFlips.value.push({
         arsenal_model_id: modelId,
-        flip_value: 1,
-        suit_pool: 'pc',
+        injury_upgrade_id: null,
         is_red_joker: false,
         is_black_joker: false,
         lucky_miss_flip_value: 1,
@@ -393,6 +394,14 @@ const addInjuryFlip = (modelId: number) => {
     });
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
+
+interface InjuryCatalogRow {
+    id: number;
+    name: string;
+    suit_pool: string | null;
+    flip_value: number | null;
+}
+const injury_catalog = computed<InjuryCatalogRow[]>(() => (props as unknown as { injury_catalog?: InjuryCatalogRow[] }).injury_catalog ?? []);
 
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
@@ -744,8 +753,8 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 6 — Determine Injuries</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    For each non-peon model killed this game, flip a card and apply the matching injury (pg 34–35). Models hitting 3+ injuries are
-                    annihilated.
+                    For each non-peon model killed this game, resolve the injury flip at the table (pg 34–35), then add the injury that resulted and
+                    pick it from the list. Models hitting 3+ injuries are annihilated.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
@@ -760,12 +769,12 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             {{ m.character?.display_name ?? '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
                         </span>
-                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m.id)">Flip</Button>
+                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m.id)">Add injury</Button>
                     </li>
                 </ul>
 
                 <div v-if="injuryFlips.length" class="rounded-md border p-3">
-                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Flips</p>
+                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Injuries</p>
                     <ul class="space-y-2">
                         <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">model #{{ f.arsenal_model_id }}</span>
@@ -807,10 +816,12 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 </template>
                             </template>
                             <template v-else>
-                                <Input type="number" min="1" max="13" v-model.number="f.flip_value" class="h-8 w-16" />
-                                <select v-model="f.suit_pool" class="h-8 rounded border bg-background px-2 text-xs text-foreground">
-                                    <option value="pc">Ram/Crow</option>
-                                    <option value="te">Tome/Mask</option>
+                                <select
+                                    v-model.number="f.injury_upgrade_id"
+                                    class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                                >
+                                    <option :value="null">— pick the injury —</option>
+                                    <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
                                 </select>
                             </template>
                             <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>

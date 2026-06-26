@@ -93,6 +93,7 @@ class CampaignAftermathController extends Controller
             // the others. Read-side queries live in AftermathCatalog.
             'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::equipment() : null,
             'crew_injuries' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::crewInjuries($aftermath->campaign_crew_id) : null,
+            'injury_catalog' => fn () => $aftermath->current_phase === 6 ? AftermathCatalog::injuries() : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs() : null,
         ]);
@@ -670,10 +671,9 @@ class CampaignAftermathController extends Controller
             'flips.*.is_black_joker' => ['nullable', 'boolean'],
             // Set when the Lucky Miss flip itself is a joker → Doppelganger.
             'flips.*.lucky_miss_is_joker' => ['nullable', 'boolean'],
-            // Present for a normal injury flip; absent for joker flips. A normal
-            // flip with no injury match is simply skipped.
-            'flips.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'flips.*.suit_pool' => ['nullable', 'string', 'in:pc,te'],
+            // The injury is now chosen directly (the player resolves the flip at
+            // the table and picks the matching injury); absent for joker flips.
+            'flips.*.injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             'flips.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
         ]);
 
@@ -729,12 +729,15 @@ class CampaignAftermathController extends Controller
                     continue;
                 }
 
-                // Injuries live on `upgrades` with campaign_upgrade_kind='injury'.
+                // The injury is chosen directly from the catalog now (the player
+                // resolves the flip at the table). No pick → nothing to attach.
+                if (empty($f['injury_upgrade_id'])) {
+                    continue;
+                }
                 $injury = Upgrade::query()
                     ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                     ->where('campaign_upgrade_kind', 'injury')
-                    ->where('campaign_suit_pool', $f['suit_pool'])
-                    ->where('campaign_flip_value', $f['flip_value'])
+                    ->whereKey($f['injury_upgrade_id'])
                     ->first();
 
                 if (! $injury) {

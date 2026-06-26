@@ -270,3 +270,30 @@ it('stores a constrained crew-card token choice and rejects one outside the keyw
     // Unchanged from the first (valid) save — the rejected save never ran.
     expect($crew->fresh()->crew_card_choice['id'])->toBe($token->id);
 });
+
+it('stores a crew-card upgrade-type choice as the enum value, not a crew card', function () {
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    // A crew card sharing the keyword, carrying the Aspect upgrade type — the
+    // option offered should be the TYPE (aspect), not the crew card itself.
+    $crewCardUpgrade = Upgrade::factory()->create([
+        'domain' => UpgradeDomainTypeEnum::Crew->value,
+        'game_mode_type' => GameModeTypeEnum::Standard->value,
+        'type' => \App\Enums\UpgradeTypeEnum::Aspect->value,
+    ]);
+    $crewCardUpgrade->keywords()->attach($kw);
+
+    $card = CampaignCrewCard::factory()->create(['requires_upgrade_type_choice' => true]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $card->id,
+            'crew_card_choice' => ['type' => 'upgrade', 'id' => \App\Enums\UpgradeTypeEnum::Aspect->value],
+        ])
+        ->assertRedirect();
+
+    expect($crew->fresh()->crew_card_choice)->toMatchArray(['type' => 'upgrade', 'id' => 'aspect']);
+});

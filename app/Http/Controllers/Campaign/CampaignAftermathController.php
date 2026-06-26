@@ -98,7 +98,33 @@ class CampaignAftermathController extends Controller
             'injury_catalog' => fn () => in_array($aftermath->current_phase, [5, 6], true) ? AftermathCatalog::injuries() : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs() : null,
+            // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
+            // CR) forms from the logged game so the player confirms, not re-enters.
+            'prefill' => $this->aftermathPrefill($aftermath),
         ]);
+    }
+
+    /**
+     * The scoring the player already supplied when logging the game, mapped to
+     * this crew's perspective, so the Aftermath's draw-hand + payday steps come
+     * pre-filled. Tracked games that haven't scored yet just yield zeros.
+     *
+     * @return array<string, int|bool>
+     */
+    private function aftermathPrefill(CampaignAftermath $aftermath): array
+    {
+        $game = $aftermath->campaignGame;
+        $isCrewA = $game->crew_a_id === $aftermath->campaign_crew_id;
+
+        return [
+            'vp_self' => (int) ($isCrewA ? $game->vp_a : $game->vp_b),
+            'vp_opponent' => (int) ($isCrewA ? $game->vp_b : $game->vp_a),
+            'schemes_completed' => (int) ($isCrewA ? $game->schemes_completed_a : $game->schemes_completed_b),
+            'won' => $game->winner_crew_id === $aftermath->campaign_crew_id,
+            'withdrew' => $game->withdrew_crew_id === $aftermath->campaign_crew_id,
+            'crew_cr' => (int) ($isCrewA ? $game->cr_a : $game->cr_b),
+            'opponent_cr' => (int) ($isCrewA ? $game->cr_b : $game->cr_a),
+        ];
     }
 
     public function drawHand(Request $request, CampaignAftermath $aftermath)

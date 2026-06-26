@@ -67,6 +67,16 @@ interface InjuryPivotRow {
     display_name: string;
     injury_name: string;
 }
+// Scoring captured when the game was logged, mapped to this crew's perspective.
+interface Prefill {
+    vp_self: number;
+    vp_opponent: number;
+    schemes_completed: number;
+    won: boolean;
+    withdrew: boolean;
+    crew_cr: number;
+    opponent_cr: number;
+}
 
 const props = defineProps<{
     aftermath: AftermathData;
@@ -75,6 +85,7 @@ const props = defineProps<{
     // True when killed_models comes from a tracker run; false (solo / manually
     // logged) means it's the full roster and the player picks who actually died.
     kills_are_authoritative: boolean;
+    prefill: Prefill;
     // Phase-gated lazy props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
     crew_injuries?: InjuryPivotRow[] | null;
@@ -100,9 +111,10 @@ const phaseStatus = (n: number): 'done' | 'current' | 'pending' => {
 };
 
 // ───────── Phase 1 ─────────
+// Pre-filled from the logged game; the player just confirms.
 const handForm = ref({
-    completed_without_withdrawing: true,
-    schemes_completed: 0,
+    completed_without_withdrawing: !props.prefill.withdrew,
+    schemes_completed: props.prefill.schemes_completed,
 });
 
 const drawHand = () => {
@@ -111,10 +123,10 @@ const drawHand = () => {
 
 // ───────── Phase 2 ─────────
 const paydayForm = ref({
-    vp: 0,
-    won: false,
-    crew_cr: 0,
-    opponent_cr: 0,
+    vp: props.prefill.vp_self,
+    won: props.prefill.won,
+    crew_cr: props.prefill.crew_cr,
+    opponent_cr: props.prefill.opponent_cr,
 });
 
 const submitPayday = () => {

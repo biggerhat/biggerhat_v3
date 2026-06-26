@@ -352,7 +352,9 @@ const totemRendererProps = computed(() => {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
-                <Link v-if="view_mode.is_owner && leader" :href="route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])">
+                <!-- Full editing (incl. action details) happens in the card editor —
+                     the campaign builder can't change an action's stats/triggers. -->
+                <Link v-if="view_mode.is_owner && leader" :href="route('card_creator.edit', leader.id)">
                     <Button size="sm">Edit Leader</Button>
                 </Link>
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>
@@ -366,7 +368,9 @@ const totemRendererProps = computed(() => {
                 <Card>
                     <CardHeader><CardTitle>Leader</CardTitle></CardHeader>
                     <CardContent>
-                        <div v-if="leaderRendererProps" class="flex justify-center">
+                        <!-- The card sizes to its container width (aspect-ratio only),
+                             so it needs an explicit max-width or it collapses. -->
+                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[360px]">
                             <CardRenderer v-bind="leaderRendererProps" />
                         </div>
                         <div v-else class="rounded-md border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -381,7 +385,7 @@ const totemRendererProps = computed(() => {
                 <Card v-if="totemRendererProps" class="mt-4">
                     <CardHeader><CardTitle>Totem</CardTitle></CardHeader>
                     <CardContent>
-                        <div class="flex justify-center">
+                        <div class="mx-auto w-full max-w-[360px]">
                             <CardRenderer v-bind="totemRendererProps" />
                         </div>
                     </CardContent>

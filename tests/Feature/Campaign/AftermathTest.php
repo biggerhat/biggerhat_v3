@@ -439,16 +439,11 @@ it('Phase 3 Barter writes equipment rows + deducts scrip + advances', function (
         'current_phase' => 3,
         'hand_drawn' => [],
     ]);
-    // Helmet is BR 3 in the Ram/Crow pool (factory default). It's only
-    // barterable on an exact flip of 3 whose suit is in that pool (pg 21).
     $pistol = Upgrade::factory()->campaignEquipmentAlwaysAvailable()->create(['campaign_cc' => 1]);
     $helmet = Upgrade::factory()->campaignEquipment()->create(['campaign_br' => 3, 'campaign_cc' => 2]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 3,
-            'flip_suit' => 'ram',
-            'is_red_joker' => false,
             'purchases' => [$pistol->id, $helmet->id],
         ])
         ->assertRedirect();
@@ -458,7 +453,7 @@ it('Phase 3 Barter writes equipment rows + deducts scrip + advances', function (
     expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
-it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', function () {
+it('Phase 3 Barter buys any catalog item by id — flip/BR/suit is resolved at the table', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 10]);
     $aftermath = CampaignAftermath::factory()->create([
@@ -467,10 +462,10 @@ it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', func
         'current_phase' => 3,
         'hand_drawn' => [],
     ]);
-    // BR 3 keyed to the Ram/Crow pool — a Mask flip of the right value must
-    // not be enough (pg 22-28: equipment is keyed to a suit pool).
+    // An item the old flip/suit gate would have rejected is now purchasable —
+    // the player makes barter flips physically and just records the buy.
     $helmet = Upgrade::factory()->campaignEquipment()->create([
-        'campaign_br' => 3,
+        'campaign_br' => 8,
         'campaign_cc' => 2,
         'campaign_pool_suit_a' => 'ram',
         'campaign_pool_suit_b' => 'crow',
@@ -478,38 +473,13 @@ it('Phase 3 Barter rejects an item whose suit pool excludes the flip suit', func
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 3,
-            'flip_suit' => 'mask',
-            'is_red_joker' => false,
             'purchases' => [$helmet->id],
         ])
         ->assertRedirect();
 
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
-    expect($aftermath->fresh()->current_phase)->toBe(3);
-});
-
-it('Phase 3 Barter rejects items not barterable at this flip', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $crew->update(['scrip' => 10]);
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 3,
-        'hand_drawn' => [],
-    ]);
-    $expensive = Upgrade::factory()->campaignEquipment()->create(['campaign_br' => 8, 'campaign_cc' => 2]);
-
-    $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
-            'purchases' => [$expensive->id],
-        ])
-        ->assertRedirect();
-
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
-    expect($aftermath->fresh()->current_phase)->toBe(3);
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(1);
+    expect($crew->fresh()->scrip)->toBe(8);
+    expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
 it('Phase 3 Barter rejects when scrip is insufficient', function () {
@@ -525,8 +495,6 @@ it('Phase 3 Barter rejects when scrip is insufficient', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
             'purchases' => [$item->id],
         ])
         ->assertRedirect();
@@ -534,7 +502,7 @@ it('Phase 3 Barter rejects when scrip is insufficient', function () {
     expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
 });
 
-it('Phase 3 Barter on red joker enables ttw_only items', function () {
+it('Phase 3 Barter records a Those Who Thirst item with source joker', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 10]);
     $aftermath = CampaignAftermath::factory()->create([
@@ -547,13 +515,13 @@ it('Phase 3 Barter on red joker enables ttw_only items', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => true,
             'purchases' => [$ttw->id],
         ])
         ->assertRedirect();
 
-    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(1);
+    $eq = CampaignEquipment::where('campaign_crew_id', $crew->id)->first();
+    expect($eq)->not->toBeNull();
+    expect($eq->source)->toBe('joker');
 });
 
 it('Phase 3 Barter empty purchases still advances the phase', function () {
@@ -567,8 +535,6 @@ it('Phase 3 Barter empty purchases still advances the phase', function () {
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 7,
-            'is_red_joker' => false,
             'purchases' => [],
         ])
         ->assertRedirect();
@@ -1247,8 +1213,6 @@ it('lockAndAdvance refuses mutations once the aftermath is locked', function () 
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.barter', $aftermath), [
-            'flip_value' => 5,
-            'is_red_joker' => false,
             'purchases' => [],
         ])
         ->assertRedirect();

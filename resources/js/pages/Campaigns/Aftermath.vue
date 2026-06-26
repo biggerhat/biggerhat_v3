@@ -122,67 +122,39 @@ const submitPayday = () => {
 };
 
 // ───────── Phase 3 (Barter) ─────────
-const barterForm = ref({
-    flip_value: 7,
-    flip_suit: '',
-    is_red_joker: false,
-});
+// The barter flip + BR/suit eligibility is resolved at the table (pg 21-30).
+// Here the player just searches the catalog by name and records what they
+// bought; the server charges the items' cc against scrip.
 const barterPurchases = ref<number[]>([]);
+const barterSearch = ref('');
 
-const itemPools = (e: EquipmentRow) => [e.pool_suit_a, e.pool_suit_b].filter(Boolean).map((p) => (p as string).toLowerCase());
+const barterMatches = computed(() => {
+    const q = barterSearch.value.trim().toLowerCase();
+    if (!q) return [];
+    return equipment_catalog.value.filter((e) => e.name.toLowerCase().includes(q) && !barterPurchases.value.includes(e.id)).slice(0, 25);
+});
 
-// Browse the whole catalog, filterable by BR number + suit (independent of the
-// flip), so players can see everything that exists rather than only what the
-// current flip unlocks.
-const filterBr = ref<number | null>(null);
-const filterSuit = ref('');
-const filteredEquipment = computed(() =>
-    equipment_catalog.value.filter((e) => {
-        if (filterBr.value != null && !e.is_always_available && e.br !== filterBr.value) return false;
-        const suit = filterSuit.value.trim().toLowerCase();
-        if (suit) {
-            const pools = itemPools(e);
-            if (pools.length === 0) return !!e.is_always_available;
-            if (!pools.includes(suit)) return false;
-        }
-        return true;
-    }),
+const purchasedItems = computed(() =>
+    barterPurchases.value.map((id) => equipment_catalog.value.find((e) => e.id === id)).filter((e): e is EquipmentRow => !!e),
 );
 
-// Whether an item can actually be bought at the CURRENT flip (the server
-// enforces the same rule). BR must equal the flip value exactly (pg 21); items
-// keyed to a suit pool also need the flip's suit.
-const isEligible = (e: EquipmentRow) => {
-    if (e.ttw_only) return barterForm.value.is_red_joker;
-    if (e.is_always_available) return true;
-    if (e.br === null || e.br !== barterForm.value.flip_value) return false;
-    const pools = itemPools(e);
-    return pools.length === 0 || pools.includes(barterForm.value.flip_suit.trim().toLowerCase());
+const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0));
+
+const addBarterItem = (id: number) => {
+    if (!barterPurchases.value.includes(id)) barterPurchases.value.push(id);
+    barterSearch.value = '';
 };
 
-const barterTotalCc = computed(() =>
-    barterPurchases.value.reduce((sum, id) => {
-        const item = equipment_catalog.value.find((e) => e.id === id);
-        return sum + (item?.cc ?? 0);
-    }, 0),
-);
-
-const toggleBarter = (id: number) => {
+const removeBarterItem = (id: number) => {
     const i = barterPurchases.value.indexOf(id);
     if (i >= 0) barterPurchases.value.splice(i, 1);
-    else barterPurchases.value.push(id);
 };
 
+// Buys whatever is in the list (an empty list just advances — a skipped Barter).
 const submitBarter = () => {
     router.post(route('campaigns.aftermaths.barter', props.aftermath.id), {
-        ...barterForm.value,
         purchases: barterPurchases.value,
     } as Record<string, unknown>);
-};
-
-// Advance past Barter without flipping or buying anything (e.g. no scrip).
-const skipBarter = () => {
-    router.post(route('campaigns.aftermaths.barter', props.aftermath.id), { purchases: [], is_red_joker: false } as Record<string, unknown>);
 };
 
 // ───────── Phase 4 (Advance Leader) ─────────
@@ -562,82 +534,57 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
             <CardHeader>
                 <CardTitle>Phase 3 — Barter</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    One flip determines what's available to buy this Aftermath. Always-available items appear at any flip; others need BR ≤ flip. Red
-                    joker enables Those Who Thirst.
+                    Make your barter flips at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
+                    Its cost is charged to your scrip.
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
-                <div class="grid gap-3 md:grid-cols-3">
-                    <div>
-                        <Label>Flip value (1–13)</Label>
-                        <Input type="number" min="1" max="13" v-model.number="barterForm.flip_value" />
-                    </div>
-                    <div>
-                        <Label>Suit (optional)</Label>
-                        <Input v-model="barterForm.flip_suit" placeholder="ram / crow / mask / tome" />
-                    </div>
-                    <div class="flex items-end">
-                        <label class="flex items-center gap-2 text-sm">
-                            <Checkbox :checked="barterForm.is_red_joker" @update:checked="(v: boolean) => (barterForm.is_red_joker = v)" />
-                            <span>Red Joker (TTW gate)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="rounded-md border p-3">
-                    <div class="mb-2 flex flex-wrap items-end gap-2">
-                        <p class="mr-auto text-xs font-medium uppercase text-muted-foreground">Equipment catalog</p>
-                        <div>
-                            <Label class="text-[10px]">Filter BR</Label>
-                            <Input type="number" min="1" max="13" v-model.number="filterBr" placeholder="any" class="h-8 w-20 text-sm" />
-                        </div>
-                        <div>
-                            <Label class="text-[10px]">Filter suit</Label>
-                            <Input v-model="filterSuit" placeholder="any" class="h-8 w-28 text-sm" />
-                        </div>
-                    </div>
-                    <ul class="max-h-64 space-y-1 overflow-y-auto pr-1">
+                <div>
+                    <Label>Purchase equipment</Label>
+                    <Input v-model="barterSearch" placeholder="Search equipment by name…" :disabled="!is_owner" />
+                    <ul v-if="barterMatches.length" class="mt-1 max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
                         <li
-                            v-for="item in filteredEquipment"
+                            v-for="item in barterMatches"
                             :key="item.id"
-                            class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm"
-                            :class="isEligible(item) ? '' : 'opacity-50'"
+                            class="flex items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50"
                         >
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-medium">{{ item.name }}</p>
                                 <p class="text-[10px] text-muted-foreground">
-                                    BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }}
-                                    <template v-if="item.pool_suit_a || item.pool_suit_b">
-                                        of {{ [item.pool_suit_a, item.pool_suit_b].filter(Boolean).join('/') }} </template
-                                    >• CC {{ item.cc }}
+                                    BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
                                 </p>
                             </div>
-                            <Button
-                                size="sm"
-                                :variant="barterPurchases.includes(item.id) ? 'default' : 'outline'"
-                                :disabled="!is_owner || (!isEligible(item) && !barterPurchases.includes(item.id))"
-                                :title="isEligible(item) ? '' : 'Not available at the current flip'"
-                                @click="toggleBarter(item.id)"
-                            >
-                                {{ barterPurchases.includes(item.id) ? '✓' : 'Buy' }}
-                            </Button>
+                            <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
                         </li>
-                        <li v-if="filteredEquipment.length === 0" class="text-[11px] text-muted-foreground">
-                            No equipment matches the filter, or the catalog hasn't been seeded.
+                    </ul>
+                    <p v-else-if="barterSearch.trim()" class="mt-1 text-[11px] text-muted-foreground">No equipment matches that name.</p>
+                </div>
+
+                <div v-if="purchasedItems.length" class="rounded-md border p-3">
+                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Purchasing</p>
+                    <ul class="space-y-1">
+                        <li
+                            v-for="item in purchasedItems"
+                            :key="item.id"
+                            class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm"
+                        >
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate font-medium">{{ item.name }}</p>
+                                <p class="text-[10px] text-muted-foreground">CC {{ item.cc }}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" :disabled="!is_owner" @click="removeBarterItem(item.id)">Remove</Button>
                         </li>
                     </ul>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <span class="text-sm">
-                        Total: <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} scrip</Badge>
+                        Total:
+                        <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                     </span>
-                    <div class="flex gap-2">
-                        <Button variant="outline" :disabled="!is_owner" @click="skipBarter">Skip — buy nothing</Button>
-                        <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                            Confirm Barter &amp; advance
-                        </Button>
-                    </div>
+                    <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
+                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                    </Button>
                 </div>
             </CardContent>
         </Card>

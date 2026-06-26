@@ -42,7 +42,9 @@ class StoreStartingArsenalRequest extends FormRequest
             // The controller validates the id against the keyword-constrained pool.
             'crew_card_choice' => ['nullable', 'array'],
             'crew_card_choice.type' => ['nullable', 'string', 'in:token,marker,upgrade'],
-            'crew_card_choice.id' => ['nullable', 'integer'],
+            // int for a token/marker id, string for an upgrade-type enum value;
+            // the controller validates the pick against the keyword-scoped pool.
+            'crew_card_choice.id' => ['nullable'],
         ];
     }
 }

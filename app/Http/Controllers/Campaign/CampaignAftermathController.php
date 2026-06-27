@@ -16,11 +16,10 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
-use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\CustomCharacter;
-use App\Models\Trigger;
 use App\Models\Upgrade;
+use App\Services\Campaign\LeaderAdvancementService;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
@@ -615,12 +614,13 @@ class CampaignAftermathController extends Controller
 
         // Rule enforcement before we mutate state. Reject the batch if any
         // advancement violates a rule — better than partial application.
-        $rejection = $this->validateAdvancementRules($aftermath, $leader, $data['advancements'] ?? []);
+        $advancementService = app(LeaderAdvancementService::class);
+        $rejection = $advancementService->validate($leader, $data['advancements'] ?? []);
         if ($rejection !== null) {
             return redirect()->back()->withMessage($rejection, null, MessageTypeEnum::error);
         }
 
-        $advanced = $this->lockAndAdvance($aftermath, 4, function (CampaignAftermath $locked) use ($leader, $data, $xpEarned) {
+        $advanced = $this->lockAndAdvance($aftermath, 4, function (CampaignAftermath $locked) use ($leader, $data, $xpEarned, $advancementService) {
             // Lazy-init the XP track to the canonical 39-box layout the first
             // time we touch it.
             $track = $leader->xp_track ?? CustomCharacter::defaultXpTrack();
@@ -636,22 +636,7 @@ class CampaignAftermathController extends Controller
             }
             $leader->update(['xp_track' => $track]);
 
-            foreach (($data['advancements'] ?? []) as $a) {
-                CampaignLeaderAdvancement::create([
-                    'custom_character_id' => $leader->id,
-                    'source_aftermath_id' => $locked->id,
-                    'source_table' => $a['source_table'],
-                    // Post-consolidation FK to core tables (upgrades / actions /
-                    // triggers / abilities / custom_characters depending on
-                    // source_table). Legacy catalog_id stays null on new rows.
-                    'catalog_core_id' => $a['catalog_id'] ?? null,
-                    'from_equipment_id' => $a['from_equipment_id'] ?? null,
-                    'applied_to_action_index' => $a['applied_to_action_index'] ?? -1,
-                    'position_in_xp_track' => $a['position_in_xp_track'],
-                    'free_choice' => $a['free_choice'] ?? null,
-                    'acquired_at' => now(),
-                ]);
-            }
+            $advancementService->create($leader, $data['advancements'] ?? [], $locked->id);
 
             $locked->update(['current_phase' => 5]);
         });
@@ -825,112 +810,6 @@ class CampaignAftermathController extends Controller
             ->whereIn('character_id', $killedCharacterIds)
             ->with('character:id,display_name,station,faction')
             ->get(['id', 'campaign_crew_id', 'character_id', 'label']);
-    }
-
-    /**
-     * Rule-validation for Phase 4 advancement picks. Returns null if all are
-     * valid, or an error-message string on the first violation.
-     *
-     * Enforces:
-     * - Tier ≤ the number in the XP box being filled (pg 31): a tier-N table can
-     *   only be chosen at a box showing N or higher.
-     * - Summoning advancement is at most once per CAMPAIGN (pg 54).
-     * - Totem advancement is only available while the crew has no totem, and
-     *   requires an EXACT flip-value match against the chosen template (pg 52).
-     * - Flip-and-choose tables (Attack/Tactical Mod, Action, Ability) cap the
-     *   chosen option's value at the flipped card "or lower" (pg 38-50). Checked
-     *   only when the client supplies the flipped value.
-     *
-     * @param  array<int, array<string, mixed>>  $advancements
-     */
-    private function validateAdvancementRules(CampaignAftermath $aftermath, CustomCharacter $leader, array $advancements): ?string
-    {
-        // XP-track box tiers keyed by index — the box reached caps tier (pg 31).
-        $track = $leader->xp_track ?? CustomCharacter::defaultXpTrack();
-        $boxTierByIndex = [];
-        foreach ($track as $box) {
-            $boxTierByIndex[$box['index']] = $box['tier'] ?? null;
-        }
-
-        $crewHasTotem = CustomCharacter::query()
-            ->where('campaign_crew_id', $leader->campaign_crew_id)
-            ->where('is_campaign_totem', true)
-            ->where('current', true)
-            ->exists();
-
-        $sawSummoning = false;
-        foreach ($advancements as $a) {
-            $table = AdvancementTableEnum::tryFrom((string) ($a['source_table'] ?? ''));
-            if (! $table) {
-                return 'Unknown advancement table.';
-            }
-
-            // Tier gate against the XP box being filled.
-            $position = $a['position_in_xp_track'] ?? null;
-            $boxTier = $position !== null ? ($boxTierByIndex[$position] ?? null) : null;
-            if ($boxTier === null) {
-                return 'That experience box does not grant an advancement.';
-            }
-            if ($table->tier() > $boxTier) {
-                return "A tier {$table->tier()} advancement cannot be taken at a tier {$boxTier} experience box.";
-            }
-
-            if ($table === AdvancementTableEnum::Summoning) {
-                if ($sawSummoning) {
-                    return 'Summoning Advancement may only be selected once.';
-                }
-                $sawSummoning = true;
-
-                // Campaign-wide check across every prior aftermath on this leader.
-                $existing = CampaignLeaderAdvancement::query()
-                    ->where('custom_character_id', $leader->id)
-                    ->where('source_table', AdvancementTableEnum::Summoning)
-                    ->exists();
-                if ($existing) {
-                    return 'Summoning Advancement has already been used in this campaign.';
-                }
-            }
-
-            if ($table === AdvancementTableEnum::Totem) {
-                if ($crewHasTotem) {
-                    return 'Totem Advancement is only available while the crew has no totem.';
-                }
-
-                $catalogId = $a['catalog_id'] ?? null;
-                $flipValue = $a['flip_value'] ?? null;
-                if ($catalogId === null || $flipValue === null) {
-                    return 'Totem Advancement requires both a totem choice and the flipped value.';
-                }
-                $template = CustomCharacter::query()
-                    ->where('is_campaign_totem_template', true)
-                    ->whereKey($catalogId)
-                    ->first();
-                if (! $template) {
-                    return 'Selected Totem is not a recognized template.';
-                }
-                if ((int) $template->campaign_totem_flip_value !== (int) $flipValue) {
-                    return 'Totem Advancement requires an exact flip-value match — chosen totem does not match the flip.';
-                }
-            }
-
-            // Flip-and-choose ceiling. Each table's catalog row carries its own
-            // campaign_flip_value; the chosen option must be ≤ the flipped card.
-            $catalogId = $a['catalog_id'] ?? null;
-            $flip = $a['flip_value'] ?? null;
-            if ($catalogId !== null && $flip !== null) {
-                $rowFlip = match ($table) {
-                    AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => Trigger::query()->whereKey($catalogId)->value('campaign_flip_value'),
-                    AdvancementTableEnum::Action => Action::query()->whereKey($catalogId)->value('campaign_flip_value'),
-                    AdvancementTableEnum::Ability => Ability::query()->whereKey($catalogId)->value('campaign_flip_value'),
-                    default => null,
-                };
-                if ($rowFlip !== null && (int) $rowFlip > (int) $flip) {
-                    return "That advancement needs a flip of {$rowFlip} or higher — your flip was {$flip}.";
-                }
-            }
-        }
-
-        return null;
     }
 
     private function loadXpTrackForCrew(CampaignAftermath $aftermath): ?array

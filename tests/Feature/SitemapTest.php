@@ -5,6 +5,7 @@ use App\Models\TOS\Asset;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
+use App\Models\Tournament;
 
 it('returns sitemap.xml as XML', function () {
     $resp = $this->get('/sitemap.xml');
@@ -33,6 +34,16 @@ it('includes TOS landing routes', function () {
     ] as $path) {
         expect($body)->toContain($path);
     }
+});
+
+it('includes non-draft tournaments but skips drafts', function () {
+    $published = Tournament::factory()->completed()->create();
+    $draft = Tournament::factory()->create(); // factory default status is draft
+
+    $body = $this->get('/sitemap.xml')->streamedContent();
+
+    expect($body)->toContain($published->uuid)
+        ->and($body)->not->toContain($draft->uuid);
 });
 
 it('includes per-entity TOS rows when records exist', function () {

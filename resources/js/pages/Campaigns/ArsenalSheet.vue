@@ -4,13 +4,14 @@ import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Calendar, Copy, Swords, Tag } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 interface KeywordRow {
     id: number;
@@ -162,12 +163,29 @@ interface XpBox {
     filled: boolean;
     tier: number | null;
 }
+interface AdvancementTaken {
+    id: number;
+    position_in_xp_track: number;
+    source_table: string;
+    catalog_id: number | null;
+    free_choice: Record<string, unknown> | null;
+}
+interface CatalogRow {
+    id: number;
+    name: string;
+    flip_value?: number | null;
+    is_always_available?: boolean;
+}
+type AdvancementCatalogs = Record<string, CatalogRow[]>;
+
 const props = defineProps<{
     campaign: CampaignData;
     crew: CrewData;
     leader: CustomCharacterData | null;
     totem: CustomCharacterData | null;
     leader_xp_track: XpBox[] | null;
+    leader_advancements: AdvancementTaken[];
+    advancement_catalogs: AdvancementCatalogs | null;
     equipment: EquipmentItem[];
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
@@ -175,6 +193,81 @@ const props = defineProps<{
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
 const xpFilled = computed(() => xpTrack.value.filter((b) => b.filled).length);
+
+// ───────── Leadership advancements ─────────
+const advancementCatalogs = computed<AdvancementCatalogs>(() => props.advancement_catalogs ?? {});
+const takenByPosition = computed<Record<number, AdvancementTaken>>(() =>
+    Object.fromEntries(props.leader_advancements.map((a) => [a.position_in_xp_track, a])),
+);
+// Earned advancement slots — filled boxes that grant an advancement (numbered).
+const advancementSlots = computed(() =>
+    xpTrack.value.filter((b) => b.filled && b.tier !== null).map((b) => ({ position: b.index, tier: b.tier as number })),
+);
+
+const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
+const tableNeedsFlip = (t: string) => FLIP_TABLES.includes(t);
+const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
+
+const defaultTableForTier = (tier: number): string => (tier === 1 ? 'attack_mod' : tier === 2 ? 'action' : tier === 3 ? 'totem' : 'crew_card');
+
+const tableOptionsForTier = (tier: number) =>
+    [
+        { value: 'attack_mod', label: 'Tier 1 — Attack Modification', min: 1 },
+        { value: 'tactical_mod', label: 'Tier 1 — Tactical Modification', min: 1 },
+        { value: 'action', label: 'Tier 2 — Action', min: 2 },
+        { value: 'ability', label: 'Tier 2 — Ability', min: 2 },
+        { value: 'totem', label: 'Tier 3 — Totem', min: 3 },
+        { value: 'summoning', label: 'Tier 3 — Summoning', min: 3 },
+        { value: 'crew_card', label: 'Tier 4 — Crew Card effect', min: 4 },
+    ].filter((o) => tier >= o.min);
+
+const eligibleCatalogRows = (table: string, flip: number | null): CatalogRow[] => {
+    const rows = catalogRowsFor(table);
+    if (!tableNeedsFlip(table) || flip == null) return rows;
+    if (table === 'totem') return rows.filter((r) => r.flip_value === flip);
+    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+};
+
+const advancementName = (a: AdvancementTaken): string =>
+    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ?? a.source_table.replace(/_/g, ' ');
+
+// Per-slot picker drafts — seeded once (the track only changes via a reload).
+interface AdvDraft {
+    source_table: string;
+    catalog_id: number | null;
+    flip_value: number | null;
+}
+const drafts = ref<Record<number, AdvDraft>>({});
+for (const slot of advancementSlots.value) {
+    drafts.value[slot.position] = { source_table: defaultTableForTier(slot.tier), catalog_id: null, flip_value: 13 };
+}
+
+const logAdvancement = (position: number) => {
+    const d = drafts.value[position];
+    if (!d || d.catalog_id == null) {
+        toast.warning('Pick an advancement first.');
+        return;
+    }
+    router.post(route('campaigns.crews.leader.advancements.store', [props.campaign.id, props.crew.share_code]), {
+        position_in_xp_track: position,
+        source_table: d.source_table,
+        catalog_id: d.catalog_id,
+        flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
+    });
+};
+
+const removeAdvancement = async (a: AdvancementTaken) => {
+    if (
+        !(await confirmDialog({
+            title: 'Remove advancement',
+            message: 'Remove this advancement so you can pick a different one?',
+            destructive: true,
+        }))
+    ) {
+        return;
+    }
+    router.delete(route('campaigns.crews.leader.advancements.destroy', [props.campaign.id, props.crew.share_code, a.id]));
+};
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
@@ -459,6 +552,68 @@ const totemRendererProps = computed(() => {
                             </div>
                         </div>
                         <p v-else class="text-sm text-muted-foreground">No leader yet.</p>
+
+                        <!-- Advancement slots — one per earned (filled) numbered box. Owners
+                             log what they took; everyone sees the result. -->
+                        <div v-if="advancementSlots.length" class="mt-3 space-y-1.5">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advancements</p>
+                            <div v-for="slot in advancementSlots" :key="slot.position" class="rounded-md border p-2 text-xs">
+                                <!-- Logged -->
+                                <div v-if="takenByPosition[slot.position]" class="flex items-center justify-between gap-2">
+                                    <span>
+                                        <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                        {{ advancementName(takenByPosition[slot.position]) }}
+                                    </span>
+                                    <Button
+                                        v-if="view_mode.is_owner"
+                                        size="sm"
+                                        variant="ghost"
+                                        @click="removeAdvancement(takenByPosition[slot.position])"
+                                    >
+                                        Remove
+                                    </Button>
+                                </div>
+                                <!-- Owner picker for an empty slot -->
+                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="flex flex-wrap items-center gap-1.5">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                    <select
+                                        v-model="drafts[slot.position].source_table"
+                                        class="h-8 rounded border bg-background px-2 text-foreground"
+                                        @change="drafts[slot.position].catalog_id = null"
+                                    >
+                                        <option v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
+                                            {{ opt.label }}
+                                        </option>
+                                    </select>
+                                    <Input
+                                        v-if="tableNeedsFlip(drafts[slot.position].source_table)"
+                                        v-model.number="drafts[slot.position].flip_value"
+                                        type="number"
+                                        min="1"
+                                        max="13"
+                                        class="h-8 w-14"
+                                    />
+                                    <select
+                                        v-model.number="drafts[slot.position].catalog_id"
+                                        class="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-foreground"
+                                    >
+                                        <option :value="null">— pick —</option>
+                                        <option
+                                            v-for="row in eligibleCatalogRows(drafts[slot.position].source_table, drafts[slot.position].flip_value)"
+                                            :key="row.id"
+                                            :value="row.id"
+                                        >
+                                            {{ row.name }}
+                                        </option>
+                                    </select>
+                                    <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                </div>
+                                <!-- Viewer, not yet chosen -->
+                                <div v-else class="text-muted-foreground">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge> — not chosen yet
+                                </div>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

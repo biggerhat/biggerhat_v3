@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
+use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\CustomCharacter;
 use App\Services\CampaignRules;
+use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Http\Request;
 
 /**
@@ -117,6 +119,25 @@ class ArsenalSheetController extends Controller
             // from logged-game XP via the Aftermath flow. Falls back to the
             // empty canonical layout so a freshly built leader still renders.
             'leader_xp_track' => $leader ? ($leader->xp_track ?? CustomCharacter::defaultXpTrack()) : null,
+            // Advancements already logged against this leader, keyed for display
+            // against the catalog (resolved to names client-side).
+            'leader_advancements' => $leader
+                ? CampaignLeaderAdvancement::query()
+                    ->where('custom_character_id', $leader->id)
+                    ->orderBy('position_in_xp_track')
+                    ->get()
+                    ->map(fn (CampaignLeaderAdvancement $a) => [
+                        'id' => $a->id,
+                        'position_in_xp_track' => $a->position_in_xp_track,
+                        'source_table' => $a->source_table->value,
+                        'catalog_id' => $a->catalog_core_id,
+                        'free_choice' => $a->free_choice,
+                    ])
+                : [],
+            // Advancement-table catalogs (same source the Aftermath uses) — used
+            // to resolve taken-advancement names for everyone and to drive the
+            // owner's pick-an-advancement UI.
+            'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs() : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
             // model when hiring. Shown on the arsenal sheet below the models.

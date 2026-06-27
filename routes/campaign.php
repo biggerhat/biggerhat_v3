@@ -7,6 +7,7 @@ use App\Http\Controllers\Campaign\CampaignGameController;
 use App\Http\Controllers\Campaign\CampaignInvitationController;
 use App\Http\Controllers\Campaign\CampaignTeaserController;
 use App\Http\Controllers\Campaign\CrewLifecycleController;
+use App\Http\Controllers\Campaign\LeaderAdvancementController;
 use App\Http\Controllers\Campaign\LeaderBuilderController;
 use App\Http\Controllers\Campaign\LeaderSearchController;
 use App\Http\Controllers\Campaign\StartingArsenalController;
@@ -76,6 +77,13 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.crews.leader.search.actions');
         Route::get('/campaigns/{campaign}/crews/{crew}/leader/search/abilities', [LeaderSearchController::class, 'abilities'])
             ->name('campaigns.crews.leader.search.abilities');
+
+        // Leadership Experience — log / remove an advancement straight from the
+        // Arsenal Sheet's XP track (also taken during the Aftermath).
+        Route::post('/campaigns/{campaign}/crews/{crew}/leader/advancements', [LeaderAdvancementController::class, 'store'])
+            ->name('campaigns.crews.leader.advancements.store');
+        Route::delete('/campaigns/{campaign}/crews/{crew}/leader/advancements/{advancement}', [LeaderAdvancementController::class, 'destroy'])
+            ->name('campaigns.crews.leader.advancements.destroy');
 
         // Starting Arsenal — 25-ss spend wizard + crew card effect picker.
         Route::get('/campaigns/{campaign}/crews/{crew}/starting-arsenal', [StartingArsenalController::class, 'edit'])

@@ -25,7 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->encryptCookies(except: ['appearance', 'preferred_game_system']);
+        // cookie_consent is written client-side as a plaintext cookie by
+        // useCookieConsent, so it must be excepted from encryption — otherwise
+        // EncryptCookies fails to decrypt it and the server reads it as null,
+        // leaving the Analytics consent-mode default permanently 'denied'.
+        $middleware->encryptCookies(except: ['appearance', 'preferred_game_system', 'cookie_consent']);
 
         $middleware->web(append: [
             HandleAppearance::class,

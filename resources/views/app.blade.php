@@ -1,22 +1,32 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'dark') == 'dark']) @if(! empty($theme)) data-theme="{{ $theme }}"@endif>
     <head>
-        {{-- Google Analytics only loads once the user has explicitly accepted the
-             cookie banner (cookie_consent=accepted, set via useCookieConsent
-             composable). `null`/`declined` → script stays out of the document so
-             GA never fires a request. Matches GDPR/ePrivacy "opt-in for
-             non-essential cookies" requirements. --}}
-        @if (($consent ?? null) === 'accepted')
-            <!-- Google tag (gtag.js) -->
-            <script async src="https://www.googletagmanager.com/gtag/js?id=G-257R6ZLK1S"></script>
-            <script>
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
+        {{-- Google Analytics with Consent Mode v2. gtag always loads, but
+             analytics_storage defaults to 'denied' until the user accepts the
+             cookie banner (cookie_consent=accepted, set via useCookieConsent).
+             While denied, GA sends cookieless pings (no identifiers) used for
+             aggregate behavioural modelling — so traffic isn't lost while still
+             honouring GDPR/ePrivacy opt-in for cookies. The server already knows
+             the choice from the cookie, so the correct default is seeded on the
+             first byte; mid-session accept/decline calls gtag('consent','update')
+             from useCookieConsent (no reload). Ad signals stay denied — we run no
+             ads. --}}
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-257R6ZLK1S"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
 
-                gtag('config', 'G-257R6ZLK1S');
-            </script>
-        @endif
+            gtag('consent', 'default', {
+                'analytics_storage': '{{ ($consent ?? null) === 'accepted' ? 'granted' : 'denied' }}',
+                'ad_storage': 'denied',
+                'ad_user_data': 'denied',
+                'ad_personalization': 'denied',
+            });
+
+            gtag('js', new Date());
+            gtag('config', 'G-257R6ZLK1S');
+        </script>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 

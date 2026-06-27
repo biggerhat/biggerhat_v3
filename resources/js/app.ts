@@ -73,6 +73,27 @@ router.on('success', (event) => {
     }
 });
 
+// Send a GA4 page_view on each Inertia (SPA) navigation. The initial load is
+// already counted by gtag('config') in the Blade head; without this, every
+// subsequent <Link> visit (client-side pushState, no full reload) is invisible
+// to GA — the main cause of pageview undercounting. Consent Mode decides whether
+// the hit uses cookies, so we always send: GA downgrades to a cookieless ping
+// when analytics_storage is denied. Dedupe by URL so back/forward and same-page
+// reloads don't double-count, and so the first navigate back to the landing URL
+// isn't counted twice with the Blade config hit.
+let lastTrackedUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : null;
+router.on('navigate', (event) => {
+    if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+    const url = event.detail?.page?.url;
+    if (!url || url === lastTrackedUrl) return;
+    lastTrackedUrl = url;
+    window.gtag('event', 'page_view', {
+        page_location: window.location.href,
+        page_title: document.title,
+        page_path: url,
+    });
+});
+
 // Register PWA service worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

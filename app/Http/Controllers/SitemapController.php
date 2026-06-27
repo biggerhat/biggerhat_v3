@@ -110,7 +110,6 @@ class SitemapController extends Controller
             $this->collectByModel($urls, Keyword::class, 'keywords.view', 'slug', priority: '0.7');
             $this->collectByModel($urls, Upgrade::class, 'upgrades.view', 'slug', priority: '0.7');
             $this->collectByModel($urls, Package::class, 'packages.view', 'slug', priority: '0.6');
-            $this->collectByModel($urls, Lore::class, 'lores.view', 'slug', priority: '0.5');
             $this->collectByModel($urls, Scheme::class, 'schemes.view', 'slug', priority: '0.5');
             $this->collectByModel($urls, Strategy::class, 'strategies.view', 'slug', priority: '0.5');
             $this->collectByModel($urls, Channel::class, 'channels.view', 'slug', priority: '0.5');

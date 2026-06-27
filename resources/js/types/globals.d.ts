@@ -7,5 +7,9 @@ declare global {
     interface Window {
         Echo: Echo;
         Pusher: any;
+        // Google Analytics (gtag.js) — present once the consent-mode snippet in
+        // app.blade.php has loaded. Optional because SSR / ad-blockers may omit it.
+        gtag?: (...args: unknown[]) => void;
+        dataLayer?: unknown[];
     }
 }

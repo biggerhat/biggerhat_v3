@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
+use App\Enums\TournamentStatusEnum;
 use App\Models\BlogPost;
 use App\Models\Blueprint;
 use App\Models\Channel;
@@ -160,11 +161,12 @@ class SitemapController extends Controller
                     }
                 });
 
-            // Public tournaments (anyone can see the standings page once the TO
-            // marks the tournament public). Skip drafts since they have no value
-            // to a search engine.
+            // Public tournaments — the standings page is viewable by anyone once
+            // the tournament leaves draft. Skip drafts since they have no value
+            // to a search engine. (The old is_public flag was dropped in the
+            // tournament schema cleanup; visibility is governed by status.)
             Tournament::query()
-                ->where('is_public', true)
+                ->where('status', '!=', TournamentStatusEnum::Draft)
                 ->chunk(200, function ($tournaments) use ($urls) {
                     foreach ($tournaments as $tournament) {
                         /** @var Tournament $tournament */

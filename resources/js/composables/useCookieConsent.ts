@@ -1,5 +1,4 @@
 import { clearCookie, setCookie } from '@/lib/utils';
-import { router } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
 export type ConsentChoice = 'accepted' | 'declined';
@@ -18,11 +17,12 @@ const getStoredConsent = (): ConsentChoice | null => {
 
 /**
  * Cookie-consent state management. Same cookie + localStorage hybrid as
- * `useAppearance` so the SSR-rendered Blade template can gate Google
- * Analytics on first byte (no network traffic until accepted).
+ * `useAppearance` so the SSR-rendered Blade template can seed the correct
+ * Google Analytics Consent Mode default on first byte.
  *
- * Accepting triggers a page reload so the server re-renders with the GA
- * script. Declining is silent — GA was never loaded anyway.
+ * gtag is always loaded (Consent Mode v2, analytics_storage denied by
+ * default); accepting/declining flips analytics_storage via
+ * gtag('consent','update') in-session — no page reload required.
  */
 export function useCookieConsent() {
     const consent = ref<ConsentChoice | null>(null);
@@ -38,17 +38,23 @@ export function useCookieConsent() {
         localStorage.setItem(STORAGE_KEY, 'accepted');
         setCookie(COOKIE_NAME, 'accepted');
 
-        // Reload so Blade re-renders with the Google Analytics script
-        // injected. preserveScroll avoids jumping to top on a decision the
-        // user just made at the bottom of the viewport.
-        router.reload({ preserveScroll: true });
+        // Consent Mode: gtag is already loaded (denied by default), so upgrade
+        // analytics storage on for this session immediately — no reload needed.
+        if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+            window.gtag('consent', 'update', { analytics_storage: 'granted' });
+        }
     };
 
     const declineConsent = () => {
         consent.value = 'declined';
         localStorage.setItem(STORAGE_KEY, 'declined');
         setCookie(COOKIE_NAME, 'declined');
-        // No reload — GA was never loaded, nothing on the page changes.
+
+        // Keep analytics storage denied (the default). Explicit in case the
+        // user is switching from a prior 'accepted' choice in the same session.
+        if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+            window.gtag('consent', 'update', { analytics_storage: 'denied' });
+        }
     };
 
     /**

@@ -45,6 +45,9 @@ class StoreStartingArsenalRequest extends FormRequest
             // int for a token/marker id, string for an upgrade-type enum value;
             // the controller validates the pick against the keyword-scoped pool.
             'crew_card_choice.id' => ['nullable'],
+            // Optional: when provided, the selected crew card is saved to the
+            // owner's Card Creator as a crew-domain CustomUpgrade under this name.
+            'crew_card_name' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

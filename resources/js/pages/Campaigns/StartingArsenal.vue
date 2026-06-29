@@ -129,8 +129,14 @@ const choiceOptions = computed<ChoiceOption[]>(() => {
     if (requiredChoiceType.value === 'upgrade') return props.crew_card_choice_options.upgrades;
     return [];
 });
+// Optional: name under which the chosen crew card is saved to the player's
+// Card Creator (as a crew upgrade). Prefilled from the card when first picked.
+const crewCardName = ref('');
 watch(selectedCrewCardEffectId, () => {
     selectedCrewCardChoiceId.value = null;
+    if (selectedCrewCard.value && !crewCardName.value) {
+        crewCardName.value = `${props.crew.name} — ${selectedCrewCard.value.name}`;
+    }
 });
 
 const filter = ref('');
@@ -183,6 +189,7 @@ const submit = () => {
             requiredChoiceType.value && selectedCrewCardChoiceId.value
                 ? { type: requiredChoiceType.value, id: selectedCrewCardChoiceId.value }
                 : null,
+        crew_card_name: crewCardName.value.trim() || null,
     });
 };
 </script>
@@ -340,6 +347,20 @@ const submit = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Save the chosen crew card to the player's Card Creator (pg: the
+                     master card already lives there). Leave blank to skip. -->
+                <div v-if="selectedCrewCard" class="mt-4 rounded-md border p-3">
+                    <label class="text-xs font-medium" for="crew_card_name">Save crew card to your Card Creator as</label>
+                    <Input
+                        id="crew_card_name"
+                        v-model="crewCardName"
+                        :disabled="locked"
+                        placeholder="Crew card name (leave blank to skip)"
+                        class="mt-1 h-9 text-sm"
+                    />
+                    <p class="mt-1 text-[11px] text-muted-foreground">Saved as a crew upgrade you can view and print in the Card Creator.</p>
                 </div>
 
                 <!-- Constrained pick for crew cards that require a token/marker/upgrade (pg 17). -->

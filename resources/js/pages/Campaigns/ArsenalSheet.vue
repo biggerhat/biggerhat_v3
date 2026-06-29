@@ -11,7 +11,7 @@ import { useToast } from '@/composables/useToast';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Calendar, Copy, Swords, Tag } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface KeywordRow {
     id: number;
@@ -231,16 +231,28 @@ const eligibleCatalogRows = (table: string, flip: number | null): CatalogRow[] =
 const advancementName = (a: AdvancementTaken): string =>
     catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ?? a.source_table.replace(/_/g, ' ');
 
-// Per-slot picker drafts — seeded once (the track only changes via a reload).
+// Per-slot picker drafts. Seed reactively: Inertia reuses this component
+// instance across visits (setup doesn't re-run), so a one-time loop would
+// leave newly-earned slots without a draft — the picker then never renders
+// and "Log" silently no-ops. Watching the slots keeps a draft for every
+// current position without clobbering one the user is mid-edit on.
 interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
     flip_value: number | null;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
-for (const slot of advancementSlots.value) {
-    drafts.value[slot.position] = { source_table: defaultTableForTier(slot.tier), catalog_id: null, flip_value: 13 };
-}
+watch(
+    advancementSlots,
+    (slots) => {
+        for (const slot of slots) {
+            if (!drafts.value[slot.position]) {
+                drafts.value[slot.position] = { source_table: defaultTableForTier(slot.tier), catalog_id: null, flip_value: 13 };
+            }
+        }
+    },
+    { immediate: true },
+);
 
 const logAdvancement = (position: number) => {
     const d = drafts.value[position];
@@ -690,14 +702,28 @@ const totemRendererProps = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Advancement log + notes placeholder for Phase 9 -->
+        <!-- Advancement log — every Leadership advancement taken, from the
+             Aftermath's Advance-Leader step or logged here on the sheet. -->
         <Card class="mt-6">
             <CardHeader>
                 <CardTitle>Advancement Log</CardTitle>
-                <p class="text-[10px] text-muted-foreground">Populates during Aftermath Phase 4 (Advance Leader). Phase 9 work.</p>
+                <p class="text-[10px] text-muted-foreground">Earned via Aftermath Phase 4 (Advance Leader) or logged per box above.</p>
             </CardHeader>
             <CardContent>
-                <p class="text-sm text-muted-foreground">No advancements yet.</p>
+                <ul v-if="leader_advancements.length" class="space-y-1.5">
+                    <li
+                        v-for="a in [...leader_advancements].sort((x, y) => x.position_in_xp_track - y.position_in_xp_track)"
+                        :key="a.id"
+                        class="flex items-center justify-between rounded-md border p-2 text-sm"
+                    >
+                        <span class="flex items-center gap-2">
+                            <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
+                            <span class="capitalize text-muted-foreground">{{ a.source_table.replace(/_/g, ' ') }}</span>
+                            <span class="font-medium">{{ advancementName(a) }}</span>
+                        </span>
+                    </li>
+                </ul>
+                <p v-else class="text-sm text-muted-foreground">No advancements yet.</p>
             </CardContent>
         </Card>
     </div>

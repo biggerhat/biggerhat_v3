@@ -41,6 +41,23 @@ class Upgrade extends Model
             'type' => UpgradeTypeEnum::class,
             'limitations' => UpgradeLimitationEnum::class,
             'hiring_rules' => 'array',
+            // Campaign boolean flags. Without these casts they serialize as ints
+            // (0/1), and binding :checked="1" (a number) to the admin form's
+            // checkbox breaks its toggle/state — so a flag like Traitor never
+            // appears saved on reload. Cast so they round-trip as real booleans.
+            'campaign_is_always_available' => 'boolean',
+            'campaign_ttw_only' => 'boolean',
+            'campaign_is_omens_mark' => 'boolean',
+            'campaign_is_unique' => 'boolean',
+            'campaign_leader_only' => 'boolean',
+            'campaign_non_unique_only' => 'boolean',
+            'campaign_annihilate_after_game' => 'boolean',
+            'campaign_is_red_joker_entry' => 'boolean',
+            'campaign_is_traitor' => 'boolean',
+            'campaign_is_close_call' => 'boolean',
+            'campaign_annihilates_model' => 'boolean',
+            'campaign_reflip_if_no_triggers' => 'boolean',
+            'campaign_reflip_if_master_or_totem' => 'boolean',
         ];
     }
 

@@ -70,7 +70,11 @@ class ArsenalSheetController extends Controller
             'keywordOne:id,name',
             'keywordTwo:id,name',
             'arsenalModels' => fn ($q) => $q->active()->with([
-                'character:id,display_name,cost,faction,station',
+                'character:id,display_name,cost,faction,station,health,defense,willpower,speed,size,base',
+                // Full action/ability detail so the Arsenal Sheet can render each
+                // unit's card in a viewer dialog.
+                'character.actions:id,name,type,stat,stat_suits,stat_modifier,range,range_type,description',
+                'character.abilities:id,name,suits,defensive_ability_type,costs_stone,description',
                 'injuries.injury:id,name',
             ]),
         ]);
@@ -144,7 +148,7 @@ class ArsenalSheetController extends Controller
             'equipment' => CampaignEquipment::query()
                 ->where('campaign_crew_id', $crew->id)
                 ->active()
-                ->with('catalog:id,name,campaign_cc,campaign_br')
+                ->with('catalog:id,name,campaign_cc,campaign_br,description')
                 ->orderBy('id')
                 ->get()
                 ->map(fn (CampaignEquipment $e) => [
@@ -153,6 +157,7 @@ class ArsenalSheetController extends Controller
                     'name' => $e->catalog->name,
                     'cc' => $e->catalog->campaign_cc,
                     'br' => $e->catalog->campaign_br,
+                    'description' => $e->catalog->description,
                 ]),
             'campaign_rating' => [
                 'value' => $cr,

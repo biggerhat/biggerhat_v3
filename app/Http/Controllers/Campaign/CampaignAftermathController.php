@@ -95,6 +95,16 @@ class CampaignAftermathController extends Controller
             'doctor_results' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::doctorResults() : null,
             // Phase 5 needs it too for the doctor "Oops" added-injury pick.
             'injury_catalog' => fn () => in_array($aftermath->current_phase, [5, 6], true) ? AftermathCatalog::injuries() : null,
+            // Destinations for a Traitor (black joker) defector — the campaign's
+            // other crews. Solo-logged games have no opponent on the game row,
+            // so the player picks here. Only needed during Determine Injuries.
+            'traitor_target_crews' => fn () => $aftermath->current_phase === 6
+                ? CampaignCrew::query()
+                    ->where('campaign_id', $aftermath->campaignGame->campaign_id)
+                    ->where('id', '!=', $aftermath->campaign_crew_id)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs() : null,
             // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
@@ -678,11 +688,17 @@ class CampaignAftermathController extends Controller
             // the table and picks the matching injury); absent for joker flips.
             'flips.*.injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
             'flips.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            // The crew a Traitor (black joker) defector joins. Defaults to the
+            // game's opponent, but solo-logged games have no opponent crew
+            // (crew_b_id is null), so the player picks a destination crew from
+            // the campaign. Must be another crew in the same campaign.
+            'flips.*.traitor_target_crew_id' => ['nullable', 'integer', Rule::exists('campaign_crews', 'id')
+                ->where('campaign_id', $aftermath->campaignGame->campaign_id)],
         ]);
 
         $flips = $data['flips'] ?? [];
 
-        // Opponent crew (if any) receives Traitor defectors.
+        // Opponent crew (if any) receives Traitor defectors by default.
         $game = $aftermath->campaignGame;
         $opponentCrewId = $game->crew_a_id === $aftermath->campaign_crew_id ? $game->crew_b_id : $game->crew_a_id;
 
@@ -702,8 +718,11 @@ class CampaignAftermathController extends Controller
                 // this crew and, if an opponent crew is recorded, joins theirs
                 // with its injuries (pg 34). Solo / no-opponent → just annihilate.
                 if (! empty($f['is_black_joker'])) {
-                    if ($opponentCrewId !== null) {
-                        $model->copyForCampaign($opponentCrewId, 'traitor');
+                    // Player-chosen destination wins, else the game's opponent.
+                    // Never let a model defect back to its own crew.
+                    $targetCrewId = $f['traitor_target_crew_id'] ?? $opponentCrewId;
+                    if ($targetCrewId !== null && (int) $targetCrewId !== $model->campaign_crew_id) {
+                        $model->copyForCampaign((int) $targetCrewId, 'traitor');
                     }
                     $model->update(['annihilated_at' => now()]);
 

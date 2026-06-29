@@ -296,32 +296,39 @@ class CampaignCatalogSeeder extends Seeder
 
         $systemUserId = $this->ensureSystemUser();
 
+        // Modest placeholder stats — these template rows just need valid
+        // non-null stat columns; share_code/slug are auto-generated on create.
+        $totemStats = ['health' => 3, 'defense' => 4, 'willpower' => 5, 'speed' => 4];
+
         foreach ([3, 7, 11] as $fv) {
-            CustomCharacter::factory()->create([
+            CustomCharacter::create([
                 'user_id' => $systemUserId,
                 'name' => "Spirit Familiar {$fv}",
                 'display_name' => "Spirit Familiar {$fv}",
                 'is_campaign_totem' => true,
                 'is_campaign_totem_template' => true,
                 'campaign_totem_flip_value' => $fv,
+                ...$totemStats,
             ]);
         }
 
-        CustomCharacter::factory()->create([
+        CustomCharacter::create([
             'user_id' => $systemUserId,
             'name' => 'Sniveling Coward',
             'display_name' => 'Sniveling Coward',
             'is_campaign_totem' => true,
             'is_campaign_totem_template' => true,
             'campaign_is_black_joker_totem' => true,
+            ...$totemStats,
         ]);
-        CustomCharacter::factory()->create([
+        CustomCharacter::create([
             'user_id' => $systemUserId,
             'name' => 'Mini Master',
             'display_name' => 'Mini Master',
             'is_campaign_totem' => true,
             'is_campaign_totem_template' => true,
             'campaign_is_mini_master' => true,
+            ...$totemStats,
         ]);
     }
 
@@ -367,6 +374,7 @@ class CampaignCatalogSeeder extends Seeder
         return (int) (User::query()->where('email', $email)->value('id')
             ?? DB::table('users')->insertGetId([
                 'name' => 'System (Totem Templates)',
+                'slug' => 'system-totem-templates',
                 'email' => $email,
                 'password' => bcrypt(\Illuminate\Support\Str::random(40)),
                 'email_verified_at' => now(),

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Campaign;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
@@ -13,10 +14,12 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Character;
+use App\Models\CustomUpgrade;
 use App\Models\Upgrade;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * One-shot wizard for setting up a fresh crew's 25-ss starting arsenal
@@ -48,7 +51,10 @@ class StartingArsenalController extends Controller
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
             'crew_card_effects' => fn () => CampaignCrewCard::query()
-                ->with(['actions:id,name', 'abilities:id,name'])
+                ->with([
+                    'actions:id,name,type,stat,stat_suits,stat_modifier,range,range_type,description',
+                    'abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+                ])
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
             // Constrained pool for crew cards that require a token/marker/upgrade
@@ -148,7 +154,10 @@ class StartingArsenalController extends Controller
             $crewCardChoice = ['type' => $requiredType, 'id' => $picked['id'], 'name' => $picked['name']];
         }
 
-        DB::transaction(function () use ($crew, $hires, $data, $leftoverScrip, $crewCardChoice) {
+        $userId = $request->user()->id;
+        $crewCardName = trim((string) ($data['crew_card_name'] ?? ''));
+
+        DB::transaction(function () use ($crew, $hires, $data, $leftoverScrip, $crewCardChoice, $userId, $crewCardName) {
             // One-shot semantics: wipe + re-create. Players are free to
             // re-do their starting arsenal during planning. Annihilated/
             // removed rows aren't touched (annihilated_at + removed_at flags).
@@ -176,10 +185,96 @@ class StartingArsenalController extends Controller
                 'crew_card_effect_id' => $data['crew_card_effect_id'],
                 'crew_card_choice' => $crewCardChoice,
             ]);
+
+            // Save the chosen crew card to the owner's Card Creator (pg: the
+            // master card already lives there as a CustomCharacter). Only when
+            // the player named it on save.
+            if ($crewCardName !== '') {
+                $this->saveCrewCardToCardCreator($userId, (int) $data['crew_card_effect_id'], $crewCardName, $crew->faction?->value);
+            }
         });
 
         return redirect()->route('campaigns.crews.starting-arsenal.edit', [$campaign, $crew])
             ->withMessage("Starting arsenal saved ({$totalCost} ss spent, {$leftoverScrip} scrip leftover).");
+    }
+
+    /**
+     * Save the selected crew card to the owner's Card Creator as a crew-domain
+     * CustomUpgrade (the master card already lives there as a CustomCharacter).
+     * Re-saving with the same name updates the card instead of duplicating it.
+     */
+    private function saveCrewCardToCardCreator(int $userId, int $crewCardId, string $name, ?string $faction): void
+    {
+        $crewCard = CampaignCrewCard::query()
+            ->with([
+                'actions:id,name,type,stat,stat_suits,range,range_type,description',
+                'abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+            ])
+            ->find($crewCardId);
+        if (! $crewCard) {
+            return;
+        }
+
+        $blocks = [];
+        if (! empty($crewCard->description)) {
+            $blocks[] = ['type' => 'text', 'text' => $crewCard->description];
+        }
+        foreach ($crewCard->abilities as $a) {
+            $blocks[] = ['type' => 'ability', 'data' => [
+                'name' => $a->name,
+                'description' => $a->description,
+                'suits' => $a->suits,
+                'defensive_ability_type' => $a->defensive_ability_type,
+                'costs_stone' => (bool) $a->costs_stone,
+            ]];
+        }
+        foreach ($crewCard->actions as $ac) {
+            $blocks[] = ['type' => 'action', 'data' => [
+                'name' => $ac->name,
+                'type' => $ac->type,
+                'stat' => $ac->stat,
+                'stat_suits' => $ac->stat_suits,
+                'range' => $ac->range,
+                'range_type' => $ac->range_type,
+                'description' => $ac->description,
+            ]];
+        }
+
+        $existing = CustomUpgrade::query()
+            ->where('user_id', $userId)
+            ->where('name', $name)
+            ->where('domain', UpgradeDomainTypeEnum::Crew->value)
+            ->first();
+
+        if ($existing) {
+            $existing->update(['display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks]);
+
+            return;
+        }
+
+        CustomUpgrade::create([
+            'user_id' => $userId,
+            'name' => $name,
+            'display_name' => $name,
+            'slug' => $this->uniqueUpgradeSlug($userId, $name),
+            'domain' => UpgradeDomainTypeEnum::Crew->value,
+            'faction' => $faction,
+            'content_blocks' => $blocks,
+        ]);
+    }
+
+    /** Per-user unique slug for a saved crew-card upgrade. */
+    private function uniqueUpgradeSlug(int $userId, string $name): string
+    {
+        $base = Str::slug($name) ?: 'crew-card';
+        $slug = $base;
+        $i = 1;
+        while (CustomUpgrade::query()->where('user_id', $userId)->where('slug', $slug)->exists()) {
+            $slug = "{$base}-{$i}";
+            $i++;
+        }
+
+        return $slug;
     }
 
     /**

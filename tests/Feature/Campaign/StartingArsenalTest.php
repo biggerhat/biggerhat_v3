@@ -114,6 +114,52 @@ it('saves arsenal models + crew card effect + computed scrip', function () {
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(2);
 });
 
+it('saves the crew card to the Card Creator when named, and updates on re-save', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    $upgrade = \App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->first();
+    expect($upgrade)->not->toBeNull();
+    expect($upgrade->domain->value)->toBe('crew');
+
+    // Re-saving with the same name updates the existing card rather than duplicating.
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    expect(\App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->count())->toBe(1);
+});
+
+it('does not save a Card Creator card when no name is given', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+        ])
+        ->assertRedirect();
+
+    expect(\App\Models\CustomUpgrade::where('user_id', $user->id)->count())->toBe(0);
+});
+
 it('caps leftover scrip at 3 even with tiny arsenal', function () {
     $effect = CampaignCrewCard::factory()->create();
     $user = arsenalUser();

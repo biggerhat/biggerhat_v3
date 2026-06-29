@@ -238,6 +238,37 @@ it('Phase 3-5 advance-only stub bumps the phase without state writes', function 
     expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
+it('Phase 4 exposes the leader tag in the xp_track payload', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+
+    \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Boss',
+        'display_name' => 'Boss',
+        'tag' => 'strategist',
+        'archetype' => 'generalist',
+        'health' => 8,
+        'defense' => 5,
+        'willpower' => 5,
+        'speed' => 5,
+    ]);
+
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+    ]);
+
+    $resp = $this->actingAs($user)->get(route('campaigns.aftermaths.show', $aftermath));
+    $resp->assertOk();
+
+    $xpTrack = $resp->viewData('page')['props']['xp_track'];
+    expect($xpTrack['tag'])->toBe('strategist');
+});
+
 it('Phase 6 applies injuries to arsenal models from the catalog', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -396,6 +427,34 @@ it('Phase 6 black joker (Traitor) just annihilates when there is no opponent cre
 
     expect($model->fresh()->annihilated_at)->not->toBeNull();
     expect(CampaignArsenalModel::where('acquired_via', 'traitor')->count())->toBe(0);
+});
+
+it('Phase 6 black joker defects to a player-chosen crew when the game has no opponent (solo)', function () {
+    [$user, $campaign, $crew, $game] = aftermathFixture();
+    // Solo-logged games have no opponent on the game row.
+    $game->update(['crew_b_id' => null]);
+    $destination = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
+
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['arsenal_model_id' => $model->id, 'is_black_joker' => true, 'traitor_target_crew_id' => $destination->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($model->fresh()->annihilated_at)->not->toBeNull();
+    $defector = CampaignArsenalModel::where('campaign_crew_id', $destination->id)->where('acquired_via', 'traitor')->first();
+    expect($defector)->not->toBeNull();
+    expect($defector->character_id)->toBe($model->character_id);
 });
 
 it('Phase 6 Doppelganger adds a limit-exempt copy to this crew with its injuries', function () {

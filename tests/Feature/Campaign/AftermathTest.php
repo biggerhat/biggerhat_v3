@@ -429,6 +429,34 @@ it('Phase 6 black joker (Traitor) just annihilates when there is no opponent cre
     expect(CampaignArsenalModel::where('acquired_via', 'traitor')->count())->toBe(0);
 });
 
+it('Phase 6 black joker defects to a player-chosen crew when the game has no opponent (solo)', function () {
+    [$user, $campaign, $crew, $game] = aftermathFixture();
+    // Solo-logged games have no opponent on the game row.
+    $game->update(['crew_b_id' => null]);
+    $destination = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
+
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['arsenal_model_id' => $model->id, 'is_black_joker' => true, 'traitor_target_crew_id' => $destination->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($model->fresh()->annihilated_at)->not->toBeNull();
+    $defector = CampaignArsenalModel::where('campaign_crew_id', $destination->id)->where('acquired_via', 'traitor')->first();
+    expect($defector)->not->toBeNull();
+    expect($defector->character_id)->toBe($model->character_id);
+});
+
 it('Phase 6 Doppelganger adds a limit-exempt copy to this crew with its injuries', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

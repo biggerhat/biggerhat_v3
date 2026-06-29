@@ -405,6 +405,9 @@ interface InjuryEntry {
     lucky_miss_flip_value: number;
     // The Lucky Miss flip was itself a joker → Doppelganger.
     lucky_miss_is_joker: boolean;
+    // The crew a Traitor defector joins (null = the game's recorded opponent,
+    // or nowhere if there is none — e.g. a solo game with no opponent picked).
+    traitor_target_crew_id: number | null;
 }
 const injuryFlips = ref<InjuryEntry[]>([]);
 const addInjuryFlip = (modelId: number) => {
@@ -415,6 +418,9 @@ const addInjuryFlip = (modelId: number) => {
         is_black_joker: false,
         lucky_miss_flip_value: 1,
         lucky_miss_is_joker: false,
+        // Default to the campaign's first other crew so a defection always has
+        // a destination; the player can change it.
+        traitor_target_crew_id: traitorTargetCrews.value[0]?.id ?? null,
     });
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
@@ -435,6 +441,14 @@ interface InjuryCatalogRow {
     flip_value: number | null;
 }
 const injury_catalog = computed<InjuryCatalogRow[]>(() => (props as unknown as { injury_catalog?: InjuryCatalogRow[] }).injury_catalog ?? []);
+
+interface TraitorCrewRow {
+    id: number;
+    name: string;
+}
+const traitorTargetCrews = computed<TraitorCrewRow[]>(
+    () => (props as unknown as { traitor_target_crews?: TraitorCrewRow[] }).traitor_target_crews ?? [],
+);
 
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
@@ -854,7 +868,15 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 Black Joker (Traitor)
                             </label>
                             <template v-if="f.is_black_joker">
-                                <span class="text-[11px] text-muted-foreground">Model defects to the opponent.</span>
+                                <span class="text-[11px] text-muted-foreground">Defects to</span>
+                                <select
+                                    v-if="traitorTargetCrews.length"
+                                    v-model.number="f.traitor_target_crew_id"
+                                    class="h-8 rounded border bg-background px-2 text-xs text-foreground"
+                                >
+                                    <option v-for="c in traitorTargetCrews" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                </select>
+                                <span v-else class="text-[11px] text-amber-600">no other crew in this campaign — the model is just removed</span>
                             </template>
                             <template v-else-if="f.is_red_joker">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">

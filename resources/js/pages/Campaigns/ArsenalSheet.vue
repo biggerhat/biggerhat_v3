@@ -4,6 +4,7 @@ import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
@@ -102,6 +103,38 @@ interface CustomCharacterData {
     linked_totems: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
 }
 
+interface CardActionItem {
+    id: number;
+    name: string;
+    type: string | null;
+    stat: number | string | null;
+    stat_suits: string | null;
+    stat_modifier: string | null;
+    range: number | string | null;
+    range_type: string | null;
+    description: string | null;
+}
+interface CardAbilityItem {
+    id: number;
+    name: string;
+    defensive_ability_type: string | null;
+    description: string | null;
+}
+interface ArsenalCharacter {
+    id: number;
+    display_name: string;
+    cost: number | null;
+    faction: string | null;
+    station: string;
+    health: number | null;
+    defense: number | null;
+    willpower: number | null;
+    speed: number | null;
+    size: number | null;
+    base: number | null;
+    actions: CardActionItem[];
+    abilities: CardAbilityItem[];
+}
 interface ArsenalRow {
     id: number;
     character_id: number;
@@ -109,7 +142,7 @@ interface ArsenalRow {
     is_peon: boolean;
     ignored_for_limits: boolean;
     acquired_via: string;
-    character: { id: number; display_name: string; cost: number | null; station: string } | null;
+    character: ArsenalCharacter | null;
     injuries: string[];
     gained_characteristics: string[];
     lucky_miss: string[];
@@ -156,6 +189,7 @@ interface EquipmentItem {
     name: string;
     cc: number | null;
     br: number | null;
+    description: string | null;
 }
 
 interface XpBox {
@@ -282,6 +316,25 @@ const removeAdvancement = async (a: AdvancementTaken) => {
 };
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
+
+// ───────── Card viewer (units / equipment / crew card) ─────────
+type CardView =
+    | { kind: 'unit'; title: string; model: ArsenalRow }
+    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
+    | { kind: 'crew'; title: string; effect: CrewCardEffectRow };
+const viewCard = ref<CardView | null>(null);
+const viewUnit = (model: ArsenalRow) => {
+    viewCard.value = { kind: 'unit', title: model.character?.display_name ?? 'Model', model };
+};
+const viewEquipment = (equipment: EquipmentItem) => {
+    viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
+};
+const viewCrewCard = () => {
+    if (props.crew.crew_card_effect) viewCard.value = { kind: 'crew', title: props.crew.crew_card_effect.name, effect: props.crew.crew_card_effect };
+};
+const closeViewCard = (open: boolean) => {
+    if (!open) viewCard.value = null;
+};
 
 // Faction-tinted hero strip — falls back to a slate gradient when faction is null.
 const factionBg = computed(() => {
@@ -500,7 +553,12 @@ const totemRendererProps = computed(() => {
             <!-- Right column: Crew Card + XP track placeholder -->
             <div class="space-y-4">
                 <Card>
-                    <CardHeader><CardTitle>Crew Card</CardTitle></CardHeader>
+                    <CardHeader>
+                        <div class="flex items-center justify-between gap-2">
+                            <CardTitle>Crew Card</CardTitle>
+                            <Button v-if="crew.crew_card_effect" size="sm" variant="outline" @click="viewCrewCard">View card</Button>
+                        </div>
+                    </CardHeader>
                     <CardContent>
                         <div v-if="crew.crew_card_effect" class="space-y-2">
                             <p class="font-medium">{{ crew.crew_card_effect.name }}</p>
@@ -638,7 +696,15 @@ const totemRendererProps = computed(() => {
             </CardHeader>
             <CardContent>
                 <div v-if="crew.arsenal_models.length" class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    <div v-for="model in crew.arsenal_models" :key="model.id" class="rounded-md border p-3 text-sm">
+                    <div
+                        v-for="model in crew.arsenal_models"
+                        :key="model.id"
+                        role="button"
+                        tabindex="0"
+                        class="cursor-pointer rounded-md border p-3 text-sm transition hover:border-primary"
+                        @click="viewUnit(model)"
+                        @keydown.enter="viewUnit(model)"
+                    >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-medium">{{ model.character?.display_name ?? '—' }}</p>
@@ -687,7 +753,15 @@ const totemRendererProps = computed(() => {
             </CardHeader>
             <CardContent>
                 <div v-if="equipment.length" class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    <div v-for="eq in equipment" :key="eq.id" class="flex items-start justify-between gap-2 rounded-md border p-3 text-sm">
+                    <div
+                        v-for="eq in equipment"
+                        :key="eq.id"
+                        role="button"
+                        tabindex="0"
+                        class="flex cursor-pointer items-start justify-between gap-2 rounded-md border p-3 text-sm transition hover:border-primary"
+                        @click="viewEquipment(eq)"
+                        @keydown.enter="viewEquipment(eq)"
+                    >
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium">{{ eq.name }}</p>
                             <p class="text-[10px] capitalize text-muted-foreground">{{ eq.source }}</p>
@@ -726,6 +800,102 @@ const totemRendererProps = computed(() => {
                 <p v-else class="text-sm text-muted-foreground">No advancements yet.</p>
             </CardContent>
         </Card>
+
+        <!-- Card viewer — full rules for a unit / equipment / crew card. -->
+        <Dialog :open="viewCard !== null" @update:open="closeViewCard">
+            <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{{ viewCard?.title }}</DialogTitle>
+                </DialogHeader>
+
+                <!-- Unit -->
+                <div v-if="viewCard?.kind === 'unit'" class="space-y-3 text-sm">
+                    <div class="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.model.character?.station }}</Badge>
+                        <Badge variant="outline" class="text-[10px] tabular-nums">{{ viewCard.model.character?.cost ?? 0 }} ss</Badge>
+                        <Badge v-if="viewCard.model.character?.health != null" variant="outline" class="text-[10px] tabular-nums"
+                            >Hp {{ viewCard.model.character?.health }}</Badge
+                        >
+                        <Badge v-if="viewCard.model.character?.defense != null" variant="outline" class="text-[10px] tabular-nums"
+                            >Df {{ viewCard.model.character?.defense }}</Badge
+                        >
+                        <Badge v-if="viewCard.model.character?.willpower != null" variant="outline" class="text-[10px] tabular-nums"
+                            >Wp {{ viewCard.model.character?.willpower }}</Badge
+                        >
+                        <Badge v-if="viewCard.model.character?.speed != null" variant="outline" class="text-[10px] tabular-nums"
+                            >Mv {{ viewCard.model.character?.speed }}</Badge
+                        >
+                        <Badge v-if="viewCard.model.character?.size != null" variant="outline" class="text-[10px] tabular-nums"
+                            >Sz {{ viewCard.model.character?.size }}</Badge
+                        >
+                    </div>
+                    <div v-if="viewCard.model.injuries.length || viewCard.model.gained_characteristics.length" class="flex flex-wrap gap-1">
+                        <Badge v-for="inj in viewCard.model.injuries" :key="`vi-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
+                        <Badge v-for="ch in viewCard.model.gained_characteristics" :key="`vc-${ch}`" variant="outline" class="text-[10px]">{{
+                            ch
+                        }}</Badge>
+                    </div>
+                    <div v-if="viewCard.model.character?.abilities.length" class="space-y-1.5">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                        <div v-for="ab in viewCard.model.character.abilities" :key="`va-${ab.id}`" class="rounded-md border p-2">
+                            <p class="font-medium"><GameText :text="ab.name" /></p>
+                            <p v-if="ab.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ab.description" /></p>
+                        </div>
+                    </div>
+                    <div v-if="viewCard.model.character?.actions.length" class="space-y-1.5">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                        <div v-for="ac in viewCard.model.character.actions" :key="`vac-${ac.id}`" class="rounded-md border p-2">
+                            <p class="font-medium">
+                                <GameText :text="ac.name" />
+                                <span v-if="ac.stat !== null" class="ml-1 text-xs text-muted-foreground"
+                                    >{{ ac.type }} · {{ ac.stat }}{{ ac.stat_suits ?? '' }}</span
+                                >
+                            </p>
+                            <p v-if="ac.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ac.description" /></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Equipment -->
+                <div v-else-if="viewCard?.kind === 'equipment'" class="space-y-2 text-sm">
+                    <div class="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.equipment.source }}</Badge>
+                        <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-[10px] tabular-nums"
+                            >BR {{ viewCard.equipment.br }}</Badge
+                        >
+                        <Badge v-if="viewCard.equipment.cc != null" variant="outline" class="text-[10px] tabular-nums"
+                            >{{ viewCard.equipment.cc }} cc</Badge
+                        >
+                    </div>
+                    <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
+                        <GameText :text="viewCard.equipment.description" />
+                    </p>
+                    <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
+                </div>
+
+                <!-- Crew card -->
+                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-2 text-sm">
+                    <p v-if="viewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="viewCard.effect.body" /></p>
+                    <div v-if="viewCard.effect.abilities.length" class="space-y-1.5">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                        <div v-for="ab in viewCard.effect.abilities" :key="`ca-${ab.id}`" class="rounded-md border p-2">
+                            <p class="font-medium"><GameText :text="ab.name" /></p>
+                            <p v-if="ab.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ab.description" /></p>
+                        </div>
+                    </div>
+                    <div v-if="viewCard.effect.actions.length" class="space-y-1.5">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                        <div v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" class="rounded-md border p-2">
+                            <p class="font-medium">
+                                <GameText :text="ac.name" />
+                                <span v-if="ac.stat !== null" class="ml-1 text-xs text-muted-foreground">{{ ac.type }} · {{ ac.stat }}</span>
+                            </p>
+                            <p v-if="ac.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ac.description" /></p>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 

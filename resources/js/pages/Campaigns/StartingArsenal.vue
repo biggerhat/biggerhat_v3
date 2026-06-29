@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,9 +30,24 @@ interface ArsenalRow {
     label: string | null;
     character: CharRow | null;
 }
-interface CrewCardLinkedItem {
+interface CrewCardActionItem {
     id: number;
     name: string;
+    type: string | null;
+    stat: number | string | null;
+    stat_suits: string | null;
+    stat_modifier: string | null;
+    range: number | string | null;
+    range_type: string | null;
+    description: string | null;
+}
+interface CrewCardAbilityItem {
+    id: number;
+    name: string;
+    suits: string | null;
+    defensive_ability_type: string | null;
+    costs_stone: boolean;
+    description: string | null;
 }
 
 interface CrewCardEffectRow {
@@ -41,8 +57,8 @@ interface CrewCardEffectRow {
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
-    actions: CrewCardLinkedItem[];
-    abilities: CrewCardLinkedItem[];
+    actions: CrewCardActionItem[];
+    abilities: CrewCardAbilityItem[];
 }
 interface ChoiceOption {
     // int for a token/marker, enum-value string for an upgrade type.
@@ -288,6 +304,43 @@ const submit = () => {
                         </button>
                     </li>
                 </ul>
+
+                <!-- Full detail for the selected effect so players can see what each
+                     action/ability actually does, not just its name. -->
+                <div v-if="selectedCrewCard && (selectedCrewCard.abilities.length || selectedCrewCard.actions.length)" class="mt-4 space-y-3">
+                    <div v-if="selectedCrewCard.abilities.length">
+                        <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                        <div class="space-y-2">
+                            <div v-for="a in selectedCrewCard.abilities" :key="a.id" class="rounded-md border bg-card p-2 text-sm">
+                                <p class="font-medium">
+                                    <GameText :text="a.name" icon-class="h-4 inline-block align-text-bottom" />
+                                    <span v-if="a.defensive_ability_type" class="ml-1 text-xs text-muted-foreground"
+                                        >({{ a.defensive_ability_type }})</span
+                                    >
+                                </p>
+                                <p v-if="a.description" class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                                    <GameText :text="a.description" icon-class="h-4 inline-block align-text-bottom" />
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="selectedCrewCard.actions.length">
+                        <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                        <div class="space-y-2">
+                            <div v-for="ac in selectedCrewCard.actions" :key="ac.id" class="rounded-md border bg-card p-2 text-sm">
+                                <p class="font-medium">
+                                    <GameText :text="ac.name" icon-class="h-4 inline-block align-text-bottom" />
+                                    <span v-if="ac.stat !== null" class="ml-1 text-xs text-muted-foreground">
+                                        {{ ac.type }} · {{ ac.stat }}{{ ac.stat_suits ?? '' }}{{ ac.stat_modifier ?? '' }}
+                                    </span>
+                                </p>
+                                <p v-if="ac.description" class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                                    <GameText :text="ac.description" icon-class="h-4 inline-block align-text-bottom" />
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Constrained pick for crew cards that require a token/marker/upgrade (pg 17). -->
                 <div v-if="requiredChoiceType" class="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3">

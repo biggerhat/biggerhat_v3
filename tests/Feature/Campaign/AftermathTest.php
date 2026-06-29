@@ -238,6 +238,37 @@ it('Phase 3-5 advance-only stub bumps the phase without state writes', function 
     expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
+it('Phase 4 exposes the leader tag in the xp_track payload', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+
+    \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Boss',
+        'display_name' => 'Boss',
+        'tag' => 'strategist',
+        'archetype' => 'generalist',
+        'health' => 8,
+        'defense' => 5,
+        'willpower' => 5,
+        'speed' => 5,
+    ]);
+
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+    ]);
+
+    $resp = $this->actingAs($user)->get(route('campaigns.aftermaths.show', $aftermath));
+    $resp->assertOk();
+
+    $xpTrack = $resp->viewData('page')['props']['xp_track'];
+    expect($xpTrack['tag'])->toBe('strategist');
+});
+
 it('Phase 6 applies injuries to arsenal models from the catalog', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

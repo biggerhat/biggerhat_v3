@@ -419,6 +419,15 @@ const addInjuryFlip = (modelId: number) => {
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
 
+// Resolve an arsenal model id to a human-readable name for the Pending Injuries
+// list (was showing the raw "model #<id>").
+const modelDisplayName = (arsenalModelId: number): string => {
+    const m = props.killed_models.find((k) => k.id === arsenalModelId);
+    if (!m) return `Model #${arsenalModelId}`;
+    const base = m.character?.display_name ?? 'Model';
+    return m.label ? `${base} (${m.label})` : base;
+};
+
 interface InjuryCatalogRow {
     id: number;
     name: string;
@@ -641,7 +650,20 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <span>+1 for playing the game (always)</span>
                         </label>
                         <!-- Show the option matching the leader's tag; if the tag is
-                             unknown (older leader / not set), fall back to both. -->
+                             unknown (older leader / not set), fall back to both and
+                             explain why so the player can set it on the leader. -->
+                        <p
+                            v-if="!xp_track?.tag"
+                            class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
+                        >
+                            This leader has no Bruiser/Strategist tag set, so both XP options are shown. Pick the leader's tag on the
+                            <Link
+                                :href="route('campaigns.crews.leader.edit', [aftermath.campaign_game.campaign.id, aftermath.crew.share_code])"
+                                class="font-medium underline"
+                                >Edit Leader</Link
+                            >
+                            page so only the correct one appears.
+                        </p>
                         <label v-if="!xp_track?.tag || xp_track.tag === 'bruiser'" class="flex items-start gap-2">
                             <Checkbox :checked="xpForm.bruiser_killed" @update:checked="(v: boolean) => (xpForm.bruiser_killed = v)" />
                             <span>+1 Bruiser killed a non-peon enemy</span>
@@ -806,7 +828,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Injuries</p>
                     <ul class="space-y-2">
                         <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
-                            <span class="flex-1 truncate">model #{{ f.arsenal_model_id }}</span>
+                            <span class="flex-1 truncate font-medium">{{ modelDisplayName(f.arsenal_model_id) }}</span>
                             <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_red_joker"

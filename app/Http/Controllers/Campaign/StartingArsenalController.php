@@ -48,7 +48,10 @@ class StartingArsenalController extends Controller
             'arsenal' => $arsenal,
             'hireable' => fn () => $this->hireableModels($crew),
             'crew_card_effects' => fn () => CampaignCrewCard::query()
-                ->with(['actions:id,name', 'abilities:id,name'])
+                ->with([
+                    'actions:id,name,type,stat,stat_suits,stat_modifier,range,range_type,description',
+                    'abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+                ])
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
             // Constrained pool for crew cards that require a token/marker/upgrade

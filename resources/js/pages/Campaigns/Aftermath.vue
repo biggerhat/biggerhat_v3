@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
+import GameText from '@/components/GameText.vue';
+import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -188,7 +192,26 @@ interface CatalogRow {
     name: string;
     flip_value?: number | null;
     body?: string;
+    description?: string | null;
     is_always_available?: boolean;
+    // Action fields (source_table: 'action' | 'summoning')
+    type?: string | null;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    range?: number | string | null;
+    range_type?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    stone_cost?: number;
+    is_signature?: boolean;
+    triggers?: Array<{ id: number; name: string; suits: string | null; stone_cost: number; description: string | null }>;
+    // Ability fields (source_table: 'ability')
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
 }
 interface AdvancementCatalogs {
     attack_mod: CatalogRow[];
@@ -324,6 +347,9 @@ const catalogRowsFor = (table: string): CatalogRow[] => {
     if (!advancement_catalogs.value) return [];
     return (advancement_catalogs.value as Record<string, CatalogRow[]>)[table] ?? [];
 };
+
+const selectedCatalogRow = (adv: QueuedAdvancement): CatalogRow | null =>
+    adv.catalog_id == null ? null : (catalogRowsFor(adv.source_table).find((r) => r.id === adv.catalog_id) ?? null);
 
 const submitAdvanceLeader = () => {
     router.post(route('campaigns.aftermaths.advance-leader', props.aftermath.id), {
@@ -602,15 +628,20 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                         <li
                             v-for="item in barterMatches"
                             :key="item.id"
-                            class="flex items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50"
+                            class="rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50"
                         >
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate font-medium">{{ item.name }}</p>
-                                <p class="text-[10px] text-muted-foreground">
-                                    BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
-                                </p>
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-medium">{{ item.name }}</p>
+                                    <p class="text-[10px] text-muted-foreground">
+                                        BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
+                                    </p>
+                                </div>
+                                <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
                             </div>
-                            <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
+                            <p v-if="item.body" class="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                <GameText :text="item.body" />
+                            </p>
                         </li>
                     </ul>
                     <p v-else-if="barterSearch.trim()" class="mt-1 text-[11px] text-muted-foreground">No equipment matches that name.</p>
@@ -738,6 +769,31 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
                             </option>
                         </select>
+                        <!-- Full card preview for the selected advancement -->
+                        <template v-if="selectedCatalogRow(adv)">
+                            <ActionCard
+                                v-if="adv.source_table === 'action' || adv.source_table === 'summoning'"
+                                :action="selectedCatalogRow(adv)!"
+                                :hide-footer="true"
+                            />
+                            <AbilityCard
+                                v-else-if="adv.source_table === 'ability'"
+                                :ability="selectedCatalogRow(adv)!"
+                                :hide-footer="true"
+                            />
+                            <TriggerCard
+                                v-else-if="adv.source_table === 'attack_mod' || adv.source_table === 'tactical_mod'"
+                                :trigger="selectedCatalogRow(adv)!"
+                            >
+                                <template #footer></template>
+                            </TriggerCard>
+                            <p
+                                v-else-if="selectedCatalogRow(adv)?.body"
+                                class="rounded-md border p-2 text-xs leading-relaxed text-muted-foreground"
+                            >
+                                <GameText :text="selectedCatalogRow(adv)!.body!" />
+                            </p>
+                        </template>
                     </div>
                 </fieldset>
 

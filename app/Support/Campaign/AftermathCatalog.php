@@ -80,7 +80,6 @@ class AftermathCatalog
     public static function injuries(): array
     {
         return Upgrade::query()
-            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
             ->where('campaign_upgrade_kind', 'injury')
             ->orderBy('campaign_suit_pool')
             ->orderBy('campaign_flip_value')
@@ -132,6 +131,7 @@ class AftermathCatalog
             'action' => Action::query()
                 ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                 ->where('campaign_advancement_kind', 'action')
+                ->with('triggers:id,name,suits,stone_cost,description')
                 ->orderBy('campaign_flip_value')
                 ->orderBy('name')
                 ->get()
@@ -139,6 +139,26 @@ class AftermathCatalog
                     'id' => $a->id,
                     'name' => $a->name,
                     'body' => $a->description,
+                    'description' => $a->description,
+                    'type' => $a->type,
+                    'stat' => $a->stat,
+                    'stat_suits' => $a->stat_suits,
+                    'stat_modifier' => $a->stat_modifier,
+                    'range' => $a->range,
+                    'range_type' => $a->range_type,
+                    'resisted_by' => $a->resisted_by,
+                    'target_number' => $a->target_number,
+                    'target_suits' => $a->target_suits,
+                    'damage' => $a->damage,
+                    'stone_cost' => $a->stone_cost ?? 0,
+                    'is_signature' => (bool) $a->is_signature,
+                    'triggers' => $a->triggers->map(fn (Trigger $t) => [
+                        'id' => $t->id,
+                        'name' => $t->name,
+                        'suits' => $t->suits,
+                        'stone_cost' => $t->stone_cost ?? 0,
+                        'description' => $t->description,
+                    ]),
                     'flip_value' => $a->campaign_flip_value,
                     'is_always_available' => (bool) $a->campaign_is_always_available,
                 ])
@@ -152,6 +172,10 @@ class AftermathCatalog
                     'id' => $a->id,
                     'name' => $a->name,
                     'body' => $a->description,
+                    'description' => $a->description,
+                    'suits' => $a->suits,
+                    'defensive_ability_type' => $a->defensive_ability_type,
+                    'costs_stone' => (bool) $a->costs_stone,
                     'flip_value' => $a->campaign_flip_value,
                     'is_always_available' => (bool) $a->campaign_is_always_available,
                 ])
@@ -172,12 +196,33 @@ class AftermathCatalog
             'summoning' => Action::query()
                 ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
                 ->where('campaign_advancement_kind', 'summoning')
+                ->with('triggers:id,name,suits,stone_cost,description')
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Action $a) => [
                     'id' => $a->id,
                     'name' => $a->name,
                     'body' => $a->description,
+                    'description' => $a->description,
+                    'type' => $a->type,
+                    'stat' => $a->stat,
+                    'stat_suits' => $a->stat_suits,
+                    'stat_modifier' => $a->stat_modifier,
+                    'range' => $a->range,
+                    'range_type' => $a->range_type,
+                    'resisted_by' => $a->resisted_by,
+                    'target_number' => $a->target_number,
+                    'target_suits' => $a->target_suits,
+                    'damage' => $a->damage,
+                    'stone_cost' => $a->stone_cost ?? 0,
+                    'is_signature' => (bool) $a->is_signature,
+                    'triggers' => $a->triggers->map(fn (Trigger $t) => [
+                        'id' => $t->id,
+                        'name' => $t->name,
+                        'suits' => $t->suits,
+                        'stone_cost' => $t->stone_cost ?? 0,
+                        'description' => $t->description,
+                    ]),
                 ])
                 ->all(),
             'crew_card' => CampaignCrewCard::query()
@@ -213,10 +258,12 @@ class AftermathCatalog
                 'id' => $t->id,
                 'name' => $t->name,
                 'body' => $t->description,
+                'description' => $t->description,
+                'suits' => $t->suits,
+                'stone_cost' => $t->stone_cost ?? 0,
                 'flip_value' => $t->campaign_flip_value,
                 'is_always_available' => (bool) $t->campaign_is_always_available,
                 'modifier_type' => $t->campaign_modifier_type,
-                'suit' => $t->suits,
             ])
             ->all();
     }

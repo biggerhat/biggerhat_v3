@@ -52,8 +52,8 @@ class StartingArsenalController extends Controller
             'hireable' => fn () => $this->hireableModels($crew),
             'crew_card_effects' => fn () => CampaignCrewCard::query()
                 ->with([
-                    'actions:id,name,type,stat,stat_suits,stat_modifier,range,range_type,description',
-                    'abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+                    'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                    'abilities',
                 ])
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
@@ -330,11 +330,16 @@ class StartingArsenalController extends Controller
     }
 
     /**
-     * Options for a crew-card choice (pg 17-18) — everything listed on a crew
-     * card (a crew-domain upgrade) belonging to a master sharing one of the
-     * crew's keywords: its tokens, its markers, and the upgrade *types* it
-     * carries (pg 18: "an upgrade type listed on a … crew card"). Token/marker
-     * ids are ints; an upgrade-type id is its enum value (a string).
+     * Options for a crew-card choice (pg 17-18).
+     *
+     * Tokens/markers: items listed on crew-card upgrades belonging to a master
+     * sharing the crew's keywords.
+     *
+     * Upgrade types (pg 18 "Specialized Tools"): every distinct upgrade type
+     * listed on any master, totem, or crew card belonging to either keyword.
+     * Concretely — character-domain Upgrade records attached (via the
+     * `upgradeables` pivot) to those masters/totems, PLUS the type carried by
+     * crew-card Upgrades sharing the keywords.
      *
      * @return array{tokens: list<array{id:int,name:string}>, markers: list<array{id:int,name:string}>, upgrades: list<array{id:string,name:string}>}
      */
@@ -345,22 +350,49 @@ class StartingArsenalController extends Controller
             return ['tokens' => [], 'markers' => [], 'upgrades' => []];
         }
 
+        // Crew-card upgrades (crew-domain) associated with the keywords —
+        // used for tokens, markers, and crew-card upgrade types.
         $crewCards = Upgrade::query()
             ->forCrews()
             ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
             ->with(['tokens:id,name', 'markers:id,name'])
             ->get(['id', 'name', 'type']);
 
+        // Masters belonging to either keyword.
+        $masters = Character::query()
+            ->where('station', CharacterStationEnum::Master->value)
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->get(['id', 'has_totem_id']);
+
+        $masterIds = $masters->pluck('id');
+        $totemIds  = $masters->pluck('has_totem_id')->filter();
+        $characterIds = $masterIds->merge($totemIds)->unique()->values();
+
+        // Character-domain Upgrade records attached to those masters/totems.
+        $characterUpgradeTypes = collect();
+        if ($characterIds->isNotEmpty()) {
+            $characterUpgradeTypes = Upgrade::query()
+                ->forCharacters()
+                ->whereNotNull('type')
+                ->whereHas('characters', fn ($q) => $q->whereIn('characters.id', $characterIds))
+                ->pluck('type'); // already cast to UpgradeTypeEnum
+        }
+
         $shape = fn ($row) => ['id' => $row->id, 'name' => $row->name];
 
+        // Merge types from character upgrades + crew-card upgrades, dedupe.
+        $upgradeTypes = $characterUpgradeTypes
+            ->merge($crewCards->pluck('type')->filter())
+            ->unique(fn (UpgradeTypeEnum $t) => $t->value)
+            ->map(fn (UpgradeTypeEnum $t) => ['id' => $t->value, 'name' => $t->label()])
+            ->sortBy('name')
+            ->values()
+            ->all();
+
         return [
-            'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            // Upgrade *types* carried by those crew cards (not the cards
-            // themselves) — keyed by the enum value so the pick is a real type.
-            'upgrades' => $crewCards->pluck('type')->filter()->unique()
-                ->map(fn (UpgradeTypeEnum $t) => ['id' => $t->value, 'name' => $t->label()])
-                ->sortBy('name')->values()->all(),
+            'tokens'   => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'markers'  => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'upgrades' => $upgradeTypes,
         ];
     }
 }

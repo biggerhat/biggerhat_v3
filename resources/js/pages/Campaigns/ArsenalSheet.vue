@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
+import TriggerCard from '@/components/TriggerCard.vue';
+import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameText from '@/components/GameText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,13 +30,27 @@ interface CrewCardLinkedItem {
 }
 
 interface CrewCardLinkedAbility extends CrewCardLinkedItem {
+    suits: string | null;
+    defensive_ability_type: string | null;
+    costs_stone: boolean;
     description: string | null;
 }
 
 interface CrewCardLinkedAction extends CrewCardLinkedItem {
     type: string;
-    stat: number | null;
+    stat: number | string | null;
+    stat_suits: string | null;
+    stat_modifier: string | null;
+    range: number | string | null;
+    range_type: string | null;
+    resisted_by: string | null;
+    target_number: number | string | null;
+    target_suits: string | null;
+    damage: string | null;
     description: string | null;
+    stone_cost: number | null;
+    is_signature: boolean;
+    triggers: Array<{ id: number; name: string; suits: string | null; stone_cost: number; description: string | null }>;
 }
 
 interface CrewCardEffectRow {
@@ -103,37 +121,21 @@ interface CustomCharacterData {
     linked_totems: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
 }
 
-interface CardActionItem {
-    id: number;
-    name: string;
-    type: string | null;
-    stat: number | string | null;
-    stat_suits: string | null;
-    stat_modifier: string | null;
-    range: number | string | null;
-    range_type: string | null;
-    description: string | null;
-}
-interface CardAbilityItem {
-    id: number;
-    name: string;
-    defensive_ability_type: string | null;
-    description: string | null;
-}
 interface ArsenalCharacter {
     id: number;
+    slug: string;
     display_name: string;
     cost: number | null;
     faction: string | null;
     station: string;
-    health: number | null;
-    defense: number | null;
-    willpower: number | null;
-    speed: number | null;
-    size: number | null;
-    base: number | null;
-    actions: CardActionItem[];
-    abilities: CardAbilityItem[];
+    standard_miniature: {
+        id: number;
+        display_name: string;
+        front_image: string | null;
+        back_image: string | null;
+        character_id: number;
+        slug: string;
+    } | null;
 }
 interface ArsenalRow {
     id: number;
@@ -207,8 +209,28 @@ interface AdvancementTaken {
 interface CatalogRow {
     id: number;
     name: string;
+    body?: string;
+    description?: string | null;
     flip_value?: number | null;
     is_always_available?: boolean;
+    // Action-specific fields
+    type?: string | null;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    range?: number | string | null;
+    range_type?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    stone_cost?: number;
+    is_signature?: boolean;
+    triggers?: Array<{ id: number; name: string; suits: string | null; stone_cost: number; description: string | null }>;
+    // Ability-specific fields
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
 }
 type AdvancementCatalogs = Record<string, CatalogRow[]>;
 
@@ -241,6 +263,12 @@ const advancementSlots = computed(() =>
 const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
 const tableNeedsFlip = (t: string) => FLIP_TABLES.includes(t);
 const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
+
+const selectedDraftRow = (position: number): CatalogRow | null => {
+    const d = drafts.value[position];
+    if (!d || d.catalog_id == null) return null;
+    return catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id) ?? null;
+};
 
 const defaultTableForTier = (tier: number): string => (tier === 1 ? 'attack_mod' : tier === 2 ? 'action' : tier === 3 ? 'totem' : 'crew_card');
 
@@ -512,7 +540,7 @@ const totemRendererProps = computed(() => {
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
                 <!-- Full editing (incl. action details) happens in the card editor —
                      the campaign builder can't change an action's stats/triggers. -->
-                <Link v-if="view_mode.is_owner && leader" :href="route('tools.card_creator.edit', leader.id)">
+                <Link v-if="view_mode.is_owner && leader" :href="route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])">
                     <Button size="sm">Edit Leader</Button>
                 </Link>
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>
@@ -644,39 +672,66 @@ const totemRendererProps = computed(() => {
                                     </Button>
                                 </div>
                                 <!-- Owner picker for an empty slot -->
-                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="flex flex-wrap items-center gap-1.5">
-                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
-                                    <select
-                                        v-model="drafts[slot.position].source_table"
-                                        class="h-8 rounded border bg-background px-2 text-foreground"
-                                        @change="drafts[slot.position].catalog_id = null"
-                                    >
-                                        <option v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
-                                            {{ opt.label }}
-                                        </option>
-                                    </select>
-                                    <Input
-                                        v-if="tableNeedsFlip(drafts[slot.position].source_table)"
-                                        v-model.number="drafts[slot.position].flip_value"
-                                        type="number"
-                                        min="1"
-                                        max="13"
-                                        class="h-8 w-14"
-                                    />
-                                    <select
-                                        v-model.number="drafts[slot.position].catalog_id"
-                                        class="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-foreground"
-                                    >
-                                        <option :value="null">— pick —</option>
-                                        <option
-                                            v-for="row in eligibleCatalogRows(drafts[slot.position].source_table, drafts[slot.position].flip_value)"
-                                            :key="row.id"
-                                            :value="row.id"
+                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="space-y-2">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                        <select
+                                            v-model="drafts[slot.position].source_table"
+                                            class="h-8 rounded border bg-background px-2 text-foreground"
+                                            @change="drafts[slot.position].catalog_id = null"
                                         >
-                                            {{ row.name }}
-                                        </option>
-                                    </select>
-                                    <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                            <option v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
+                                                {{ opt.label }}
+                                            </option>
+                                        </select>
+                                        <Input
+                                            v-if="tableNeedsFlip(drafts[slot.position].source_table)"
+                                            v-model.number="drafts[slot.position].flip_value"
+                                            type="number"
+                                            min="1"
+                                            max="13"
+                                            class="h-8 w-14"
+                                        />
+                                        <select
+                                            v-model.number="drafts[slot.position].catalog_id"
+                                            class="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-foreground"
+                                        >
+                                            <option :value="null">— pick —</option>
+                                            <option
+                                                v-for="row in eligibleCatalogRows(drafts[slot.position].source_table, drafts[slot.position].flip_value)"
+                                                :key="row.id"
+                                                :value="row.id"
+                                            >
+                                                {{ row.name }}
+                                            </option>
+                                        </select>
+                                        <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                    </div>
+                                    <!-- Full card preview for the selected advancement -->
+                                    <template v-if="selectedDraftRow(slot.position)">
+                                        <ActionCard
+                                            v-if="drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'summoning'"
+                                            :action="selectedDraftRow(slot.position)!"
+                                            :hide-footer="true"
+                                        />
+                                        <AbilityCard
+                                            v-else-if="drafts[slot.position].source_table === 'ability'"
+                                            :ability="selectedDraftRow(slot.position)!"
+                                            :hide-footer="true"
+                                        />
+                                        <TriggerCard
+                                            v-else-if="drafts[slot.position].source_table === 'attack_mod' || drafts[slot.position].source_table === 'tactical_mod'"
+                                            :trigger="selectedDraftRow(slot.position)!"
+                                        >
+                                            <template #footer></template>
+                                        </TriggerCard>
+                                        <p
+                                            v-else-if="selectedDraftRow(slot.position)?.body"
+                                            class="rounded-md border p-2 text-xs leading-relaxed text-muted-foreground"
+                                        >
+                                            <GameText :text="selectedDraftRow(slot.position)!.body!" />
+                                        </p>
+                                    </template>
                                 </div>
                                 <!-- Viewer, not yet chosen -->
                                 <div v-else class="text-muted-foreground">
@@ -808,52 +863,21 @@ const totemRendererProps = computed(() => {
                     <DialogTitle>{{ viewCard?.title }}</DialogTitle>
                 </DialogHeader>
 
-                <!-- Unit -->
-                <div v-if="viewCard?.kind === 'unit'" class="space-y-3 text-sm">
-                    <div class="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.model.character?.station }}</Badge>
-                        <Badge variant="outline" class="text-[10px] tabular-nums">{{ viewCard.model.character?.cost ?? 0 }} ss</Badge>
-                        <Badge v-if="viewCard.model.character?.health != null" variant="outline" class="text-[10px] tabular-nums"
-                            >Hp {{ viewCard.model.character?.health }}</Badge
-                        >
-                        <Badge v-if="viewCard.model.character?.defense != null" variant="outline" class="text-[10px] tabular-nums"
-                            >Df {{ viewCard.model.character?.defense }}</Badge
-                        >
-                        <Badge v-if="viewCard.model.character?.willpower != null" variant="outline" class="text-[10px] tabular-nums"
-                            >Wp {{ viewCard.model.character?.willpower }}</Badge
-                        >
-                        <Badge v-if="viewCard.model.character?.speed != null" variant="outline" class="text-[10px] tabular-nums"
-                            >Mv {{ viewCard.model.character?.speed }}</Badge
-                        >
-                        <Badge v-if="viewCard.model.character?.size != null" variant="outline" class="text-[10px] tabular-nums"
-                            >Sz {{ viewCard.model.character?.size }}</Badge
-                        >
-                    </div>
+                <!-- Unit — show campaign badges then the real card image -->
+                <div v-if="viewCard?.kind === 'unit'" class="space-y-3">
                     <div v-if="viewCard.model.injuries.length || viewCard.model.gained_characteristics.length" class="flex flex-wrap gap-1">
                         <Badge v-for="inj in viewCard.model.injuries" :key="`vi-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
                         <Badge v-for="ch in viewCard.model.gained_characteristics" :key="`vc-${ch}`" variant="outline" class="text-[10px]">{{
                             ch
                         }}</Badge>
                     </div>
-                    <div v-if="viewCard.model.character?.abilities.length" class="space-y-1.5">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                        <div v-for="ab in viewCard.model.character.abilities" :key="`va-${ab.id}`" class="rounded-md border p-2">
-                            <p class="font-medium"><GameText :text="ab.name" /></p>
-                            <p v-if="ab.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ab.description" /></p>
-                        </div>
-                    </div>
-                    <div v-if="viewCard.model.character?.actions.length" class="space-y-1.5">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                        <div v-for="ac in viewCard.model.character.actions" :key="`vac-${ac.id}`" class="rounded-md border p-2">
-                            <p class="font-medium">
-                                <GameText :text="ac.name" />
-                                <span v-if="ac.stat !== null" class="ml-1 text-xs text-muted-foreground"
-                                    >{{ ac.type }} · {{ ac.stat }}{{ ac.stat_suits ?? '' }}</span
-                                >
-                            </p>
-                            <p v-if="ac.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ac.description" /></p>
-                        </div>
-                    </div>
+                    <CharacterCardView
+                        v-if="viewCard.model.character?.standard_miniature?.front_image"
+                        :miniature="viewCard.model.character!.standard_miniature!"
+                        :character-slug="viewCard.model.character!.slug"
+                        :show-collection="false"
+                    />
+                    <p v-else class="text-sm text-muted-foreground">No card image available.</p>
                 </div>
 
                 <!-- Equipment -->
@@ -874,24 +898,15 @@ const totemRendererProps = computed(() => {
                 </div>
 
                 <!-- Crew card -->
-                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-2 text-sm">
+                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-3">
                     <p v-if="viewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="viewCard.effect.body" /></p>
-                    <div v-if="viewCard.effect.abilities.length" class="space-y-1.5">
+                    <div v-if="viewCard.effect.abilities.length" class="space-y-2">
                         <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                        <div v-for="ab in viewCard.effect.abilities" :key="`ca-${ab.id}`" class="rounded-md border p-2">
-                            <p class="font-medium"><GameText :text="ab.name" /></p>
-                            <p v-if="ab.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ab.description" /></p>
-                        </div>
+                        <AbilityCard v-for="ab in viewCard.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
                     </div>
-                    <div v-if="viewCard.effect.actions.length" class="space-y-1.5">
+                    <div v-if="viewCard.effect.actions.length" class="space-y-2">
                         <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                        <div v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" class="rounded-md border p-2">
-                            <p class="font-medium">
-                                <GameText :text="ac.name" />
-                                <span v-if="ac.stat !== null" class="ml-1 text-xs text-muted-foreground">{{ ac.type }} · {{ ac.stat }}</span>
-                            </p>
-                            <p v-if="ac.description" class="mt-0.5 text-xs text-muted-foreground"><GameText :text="ac.description" /></p>
-                        </div>
+                        <ActionCard v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
                     </div>
                 </div>
             </DialogContent>

@@ -205,7 +205,11 @@ onMounted(() => {
                         @input="formInfo.back_image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                     />
                     <p class="text-[11px] text-muted-foreground">
-                        {{ existingBackImage ? 'Choose a new file to replace, or leave empty to keep.' : 'The disabled-side art shown when the card flips.' }}
+                        {{
+                            existingBackImage
+                                ? 'Choose a new file to replace, or leave empty to keep.'
+                                : 'The disabled-side art shown when the card flips.'
+                        }}
                     </p>
                     <InputError :message="usePage().props.errors.back_image_path" />
                 </div>

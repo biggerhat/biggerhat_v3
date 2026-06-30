@@ -293,7 +293,10 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         :key="token.id"
                         class="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                     >
-                        <button class="flex min-w-0 flex-1 items-center gap-2 text-left" @click="openTextDrawer(token.name, 'Token', token.description)">
+                        <button
+                            class="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            @click="openTextDrawer(token.name, 'Token', token.description)"
+                        >
                             <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ token.name }}</span>
                             <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
                         </button>

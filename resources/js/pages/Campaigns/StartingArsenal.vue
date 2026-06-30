@@ -181,7 +181,7 @@ const filter = ref('');
 
 const filteredHireable = computed(() => {
     const f = filter.value.toLowerCase().trim();
-    let result = props.hireable.filter((c) => {
+    const result = props.hireable.filter((c) => {
         if (poolFilter.value !== 'all' && getCategory(c) !== poolFilter.value) return false;
         if (f && !c.display_name.toLowerCase().includes(f) && !c.keywords?.some((k) => k.name.toLowerCase().includes(f))) return false;
         return true;
@@ -356,9 +356,7 @@ const submit = () => {
                                         <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
                                             {{ c.station ?? 'enforcer' }}
                                         </Badge>
-                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-[10px] text-blue-200">
-                                            Versatile
-                                        </Badge>
+                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-[10px] text-blue-200"> Versatile </Badge>
                                         <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
                                             OOK
                                         </Badge>
@@ -449,7 +447,10 @@ const submit = () => {
 
                 <!-- Full detail for the selected effect so players can see what each
                      action/ability actually does, not just its name. -->
-                <div v-if="selectedCrewCard && (selectedCrewCard.body || selectedCrewCard.abilities.length || selectedCrewCard.actions.length)" class="mt-4 space-y-3">
+                <div
+                    v-if="selectedCrewCard && (selectedCrewCard.body || selectedCrewCard.abilities.length || selectedCrewCard.actions.length)"
+                    class="mt-4 space-y-3"
+                >
                     <p v-if="selectedCrewCard.body" class="text-xs leading-relaxed text-muted-foreground">
                         <GameText :text="selectedCrewCard.body" />
                     </p>
@@ -536,7 +537,10 @@ const submit = () => {
                         <Badge v-if="isVersatile(previewCharacter)" class="bg-blue-500/20 px-1.5 py-0 text-[10px] text-blue-600 dark:text-blue-400">
                             Versatile
                         </Badge>
-                        <Badge v-else-if="getCategory(previewCharacter) === 'ook'" class="bg-red-500/20 px-1.5 py-0 text-[10px] text-red-600 dark:text-red-400">
+                        <Badge
+                            v-else-if="getCategory(previewCharacter) === 'ook'"
+                            class="bg-red-500/20 px-1.5 py-0 text-[10px] text-red-600 dark:text-red-400"
+                        >
                             OOK
                         </Badge>
                     </div>
@@ -547,9 +551,11 @@ const submit = () => {
                     <div v-if="(previewCharacter.miniatures?.length ?? 0) > 1" class="mb-3 shrink-0">
                         <Select
                             :model-value="String(previewMiniature?.id ?? '')"
-                            @update:model-value="(val: string) => {
-                                previewMiniature = previewCharacter!.miniatures!.find((m) => m.id === Number(val)) ?? null;
-                            }"
+                            @update:model-value="
+                                (val: string) => {
+                                    previewMiniature = previewCharacter!.miniatures!.find((m) => m.id === Number(val)) ?? null;
+                                }
+                            "
                         >
                             <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select sculpt…" /></SelectTrigger>
                             <SelectContent>
@@ -577,7 +583,10 @@ const submit = () => {
                         <Button
                             v-if="!locked && (previewCharacter.cost ?? 0) <= remainingBudget"
                             class="gap-1.5"
-                            @click="addHire(previewCharacter!); previewDrawerOpen = false"
+                            @click="
+                                addHire(previewCharacter!);
+                                previewDrawerOpen = false;
+                            "
                         >
                             <Plus class="size-4" />
                             Add to Arsenal

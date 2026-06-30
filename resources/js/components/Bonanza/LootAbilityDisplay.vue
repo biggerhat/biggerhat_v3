@@ -20,10 +20,7 @@ defineProps<{
         <div class="flex flex-wrap items-baseline gap-1 leading-tight">
             <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="text-[9px] inline-block shrink-0 self-center" />
             <span class="font-semibold">{{ ability.name }}</span>
-            <span
-                v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type"
-                class="inline-flex items-center gap-0.5"
-            >
+            <span v-if="(ability.suits && ability.suits !== 'soulstone') || ability.defensive_ability_type" class="inline-flex items-center gap-0.5">
                 (<GameIcon
                     v-if="ability.suits && ability.suits !== 'soulstone'"
                     :type="ability.suits"

@@ -168,9 +168,7 @@ const submit = () => {
                                         <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
                                             {{ c.station }}
                                         </Badge>
-                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
-                                            OOK
-                                        </Badge>
+                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200"> OOK </Badge>
                                         <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
                                             {{ c.keywords.map((k) => k.name).join(', ') }}
                                         </span>

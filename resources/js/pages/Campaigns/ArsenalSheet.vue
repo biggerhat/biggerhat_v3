@@ -2,9 +2,9 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import TriggerCard from '@/components/TriggerCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameText from '@/components/GameText.vue';
+import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -302,7 +302,9 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
 };
 
 const advancementName = (a: AdvancementTaken): string =>
-    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ?? SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ');
+    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ??
+    SOURCE_TABLE_LABELS[a.source_table] ??
+    a.source_table.replace(/_/g, ' ');
 
 // Per-slot picker drafts. Seed reactively: Inertia reuses this component
 // instance across visits (setup doesn't re-run), so a one-time loop would
@@ -357,9 +359,7 @@ const removeAdvancement = async (a: AdvancementTaken) => {
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
 // ───────── Card viewer (equipment / crew card — Dialog) ─────────
-type CardView =
-    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
-    | { kind: 'crew'; title: string; effect: CrewCardEffectRow };
+type CardView = { kind: 'equipment'; title: string; equipment: EquipmentItem } | { kind: 'crew'; title: string; effect: CrewCardEffectRow };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
@@ -719,7 +719,10 @@ const totemRendererProps = computed(() => {
                                         >
                                             <option :value="null">— pick —</option>
                                             <option
-                                                v-for="row in eligibleCatalogRows(drafts[slot.position].source_table, drafts[slot.position].flip_value)"
+                                                v-for="row in eligibleCatalogRows(
+                                                    drafts[slot.position].source_table,
+                                                    drafts[slot.position].flip_value,
+                                                )"
                                                 :key="row.id"
                                                 :value="row.id"
                                             >
@@ -731,7 +734,9 @@ const totemRendererProps = computed(() => {
                                     <!-- Full card preview for the selected advancement -->
                                     <template v-if="selectedDraftRow(slot.position)">
                                         <ActionCard
-                                            v-if="drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'summoning'"
+                                            v-if="
+                                                drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'summoning'
+                                            "
                                             :action="selectedDraftRow(slot.position)!"
                                             :hide-footer="true"
                                         />
@@ -741,7 +746,10 @@ const totemRendererProps = computed(() => {
                                             :hide-footer="true"
                                         />
                                         <TriggerCard
-                                            v-else-if="drafts[slot.position].source_table === 'attack_mod' || drafts[slot.position].source_table === 'tactical_mod'"
+                                            v-else-if="
+                                                drafts[slot.position].source_table === 'attack_mod' ||
+                                                drafts[slot.position].source_table === 'tactical_mod'
+                                            "
                                             :trigger="selectedDraftRow(slot.position)!"
                                         >
                                             <template #footer></template>
@@ -918,14 +926,26 @@ const totemRendererProps = computed(() => {
     </div>
 
     <!-- Unit card preview drawer -->
-    <Drawer :open="unitPreviewRow !== null" @update:open="(v) => { if (!v) unitPreviewRow = null; }">
+    <Drawer
+        :open="unitPreviewRow !== null"
+        @update:open="
+            (v) => {
+                if (!v) unitPreviewRow = null;
+            }
+        "
+    >
         <DrawerContent>
             <div v-if="unitPreviewRow" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">{{ unitPreviewRow.character?.display_name ?? unitPreviewRow.label ?? 'Model' }}</DrawerTitle>
-                    <div v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length" class="mt-1.5 flex flex-wrap justify-center gap-1">
+                    <div
+                        v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length"
+                        class="mt-1.5 flex flex-wrap justify-center gap-1"
+                    >
                         <Badge v-for="inj in unitPreviewRow.injuries" :key="`di-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
-                        <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
+                        <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-[10px]">{{
+                            ch
+                        }}</Badge>
                     </div>
                 </DrawerHeader>
 

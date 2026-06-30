@@ -631,8 +631,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <span v-if="displayNameLength > NAME_LIMIT">— name may not fit on card</span>
                             </div>
                             <!-- Campaign leader locked-field notice -->
-                            <div v-if="isCampaignLeader" class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                                <strong>Campaign Leader</strong> — faction, keywords, archetype, and tag are locked. Edit name, actions, and abilities freely.
+                            <div
+                                v-if="isCampaignLeader"
+                                class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+                            >
+                                <strong>Campaign Leader</strong> — faction, keywords, archetype, and tag are locked. Edit name, actions, and abilities
+                                freely.
                                 <div class="mt-1.5 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
                                     <span v-if="character?.archetype"><strong>Archetype:</strong> {{ formatSlug(character.archetype) }}</span>
                                     <span v-if="character?.tag"><strong>Tag:</strong> {{ formatSlug(character.tag) }}</span>

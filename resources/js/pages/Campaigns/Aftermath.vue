@@ -411,9 +411,9 @@ const submitAdvanceLeader = () => {
                     position_in_xp_track: adv.position_in_xp_track,
                     flip_value: tableNeedsFlip(d.source_table) || isTotem ? d.flip_value : null,
                     free_choice: null,
-                    totem_name: isTotem ? (d.totem_name || null) : null,
-                    totem_size: isTotem ? (d.totem_size || null) : null,
-                    totem_base: isTotem ? (d.totem_base || null) : null,
+                    totem_name: isTotem ? d.totem_name || null : null,
+                    totem_size: isTotem ? d.totem_size || null : null,
+                    totem_base: isTotem ? d.totem_base || null : null,
                 };
             }),
     } as Record<string, unknown>);
@@ -518,9 +518,7 @@ interface TraitorCrewRow {
     id: number;
     name: string;
 }
-const traitorTargetCrews = computed<TraitorCrewRow[]>(
-    () => props.traitor_target_crews ?? [],
-);
+const traitorTargetCrews = computed<TraitorCrewRow[]>(() => props.traitor_target_crews ?? []);
 
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
@@ -671,11 +669,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <Label>Purchase equipment</Label>
                     <Input v-model="barterSearch" placeholder="Search equipment by name…" :disabled="!is_owner" />
                     <ul v-if="barterMatches.length" class="mt-1 max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
-                        <li
-                            v-for="item in barterMatches"
-                            :key="item.id"
-                            class="rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50"
-                        >
+                        <li v-for="item in barterMatches" :key="item.id" class="rounded-sm px-2 py-1.5 text-sm hover:bg-muted/50">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ item.name }}</p>
@@ -831,30 +825,30 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             >
                                 <option :value="null">— pick a row —</option>
                                 <option
-                                    v-for="row in eligibleCatalogRows(advDrafts[adv.position_in_xp_track].source_table, advDrafts[adv.position_in_xp_track].flip_value)"
+                                    v-for="row in eligibleCatalogRows(
+                                        advDrafts[adv.position_in_xp_track].source_table,
+                                        advDrafts[adv.position_in_xp_track].flip_value,
+                                    )"
                                     :key="row.id"
                                     :value="row.id"
                                 >
                                     {{ row.name
-                                    }}<span
-                                        v-if="row.flip_value != null && advDrafts[adv.position_in_xp_track].source_table !== 'totem'"
-                                    >
+                                    }}<span v-if="row.flip_value != null && advDrafts[adv.position_in_xp_track].source_table !== 'totem'">
                                         (flip {{ row.flip_value }})</span
                                     >
                                 </option>
                             </select>
                             <!-- Totem: ask for name, size, and base to create the totem card -->
                             <div
-                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'totem' && advDrafts[adv.position_in_xp_track].catalog_id !== null"
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'totem' &&
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                "
                                 class="grid grid-cols-3 gap-2"
                             >
                                 <div>
                                     <label class="text-[10px] text-muted-foreground">Totem name</label>
-                                    <Input
-                                        v-model="advDrafts[adv.position_in_xp_track].totem_name"
-                                        placeholder="e.g. Rat King"
-                                        class="h-8 text-xs"
-                                    />
+                                    <Input v-model="advDrafts[adv.position_in_xp_track].totem_name" placeholder="e.g. Rat King" class="h-8 text-xs" />
                                 </div>
                                 <div>
                                     <label class="text-[10px] text-muted-foreground">Size (stat)</label>
@@ -883,7 +877,10 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <!-- Full card preview for the selected advancement -->
                             <template v-if="selectedDraftRow(adv.position_in_xp_track)">
                                 <ActionCard
-                                    v-if="advDrafts[adv.position_in_xp_track].source_table === 'action' || advDrafts[adv.position_in_xp_track].source_table === 'summoning'"
+                                    v-if="
+                                        advDrafts[adv.position_in_xp_track].source_table === 'action' ||
+                                        advDrafts[adv.position_in_xp_track].source_table === 'summoning'
+                                    "
                                     :action="selectedDraftRow(adv.position_in_xp_track)!"
                                     :hide-footer="true"
                                 />
@@ -893,7 +890,10 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     :hide-footer="true"
                                 />
                                 <TriggerCard
-                                    v-else-if="advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' || advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'"
+                                    v-else-if="
+                                        advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
+                                        advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'
+                                    "
                                     :trigger="selectedDraftRow(adv.position_in_xp_track)!"
                                 >
                                     <template #footer></template>

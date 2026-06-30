@@ -90,9 +90,14 @@ const props = defineProps<{
     // logged) means it's the full roster and the player picks who actually died.
     kills_are_authoritative: boolean;
     prefill: Prefill;
-    // Phase-gated lazy props — server returns null on phases that don't need them.
+    // Phase-gated props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
     crew_injuries?: InjuryPivotRow[] | null;
+    xp_track?: XpTrackPayload | null;
+    advancement_catalogs?: AdvancementCatalogs | null;
+    doctor_results?: DoctorResultRow[] | null;
+    injury_catalog?: InjuryCatalogRow[] | null;
+    traitor_target_crews?: TraitorCrewRow[] | null;
 }>();
 
 // Reactive shortcuts so the template can pass the empty default through.
@@ -223,10 +228,8 @@ interface AdvancementCatalogs {
     crew_card: CatalogRow[];
 }
 
-const xp_track = computed<XpTrackPayload | null>(() => (props as unknown as { xp_track?: XpTrackPayload }).xp_track ?? null);
-const advancement_catalogs = computed<AdvancementCatalogs | null>(
-    () => (props as unknown as { advancement_catalogs?: AdvancementCatalogs }).advancement_catalogs ?? null,
-);
+const xp_track = computed<XpTrackPayload | null>(() => props.xp_track ?? null);
+const advancement_catalogs = computed<AdvancementCatalogs | null>(() => props.advancement_catalogs ?? null);
 
 const xpForm = ref({
     bruiser_killed: false,
@@ -413,7 +416,7 @@ interface DoctorResultRow {
     body: string;
     outcome_kind: string;
 }
-const doctor_results = computed<DoctorResultRow[]>(() => (props as unknown as { doctor_results?: DoctorResultRow[] }).doctor_results ?? []);
+const doctor_results = computed<DoctorResultRow[]>(() => props.doctor_results ?? []);
 const doctorOutcome = (resultId: number | null) =>
     resultId == null ? null : (doctor_results.value.find((r) => r.id === resultId)?.outcome_kind ?? null);
 
@@ -466,14 +469,14 @@ interface InjuryCatalogRow {
     suit_pool: string | null;
     flip_value: number | null;
 }
-const injury_catalog = computed<InjuryCatalogRow[]>(() => (props as unknown as { injury_catalog?: InjuryCatalogRow[] }).injury_catalog ?? []);
+const injury_catalog = computed<InjuryCatalogRow[]>(() => props.injury_catalog ?? []);
 
 interface TraitorCrewRow {
     id: number;
     name: string;
 }
 const traitorTargetCrews = computed<TraitorCrewRow[]>(
-    () => (props as unknown as { traitor_target_crews?: TraitorCrewRow[] }).traitor_target_crews ?? [],
+    () => props.traitor_target_crews ?? [],
 );
 
 const submitInjuries = () => {

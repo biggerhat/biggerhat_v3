@@ -595,11 +595,8 @@ class CampaignAftermathController extends Controller
             'advancements.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
         ]);
 
-        $leader = CustomCharacter::query()
-            ->where('campaign_crew_id', $aftermath->campaign_crew_id)
-            ->where('is_campaign_leader', true)
-            ->where('current', true)
-            ->first();
+        $aftermath->loadMissing('crew');
+        $leader = $aftermath->crew->leader;
 
         if (! $leader) {
             return redirect()->back()->withMessage(
@@ -833,11 +830,8 @@ class CampaignAftermathController extends Controller
 
     private function loadXpTrackForCrew(CampaignAftermath $aftermath): ?array
     {
-        $leader = CustomCharacter::query()
-            ->where('campaign_crew_id', $aftermath->campaign_crew_id)
-            ->where('is_campaign_leader', true)
-            ->where('current', true)
-            ->first();
+        $aftermath->loadMissing('crew');
+        $leader = $aftermath->crew->leader;
 
         if (! $leader) {
             return null;

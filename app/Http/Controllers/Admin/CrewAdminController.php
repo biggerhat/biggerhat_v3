@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeRestrictionEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
@@ -39,6 +40,33 @@ class CrewAdminController extends Controller
     {
         $upgrade->loadMissing(['characters', 'tokens', 'markers', 'actions', 'abilities', 'triggers', 'keywords']);
 
+        // Build the row list for the action/ability/trigger row builder.
+        $upgradeableRows = [];
+        foreach ($upgrade->actions as $action) {
+            $upgradeableRows[] = [
+                'type' => 'action',
+                'id' => $action->id,
+                'restriction' => $action->pivot->restriction,
+                'is_signature' => (bool) $action->pivot->is_signature_action,
+            ];
+        }
+        foreach ($upgrade->abilities as $ability) {
+            $upgradeableRows[] = [
+                'type' => 'ability',
+                'id' => $ability->id,
+                'restriction' => $ability->pivot->restriction,
+                'is_signature' => false,
+            ];
+        }
+        foreach ($upgrade->triggers as $trigger) {
+            $upgradeableRows[] = [
+                'type' => 'trigger',
+                'id' => $trigger->id,
+                'restriction' => $trigger->pivot->restriction,
+                'is_signature' => false,
+            ];
+        }
+
         // Decompose hiring_rules JSON into individual form fields
         $hiringRules = $upgrade->hiring_rules;
         $decomposed = [
@@ -66,7 +94,7 @@ class CrewAdminController extends Controller
         }
 
         return inertia('Admin/Upgrades/Crews/UpgradeForm', array_merge(
-            ['upgrade' => $upgrade, 'hiring_rules_fields' => $decomposed],
+            ['upgrade' => $upgrade, 'hiring_rules_fields' => $decomposed, 'upgradeable_rows' => $upgradeableRows],
             $this->getFormData(),
         ));
     }
@@ -103,26 +131,21 @@ class CrewAdminController extends Controller
             'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
             'tokens' => fn () => Token::all(),
             'markers' => fn () => Marker::all(),
-            'actions' => fn () => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
-            'abilities' => fn () => Ability::all(),
-            'triggers' => fn () => Trigger::all(),
+            'actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'internal_notes'])->map(fn (Action $a) => [
+                'id' => $a->id,
+                'name' => trim("{$a->id} {$a->name}" . ($a->internal_notes ? " - {$a->internal_notes}" : '')),
+            ]),
+            'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name'])->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
+            'triggers' => fn () => Trigger::orderBy('name')->get(['id', 'name'])->map(fn (Trigger $t) => ['id' => $t->id, 'name' => $t->name]),
+            'crew_upgrade_restrictions' => fn () => CrewUpgradeRestrictionEnum::toSelectOptions(),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ];
     }
 
     private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
     {
-        $triggers = collect([]);
-        $abilities = collect([]);
-        $actions = collect([]);
         $characters = collect([]);
         $keywords = collect([]);
-        $signatureActions = collect([]);
         $markers = collect([]);
         $tokens = collect([]);
 
@@ -137,12 +160,13 @@ class CrewAdminController extends Controller
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'tokens' => ['nullable', 'array'],
             'markers' => ['nullable', 'array'],
-            'actions' => ['nullable', 'array'],
-            'signature_actions' => ['nullable', 'array'],
-            'abilities' => ['nullable', 'array'],
-            'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
+            'upgradeable_rows' => ['nullable', 'array'],
+            'upgradeable_rows.*.type' => ['required', 'string', 'in:action,ability,trigger'],
+            'upgradeable_rows.*.id' => ['required', 'integer'],
+            'upgradeable_rows.*.restriction' => ['nullable', 'string', Rule::enum(CrewUpgradeRestrictionEnum::class)],
+            'upgradeable_rows.*.is_signature' => ['sometimes', 'boolean'],
             'hiring_rules_type' => ['nullable', 'string', 'in:fixed_crew,required_hires'],
             'alternate_leader' => ['nullable', 'integer', 'exists:characters,id'],
             'any_faction' => ['nullable'],
@@ -199,35 +223,8 @@ class CrewAdminController extends Controller
             unset($validated['back_image']);
         }
 
-        if (isset($validated['actions'])) {
-            $actionIds = [];
-            foreach ($validated['actions'] as $action) {
-                $arrayed = explode(' ', $action);
-                $actionIds[] = $arrayed[0];
-            }
-            $actions = Action::whereIn('id', $actionIds)->get();
-            unset($validated['actions']);
-        }
-
-        if (isset($validated['signature_actions'])) {
-            $signatureActionIds = [];
-            foreach ($validated['signature_actions'] as $action) {
-                $arrayed = explode(' ', $action);
-                $signatureActionIds[] = $arrayed[0];
-            }
-            $signatureActions = Action::whereIn('id', $signatureActionIds)->get();
-            unset($validated['signature_actions']);
-        }
-
-        if (isset($validated['triggers'])) {
-            $triggers = Trigger::whereIn('name', $validated['triggers'])->get();
-            unset($validated['triggers']);
-        }
-
-        if (isset($validated['abilities'])) {
-            $abilities = Ability::whereIn('name', $validated['abilities'])->get();
-            unset($validated['abilities']);
-        }
+        $upgradeableRows = $validated['upgradeable_rows'] ?? [];
+        unset($validated['upgradeable_rows']);
 
         if (isset($validated['markers'])) {
             $markers = Marker::whereIn('name', $validated['markers'])->get();
@@ -255,12 +252,23 @@ class CrewAdminController extends Controller
             $upgrade->update($validated);
         }
 
+        $abilitySync = [];
+        $triggerSync = [];
         $upgrade->actions()->sync([]);
-        $upgrade->actions()->attach($actions);
-        $upgrade->actions()->attach($signatureActions, ['is_signature_action' => true]);
-
-        $upgrade->triggers()->sync($triggers->pluck('id'));
-        $upgrade->abilities()->sync($abilities->pluck('id'));
+        foreach ($upgradeableRows as $row) {
+            $restriction = $row['restriction'] ?? null;
+            $id = (int) $row['id'];
+            match ($row['type']) {
+                'action' => $upgrade->actions()->attach($id, [
+                    'is_signature_action' => (bool) ($row['is_signature'] ?? false),
+                    'restriction' => $restriction,
+                ]),
+                'ability' => $abilitySync[$id] = ['restriction' => $restriction],
+                'trigger' => $triggerSync[$id] = ['restriction' => $restriction],
+            };
+        }
+        $upgrade->abilities()->sync($abilitySync);
+        $upgrade->triggers()->sync($triggerSync);
         $upgrade->markers()->sync($markers->pluck('id'));
         $upgrade->tokens()->sync($tokens->pluck('id'));
         $upgrade->characters()->sync($characters->pluck('id'));

@@ -320,11 +320,8 @@ class StartingArsenalController extends Controller
                 $q->where(function ($q1) use ($keywordIds, $crew) {
                     // In-keyword
                     $q1->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                        // OR Versatile in declared faction
-                        ->orWhere(function ($q2) use ($crew) {
-                            $q2->where('faction', $crew->faction->value)
-                                ->whereHas('characteristics', fn ($c) => $c->whereRaw('LOWER(name) = ?', ['versatile']));
-                        });
+                        // OR any model in the declared faction (out-of-keyword, no ss surcharge at starting arsenal)
+                        ->orWhere('faction', $crew->faction->value);
                 });
             });
     }

@@ -30,6 +30,8 @@ interface CampaignCrewRow {
     name: string;
     share_code: string;
     faction: string | null;
+    keyword_1_id: number | null;
+    keyword_2_id: number | null;
     scrip: number;
     user: UserMini | null;
 }
@@ -216,12 +218,24 @@ const deleteCampaign = async (id: number) => {
                                     >
                                         <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
                                     </Link>
-                                    <Link
-                                        v-if="campaign.status === 'planning'"
-                                        :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, c.share_code])"
-                                    >
-                                        <Button size="sm" variant="outline" class="w-full">Starting Arsenal</Button>
-                                    </Link>
+                                    <template v-if="campaign.status === 'planning'">
+                                        <Link
+                                            v-if="c.faction && c.keyword_1_id && c.keyword_2_id"
+                                            :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, c.share_code])"
+                                        >
+                                            <Button size="sm" variant="outline" class="w-full">Starting Arsenal</Button>
+                                        </Link>
+                                        <Button
+                                            v-else
+                                            size="sm"
+                                            variant="outline"
+                                            class="w-full"
+                                            disabled
+                                            title="Set faction and both keywords in Build Leader first"
+                                        >
+                                            Starting Arsenal
+                                        </Button>
+                                    </template>
                                     <Link
                                         v-if="campaign.status === 'active'"
                                         :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, c.share_code])"

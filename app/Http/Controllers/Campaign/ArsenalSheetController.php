@@ -64,17 +64,16 @@ class ArsenalSheetController extends Controller
         $crew->load([
             'leader',
             'totem',
-            'crewCardEffect.actions:id,name,type,stat,description',
-            'crewCardEffect.abilities:id,name,description',
+            // Load full action + trigger data so ActionCard/AbilityCard can render properly.
+            'crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+            'crewCardEffect.abilities',
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
             'arsenalModels' => fn ($q) => $q->active()->with([
-                'character:id,display_name,cost,faction,station,health,defense,willpower,speed,size,base',
-                // Full action/ability detail so the Arsenal Sheet can render each
-                // unit's card in a viewer dialog.
-                'character.actions:id,name,type,stat,stat_suits,stat_modifier,range,range_type,description',
-                'character.abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+                'character:id,slug,display_name,cost,faction,station',
+                // First standard miniature provides the card image for CharacterCardView.
+                'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',
                 'injuries.injury:id,name',
             ]),
         ]);
@@ -100,7 +99,14 @@ class ArsenalSheetController extends Controller
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
-                    'crew_card_effect' => $crew->crewCardEffect,
+                    // Explicit mapping: the CampaignCrewCard model column is
+                    // `description`, but the Vue layer (and all display components)
+                    // expect `body` for the card's main text. Abilities/actions are
+                    // serialized as loaded relations; their `description` column
+                    // matches what ActionCard/AbilityCard expect.
+                    'crew_card_effect' => $crew->crewCardEffect
+                        ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description])
+                        : null,
                     'arsenal_models' => $crew->arsenalModels->map(fn ($m) => [
                         'id' => $m->id,
                         'character_id' => $m->character_id,
@@ -108,7 +114,10 @@ class ArsenalSheetController extends Controller
                         'is_peon' => $m->is_peon,
                         'ignored_for_limits' => $m->ignored_for_limits,
                         'acquired_via' => $m->acquired_via,
-                        'character' => $m->character,
+                        'character' => $m->character ? [
+                            ...$m->character->only(['id', 'slug', 'display_name', 'cost', 'faction', 'station']),
+                            'standard_miniature' => $m->character->standardMiniatures->first()?->only(['id', 'display_name', 'front_image', 'back_image', 'character_id', 'slug']),
+                        ] : null,
                         'injuries' => $m->injuries->map(fn ($i) => $i->injury?->name)->filter()->values(),
                         'gained_characteristics' => $m->gained_characteristics ?? [],
                         'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])

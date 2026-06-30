@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
+import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { UserPlus } from 'lucide-vue-next';
+import { Plus, UserPlus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 const toast = useToast();
@@ -20,14 +23,22 @@ interface KeywordRow {
     id: number;
     name: string;
 }
+interface MiniatureRow {
+    id: number;
+    character_id: number;
+    display_name: string;
+    front_image: string | null;
+}
 interface CharRow {
     id: number;
     display_name: string;
+    slug: string;
     cost: number | null;
     faction: string;
     station: string;
     keywords?: KeywordRow[];
     characteristics?: { name: string }[];
+    miniatures?: MiniatureRow[];
 }
 interface ArsenalRow {
     id: number;
@@ -151,17 +162,62 @@ watch(selectedCrewCardEffectId, () => {
     }
 });
 
-const isOutOfKeyword = (c: CharRow): boolean => {
-    const keywordIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter((id): id is number => id !== null);
-    if (keywordIds.length === 0) return false;
-    return !c.keywords?.some((k) => keywordIds.includes(k.id));
+const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
+
+const getCategory = (c: CharRow): 'keyword' | 'versatile' | 'ook' => {
+    const kwIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter((id): id is number => id !== null);
+    if (kwIds.length > 0 && c.keywords?.some((k) => kwIds.includes(k.id))) return 'keyword';
+    if (isVersatile(c)) return 'versatile';
+    return 'ook';
 };
 
+type PoolFilter = 'keyword' | 'versatile' | 'ook' | 'all';
+const poolFilter = ref<PoolFilter>('all');
+
+type PoolSort = 'category' | 'name' | 'cost';
+const poolSort = ref<PoolSort>('category');
+
 const filter = ref('');
+
 const filteredHireable = computed(() => {
     const f = filter.value.toLowerCase().trim();
-    return props.hireable.filter((c) => !f || c.display_name.toLowerCase().includes(f));
+    let result = props.hireable.filter((c) => {
+        if (poolFilter.value !== 'all' && getCategory(c) !== poolFilter.value) return false;
+        if (f && !c.display_name.toLowerCase().includes(f) && !c.keywords?.some((k) => k.name.toLowerCase().includes(f))) return false;
+        return true;
+    });
+    return [...result].sort((a, b) => {
+        if (poolSort.value === 'name') return a.display_name.localeCompare(b.display_name);
+        if (poolSort.value === 'cost') {
+            const diff = (a.cost ?? 0) - (b.cost ?? 0);
+            return diff !== 0 ? diff : a.display_name.localeCompare(b.display_name);
+        }
+        const catOrder = { keyword: 0, versatile: 1, ook: 2 } as const;
+        const catDiff = catOrder[getCategory(a)] - catOrder[getCategory(b)];
+        return catDiff !== 0 ? catDiff : a.display_name.localeCompare(b.display_name);
+    });
 });
+
+const poolFilterCounts = computed(() => ({
+    keyword: props.hireable.filter((c) => getCategory(c) === 'keyword').length,
+    versatile: props.hireable.filter((c) => getCategory(c) === 'versatile').length,
+    ook: props.hireable.filter((c) => getCategory(c) === 'ook').length,
+    all: props.hireable.length,
+}));
+
+// How many copies of a model are already in the current hires list.
+const hiredCountInSession = (id: number): number => hires.value.filter((h) => h.character_id === id).length;
+
+// ─── Card preview drawer ───
+const previewDrawerOpen = ref(false);
+const previewCharacter = ref<CharRow | null>(null);
+const previewMiniature = ref<MiniatureRow | null>(null);
+
+const openCardPreview = (c: CharRow) => {
+    previewCharacter.value = c;
+    previewMiniature.value = c.miniatures?.find((m) => m.front_image) ?? c.miniatures?.[0] ?? null;
+    previewDrawerOpen.value = true;
+};
 
 const totalSpent = computed(() => hires.value.reduce((sum, h) => sum + (h.cost ?? 0), 0));
 const remainingBudget = computed(() => props.starting_budget_ss - totalSpent.value);
@@ -251,12 +307,39 @@ const submit = () => {
 
         <div class="grid gap-6 lg:grid-cols-2">
             <Card>
-                <CardHeader>
-                    <CardTitle>Pick Models ({{ filteredHireable.length }})</CardTitle>
-                    <Input v-model="filter" placeholder="Filter by name" class="mt-2" />
+                <CardHeader class="pb-2">
+                    <CardTitle>Pick Models</CardTitle>
+                    <Input v-model="filter" placeholder="Search by name or keyword…" class="mt-2" />
+                    <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                        <Button
+                            v-for="f in ['keyword', 'versatile', 'ook', 'all'] as const"
+                            :key="f"
+                            :variant="poolFilter === f ? 'default' : 'outline'"
+                            size="sm"
+                            class="h-6 gap-1 px-2 text-[11px]"
+                            @click="poolFilter = f"
+                        >
+                            {{ { keyword: 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
+                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                        </Button>
+                        <span class="ml-auto text-[11px] text-muted-foreground">{{ filteredHireable.length }} shown</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-[11px] text-muted-foreground">Sort:</span>
+                        <Button
+                            v-for="s in ['category', 'name', 'cost'] as const"
+                            :key="s"
+                            :variant="poolSort === s ? 'default' : 'ghost'"
+                            size="sm"
+                            class="h-5 px-1.5 text-[10px]"
+                            @click="poolSort = s"
+                        >
+                            {{ { category: 'KW→OOK', name: 'Name', cost: 'Cost' }[s] }}
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <ul class="max-h-[60vh] space-y-0.5 overflow-y-auto pr-1">
+                    <ul class="max-h-[55vh] space-y-0.5 overflow-y-auto pr-1">
                         <li
                             v-for="c in filteredHireable"
                             :key="c.id"
@@ -264,16 +347,19 @@ const submit = () => {
                             class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
                         >
                             <div class="flex items-center justify-between px-2 py-1.5">
-                                <div class="min-w-0 flex-1">
+                                <div class="min-w-0 flex-1 cursor-pointer" @click="openCardPreview(c)">
                                     <p class="text-sm font-semibold">{{ c.display_name }}</p>
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <span class="flex items-center text-sm font-bold text-white">
                                             {{ c.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                         </span>
                                         <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
-                                            {{ c.station }}
+                                            {{ c.station ?? 'enforcer' }}
                                         </Badge>
-                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
+                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-[10px] text-blue-200">
+                                            Versatile
+                                        </Badge>
+                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
                                             OOK
                                         </Badge>
                                         <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
@@ -282,13 +368,16 @@ const submit = () => {
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
+                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-[10px] text-white/70">
+                                        ×{{ hiredCountInSession(c.id) }}
+                                    </span>
                                     <span v-if="!locked && (c.cost ?? 0) > remainingBudget" class="text-[10px] text-white/50">Over budget</span>
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
                                         :disabled="locked || (c.cost ?? 0) > remainingBudget"
-                                        @click="addHire(c)"
+                                        @click.stop="addHire(c)"
                                     >
                                         <UserPlus class="size-4" />
                                     </Button>
@@ -430,4 +519,76 @@ const submit = () => {
             </ul>
         </div>
     </div>
+
+    <!-- Card preview drawer -->
+    <Drawer v-model:open="previewDrawerOpen">
+        <DrawerContent>
+            <div v-if="previewCharacter" class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">
+                        {{ previewCharacter.display_name }}
+                        <span class="text-yellow-400">
+                            ({{ previewCharacter.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)
+                        </span>
+                    </DrawerTitle>
+                    <div class="mt-1 flex items-center justify-center gap-1.5">
+                        <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station ?? 'enforcer' }}</Badge>
+                        <Badge v-if="isVersatile(previewCharacter)" class="bg-blue-500/20 px-1.5 py-0 text-[10px] text-blue-600 dark:text-blue-400">
+                            Versatile
+                        </Badge>
+                        <Badge v-else-if="getCategory(previewCharacter) === 'ook'" class="bg-red-500/20 px-1.5 py-0 text-[10px] text-red-600 dark:text-red-400">
+                            OOK
+                        </Badge>
+                    </div>
+                </DrawerHeader>
+
+                <div class="flex min-h-0 flex-1 flex-col px-4 pb-2">
+                    <!-- Miniature version picker when multiple sculpts exist -->
+                    <div v-if="(previewCharacter.miniatures?.length ?? 0) > 1" class="mb-3 shrink-0">
+                        <Select
+                            :model-value="String(previewMiniature?.id ?? '')"
+                            @update:model-value="(val: string) => {
+                                previewMiniature = previewCharacter!.miniatures!.find((m) => m.id === Number(val)) ?? null;
+                            }"
+                        >
+                            <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select sculpt…" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="m in previewCharacter.miniatures" :key="m.id" :value="String(m.id)">
+                                    {{ m.display_name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div class="flex min-h-0 flex-1 items-start justify-center [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                        <CharacterCardView
+                            v-if="previewMiniature?.front_image"
+                            :key="previewMiniature.id"
+                            :miniature="previewMiniature"
+                            :show-link="true"
+                            :character-slug="previewCharacter.slug"
+                        />
+                        <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                    </div>
+                </div>
+
+                <DrawerFooter class="shrink-0 pt-2">
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                            v-if="!locked && (previewCharacter.cost ?? 0) <= remainingBudget"
+                            class="gap-1.5"
+                            @click="addHire(previewCharacter!); previewDrawerOpen = false"
+                        >
+                            <Plus class="size-4" />
+                            Add to Arsenal
+                        </Button>
+                        <span v-else-if="!locked" class="text-xs text-muted-foreground">Over budget</span>
+                        <DrawerClose as-child>
+                            <Button variant="outline">Close</Button>
+                        </DrawerClose>
+                    </div>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
 </template>

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
@@ -12,6 +14,7 @@ use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
+use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
@@ -37,7 +40,20 @@ class LeaderBuilderController extends Controller
         return inertia('Campaigns/LeaderBuilder', [
             'campaign' => $campaign->only(['id', 'name', 'status']),
             'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'keyword_1_id', 'keyword_2_id']),
-            'leader' => $existingLeader,
+            'campaign_started' => $campaign->status !== CampaignStatusEnum::Planning,
+            'leader' => $existingLeader ? [
+                'id' => $existingLeader->id,
+                'name' => $existingLeader->name,
+                'archetype' => $existingLeader->archetype,
+                'tag' => $existingLeader->tag,
+                'faction' => $existingLeader->faction?->value,
+                'size' => $existingLeader->campaign_size,
+                'base' => $existingLeader->base instanceof \BackedEnum ? $existingLeader->base->value : $existingLeader->base,
+                'characteristics' => $existingLeader->characteristics ?? [],
+                'actions' => $existingLeader->actions ?? [],
+                'abilities' => $existingLeader->abilities ?? [],
+                'keywords' => $existingLeader->keywords ?? [],
+            ] : null,
             'archetypes' => LeaderArchetypeEnum::dataset(),
             'archetype_enum' => LeaderArchetypeEnum::toSelectOptions(),
             'tag_enum' => LeaderTagEnum::toSelectOptions(),
@@ -45,8 +61,26 @@ class LeaderBuilderController extends Controller
             'base_enum' => BaseSizeEnum::toSelectOptions(),
             'all_keywords' => fn () => Keyword::query()
                 ->select('id', 'name')
+                ->with(['characters' => function ($q) {
+                    $q->standard()
+                        ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
+                        ->whereDoesntHave('isTotemFor')
+                        ->whereNotNull('cost')
+                        ->where('cost', '>', 0);
+                }])
                 ->orderBy('name')
-                ->get(),
+                ->get()
+                ->map(fn ($kw) => [
+                    'id' => $kw->id,
+                    'name' => $kw->name,
+                    'factions' => $kw->characters
+                        ->pluck('faction')
+                        ->filter()
+                        ->map(fn ($f) => $f instanceof \BackedEnum ? $f->value : (string) $f)
+                        ->unique()
+                        ->values()
+                        ->all(),
+                ]),
             // Official characteristics from the catalog (pg 15 — pick the model's
             // characteristics rather than free-typing).
             'characteristic_options' => fn () => Characteristic::query()

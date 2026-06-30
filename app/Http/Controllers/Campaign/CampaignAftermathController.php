@@ -593,6 +593,9 @@ class CampaignAftermathController extends Controller
             // Optional: required for Totem source_table — server validates
             // the flip-value matches the chosen totem template exactly.
             'advancements.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            'advancements.*.totem_name' => ['nullable', 'string', 'max:100'],
+            'advancements.*.totem_size' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'advancements.*.totem_base' => ['nullable', 'string', 'max:10'],
         ]);
 
         $aftermath->loadMissing('crew');

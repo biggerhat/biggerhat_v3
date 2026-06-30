@@ -291,9 +291,13 @@ class StartingArsenalController extends Controller
     private function hireableModels(CampaignCrew $crew)
     {
         return $this->hireableModelsQuery($crew)
-            ->with(['keywords:id,name', 'characteristics:id,name'])
+            ->with([
+                'keywords:id,name',
+                'characteristics:id,name',
+                'miniatures' => fn ($q) => $q->select(['id', 'character_id', 'display_name', 'front_image']),
+            ])
             ->orderBy('display_name')
-            ->get(['id', 'display_name', 'cost', 'faction', 'station']);
+            ->get(['id', 'display_name', 'slug', 'cost', 'faction', 'station']);
     }
 
     private function hireableModelsQuery(CampaignCrew $crew)

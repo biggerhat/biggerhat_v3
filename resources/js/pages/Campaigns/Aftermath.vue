@@ -265,20 +265,27 @@ const boxClasses = (box: XpBox & { _projected?: boolean }) => {
     return 'bg-muted/30';
 };
 
+// Box identity only — user-editable state lives in advDrafts.
 interface QueuedAdvancement {
     position_in_xp_track: number;
     box_tier: number;
+}
+
+// Per-advancement editable state keyed by xp_track position. Stable across
+// XP form changes — v-model on computed array items loses picks whenever
+// totalXp changes and rebuilds the computed.
+interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
-    applied_to_action_index: number;
-    // The fate card flipped for this advancement (pg 38-52). Null for tables
-    // that don't flip (Summoning, Crew Card).
     flip_value: number | null;
+    applied_to_action_index: number;
+    totem_name: string | null;
+    totem_size: number | null;
+    totem_base: string | null;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
     if (!xp_track.value) return [];
-    // Find boxes that will newly fill via this XP earn AND have a tier number.
     let remaining = totalXp.value;
     const queue: QueuedAdvancement[] = [];
     for (const box of xp_track.value.track) {
@@ -286,34 +293,65 @@ const advancementsQueued = computed<QueuedAdvancement[]>(() => {
         if (remaining <= 0) break;
         remaining--;
         if (box.tier !== null) {
-            queue.push({
-                position_in_xp_track: box.index,
-                box_tier: box.tier,
-                source_table: defaultTableForTier(box.tier),
-                catalog_id: null,
-                applied_to_action_index: -1,
-                flip_value: 13,
-            });
+            queue.push({ position_in_xp_track: box.index, box_tier: box.tier });
         }
     }
     return queue;
 });
 
-// Tables that involve a fate flip when advancing. Summoning is free choice and
-// Crew Card has no flip, so they skip the flip input + filter.
-const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
+const advDrafts = ref<Record<number, AdvDraft>>({});
+watch(
+    advancementsQueued,
+    (queue) => {
+        const active = new Set(queue.map((a) => a.position_in_xp_track));
+        for (const pos in advDrafts.value) {
+            if (!active.has(Number(pos))) delete advDrafts.value[Number(pos)];
+        }
+        for (const adv of queue) {
+            if (!(adv.position_in_xp_track in advDrafts.value)) {
+                advDrafts.value[adv.position_in_xp_track] = {
+                    source_table: defaultTableForTier(adv.box_tier),
+                    catalog_id: null,
+                    flip_value: 13,
+                    applied_to_action_index: -1,
+                    totem_name: null,
+                    totem_size: null,
+                    totem_base: null,
+                };
+            }
+        }
+    },
+    { immediate: true },
+);
+
+const onSourceTableChange = (position: number) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    d.catalog_id = null;
+    d.flip_value = 13;
+    d.totem_name = null;
+    d.totem_size = null;
+    d.totem_base = null;
+};
+
+const onCatalogChange = (position: number) => {
+    const d = advDrafts.value[position];
+    if (!d || d.catalog_id == null) return;
+    if (d.source_table === 'totem') {
+        const row = catalogRowsFor('totem').find((r) => r.id === d.catalog_id);
+        d.flip_value = row?.flip_value ?? null;
+        if (!d.totem_name) d.totem_name = row?.name ?? null;
+    }
+};
+
+// Totem excluded — flip auto-derived from the selected template.
+const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability'];
 const tableNeedsFlip = (table: string): boolean => FLIP_TABLES.includes(table);
 
-/**
- * Catalog rows eligible for an advancement given its flipped value: Totem needs
- * an exact match, the other flip tables allow "the value or lower" (plus
- * always-available rows); non-flip tables show everything.
- */
-const eligibleCatalogRows = (adv: QueuedAdvancement): CatalogRow[] => {
-    const rows = catalogRowsFor(adv.source_table);
-    if (!tableNeedsFlip(adv.source_table) || adv.flip_value == null) return rows;
-    if (adv.source_table === 'totem') return rows.filter((r) => r.flip_value === adv.flip_value);
-    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (adv.flip_value ?? 0));
+const eligibleCatalogRows = (source_table: string, flip_value: number | null): CatalogRow[] => {
+    const rows = catalogRowsFor(source_table);
+    if (!tableNeedsFlip(source_table) || flip_value == null) return rows;
+    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
 };
 
 function defaultTableForTier(tier: number): string {
@@ -324,10 +362,6 @@ function defaultTableForTier(tier: number): string {
 }
 
 const tableOptionsForTier = (tier: number) => {
-    // Tier 1 → attack_mod or tactical_mod
-    // Tier 2 → action or ability (and Tier 1 still allowed)
-    // Tier 3 → totem or summoning (and lower tiers allowed)
-    // Tier 4 → crew_card (and lower tiers allowed)
     const all = [
         { value: 'attack_mod', label: 'Tier 1 — Attack Modification' },
         { value: 'tactical_mod', label: 'Tier 1 — Tactical Modification' },
@@ -351,28 +385,37 @@ const catalogRowsFor = (table: string): CatalogRow[] => {
     return (advancement_catalogs.value as Record<string, CatalogRow[]>)[table] ?? [];
 };
 
-const selectedCatalogRow = (adv: QueuedAdvancement): CatalogRow | null =>
-    adv.catalog_id == null ? null : (catalogRowsFor(adv.source_table).find((r) => r.id === adv.catalog_id) ?? null);
+const selectedDraftRow = (position: number): CatalogRow | null => {
+    const d = advDrafts.value[position];
+    if (!d || d.catalog_id == null) return null;
+    return catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id) ?? null;
+};
 
 const submitAdvanceLeader = () => {
     router.post(route('campaigns.aftermaths.advance-leader', props.aftermath.id), {
-        // Send the raw in-game facts; the server gates the bonuses by the
-        // Leader's tag and computes the XP total via CampaignRules.
         bruiser_killed_non_peon: xpForm.value.bruiser_killed,
         strategist_interacted: xpForm.value.strategist_interacted,
         lost: xpForm.value.lost,
         advancements: advancementsQueued.value
-            .filter((a) => a.catalog_id !== null)
-            .map((a) => ({
-                source_table: a.source_table,
-                catalog_id: a.catalog_id,
-                applied_to_action_index: a.applied_to_action_index,
-                position_in_xp_track: a.position_in_xp_track,
-                // Only the flip tables carry a value; the server enforces the
-                // "this value or lower" (or exact, for Totem) ceiling.
-                flip_value: tableNeedsFlip(a.source_table) ? a.flip_value : null,
-                free_choice: null,
-            })),
+            .filter((adv) => {
+                const d = advDrafts.value[adv.position_in_xp_track];
+                return d && d.catalog_id !== null;
+            })
+            .map((adv) => {
+                const d = advDrafts.value[adv.position_in_xp_track]!;
+                const isTotem = d.source_table === 'totem';
+                return {
+                    source_table: d.source_table,
+                    catalog_id: d.catalog_id,
+                    applied_to_action_index: d.applied_to_action_index,
+                    position_in_xp_track: adv.position_in_xp_track,
+                    flip_value: tableNeedsFlip(d.source_table) || isTotem ? d.flip_value : null,
+                    free_choice: null,
+                    totem_name: isTotem ? (d.totem_name || null) : null,
+                    totem_size: isTotem ? (d.totem_size || null) : null,
+                    totem_base: isTotem ? (d.totem_base || null) : null,
+                };
+            }),
     } as Record<string, unknown>);
 };
 
@@ -756,46 +799,112 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Advancements ({{ advancementsQueued.length }})</legend>
                     <div v-for="(adv, idx) in advancementsQueued" :key="idx" class="space-y-2 border-b py-2 last:border-b-0">
                         <p class="text-xs">Box {{ adv.position_in_xp_track + 1 }} — Tier {{ adv.box_tier }} advancement</p>
-                        <select v-model="adv.source_table" class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground">
-                            <option v-for="opt in tableOptionsForTier(adv.box_tier)" :key="opt.value" :value="opt.value">
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                        <label v-if="tableNeedsFlip(adv.source_table)" class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                            Flipped card
-                            <Input type="number" min="1" max="13" v-model.number="adv.flip_value" class="h-8 w-20" />
-                            <span>{{ adv.source_table === 'totem' ? '(exact match)' : '(this value or lower)' }}</span>
-                        </label>
-                        <select v-model="adv.catalog_id" class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground">
-                            <option :value="null">— pick a row —</option>
-                            <option v-for="row in eligibleCatalogRows(adv)" :key="row.id" :value="row.id">
-                                {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
-                            </option>
-                        </select>
-                        <!-- Full card preview for the selected advancement -->
-                        <template v-if="selectedCatalogRow(adv)">
-                            <ActionCard
-                                v-if="adv.source_table === 'action' || adv.source_table === 'summoning'"
-                                :action="selectedCatalogRow(adv)!"
-                                :hide-footer="true"
-                            />
-                            <AbilityCard
-                                v-else-if="adv.source_table === 'ability'"
-                                :ability="selectedCatalogRow(adv)!"
-                                :hide-footer="true"
-                            />
-                            <TriggerCard
-                                v-else-if="adv.source_table === 'attack_mod' || adv.source_table === 'tactical_mod'"
-                                :trigger="selectedCatalogRow(adv)!"
+                        <template v-if="advDrafts[adv.position_in_xp_track]">
+                            <select
+                                v-model="advDrafts[adv.position_in_xp_track].source_table"
+                                class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                @change="onSourceTableChange(adv.position_in_xp_track)"
                             >
-                                <template #footer></template>
-                            </TriggerCard>
-                            <p
-                                v-else-if="selectedCatalogRow(adv)?.body"
-                                class="rounded-md border p-2 text-xs leading-relaxed text-muted-foreground"
+                                <option v-for="opt in tableOptionsForTier(adv.box_tier)" :key="opt.value" :value="opt.value">
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+                            <!-- Flip input — shown for attack/tactical/action/ability; totem derives flip from the template -->
+                            <label
+                                v-if="tableNeedsFlip(advDrafts[adv.position_in_xp_track].source_table)"
+                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
                             >
-                                <GameText :text="selectedCatalogRow(adv)!.body!" />
-                            </p>
+                                Flipped card
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    max="13"
+                                    v-model.number="advDrafts[adv.position_in_xp_track].flip_value"
+                                    class="h-8 w-20"
+                                />
+                                <span>(this value or lower)</span>
+                            </label>
+                            <select
+                                v-model.number="advDrafts[adv.position_in_xp_track].catalog_id"
+                                class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                @change="onCatalogChange(adv.position_in_xp_track)"
+                            >
+                                <option :value="null">— pick a row —</option>
+                                <option
+                                    v-for="row in eligibleCatalogRows(advDrafts[adv.position_in_xp_track].source_table, advDrafts[adv.position_in_xp_track].flip_value)"
+                                    :key="row.id"
+                                    :value="row.id"
+                                >
+                                    {{ row.name
+                                    }}<span
+                                        v-if="row.flip_value != null && advDrafts[adv.position_in_xp_track].source_table !== 'totem'"
+                                    >
+                                        (flip {{ row.flip_value }})</span
+                                    >
+                                </option>
+                            </select>
+                            <!-- Totem: ask for name, size, and base to create the totem card -->
+                            <div
+                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'totem' && advDrafts[adv.position_in_xp_track].catalog_id !== null"
+                                class="grid grid-cols-3 gap-2"
+                            >
+                                <div>
+                                    <label class="text-[10px] text-muted-foreground">Totem name</label>
+                                    <Input
+                                        v-model="advDrafts[adv.position_in_xp_track].totem_name"
+                                        placeholder="e.g. Rat King"
+                                        class="h-8 text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-muted-foreground">Size (stat)</label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="5"
+                                        v-model.number="advDrafts[adv.position_in_xp_track].totem_size"
+                                        placeholder="1"
+                                        class="h-8 text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-muted-foreground">Base</label>
+                                    <select
+                                        v-model="advDrafts[adv.position_in_xp_track].totem_base"
+                                        class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                    >
+                                        <option :value="null">— pick —</option>
+                                        <option value="30mm">30mm</option>
+                                        <option value="40mm">40mm</option>
+                                        <option value="50mm">50mm</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Full card preview for the selected advancement -->
+                            <template v-if="selectedDraftRow(adv.position_in_xp_track)">
+                                <ActionCard
+                                    v-if="advDrafts[adv.position_in_xp_track].source_table === 'action' || advDrafts[adv.position_in_xp_track].source_table === 'summoning'"
+                                    :action="selectedDraftRow(adv.position_in_xp_track)!"
+                                    :hide-footer="true"
+                                />
+                                <AbilityCard
+                                    v-else-if="advDrafts[adv.position_in_xp_track].source_table === 'ability'"
+                                    :ability="selectedDraftRow(adv.position_in_xp_track)!"
+                                    :hide-footer="true"
+                                />
+                                <TriggerCard
+                                    v-else-if="advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' || advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'"
+                                    :trigger="selectedDraftRow(adv.position_in_xp_track)!"
+                                >
+                                    <template #footer></template>
+                                </TriggerCard>
+                                <p
+                                    v-else-if="selectedDraftRow(adv.position_in_xp_track)?.body"
+                                    class="rounded-md border p-2 text-xs leading-relaxed text-muted-foreground"
+                                >
+                                    <GameText :text="selectedDraftRow(adv.position_in_xp_track)!.body!" />
+                                </p>
+                            </template>
                         </template>
                     </div>
                 </fieldset>

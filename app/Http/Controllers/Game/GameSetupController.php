@@ -187,7 +187,11 @@ class GameSetupController extends Controller
         }
 
         DB::transaction(function () use ($player, $game, $crewBuild) {
-            // Update crew selection and lock in the master title from the crew build
+            // Update crew selection and lock in the master title from the crew build.
+            // Campaign games: the master IS the campaign leader (CustomCharacter) set
+            // during MasterSelect — don't let the crew build's standard character
+            // overwrite master_name/master_id that were already recorded there.
+            $isCampaign = $game->format === GameFormatEnum::Campaign;
             $crewMaster = $crewBuild->master;
             // For swappable masters, default to first crew upgrade; for select_one, use the build's selection
             $activeUpgradeId = $crewBuild->crew_upgrade_id;
@@ -199,8 +203,8 @@ class GameSetupController extends Controller
 
             $player->update([
                 'crew_build_id' => $crewBuild->id,
-                'master_name' => $crewMaster ? $crewMaster->display_name : $player->master_name,
-                'master_id' => $crewMaster ? $crewMaster->id : $player->master_id,
+                'master_name' => $isCampaign ? $player->master_name : ($crewMaster ? $crewMaster->display_name : $player->master_name),
+                'master_id' => $isCampaign ? $player->master_id : ($crewMaster ? $crewMaster->id : $player->master_id),
                 'active_crew_upgrade_id' => $activeUpgradeId,
             ]);
 
@@ -490,6 +494,155 @@ class GameSetupController extends Controller
             ->where('game_player_id', $player->id)
             ->delete();
 
+        $sortOrder = 0;
+
+        // Campaign games: the "master" is the crew's CustomCharacter campaign leader
+        // (not the crew build's standard Character). Add the leader and totem from
+        // the campaign crew, then fall through to the shared crew/custom-crew logic.
+        if ($game->format === GameFormatEnum::Campaign) {
+            $campaignGame = \App\Models\Campaign\CampaignGame::query()
+                ->where('base_game_id', $game->id)
+                ->with(['crewA.leader', 'crewA.totem', 'crewB.leader', 'crewB.totem'])
+                ->first();
+
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            $campaignCrew = null;
+            if ($campaignGame?->crewA && $campaignGame->crewA->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewA;
+            } elseif ($campaignGame?->crewB && $campaignGame->crewB->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewB;
+            }
+
+            $campaignLeader = $campaignCrew?->leader;
+            if ($campaignLeader) {
+                GameCrewMember::create([
+                    'game_id' => $game->id,
+                    'game_player_id' => $player->id,
+                    'character_id' => null,
+                    'custom_character_id' => $campaignLeader->id,
+                    'display_name' => $campaignLeader->name,
+                    'faction' => $campaignLeader->getRawOriginal('faction'),
+                    'current_health' => $campaignLeader->health,
+                    'max_health' => $campaignLeader->health,
+                    'defense' => $campaignLeader->defense,
+                    'willpower' => $campaignLeader->willpower,
+                    'speed' => $campaignLeader->speed,
+                    'size' => $campaignLeader->size,
+                    'cost' => 0,
+                    'station' => 'master',
+                    'hiring_category' => 'leader',
+                    'front_image' => null,
+                    'back_image' => null,
+                    'is_custom' => true,
+                    'attached_upgrades' => [],
+                    'attached_tokens' => [],
+                    'attached_markers' => [],
+                    'sort_order' => $sortOrder++,
+                ]);
+            }
+
+            $campaignTotem = $campaignCrew?->totem;
+            if ($campaignTotem) {
+                GameCrewMember::create([
+                    'game_id' => $game->id,
+                    'game_player_id' => $player->id,
+                    'character_id' => null,
+                    'custom_character_id' => $campaignTotem->id,
+                    'display_name' => $campaignTotem->name,
+                    'faction' => $campaignTotem->getRawOriginal('faction'),
+                    'current_health' => $campaignTotem->health,
+                    'max_health' => $campaignTotem->health,
+                    'defense' => $campaignTotem->defense,
+                    'willpower' => $campaignTotem->willpower,
+                    'speed' => $campaignTotem->speed,
+                    'size' => $campaignTotem->size,
+                    'cost' => 0,
+                    'station' => null,
+                    'hiring_category' => 'totem',
+                    'front_image' => null,
+                    'back_image' => null,
+                    'is_custom' => true,
+                    'attached_upgrades' => [],
+                    'attached_tokens' => [],
+                    'attached_markers' => [],
+                    'sort_order' => $sortOrder++,
+                ]);
+            }
+
+            // Keyword slugs come from the campaign leader's JSON field
+            // ([{id, name}, ...]) — convert names to slugs for classification.
+            $leaderKeywordSlugs = collect($campaignLeader !== null ? ($campaignLeader->keywords ?? []) : [])
+                ->pluck('name')
+                ->map(fn ($n) => Str::slug($n))
+                ->toArray();
+
+            $miniatureSelections = $crewBuild->miniature_selections ?? [];
+            $miniatureIndexes = [];
+
+            /** @var array<mixed> $crewCharacterIds */
+            $crewCharacterIds = $crewBuild->crew_data ?? [];
+            $crewCharacters = Character::with('miniatures', 'keywords', 'characteristics')
+                ->whereIn('id', $crewCharacterIds)
+                ->get()
+                ->keyBy('id');
+
+            foreach ($crewCharacterIds as $charId) {
+                $character = $crewCharacters->get($charId);
+                if (! $character) {
+                    continue;
+                }
+
+                $sharesKeyword = $character->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
+                $isVersatile = $character->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+                $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+                $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
+
+                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes);
+            }
+
+            /** @var array<mixed> $customCrewData */
+            $customCrewData = $crewBuild->custom_crew_data ?? [];
+            foreach ($customCrewData as $customEntry) {
+                $customKeywords = collect($customEntry['keywords'] ?? [])
+                    ->pluck('name')
+                    ->map(fn ($n) => Str::slug($n))
+                    ->toArray();
+
+                $sharesKeyword = ! empty(array_intersect($customKeywords, $leaderKeywordSlugs));
+                $isVersatile = in_array('versatile', array_map('strtolower', $customEntry['characteristics'] ?? []));
+                $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
+                $baseCost = $customEntry['cost'] ?? 0;
+                $effectiveCost = $category === 'ook' ? ($baseCost + 1) : $baseCost;
+
+                GameCrewMember::create([
+                    'game_id' => $game->id,
+                    'game_player_id' => $player->id,
+                    'character_id' => null,
+                    'custom_character_id' => $customEntry['custom_character_id'] ?? null,
+                    'display_name' => $customEntry['display_name'] ?? 'Custom Character',
+                    'faction' => $customEntry['faction'] ?? $player->getRawOriginal('faction'),
+                    'current_health' => $customEntry['health'] ?? 1,
+                    'max_health' => $customEntry['health'] ?? 1,
+                    'defense' => $customEntry['defense'] ?? null,
+                    'willpower' => $customEntry['willpower'] ?? null,
+                    'speed' => $customEntry['speed'] ?? null,
+                    'size' => $customEntry['size'] ?? null,
+                    'cost' => $effectiveCost,
+                    'station' => $customEntry['station'] ?? null,
+                    'hiring_category' => $category,
+                    'front_image' => $customEntry['front_image'] ?? null,
+                    'back_image' => $customEntry['back_image'] ?? null,
+                    'is_custom' => true,
+                    'attached_upgrades' => [],
+                    'attached_tokens' => [],
+                    'attached_markers' => [],
+                    'sort_order' => $sortOrder++,
+                ]);
+            }
+
+            return;
+        }
+
         $master = Character::with('miniatures', 'keywords')
             ->find($crewBuild->master_id);
 
@@ -500,7 +653,6 @@ class GameSetupController extends Controller
         $miniatureSelections = $crewBuild->miniature_selections ?? [];
         $miniatureIndexes = []; // Tracks per-character consumption index for multi-copy models
         $leaderKeywordSlugs = $master->keywords->pluck('slug')->toArray();
-        $sortOrder = 0;
 
         // Add leader(s) — masters with count > 1 (e.g. pair models) come as
         // multiple physical models on the table, so we need a GameCrewMember

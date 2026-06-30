@@ -124,9 +124,6 @@ class LeaderAdvancementService
                 'custom_character_id' => $leader->id,
                 'source_aftermath_id' => $sourceAftermathId,
                 'source_table' => $a['source_table'],
-                // Post-consolidation FK to core tables (upgrades / actions /
-                // triggers / abilities / custom_characters depending on
-                // source_table). Legacy catalog_id stays null on new rows.
                 'catalog_core_id' => $a['catalog_id'] ?? null,
                 'from_equipment_id' => $a['from_equipment_id'] ?? null,
                 'applied_to_action_index' => $a['applied_to_action_index'] ?? -1,
@@ -134,6 +131,99 @@ class LeaderAdvancementService
                 'free_choice' => $a['free_choice'] ?? null,
                 'acquired_at' => now(),
             ]);
+
+            // Totem advancement: spawn a crew CustomCharacter from the template
+            // so it appears as a card the player can fill out via the Card Creator.
+            if (AdvancementTableEnum::from($a['source_table']) === AdvancementTableEnum::Totem
+                && ! empty($a['catalog_id'])) {
+                $this->createTotemFromTemplate(
+                    $leader,
+                    (int) $a['catalog_id'],
+                    $a['totem_name'] ?? null,
+                    isset($a['totem_size']) ? (int) $a['totem_size'] : null,
+                    $a['totem_base'] ?? null,
+                );
+            }
         }
+    }
+
+    private function createTotemFromTemplate(
+        CustomCharacter $leader,
+        int $templateId,
+        ?string $totemName,
+        ?int $totemSize,
+        ?string $totemBase,
+    ): void {
+        $template = CustomCharacter::query()
+            ->where('is_campaign_totem_template', true)
+            ->whereKey($templateId)
+            ->with(['campaignTotemActions.triggers', 'campaignTotemAbilities'])
+            ->first();
+
+        if (! $template) {
+            return;
+        }
+
+        $actions = $template->campaignTotemActions->map(fn (Action $action) => [
+            'name' => $action->name,
+            'type' => $action->type ?? 'tactical',
+            'category' => $action->type ?? 'tactical',
+            'is_signature' => (bool) ($action->pivot->is_signature_action ?? false),
+            'stone_cost' => $action->stone_cost ?? 0,
+            'range' => $action->range,
+            'range_type' => $action->range_type,
+            'stat' => $action->stat,
+            'stat_suits' => $action->stat_suits,
+            'stat_modifier' => $action->stat_modifier,
+            'resisted_by' => $action->resisted_by,
+            'target_number' => $action->target_number,
+            'target_suits' => $action->target_suits,
+            'damage' => $action->damage,
+            'description' => $action->description,
+            'source_id' => $action->id,
+            'triggers' => $action->triggers->map(fn (Trigger $t) => [
+                'name' => $t->name,
+                'suits' => $t->suits,
+                'stone_cost' => $t->stone_cost ?? 0,
+                'description' => $t->description,
+            ])->all(),
+        ])->all();
+
+        $abilities = $template->campaignTotemAbilities->map(fn (Ability $ab) => [
+            'name' => $ab->name,
+            'body' => $ab->description,
+            'suits' => $ab->suits,
+            'source_id' => $ab->id,
+        ])->all();
+
+        // BaseSizeEnum is int-backed (30/40/50); convert the user's label string.
+        $baseInt = match ($totemBase) {
+            '40mm' => 40,
+            '50mm' => 50,
+            default => 30,
+        };
+
+        CustomCharacter::create([
+            'user_id' => $leader->user_id,
+            'campaign_crew_id' => $leader->campaign_crew_id,
+            'is_campaign_leader' => false,
+            'is_campaign_totem' => true,
+            'current' => true,
+            'name' => $totemName ?: $template->name,
+            'faction' => $leader->faction,
+            'station' => null,
+            'cost' => null,
+            'health' => 0,
+            'defense' => 0,
+            'willpower' => 0,
+            'speed' => 0,
+            'size' => $totemSize ?? 1,
+            'base' => $baseInt,
+            'is_unhirable' => true,
+            'actions' => $actions,
+            'abilities' => $abilities,
+            'keywords' => [],
+            'characteristics' => [],
+        ]);
     }
 }

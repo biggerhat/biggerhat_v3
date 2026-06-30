@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
@@ -290,8 +291,18 @@ const eligibleCatalogRows = (table: string, flip: number | null): CatalogRow[] =
     return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
 };
 
+const SOURCE_TABLE_LABELS: Record<string, string> = {
+    attack_mod: 'Attack Modification',
+    tactical_mod: 'Tactical Modification',
+    action: 'Action',
+    ability: 'Ability',
+    totem: 'Totem',
+    summoning: 'Summoning',
+    crew_card: 'Crew Card',
+};
+
 const advancementName = (a: AdvancementTaken): string =>
-    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ?? a.source_table.replace(/_/g, ' ');
+    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ?? SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ');
 
 // Per-slot picker drafts. Seed reactively: Inertia reuses this component
 // instance across visits (setup doesn't re-run), so a one-time loop would
@@ -345,15 +356,11 @@ const removeAdvancement = async (a: AdvancementTaken) => {
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
-// ───────── Card viewer (units / equipment / crew card) ─────────
+// ───────── Card viewer (equipment / crew card — Dialog) ─────────
 type CardView =
-    | { kind: 'unit'; title: string; model: ArsenalRow }
     | { kind: 'equipment'; title: string; equipment: EquipmentItem }
     | { kind: 'crew'; title: string; effect: CrewCardEffectRow };
 const viewCard = ref<CardView | null>(null);
-const viewUnit = (model: ArsenalRow) => {
-    viewCard.value = { kind: 'unit', title: model.character?.display_name ?? 'Model', model };
-};
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
 };
@@ -362,6 +369,12 @@ const viewCrewCard = () => {
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
+};
+
+// ───────── Unit card preview (Drawer) ─────────
+const unitPreviewRow = ref<ArsenalRow | null>(null);
+const viewUnit = (model: ArsenalRow) => {
+    unitPreviewRow.value = model;
 };
 
 // Faction-tinted hero strip — falls back to a slate gradient when faction is null.
@@ -538,9 +551,17 @@ const totemRendererProps = computed(() => {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
-                <!-- Full editing (incl. action details) happens in the card editor —
-                     the campaign builder can't change an action's stats/triggers. -->
-                <Link v-if="view_mode.is_owner && leader" :href="route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])">
+                <!-- Pre-campaign: refine identity/keywords in the Leader Builder.
+                     Post-campaign: full action/ability editing lives in the Card Creator
+                     (faction, keywords, archetype, tag are locked once campaign starts). -->
+                <Link
+                    v-if="view_mode.is_owner && leader"
+                    :href="
+                        campaign.status !== 'planning'
+                            ? route('tools.card_creator.edit', leader.id)
+                            : route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])
+                    "
+                >
                     <Button size="sm">Edit Leader</Button>
                 </Link>
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>
@@ -847,7 +868,7 @@ const totemRendererProps = computed(() => {
                     >
                         <span class="flex items-center gap-2">
                             <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
-                            <span class="capitalize text-muted-foreground">{{ a.source_table.replace(/_/g, ' ') }}</span>
+                            <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
                             <span class="font-medium">{{ advancementName(a) }}</span>
                         </span>
                     </li>
@@ -856,32 +877,15 @@ const totemRendererProps = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Card viewer — full rules for a unit / equipment / crew card. -->
+        <!-- Card viewer — equipment / crew card. -->
         <Dialog :open="viewCard !== null" @update:open="closeViewCard">
             <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{{ viewCard?.title }}</DialogTitle>
                 </DialogHeader>
 
-                <!-- Unit — show campaign badges then the real card image -->
-                <div v-if="viewCard?.kind === 'unit'" class="space-y-3">
-                    <div v-if="viewCard.model.injuries.length || viewCard.model.gained_characteristics.length" class="flex flex-wrap gap-1">
-                        <Badge v-for="inj in viewCard.model.injuries" :key="`vi-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
-                        <Badge v-for="ch in viewCard.model.gained_characteristics" :key="`vc-${ch}`" variant="outline" class="text-[10px]">{{
-                            ch
-                        }}</Badge>
-                    </div>
-                    <CharacterCardView
-                        v-if="viewCard.model.character?.standard_miniature?.front_image"
-                        :miniature="viewCard.model.character!.standard_miniature!"
-                        :character-slug="viewCard.model.character!.slug"
-                        :show-collection="false"
-                    />
-                    <p v-else class="text-sm text-muted-foreground">No card image available.</p>
-                </div>
-
                 <!-- Equipment -->
-                <div v-else-if="viewCard?.kind === 'equipment'" class="space-y-2 text-sm">
+                <div v-if="viewCard?.kind === 'equipment'" class="space-y-2 text-sm">
                     <div class="flex flex-wrap gap-1.5">
                         <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.equipment.source }}</Badge>
                         <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-[10px] tabular-nums"
@@ -912,6 +916,37 @@ const totemRendererProps = computed(() => {
             </DialogContent>
         </Dialog>
     </div>
+
+    <!-- Unit card preview drawer -->
+    <Drawer :open="unitPreviewRow !== null" @update:open="(v) => { if (!v) unitPreviewRow = null; }">
+        <DrawerContent>
+            <div v-if="unitPreviewRow" class="mx-auto w-full max-w-sm">
+                <DrawerHeader class="pb-2">
+                    <DrawerTitle class="text-center">{{ unitPreviewRow.character?.display_name ?? unitPreviewRow.label ?? 'Model' }}</DrawerTitle>
+                    <div v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length" class="mt-1.5 flex flex-wrap justify-center gap-1">
+                        <Badge v-for="inj in unitPreviewRow.injuries" :key="`di-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
+                        <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
+                    </div>
+                </DrawerHeader>
+
+                <div class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[55dvh] [&_img]:w-auto [&_img]:object-contain">
+                    <CharacterCardView
+                        v-if="unitPreviewRow.character?.standard_miniature?.front_image"
+                        :miniature="unitPreviewRow.character!.standard_miniature!"
+                        :character-slug="unitPreviewRow.character!.slug"
+                        :show-collection="false"
+                    />
+                    <div v-else class="py-8 text-center text-sm text-muted-foreground">No card image available</div>
+                </div>
+
+                <DrawerFooter class="shrink-0 pt-2">
+                    <DrawerClose as-child>
+                        <Button variant="outline" class="w-full">Close</Button>
+                    </DrawerClose>
+                </DrawerFooter>
+            </div>
+        </DrawerContent>
+    </Drawer>
 </template>
 
 <style scoped>

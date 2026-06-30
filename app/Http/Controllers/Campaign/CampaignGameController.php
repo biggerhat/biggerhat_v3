@@ -131,25 +131,30 @@ class CampaignGameController extends Controller
                 'strategy_id' => $strategy?->id,
                 'deployment' => $deployment->value,
                 'scheme_pool' => $schemePool,
-                'status' => GameStatusEnum::Setup,
+                // Both players are already known — skip Setup (waiting for join)
+                // and FactionSelect (faction comes from the crew). Start directly
+                // at MasterSelect so the Game Tracker is immediately playable.
+                'status' => GameStatusEnum::MasterSelect,
+                'started_at' => now(),
                 'creator_id' => $request->user()->id,
                 'is_solo' => false,
             ]);
 
-            // Random role assignment, like GameController::store.
             $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
 
             GamePlayer::create([
                 'game_id' => $game->id,
                 'user_id' => $request->user()->id,
                 'slot' => 1,
-                'role' => null,
+                'role' => $roles[0],
+                'faction' => $myCrew->faction,
             ]);
             GamePlayer::create([
                 'game_id' => $game->id,
                 'user_id' => $opponentCrew->user_id,
                 'slot' => 2,
-                'role' => null,
+                'role' => $roles[1],
+                'faction' => $opponentCrew->faction,
             ]);
 
             CampaignGame::create([

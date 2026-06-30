@@ -130,7 +130,7 @@ onMounted(() => {
 
 <template>
     <Head title="Crew Card Form" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
                 <CardTitle>Crew Card</CardTitle>

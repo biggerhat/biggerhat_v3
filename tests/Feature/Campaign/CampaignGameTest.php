@@ -93,14 +93,22 @@ it('creates a Game with format=Campaign + a wrapping campaign_games row', functi
     $game = Game::first();
     expect($game)->not->toBeNull();
     expect($game->format)->toBe(GameFormatEnum::Campaign);
-    expect($game->status)->toBe(GameStatusEnum::Setup);
+    // Both players are pre-seeded at creation, so campaign games skip Setup
+    // (waiting for join) and FactionSelect (faction comes from crew) and land
+    // directly at MasterSelect with started_at already populated.
+    expect($game->status)->toBe(GameStatusEnum::MasterSelect);
+    expect($game->started_at)->not->toBeNull();
     expect($game->creator_id)->toBe($organizer->id);
 
-    // Both players seeded as GamePlayer rows in slots 1/2.
+    // Both players seeded as GamePlayer rows in slots 1/2 with factions and roles.
     $players = GamePlayer::where('game_id', $game->id)->orderBy('slot')->get();
     expect($players)->toHaveCount(2);
     expect($players[0]->user_id)->toBe($organizer->id);
+    expect($players[0]->faction)->not->toBeNull();
+    expect($players[0]->role)->not->toBeNull();
     expect($players[1]->user_id)->toBe($crewB->user_id);
+    expect($players[1]->faction)->not->toBeNull();
+    expect($players[1]->role)->not->toBeNull();
 
     // Wrapping campaign_games row exists.
     $wrap = CampaignGame::firstWhere('base_game_id', $game->id);

@@ -83,17 +83,17 @@ class Upgrade extends Model
 
     public function actions(): MorphToMany
     {
-        return $this->morphedByMany(Action::class, 'upgradeable')->withPivot('is_signature_action');
+        return $this->morphedByMany(Action::class, 'upgradeable')->withPivot(['is_signature_action', 'restriction']);
     }
 
     public function abilities(): MorphToMany
     {
-        return $this->morphedByMany(Ability::class, 'upgradeable');
+        return $this->morphedByMany(Ability::class, 'upgradeable')->withPivot('restriction');
     }
 
     public function triggers(): MorphToMany
     {
-        return $this->morphedByMany(Trigger::class, 'upgradeable');
+        return $this->morphedByMany(Trigger::class, 'upgradeable')->withPivot('restriction');
     }
 
     public function keywords(): MorphToMany

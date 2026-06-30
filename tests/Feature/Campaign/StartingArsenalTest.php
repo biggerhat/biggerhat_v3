@@ -200,13 +200,34 @@ it('rejects over-budget hires', function () {
     expect($crew->fresh()->crew_card_effect_id)->toBeNull();
 });
 
-it('refuses to save out-of-keyword non-versatile models', function () {
+it('refuses to save out-of-faction models', function () {
     $effect = CampaignCrewCard::factory()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
-    $crew = freshCrewWithKeyword($user, $kw);
+    $crew = freshCrewWithKeyword($user, $kw); // faction: Arcanists
 
-    // Character has a DIFFERENT keyword and is not Versatile.
+    // Character is in a DIFFERENT faction with a different keyword.
+    $other = Keyword::factory()->create();
+    $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Guild]);
+    $char->keywords()->attach($other);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [['character_id' => $char->id]],
+            'crew_card_effect_id' => $effect->id,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('allows out-of-keyword in-faction models', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw); // faction: Arcanists
+
+    // Character is in the same faction but has a different keyword and is not Versatile.
     $other = Keyword::factory()->create();
     $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
     $char->keywords()->attach($other);
@@ -218,7 +239,7 @@ it('refuses to save out-of-keyword non-versatile models', function () {
         ])
         ->assertRedirect();
 
-    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(1);
 });
 
 it('allows Versatile-in-faction even when not in-keyword', function () {

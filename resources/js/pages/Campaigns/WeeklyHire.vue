@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { factionBackground } from '@/composables/useFactionColor';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { UserPlus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface KeywordRow {
@@ -147,16 +150,43 @@ const submit = () => {
                     <Input v-model="filter" placeholder="Filter by name" class="mt-2" />
                 </CardHeader>
                 <CardContent>
-                    <ul class="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
-                        <li v-for="c in filteredHireable" :key="c.id" class="flex items-center justify-between rounded-md border px-2 py-1.5 text-sm">
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate font-medium">{{ c.display_name }}</p>
-                                <p class="text-[10px] text-muted-foreground">{{ c.station }} • {{ c.faction }}</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <Badge variant="outline" class="text-[10px] tabular-nums">{{ c.cost }} ss</Badge>
-                                <Badge v-if="isOutOfKeyword(c)" variant="destructive" class="text-[10px]">+1 OOK</Badge>
-                                <Button size="sm" :disabled="locked" @click="addHire(c)">Add</Button>
+                    <ul class="max-h-[60vh] space-y-0.5 overflow-y-auto pr-1">
+                        <li
+                            v-for="c in filteredHireable"
+                            :key="c.id"
+                            :class="[factionBackground(c.faction), locked ? 'opacity-40' : '']"
+                            class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
+                        >
+                            <div class="flex items-center justify-between px-2 py-1.5">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-semibold">{{ c.display_name }}</p>
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="flex items-center text-sm font-bold text-white">
+                                            {{ c.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                            <span v-if="isOutOfKeyword(c)" class="ml-0.5 text-xs font-normal text-red-300">+1</span>
+                                        </span>
+                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
+                                            {{ c.station }}
+                                        </Badge>
+                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
+                                            OOK
+                                        </Badge>
+                                        <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
+                                            {{ c.keywords.map((k) => k.name).join(', ') }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-7 text-white hover:bg-white/10 hover:text-white"
+                                        :disabled="locked"
+                                        @click="addHire(c)"
+                                    >
+                                        <UserPlus class="size-4" />
+                                    </Button>
+                                </div>
                             </div>
                         </li>
                     </ul>

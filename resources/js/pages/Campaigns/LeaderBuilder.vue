@@ -38,6 +38,7 @@ interface ArchetypeRow {
 interface KeywordRow {
     id: number;
     name: string;
+    factions: string[];
 }
 
 interface TriggerData {
@@ -116,6 +117,7 @@ interface LeaderData {
 const props = defineProps<{
     campaign: CampaignData;
     crew: CrewData;
+    campaign_started: boolean;
     leader: LeaderData | null;
     archetypes: ArchetypeRow[];
     archetype_enum: SelectOpt[];
@@ -148,17 +150,37 @@ const archetype = computed(() => props.archetypes.find((a) => a.slug === form.va
 const attackActions = computed(() => form.value.actions.filter((a) => a.category === 'attack'));
 const tacticalActions = computed(() => form.value.actions.filter((a) => a.category === 'tactical'));
 
-const filteredKeywordsForFaction = computed(() => {
-    if (!form.value.faction) return props.all_keywords;
-    // Show all keywords but mark which are in the declared faction. Allows
-    // cross-faction pairs as long as at least one is in the declared faction.
-    return [...props.all_keywords].sort((a, b) => {
-        const aIn = a.faction === form.value.faction;
-        const bIn = b.faction === form.value.faction;
-        if (aIn === bIn) return a.name.localeCompare(b.name);
-        return aIn ? -1 : 1;
-    });
+// KW1 is restricted to keywords with at least one model in the selected faction.
+const keywordsForKw1 = computed(() => {
+    if (!form.value.faction) return [];
+    return props.all_keywords.filter((k) => k.factions.includes(form.value.faction));
 });
+
+// KW2 can be any keyword except the one already chosen for KW1.
+const keywordsForKw2 = computed(() => {
+    return props.all_keywords.filter((k) => k.id !== form.value.keyword_1_id);
+});
+
+// Cascade resets: changing faction clears everything downstream.
+watch(
+    () => form.value.faction,
+    () => {
+        form.value.keyword_1_id = null;
+        form.value.keyword_2_id = null;
+        form.value.actions = [];
+        form.value.abilities = [];
+    },
+);
+
+// Changing KW1 clears KW2 and picked actions/abilities.
+watch(
+    () => form.value.keyword_1_id,
+    () => {
+        form.value.keyword_2_id = null;
+        form.value.actions = [];
+        form.value.abilities = [];
+    },
+);
 
 // ───────── Action picker ─────────
 const actionSearch = ref('');
@@ -389,12 +411,13 @@ const submit = async () => {
                     <Label>Keyword 1</Label>
                     <Select
                         :model-value="form.keyword_1_id ? String(form.keyword_1_id) : ''"
+                        :disabled="!form.faction"
                         @update:model-value="(v: string | number) => (form.keyword_1_id = Number(v))"
                     >
-                        <SelectTrigger><SelectValue placeholder="Pick keyword" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Pick faction first" /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem v-for="k in filteredKeywordsForFaction" :key="k.id" :value="String(k.id)">
-                                {{ k.name }} <span class="text-[10px] text-muted-foreground">({{ k.faction }})</span>
+                            <SelectItem v-for="k in keywordsForKw1" :key="k.id" :value="String(k.id)">
+                                {{ k.name }}
                             </SelectItem>
                         </SelectContent>
                     </Select>
@@ -403,12 +426,13 @@ const submit = async () => {
                     <Label>Keyword 2</Label>
                     <Select
                         :model-value="form.keyword_2_id ? String(form.keyword_2_id) : ''"
+                        :disabled="!form.keyword_1_id"
                         @update:model-value="(v: string | number) => (form.keyword_2_id = Number(v))"
                     >
-                        <SelectTrigger><SelectValue placeholder="Pick keyword" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Pick KW1 first" /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem v-for="k in filteredKeywordsForFaction" :key="k.id" :value="String(k.id)">
-                                {{ k.name }} <span class="text-[10px] text-muted-foreground">({{ k.faction }})</span>
+                            <SelectItem v-for="k in keywordsForKw2" :key="k.id" :value="String(k.id)">
+                                {{ k.name }}
                             </SelectItem>
                         </SelectContent>
                     </Select>

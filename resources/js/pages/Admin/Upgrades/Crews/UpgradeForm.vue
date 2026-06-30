@@ -87,10 +87,7 @@ const itemOptionsForRow = computed(() => (row: UpgradeableRow) => {
 });
 
 const submit = () => {
-    router.post(
-        props.upgrade ? route('admin.crews.update', props.upgrade.slug) : route('admin.crews.store'),
-        formInfo.value,
-    );
+    router.post(props.upgrade ? route('admin.crews.update', props.upgrade.slug) : route('admin.crews.store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -130,7 +127,7 @@ onMounted(() => {
 
 <template>
     <Head title="Crew Card Form" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
                 <CardTitle>Crew Card</CardTitle>
@@ -226,7 +223,12 @@ onMounted(() => {
                                     class="h-full w-full rounded-lg"
                                 />
                                 <Label for="front_image">Front of Card Image</Label>
-                                <Input id="front_image" type="file" accept=".heic,.jpeg,.jpg,.png,.webp" @input="formInfo.front_image = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+                                <Input
+                                    id="front_image"
+                                    type="file"
+                                    accept=".heic,.jpeg,.jpg,.png,.webp"
+                                    @input="formInfo.front_image = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                                />
                                 <InputError :message="usePage().props.errors.front_image" />
                             </div>
                             <div class="mx-auto flex w-full max-w-sm flex-col items-center gap-1.5 space-y-1.5">
@@ -239,7 +241,12 @@ onMounted(() => {
                                     class="h-full w-full rounded-lg"
                                 />
                                 <Label for="back_image">Back of Card Image</Label>
-                                <Input id="back_image" type="file" accept=".heic,.jpeg,.jpg,.png,.webp" @input="formInfo.back_image = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+                                <Input
+                                    id="back_image"
+                                    type="file"
+                                    accept=".heic,.jpeg,.jpg,.png,.webp"
+                                    @input="formInfo.back_image = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                                />
                                 <InputError :message="usePage().props.errors.back_image" />
                             </div>
                         </div>
@@ -277,7 +284,12 @@ onMounted(() => {
                                 <div class="w-32 shrink-0">
                                     <Select
                                         :model-value="row.type"
-                                        @update:model-value="(v) => { row.type = v as UpgradeableRow['type']; row.id = null; }"
+                                        @update:model-value="
+                                            (v) => {
+                                                row.type = v as UpgradeableRow['type'];
+                                                row.id = null;
+                                            }
+                                        "
                                     >
                                         <SelectTrigger class="h-8 text-xs">
                                             <SelectValue placeholder="Type" />
@@ -309,11 +321,7 @@ onMounted(() => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="">No restriction</SelectItem>
-                                            <SelectItem
-                                                v-for="opt in props.crew_upgrade_restrictions"
-                                                :key="opt.value"
-                                                :value="opt.value"
-                                            >
+                                            <SelectItem v-for="opt in props.crew_upgrade_restrictions" :key="opt.value" :value="opt.value">
                                                 {{ opt.name }}
                                             </SelectItem>
                                         </SelectContent>
@@ -322,11 +330,7 @@ onMounted(() => {
 
                                 <!-- Signature toggle (actions only) -->
                                 <div v-if="row.type === 'action'" class="flex shrink-0 items-center gap-1.5">
-                                    <Checkbox
-                                        :id="`sig-${i}`"
-                                        :checked="row.is_signature"
-                                        @update:checked="(v: boolean) => (row.is_signature = v)"
-                                    />
+                                    <Checkbox :id="`sig-${i}`" :checked="row.is_signature" @update:checked="(v: boolean) => (row.is_signature = v)" />
                                     <label :for="`sig-${i}`" class="cursor-pointer text-xs">Signature</label>
                                 </div>
 

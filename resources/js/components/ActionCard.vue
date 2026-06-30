@@ -154,7 +154,7 @@ const formatActionType = (type?: string) => {
                 :key="tidx"
                 :class="['leading-tight', forLootCard ? 'text-[8px]' : 'text-xs leading-relaxed text-muted-foreground']"
             >
-                <span :class="['inline-flex items-center gap-0.5 font-semibold', forLootCard ? '' : 'text-muted-foreground' ]">
+                <span :class="['inline-flex items-center gap-0.5 font-semibold', forLootCard ? '' : 'text-muted-foreground']">
                     <GameIcon
                         v-if="trigger.suits"
                         :type="trigger.suits"

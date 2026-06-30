@@ -15,3 +15,4 @@ parameters:
     scanFiles:
         - _ide_helper_models.php
     treatPhpDocTypesAsCertain: false
+    tmpDir: /var/www/html/storage/phpstan

@@ -17,7 +17,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Carbon\CarbonImmutable|null $starts_at
  * @property int|null $weekly_event_id
  * @property string|null $notes
- *
  * @mixin IdeHelperCampaignWeek
  */
 class CampaignWeek extends Model

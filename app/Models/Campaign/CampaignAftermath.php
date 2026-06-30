@@ -12,10 +12,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * is preserved by snapshotting the drawn hand at Phase 1 start and persisting
  * `hand_drawn` server-side — refreshing the wizard mid-flow resumes on the
  * same hand.
- *
+ * 
  * `hand_drawn` is the immutable snapshot of cards drawn in Phase 1:
  *     [{ value: int, suit: string, is_joker: bool }, ...]
- *
+ * 
  * `hand_used` is an append-only audit log of phase events for the history
  * panel — currently written by the skip-phase advance() endpoint:
  *     [{ phase: int, used_for: string, notes: string, at: ISO8601 }, ...]
@@ -30,7 +30,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $status
  * @property-read CampaignGame $campaignGame
  * @property-read CampaignCrew $crew
- *
  * @mixin IdeHelperCampaignAftermath
  */
 class CampaignAftermath extends Model

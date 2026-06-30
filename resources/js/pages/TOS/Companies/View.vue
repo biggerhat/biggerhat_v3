@@ -533,9 +533,11 @@ async function deleteCompany() {
                                 <template v-if="company.envoy_allegiance">
                                     <span v-if="company.format" class="mx-1 opacity-50">·</span>
                                     <span class="text-sky-600 dark:text-sky-400">Envoy:</span>
-                                    <Link :href="route('tos.allegiances.view', company.envoy_allegiance.slug)" class="hover:text-foreground hover:underline">{{
-                                        company.envoy_allegiance.name
-                                    }}</Link>
+                                    <Link
+                                        :href="route('tos.allegiances.view', company.envoy_allegiance.slug)"
+                                        class="hover:text-foreground hover:underline"
+                                        >{{ company.envoy_allegiance.name }}</Link
+                                    >
                                 </template>
                             </p>
                             <div

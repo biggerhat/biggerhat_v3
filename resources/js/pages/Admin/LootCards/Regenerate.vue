@@ -108,8 +108,8 @@ const regenerate = async () => {
         <div>
             <h1 class="text-xl font-bold">Regenerate Print Images</h1>
             <p class="mt-1 text-sm text-muted-foreground">
-                Re-captures every card image in printer-friendly light mode (white background, dark text, coloured suit borders) at 300 DPI. Processes one
-                card at a time to stay within memory limits. Keep this tab focused while it runs.
+                Re-captures every card image in printer-friendly light mode (white background, dark text, coloured suit borders) at 300 DPI. Processes
+                one card at a time to stay within memory limits. Keep this tab focused while it runs.
             </p>
         </div>
 

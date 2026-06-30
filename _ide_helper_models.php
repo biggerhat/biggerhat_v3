@@ -27,8 +27,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int|null $campaign_flip_value
- * @property int $campaign_is_always_available
- * @property int $campaign_joker_freechoice
+ * @property bool $campaign_is_always_available
+ * @property bool $campaign_joker_freechoice
  * @property int $is_crew_card_effect
  * @property int $requires_token_choice
  * @property int $requires_marker_choice
@@ -98,9 +98,9 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int|null $campaign_flip_value
- * @property int $campaign_is_always_available
- * @property int $campaign_joker_freechoice
- * @property int $campaign_grants_signature
+ * @property bool $campaign_is_always_available
+ * @property bool $campaign_joker_freechoice
+ * @property bool $campaign_grants_signature
  * @property string|null $campaign_advancement_kind
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
@@ -578,10 +578,12 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
+ * @property array<array-key, mixed>|null $crew_card_choice
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCampaignId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardEffectId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereId($value)
@@ -2265,6 +2267,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property string|null $deleted_at
  * @property-read string|null $image_url
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Token> $tokens
+ * @property-read int|null $tokens_count
  * @method static \Database\Factories\StrategyFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy forSeason(\App\Enums\PoolSeasonEnum $season)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Strategy newModelQuery()
@@ -2520,6 +2524,7 @@ namespace App\Models\TOS{
  * @property int|null $scrap_count
  * @property string|null $body
  * @property string|null $image_path
+ * @property string|null $back_image_path
  * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -2535,6 +2540,7 @@ namespace App\Models\TOS{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereBackImagePath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereBody($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Asset whereDisableCount($value)
@@ -3069,6 +3075,8 @@ namespace App\Models{
  * @property string $name
  * @property string $slug
  * @property string|null $description
+ * @property \App\Enums\TokenRemovalTimingEnum|null $removal_timing
+ * @property bool $is_general
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
@@ -3077,9 +3085,12 @@ namespace App\Models{
  * @property-read int|null $characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $crewUpgrades
  * @property-read int|null $crew_upgrades_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Strategy> $strategies
+ * @property-read int|null $strategies_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
  * @property-read int|null $upgrades_count
  * @method static \Database\Factories\TokenFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Token general()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token query()
@@ -3087,7 +3098,9 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereIsGeneral($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereRemovalTiming($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Token whereUpdatedAt($value)
  * @mixin \Eloquent
@@ -3417,9 +3430,9 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int|null $campaign_flip_value
- * @property int $campaign_is_always_available
- * @property int $campaign_joker_freechoice
- * @property int $campaign_grants_signature
+ * @property bool $campaign_is_always_available
+ * @property bool $campaign_joker_freechoice
+ * @property bool $campaign_grants_signature
  * @property string|null $campaign_modifier_type
  * @property int|null $campaign_skl_from
  * @property int|null $campaign_skl_to
@@ -3485,21 +3498,21 @@ namespace App\Models{
  * @property int|null $campaign_cc
  * @property string|null $campaign_pool_suit_a
  * @property string|null $campaign_pool_suit_b
- * @property int $campaign_is_always_available
- * @property int $campaign_ttw_only
- * @property int $campaign_is_omens_mark
- * @property int $campaign_is_unique
- * @property int $campaign_leader_only
- * @property int $campaign_non_unique_only
- * @property int $campaign_annihilate_after_game
- * @property int $campaign_is_red_joker_entry
+ * @property bool $campaign_is_always_available
+ * @property bool $campaign_ttw_only
+ * @property bool $campaign_is_omens_mark
+ * @property bool $campaign_is_unique
+ * @property bool $campaign_leader_only
+ * @property bool $campaign_non_unique_only
+ * @property bool $campaign_annihilate_after_game
+ * @property bool $campaign_is_red_joker_entry
  * @property int|null $campaign_flip_value
  * @property string|null $campaign_suit_pool
- * @property int $campaign_is_traitor
- * @property int $campaign_is_close_call
- * @property int $campaign_annihilates_model
- * @property int $campaign_reflip_if_no_triggers
- * @property int $campaign_reflip_if_master_or_totem
+ * @property bool $campaign_is_traitor
+ * @property bool $campaign_is_close_call
+ * @property bool $campaign_annihilates_model
+ * @property bool $campaign_reflip_if_no_triggers
+ * @property bool $campaign_reflip_if_master_or_totem
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $abilities
  * @property-read int|null $abilities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions

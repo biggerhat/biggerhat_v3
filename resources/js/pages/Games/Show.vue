@@ -211,6 +211,16 @@ const props = defineProps<{
         encounter_size: number;
         week_number: number;
     } | null;
+    campaign_arsenal?: {
+        character_id: number;
+        name: string;
+        faction: string;
+        station: string;
+        cost: number;
+        effective_cost: number;
+        is_ook: boolean;
+        is_peon: boolean;
+    }[];
 }>();
 
 const page = usePage<SharedData>();
@@ -360,6 +370,7 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 'starting_crews',
                 'loot_card_catalog',
                 'bonanza_crew_upgrades',
+                'campaign_arsenal',
             ],
             preserveScroll: true,
             preserveState: true,
@@ -3121,6 +3132,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :my-player="myPlayer"
                 :opponent-player="opponentPlayer"
                 :is-solo="isSolo"
+                :is-campaign="isCampaign"
+                :campaign-arsenal="campaign_arsenal ?? []"
                 :submitting="submitting"
                 :my-slot="mySlot"
                 :opponent-slot="opponentSlot"
@@ -3128,6 +3141,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :crew-step-done="myStepDone('crew')"
                 :opponent-crew-step-done="opponentStepDone('crew')"
                 @confirm="(body) => postSetup(route('games.setup.crew', game.uuid), body)"
+                @confirm-campaign-crew="(ids) => postSetup(route('games.setup.campaign-crew', game.uuid), { character_ids: ids })"
                 @skip-opponent-crew="onSkipOpponentCrew"
             />
 

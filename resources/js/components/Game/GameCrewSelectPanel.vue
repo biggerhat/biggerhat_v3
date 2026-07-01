@@ -41,6 +41,17 @@ interface CrewOption {
     members: CrewOptionMember[];
 }
 
+interface CampaignArsenalModel {
+    character_id: number;
+    name: string;
+    faction: string;
+    station: string;
+    cost: number;
+    effective_cost: number;
+    is_ook: boolean;
+    is_peon: boolean;
+}
+
 const props = defineProps<{
     game: GameData;
     myCrews: CrewOption[];
@@ -48,6 +59,8 @@ const props = defineProps<{
     myPlayer?: GamePlayer;
     opponentPlayer?: GamePlayer;
     isSolo: boolean;
+    isCampaign: boolean;
+    campaignArsenal: CampaignArsenalModel[];
     submitting: boolean;
     mySlot: number;
     opponentSlot: number;
@@ -59,6 +72,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     /** Select a saved crew (parent owns the POST + reload). Body carries crew_build_id + slot. */
     confirm: [body: Record<string, unknown>];
+    /** Campaign games: confirm with selected arsenal character IDs. */
+    'confirm-campaign-crew': [characterIds: number[]];
     /** Skip the opponent's crew in solo setup, optionally locking in their title first. */
     'skip-opponent-crew': [titleDisplayName: string | null];
 }>();
@@ -133,6 +148,24 @@ const skipOpponentCrew = () => {
     const title = titleId ? opponentTitleOptions.value.find((t) => t.id === titleId) : null;
     emit('skip-opponent-crew', title?.display_name ?? null);
 };
+
+const selectedArsenalIds = ref<number[]>([]);
+const toggleArsenalModel = (characterId: number) => {
+    const idx = selectedArsenalIds.value.indexOf(characterId);
+    if (idx >= 0) {
+        selectedArsenalIds.value.splice(idx, 1);
+    } else {
+        selectedArsenalIds.value.push(characterId);
+    }
+};
+const campaignTotalCost = computed(() =>
+    selectedArsenalIds.value.reduce((sum, id) => {
+        const m = props.campaignArsenal.find((a) => a.character_id === id);
+        return sum + (m?.effective_cost ?? 0);
+    }, 0),
+);
+const campaignOverBudget = computed(() => campaignTotalCost.value > props.game.encounter_size);
+const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalIds.value);
 </script>
 
 <template>
@@ -148,32 +181,79 @@ const skipOpponentCrew = () => {
                 <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
             </p>
             <template v-else>
-                <p class="mb-2 text-xs text-muted-foreground">
-                    Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong> or
-                    <Link :href="newCrewUrl" class="text-primary underline">create a new one</Link>.
-                </p>
-                <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
-                    <span class="text-[11px] text-muted-foreground">Filter:</span>
-                    <button
-                        class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
-                        :class="!filterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                        @click="filterTitleId = null"
-                    >
-                        All
-                    </button>
-                    <button
-                        v-for="title in masterTitleOptions"
-                        :key="title.id"
-                        class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
-                        :class="filterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
-                        @click="filterTitleId = title.id"
-                    >
-                        {{ title.title || title.display_name }}
-                    </button>
-                </div>
+                <template v-if="isCampaign">
+                    <p class="mb-2 text-xs text-muted-foreground">
+                        Select models from your campaign arsenal to bring to this game ({{ game.encounter_size }}ss budget, leader and totem are free).
+                    </p>
+                </template>
+                <template v-else>
+                    <p class="mb-2 text-xs text-muted-foreground">
+                        Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong> or
+                        <Link :href="newCrewUrl" class="text-primary underline">create a new one</Link>.
+                    </p>
+                    <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
+                        <span class="text-[11px] text-muted-foreground">Filter:</span>
+                        <button
+                            class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                            :class="!filterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                            @click="filterTitleId = null"
+                        >
+                            All
+                        </button>
+                        <button
+                            v-for="title in masterTitleOptions"
+                            :key="title.id"
+                            class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                            :class="filterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                            @click="filterTitleId = title.id"
+                        >
+                            {{ title.title || title.display_name }}
+                        </button>
+                    </div>
+                </template>
             </template>
 
-            <template v-if="!crewStepDone">
+            <!-- Campaign: inline arsenal picker -->
+            <template v-if="isCampaign && !crewStepDone">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <span class="text-xs font-medium" :class="campaignOverBudget ? 'text-destructive' : 'text-foreground'">
+                        {{ campaignTotalCost }} / {{ game.encounter_size }}ss
+                        <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                        <span v-if="campaignOverBudget" class="ml-1 text-[10px]">Over budget</span>
+                    </span>
+                    <Button :disabled="submitting || campaignOverBudget" size="sm" @click="confirmCampaignCrew">
+                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                        Confirm Crew
+                    </Button>
+                </div>
+                <div v-if="campaignArsenal.length" class="space-y-1">
+                    <div
+                        v-for="m in campaignArsenal"
+                        :key="m.character_id"
+                        class="flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors"
+                        :class="selectedArsenalIds.includes(m.character_id) ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'"
+                        @click="toggleArsenalModel(m.character_id)"
+                    >
+                        <div class="flex min-w-0 items-center gap-2">
+                            <div
+                                class="size-4 shrink-0 rounded border-2 transition-colors"
+                                :class="selectedArsenalIds.includes(m.character_id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
+                            />
+                            <span class="truncate font-medium">{{ m.name }}</span>
+                            <Badge v-if="m.is_ook" variant="outline" class="shrink-0 border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">OOK</Badge>
+                            <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Peon</Badge>
+                        </div>
+                        <div class="ml-2 shrink-0 font-bold">
+                            {{ m.effective_cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                            <span v-if="m.is_ook" class="ml-0.5 text-[9px] font-normal text-muted-foreground">({{ m.cost }}+1)</span>
+                        </div>
+                    </div>
+                </div>
+                <div v-else class="py-6 text-center text-sm text-muted-foreground">No models in your campaign arsenal yet.</div>
+            </template>
+
+            <!-- Standard: saved crew builds picker -->
+            <template v-else-if="!isCampaign && !crewStepDone">
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <span class="text-xs text-muted-foreground">{{ matchingCrews.length }} saved crews</span>
                     <Link :href="newCrewUrl">

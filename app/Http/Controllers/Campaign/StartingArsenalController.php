@@ -56,7 +56,10 @@ class StartingArsenalController extends Controller
                     'abilities',
                 ])
                 ->orderBy('name')
-                ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice']),
+                ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice'])
+                ->each(fn ($card) => $card->actions->each(
+                    fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action,
+                )),
             // Constrained pool for crew cards that require a token/marker/upgrade
             // choice (pg 17): items listed on a crew card belonging to a master
             // sharing either of the crew's keywords.
@@ -86,22 +89,33 @@ class StartingArsenalController extends Controller
         //   - in-keyword (model.keywords intersects crew.keywords)
         //   - OR versatile in declared faction
         //   - NOT a master or totem
-        $hireableIds = $this->hireableModelIds($crew);
+        $hireabilityMap = $this->buildHireabilityMap($crew);
 
         $totalCost = 0;
         $invalid = [];
-        $characterCostById = [];
+        $uniqueCharIdsSeen = [];
 
-        foreach ($hires as $i => $h) {
+        foreach ($hires as $h) {
             $charId = (int) $h['character_id'];
-            if (! in_array($charId, $hireableIds, true)) {
+            $meta = $hireabilityMap[$charId] ?? null;
+            if (! $meta) {
                 $invalid[] = $charId;
 
                 continue;
             }
-            $cost = $characterCostById[$charId] ?? Character::query()->whereKey($charId)->value('cost') ?? 0;
-            $characterCostById[$charId] = $cost;
-            $totalCost += (int) $cost;
+            // Unique models may only appear once in the arsenal.
+            if ($meta['is_unique']) {
+                if (in_array($charId, $uniqueCharIdsSeen, true)) {
+                    return redirect()->back()->withMessage(
+                        'Unique models may only be hired once.',
+                        null,
+                        MessageTypeEnum::error,
+                    );
+                }
+                $uniqueCharIdsSeen[] = $charId;
+            }
+            // OOK non-versatile models cost +1 ss (same rule as weekly hires).
+            $totalCost += $meta['cost'] + ($meta['is_ook'] ? 1 : 0);
         }
 
         if (! empty($invalid)) {
@@ -278,11 +292,30 @@ class StartingArsenalController extends Controller
     }
 
     /**
-     * @return array<int>
+     * Build a fast lookup by character_id for use in validation.
+     *
+     * @return array<int, array{cost: int, is_ook: bool, is_unique: bool}>
      */
-    private function hireableModelIds(CampaignCrew $crew): array
+    private function buildHireabilityMap(CampaignCrew $crew): array
     {
-        return $this->hireableModelsQuery($crew)->pluck('id')->all();
+        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
+        $models = $this->hireableModelsQuery($crew)
+            ->with(['keywords:id', 'characteristics:id,name'])
+            ->get(['id', 'cost']);
+
+        $map = [];
+        foreach ($models as $m) {
+            $inKeyword = $keywordIds && $m->keywords->whereIn('id', $keywordIds)->isNotEmpty();
+            $isVersatile = $m->characteristics->contains(fn ($c) => strtolower($c->name) === 'versatile');
+            $isUnique = $m->characteristics->contains(fn ($c) => strtolower($c->name) === 'unique');
+            $map[$m->id] = [
+                'cost' => (int) ($m->cost ?? 0),
+                'is_ook' => ! $inKeyword && ! $isVersatile,
+                'is_unique' => $isUnique,
+            ];
+        }
+
+        return $map;
     }
 
     /**

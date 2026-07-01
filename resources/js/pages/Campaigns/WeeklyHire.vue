@@ -21,6 +21,7 @@ interface CharRow {
     faction: string;
     station: string;
     keywords?: KeywordRow[];
+    characteristics?: { name: string }[];
 }
 interface CrewData {
     id: number;
@@ -63,7 +64,10 @@ const filteredHireable = computed(() => {
     return props.hireable.filter((c) => !f || c.display_name.toLowerCase().includes(f));
 });
 
+const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
+
 const isOutOfKeyword = (c: CharRow): boolean => {
+    if (isVersatile(c)) return false;
     const keywordIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter(Boolean);
     if (keywordIds.length === 0) return false;
     return !c.keywords?.some((k) => keywordIds.includes(k.id));

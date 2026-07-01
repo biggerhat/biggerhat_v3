@@ -122,14 +122,32 @@ const props = defineProps<{
     locked: boolean;
 }>();
 
-// Pre-seed hires from existing arsenal so the wizard is idempotent (edit-friendly).
+const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
+
+const getCategory = (c: CharRow): 'keyword' | 'versatile' | 'ook' => {
+    const kwIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter((id): id is number => id !== null);
+    if (kwIds.length > 0 && c.keywords?.some((k) => kwIds.includes(k.id))) return 'keyword';
+    if (isVersatile(c)) return 'versatile';
+    return 'ook';
+};
+
+const effectiveCost = (c: CharRow): number => (c.cost ?? 0) + (getCategory(c) === 'ook' ? 1 : 0);
+
+const isUnique = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'unique') ?? false;
+
+// Pre-seed hires from existing arsenal — look up each model in the hireable pool
+// to compute effective OOK cost (base + 1 for out-of-keyword non-versatile).
+const hireableLookup = new Map(props.hireable.map((c) => [c.id, c]));
 const hires = ref<Array<{ character_id: number; label: string | null; cost: number; display_name: string }>>(
-    props.arsenal.map((row) => ({
-        character_id: row.character_id,
-        label: row.label,
-        cost: row.character?.cost ?? 0,
-        display_name: row.character?.display_name ?? '',
-    })),
+    props.arsenal.map((row) => {
+        const poolChar = hireableLookup.get(row.character_id) ?? row.character;
+        return {
+            character_id: row.character_id,
+            label: row.label,
+            cost: poolChar ? effectiveCost(poolChar) : (row.character?.cost ?? 0),
+            display_name: row.character?.display_name ?? '',
+        };
+    }),
 );
 
 const selectedCrewCardEffectId = ref<number | null>(props.crew.crew_card_effect_id);
@@ -161,15 +179,6 @@ watch(selectedCrewCardEffectId, () => {
         crewCardName.value = `${props.crew.name} — ${selectedCrewCard.value.name}`;
     }
 });
-
-const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
-
-const getCategory = (c: CharRow): 'keyword' | 'versatile' | 'ook' => {
-    const kwIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter((id): id is number => id !== null);
-    if (kwIds.length > 0 && c.keywords?.some((k) => kwIds.includes(k.id))) return 'keyword';
-    if (isVersatile(c)) return 'versatile';
-    return 'ook';
-};
 
 type PoolFilter = 'keyword' | 'versatile' | 'ook' | 'all';
 const poolFilter = ref<PoolFilter>('all');
@@ -227,16 +236,23 @@ const overBudget = computed(() => totalSpent.value > props.starting_budget_ss);
 
 const addHire = (c: CharRow) => {
     if (props.locked) return;
-    if ((c.cost ?? 0) > remainingBudget.value) {
+    if (isUnique(c) && hires.value.some((h) => h.character_id === c.id)) {
+        toast.warning('Unique models may only be hired once.', {
+            description: `${c.display_name} is already in your arsenal.`,
+        });
+        return;
+    }
+    const cost = effectiveCost(c);
+    if (cost > remainingBudget.value) {
         toast.warning('Over budget', {
-            description: `Adding ${c.display_name} (${c.cost} ss) would exceed your remaining ${remainingBudget.value} ss.`,
+            description: `Adding ${c.display_name} (${cost} ss) would exceed your remaining ${remainingBudget.value} ss.`,
         });
         return;
     }
     hires.value.push({
         character_id: c.id,
         label: null,
-        cost: c.cost ?? 0,
+        cost,
         display_name: c.display_name,
     });
 };
@@ -343,7 +359,7 @@ const submit = () => {
                         <li
                             v-for="c in filteredHireable"
                             :key="c.id"
-                            :class="[factionBackground(c.faction), locked || (c.cost ?? 0) > remainingBudget ? 'opacity-40' : '']"
+                            :class="[factionBackground(c.faction), locked || effectiveCost(c) > remainingBudget ? 'opacity-40' : '']"
                             class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
                         >
                             <div class="flex items-center justify-between px-2 py-1.5">
@@ -351,7 +367,8 @@ const submit = () => {
                                     <p class="text-sm font-semibold">{{ c.display_name }}</p>
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <span class="flex items-center text-sm font-bold text-white">
-                                            {{ c.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                            {{ effectiveCost(c) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                            <span v-if="getCategory(c) === 'ook'" class="ml-0.5 text-xs font-normal text-red-300">(+1 OOK)</span>
                                         </span>
                                         <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
                                             {{ c.station ?? 'enforcer' }}
@@ -369,12 +386,12 @@ const submit = () => {
                                     <span v-if="hiredCountInSession(c.id) > 0" class="text-[10px] text-white/70">
                                         ×{{ hiredCountInSession(c.id) }}
                                     </span>
-                                    <span v-if="!locked && (c.cost ?? 0) > remainingBudget" class="text-[10px] text-white/50">Over budget</span>
+                                    <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-[10px] text-white/50">Over budget</span>
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
-                                        :disabled="locked || (c.cost ?? 0) > remainingBudget"
+                                        :disabled="locked || effectiveCost(c) > remainingBudget"
                                         @click.stop="addHire(c)"
                                     >
                                         <UserPlus class="size-4" />

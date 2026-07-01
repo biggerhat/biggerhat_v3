@@ -23,7 +23,7 @@ class CrewCardAdminController extends Controller
     private function formProps(): array
     {
         return [
-            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name']),
+            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'type']),
             'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
         ];
     }
@@ -36,6 +36,12 @@ class CrewCardAdminController extends Controller
     public function edit(Request $request, CampaignCrewCard $crewCard)
     {
         $crewCard->load(['actions:id,name', 'abilities:id,name']);
+        // Map actions to include pivot data so the form can pre-populate signature flags.
+        $crewCard->setRelation('actions', $crewCard->actions->map(fn ($a) => [
+            'id' => $a->id,
+            'name' => $a->name,
+            'is_signature' => (bool) $a->pivot->is_signature_action,
+        ])->values());
 
         return inertia('Admin/Campaign/CrewCard/Form', array_merge(
             ['item' => $crewCard],
@@ -46,12 +52,12 @@ class CrewCardAdminController extends Controller
     public function store(StoreCrewCardRequest $request)
     {
         $validated = $request->validated();
-        $actionIds = $validated['action_ids'] ?? [];
+        $actionsInput = $validated['actions'] ?? [];
         $abilityIds = $validated['ability_ids'] ?? [];
-        unset($validated['action_ids'], $validated['ability_ids']);
+        unset($validated['actions'], $validated['ability_ids']);
 
         $row = CampaignCrewCard::create($validated);
-        $row->actions()->sync($actionIds);
+        $row->actions()->sync($this->actionSyncMap($actionsInput));
         $row->abilities()->sync($abilityIds);
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$row->name} created.");
@@ -60,15 +66,31 @@ class CrewCardAdminController extends Controller
     public function update(UpdateCrewCardRequest $request, CampaignCrewCard $crewCard)
     {
         $validated = $request->validated();
-        $actionIds = $validated['action_ids'] ?? [];
+        $actionsInput = $validated['actions'] ?? [];
         $abilityIds = $validated['ability_ids'] ?? [];
-        unset($validated['action_ids'], $validated['ability_ids']);
+        unset($validated['actions'], $validated['ability_ids']);
 
         $crewCard->update($validated);
-        $crewCard->actions()->sync($actionIds);
+        $crewCard->actions()->sync($this->actionSyncMap($actionsInput));
         $crewCard->abilities()->sync($abilityIds);
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$crewCard->name} updated.");
+    }
+
+    /**
+     * Build a sync map for the actions pivot with the is_signature_action flag.
+     *
+     * @param  array<int, array{id: int, is_signature: bool}>  $actionsInput
+     * @return array<int, array{is_signature_action: bool}>
+     */
+    private function actionSyncMap(array $actionsInput): array
+    {
+        $map = [];
+        foreach ($actionsInput as $entry) {
+            $map[(int) $entry['id']] = ['is_signature_action' => (bool) ($entry['is_signature'] ?? false)];
+        }
+
+        return $map;
     }
 
     public function delete(Request $request, CampaignCrewCard $crewCard)

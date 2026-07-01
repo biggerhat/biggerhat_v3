@@ -364,3 +364,50 @@ it('stores a crew-card upgrade-type choice as the enum value, not a crew card', 
 
     expect($crew->fresh()->crew_card_choice)->toMatchArray(['type' => 'upgrade', 'id' => 'aspect']);
 });
+
+it('counts out-of-keyword non-versatile models at +1 ss toward the 25 ss budget', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw); // faction: Arcanists, budget 25 ss
+
+    // In-keyword model: 6 ss.
+    $inKw = Character::factory()->create(['cost' => 6, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $inKw->keywords()->attach($kw);
+
+    // OOK in-faction model: 20 ss base. 6 + (20 + 1) = 27 — over budget.
+    $otherKw = Keyword::factory()->create();
+    $ookChar = Character::factory()->create(['cost' => 20, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $ookChar->keywords()->attach($otherKw);
+
+    // Buying both (6 + 21 = 27) must be rejected.
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [['character_id' => $inKw->id], ['character_id' => $ookChar->id]],
+            'crew_card_effect_id' => $effect->id,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('rejects hiring the same Unique model twice in the starting arsenal', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $uniqueChar = Characteristic::factory()->create(['name' => 'Unique']);
+    $char = Character::factory()->create(['cost' => 5, 'station' => null, 'faction' => FactionEnum::Arcanists]);
+    $char->keywords()->attach($kw);
+    $char->characteristics()->attach($uniqueChar);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [['character_id' => $char->id], ['character_id' => $char->id]],
+            'crew_card_effect_id' => $effect->id,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});

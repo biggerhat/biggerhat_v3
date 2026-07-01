@@ -11,6 +11,7 @@ use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignWeek;
 use App\Models\Campaign\WeeklyEvent;
 use App\Models\Character;
+use App\Models\Characteristic;
 use App\Models\Keyword;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -265,4 +266,62 @@ it('drops first-hire discount once already-hired-this-week > 0', function () {
 
     // Cost = 6 (no -5 discount because not first-of-week).
     expect($crew->fresh()->scrip)->toBe(20 - 6);
+});
+
+it('excludes Unique models already in the active arsenal from the hireable pool', function () {
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+    $kw = Keyword::factory()->create();
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $organizer->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'keyword_1_id' => $kw->id,
+        'scrip' => 10,
+    ]);
+
+    $uniqueChar = Characteristic::factory()->create(['name' => 'Unique']);
+    $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $char->keywords()->attach($kw);
+    $char->characteristics()->attach($uniqueChar);
+
+    // Pre-seed the Unique in the active arsenal.
+    CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $char->id,
+    ]);
+
+    $this->actingAs($organizer)
+        ->get(route('campaigns.crews.weekly-hire.edit', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('hireable', fn ($models) => ! collect($models)->contains('id', $char->id))
+        );
+});
+
+it('rejects hiring the same Unique model twice in one weekly hire batch', function () {
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+    $kw = Keyword::factory()->create();
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $organizer->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'keyword_1_id' => $kw->id,
+        'scrip' => 30,
+    ]);
+
+    $uniqueChar = Characteristic::factory()->create(['name' => 'Unique']);
+    $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $char->keywords()->attach($kw);
+    $char->characteristics()->attach($uniqueChar);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), [
+            'hires' => [['character_id' => $char->id], ['character_id' => $char->id]],
+        ])
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(30);
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
 });

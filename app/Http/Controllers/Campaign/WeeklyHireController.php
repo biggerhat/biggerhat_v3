@@ -67,6 +67,7 @@ class WeeklyHireController extends Controller
         $totalCost = 0;
         $invalid = [];
         $costDetail = [];
+        $uniqueCharIdsSeen = [];
 
         foreach ($hires as $i => $h) {
             $charId = (int) $h['character_id'];
@@ -75,6 +76,12 @@ class WeeklyHireController extends Controller
                 $invalid[] = $charId;
 
                 continue;
+            }
+            if ($meta['is_unique'] && in_array($charId, $uniqueCharIdsSeen, true)) {
+                return redirect()->back()->withMessage('Unique models may only be hired once.', null, MessageTypeEnum::error);
+            }
+            if ($meta['is_unique']) {
+                $uniqueCharIdsSeen[] = $charId;
             }
             $cost = CampaignRules::newHireScripCost(
                 modelCost: $meta['cost'],
@@ -149,7 +156,7 @@ class WeeklyHireController extends Controller
      * Build a fast lookup keyed by character_id with cost + flags. Avoids
      * one query per hire when validating + writing.
      *
-     * @return array<int, array{cost: int, out_of_keyword: bool, has_keyword_id: int|null, name: string}>
+     * @return array<int, array{cost: int, out_of_keyword: bool, has_keyword_id: int|null, name: string, is_unique: bool}>
      */
     private function buildHireabilityMap(CampaignCrew $crew): array
     {
@@ -162,11 +169,13 @@ class WeeklyHireController extends Controller
             // Versatile models in the declared faction are hired without surcharge
             // (pg 18 — versatile is equivalent to in-keyword for cost purposes).
             $isVersatile = $m->characteristics->contains(fn ($c) => strtolower($c->name) === 'versatile');
+            $isUnique = $m->characteristics->contains(fn ($c) => strtolower($c->name) === 'unique');
             $map[$m->id] = [
                 'cost' => (int) ($m->cost ?? 0),
                 'out_of_keyword' => $inKeywordId === null && ! $isVersatile,
                 'has_keyword_id' => $inKeywordId,
                 'name' => $m->display_name,
+                'is_unique' => $isUnique,
             ];
         }
 
@@ -199,6 +208,17 @@ class WeeklyHireController extends Controller
                     $q1->orWhere('faction', $crew->faction->value);
                 });
             });
+
+        // Unique models already active in the arsenal can't be hired again.
+        $existingUniqueIds = CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->whereHas('character.characteristics', fn ($q) => $q->whereRaw('LOWER(name) = ?', ['unique']))
+            ->pluck('character_id')
+            ->all();
+        if (! empty($existingUniqueIds)) {
+            $query->whereNotIn('id', $existingUniqueIds);
+        }
 
         // Stay Dead optional rule (pg 146): unique models that were previously
         // annihilated in this crew can never be re-hired.

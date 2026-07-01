@@ -78,11 +78,94 @@ class LeaderAdvancementController extends Controller
                 ->where('is_campaign_totem', true)
                 ->where('current', true)
                 ->delete();
+        } else {
+            $this->undoAdvancement($leader, $advancement);
         }
 
         $advancement->delete();
 
         return redirect()->back()->withMessage('Advancement removed.');
+    }
+
+    /**
+     * Reverse the mechanical effect that was applied to the leader's card data
+     * when the advancement was first logged (mirror of LeaderAdvancementService).
+     * Removes the first matching entry so duplicate source_ids aren't over-removed.
+     */
+    private function undoAdvancement(CustomCharacter $leader, CampaignLeaderAdvancement $advancement): void
+    {
+        $table = $advancement->source_table;
+        $catalogId = $advancement->catalog_core_id;
+
+        if ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod) {
+            if ($catalogId === null || $advancement->applied_to_action_index < 0) {
+                return;
+            }
+            $actions = $leader->actions ?? [];
+            $idx = $advancement->applied_to_action_index;
+            if (! isset($actions[$idx])) {
+                return;
+            }
+            $removed = false;
+            $actions[$idx]['triggers'] = array_values(array_filter(
+                $actions[$idx]['triggers'] ?? [],
+                function (array $t) use ($catalogId, &$removed): bool {
+                    if (! $removed && ($t['source_id'] ?? null) === $catalogId) {
+                        $removed = true;
+
+                        return false;
+                    }
+
+                    return true;
+                }
+            ));
+            $leader->actions = $actions;
+            $leader->save();
+
+            return;
+        }
+
+        if ($table === AdvancementTableEnum::Action || $table === AdvancementTableEnum::Summoning) {
+            if ($catalogId === null) {
+                return;
+            }
+            $removed = false;
+            $leader->actions = array_values(array_filter(
+                $leader->actions ?? [],
+                function (array $a) use ($catalogId, &$removed): bool {
+                    if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
+                        $removed = true;
+
+                        return false;
+                    }
+
+                    return true;
+                }
+            ));
+            $leader->save();
+
+            return;
+        }
+
+        if ($table === AdvancementTableEnum::Ability) {
+            if ($catalogId === null) {
+                return;
+            }
+            $removed = false;
+            $leader->abilities = array_values(array_filter(
+                $leader->abilities ?? [],
+                function (array $a) use ($catalogId, &$removed): bool {
+                    if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
+                        $removed = true;
+
+                        return false;
+                    }
+
+                    return true;
+                }
+            ));
+            $leader->save();
+        }
     }
 
     private function currentLeader(CampaignCrew $crew): ?CustomCharacter

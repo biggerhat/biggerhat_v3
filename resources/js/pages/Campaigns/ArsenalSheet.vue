@@ -605,9 +605,7 @@ const totemRendererProps = computed(() => {
                 <Card>
                     <CardHeader><CardTitle>Leader</CardTitle></CardHeader>
                     <CardContent>
-                        <!-- The card sizes to its container width (aspect-ratio only),
-                             so it needs an explicit max-width or it collapses. -->
-                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[360px]">
+                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[500px]">
                             <CardRenderer v-bind="leaderRendererProps" />
                         </div>
                         <div v-else class="rounded-md border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -622,7 +620,7 @@ const totemRendererProps = computed(() => {
                 <Card v-if="totemRendererProps" class="mt-4">
                     <CardHeader><CardTitle>Totem</CardTitle></CardHeader>
                     <CardContent>
-                        <div class="mx-auto w-full max-w-[360px]">
+                        <div class="mx-auto w-full max-w-[500px]">
                             <CardRenderer v-bind="totemRendererProps" />
                         </div>
                     </CardContent>

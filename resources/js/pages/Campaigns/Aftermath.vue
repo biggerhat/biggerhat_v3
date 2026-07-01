@@ -186,11 +186,17 @@ interface XpBox {
     filled: boolean;
     tier: number | null;
 }
+interface LeaderActionSummary {
+    index: number;
+    name: string;
+    category: string;
+}
 interface XpTrackPayload {
     leader_id: number;
     leader_name: string;
     tag: string | null;
     track: XpBox[];
+    leader_actions: LeaderActionSummary[];
 }
 interface CatalogRow {
     id: number;
@@ -873,6 +879,32 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                         <option value="50mm">50mm</option>
                                     </select>
                                 </div>
+                            </div>
+                            <!-- Attack/tactical mod: pick which existing action gets this trigger -->
+                            <div
+                                v-if="
+                                    (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
+                                        advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod') &&
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null &&
+                                    xp_track?.leader_actions?.length
+                                "
+                            >
+                                <label class="text-[10px] text-muted-foreground">Add trigger to action</label>
+                                <select
+                                    v-model.number="advDrafts[adv.position_in_xp_track].applied_to_action_index"
+                                    class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                >
+                                    <option :value="-1">— select action —</option>
+                                    <option
+                                        v-for="a in xp_track.leader_actions.filter(
+                                            (la) => la.category === (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ? 'attack' : 'tactical'),
+                                        )"
+                                        :key="a.index"
+                                        :value="a.index"
+                                    >
+                                        {{ a.name }}
+                                    </option>
+                                </select>
                             </div>
                             <!-- Full card preview for the selected advancement -->
                             <template v-if="selectedDraftRow(adv.position_in_xp_track)">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Campaign;
 
+use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderAdvancementRequest;
@@ -67,6 +68,16 @@ class LeaderAdvancementController extends Controller
         $leader = $this->currentLeader($crew);
         if (! $leader || $advancement->custom_character_id !== $leader->id) {
             abort(403);
+        }
+
+        // Totem advancement removal: tear down the crew's active totem so the
+        // next Totem advancement can be taken and crewCardEffect stays in sync.
+        if ($advancement->source_table === AdvancementTableEnum::Totem) {
+            CustomCharacter::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->where('is_campaign_totem', true)
+                ->where('current', true)
+                ->delete();
         }
 
         $advancement->delete();

@@ -40,6 +40,9 @@ class StoreLeaderAdvancementRequest extends FormRequest
             'from_equipment_id' => ['nullable', 'integer', 'exists:campaign_equipment,id'],
             'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
             'free_choice' => ['nullable', 'array'],
+            'totem_name' => ['nullable', 'string', 'max:60'],
+            'totem_size' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'totem_base' => ['nullable', 'string', 'in:30mm,40mm,50mm'],
         ];
     }
 }

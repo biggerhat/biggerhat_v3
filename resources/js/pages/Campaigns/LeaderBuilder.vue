@@ -353,6 +353,12 @@ const submit = async () => {
     </PageBanner>
 
     <div class="container mx-auto max-w-5xl px-4 pb-16">
+        <div v-if="Object.keys(usePage().props.errors).length" class="mb-6 rounded-md border border-destructive/30 bg-destructive/10 p-4">
+            <p class="mb-1 text-sm font-medium text-destructive">Please fix the following errors:</p>
+            <ul class="ml-4 list-disc space-y-0.5 text-sm text-destructive">
+                <li v-for="(msg, key) in usePage().props.errors" :key="key">{{ msg }}</li>
+            </ul>
+        </div>
         <Card class="mb-6">
             <CardHeader><CardTitle>1. Identity</CardTitle></CardHeader>
             <CardContent class="grid gap-3 md:grid-cols-2">
@@ -377,6 +383,7 @@ const submit = async () => {
                         • Tactical: {{ archetype.tactical_actions_count }} (≤ cost {{ archetype.tactical_action_cost_cap }}) • Abilities:
                         {{ archetype.abilities_count }}
                     </p>
+                    <InputError :message="usePage().props.errors.archetype" />
                 </div>
                 <div v-if="form.archetype === 'lucky_upstart'" class="md:col-span-2">
                     <Label>Free starter equipment (Lucky Upstart)</Label>
@@ -388,6 +395,7 @@ const submit = async () => {
                         <option v-for="e in equipment_catalog" :key="e.id" :value="e.id">{{ e.name }}</option>
                     </select>
                     <p class="mt-1 text-[11px] text-muted-foreground">Rolled free on creation; doesn't count toward Campaign Rating (pg 17).</p>
+                    <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
                 </div>
                 <div>
                     <Label>Faction (declared)</Label>
@@ -397,6 +405,7 @@ const submit = async () => {
                             <SelectItem v-for="opt in faction_enum" :key="opt.value" :value="opt.value">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
+                    <InputError :message="usePage().props.errors.faction" />
                 </div>
                 <div>
                     <Label>Tag</Label>
@@ -406,6 +415,7 @@ const submit = async () => {
                             <SelectItem v-for="opt in tag_enum" :key="opt.value" :value="opt.value">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
+                    <InputError :message="usePage().props.errors.tag" />
                 </div>
                 <div>
                     <Label>Keyword 1</Label>
@@ -421,6 +431,7 @@ const submit = async () => {
                             </SelectItem>
                         </SelectContent>
                     </Select>
+                    <InputError :message="usePage().props.errors.keyword_1_id" />
                 </div>
                 <div>
                     <Label>Keyword 2</Label>
@@ -436,10 +447,12 @@ const submit = async () => {
                             </SelectItem>
                         </SelectContent>
                     </Select>
+                    <InputError :message="usePage().props.errors.keyword_2_id" />
                 </div>
                 <div>
                     <Label>Size (1–4)</Label>
                     <Input type="number" min="1" max="4" v-model.number="form.size" />
+                    <InputError :message="usePage().props.errors.size" />
                 </div>
                 <div>
                     <Label>Base</Label>
@@ -449,6 +462,7 @@ const submit = async () => {
                             <SelectItem v-for="opt in base_enum" :key="opt.value" :value="String(opt.value)">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
+                    <InputError :message="usePage().props.errors.base" />
                 </div>
             </CardContent>
         </Card>
@@ -508,6 +522,7 @@ const submit = async () => {
                                 </select>
                             </div>
                             <p v-else-if="a.triggers.length" class="text-[11px] text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
+                            <InputError :message="(usePage().props.errors as Record<string, string>)[`actions.${idx}.source_character_id`]" />
                         </div>
                     </div>
                 </div>
@@ -515,11 +530,14 @@ const submit = async () => {
                 <div v-if="tacticalActions.length" class="space-y-1">
                     <p class="text-xs font-medium uppercase text-muted-foreground">Tactical</p>
                     <div v-for="(a, idx) in form.actions" :key="`tac-${idx}`">
-                        <div v-if="a.category === 'tactical'" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                            <span
-                                >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
-                            >
-                            <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                        <div v-if="a.category === 'tactical'" class="space-y-1 rounded-md border p-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span
+                                    >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
+                                >
+                                <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
+                            </div>
+                            <InputError :message="(usePage().props.errors as Record<string, string>)[`actions.${idx}.source_character_id`]" />
                         </div>
                     </div>
                 </div>
@@ -543,9 +561,12 @@ const submit = async () => {
                         <span class="font-medium">{{ a.name }}</span>
                     </button>
                 </div>
-                <div v-for="(ab, idx) in form.abilities" :key="`abi-${idx}`" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                    <span class="font-medium">{{ ab.name }}</span>
-                    <Button variant="ghost" size="sm" @click="removeAbility(idx)">Remove</Button>
+                <div v-for="(ab, idx) in form.abilities" :key="`abi-${idx}`" class="space-y-1 rounded-md border p-2 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium">{{ ab.name }}</span>
+                        <Button variant="ghost" size="sm" @click="removeAbility(idx)">Remove</Button>
+                    </div>
+                    <InputError :message="(usePage().props.errors as Record<string, string>)[`abilities.${idx}.source_character_id`]" />
                 </div>
                 <InputError :message="usePage().props.errors.abilities" />
             </CardContent>
@@ -570,6 +591,7 @@ const submit = async () => {
                 <div class="flex flex-wrap gap-2">
                     <Badge v-for="(c, i) in form.characteristics" :key="c" class="cursor-pointer" @click="removeCharacteristic(i)"> {{ c }} × </Badge>
                 </div>
+                <InputError :message="usePage().props.errors.characteristics" />
             </CardContent>
         </Card>
 

@@ -111,6 +111,7 @@ const props = defineProps<{
         range_types: EnumOption[];
         defensive_ability_types: EnumOption[];
     };
+    campaign_back_url: string | null;
 }>();
 
 const isEdit = computed(() => !!props.character);
@@ -568,7 +569,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
         </PageBanner>
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
-            <div class="mb-4">
+            <div class="mb-4 flex gap-2">
+                <Link v-if="props.campaign_back_url" :href="props.campaign_back_url">
+                    <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to Arsenal Sheet</Button>
+                </Link>
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>
@@ -1075,109 +1079,82 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         </div>
 
                                         <div v-for="(action, idx) in actions" :key="'action-' + idx" class="space-y-3 rounded-lg border p-3">
-                                            <template v-if="action.source_id">
-                                                <div class="flex items-center justify-between">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="text-sm font-medium">{{ action.name }}</span>
-                                                        <Badge class="text-[9px]">{{ action.type }}</Badge>
-                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
-                                                    </div>
-                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
-                                                        <Trash2 class="size-3.5" />
-                                                    </button>
-                                                </div>
-                                                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                                                    <span v-if="action.range != null">Rg {{ formatRange(action.range) }}</span>
-                                                    <span v-if="action.stat != null"
-                                                        >Stat {{ action.stat }}{{ action.stat_suits ? ' ' + action.stat_suits : '' }}</span
-                                                    >
-                                                    <span v-if="action.resisted_by">vs {{ action.resisted_by }}</span>
-                                                    <span v-if="action.damage">Dmg {{ action.damage }}</span>
-                                                </div>
-                                                <div v-if="action.description" class="text-xs text-muted-foreground">{{ action.description }}</div>
-                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <Checkbox
-                                                        :checked="action.is_signature"
-                                                        @update:checked="(v: boolean) => (action.is_signature = v)"
-                                                    />
-                                                    Signature action
-                                                </label>
-                                            </template>
-                                            <template v-else>
-                                                <div class="flex items-center justify-between">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex flex-1 items-center gap-2">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
-                                                        <Trash2 class="size-3.5" />
-                                                    </button>
+                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
                                                 </div>
-                                                <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Type</label>
-                                                        <Select v-model="action.type">
-                                                            <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
-                                                                    t.name
-                                                                }}</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Range</label>
-                                                        <Input v-model="action.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Range Type</label>
-                                                        <Select v-model="action.range_type">
-                                                            <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="none">None</SelectItem>
-                                                                <SelectItem v-for="r in enums.range_types" :key="r.value" :value="r.value">{{
-                                                                    r.name
-                                                                }}</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                        <Input v-model="action.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Resisted By</label>
-                                                        <Input v-model="action.resisted_by" placeholder="Df" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Damage</label>
-                                                        <Input v-model="action.damage" placeholder="2/3/5" class="h-7 text-xs" />
-                                                    </div>
+                                                <button class="ml-2 shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                                                    <Trash2 class="size-3.5" />
+                                                </button>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Type</label>
+                                                    <Select v-model="action.type">
+                                                        <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
+                                                                t.name
+                                                            }}</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
-                                                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Stat Suits</label>
-                                                        <Input v-model="action.stat_suits" placeholder="e.g. crow ram" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Stat Modifier</label>
-                                                        <Input v-model="action.stat_modifier" placeholder="e.g. crow" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Target #</label>
-                                                        <Input v-model="action.target_number" placeholder="e.g. 13" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Target Suits</label>
-                                                        <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
-                                                    </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Range</label>
+                                                    <Input v-model="action.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                 </div>
-                                                <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
-                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <Checkbox
-                                                        :checked="action.is_signature"
-                                                        @update:checked="(v: boolean) => (action.is_signature = v)"
-                                                    />
-                                                    Signature action
-                                                </label>
-                                            </template>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Range Type</label>
+                                                    <Select v-model="action.range_type">
+                                                        <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">None</SelectItem>
+                                                            <SelectItem v-for="r in enums.range_types" :key="r.value" :value="r.value">{{
+                                                                r.name
+                                                            }}</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Stat</label>
+                                                    <Input v-model="action.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Resisted By</label>
+                                                    <Input v-model="action.resisted_by" placeholder="Df" class="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Damage</label>
+                                                    <Input v-model="action.damage" placeholder="2/3/5" class="h-7 text-xs" />
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Stat Suits</label>
+                                                    <Input v-model="action.stat_suits" placeholder="e.g. crow ram" class="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Stat Modifier</label>
+                                                    <Input v-model="action.stat_modifier" placeholder="e.g. crow" class="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Target #</label>
+                                                    <Input v-model="action.target_number" placeholder="e.g. 13" class="h-7 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-muted-foreground">Target Suits</label>
+                                                    <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
+                                                </div>
+                                            </div>
+                                            <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
+                                            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                                <Checkbox
+                                                    :checked="action.is_signature"
+                                                    @update:checked="(v: boolean) => (action.is_signature = v)"
+                                                />
+                                                Signature action
+                                            </label>
 
                                             <!-- Triggers (always shown) -->
                                             <div class="space-y-2 border-t pt-2">

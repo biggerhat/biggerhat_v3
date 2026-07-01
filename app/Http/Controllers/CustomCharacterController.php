@@ -9,6 +9,7 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
@@ -59,9 +60,18 @@ class CustomCharacterController extends Controller
     {
         $this->authorize('update', $customCharacter);
 
+        $campaignBackUrl = null;
+        if ($customCharacter->is_campaign_leader && $customCharacter->campaign_crew_id) {
+            $crew = CampaignCrew::find($customCharacter->campaign_crew_id);
+            if ($crew) {
+                $campaignBackUrl = route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code]);
+            }
+        }
+
         return inertia('Tools/CardCreator/Editor', [
             'character' => $customCharacter,
             'enums' => $this->enumOptions(),
+            'campaign_back_url' => $campaignBackUrl,
         ]);
     }
 

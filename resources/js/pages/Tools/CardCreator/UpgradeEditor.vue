@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -621,64 +622,56 @@ const blockTypeColor = (type: string) => {
 
                                             <!-- Action block -->
                                             <div v-else-if="block.type === 'action'" class="space-y-2">
-                                                <template v-if="block.data?.source_id">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="text-sm font-medium">{{ block.data.name }}</span>
-                                                        <Badge class="text-[9px]">{{ block.data.type }}</Badge>
+                                                <div class="flex items-center gap-2">
+                                                    <Input v-model="block.data!.name" placeholder="Action name" class="h-7 flex-1 text-sm font-medium" />
+                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
+                                                </div>
+                                                <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Type</label>
+                                                        <Select v-model="block.data!.type">
+                                                            <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
+                                                                    t.name
+                                                                }}</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
-                                                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                                                        <span v-if="block.data.range != null"
-                                                            >Rg {{ formatRange(block.data.range as number | string | null | undefined) }}</span
-                                                        >
-                                                        <span v-if="block.data.stat != null">Stat {{ block.data.stat }}</span>
-                                                        <span v-if="block.data.damage">Dmg {{ block.data.damage }}</span>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Range</label>
+                                                        <Input v-model="block.data!.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                     </div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
-                                                        {{ block.data.description }}
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Stat</label>
+                                                        <Input v-model="block.data!.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
                                                     </div>
-                                                </template>
-                                                <template v-else>
-                                                    <Input v-model="block.data!.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">Type</label>
-                                                            <Select v-model="block.data!.type">
-                                                                <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
-                                                                        t.name
-                                                                    }}</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">Range</label>
-                                                            <Input v-model="block.data!.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                            <Input v-model="block.data!.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">Resisted By</label>
-                                                            <Input v-model="block.data!.resisted_by" placeholder="Df" class="h-7 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">TN</label>
-                                                            <Input v-model="block.data!.target_number" placeholder="e.g. 12" class="h-7 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-[10px] text-muted-foreground">Damage</label>
-                                                            <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
-                                                        </div>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Resisted By</label>
+                                                        <Input v-model="block.data!.resisted_by" placeholder="Df" class="h-7 text-xs" />
                                                     </div>
-                                                    <Textarea
-                                                        v-model="block.data!.description"
-                                                        placeholder="Action description..."
-                                                        rows="2"
-                                                        class="text-xs"
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">TN</label>
+                                                        <Input v-model="block.data!.target_number" placeholder="e.g. 12" class="h-7 text-xs" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Damage</label>
+                                                        <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
+                                                    </div>
+                                                </div>
+                                                <Textarea
+                                                    v-model="block.data!.description"
+                                                    placeholder="Action description..."
+                                                    rows="2"
+                                                    class="text-xs"
+                                                />
+                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <Checkbox
+                                                        :checked="block.data!.is_signature"
+                                                        @update:checked="(v: boolean) => (block.data!.is_signature = v)"
                                                     />
-                                                </template>
+                                                    Signature action
+                                                </label>
                                             </div>
 
                                             <!-- Trigger block -->

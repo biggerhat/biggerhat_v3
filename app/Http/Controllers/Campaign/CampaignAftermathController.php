@@ -845,6 +845,11 @@ class CampaignAftermathController extends Controller
             'leader_name' => $leader->name,
             'tag' => $leader->tag,
             'track' => $leader->xp_track ?? CustomCharacter::defaultXpTrack(),
+            'leader_actions' => collect($leader->actions ?? [])->values()->map(fn ($a, $i) => [
+                'index' => $i,
+                'name' => $a['name'] ?? '',
+                'category' => $a['category'] ?? $a['type'] ?? '',
+            ])->all(),
         ];
     }
 

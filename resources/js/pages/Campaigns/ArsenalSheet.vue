@@ -315,6 +315,10 @@ interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
     flip_value: number | null;
+    totem_name: string;
+    totem_size: number | null;
+    totem_base: string;
+    applied_to_action_index: number;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
 watch(
@@ -322,11 +326,27 @@ watch(
     (slots) => {
         for (const slot of slots) {
             if (!drafts.value[slot.position]) {
-                drafts.value[slot.position] = { source_table: defaultTableForTier(slot.tier), catalog_id: null, flip_value: 13 };
+                drafts.value[slot.position] = {
+                    source_table: defaultTableForTier(slot.tier),
+                    catalog_id: null,
+                    flip_value: 13,
+                    totem_name: '',
+                    totem_size: null,
+                    totem_base: '30mm',
+                    applied_to_action_index: -1,
+                };
             }
         }
     },
     { immediate: true },
+);
+
+const leaderActionsWithIndex = computed(() =>
+    (props.leader?.actions ?? []).map((a, i) => ({
+        index: i,
+        name: (a as { name?: string }).name ?? `Action ${i + 1}`,
+        category: (a as { category?: string; type?: string }).category ?? (a as { type?: string }).type ?? '',
+    })),
 );
 
 const logAdvancement = (position: number) => {
@@ -335,11 +355,21 @@ const logAdvancement = (position: number) => {
         toast.warning('Pick an advancement first.');
         return;
     }
+    const isTotem = d.source_table === 'totem';
+    const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
+    if (isTrigger && d.applied_to_action_index < 0 && leaderActionsWithIndex.value.length) {
+        toast.warning('Select which action this trigger applies to.');
+        return;
+    }
     router.post(route('campaigns.crews.leader.advancements.store', [props.campaign.id, props.crew.share_code]), {
         position_in_xp_track: position,
         source_table: d.source_table,
         catalog_id: d.catalog_id,
         flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
+        totem_name: isTotem ? d.totem_name || null : undefined,
+        totem_size: isTotem ? d.totem_size : undefined,
+        totem_base: isTotem ? d.totem_base : undefined,
+        applied_to_action_index: isTrigger ? d.applied_to_action_index : undefined,
     });
 };
 
@@ -730,6 +760,60 @@ const totemRendererProps = computed(() => {
                                             </option>
                                         </select>
                                         <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                    </div>
+                                    <!-- Totem advancement: name, size, base inputs -->
+                                    <div v-if="drafts[slot.position].source_table === 'totem'" class="flex flex-wrap gap-2">
+                                        <Input
+                                            v-model="drafts[slot.position].totem_name"
+                                            placeholder="Totem name (optional)"
+                                            class="h-8 min-w-[160px] flex-1"
+                                        />
+                                        <select
+                                            v-model.number="drafts[slot.position].totem_size"
+                                            class="h-8 rounded border bg-background px-2 text-foreground"
+                                        >
+                                            <option :value="null">— size —</option>
+                                            <option :value="1">Size 1</option>
+                                            <option :value="2">Size 2</option>
+                                            <option :value="3">Size 3</option>
+                                        </select>
+                                        <select
+                                            v-model="drafts[slot.position].totem_base"
+                                            class="h-8 rounded border bg-background px-2 text-foreground"
+                                        >
+                                            <option value="30mm">30mm base</option>
+                                            <option value="40mm">40mm base</option>
+                                            <option value="50mm">50mm base</option>
+                                        </select>
+                                    </div>
+                                    <!-- Attack/tactical mod: pick which action gets this trigger -->
+                                    <div
+                                        v-if="
+                                            (drafts[slot.position].source_table === 'attack_mod' ||
+                                                drafts[slot.position].source_table === 'tactical_mod') &&
+                                            drafts[slot.position].catalog_id !== null &&
+                                            leaderActionsWithIndex.length
+                                        "
+                                        class="flex items-center gap-2"
+                                    >
+                                        <label class="shrink-0 text-xs text-muted-foreground">Add to action:</label>
+                                        <select
+                                            v-model.number="drafts[slot.position].applied_to_action_index"
+                                            class="h-8 flex-1 rounded border bg-background px-2 text-sm text-foreground"
+                                        >
+                                            <option :value="-1">— select action —</option>
+                                            <option
+                                                v-for="a in leaderActionsWithIndex.filter(
+                                                    (la) =>
+                                                        la.category ===
+                                                        (drafts[slot.position].source_table === 'attack_mod' ? 'attack' : 'tactical'),
+                                                )"
+                                                :key="a.index"
+                                                :value="a.index"
+                                            >
+                                                {{ a.name }}
+                                            </option>
+                                        </select>
                                     </div>
                                     <!-- Full card preview for the selected advancement -->
                                     <template v-if="selectedDraftRow(slot.position)">

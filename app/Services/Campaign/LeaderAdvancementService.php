@@ -113,13 +113,16 @@ class LeaderAdvancementService
     }
 
     /**
-     * Persist the advancement records against the leader.
+     * Persist the advancement records against the leader and apply the
+     * mechanical effect to the leader's card data (actions/abilities JSON).
      *
      * @param  array<int, array<string, mixed>>  $advancements
      */
     public function create(CustomCharacter $leader, array $advancements, ?int $sourceAftermathId): void
     {
         foreach ($advancements as $a) {
+            $table = AdvancementTableEnum::from($a['source_table']);
+
             CampaignLeaderAdvancement::create([
                 'custom_character_id' => $leader->id,
                 'source_aftermath_id' => $sourceAftermathId,
@@ -132,19 +135,115 @@ class LeaderAdvancementService
                 'acquired_at' => now(),
             ]);
 
-            // Totem advancement: spawn a crew CustomCharacter from the template
-            // so it appears as a card the player can fill out via the Card Creator.
-            if (AdvancementTableEnum::from($a['source_table']) === AdvancementTableEnum::Totem
-                && ! empty($a['catalog_id'])) {
-                $this->createTotemFromTemplate(
+            $catalogId = isset($a['catalog_id']) ? (int) $a['catalog_id'] : null;
+
+            match ($table) {
+                AdvancementTableEnum::Totem => $this->createTotemFromTemplate(
                     $leader,
-                    (int) $a['catalog_id'],
+                    $catalogId ?? 0,
                     $a['totem_name'] ?? null,
                     isset($a['totem_size']) ? (int) $a['totem_size'] : null,
                     $a['totem_base'] ?? null,
-                );
-            }
+                ),
+                AdvancementTableEnum::Action, AdvancementTableEnum::Summoning => $catalogId
+                    ? $this->applyActionToLeader($leader, $catalogId)
+                    : null,
+                AdvancementTableEnum::Ability => $catalogId
+                    ? $this->applyAbilityToLeader($leader, $catalogId)
+                    : null,
+                AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => $catalogId
+                    ? $this->applyTriggerToLeader($leader, $catalogId, (int) ($a['applied_to_action_index'] ?? -1))
+                    : null,
+                default => null,
+            };
         }
+    }
+
+    private function applyActionToLeader(CustomCharacter $leader, int $actionId): void
+    {
+        $action = Action::with('triggers:id,name,suits,stone_cost,description')->find($actionId);
+        if (! $action) {
+            return;
+        }
+
+        $typeValue = $action->type instanceof \BackedEnum ? $action->type->value : (string) $action->type;
+        $actions = $leader->actions ?? [];
+        $actions[] = [
+            'name' => $action->name,
+            'type' => $typeValue,
+            'category' => $typeValue,
+            'is_signature' => false,
+            'stone_cost' => $action->stone_cost ?? 0,
+            'range' => $action->range,
+            'range_type' => $action->range_type instanceof \BackedEnum ? $action->range_type->value : $action->range_type,
+            'stat' => $action->stat,
+            'stat_suits' => $action->stat_suits,
+            'stat_modifier' => $action->stat_modifier instanceof \BackedEnum ? $action->stat_modifier->value : $action->stat_modifier,
+            'resisted_by' => $action->resisted_by,
+            'target_number' => $action->target_number,
+            'target_suits' => $action->target_suits,
+            'damage' => $action->damage,
+            'description' => $action->description,
+            'source_id' => $action->id,
+            'triggers' => $action->triggers->map(fn (Trigger $t) => [
+                'name' => $t->name,
+                'suits' => $t->suits,
+                'stone_cost' => $t->stone_cost ?? 0,
+                'description' => $t->description,
+                'source_id' => $t->id,
+            ])->all(),
+        ];
+        $leader->actions = $actions;
+        $leader->save();
+    }
+
+    private function applyAbilityToLeader(CustomCharacter $leader, int $abilityId): void
+    {
+        $ability = Ability::find($abilityId);
+        if (! $ability) {
+            return;
+        }
+
+        $abilities = $leader->abilities ?? [];
+        $abilities[] = [
+            'name' => $ability->name,
+            'suits' => $ability->suits,
+            'defensive_ability_type' => $ability->defensive_ability_type instanceof \BackedEnum
+                ? $ability->defensive_ability_type->value
+                : $ability->defensive_ability_type,
+            'costs_stone' => (bool) $ability->costs_stone,
+            'description' => $ability->description,
+            'source_id' => $ability->id,
+        ];
+        $leader->abilities = $abilities;
+        $leader->save();
+    }
+
+    private function applyTriggerToLeader(CustomCharacter $leader, int $triggerId, int $actionIndex): void
+    {
+        if ($actionIndex < 0) {
+            return;
+        }
+
+        $trigger = Trigger::find($triggerId);
+        if (! $trigger) {
+            return;
+        }
+
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['triggers'][] = [
+            'name' => $trigger->name,
+            'suits' => $trigger->suits,
+            'stone_cost' => $trigger->stone_cost ?? 0,
+            'description' => $trigger->description,
+            'source_id' => $trigger->id,
+        ];
+        $leader->actions = $actions;
+        $leader->save();
     }
 
     private function createTotemFromTemplate(

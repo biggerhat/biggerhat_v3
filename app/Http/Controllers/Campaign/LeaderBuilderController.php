@@ -130,6 +130,7 @@ class LeaderBuilderController extends Controller
                 'damage' => $a['damage'] ?? null,
                 'description' => $a['description'] ?? null,
                 'source_id' => $a['source_id'] ?? null,
+                'source_character_id' => $a['source_character_id'] ?? null,
                 'triggers' => $a['triggers'] ?? [],
             ];
         }, $data['actions'] ?? []);

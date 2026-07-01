@@ -6,6 +6,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1094,6 +1095,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     <span v-if="action.damage">Dmg {{ action.damage }}</span>
                                                 </div>
                                                 <div v-if="action.description" class="text-xs text-muted-foreground">{{ action.description }}</div>
+                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <Checkbox
+                                                        :checked="action.is_signature"
+                                                        @update:checked="(v: boolean) => (action.is_signature = v)"
+                                                    />
+                                                    Signature action
+                                                </label>
                                             </template>
                                             <template v-else>
                                                 <div class="flex items-center justify-between">
@@ -1143,7 +1151,32 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <Input v-model="action.damage" placeholder="2/3/5" class="h-7 text-xs" />
                                                     </div>
                                                 </div>
+                                                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Stat Suits</label>
+                                                        <Input v-model="action.stat_suits" placeholder="e.g. crow ram" class="h-7 text-xs" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Stat Modifier</label>
+                                                        <Input v-model="action.stat_modifier" placeholder="e.g. crow" class="h-7 text-xs" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Target #</label>
+                                                        <Input v-model="action.target_number" placeholder="e.g. 13" class="h-7 text-xs" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="text-[10px] text-muted-foreground">Target Suits</label>
+                                                        <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
+                                                    </div>
+                                                </div>
                                                 <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
+                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <Checkbox
+                                                        :checked="action.is_signature"
+                                                        @update:checked="(v: boolean) => (action.is_signature = v)"
+                                                    />
+                                                    Signature action
+                                                </label>
                                             </template>
 
                                             <!-- Triggers (always shown) -->

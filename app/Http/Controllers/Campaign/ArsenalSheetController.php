@@ -78,6 +78,12 @@ class ArsenalSheetController extends Controller
             ]),
         ]);
 
+        // Propagate crew card action pivot signature flag so `is_signature` on
+        // each serialized action reflects the crew-card-specific value.
+        $crew->crewCardEffect?->actions->each(
+            fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action,
+        );
+
         // Resolve gained Lucky Miss ids to names for display.
         $luckyMissNames = LuckyMiss::query()->pluck('name', 'id');
 

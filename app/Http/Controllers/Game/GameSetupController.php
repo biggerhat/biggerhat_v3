@@ -22,6 +22,7 @@ use App\Models\Scheme;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -222,6 +223,115 @@ class GameSetupController extends Controller
 
         // In solo, opponent crew is optional — check with skip support.
         // Pessimistic lock to prevent double-advance.
+        $bothDone = DB::transaction(function () use ($game) {
+            /** @var Game $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            $done = $locked->players()
+                ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
+                ->count() === 2;
+            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
+                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+            }
+
+            return $done;
+        });
+
+        if (! $game->is_solo) {
+            if ($bothDone) {
+                broadcast(new GameStatusChanged($game))->toOthers();
+            }
+            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+        }
+
+        return response()->json(['success' => true, 'both_done' => $bothDone]);
+    }
+
+    /**
+     * Campaign-specific crew submission: accepts an array of character IDs from
+     * the player's campaign arsenal instead of a pre-built CrewBuild. Creates a
+     * synthetic (archived) CrewBuild so the standard crew_build_id tracking works.
+     */
+    public function submitCampaignCrew(Request $request, Game $game): JsonResponse
+    {
+        if ($game->format !== GameFormatEnum::Campaign) {
+            return response()->json(['error' => 'Not a Campaign game'], 422);
+        }
+
+        $player = $this->getPlayer($game);
+
+        if ($game->status !== GameStatusEnum::CrewSelect) {
+            return response()->json(['error' => 'Invalid game state'], 422);
+        }
+
+        $validated = $request->validate([
+            'character_ids' => ['present', 'array'],
+            'character_ids.*' => ['integer', 'exists:characters,id'],
+        ]);
+
+        $characterIds = array_map('intval', $validated['character_ids']);
+
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['crewA', 'crewB'])
+            ->first();
+
+        if (! $campaignGame) {
+            return response()->json(['error' => 'Campaign game not found'], 422);
+        }
+
+        $userId = Auth::id();
+        $campaignCrew = null;
+        if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
+            $campaignCrew = $campaignGame->crewA;
+        } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+            $campaignCrew = $campaignGame->crewB;
+        }
+
+        if (! $campaignCrew) {
+            return response()->json(['error' => 'Not in this campaign game'], 403);
+        }
+
+        if (! empty($characterIds)) {
+            $arsenalIds = \App\Models\Campaign\CampaignArsenalModel::query()
+                ->where('campaign_crew_id', $campaignCrew->id)
+                ->active()
+                ->pluck('character_id')
+                ->all();
+
+            $outside = array_diff($characterIds, $arsenalIds);
+            if (! empty($outside)) {
+                $names = Character::whereIn('id', $outside)->pluck('display_name')->implode(', ');
+
+                return response()->json(['error' => "Not in your campaign arsenal: {$names}"], 422);
+            }
+        }
+
+        $faction = $campaignCrew->faction;
+        if (! $faction) {
+            return response()->json(['error' => 'Build your campaign leader before selecting crew'], 422);
+        }
+
+        $build = CrewBuild::create([
+            'user_id' => $userId,
+            'name' => 'Campaign Game',
+            'faction' => $faction,
+            'master_id' => null,
+            'crew_data' => $characterIds,
+            'is_archived' => true,
+        ]);
+
+        DB::transaction(function () use ($player, $game, $build) {
+            $player->update(['crew_build_id' => $build->id]);
+            $this->copyCrewToGame($game, $player, $build);
+
+            $totalSpent = GameCrewMember::where('game_id', $game->id)
+                ->where('game_player_id', $player->id)
+                ->sum('cost');
+            $remaining = $game->encounter_size - $totalSpent;
+            $pool = $remaining > 6 ? 6 : max(0, $remaining);
+            $player->update(['soulstone_pool' => $pool]);
+        });
+
         $bothDone = DB::transaction(function () use ($game) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);

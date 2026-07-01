@@ -489,6 +489,7 @@ class GameController extends Controller
         if ($isSelf) {
             $props['bonanza_crew_upgrades'] = fn () => $this->buildBonanzaCrewUpgrades($game);
             $props['campaign_context'] = fn () => $this->buildCampaignContext($game);
+            $props['campaign_arsenal'] = fn () => $this->buildCampaignArsenalProp($game);
         }
 
         return $props;
@@ -524,6 +525,75 @@ class GameController extends Controller
             'encounter_size' => $wrap->encounter_size,
             'week_number' => $wrap->week_number,
         ];
+    }
+
+    /**
+     * Campaign arsenal models shaped for the inline crew picker shown during
+     * CrewSelect. Empty array on any non-Campaign game or wrong status.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCampaignArsenalProp(Game $game): array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
+            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+            || ! Auth::check()) {
+            return [];
+        }
+
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['crewA.leader', 'crewB.leader'])
+            ->first();
+
+        if (! $campaignGame) {
+            return [];
+        }
+
+        $userId = Auth::id();
+        $campaignCrew = null;
+        $leader = null;
+        if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
+            $campaignCrew = $campaignGame->crewA;
+            $leader = $campaignGame->crewA->leader;
+        } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+            $campaignCrew = $campaignGame->crewB;
+            $leader = $campaignGame->crewB->leader;
+        }
+
+        if (! $campaignCrew) {
+            return [];
+        }
+
+        $leaderKeywordSlugs = collect($leader !== null ? ($leader->keywords ?? []) : [])
+            ->pluck('name')
+            ->map(fn ($n) => \Illuminate\Support\Str::slug($n))
+            ->toArray();
+
+        return \App\Models\Campaign\CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $campaignCrew->id)
+            ->active()
+            ->with(['character.keywords', 'character.characteristics'])
+            ->get()
+            ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs) {
+                $char = $m->character;
+                $sharesKeyword = $char->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
+                $isVersatile = $char->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+                $isOok = ! $sharesKeyword && ! $isVersatile;
+
+                return [
+                    'character_id' => $m->character_id,
+                    'name' => $char->display_name ?? $char->name,
+                    'faction' => $char->getRawOriginal('faction'),
+                    'station' => $char->getRawOriginal('station'),
+                    'cost' => $char->cost ?? 0,
+                    'effective_cost' => $isOok ? (($char->cost ?? 0) + 1) : ($char->cost ?? 0),
+                    'is_ook' => $isOok,
+                    'is_peon' => $m->is_peon,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

@@ -546,7 +546,7 @@ const submit = () => {
                     <DrawerTitle class="text-center">
                         {{ previewCharacter.display_name }}
                         <span class="text-yellow-400">
-                            ({{ previewCharacter.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)
+                            ({{ effectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3.5 inline-block" />)
                         </span>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
@@ -598,7 +598,7 @@ const submit = () => {
                 <DrawerFooter class="shrink-0 pt-2">
                     <div class="flex flex-wrap items-center justify-center gap-2">
                         <Button
-                            v-if="!locked && (previewCharacter.cost ?? 0) <= remainingBudget"
+                            v-if="!locked && effectiveCost(previewCharacter) <= remainingBudget"
                             class="gap-1.5"
                             @click="
                                 addHire(previewCharacter!);

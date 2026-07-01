@@ -295,11 +295,15 @@ class LeaderAdvancementService
             'source_id' => $ab->id,
         ])->all();
 
-        // BaseSizeEnum is int-backed (30/40/50); convert the user's label string.
+        // BaseSizeEnum is int-backed (30/40/50); convert the user's label string,
+        // falling back to the template's own base if the player didn't specify one.
         $baseInt = match ($totemBase) {
             '40mm' => 40,
             '50mm' => 50,
-            default => 30,
+            '30mm' => 30,
+            default => $template->base instanceof \BackedEnum
+                ? (int) $template->base->value
+                : (int) ($template->base ?? 30),
         };
 
         CustomCharacter::create([
@@ -312,11 +316,17 @@ class LeaderAdvancementService
             'faction' => $leader->faction,
             'station' => null,
             'cost' => null,
-            'health' => 0,
-            'defense' => 0,
-            'willpower' => 0,
-            'speed' => 0,
-            'size' => $totemSize ?? 1,
+            'health' => $template->health ?? 0,
+            'defense' => $template->defense ?? 0,
+            'defense_suit' => $template->defense_suit instanceof \BackedEnum
+                ? $template->defense_suit->value
+                : $template->defense_suit,
+            'willpower' => $template->willpower ?? 0,
+            'willpower_suit' => $template->willpower_suit instanceof \BackedEnum
+                ? $template->willpower_suit->value
+                : $template->willpower_suit,
+            'speed' => $template->speed ?? 0,
+            'size' => $totemSize ?? $template->size ?? 1,
             'base' => $baseInt,
             'is_unhirable' => true,
             'actions' => $actions,

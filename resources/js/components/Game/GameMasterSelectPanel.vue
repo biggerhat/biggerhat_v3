@@ -26,6 +26,7 @@ const props = defineProps<{
     myFaction: string | null;
     opponentFaction: string | null;
     isBonanza: boolean;
+    isCampaign: boolean;
     isSolo: boolean;
     submitting: boolean;
     mySlot: number;
@@ -50,6 +51,7 @@ const emit = defineEmits<{
 }>();
 
 const availableMasters = computed(() => {
+    if (props.isCampaign) return props.masters;
     if (!props.myFaction) return [];
     const f = props.myFaction;
     return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);

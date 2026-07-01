@@ -232,6 +232,7 @@ const isObserver = computed(() => props.is_observer);
 // the standard-format scenario panel + the per-turn scheme/strategy scoring
 // widgets, and to show a rules-summary banner on the gameplay surface.
 const isBonanza = computed(() => props.game.format === GameFormat.BonanzaBrawl);
+const isCampaign = computed(() => props.game.format === GameFormat.Campaign);
 // Resolve the actual slot numbers rather than hardcoding 1/2 — solo games
 // created from a tournament round can place the registered user in slot 2
 // (see TournamentTrackerGameFactory::createForGame), which breaks anything
@@ -3096,6 +3097,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :my-faction="myPlayer?.faction ?? null"
                 :opponent-faction="opponentPlayer?.faction ?? null"
                 :is-bonanza="isBonanza"
+                :is-campaign="isCampaign"
                 :is-solo="isSolo"
                 :submitting="submitting"
                 :my-slot="mySlot"

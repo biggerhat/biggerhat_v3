@@ -373,6 +373,10 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 'loot_card_catalog',
                 'bonanza_crew_upgrades',
                 'campaign_arsenal',
+                // campaign_leader_option depends on the player's faction, which is
+                // only set once submitFaction completes — must reload here or the
+                // leader stays blank at Master Select until a manual refresh.
+                'campaign_leader_option',
             ],
             preserveScroll: true,
             preserveState: true,

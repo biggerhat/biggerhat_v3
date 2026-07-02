@@ -23,6 +23,9 @@ interface MasterOption {
 
 const props = defineProps<{
     masters: MasterOption[];
+    /** Campaign games only: the user's own built leader, separate from the
+     *  catalog masters. Used for the user's own pick; opponent pick uses masters. */
+    campaignLeaderOption?: MasterOption | null;
     myFaction: string | null;
     opponentFaction: string | null;
     isBonanza: boolean;
@@ -51,7 +54,10 @@ const emit = defineEmits<{
 }>();
 
 const availableMasters = computed(() => {
-    if (props.isCampaign) return props.masters;
+    if (props.isCampaign) {
+        // Campaign: the user's own pick is their built leader, not a catalog master.
+        return props.campaignLeaderOption ? [props.campaignLeaderOption] : [];
+    }
     if (!props.myFaction) return [];
     const f = props.myFaction;
     return props.masters.filter((m) => m.faction === f || m.second_faction === f || m.is_alternate_leader);
@@ -155,7 +161,12 @@ const confirmOpponentMasterSelection = () => {
                     v-if="filteredMasters.length === 0"
                     class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
                 >
-                    No masters match "{{ masterSearchQuery }}".
+                    <template v-if="isCampaign && availableMasters.length === 0">
+                        Build your campaign leader before selecting crew.
+                    </template>
+                    <template v-else>
+                        No masters match "{{ masterSearchQuery }}".
+                    </template>
                 </div>
                 <!-- pb-24: room under the last row for the floating confirm bar. -->
                 <div v-else class="grid grid-cols-1 gap-3 pb-24 sm:grid-cols-2 lg:grid-cols-3">

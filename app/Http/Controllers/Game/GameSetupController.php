@@ -270,25 +270,37 @@ class GameSetupController extends Controller
 
         $characterIds = array_map('intval', $validated['character_ids']);
 
+        $userId = Auth::id();
         $campaignGame = \App\Models\Campaign\CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with(['crewA', 'crewB'])
             ->first();
 
-        if (! $campaignGame) {
-            return response()->json(['error' => 'Campaign game not found'], 422);
-        }
-
-        $userId = Auth::id();
         $campaignCrew = null;
-        if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
-            $campaignCrew = $campaignGame->crewA;
-        } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
-            $campaignCrew = $campaignGame->crewB;
+
+        if ($campaignGame) {
+            if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewA;
+            } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewB;
+            }
+        } else {
+            // Solo Campaign game created outside the campaign hub — no CampaignGame link.
+            // Match the crew by the faction the user picked for this game.
+            if ($game->is_solo) {
+                $myGamePlayer = $game->players()->where('user_id', $userId)->first();
+                if ($myGamePlayer?->faction) {
+                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                        ->where('user_id', $userId)
+                        ->where('faction', $myGamePlayer->getRawOriginal('faction'))
+                        ->latest('id')
+                        ->first();
+                }
+            }
         }
 
         if (! $campaignCrew) {
-            return response()->json(['error' => 'Not in this campaign game'], 403);
+            return response()->json(['error' => 'Campaign crew not found — ensure you have an active campaign with a built leader for your faction.'], 422);
         }
 
         if (! empty($characterIds)) {
@@ -610,17 +622,28 @@ class GameSetupController extends Controller
         // (not the crew build's standard Character). Add the leader and totem from
         // the campaign crew, then fall through to the shared crew/custom-crew logic.
         if ($game->format === GameFormatEnum::Campaign) {
+            $userId = \Illuminate\Support\Facades\Auth::id();
             $campaignGame = \App\Models\Campaign\CampaignGame::query()
                 ->where('base_game_id', $game->id)
                 ->with(['crewA.leader', 'crewA.totem', 'crewB.leader', 'crewB.totem'])
                 ->first();
 
-            $userId = \Illuminate\Support\Facades\Auth::id();
             $campaignCrew = null;
             if ($campaignGame?->crewA && $campaignGame->crewA->user_id === $userId) {
                 $campaignCrew = $campaignGame->crewA;
             } elseif ($campaignGame?->crewB && $campaignGame->crewB->user_id === $userId) {
                 $campaignCrew = $campaignGame->crewB;
+            } elseif (! $campaignGame && $game->is_solo) {
+                // Solo Campaign game with no CampaignGame link — find the crew by faction.
+                $myGamePlayer = $game->players()->where('user_id', $userId)->first();
+                if ($myGamePlayer?->faction) {
+                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                        ->where('user_id', $userId)
+                        ->where('faction', $myGamePlayer->getRawOriginal('faction'))
+                        ->with(['leader', 'totem'])
+                        ->latest('id')
+                        ->first();
+                }
             }
 
             $campaignLeader = $campaignCrew?->leader;

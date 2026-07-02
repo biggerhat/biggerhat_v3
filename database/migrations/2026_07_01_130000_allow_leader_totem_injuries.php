@@ -16,7 +16,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('campaign_arsenal_model_injuries', function (Blueprint $table) {
-            $table->dropForeignSafe('campaign_arsenal_model_injuries', ['campaign_arsenal_model_id']);
+            $table->dropForeignSafe('fk_camim_arsenal_model');
         });
 
         Schema::table('campaign_arsenal_model_injuries', function (Blueprint $table) {
@@ -32,12 +32,12 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('campaign_arsenal_model_injuries', function (Blueprint $table) {
-            $table->dropForeignSafe('campaign_arsenal_model_injuries', ['custom_character_id']);
+            $table->dropForeignSafe(['custom_character_id']);
             $table->dropColumn('custom_character_id');
         });
 
         Schema::table('campaign_arsenal_model_injuries', function (Blueprint $table) {
-            $table->dropForeignSafe('campaign_arsenal_model_injuries', ['campaign_arsenal_model_id']);
+            $table->dropForeignSafe('fk_camim_arsenal_model');
         });
 
         Schema::table('campaign_arsenal_model_injuries', function (Blueprint $table) {

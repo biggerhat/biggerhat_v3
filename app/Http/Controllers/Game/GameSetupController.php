@@ -248,8 +248,9 @@ class GameSetupController extends Controller
 
     /**
      * Campaign-specific crew submission: accepts an array of character IDs from
-     * the player's campaign arsenal instead of a pre-built CrewBuild. Creates a
-     * synthetic (archived) CrewBuild so the standard crew_build_id tracking works.
+     * the player's campaign arsenal instead of a pre-built CrewBuild. Sets
+     * crew_skipped = true (the "done" marker) rather than creating a synthetic
+     * CrewBuild — campaign crew builds have no catalog master_id.
      */
     public function submitCampaignCrew(Request $request, Game $game): JsonResponse
     {
@@ -323,18 +324,9 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Build your campaign leader before selecting crew'], 422);
         }
 
-        $build = CrewBuild::create([
-            'user_id' => $userId,
-            'name' => 'Campaign Game',
-            'faction' => $faction,
-            'master_id' => null,
-            'crew_data' => $characterIds,
-            'is_archived' => true,
-        ]);
-
-        DB::transaction(function () use ($player, $game, $build) {
-            $player->update(['crew_build_id' => $build->id]);
-            $this->copyCrewToGame($game, $player, $build);
+        DB::transaction(function () use ($player, $game) {
+            $player->update(['crew_skipped' => true]);
+            $this->copyCrewToGame($game, $player, null);
 
             $totalSpent = GameCrewMember::where('game_id', $game->id)
                 ->where('game_player_id', $player->id)
@@ -609,7 +601,7 @@ class GameSetupController extends Controller
         return $player;
     }
 
-    private function copyCrewToGame(Game $game, GamePlayer $player, CrewBuild $crewBuild): void
+    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild): void
     {
         // Delete existing crew members for this player (in case of re-selection)
         GameCrewMember::where('game_id', $game->id)
@@ -773,6 +765,10 @@ class GameSetupController extends Controller
                 ]);
             }
 
+            return;
+        }
+
+        if (! $crewBuild) {
             return;
         }
 

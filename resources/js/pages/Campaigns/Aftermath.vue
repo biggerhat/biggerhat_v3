@@ -48,8 +48,10 @@ interface AftermathData {
 interface KilledModelRow {
     id: number;
     campaign_crew_id: number;
-    character_id: number;
+    character_id: number | null;
+    custom_character_id: number | null;
     label: string | null;
+    display_name: string;
     character: { id: number; display_name: string; station: string } | null;
 }
 
@@ -473,7 +475,8 @@ const doctorOutcome = (resultId: number | null) =>
 // The injury flip is made at the table (pg 34-36); the player picks the injury
 // that resulted directly from the catalog. Jokers stay explicit choices.
 interface InjuryEntry {
-    arsenal_model_id: number;
+    arsenal_model_id: number | null;
+    custom_character_id: number | null;
     // The chosen injury upgrade (null until picked / when a joker is flipped).
     injury_upgrade_id: number | null;
     is_red_joker: boolean;
@@ -488,9 +491,10 @@ interface InjuryEntry {
     traitor_target_crew_id: number | null;
 }
 const injuryFlips = ref<InjuryEntry[]>([]);
-const addInjuryFlip = (modelId: number) => {
+const addInjuryFlip = (m: KilledModelRow) => {
     injuryFlips.value.push({
-        arsenal_model_id: modelId,
+        arsenal_model_id: m.custom_character_id !== null ? null : m.id,
+        custom_character_id: m.custom_character_id ?? null,
         injury_upgrade_id: null,
         is_red_joker: false,
         is_black_joker: false,
@@ -503,13 +507,13 @@ const addInjuryFlip = (modelId: number) => {
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
 
-// Resolve an arsenal model id to a human-readable name for the Pending Injuries
-// list (was showing the raw "model #<id>").
-const modelDisplayName = (arsenalModelId: number): string => {
-    const m = props.killed_models.find((k) => k.id === arsenalModelId);
-    if (!m) return `Model #${arsenalModelId}`;
-    const base = m.character?.display_name ?? 'Model';
-    return m.label ? `${base} (${m.label})` : base;
+// Resolve a flip entry to a human-readable name for the Pending Injuries list.
+const modelDisplayName = (f: InjuryEntry): string => {
+    const m = f.custom_character_id !== null
+        ? props.killed_models.find((k) => k.custom_character_id === f.custom_character_id)
+        : props.killed_models.find((k) => k.id === f.arsenal_model_id);
+    if (!m) return f.custom_character_id !== null ? `Custom char #${f.custom_character_id}` : `Model #${f.arsenal_model_id}`;
+    return m.display_name || (m.label ? `${m.character?.display_name ?? 'Model'} (${m.label})` : (m.character?.display_name ?? 'Model'));
 };
 
 interface InjuryCatalogRow {
@@ -1029,12 +1033,12 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     actually killed this game (pg 34).
                 </p>
                 <ul class="space-y-1">
-                    <li v-for="m in killed_models" :key="m.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
+                    <li v-for="m in killed_models" :key="`${m.custom_character_id ?? 'a'}-${m.id}`" class="flex items-center justify-between rounded-md border p-2 text-sm">
                         <span>
-                            {{ m.character?.display_name ?? '—' }}
+                            {{ m.display_name || m.character?.display_name || '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
                         </span>
-                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m.id)">Add injury</Button>
+                        <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m)">Add injury</Button>
                     </li>
                 </ul>
 
@@ -1042,7 +1046,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Injuries</p>
                     <ul class="space-y-2">
                         <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
-                            <span class="flex-1 truncate font-medium">{{ modelDisplayName(f.arsenal_model_id) }}</span>
+                            <span class="flex-1 truncate font-medium">{{ modelDisplayName(f) }}</span>
                             <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_red_joker"

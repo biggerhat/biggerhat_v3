@@ -221,6 +221,8 @@ const props = defineProps<{
         is_ook: boolean;
         is_peon: boolean;
     }[];
+    /** Campaign games only: the current user's built leader for their own master pick. */
+    campaign_leader_option?: MasterOption | null;
 }>();
 
 const page = usePage<SharedData>();
@@ -3105,6 +3107,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <GameMasterSelectPanel
                 v-if="game.status === GameStatus.MasterSelect && !isObserver"
                 :masters="masters"
+                :campaign-leader-option="campaign_leader_option ?? null"
                 :my-faction="myPlayer?.faction ?? null"
                 :opponent-faction="opponentPlayer?.faction ?? null"
                 :is-bonanza="isBonanza"

@@ -203,8 +203,8 @@ it('Master Select for a campaign game offers the player campaign leader', functi
     $this->actingAs($userA)
         ->get(route('games.show', $game->uuid))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where(
-            'masters',
-            fn ($masters) => collect($masters)->count() === 1 && collect($masters)->first()['name'] === 'Mortimer Vance',
-        ));
+        ->assertInertia(fn ($page) => $page
+            ->where('masters', [])
+            ->where('campaign_leader_option.name', 'Mortimer Vance')
+        );
 });

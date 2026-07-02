@@ -675,7 +675,10 @@ class CampaignAftermathController extends Controller
 
         $data = $request->validate([
             'flips' => ['nullable', 'array'],
-            'flips.*.arsenal_model_id' => ['required', 'integer', 'exists:campaign_arsenal_models,id'],
+            // Exactly one of arsenal_model_id / custom_character_id must be set.
+            // arsenal_model_id → standard crew model; custom_character_id → leader/totem.
+            'flips.*.arsenal_model_id' => ['nullable', 'integer', 'exists:campaign_arsenal_models,id'],
+            'flips.*.custom_character_id' => ['nullable', 'integer', 'exists:custom_characters,id'],
             // A red-joker kill is a "Close Call" → the model flips on the Lucky
             // Miss table instead of taking an injury (pg 35-36). A black joker is
             // "Traitor" → the model defects (pg 34). flip_value / suit_pool are
@@ -704,10 +707,58 @@ class CampaignAftermathController extends Controller
 
         $this->lockAndAdvance($aftermath, 6, function (CampaignAftermath $locked) use ($flips, $opponentCrewId) {
             foreach ($flips as $f) {
+                $customCharId = ! empty($f['custom_character_id']) ? (int) $f['custom_character_id'] : null;
+                $arsenalModelId = ! empty($f['arsenal_model_id']) ? (int) $f['arsenal_model_id'] : null;
+
+                if ($customCharId !== null) {
+                    // ── Leader / Totem path ──────────────────────────────────
+                    $char = CustomCharacter::query()
+                        ->whereKey($customCharId)
+                        ->where('campaign_crew_id', $locked->campaign_crew_id)
+                        ->lockForUpdate()
+                        ->first();
+                    if (! $char || $char->annihilated_at !== null) {
+                        continue;
+                    }
+
+                    // Rulebook: black joker (Traitor) for a leader/totem → reflip
+                    // the result. We skip the result entirely (no action taken).
+                    if (! empty($f['is_black_joker'])) {
+                        continue;
+                    }
+
+                    // Red joker (Close Call): Lucky Miss. Leader/totem lucky-miss
+                    // effects are not yet tracked — treat as no injury taken.
+                    if (! empty($f['is_red_joker'])) {
+                        continue;
+                    }
+
+                    if (empty($f['injury_upgrade_id'])) {
+                        continue;
+                    }
+                    $injury = Upgrade::query()
+                        ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                        ->where('campaign_upgrade_kind', 'injury')
+                        ->whereKey($f['injury_upgrade_id'])
+                        ->first();
+                    if (! $injury) {
+                        continue;
+                    }
+
+                    $this->attachInjuryToCustomChar($char, $injury, $locked->id);
+
+                    continue;
+                }
+
+                if ($arsenalModelId === null) {
+                    continue;
+                }
+
+                // ── Standard arsenal model path ──────────────────────────────
                 // Pessimistic lock so the dup-check + count + annihilation in
                 // attachInjury() is atomic against concurrent submissions.
                 $model = CampaignArsenalModel::query()
-                    ->whereKey($f['arsenal_model_id'])
+                    ->whereKey($arsenalModelId)
                     ->lockForUpdate()
                     ->first();
                 if (! $model || $model->campaign_crew_id !== $locked->campaign_crew_id) {
@@ -793,22 +844,24 @@ class CampaignAftermathController extends Controller
         ])->withMessage('Aftermath closed.');
     }
 
-    private function killedNonPeonModelsForCrew(CampaignAftermath $aftermath)
+    private function killedNonPeonModelsForCrew(CampaignAftermath $aftermath): \Illuminate\Support\Collection
     {
         // Auto-detect via GameCrewMember death events from the wrapping game.
-        // Falls back to "all active non-peon arsenal models" when there's no
-        // linked base game yet — useful when testing aftermath flows in
-        // isolation, and a sane default if a campaign game wraps without a
-        // tracker run.
+        // Falls back to "all active non-peon arsenal models + current leader/totem"
+        // when there's no linked base game — useful for testing in isolation.
         $baseGameId = $aftermath->campaignGame->base_game_id ?? null;
 
         if (! $baseGameId) {
-            return CampaignArsenalModel::query()
+            $arsenalRows = CampaignArsenalModel::query()
                 ->where('campaign_crew_id', $aftermath->campaign_crew_id)
                 ->active()
                 ->where('is_peon', false)
                 ->with('character:id,display_name,station,faction')
-                ->get(['id', 'campaign_crew_id', 'character_id', 'label']);
+                ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
+                ->map(fn ($m) => $this->arsenalModelRow($m))
+                ->toBase();
+
+            return $arsenalRows->merge($this->customCharacterKillRows($aftermath->campaign_crew_id, null))->values();
         }
 
         $killedCharacterIds = DB::table('game_crew_members')
@@ -818,17 +871,125 @@ class CampaignAftermathController extends Controller
             ->pluck('character_id')
             ->all();
 
-        if (empty($killedCharacterIds)) {
-            return collect();
+        $killedCustomCharIds = DB::table('game_crew_members')
+            ->where('game_id', $baseGameId)
+            ->where('is_killed', true)
+            ->whereNotNull('custom_character_id')
+            ->pluck('custom_character_id')
+            ->all();
+
+        $arsenalRows = collect();
+        if (! empty($killedCharacterIds)) {
+            $arsenalRows = CampaignArsenalModel::query()
+                ->where('campaign_crew_id', $aftermath->campaign_crew_id)
+                ->active()
+                ->where('is_peon', false)
+                ->whereIn('character_id', $killedCharacterIds)
+                ->with('character:id,display_name,station,faction')
+                ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
+                ->map(fn ($m) => $this->arsenalModelRow($m))
+                ->toBase();
         }
 
-        return CampaignArsenalModel::query()
-            ->where('campaign_crew_id', $aftermath->campaign_crew_id)
-            ->active()
-            ->where('is_peon', false)
-            ->whereIn('character_id', $killedCharacterIds)
-            ->with('character:id,display_name,station,faction')
-            ->get(['id', 'campaign_crew_id', 'character_id', 'label']);
+        $customCharRows = ! empty($killedCustomCharIds)
+            ? $this->customCharacterKillRows($aftermath->campaign_crew_id, $killedCustomCharIds)
+            : collect();
+
+        return $arsenalRows->merge($customCharRows)->values();
+    }
+
+    /**
+     * Attach an injury upgrade to a leader or totem CustomCharacter.
+     * Mirrors CampaignArsenalModel::attachInjury() but stores via custom_character_id.
+     * Three distinct injuries → annihilate (set annihilated_at).
+     */
+    private function attachInjuryToCustomChar(CustomCharacter $char, Upgrade $injury, int $aftermathId): void
+    {
+        // Self-annihilating (Killed Off): just mark annihilated, no row stored.
+        if ($injury->campaign_annihilates_model) {
+            $char->update(['annihilated_at' => now()]);
+
+            return;
+        }
+
+        // Purely cosmetic "Just a Flesh Wound" results attach nothing.
+        if (str_contains(strtolower((string) $injury->name), 'flesh wound')) {
+            return;
+        }
+
+        $existingCount = DB::table('campaign_arsenal_model_injuries')
+            ->where('custom_character_id', $char->id)
+            ->count();
+
+        // No duplicates: ignore if this injury is already attached.
+        $alreadyHas = DB::table('campaign_arsenal_model_injuries')
+            ->where('custom_character_id', $char->id)
+            ->where('injury_upgrade_id', $injury->id)
+            ->exists();
+        if ($alreadyHas) {
+            return;
+        }
+
+        DB::table('campaign_arsenal_model_injuries')->insert([
+            'campaign_arsenal_model_id' => null,
+            'custom_character_id' => $char->id,
+            'injury_upgrade_id' => $injury->id,
+            'acquired_aftermath_id' => $aftermathId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if ($existingCount + 1 >= 3) {
+            $char->update(['annihilated_at' => now()]);
+        }
+    }
+
+    /** Shape a CampaignArsenalModel as the unified killed-model payload. */
+    private function arsenalModelRow(CampaignArsenalModel $m): array
+    {
+        return [
+            'id' => $m->id,
+            'campaign_crew_id' => $m->campaign_crew_id,
+            'character_id' => $m->character_id,
+            'custom_character_id' => null,
+            'label' => $m->label,
+            'display_name' => $m->character ? $m->character->display_name : '',
+            'character' => $m->character ? [
+                'id' => $m->character->id,
+                'display_name' => $m->character->display_name,
+                'station' => $m->character->getRawOriginal('station') ?? '',
+            ] : null,
+        ];
+    }
+
+    /**
+     * Fetch current leader/totem custom characters for this crew that appear in
+     * the killed list. When $killedIds is null, return all (fallback with no game).
+     *
+     * @param  int[]|null  $killedIds
+     */
+    private function customCharacterKillRows(int $crewId, ?array $killedIds): \Illuminate\Support\Collection
+    {
+        $query = CustomCharacter::query()
+            ->where('campaign_crew_id', $crewId)
+            ->where('current', true)
+            ->whereNull('annihilated_at')
+            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true));
+
+        if ($killedIds !== null) {
+            $query->whereIn('id', $killedIds);
+        }
+
+        return $query->get(['id', 'name', 'station', 'is_campaign_leader', 'is_campaign_totem'])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'campaign_crew_id' => $crewId,
+                'character_id' => null,
+                'custom_character_id' => $c->id,
+                'label' => null,
+                'display_name' => $c->name.($c->is_campaign_leader ? ' (Leader)' : ' (Totem)'),
+                'character' => null,
+            ]);
     }
 
     private function loadXpTrackForCrew(CampaignAftermath $aftermath): ?array

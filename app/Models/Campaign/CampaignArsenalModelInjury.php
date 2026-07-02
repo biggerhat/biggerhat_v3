@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * ("the model got lucky and suffers no injury this game").
  *
  * @property int $id
- * @property int $campaign_arsenal_model_id
+ * @property int|null $campaign_arsenal_model_id
+ * @property int|null $custom_character_id
  * @property int $injury_upgrade_id
  * @property int|null $acquired_aftermath_id
  * @property \Carbon\CarbonImmutable $created_at

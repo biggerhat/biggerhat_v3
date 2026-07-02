@@ -490,6 +490,9 @@ class GameController extends Controller
             $props['bonanza_crew_upgrades'] = fn () => $this->buildBonanzaCrewUpgrades($game);
             $props['campaign_context'] = fn () => $this->buildCampaignContext($game);
             $props['campaign_arsenal'] = fn () => $this->buildCampaignArsenalProp($game);
+            $props['campaign_leader_option'] = fn () => $game->format === \App\Enums\GameFormatEnum::Campaign
+                ? $this->campaignLeaderMasterOption($game)
+                : null;
         }
 
         return $props;
@@ -541,24 +544,38 @@ class GameController extends Controller
             return [];
         }
 
+        $userId = Auth::id();
         $campaignGame = \App\Models\Campaign\CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with(['crewA.leader', 'crewB.leader'])
             ->first();
 
-        if (! $campaignGame) {
-            return [];
-        }
-
-        $userId = Auth::id();
         $campaignCrew = null;
         $leader = null;
-        if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
-            $campaignCrew = $campaignGame->crewA;
-            $leader = $campaignGame->crewA->leader;
-        } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
-            $campaignCrew = $campaignGame->crewB;
-            $leader = $campaignGame->crewB->leader;
+
+        if ($campaignGame) {
+            if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewA;
+                $leader = $campaignGame->crewA->leader;
+            } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewB;
+                $leader = $campaignGame->crewB->leader;
+            }
+        } else {
+            // Solo Campaign game created outside the campaign hub — no CampaignGame link.
+            // Match the crew by the faction the user picked for this game.
+            if ($game->is_solo) {
+                $player = $game->players->first(fn ($p) => $p->user_id === $userId);
+                if ($player?->faction) {
+                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                        ->where('user_id', $userId)
+                        ->where('faction', $player->getRawOriginal('faction'))
+                        ->with('leader')
+                        ->latest('id')
+                        ->first();
+                    $leader = $campaignCrew?->leader;
+                }
+            }
         }
 
         if (! $campaignCrew) {
@@ -998,14 +1015,87 @@ class GameController extends Controller
             return $this->buildBonanzaCharactersProp();
         }
 
-        // Campaign games: the player's master IS their custom-built campaign
-        // leader, not a catalog master — surface it as the (only) option.
+        // Campaign games: the user's own pick comes from campaign_leader_option
+        // (a separate prop). For solo games, return the full catalog here so the
+        // opponent-master picker can filter it by faction.
         if ($game->format === \App\Enums\GameFormatEnum::Campaign) {
-            $leaderOption = $this->campaignLeaderMasterOption($game);
-
-            return $leaderOption ? [$leaderOption] : [];
+            return $game->is_solo ? $this->buildCatalogMasters() : [];
         }
 
+        return $this->buildCatalogMasters();
+    }
+
+    /**
+     * The current player's campaign leader shaped as a master-select option, so
+     * campaign_leader_option can be surfaced to the Vue picker separately from
+     * the catalog masters prop. Returns null before the leader has been built.
+     *
+     * PvP campaign games have a CampaignGame row linked via base_game_id — look
+     * up the crew through that. Solo campaign games created via the standard game
+     * tracker (no CampaignGame row) fall back to matching the user's crew by the
+     * faction they selected in this game.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function campaignLeaderMasterOption(Game $game): ?array
+    {
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->first();
+
+        if ($campaignGame) {
+            $crew = \App\Models\Campaign\CampaignCrew::query()
+                ->where('campaign_id', $campaignGame->campaign_id)
+                ->where('user_id', Auth::id())
+                ->with('leader')
+                ->first();
+        } else {
+            // Solo game created outside the campaign hub — no CampaignGame link.
+            // Match the user's crew by the faction they picked for this game.
+            if (! $game->is_solo) {
+                return null;
+            }
+            $player = $game->players->first(fn ($p) => $p->user_id === Auth::id());
+            if (! $player?->faction) {
+                return null;
+            }
+            $crew = \App\Models\Campaign\CampaignCrew::query()
+                ->where('user_id', Auth::id())
+                ->where('faction', $player->getRawOriginal('faction'))
+                ->whereHas('leader')
+                ->with('leader')
+                ->latest('id')
+                ->first();
+        }
+
+        $leader = $crew?->leader;
+        if (! $leader) {
+            return null;
+        }
+
+        return [
+            'name' => $leader->name,
+            'faction' => $leader->getRawOriginal('faction'),
+            'second_faction' => $leader->getRawOriginal('second_faction'),
+            'front_image' => $leader->getRawOriginal('front_image'),
+            'is_alternate_leader' => false,
+            'titles' => [[
+                'id' => $leader->id,
+                'display_name' => $leader->name,
+                'title' => null,
+            ]],
+        ];
+    }
+
+    /**
+     * Full catalog of masters + alternate leaders, grouped by name, for the
+     * standard master-select picker. Shared by non-campaign games and the
+     * opponent-master pick in solo campaign games.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCatalogMasters(): array
+    {
         $characters = Character::standard()->where('station', 'master')
             ->where('is_hidden', false)
             ->with('miniatures')
@@ -1013,7 +1103,6 @@ class GameController extends Controller
             ->orderBy('title')
             ->get();
 
-        // Include alternate leaders granted by crew upgrades (e.g., Wrath via On Tour).
         $alternateLeaderIds = \App\Models\Upgrade::standard()->forCrews()
             ->whereNotNull('hiring_rules')
             ->pluck('hiring_rules')
@@ -1055,45 +1144,6 @@ class GameController extends Controller
         }
 
         return $grouped;
-    }
-
-    /**
-     * The current player's campaign leader shaped as a master-select option, so
-     * a campaign game's Master Select offers the custom leader. Returns null off
-     * campaign games or before the leader has been built.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function campaignLeaderMasterOption(Game $game): ?array
-    {
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()
-            ->where('base_game_id', $game->id)
-            ->with(['crewA.leader', 'crewB.leader'])
-            ->first();
-        if (! $campaignGame) {
-            return null;
-        }
-
-        $leader = collect([$campaignGame->crewA, $campaignGame->crewB])
-            ->filter()
-            ->first(fn ($crew) => $crew->user_id === Auth::id())
-            ?->leader;
-        if (! $leader) {
-            return null;
-        }
-
-        return [
-            'name' => $leader->name,
-            'faction' => $leader->getRawOriginal('faction'),
-            'second_faction' => $leader->getRawOriginal('second_faction'),
-            'front_image' => $leader->getRawOriginal('front_image'),
-            'is_alternate_leader' => false,
-            'titles' => [[
-                'id' => $leader->id,
-                'display_name' => $leader->name,
-                'title' => null,
-            ]],
-        ];
     }
 
     /**

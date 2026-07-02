@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -15,17 +16,32 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('crew_builds', function (Blueprint $table) {
-            $table->dropForeignSafe('crew_builds_master_id_foreign');
-            $table->foreignId('master_id')->nullable()->change()->constrained('characters')->cascadeOnDelete();
-        });
+        if (DB::getDriverName() === 'mysql') {
+            // Single ALTER avoids a full table rebuild (Doctrine DBAL ->change() rebuilds the table).
+            DB::statement('ALTER TABLE crew_builds
+                DROP FOREIGN KEY crew_builds_master_id_foreign,
+                MODIFY COLUMN master_id BIGINT UNSIGNED NULL,
+                ADD CONSTRAINT crew_builds_master_id_foreign
+                    FOREIGN KEY (master_id) REFERENCES characters(id) ON DELETE CASCADE');
+        } else {
+            Schema::table('crew_builds', function (Blueprint $table) {
+                $table->unsignedBigInteger('master_id')->nullable()->change();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('crew_builds', function (Blueprint $table) {
-            $table->dropForeignSafe('crew_builds_master_id_foreign');
-            $table->foreignId('master_id')->change()->constrained('characters')->cascadeOnDelete();
-        });
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE crew_builds
+                DROP FOREIGN KEY crew_builds_master_id_foreign,
+                MODIFY COLUMN master_id BIGINT UNSIGNED NOT NULL,
+                ADD CONSTRAINT crew_builds_master_id_foreign
+                    FOREIGN KEY (master_id) REFERENCES characters(id) ON DELETE CASCADE');
+        } else {
+            Schema::table('crew_builds', function (Blueprint $table) {
+                $table->unsignedBigInteger('master_id')->nullable(false)->change();
+            });
+        }
     }
 };

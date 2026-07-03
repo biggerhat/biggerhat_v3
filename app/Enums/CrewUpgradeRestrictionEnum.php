@@ -5,7 +5,6 @@ namespace App\Enums;
 use App\Interfaces\HasDefaultEnumMethods;
 use App\Traits\UsesEnumLabels;
 use App\Traits\UsesEnumSelectOptions;
-use Illuminate\Support\Str;
 
 enum CrewUpgradeRestrictionEnum: string implements HasDefaultEnumMethods
 {
@@ -28,6 +27,6 @@ enum CrewUpgradeRestrictionEnum: string implements HasDefaultEnumMethods
 
     public function descriptor(CrewUpgradeRestrictionDescriptorTypeEnum $descriptorType): string
     {
-        return sprintf("%s models gain the following %s:", $this->label(), $descriptorType->label());
+        return sprintf('%s models gain the following %s:', $this->label(), $descriptorType->label());
     }
 }

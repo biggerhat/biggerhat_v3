@@ -33,12 +33,6 @@ class Action extends Model
     {
         return [
             'game_mode_type' => GameModeTypeEnum::class,
-            // Cast campaign boolean flags so they round-trip as real booleans —
-            // otherwise they reach the admin form as ints and break the radix
-            // checkbox state (see Upgrade model / UpgradeCampaignFlagsTest).
-            'campaign_is_always_available' => 'boolean',
-            'campaign_joker_freechoice' => 'boolean',
-            'campaign_grants_signature' => 'boolean',
         ];
     }
 

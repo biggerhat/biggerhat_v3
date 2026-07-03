@@ -803,8 +803,7 @@ const totemRendererProps = computed(() => {
                                             <option
                                                 v-for="a in leaderActionsWithIndex.filter(
                                                     (la) =>
-                                                        la.category ===
-                                                        (drafts[slot.position].source_table === 'attack_mod' ? 'attack' : 'tactical'),
+                                                        la.category === (drafts[slot.position].source_table === 'attack_mod' ? 'attack' : 'tactical'),
                                                 )"
                                                 :key="a.index"
                                                 :value="a.index"

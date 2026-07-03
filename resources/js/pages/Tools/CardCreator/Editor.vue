@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, formatRange, triggerDownload } from '@/components/CardCreator/utils';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -1082,7 +1082,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <div class="flex items-center justify-between">
                                                 <div class="flex flex-1 items-center gap-2">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
+                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]"
+                                                        >Official</Badge
+                                                    >
                                                 </div>
                                                 <button class="ml-2 shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
                                                     <Trash2 class="size-3.5" />

@@ -66,31 +66,7 @@ class TriggerAdminController extends Controller
             'description' => ['nullable', 'string'],
             // Optional — defaults to 'standard' on the column when not sent.
             'game_mode_type' => ['sometimes', 'string', Rule::enum(GameModeTypeEnum::class)],
-            // Campaign-only — zeroed below unless mode is campaign.
-            'campaign_advancement_kind' => ['nullable', 'string', 'in:attack,tactical'],
-            'campaign_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'campaign_is_always_available' => ['sometimes', 'boolean'],
-            'campaign_joker_freechoice' => ['sometimes', 'boolean'],
-            'campaign_grants_signature' => ['sometimes', 'boolean'],
-            'campaign_modifier_type' => ['nullable', 'string', 'in:trigger,skl,signature,joker'],
-            'campaign_skl_from' => ['nullable', 'integer', 'min:1'],
-            'campaign_skl_to' => ['nullable', 'integer', 'min:1'],
         ]);
-
-        $mode = $validated['game_mode_type'] ?? 'standard';
-        if ($mode !== GameModeTypeEnum::Campaign->value) {
-            foreach ([
-                'campaign_advancement_kind', 'campaign_flip_value', 'campaign_modifier_type',
-                'campaign_skl_from', 'campaign_skl_to',
-            ] as $col) {
-                $validated[$col] = null;
-            }
-            foreach ([
-                'campaign_is_always_available', 'campaign_joker_freechoice', 'campaign_grants_signature',
-            ] as $col) {
-                $validated[$col] = false;
-            }
-        }
 
         if (! $trigger) {
             $trigger = Trigger::create($validated);

@@ -6,11 +6,14 @@ use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\AdvancementAbility;
+use App\Models\Campaign\AdvancementAction;
+use App\Models\Campaign\AdvancementAttackMod;
+use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\WeeklyEvent;
 use App\Models\CustomCharacter;
-use App\Models\Trigger;
 use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -22,16 +25,17 @@ use Illuminate\Support\Facades\DB;
  * NOT the rulebook — placeholder content so the Leader Builder, Starting
  * Arsenal, Weekly Hire, and Aftermath wizard are end-to-end clickable in
  * local dev and feature tests. Real catalog data is entered through the
- * admin UI under the consolidated core admin pages by a human with the book
- * in hand.
+ * admin UI by a human with the book in hand.
  *
  * Idempotent: skips any seed-group that already has rows.
  *
  * Post-consolidation: equipment / injuries live on the `upgrades` table,
- * crew card effects + ability advancements live on `abilities`, action +
- * summoning advancements live on `actions`, attack/tactical mods live on
- * `triggers`, totems live on `custom_characters`. All are filtered via
+ * crew card effects live on `abilities`, summoning advancements live on
+ * `actions`, totems live on `custom_characters` — all filtered via
  * `game_mode_type = 'campaign'` + a discriminator column where needed.
+ * Attack Mod / Tactical Mod / Action / Ability advancements have their own
+ * dedicated tables (advancement_attack_mods / advancement_tactical_mods /
+ * advancement_actions / advancement_abilities).
  */
 class CampaignCatalogSeeder extends Seeder
 {
@@ -193,98 +197,78 @@ class CampaignCatalogSeeder extends Seeder
 
     private function seedAttackMods(): void
     {
-        if (Trigger::query()->where('campaign_advancement_kind', 'attack')->exists()) {
+        if (AdvancementAttackMod::query()->exists()) {
             return;
         }
 
         foreach ([2, 5, 8, 11] as $fv) {
-            Trigger::factory()->campaignAdvancementAttack()->create([
+            AdvancementAttackMod::factory()->create([
                 'name' => "Attack Trigger {$fv}",
-                'campaign_flip_value' => $fv,
-                'campaign_modifier_type' => 'trigger',
-                'suits' => 'crow',
+                'flip_value' => $fv,
+                'modifier_type' => 'trigger',
+                'suit' => 'crow',
             ]);
         }
-        Trigger::factory()->campaignAdvancementAttack()->create([
+        AdvancementAttackMod::factory()->sklBoost(5, 6)->create([
             'name' => 'Sharpened Aim',
-            'campaign_flip_value' => 7,
-            'campaign_modifier_type' => 'skl',
-            'campaign_skl_from' => 5,
-            'campaign_skl_to' => 6,
+            'flip_value' => 7,
         ]);
-        Trigger::factory()->campaignAdvancementAttack()->create([
+        AdvancementAttackMod::factory()->signature()->create([
             'name' => "Master's Strike",
-            'campaign_flip_value' => 12,
-            'campaign_modifier_type' => 'signature',
-            'campaign_grants_signature' => true,
+            'flip_value' => 12,
         ]);
     }
 
     private function seedTacticalMods(): void
     {
-        if (Trigger::query()->where('campaign_advancement_kind', 'tactical')->exists()) {
+        if (AdvancementTacticalMod::query()->exists()) {
             return;
         }
 
         foreach ([2, 6, 9, 12] as $fv) {
-            Trigger::factory()->campaignAdvancementTactical()->create([
+            AdvancementTacticalMod::factory()->create([
                 'name' => "Tactical Trigger {$fv}",
-                'campaign_flip_value' => $fv,
-                'campaign_modifier_type' => 'trigger',
-                'suits' => 'tome',
+                'flip_value' => $fv,
+                'modifier_type' => 'trigger',
+                'suit' => 'tome',
             ]);
         }
-        Trigger::factory()->campaignAdvancementTactical()->create([
+        AdvancementTacticalMod::factory()->alwaysAvailable()->create([
             'name' => 'Refined Technique',
-            'campaign_is_always_available' => true,
         ]);
     }
 
     private function seedAdvancementActions(): void
     {
-        if (Action::query()->where('campaign_advancement_kind', 'action')->exists()) {
+        if (AdvancementAction::query()->exists()) {
             return;
         }
 
         foreach ([3, 6, 9, 12] as $fv) {
-            Action::factory()->create([
-                'name' => "Learned Action {$fv}",
-                'game_mode_type' => GameModeTypeEnum::Campaign->value,
-                'campaign_advancement_kind' => 'action',
-                'campaign_flip_value' => $fv,
+            AdvancementAction::factory()->create([
+                'talent_name' => "Learned Action {$fv}",
+                'flip_value' => $fv,
             ]);
         }
-        Action::factory()->create([
-            'name' => 'Push Off',
-            'game_mode_type' => GameModeTypeEnum::Campaign->value,
-            'campaign_advancement_kind' => 'action',
-            'campaign_is_always_available' => true,
+        AdvancementAction::factory()->alwaysAvailable()->create([
+            'talent_name' => 'Push Off',
         ]);
     }
 
     private function seedAdvancementAbilities(): void
     {
-        $exists = $this->campaignAbilityQuery()
-            ->where('is_crew_card_effect', false)
-            ->whereNotNull('campaign_flip_value')
-            ->exists();
-        if ($exists) {
+        if (AdvancementAbility::query()->exists()) {
             return;
         }
 
         foreach ([4, 7, 10, 13] as $fv) {
-            Ability::factory()->create([
-                'name' => "Gained Ability {$fv}",
-                'game_mode_type' => GameModeTypeEnum::Campaign->value,
-                'is_crew_card_effect' => false,
-                'campaign_flip_value' => $fv,
+            AdvancementAbility::factory()->create([
+                'talent_name' => "Gained Ability {$fv}",
+                'flip_value' => $fv,
             ]);
         }
-        Ability::factory()->create([
-            'name' => 'Stoic Resolve',
-            'game_mode_type' => GameModeTypeEnum::Campaign->value,
-            'is_crew_card_effect' => false,
-            'campaign_is_always_available' => true,
+        AdvancementAbility::factory()->alwaysAvailable()->create([
+            'talent_name' => 'Stoic Resolve',
         ]);
     }
 

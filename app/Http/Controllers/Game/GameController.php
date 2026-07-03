@@ -429,7 +429,7 @@ class GameController extends Controller
                 : [],
             'tokens' => fn () => $this->buildTokensProp($game, $context),
             'character_upgrades' => fn () => $isSelf && $game->status === GameStatusEnum::InProgress
-                ? \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count'])
+                ? $this->buildCharacterUpgradesProp($game)
                 : [],
             'current_schemes' => match ($context) {
                 GameShowContext::SelfView => fn () => $this->buildCurrentSchemesProp($game),
@@ -611,6 +611,88 @@ class GameController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Upgrade catalog offered by the in-play "attach upgrade" editor. Campaign
+     * games swap the standard catalog for the acting player's own earned
+     * equipment (pg 19: "any equipment in your arsenal may be attached to any
+     * model in your crew... without cost") — never the full campaign equipment
+     * catalog, so a player can't attach equipment their crew hasn't earned.
+     */
+    private function buildCharacterUpgradesProp(Game $game): \Illuminate\Support\Collection
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+            return \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')
+                ->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count'])
+                ->map(fn (\App\Models\Upgrade $u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'slug' => $u->slug,
+                    'front_image' => $u->front_image,
+                    'back_image' => $u->back_image,
+                    'type' => $u->type,
+                    'plentiful' => $u->plentiful,
+                    'power_bar_count' => $u->power_bar_count,
+                ])
+                ->values();
+        }
+
+        $userId = Auth::id();
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            ->where('base_game_id', $game->id)
+            ->with(['crewA', 'crewB'])
+            ->first();
+
+        $campaignCrew = null;
+        if ($campaignGame) {
+            if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewA;
+            } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+                $campaignCrew = $campaignGame->crewB;
+            }
+        } elseif ($game->is_solo) {
+            $player = $game->players->first(fn ($p) => $p->user_id === $userId);
+            if ($player?->faction) {
+                $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                    ->where('user_id', $userId)
+                    ->where('faction', $player->getRawOriginal('faction'))
+                    ->latest('id')
+                    ->first();
+            }
+        }
+
+        if (! $campaignCrew) {
+            return collect();
+        }
+
+        // Group by catalog upgrade so multiple owned copies of the same
+        // equipment (pg 19: "arsenals may include any number of copies of
+        // these upgrades") report as one entry with plentiful = copies owned,
+        // rather than the catalog's static (usually 1) plentiful value.
+        return \App\Models\Campaign\CampaignEquipment::query()
+            ->where('campaign_crew_id', $campaignCrew->id)
+            ->active()
+            ->with('catalog:id,name,slug,front_image,back_image,type,power_bar_count')
+            ->get()
+            ->filter(fn (\App\Models\Campaign\CampaignEquipment $e) => $e->catalog !== null)
+            ->groupBy('equipment_upgrade_id')
+            ->map(function (\Illuminate\Support\Collection $owned) {
+                $u = $owned->first()->catalog;
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'slug' => $u->slug,
+                    'front_image' => $u->front_image,
+                    'back_image' => $u->back_image,
+                    'type' => $u->type,
+                    'plentiful' => $owned->count(),
+                    'power_bar_count' => $u->power_bar_count,
+                ];
+            })
+            ->sortBy('name')
+            ->values();
     }
 
     /**
@@ -1015,11 +1097,12 @@ class GameController extends Controller
             return $this->buildBonanzaCharactersProp();
         }
 
-        // Campaign games: the user's own pick comes from campaign_leader_option
-        // (a separate prop). For solo games, return the full catalog here so the
-        // opponent-master picker can filter it by faction.
+        // Campaign games: the user's own pick comes from campaign_leader_option (a
+        // separate prop). Solo Campaign games never show an opponent-master picker
+        // either — the opponent is a generic placeholder set automatically in
+        // GameSetupController::submitMaster() — so the catalog is never needed.
         if ($game->format === \App\Enums\GameFormatEnum::Campaign) {
-            return $game->is_solo ? $this->buildCatalogMasters() : [];
+            return [];
         }
 
         return $this->buildCatalogMasters();

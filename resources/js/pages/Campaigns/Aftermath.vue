@@ -509,9 +509,10 @@ const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
 
 // Resolve a flip entry to a human-readable name for the Pending Injuries list.
 const modelDisplayName = (f: InjuryEntry): string => {
-    const m = f.custom_character_id !== null
-        ? props.killed_models.find((k) => k.custom_character_id === f.custom_character_id)
-        : props.killed_models.find((k) => k.id === f.arsenal_model_id);
+    const m =
+        f.custom_character_id !== null
+            ? props.killed_models.find((k) => k.custom_character_id === f.custom_character_id)
+            : props.killed_models.find((k) => k.id === f.arsenal_model_id);
     if (!m) return f.custom_character_id !== null ? `Custom char #${f.custom_character_id}` : `Model #${f.arsenal_model_id}`;
     return m.display_name || (m.label ? `${m.character?.display_name ?? 'Model'} (${m.label})` : (m.character?.display_name ?? 'Model'));
 };
@@ -901,7 +902,9 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     <option :value="-1">— select action —</option>
                                     <option
                                         v-for="a in xp_track.leader_actions.filter(
-                                            (la) => la.category === (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ? 'attack' : 'tactical'),
+                                            (la) =>
+                                                la.category ===
+                                                (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ? 'attack' : 'tactical'),
                                         )"
                                         :key="a.index"
                                         :value="a.index"
@@ -1033,7 +1036,11 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     actually killed this game (pg 34).
                 </p>
                 <ul class="space-y-1">
-                    <li v-for="m in killed_models" :key="`${m.custom_character_id ?? 'a'}-${m.id}`" class="flex items-center justify-between rounded-md border p-2 text-sm">
+                    <li
+                        v-for="m in killed_models"
+                        :key="`${m.custom_character_id ?? 'a'}-${m.id}`"
+                        class="flex items-center justify-between rounded-md border p-2 text-sm"
+                    >
                         <span>
                             {{ m.display_name || m.character?.display_name || '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>

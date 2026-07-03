@@ -183,7 +183,8 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
             <template v-else>
                 <template v-if="isCampaign">
                     <p class="mb-2 text-xs text-muted-foreground">
-                        Select models from your campaign arsenal to bring to this game ({{ game.encounter_size }}ss budget, leader and totem are free).
+                        Select models from your campaign arsenal to bring to this game ({{ game.encounter_size }}ss budget, leader and totem are
+                        free).
                     </p>
                 </template>
                 <template v-else>
@@ -240,7 +241,12 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
                                 :class="selectedArsenalIds.includes(m.character_id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
                             />
                             <span class="truncate font-medium">{{ m.name }}</span>
-                            <Badge v-if="m.is_ook" variant="outline" class="shrink-0 border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">OOK</Badge>
+                            <Badge
+                                v-if="m.is_ook"
+                                variant="outline"
+                                class="shrink-0 border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400"
+                                >OOK</Badge
+                            >
                             <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Peon</Badge>
                         </div>
                         <div class="ml-2 shrink-0 font-bold">

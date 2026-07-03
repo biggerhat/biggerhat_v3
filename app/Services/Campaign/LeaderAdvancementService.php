@@ -5,15 +5,28 @@ namespace App\Services\Campaign;
 use App\Enums\Campaign\AdvancementTableEnum;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\AdvancementAbility;
+use App\Models\Campaign\AdvancementAction;
+use App\Models\Campaign\AdvancementAttackMod;
+use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Shared Leadership-Experience advancement engine (pg 31, 38-50). Both the
  * Aftermath's Advance-Leader step and the Arsenal Sheet's per-box logging use
  * this so the tier-gating / summoning-once / totem / flip-ceiling rules and the
  * record shape stay in one place.
+ *
+ * Attack Mod / Tactical Mod / Action / Ability advancements are picked from
+ * their own dedicated tables (AdvancementAttackMod / AdvancementTacticalMod /
+ * AdvancementAction / AdvancementAbility). Each row either points at a real,
+ * already-existing Trigger/Action/Ability via a nullable Lookup FK (reuse its
+ * stat block verbatim, same as before this table split) or is a bespoke
+ * campaign-only entry with its own name/effect text (and, for actions, its
+ * own stat_block) applied directly.
  */
 class LeaderAdvancementService
 {
@@ -93,14 +106,15 @@ class LeaderAdvancementService
             }
 
             // Flip-and-choose ceiling. Each table's catalog row carries its own
-            // campaign_flip_value; the chosen option must be ≤ the flipped card.
+            // flip_value; the chosen option must be <= the flipped card.
             $catalogId = $a['catalog_id'] ?? null;
             $flip = $a['flip_value'] ?? null;
             if ($catalogId !== null && $flip !== null) {
                 $rowFlip = match ($table) {
-                    AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => Trigger::query()->whereKey($catalogId)->value('campaign_flip_value'),
-                    AdvancementTableEnum::Action => Action::query()->whereKey($catalogId)->value('campaign_flip_value'),
-                    AdvancementTableEnum::Ability => Ability::query()->whereKey($catalogId)->value('campaign_flip_value'),
+                    AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($catalogId)->value('flip_value'),
+                    AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($catalogId)->value('flip_value'),
+                    AdvancementTableEnum::Action => AdvancementAction::query()->whereKey($catalogId)->value('flip_value'),
+                    AdvancementTableEnum::Ability => AdvancementAbility::query()->whereKey($catalogId)->value('flip_value'),
                     default => null,
                 };
                 if ($rowFlip !== null && (int) $rowFlip > (int) $flip) {
@@ -122,20 +136,24 @@ class LeaderAdvancementService
     {
         foreach ($advancements as $a) {
             $table = AdvancementTableEnum::from($a['source_table']);
+            $catalogId = isset($a['catalog_id']) ? (int) $a['catalog_id'] : null;
+            $actionIndex = (int) ($a['applied_to_action_index'] ?? -1);
+
+            $advancementRow = $this->resolveAdvancementRow($table, $catalogId);
+            $coreCatalogId = $this->resolveCoreCatalogId($table, $catalogId, $advancementRow);
 
             CampaignLeaderAdvancement::create([
                 'custom_character_id' => $leader->id,
                 'source_aftermath_id' => $sourceAftermathId,
                 'source_table' => $a['source_table'],
-                'catalog_core_id' => $a['catalog_id'] ?? null,
+                'advancement_catalog_id' => $catalogId,
+                'catalog_core_id' => $coreCatalogId,
                 'from_equipment_id' => $a['from_equipment_id'] ?? null,
-                'applied_to_action_index' => $a['applied_to_action_index'] ?? -1,
+                'applied_to_action_index' => $actionIndex,
                 'position_in_xp_track' => $a['position_in_xp_track'],
                 'free_choice' => $a['free_choice'] ?? null,
                 'acquired_at' => now(),
             ]);
-
-            $catalogId = isset($a['catalog_id']) ? (int) $a['catalog_id'] : null;
 
             match ($table) {
                 AdvancementTableEnum::Totem => $this->createTotemFromTemplate(
@@ -145,18 +163,173 @@ class LeaderAdvancementService
                     isset($a['totem_size']) ? (int) $a['totem_size'] : null,
                     $a['totem_base'] ?? null,
                 ),
-                AdvancementTableEnum::Action, AdvancementTableEnum::Summoning => $catalogId
-                    ? $this->applyActionToLeader($leader, $catalogId)
+                AdvancementTableEnum::Summoning => $coreCatalogId
+                    ? $this->applyActionToLeader($leader, $coreCatalogId)
                     : null,
-                AdvancementTableEnum::Ability => $catalogId
-                    ? $this->applyAbilityToLeader($leader, $catalogId)
+                AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
+                    ? $this->applyAdvancementAction($leader, $advancementRow)
                     : null,
-                AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => $catalogId
-                    ? $this->applyTriggerToLeader($leader, $catalogId, (int) ($a['applied_to_action_index'] ?? -1))
+                AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
+                    ? $this->applyAdvancementAbility($leader, $advancementRow)
+                    : null,
+                AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod)
+                    ? $this->applyAdvancementModifier($leader, $advancementRow, $actionIndex)
                     : null,
                 default => null,
             };
         }
+    }
+
+    private function resolveAdvancementRow(AdvancementTableEnum $table, ?int $catalogId): ?Model
+    {
+        if ($catalogId === null) {
+            return null;
+        }
+
+        return match ($table) {
+            AdvancementTableEnum::AttackMod => AdvancementAttackMod::find($catalogId),
+            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::find($catalogId),
+            AdvancementTableEnum::Action => AdvancementAction::find($catalogId),
+            AdvancementTableEnum::Ability => AdvancementAbility::find($catalogId),
+            default => null,
+        };
+    }
+
+    /**
+     * The id of the real catalog row the leader's card data was actually
+     * built from — used for undo. For Attack/Tactical Mod/Action/Ability,
+     * that's the row's Lookup FK when set, else the advancement row's own id
+     * (a bespoke campaign-only entry has no real catalog analog to point
+     * at). Totem/Summoning/CrewCard are unaffected by this table split —
+     * their catalog_id already points at the real core catalog row.
+     */
+    private function resolveCoreCatalogId(AdvancementTableEnum $table, ?int $catalogId, ?Model $advancementRow): ?int
+    {
+        return match (true) {
+            $advancementRow instanceof AdvancementAttackMod, $advancementRow instanceof AdvancementTacticalMod => $advancementRow->trigger_id ?? $advancementRow->id,
+            $advancementRow instanceof AdvancementAction => $advancementRow->action_id ?? $advancementRow->id,
+            $advancementRow instanceof AdvancementAbility => $advancementRow->ability_id ?? $advancementRow->id,
+            default => $catalogId,
+        };
+    }
+
+    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row): void
+    {
+        if ($row->action_id) {
+            $this->applyActionToLeader($leader, $row->action_id);
+
+            return;
+        }
+
+        $stat = $row->stat_block ?? [];
+        $actions = $leader->actions ?? [];
+        $actions[] = [
+            'name' => $row->talent_name,
+            'type' => $stat['type'] ?? 'tactical',
+            'category' => $stat['type'] ?? 'tactical',
+            'is_signature' => false,
+            'stone_cost' => 0,
+            'range' => $stat['range'] ?? null,
+            'range_type' => $stat['range_type'] ?? null,
+            'stat' => $stat['stat'] ?? null,
+            'stat_suits' => $stat['stat_suits'] ?? null,
+            'stat_modifier' => $stat['stat_modifier'] ?? null,
+            'resisted_by' => $stat['resisted_by'] ?? null,
+            'target_number' => $stat['target_number'] ?? null,
+            'target_suits' => $stat['target_suits'] ?? null,
+            'damage' => $stat['damage'] ?? null,
+            'description' => $row->effect_text,
+            'source_id' => $row->id,
+            'triggers' => [],
+        ];
+        $leader->actions = $actions;
+        $leader->save();
+    }
+
+    private function applyAdvancementAbility(CustomCharacter $leader, AdvancementAbility $row): void
+    {
+        if ($row->ability_id) {
+            $this->applyAbilityToLeader($leader, $row->ability_id);
+
+            return;
+        }
+
+        $abilities = $leader->abilities ?? [];
+        $abilities[] = [
+            'name' => $row->talent_name,
+            'suits' => $row->suits,
+            'defensive_ability_type' => $row->defensive_ability_type,
+            'costs_stone' => false,
+            'description' => $row->effect_text,
+            'source_id' => $row->id,
+        ];
+        $leader->abilities = $abilities;
+        $leader->save();
+    }
+
+    private function applyAdvancementModifier(CustomCharacter $leader, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
+    {
+        match ($row->modifier_type) {
+            'skl_boost' => $this->applySklBoostToLeader($leader, $actionIndex, $row->skl_to),
+            'signature' => $this->applySignatureToLeader($leader, $actionIndex),
+            default => $row->trigger_id
+                ? $this->applyTriggerToLeader($leader, $row->trigger_id, $actionIndex)
+                : $this->applyBespokeTriggerToLeader($leader, $row, $actionIndex),
+        };
+    }
+
+    private function applySklBoostToLeader(CustomCharacter $leader, int $actionIndex, ?int $sklTo): void
+    {
+        if ($actionIndex < 0 || $sklTo === null) {
+            return;
+        }
+
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['stat'] = $sklTo;
+        $leader->actions = $actions;
+        $leader->save();
+    }
+
+    private function applySignatureToLeader(CustomCharacter $leader, int $actionIndex): void
+    {
+        if ($actionIndex < 0) {
+            return;
+        }
+
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['is_signature'] = true;
+        $leader->actions = $actions;
+        $leader->save();
+    }
+
+    private function applyBespokeTriggerToLeader(CustomCharacter $leader, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
+    {
+        if ($actionIndex < 0) {
+            return;
+        }
+
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['triggers'][] = [
+            'name' => $row->name,
+            'suits' => $row->suit,
+            'stone_cost' => 0,
+            'description' => $row->effect_text,
+            'source_id' => $row->id,
+        ];
+        $leader->actions = $actions;
+        $leader->save();
     }
 
     private function applyActionToLeader(CustomCharacter $leader, int $actionId): void

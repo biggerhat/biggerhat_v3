@@ -399,7 +399,7 @@ class StartingArsenalController extends Controller
             ->get(['id', 'has_totem_id']);
 
         $masterIds = $masters->pluck('id');
-        $totemIds  = $masters->pluck('has_totem_id')->filter();
+        $totemIds = $masters->pluck('has_totem_id')->filter();
         $characterIds = $masterIds->merge($totemIds)->unique()->values();
 
         // Character-domain Upgrade records attached to those masters/totems.
@@ -424,8 +424,8 @@ class StartingArsenalController extends Controller
             ->all();
 
         return [
-            'tokens'   => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            'markers'  => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
             'upgrades' => $upgradeTypes,
         ];
     }

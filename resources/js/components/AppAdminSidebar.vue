@@ -114,12 +114,13 @@ const adminGroups: AdminNavGroup[] = [
         // hidden while the feature is pre-release.
         //
         // Post Catalog Consolidation: equipment / injuries / crew card effects /
-        // advancement-* / summoning / totems all live on the core catalog
-        // (upgrades / abilities / actions / triggers / custom_characters with
-        // game_mode_type='campaign'). The links below are filtered shortcuts
-        // into the core admin pages. Only flip-value lookup tables with no
-        // core analog (Lucky Miss / Back-Alley Doctor / Weekly Events) retain
-        // their dedicated admin.
+        // summoning / totems all live on the core catalog (upgrades /
+        // abilities / actions / triggers / custom_characters with
+        // game_mode_type='campaign') — those links are filtered shortcuts
+        // into the core admin pages. Attack Mod / Tactical Mod / Action /
+        // Ability advancement moved back to dedicated tables (see
+        // admin.campaign.advancement-*) so QA can tailor each chart's data
+        // shape independently.
         title: 'Campaign — Catalog',
         items: [
             {
@@ -142,25 +143,25 @@ const adminGroups: AdminNavGroup[] = [
             },
             {
                 title: 'Advancement — Attack Mod',
-                href: route('admin.triggers.index') + '?game_mode=campaign&campaign_advancement_kind=attack',
+                href: route('admin.campaign.advancement-attack-mod.index'),
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
                 title: 'Advancement — Tactical Mod',
-                href: route('admin.triggers.index') + '?game_mode=campaign&campaign_advancement_kind=tactical',
+                href: route('admin.campaign.advancement-tactical-mod.index'),
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
                 title: 'Advancement — Action',
-                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=action',
+                href: route('admin.campaign.advancement-action.index'),
                 icon: Swords,
                 permission: 'view_campaign_catalog',
             },
             {
                 title: 'Advancement — Ability',
-                href: route('admin.abilities.index') + '?game_mode=campaign&crew_card=0',
+                href: route('admin.campaign.advancement-ability.index'),
                 icon: Shield,
                 permission: 'view_campaign_catalog',
             },

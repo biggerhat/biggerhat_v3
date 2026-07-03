@@ -26,9 +26,6 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property int|null $campaign_flip_value
- * @property bool $campaign_is_always_available
- * @property bool $campaign_joker_freechoice
  * @property int $is_crew_card_effect
  * @property int $requires_token_choice
  * @property int $requires_marker_choice
@@ -48,9 +45,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability toSelectOptions(string $column, $primaryKeyColumn = 'id')
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignFlipValue($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignIsAlwaysAvailable($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCampaignJokerFreechoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCostsStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereDefensiveAbilityType($value)
@@ -97,10 +91,6 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property int|null $campaign_flip_value
- * @property bool $campaign_is_always_available
- * @property bool $campaign_joker_freechoice
- * @property bool $campaign_grants_signature
  * @property string|null $campaign_advancement_kind
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
@@ -120,10 +110,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignAdvancementKind($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignFlipValue($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignGrantsSignature($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignIsAlwaysAvailable($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCampaignJokerFreechoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDamage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Action whereDeletedAt($value)
@@ -321,6 +307,175 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperBlueprint {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Tier 2 Ability advancement (pg 50–51). Adds a new ability to the leader.
+ * 
+ * A few "always available" rows are unconditionally selectable. The one
+ * "Any Joker" row mirrors the Action table's free-pick mechanic.
+ *
+ * @property string|null $suits
+ * @property string|null $defensive_ability_type
+ * @property int|null $ability_id
+ * @property-read Ability|null $ability
+ * @property int $id
+ * @property int|null $flip_value
+ * @property bool $is_joker
+ * @property bool $is_always_available
+ * @property string $talent_name
+ * @property string $effect_text
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\AdvancementAbilityFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereAbilityId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereDefensiveAbilityType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereEffectText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereIsJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereSuits($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereTalentName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAbility whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAdvancementAbility {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Tier 2 Action advancement (pg 44–49). Adds a new action to the leader.
+ * 
+ * A few "always available" rows are unconditionally selectable. The one
+ * "Any Joker" row lets the player pick any action from a non-master/
+ * non-totem model sharing a keyword (cost <= 10).
+ *
+ * @property array<string, mixed>|null $stat_block
+ * @property int|null $action_id
+ * @property-read Action|null $action
+ * @property int $id
+ * @property int|null $flip_value
+ * @property bool $is_joker
+ * @property bool $is_always_available
+ * @property string $talent_name
+ * @property string $effect_text
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\AdvancementActionFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereActionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereEffectText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereIsJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereStatBlock($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereTalentName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAdvancementAction {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Tier 1 Attack Modification advancement (pg 38–40). Flip value gates
+ * options <= value; mostly triggers, a few skl_boost rows, one signature
+ * row, Red/Black Joker rows grant specific named triggers.
+ *
+ * @property int $id
+ * @property int|null $flip_value
+ * @property bool $is_black_joker
+ * @property bool $is_red_joker
+ * @property bool $is_always_available
+ * @property string $modifier_type
+ * @property string $name
+ * @property string $effect_text
+ * @property string|null $suit
+ * @property int|null $skl_from
+ * @property int|null $skl_to
+ * @property int|null $trigger_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Trigger|null $trigger
+ * @method static \Database\Factories\Campaign\AdvancementAttackModFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereEffectText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereIsBlackJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereIsRedJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereModifierType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSklTo($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereTriggerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAdvancementAttackMod {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * Tier 1 Tactical Modification advancement (pg 41–43). Flip value gates
+ * options <= value; mostly triggers, a few skl_boost rows, one signature
+ * row, Red/Black Joker rows grant specific named triggers.
+ *
+ * @property int $id
+ * @property int|null $flip_value
+ * @property bool $is_black_joker
+ * @property bool $is_red_joker
+ * @property bool $is_always_available
+ * @property string $modifier_type
+ * @property string $name
+ * @property string $effect_text
+ * @property string|null $suit
+ * @property int|null $skl_from
+ * @property int|null $skl_to
+ * @property int|null $trigger_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Trigger|null $trigger
+ * @method static \Database\Factories\Campaign\AdvancementTacticalModFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereEffectText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereIsAlwaysAvailable($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereIsBlackJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereIsRedJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereModifierType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSklTo($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereTriggerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperAdvancementTacticalMod {}
 }
 
 namespace App\Models\Campaign{
@@ -523,7 +678,8 @@ namespace App\Models\Campaign{
  * ("the model got lucky and suffers no injury this game").
  *
  * @property int $id
- * @property int $campaign_arsenal_model_id
+ * @property int|null $campaign_arsenal_model_id
+ * @property int|null $custom_character_id
  * @property int $injury_upgrade_id
  * @property int|null $acquired_aftermath_id
  * @property \Carbon\CarbonImmutable $created_at
@@ -536,6 +692,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereAcquiredAftermathId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereCampaignArsenalModelId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereCustomCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereInjuryUpgradeId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury whereUpdatedAt($value)
@@ -794,7 +951,7 @@ namespace App\Models\Campaign{
  * @property int $custom_character_id
  * @property int|null $source_aftermath_id
  * @property AdvancementTableEnum $source_table
- * @property int|null $catalog_id
+ * @property int|null $advancement_catalog_id
  * @property int|null $catalog_core_id
  * @property int|null $from_equipment_id
  * @property int $applied_to_action_index
@@ -813,6 +970,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAcquiredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAdvancementCatalogId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToActionIndex($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToCustomCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereCatalogCoreId($value)
@@ -3429,14 +3587,6 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property int|null $campaign_flip_value
- * @property bool $campaign_is_always_available
- * @property bool $campaign_joker_freechoice
- * @property bool $campaign_grants_signature
- * @property string|null $campaign_modifier_type
- * @property int|null $campaign_skl_from
- * @property int|null $campaign_skl_to
- * @property string|null $campaign_advancement_kind
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $actions
  * @property-read int|null $actions_count
  * @method static \Database\Factories\TriggerFactory factory($count = null, $state = [])
@@ -3446,14 +3596,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger standard()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger toSelectOptions(string $column, $primaryKeyColumn = 'id')
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignAdvancementKind($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignFlipValue($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignGrantsSignature($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignIsAlwaysAvailable($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignJokerFreechoice($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignModifierType($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignSklFrom($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCampaignSklTo($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Trigger whereDescription($value)

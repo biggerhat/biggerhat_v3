@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
-import { createComboImage, fetchFontEmbedCSS, formatRange, triggerDownload } from '@/components/CardCreator/utils';
+import { createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -623,8 +623,14 @@ const blockTypeColor = (type: string) => {
                                             <!-- Action block -->
                                             <div v-else-if="block.type === 'action'" class="space-y-2">
                                                 <div class="flex items-center gap-2">
-                                                    <Input v-model="block.data!.name" placeholder="Action name" class="h-7 flex-1 text-sm font-medium" />
-                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
+                                                    <Input
+                                                        v-model="block.data!.name"
+                                                        placeholder="Action name"
+                                                        class="h-7 flex-1 text-sm font-medium"
+                                                    />
+                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]"
+                                                        >Official</Badge
+                                                    >
                                                 </div>
                                                 <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
                                                     <div>

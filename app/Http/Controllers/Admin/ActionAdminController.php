@@ -94,20 +94,14 @@ class ActionAdminController extends Controller
             'internal_notes' => ['nullable', 'string'],
             'triggers' => ['nullable', 'array'],
             'characters' => ['nullable', 'array'],
-            // Campaign-only — zeroed below unless mode is campaign.
-            'campaign_advancement_kind' => ['nullable', 'string', 'in:action,summoning'],
-            'campaign_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'campaign_is_always_available' => ['sometimes', 'boolean'],
-            'campaign_joker_freechoice' => ['sometimes', 'boolean'],
-            'campaign_grants_signature' => ['sometimes', 'boolean'],
+            // Campaign-only — Summoning advancement is the only remaining
+            // shared-catalog kind (Action advancement now lives on its own
+            // dedicated table). Zeroed below unless mode is campaign.
+            'campaign_advancement_kind' => ['nullable', 'string', 'in:summoning'],
         ]);
 
         if ($validated['game_mode_type'] !== GameModeTypeEnum::Campaign->value) {
             $validated['campaign_advancement_kind'] = null;
-            $validated['campaign_flip_value'] = null;
-            $validated['campaign_is_always_available'] = false;
-            $validated['campaign_joker_freechoice'] = false;
-            $validated['campaign_grants_signature'] = false;
         }
 
         $triggers = Trigger::whereIn('name', $validated['triggers'])->get();

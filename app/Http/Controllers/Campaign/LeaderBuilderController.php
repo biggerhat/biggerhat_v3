@@ -14,7 +14,6 @@ use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
-use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;

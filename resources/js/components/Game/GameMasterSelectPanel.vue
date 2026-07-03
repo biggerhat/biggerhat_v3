@@ -161,12 +161,8 @@ const confirmOpponentMasterSelection = () => {
                     v-if="filteredMasters.length === 0"
                     class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
                 >
-                    <template v-if="isCampaign && availableMasters.length === 0">
-                        Build your campaign leader before selecting crew.
-                    </template>
-                    <template v-else>
-                        No masters match "{{ masterSearchQuery }}".
-                    </template>
+                    <template v-if="isCampaign && availableMasters.length === 0"> Build your campaign leader before selecting crew. </template>
+                    <template v-else> No masters match "{{ masterSearchQuery }}". </template>
                 </div>
                 <!-- pb-24: room under the last row for the floating confirm bar. -->
                 <div v-else class="grid grid-cols-1 gap-3 pb-24 sm:grid-cols-2 lg:grid-cols-3">

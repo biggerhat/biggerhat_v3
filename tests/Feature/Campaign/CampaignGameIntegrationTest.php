@@ -208,3 +208,181 @@ it('Master Select for a campaign game offers the player campaign leader', functi
             ->where('campaign_leader_option.name', 'Mortimer Vance')
         );
 });
+
+it('submitCampaignCrew copies the selected arsenal models into game_crew_members, not just leader/totem', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-002',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance-2',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [$hired->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->pluck('display_name')->all())
+        ->toContain($hired->display_name)
+        ->and(\App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->where('hiring_category', 'leader')->exists())
+        ->toBeTrue();
+});
+
+it('submitCampaignCrew carries injuries from a previous aftermath onto the leader and hired models', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $leader = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-003',
+        'name' => 'Injured Leader',
+        'display_name' => 'Injured Leader',
+        'slug' => 'injured-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+    $leaderInjury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Leadfooted']);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'custom_character_id' => $leader->id,
+        'injury_upgrade_id' => $leaderInjury->id,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $modelInjury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Severe Amputation']);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $modelInjury->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [$hired->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $members = \App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->get();
+
+    $leaderMember = $members->firstWhere('hiring_category', 'leader');
+    $hiredMember = $members->firstWhere('display_name', $hired->display_name);
+
+    expect(collect($leaderMember->attached_upgrades)->pluck('name')->all())->toBe(['Leadfooted'])
+        ->and(collect($hiredMember->attached_upgrades)->pluck('name')->all())->toBe(['Severe Amputation']);
+});
+
+it('solo Campaign setup auto-fills a generic opponent — no opponent faction/master picker required', function () {
+    $user = cintUser();
+    $campaign = \App\Models\Campaign\Campaign::factory()->active()->create(['organizer_user_id' => $user->id]);
+    \App\Models\Campaign\CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'faction' => FactionEnum::Arcanists->value]);
+    CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-solo-001',
+        'name' => 'Solo Leader',
+        'display_name' => 'Solo Leader',
+        'slug' => 'solo-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('games.store'), [
+            'season' => \App\Enums\PoolSeasonEnum::cases()[0]->value,
+            'encounter_size' => 50,
+            'format' => GameFormatEnum::Campaign->value,
+            'is_solo' => true,
+        ])
+        ->assertRedirect();
+
+    $game = Game::where('format', GameFormatEnum::Campaign->value)->where('creator_id', $user->id)->firstOrFail();
+    expect($game->status)->toBe(GameStatusEnum::FactionSelect);
+
+    // Player 1 submits faction alone — no opponent faction submission needed.
+    $this->actingAs($user)
+        ->postJson(route('games.setup.faction', $game->uuid), ['faction' => FactionEnum::Arcanists->value, 'slot' => 1])
+        ->assertOk()
+        ->assertJson(['both_done' => true]);
+
+    $game->refresh();
+    expect($game->status)->toBe(GameStatusEnum::MasterSelect);
+    $opponent = $game->players()->where('slot', 2)->first();
+    expect($opponent->faction)->not->toBeNull();
+
+    // Player 1 submits master alone — opponent auto-fills to a generic placeholder.
+    $this->actingAs($user)
+        ->postJson(route('games.setup.master', $game->uuid), ['master_name' => 'Solo Leader', 'slot' => 1])
+        ->assertOk()
+        ->assertJson(['both_done' => true]);
+
+    $game->refresh();
+    expect($game->status)->toBe(GameStatusEnum::CrewSelect);
+    $opponent->refresh();
+    expect($opponent->master_name)->toBe('Opponent Campaign Leader');
+
+    // Player 1 confirms their campaign crew alone — opponent auto-skips too,
+    // advancing straight to Scheme Select with no further interaction needed.
+    $this->actingAs($user)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['character_ids' => []])
+        ->assertOk()
+        ->assertJson(['both_done' => true]);
+
+    $game->refresh();
+    expect($game->status)->toBe(GameStatusEnum::SchemeSelect);
+    $opponent->refresh();
+    expect($opponent->crew_skipped)->toBeTrue();
+});
+
+it('character_upgrades at InProgress offers the campaign crew\'s own earned equipment, not the full catalog', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+
+    $owned = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket']);
+    \App\Models\Campaign\CampaignEquipment::factory()->count(2)->create([
+        'campaign_crew_id' => $crewA->id,
+        'equipment_upgrade_id' => $owned->id,
+    ]);
+    // Unowned equipment from the catalog must not leak into the player's picker.
+    \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Unowned Trinket']);
+    // Annihilated (inactive) copies must not count.
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'equipment_upgrade_id' => $owned->id,
+        'annihilated_at' => now(),
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('character_upgrades', [[
+                'id' => $owned->id,
+                'name' => 'Owned Trinket',
+                'slug' => $owned->slug,
+                'front_image' => $owned->front_image,
+                'back_image' => $owned->back_image,
+                'type' => $owned->type?->value,
+                'plentiful' => 2,
+                'power_bar_count' => $owned->power_bar_count,
+            ]])
+        );
+});

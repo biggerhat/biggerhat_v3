@@ -5,11 +5,17 @@ namespace App\Support\Campaign;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\AdvancementAbility;
+use App\Models\Campaign\AdvancementAction;
+use App\Models\Campaign\AdvancementAttackMod;
+use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
 use App\Models\Upgrade;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -126,59 +132,62 @@ class AftermathCatalog
     public static function advancementCatalogs(): array
     {
         return [
-            'attack_mod' => self::triggerAdvancements('attack'),
-            'tactical_mod' => self::triggerAdvancements('tactical'),
-            'action' => Action::query()
-                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-                ->where('campaign_advancement_kind', 'action')
-                ->with('triggers:id,name,suits,stone_cost,description')
-                ->orderBy('campaign_flip_value')
-                ->orderBy('name')
+            'attack_mod' => self::attackTacticalAdvancements(AdvancementAttackMod::class),
+            'tactical_mod' => self::attackTacticalAdvancements(AdvancementTacticalMod::class),
+            'action' => AdvancementAction::query()
+                ->with('action.triggers:id,name,suits,stone_cost,description')
+                ->orderByRaw('flip_value IS NULL, flip_value ASC')
+                ->orderBy('talent_name')
                 ->get()
-                ->map(fn (Action $a) => [
-                    'id' => $a->id,
-                    'name' => $a->name,
-                    'body' => $a->description,
-                    'description' => $a->description,
-                    'type' => $a->type,
-                    'stat' => $a->stat,
-                    'stat_suits' => $a->stat_suits,
-                    'stat_modifier' => $a->stat_modifier,
-                    'range' => $a->range,
-                    'range_type' => $a->range_type,
-                    'resisted_by' => $a->resisted_by,
-                    'target_number' => $a->target_number,
-                    'target_suits' => $a->target_suits,
-                    'damage' => $a->damage,
-                    'stone_cost' => $a->stone_cost ?? 0,
-                    'is_signature' => (bool) $a->is_signature,
-                    'triggers' => $a->triggers->map(fn (Trigger $t) => [
-                        'id' => $t->id,
-                        'name' => $t->name,
-                        'suits' => $t->suits,
-                        'stone_cost' => $t->stone_cost ?? 0,
-                        'description' => $t->description,
-                    ]),
-                    'flip_value' => $a->campaign_flip_value,
-                    'is_always_available' => (bool) $a->campaign_is_always_available,
-                ])
+                ->map(function (AdvancementAction $row) {
+                    $source = $row->action;
+                    $stat = $row->stat_block ?? [];
+
+                    return [
+                        'id' => $row->id,
+                        'name' => $source->name ?? $row->talent_name,
+                        'body' => $source->description ?? $row->effect_text,
+                        'description' => $source->description ?? $row->effect_text,
+                        'type' => $source->type ?? ($stat['type'] ?? null),
+                        'stat' => $source->stat ?? ($stat['stat'] ?? null),
+                        'stat_suits' => $source->stat_suits ?? ($stat['stat_suits'] ?? null),
+                        'stat_modifier' => $source->stat_modifier ?? ($stat['stat_modifier'] ?? null),
+                        'range' => $source->range ?? ($stat['range'] ?? null),
+                        'range_type' => $source->range_type ?? ($stat['range_type'] ?? null),
+                        'resisted_by' => $source->resisted_by ?? ($stat['resisted_by'] ?? null),
+                        'target_number' => $source->target_number ?? ($stat['target_number'] ?? null),
+                        'target_suits' => $source->target_suits ?? ($stat['target_suits'] ?? null),
+                        'damage' => $source->damage ?? ($stat['damage'] ?? null),
+                        'stone_cost' => $source->stone_cost ?? 0,
+                        'is_signature' => (bool) ($source->is_signature ?? false),
+                        'triggers' => self::triggerSummaries($source?->triggers ?? collect()), // @phpstan-ignore nullsafe.neverNull (action() is a nullable BelongsTo — bespoke rows have no linked Action)
+                        'flip_value' => $row->flip_value,
+                        'is_always_available' => (bool) $row->is_always_available,
+                        'is_joker' => (bool) $row->is_joker,
+                    ];
+                })
                 ->all(),
-            'ability' => Ability::query()
-                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-                ->orderBy('campaign_flip_value')
-                ->orderBy('name')
+            'ability' => AdvancementAbility::query()
+                ->with('ability')
+                ->orderByRaw('flip_value IS NULL, flip_value ASC')
+                ->orderBy('talent_name')
                 ->get()
-                ->map(fn (Ability $a) => [
-                    'id' => $a->id,
-                    'name' => $a->name,
-                    'body' => $a->description,
-                    'description' => $a->description,
-                    'suits' => $a->suits,
-                    'defensive_ability_type' => $a->defensive_ability_type,
-                    'costs_stone' => (bool) $a->costs_stone,
-                    'flip_value' => $a->campaign_flip_value,
-                    'is_always_available' => (bool) $a->campaign_is_always_available,
-                ])
+                ->map(function (AdvancementAbility $row) {
+                    $source = $row->ability;
+
+                    return [
+                        'id' => $row->id,
+                        'name' => $source->name ?? $row->talent_name,
+                        'body' => $source->description ?? $row->effect_text,
+                        'description' => $source->description ?? $row->effect_text,
+                        'suits' => $source->suits ?? $row->suits,
+                        'defensive_ability_type' => $source->defensive_ability_type ?? $row->defensive_ability_type,
+                        'costs_stone' => (bool) ($source->costs_stone ?? false),
+                        'flip_value' => $row->flip_value,
+                        'is_always_available' => (bool) $row->is_always_available,
+                        'is_joker' => (bool) $row->is_joker,
+                    ];
+                })
                 ->all(),
             'totem' => CustomCharacter::query()
                 ->where('is_campaign_totem_template', true)
@@ -216,13 +225,7 @@ class AftermathCatalog
                     'damage' => $a->damage,
                     'stone_cost' => $a->stone_cost ?? 0,
                     'is_signature' => (bool) $a->is_signature,
-                    'triggers' => $a->triggers->map(fn (Trigger $t) => [
-                        'id' => $t->id,
-                        'name' => $t->name,
-                        'suits' => $t->suits,
-                        'stone_cost' => $t->stone_cost ?? 0,
-                        'description' => $t->description,
-                    ]),
+                    'triggers' => self::triggerSummaries($a->triggers),
                 ])
                 ->all(),
             'crew_card' => CampaignCrewCard::query()
@@ -241,30 +244,57 @@ class AftermathCatalog
     }
 
     /**
-     * Attack/tactical-mod catalog (pg 38-41) — identical shape, keyed by
-     * campaign_advancement_kind ('attack' | 'tactical').
+     * Named (not inline) so its array shape is declared once — two different
+     * `.map()` call sites in this class build this exact sub-shape and an
+     * inline closure per call site trips up Larastan's collection-template
+     * covariance check across them.
      *
+     * @param  Collection<int, Trigger>  $triggers
+     * @return array<int, array{id: int, name: string, suits: string|null, stone_cost: int, description: string|null}>
+     */
+    private static function triggerSummaries(Collection $triggers): array
+    {
+        return $triggers->map(fn (Trigger $t) => [
+            'id' => $t->id,
+            'name' => $t->name,
+            'suits' => $t->suits,
+            'stone_cost' => $t->stone_cost ?? 0,
+            'description' => $t->description,
+        ])->all();
+    }
+
+    /**
+     * Attack/tactical-mod catalog (pg 38-43) — identical shape between the
+     * two tables, so one query shape covers both models.
+     *
+     * @param  class-string<AdvancementAttackMod>|class-string<AdvancementTacticalMod>  $modelClass
      * @return array<int, array<string, mixed>>
      */
-    public static function triggerAdvancements(string $kind): array
+    private static function attackTacticalAdvancements(string $modelClass): array
     {
-        return Trigger::query()
-            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-            ->where('campaign_advancement_kind', $kind)
-            ->orderBy('campaign_flip_value')
+        /** @var Builder<AdvancementAttackMod|AdvancementTacticalMod> $query */
+        $query = $modelClass::query();
+
+        return $query
+            ->with('trigger')
+            ->orderByRaw('flip_value IS NULL, flip_value ASC')
             ->orderBy('name')
             ->get()
-            ->map(fn (Trigger $t) => [
-                'id' => $t->id,
-                'name' => $t->name,
-                'body' => $t->description,
-                'description' => $t->description,
-                'suits' => $t->suits,
-                'stone_cost' => $t->stone_cost ?? 0,
-                'flip_value' => $t->campaign_flip_value,
-                'is_always_available' => (bool) $t->campaign_is_always_available,
-                'modifier_type' => $t->campaign_modifier_type,
-            ])
+            ->map(function (AdvancementAttackMod|AdvancementTacticalMod $row) {
+                $source = $row->trigger;
+
+                return [
+                    'id' => $row->id,
+                    'name' => $source->name ?? $row->name,
+                    'body' => $source->description ?? $row->effect_text,
+                    'description' => $source->description ?? $row->effect_text,
+                    'suits' => $source->suits ?? $row->suit,
+                    'stone_cost' => $source->stone_cost ?? 0,
+                    'flip_value' => $row->flip_value,
+                    'is_always_available' => (bool) $row->is_always_available,
+                    'modifier_type' => $row->modifier_type,
+                ];
+            })
             ->all();
     }
 }

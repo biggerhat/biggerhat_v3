@@ -122,7 +122,10 @@ onMounted(() => {
                 <div>
                     <Label>Linked Actions</Label>
                     <div class="mt-1 space-y-1">
-                        <div v-if="selectedActions.length === 0" class="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
+                        <div
+                            v-if="selectedActions.length === 0"
+                            class="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground"
+                        >
                             No actions linked yet.
                         </div>
                         <div

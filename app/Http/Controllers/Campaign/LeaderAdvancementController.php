@@ -6,6 +6,8 @@ use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderAdvancementRequest;
+use App\Models\Campaign\AdvancementAttackMod;
+use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignLeaderAdvancement;
@@ -98,11 +100,29 @@ class LeaderAdvancementController extends Controller
         $catalogId = $advancement->catalog_core_id;
 
         if ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod) {
-            if ($catalogId === null || $advancement->applied_to_action_index < 0) {
+            $idx = $advancement->applied_to_action_index;
+            if ($idx < 0) {
+                return;
+            }
+
+            $modifierType = $this->modifierTypeFor($table, $advancement->advancement_catalog_id);
+
+            if ($modifierType === 'skl_boost') {
+                $this->undoSklBoost($leader, $table, $advancement->advancement_catalog_id, $idx);
+
+                return;
+            }
+
+            if ($modifierType === 'signature') {
+                $this->undoSignature($leader, $idx);
+
+                return;
+            }
+
+            if ($catalogId === null) {
                 return;
             }
             $actions = $leader->actions ?? [];
-            $idx = $advancement->applied_to_action_index;
             if (! isset($actions[$idx])) {
                 return;
             }
@@ -166,6 +186,56 @@ class LeaderAdvancementController extends Controller
             ));
             $leader->save();
         }
+    }
+
+    private function modifierTypeFor(AdvancementTableEnum $table, ?int $advancementCatalogId): ?string
+    {
+        if ($advancementCatalogId === null) {
+            return null;
+        }
+
+        return match ($table) {
+            AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($advancementCatalogId)->value('modifier_type'),
+            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($advancementCatalogId)->value('modifier_type'),
+            default => null,
+        };
+    }
+
+    private function undoSklBoost(CustomCharacter $leader, AdvancementTableEnum $table, ?int $advancementCatalogId, int $actionIndex): void
+    {
+        if ($advancementCatalogId === null) {
+            return;
+        }
+
+        $sklFrom = match ($table) {
+            AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($advancementCatalogId)->value('skl_from'),
+            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($advancementCatalogId)->value('skl_from'),
+            default => null,
+        };
+        if ($sklFrom === null) {
+            return;
+        }
+
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['stat'] = $sklFrom;
+        $leader->actions = $actions;
+        $leader->save();
+    }
+
+    private function undoSignature(CustomCharacter $leader, int $actionIndex): void
+    {
+        $actions = $leader->actions ?? [];
+        if (! isset($actions[$actionIndex])) {
+            return;
+        }
+
+        $actions[$actionIndex]['is_signature'] = false;
+        $leader->actions = $actions;
+        $leader->save();
     }
 
     private function currentLeader(CampaignCrew $crew): ?CustomCharacter

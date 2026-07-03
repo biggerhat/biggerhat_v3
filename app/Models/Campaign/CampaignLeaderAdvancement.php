@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $custom_character_id
  * @property int|null $source_aftermath_id
  * @property AdvancementTableEnum $source_table
- * @property int|null $catalog_id
+ * @property int|null $advancement_catalog_id
  * @property int|null $catalog_core_id
  * @property int|null $from_equipment_id
  * @property int $applied_to_action_index
@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property-read CustomCharacter|null $appliedToCustomCharacter
  * @property-read CampaignEquipment|null $fromEquipment
+ *
  * @mixin IdeHelperCampaignLeaderAdvancement
  */
 class CampaignLeaderAdvancement extends Model

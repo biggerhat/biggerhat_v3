@@ -9,7 +9,6 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
-use App\Models\Trigger;
 use App\Models\Upgrade;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -881,7 +880,7 @@ it('Phase 4 fills XP boxes and writes leader_advancements rows', function () {
         'hand_drawn' => [],
     ]);
     $leader = buildLeaderFor($crew, $user);
-    $attackMod = Trigger::factory()->campaignAdvancementAttack()->create();
+    $attackMod = \App\Models\Campaign\AdvancementAttackMod::factory()->create();
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
@@ -1159,7 +1158,7 @@ it('Phase 4 rejects an Attack Mod whose flip value exceeds the flipped card', fu
     ]);
     buildLeaderFor($crew, $user);
     // Attack mod requiring an 11, picked against a flip of 5 → rejected (pg 38).
-    $attackMod = Trigger::factory()->campaignAdvancementAttack()->create(['campaign_flip_value' => 11]);
+    $attackMod = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['flip_value' => 11]);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [

@@ -9,9 +9,13 @@ use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
 use App\Http\Controllers\Admin\CacheAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementAbilityAdminController;
+use App\Http\Controllers\Admin\Campaign\AdvancementActionAdminController;
+use App\Http\Controllers\Admin\Campaign\AttackModAdvancementAdminController;
 use App\Http\Controllers\Admin\Campaign\BackAlleyDoctorResultAdminController as CampaignBackAlleyDoctorResultAdminController;
 use App\Http\Controllers\Admin\Campaign\CrewCardAdminController as CampaignCrewCardAdminController;
 use App\Http\Controllers\Admin\Campaign\LuckyMissAdminController as CampaignLuckyMissAdminController;
+use App\Http\Controllers\Admin\Campaign\TacticalModAdvancementAdminController;
 use App\Http\Controllers\Admin\Campaign\TotemTemplateAdminController as CampaignTotemTemplateAdminController;
 use App\Http\Controllers\Admin\Campaign\WeeklyEventAdminController as CampaignWeeklyEventAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
@@ -488,14 +492,23 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         };
 
         // Campaign Catalog Consolidation: equipment/injuries/crew-card effects/
-        // advancement-* / summoning / totems all live on the core catalog now
-        // (upgrades / abilities / actions / triggers / custom_characters with
-        // game_mode_type=campaign). These three remain dedicated because they
-        // have no core-catalog analog (pure flip-value lookup tables).
+        // summoning/totems live on the core catalog (upgrades / abilities /
+        // actions / triggers / custom_characters with game_mode_type=campaign).
+        // These three remain dedicated because they have no core-catalog
+        // analog (pure flip-value lookup tables).
         $crud(CampaignCrewCardAdminController::class, 'crew-cards', 'crew-cards', 'crewCard');
         $crud(CampaignTotemTemplateAdminController::class, 'totem-templates', 'totem-templates', 'totemTemplate');
         $crud(CampaignLuckyMissAdminController::class, 'lucky-miss', 'lucky-miss', 'luckyMiss');
         $crud(CampaignBackAlleyDoctorResultAdminController::class, 'back-alley-doctor', 'back-alley-doctor', 'doctorResult');
         $crud(CampaignWeeklyEventAdminController::class, 'weekly-events', 'weekly-events', 'weeklyEvent');
+
+        // Attack Mod / Tactical Mod / Action / Ability advancements — split
+        // back into dedicated tables so QA can tailor each chart's data shape
+        // independently (Lookup FKs into the real triggers/actions/abilities
+        // catalog + bespoke campaign-only rows).
+        $crud(AttackModAdvancementAdminController::class, 'advancement-attack-mod', 'advancement-attack-mod', 'advancement');
+        $crud(TacticalModAdvancementAdminController::class, 'advancement-tactical-mod', 'advancement-tactical-mod', 'advancement');
+        $crud(AdvancementActionAdminController::class, 'advancement-action', 'advancement-action', 'advancementAction');
+        $crud(AdvancementAbilityAdminController::class, 'advancement-ability', 'advancement-ability', 'advancementAbility');
     });
 });

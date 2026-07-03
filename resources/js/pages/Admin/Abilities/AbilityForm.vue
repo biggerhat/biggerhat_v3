@@ -60,9 +60,6 @@ const formInfo = ref({
     characters: [],
     // Campaign-only fields — null/false on Standard abilities. Surfaced
     // conditionally in the template when game_mode_type === 'campaign'.
-    campaign_flip_value: null as number | null,
-    campaign_is_always_available: false,
-    campaign_joker_freechoice: false,
     is_crew_card_effect: false,
     requires_token_choice: false,
     requires_marker_choice: false,
@@ -82,9 +79,6 @@ onMounted(() => {
     formInfo.value.description = props.ability?.description ?? null;
 
     // Campaign-only fields — populate from the ability if present.
-    formInfo.value.campaign_flip_value = props.ability?.campaign_flip_value ?? null;
-    formInfo.value.campaign_is_always_available = props.ability?.campaign_is_always_available ?? false;
-    formInfo.value.campaign_joker_freechoice = props.ability?.campaign_joker_freechoice ?? false;
     formInfo.value.is_crew_card_effect = props.ability?.is_crew_card_effect ?? false;
     formInfo.value.requires_token_choice = props.ability?.requires_token_choice ?? false;
     formInfo.value.requires_marker_choice = props.ability?.requires_marker_choice ?? false;
@@ -190,32 +184,7 @@ onMounted(() => {
                             class="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3"
                         >
                             <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Campaign Mode</legend>
-                            <div class="grid gap-3 md:grid-cols-2">
-                                <div class="flex flex-col space-y-1.5">
-                                    <Label for="campaign_flip_value">Flip Value (1–13)</Label>
-                                    <Input id="campaign_flip_value" type="number" min="1" max="13" v-model.number="formInfo.campaign_flip_value" />
-                                    <p class="text-[11px] text-muted-foreground">
-                                        Aftermath XP-advancement gating. Leave blank for "Always Available" abilities.
-                                    </p>
-                                </div>
-                                <div class="flex flex-col gap-2 pt-5">
-                                    <label class="flex items-center gap-2 text-sm">
-                                        <Checkbox
-                                            :checked="formInfo.campaign_is_always_available"
-                                            @update:checked="(v: boolean) => (formInfo.campaign_is_always_available = v)"
-                                        />
-                                        <span>Always available</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm">
-                                        <Checkbox
-                                            :checked="formInfo.campaign_joker_freechoice"
-                                            @update:checked="(v: boolean) => (formInfo.campaign_joker_freechoice = v)"
-                                        />
-                                        <span>Joker "Choose freely"</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-2 border-t pt-3">
+                            <div class="flex flex-col gap-2">
                                 <label class="flex items-center gap-2 text-sm font-medium">
                                     <Checkbox
                                         :checked="formInfo.is_crew_card_effect"

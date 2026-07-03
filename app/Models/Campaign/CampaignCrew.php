@@ -42,10 +42,12 @@ use Illuminate\Support\Str;
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
  * @property-read CustomCharacter|null $totem
+ *
  * @method static \Database\Factories\Campaign\CampaignCrewFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
+ *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignCrew
  */

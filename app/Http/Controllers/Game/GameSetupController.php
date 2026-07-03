@@ -41,6 +41,14 @@ class GameSetupController extends Controller
 
         $player->update(['faction' => $validated['faction']]);
 
+        // Solo Campaign games track a generic opponent (their real campaign leader
+        // isn't in this app) — auto-fill the opponent's faction with the same pick
+        // so the step advances on a single submission instead of prompting for an
+        // opponent faction that has no real meaning here.
+        if ($game->is_solo && $game->format === \App\Enums\GameFormatEnum::Campaign && $player->slot === 1) {
+            $game->players()->where('slot', 2)->whereNull('faction')->update(['faction' => $validated['faction']]);
+        }
+
         // Pessimistic lock: prevent two concurrent submissions from both
         // seeing "2 of 2 done" and advancing the status twice. Bonanza is
         // force-solo personal-tracking, so slot-1 alone counts as "done".
@@ -102,6 +110,13 @@ class GameSetupController extends Controller
             'master_name' => $validated['master_name'],
             'master_id' => $master?->id,
         ]);
+
+        // Solo Campaign games track a generic opponent — no catalog master stands
+        // in for a real player's built leader, so skip the opponent master picker
+        // entirely and auto-fill a placeholder once the solo player locks in theirs.
+        if ($game->is_solo && $game->format === \App\Enums\GameFormatEnum::Campaign && $player->slot === 1) {
+            $game->players()->where('slot', 2)->whereNull('master_name')->update(['master_name' => 'Opponent Campaign Leader']);
+        }
 
         [$bothDone, $statusChanged] = DB::transaction(function () use ($game) {
             /** @var Game $locked */
@@ -324,9 +339,9 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Build your campaign leader before selecting crew'], 422);
         }
 
-        DB::transaction(function () use ($player, $game) {
+        DB::transaction(function () use ($player, $game, $characterIds) {
             $player->update(['crew_skipped' => true]);
-            $this->copyCrewToGame($game, $player, null);
+            $this->copyCrewToGame($game, $player, null, $characterIds);
 
             $totalSpent = GameCrewMember::where('game_id', $game->id)
                 ->where('game_player_id', $player->id)
@@ -334,6 +349,13 @@ class GameSetupController extends Controller
             $remaining = $game->encounter_size - $totalSpent;
             $pool = $remaining > 6 ? 6 : max(0, $remaining);
             $player->update(['soulstone_pool' => $pool]);
+
+            // Solo Campaign games track a generic opponent (no real second player
+            // will ever submit a crew for them) — auto-skip their crew step too,
+            // mirroring the faction/master auto-fill in submitFaction()/submitMaster().
+            if ($game->is_solo) {
+                $game->players()->whereNull('user_id')->update(['crew_skipped' => true]);
+            }
         });
 
         $bothDone = DB::transaction(function () use ($game) {
@@ -601,7 +623,7 @@ class GameSetupController extends Controller
         return $player;
     }
 
-    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild): void
+    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild, array $campaignCharacterIds = []): void
     {
         // Delete existing crew members for this player (in case of re-selection)
         GameCrewMember::where('game_id', $game->id)
@@ -659,7 +681,10 @@ class GameSetupController extends Controller
                     'front_image' => null,
                     'back_image' => null,
                     'is_custom' => true,
-                    'attached_upgrades' => [],
+                    // Injuries (pg 34) are permanent and "must always be attached
+                    // to the model when it is hired" — carried over every game,
+                    // not an optional pick like equipment.
+                    'attached_upgrades' => $this->injuryUpgrades('custom_character_id', $campaignLeader->id),
                     'attached_tokens' => [],
                     'attached_markers' => [],
                     'sort_order' => $sortOrder++,
@@ -687,7 +712,7 @@ class GameSetupController extends Controller
                     'front_image' => null,
                     'back_image' => null,
                     'is_custom' => true,
-                    'attached_upgrades' => [],
+                    'attached_upgrades' => $this->injuryUpgrades('custom_character_id', $campaignTotem->id),
                     'attached_tokens' => [],
                     'attached_markers' => [],
                     'sort_order' => $sortOrder++,
@@ -701,17 +726,29 @@ class GameSetupController extends Controller
                 ->map(fn ($n) => Str::slug($n))
                 ->toArray();
 
-            $miniatureSelections = $crewBuild->miniature_selections ?? [];
-            $miniatureIndexes = [];
-
-            /** @var array<mixed> $crewCharacterIds */
-            $crewCharacterIds = $crewBuild->crew_data ?? [];
+            // Campaign crews hire from CampaignArsenalModel (real Character catalog
+            // rows), never a CrewBuild — the selected arsenal IDs come in directly
+            // from submitCampaignCrew rather than $crewBuild->crew_data.
             $crewCharacters = Character::with('miniatures', 'keywords', 'characteristics')
-                ->whereIn('id', $crewCharacterIds)
+                ->whereIn('id', $campaignCharacterIds)
                 ->get()
                 ->keyBy('id');
 
-            foreach ($crewCharacterIds as $charId) {
+            // Injuries are attached per specific arsenal-model row (not per
+            // catalog character), so resolve which row backs each selected hire.
+            $arsenalModelsByCharacterId = $campaignCrew
+                ? \App\Models\Campaign\CampaignArsenalModel::query()
+                    ->where('campaign_crew_id', $campaignCrew->id)
+                    ->whereIn('character_id', $campaignCharacterIds)
+                    ->active()
+                    ->get()
+                    ->keyBy('character_id')
+                : collect();
+
+            $miniatureSelections = [];
+            $miniatureIndexes = [];
+
+            foreach ($campaignCharacterIds as $charId) {
                 $character = $crewCharacters->get($charId);
                 if (! $character) {
                     continue;
@@ -722,47 +759,10 @@ class GameSetupController extends Controller
                 $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
                 $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
 
-                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes);
-            }
+                $arsenalModel = $arsenalModelsByCharacterId->get($charId);
+                $injuryUpgrades = $arsenalModel ? $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id) : [];
 
-            /** @var array<mixed> $customCrewData */
-            $customCrewData = $crewBuild->custom_crew_data ?? [];
-            foreach ($customCrewData as $customEntry) {
-                $customKeywords = collect($customEntry['keywords'] ?? [])
-                    ->pluck('name')
-                    ->map(fn ($n) => Str::slug($n))
-                    ->toArray();
-
-                $sharesKeyword = ! empty(array_intersect($customKeywords, $leaderKeywordSlugs));
-                $isVersatile = in_array('versatile', array_map('strtolower', $customEntry['characteristics'] ?? []));
-                $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
-                $baseCost = $customEntry['cost'] ?? 0;
-                $effectiveCost = $category === 'ook' ? ($baseCost + 1) : $baseCost;
-
-                GameCrewMember::create([
-                    'game_id' => $game->id,
-                    'game_player_id' => $player->id,
-                    'character_id' => null,
-                    'custom_character_id' => $customEntry['custom_character_id'] ?? null,
-                    'display_name' => $customEntry['display_name'] ?? 'Custom Character',
-                    'faction' => $customEntry['faction'] ?? $player->getRawOriginal('faction'),
-                    'current_health' => $customEntry['health'] ?? 1,
-                    'max_health' => $customEntry['health'] ?? 1,
-                    'defense' => $customEntry['defense'] ?? null,
-                    'willpower' => $customEntry['willpower'] ?? null,
-                    'speed' => $customEntry['speed'] ?? null,
-                    'size' => $customEntry['size'] ?? null,
-                    'cost' => $effectiveCost,
-                    'station' => $customEntry['station'] ?? null,
-                    'hiring_category' => $category,
-                    'front_image' => $customEntry['front_image'] ?? null,
-                    'back_image' => $customEntry['back_image'] ?? null,
-                    'is_custom' => true,
-                    'attached_upgrades' => [],
-                    'attached_tokens' => [],
-                    'attached_markers' => [],
-                    'sort_order' => $sortOrder++,
-                ]);
+                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes, $injuryUpgrades);
             }
 
             return;
@@ -865,6 +865,32 @@ class GameSetupController extends Controller
     }
 
     /**
+     * Injury upgrades (pg 34) attached to a specific arsenal model or
+     * leader/totem, shaped to drop straight into a GameCrewMember's
+     * `attached_upgrades`. Unlike equipment these are permanent and carried
+     * into every game the model is hired for — never an optional pick.
+     *
+     * @return array<int, array{id: int, name: string, front_image: string|null, back_image: string|null}>
+     */
+    private function injuryUpgrades(string $column, int $id): array
+    {
+        return \App\Models\Campaign\CampaignArsenalModelInjury::query()
+            ->where($column, $id)
+            ->with('injury:id,name,front_image,back_image')
+            ->get()
+            ->pluck('injury')
+            ->filter()
+            ->map(fn (\App\Models\Upgrade $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'front_image' => $u->front_image,
+                'back_image' => $u->back_image,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * Create the single GameCrewMember used by Bonanza Brawl. The format hires
      * one model per player, picked at MasterSelect — there's no Crew Select,
      * no totem, no scheme pool. Marked with the `lone` hiring_category so the
@@ -893,7 +919,7 @@ class GameSetupController extends Controller
         $this->createCrewMember($game, $player, $character, 'lone', 0, 0, [], $miniatureIndexes);
     }
 
-    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = []): void
+    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = [], array $attachedUpgrades = []): void
     {
         // Use the miniature selected in the Crew Builder, or fall back to first.
         // miniature_selections can be { "charId": miniatureId } (single) or { "charId": [id1, id2, ...] } (multi).
@@ -931,7 +957,7 @@ class GameSetupController extends Controller
             'hiring_category' => $category,
             'front_image' => $miniature?->front_image,
             'back_image' => $miniature?->back_image,
-            'attached_upgrades' => [],
+            'attached_upgrades' => $attachedUpgrades,
             'attached_tokens' => [],
             'attached_markers' => [],
             'sort_order' => $sortOrder,

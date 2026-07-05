@@ -40,6 +40,9 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Blog)]
     case ManageAllPosts = 'manage_all_posts';
 
+    #[PermissionGroup(PermissionGroupEnum::News)]
+    case ManageNews = 'manage_news';
+
     #[PermissionGroup(PermissionGroupEnum::Keyword)]
     case ViewKeyword = 'view_keyword';
     #[PermissionGroup(PermissionGroupEnum::Keyword)]

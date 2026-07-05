@@ -16,6 +16,13 @@ interface BlogCategory {
     description: string | null;
 }
 
+const props = defineProps<{
+    categories: BlogCategory[];
+    postType?: 'blog' | 'news';
+}>();
+
+const routeFor = (suffix: string, param?: string) => route(`admin.${props.postType ?? 'blog'}.categories.${suffix}`, param);
+
 const columns: ColumnDef<BlogCategory>[] = [
     {
         accessorKey: 'name',
@@ -33,17 +40,13 @@ const columns: ColumnDef<BlogCategory>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: category.name,
-                    editRoute: route('admin.blog.categories.edit', category.slug),
-                    deleteRoute: route('admin.blog.categories.delete', category.slug),
+                    editRoute: routeFor('edit', category.slug),
+                    deleteRoute: routeFor('delete', category.slug),
                 }),
             );
         },
     },
 ];
-
-const props = defineProps<{
-    categories: BlogCategory[];
-}>();
 
 const columnFilters = ref<ColumnFiltersState>([]);
 
@@ -67,7 +70,7 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Article Categories - Admin" />
+    <Head :title="postType === 'news' ? 'News Categories - Admin' : 'Article Categories - Admin'" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
@@ -78,7 +81,7 @@ const table = useVueTable({
                 @update:model-value="table.getColumn('name')?.setFilterValue($event)"
             />
             <div>Total {{ props.categories.length }}</div>
-            <Button @click="router.get(route('admin.blog.categories.create'))">Create New Category</Button>
+            <Button @click="router.get(routeFor('create'))">Create New Category</Button>
         </div>
         <div class="rounded-md border">
             <Table>

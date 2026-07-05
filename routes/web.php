@@ -17,6 +17,7 @@ use App\Http\Controllers\Database\FactionController;
 use App\Http\Controllers\Database\KeywordController;
 use App\Http\Controllers\Database\LoreController;
 use App\Http\Controllers\Database\MarkerController;
+use App\Http\Controllers\Database\NewsController;
 use App\Http\Controllers\Database\PackageController;
 use App\Http\Controllers\Database\SchemeController;
 use App\Http\Controllers\Database\SearchController;
@@ -91,6 +92,19 @@ Route::get('/', function () {
                 'created_at' => $build->created_at->diffForHumans(),
             ]),
         'recent_articles' => fn () => BlogPost::published()
+            ->excludingNews()
+            ->with('category:id,name')
+            ->latest('published_at')
+            ->take(4)
+            ->get()
+            ->map(fn (BlogPost $post) => [
+                'title' => $post->title,
+                'slug' => $post->slug,
+                'category' => $post->category?->name,
+                'published_at' => $post->published_at->diffForHumans(),
+            ]),
+        'recent_news' => fn () => BlogPost::published()
+            ->news()
             ->with('category:id,name')
             ->latest('published_at')
             ->take(4)
@@ -114,15 +128,6 @@ Route::get('/', function () {
                 'channel_slug' => $t->channel?->slug,
                 'channel_image' => $t->channel?->image,
             ]),
-        'faction_counts' => fn () => Character::whereHas('standardMiniatures')
-            ->selectRaw('faction, COUNT(*) as total')
-            ->groupBy('faction')
-            ->pluck('total', 'faction'),
-        'station_counts' => fn () => Character::whereHas('standardMiniatures')
-            ->whereNotNull('station')
-            ->selectRaw('station, COUNT(*) as total')
-            ->groupBy('station')
-            ->pluck('total', 'station'),
         'stats' => fn () => [
             'characters' => Character::count(),
             'keywords' => Keyword::count(),
@@ -213,6 +218,11 @@ Route::prefix('lore')->name('lores.')->group(function () {
 Route::prefix('blog')->name('blog.')->group(function () {
     Route::get('/', [BlogController::class, 'index'])->name('index');
     Route::get('/{blogPost}', [BlogController::class, 'view'])->name('view');
+});
+
+Route::prefix('news')->name('news.')->group(function () {
+    Route::get('/', [NewsController::class, 'index'])->name('index');
+    Route::get('/{blogPost}', [NewsController::class, 'view'])->name('view');
 });
 
 Route::prefix('channels')->name('channels.')->group(function () {

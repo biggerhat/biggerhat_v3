@@ -310,14 +310,10 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="title_group_key">Titled Models Group Key (Campaign Mode)</Label>
-                            <Input
-                                id="title_group_key"
-                                v-model="formInfo.title_group_key"
-                                placeholder="e.g. mei-feng"
-                            />
+                            <Input id="title_group_key" v-model="formInfo.title_group_key" placeholder="e.g. mei-feng" />
                             <p class="text-xs text-muted-foreground">
-                                Every titled version of this model (pg 18) shares the same key. Hiring one in Campaign
-                                Mode auto-adds the rest to the arsenal.
+                                Every titled version of this model (pg 18) shares the same key. Hiring one in Campaign Mode auto-adds the rest to the
+                                arsenal.
                             </p>
                             <InputError :message="usePage().props.errors.title_group_key" />
                         </div>

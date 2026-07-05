@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\BlogCategory;
+use App\Models\BlogPost;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Stratagem;
@@ -59,4 +61,19 @@ it('includes per-entity TOS rows when records exist', function () {
     expect($body)->toContain($asset->slug);
     expect($body)->toContain($stratagem->slug);
     expect($body)->toContain($sculpt->slug);
+});
+
+it('routes news posts to news.view and regular posts to blog.view', function () {
+    $newsCategory = BlogCategory::factory()->news()->create();
+    $articleCategory = BlogCategory::factory()->create();
+
+    $newsPost = BlogPost::factory()->published()->create(['blog_category_id' => $newsCategory->id]);
+    $articlePost = BlogPost::factory()->published()->create(['blog_category_id' => $articleCategory->id]);
+
+    $body = $this->get('/sitemap.xml')->streamedContent();
+
+    expect($body)->toContain(route('news.view', $newsPost->slug))
+        ->and($body)->not->toContain(route('blog.view', $newsPost->slug))
+        ->and($body)->toContain(route('blog.view', $articlePost->slug))
+        ->and($body)->not->toContain(route('news.view', $articlePost->slug));
 });

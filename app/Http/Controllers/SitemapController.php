@@ -47,6 +47,7 @@ class SitemapController extends Controller
             foreach ([
                 ['url' => route('index'), 'priority' => '1.0', 'changefreq' => 'daily'],
                 ['url' => route('blog.index'), 'priority' => '0.8', 'changefreq' => 'daily'],
+                ['url' => route('news.index'), 'priority' => '0.7', 'changefreq' => 'daily'],
                 ['url' => route('keywords.index'), 'priority' => '0.7', 'changefreq' => 'weekly'],
                 ['url' => route('markers.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
                 ['url' => route('tokens.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
@@ -115,11 +116,14 @@ class SitemapController extends Controller
             $this->collectByModel($urls, Strategy::class, 'strategies.view', 'slug', priority: '0.5');
             $this->collectByModel($urls, Channel::class, 'channels.view', 'slug', priority: '0.5');
 
-            // Blog posts — only published entries. The `published` scope checks
-            // status = Published AND published_at IS NOT NULL, so a draft with a
-            // backdated published_at can't slip into the sitemap.
+            // Blog posts — only published entries, excluding News (its own
+            // is_news-flagged categories get their own news.view URL below).
+            // The `published` scope checks status = Published AND
+            // published_at IS NOT NULL, so a draft with a backdated
+            // published_at can't slip into the sitemap.
             BlogPost::query()
                 ->published()
+                ->excludingNews()
                 ->orderByDesc('published_at')
                 ->chunk(500, function ($posts) use ($urls) {
                     foreach ($posts as $post) {
@@ -128,6 +132,23 @@ class SitemapController extends Controller
                             'url' => route('blog.view', $post->slug),
                             'lastmod' => $this->lastmod($post),
                             'priority' => '0.7',
+                            'changefreq' => 'monthly',
+                        ]);
+                    }
+                });
+
+            // Site News posts — same walk, pointed at news.view instead.
+            BlogPost::query()
+                ->published()
+                ->news()
+                ->orderByDesc('published_at')
+                ->chunk(500, function ($posts) use ($urls) {
+                    foreach ($posts as $post) {
+                        /** @var BlogPost $post */
+                        $urls->push([
+                            'url' => route('news.view', $post->slug),
+                            'lastmod' => $this->lastmod($post),
+                            'priority' => '0.6',
                             'changefreq' => 'monthly',
                         ]);
                     }

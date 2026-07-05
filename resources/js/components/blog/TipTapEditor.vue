@@ -18,6 +18,7 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps<{
     modelValue?: Record<string, unknown> | null;
+    uploadImageRoute?: string;
 }>();
 
 const emit = defineEmits<{
@@ -86,7 +87,7 @@ const onImageFileSelected = async (e: Event) => {
     formData.append('image', file);
 
     try {
-        const res = await fetch(route('admin.blog.posts.upload-image'), {
+        const res = await fetch(props.uploadImageRoute ?? route('admin.blog.posts.upload-image'), {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrfToken() },
             body: formData,

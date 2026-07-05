@@ -82,6 +82,8 @@ const adminGroups: AdminNavGroup[] = [
         items: [
             { title: 'Articles', href: route('admin.blog.posts.index'), icon: Newspaper, permission: 'create_posts|edit_posts' },
             { title: 'Article Categories', href: route('admin.blog.categories.index'), icon: Newspaper, permission: 'create_posts|edit_posts' },
+            { title: 'Site News', href: route('admin.news.posts.index'), icon: Megaphone, permission: 'manage_news' },
+            { title: 'News Categories', href: route('admin.news.categories.index'), icon: Megaphone, permission: 'manage_news' },
             { title: 'Lore', href: route('admin.lores.index'), icon: BookOpen, permission: 'view_lore' },
             { title: 'Lore Media', href: route('admin.lore_media.index'), icon: BookOpen, permission: 'view_lore' },
             { title: 'Blueprints', href: route('admin.blueprints.index'), icon: FileImage, permission: 'view_blueprint' },

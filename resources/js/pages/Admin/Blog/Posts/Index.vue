@@ -21,6 +21,13 @@ interface BlogPost {
     created_at: string;
 }
 
+const props = defineProps<{
+    posts: BlogPost[];
+    postType?: 'blog' | 'news';
+}>();
+
+const routeFor = (suffix: string, param?: string) => route(`admin.${props.postType ?? 'blog'}.posts.${suffix}`, param);
+
 const statusVariant = (status: string) => {
     switch (status) {
         case 'published':
@@ -80,18 +87,14 @@ const columns: ColumnDef<BlogPost>[] = [
                 { class: 'relative' },
                 h(AdminActions, {
                     name: post.title,
-                    previewRoute: route('admin.blog.posts.preview', post.slug),
-                    editRoute: route('admin.blog.posts.edit', post.slug),
-                    deleteRoute: route('admin.blog.posts.delete', post.slug),
+                    previewRoute: routeFor('preview', post.slug),
+                    editRoute: routeFor('edit', post.slug),
+                    deleteRoute: routeFor('delete', post.slug),
                 }),
             );
         },
     },
 ];
-
-const props = defineProps<{
-    posts: BlogPost[];
-}>();
 
 const columnFilters = ref<ColumnFiltersState>([]);
 
@@ -115,7 +118,7 @@ const table = useVueTable({
 </script>
 
 <template>
-    <Head title="Articles - Admin" />
+    <Head :title="postType === 'news' ? 'Site News - Admin' : 'Articles - Admin'" />
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
@@ -126,7 +129,7 @@ const table = useVueTable({
                 @update:model-value="table.getColumn('title')?.setFilterValue($event)"
             />
             <div>Total {{ props.posts.length }}</div>
-            <Button @click="router.get(route('admin.blog.posts.create'))">Create New Post</Button>
+            <Button @click="router.get(routeFor('create'))">Create New {{ postType === 'news' ? 'News Post' : 'Post' }}</Button>
         </div>
         <div class="rounded-md border">
             <Table>

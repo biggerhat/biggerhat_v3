@@ -38,10 +38,12 @@ class EnsureHasAdminPermission
         // Any "view_*" permission lets a user see at least one admin index.
         // Blog authoring permissions also open the admin area (blog routes
         // use create_posts|edit_posts without a separate view_* perm).
+        // manage_news is the same kind of bundled non-view_* entry point for
+        // the Site News admin area.
         $permissions = array_filter(
             array_map(fn (PermissionEnum $case) => $case->value, PermissionEnum::cases()),
             fn (string $value) => str_starts_with($value, 'view_')
-                || in_array($value, ['create_posts', 'edit_posts', 'manage_all_posts'], true),
+                || in_array($value, ['create_posts', 'edit_posts', 'manage_all_posts', 'manage_news'], true),
         );
 
         return array_values($permissions);

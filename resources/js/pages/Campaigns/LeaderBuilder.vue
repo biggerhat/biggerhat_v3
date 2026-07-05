@@ -126,7 +126,7 @@ const props = defineProps<{
     base_enum: SelectOpt[];
     all_keywords: KeywordRow[];
     characteristic_options: string[];
-    equipment_catalog: Array<{ id: number; name: string }>;
+    equipment_catalog: Array<{ id: number; name: string; br: number | null; is_always_available: boolean }>;
     lucky_upstart_equipment_id: number | null;
 }>();
 
@@ -143,9 +143,28 @@ const form = ref({
     actions: props.leader?.actions ?? ([] as ActionData[]),
     abilities: props.leader?.abilities ?? ([] as AbilityData[]),
     lucky_upstart_equipment_id: props.lucky_upstart_equipment_id ?? null,
+    lucky_upstart_flip_value: null as number | null,
 });
 
 const archetype = computed(() => props.archetypes.find((a) => a.slug === form.value.archetype) ?? null);
+
+// Lucky Upstart flips a card, then may only take equipment whose BR matches
+// that flip exactly (pg 17) — same BR-match rule the Aftermath Barter step
+// enforces, just gated on a single flip instead of a purchase list.
+const eligibleLuckyUpstartEquipment = computed(() => {
+    const flip = form.value.lucky_upstart_flip_value;
+    if (flip == null) return props.equipment_catalog;
+    return props.equipment_catalog.filter((e) => e.is_always_available || e.br === flip);
+});
+
+watch(
+    () => form.value.lucky_upstart_flip_value,
+    () => {
+        if (!eligibleLuckyUpstartEquipment.value.some((e) => e.id === form.value.lucky_upstart_equipment_id)) {
+            form.value.lucky_upstart_equipment_id = null;
+        }
+    },
+);
 
 const attackActions = computed(() => form.value.actions.filter((a) => a.category === 'attack'));
 const tacticalActions = computed(() => form.value.actions.filter((a) => a.category === 'tactical'));
@@ -385,17 +404,33 @@ const submit = async () => {
                     </p>
                     <InputError :message="usePage().props.errors.archetype" />
                 </div>
-                <div v-if="form.archetype === 'lucky_upstart'" class="md:col-span-2">
-                    <Label>Free starter equipment (Lucky Upstart)</Label>
-                    <select
-                        v-model.number="form.lucky_upstart_equipment_id"
-                        class="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
-                    >
-                        <option :value="null">— pick equipment —</option>
-                        <option v-for="e in equipment_catalog" :key="e.id" :value="e.id">{{ e.name }}</option>
-                    </select>
-                    <p class="mt-1 text-[11px] text-muted-foreground">Rolled free on creation; doesn't count toward Campaign Rating (pg 17).</p>
-                    <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
+                <div v-if="form.archetype === 'lucky_upstart'" class="grid gap-3 md:col-span-2 md:grid-cols-[120px_1fr]">
+                    <div>
+                        <Label for="lucky_upstart_flip_value">Flip (1–13)</Label>
+                        <Input
+                            id="lucky_upstart_flip_value"
+                            type="number"
+                            min="1"
+                            max="13"
+                            v-model.number="form.lucky_upstart_flip_value"
+                        />
+                        <InputError :message="usePage().props.errors.lucky_upstart_flip_value" />
+                    </div>
+                    <div>
+                        <Label>Free starter equipment (Lucky Upstart)</Label>
+                        <select
+                            v-model.number="form.lucky_upstart_equipment_id"
+                            class="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                        >
+                            <option :value="null">— pick equipment —</option>
+                            <option v-for="e in eligibleLuckyUpstartEquipment" :key="e.id" :value="e.id">{{ e.name }}</option>
+                        </select>
+                        <p class="mt-1 text-[11px] text-muted-foreground">
+                            Flip a card (may not be cheated) — take equipment whose BR matches exactly. Doesn't count toward Campaign Rating
+                            (pg 17).
+                        </p>
+                        <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
+                    </div>
                 </div>
                 <div>
                     <Label>Faction (declared)</Label>

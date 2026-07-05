@@ -560,7 +560,7 @@ it('Phase 3 Barter rejects when scrip is insufficient', function () {
     expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
 });
 
-it('Phase 3 Barter records a Those Who Thirst item with source joker', function () {
+it('Phase 3 Barter rejects a Those Who Thirst item from the normal purchases list', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 10]);
     $aftermath = CampaignAftermath::factory()->create([
@@ -569,6 +569,8 @@ it('Phase 3 Barter records a Those Who Thirst item with source joker', function 
         'current_phase' => 3,
         'hand_drawn' => [],
     ]);
+    // Those Who Thirst items are a separate red-joker sub-table pick (pg 30),
+    // not purchasable via the normal barter list.
     $ttw = Upgrade::factory()->campaignEquipmentTtw()->create(['campaign_br' => 2, 'campaign_cc' => 3]);
 
     $this->actingAs($user)
@@ -577,9 +579,8 @@ it('Phase 3 Barter records a Those Who Thirst item with source joker', function 
         ])
         ->assertRedirect();
 
-    $eq = CampaignEquipment::where('campaign_crew_id', $crew->id)->first();
-    expect($eq)->not->toBeNull();
-    expect($eq->source)->toBe('joker');
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+    expect($aftermath->fresh()->current_phase)->toBe(3);
 });
 
 it('Phase 3 Barter empty purchases still advances the phase', function () {
@@ -1091,6 +1092,51 @@ it('Phase 4 enforces exact flip-value match on Totem Advancement', function () {
     expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
+it('Phase 4 Totem Advancement inherits the leader\'s keywords', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leaderKeywords = [['id' => 1, 'name' => 'Ten Thunders']];
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => $leaderKeywords]);
+
+    $totemTemplate = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'is_campaign_totem_template' => true,
+        'campaign_totem_flip_value' => 7,
+        'name' => 'Wisp',
+        'display_name' => 'Wisp',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'totem',
+                'catalog_id' => $totemTemplate->id,
+                'flip_value' => 7,
+                'position_in_xp_track' => 4,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $totem = \App\Models\CustomCharacter::query()
+        ->where('campaign_crew_id', $crew->id)
+        ->where('is_campaign_totem', true)
+        ->where('current', true)
+        ->first();
+    expect($totem)->not->toBeNull();
+    expect($totem->keywords)->toBe($leaderKeywords);
+});
+
 it('Phase 4 with only the play point advances the phase', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1148,6 +1194,85 @@ it('Phase 4 rejects an advancement whose tier exceeds the XP box', function () {
     expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(0);
 });
 
+it('Phase 4 Any Joker applies the real free-chosen action to the leader', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+
+    $sourceChar = \App\Models\Character::factory()->create(['cost' => 8, 'station' => null]);
+    $sourceChar->keywords()->attach($keyword);
+    $sourceAction = \App\Models\Action::factory()->create(['name' => 'Borrowed Strike']);
+    $sourceChar->actions()->attach($sourceAction);
+
+    $anyJokerRow = \App\Models\Campaign\AdvancementAction::factory()->anyJoker()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'action',
+                'catalog_id' => $anyJokerRow->id,
+                // Tier-2 box (default XP track has a 2 at index 2).
+                'position_in_xp_track' => 2,
+                'free_choice' => ['source_id' => $sourceAction->id, 'source_character_id' => $sourceChar->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $leader->refresh();
+    expect(collect($leader->actions)->pluck('name'))->toContain('Borrowed Strike');
+    $advancement = \App\Models\Campaign\CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
+    expect($advancement->catalog_core_id)->toBe($sourceAction->id);
+});
+
+it('Phase 4 Any Joker rejects a source model outside the leader\'s keywords', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leaderKeyword = \App\Models\Keyword::factory()->create();
+    $otherKeyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $leaderKeyword->id, 'name' => $leaderKeyword->name]]]);
+
+    // Source model does NOT share the leader's keyword.
+    $sourceChar = \App\Models\Character::factory()->create(['cost' => 8, 'station' => null]);
+    $sourceChar->keywords()->attach($otherKeyword);
+    $sourceAction = \App\Models\Action::factory()->create();
+    $sourceChar->actions()->attach($sourceAction);
+
+    $anyJokerRow = \App\Models\Campaign\AdvancementAction::factory()->anyJoker()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'action',
+                'catalog_id' => $anyJokerRow->id,
+                'position_in_xp_track' => 2,
+                'free_choice' => ['source_id' => $sourceAction->id, 'source_character_id' => $sourceChar->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4); // rejected, didn't advance
+    expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(0);
+});
+
 it('Phase 4 rejects an Attack Mod whose flip value exceeds the flipped card', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1176,6 +1301,83 @@ it('Phase 4 rejects an Attack Mod whose flip value exceeds the flipped card', fu
 
     expect($aftermath->fresh()->current_phase)->toBe(4);
     expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(0);
+});
+
+it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement without touching the starter effect', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+
+    $starterEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Starter Effect']);
+    $crew->update(['crew_card_effect_id' => $starterEffect->id]);
+
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Effect']);
+    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $master->keywords()->attach($keyword);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                // Tier-4 box (the default XP track has a 4 at index 6).
+                'position_in_xp_track' => 6,
+                'free_choice' => ['source_character_id' => $master->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $crew->refresh();
+    expect($crew->crew_card_effect_id)->toBe($starterEffect->id); // untouched
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
+    expect($stacked)->toHaveCount(1);
+    expect($stacked->first()->crew_card_effect_id)->toBe($borrowedEffect->id);
+    expect($stacked->first()->source_master_id)->toBe($master->id);
+});
+
+it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keywords', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leaderKeyword = \App\Models\Keyword::factory()->create();
+    $otherKeyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $leaderKeyword->id, 'name' => $leaderKeyword->name]]]);
+
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create();
+    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $master->keywords()->attach($otherKeyword);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => ['source_character_id' => $master->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
 it('Phase 4 rejects a Totem Advancement when the crew already has a totem', function () {
@@ -1361,4 +1563,257 @@ it('Aftermath show pre-fills payday + draw-hand from the logged game scoring', f
             ->where('prefill.crew_cr', 4)
             ->where('prefill.opponent_cr', 1)
             ->etc());
+});
+
+it('Phase 6 Miraculous Recovery spares a leader on a self-annihilating injury the first time', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['custom_character_id' => $leader->id, 'injury_upgrade_id' => $killedOff->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    // First annihilation attempt is spared via Miraculous Recovery — leader
+    // survives and stays current; the reprieve is now spent.
+    $fresh = $leader->fresh();
+    expect($fresh->annihilated_at)->toBeNull();
+    expect($fresh->current)->toBeTrue();
+    expect($fresh->miraculous_recovery_used)->toBeTrue();
+});
+
+it('Phase 6 annihilates a leader on the second self-annihilating injury (Miraculous Recovery already spent)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['miraculous_recovery_used' => true]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['custom_character_id' => $leader->id, 'injury_upgrade_id' => $killedOff->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    $fresh = $leader->fresh();
+    expect($fresh->annihilated_at)->not->toBeNull();
+    expect($fresh->current)->toBeFalse();
+});
+
+it('Phase 6 rejects a black joker (Traitor) flip on a leader — surfaces a reflip message instead of silently no-op', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['custom_character_id' => $leader->id, 'is_black_joker' => true],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('message');
+
+    // Phase must not have advanced — the submission was rejected outright.
+    expect($aftermath->fresh()->current_phase)->toBe(6);
+    expect($leader->fresh()->annihilated_at)->toBeNull();
+});
+
+it('Phase 6 a cheated red joker on a standard model does not grant a Lucky Miss reflip', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['arsenal_model_id' => $model->id, 'is_red_joker' => true, 'cheated' => true, 'lucky_miss_flip_value' => 4],
+            ],
+        ])
+        ->assertRedirect();
+
+    // No injury attached (avoided), but no Lucky Miss bonus either.
+    expect($model->fresh()->gained_lucky_miss_ids ?? [])->toBeEmpty();
+    expect(DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->count())->toBe(0);
+});
+
+it('Phase 5 crew_injuries payload includes a leader/totem injury pivot', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $injury = Upgrade::factory()->campaignInjury()->create(['name' => 'Test Injury']);
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => null,
+        'custom_character_id' => $leader->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('crew_injuries', 1)
+            ->where('crew_injuries.0.pivot_id', $pivotId)
+            ->where('crew_injuries.0.custom_character_id', $leader->id)
+            ->where('crew_injuries.0.display_name', 'TestLeader')
+            ->where('crew_injuries.0.injury_name', 'Test Injury')
+            ->etc());
+});
+
+it('Phase 5 Doctor can target and resolve a leader/totem injury', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => null,
+        'custom_character_id' => $leader->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'removed',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect(DB::table('campaign_arsenal_model_injuries')->where('id', $pivotId)->exists())->toBeFalse();
+    $log = DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->first();
+    expect($log->target_custom_character_id)->toBe($leader->id);
+    expect($log->target_arsenal_model_id)->toBeNull();
+});
+
+it('Phase 5 Doctor rejects an attempt targeting another crew\'s leader injury', function () {
+    [$user, $campaign, $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $otherCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
+    $otherLeader = buildLeaderFor($otherCrew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => null,
+        'custom_character_id' => $otherLeader->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create(['flip_value_min' => 1, 'flip_value_max' => 8, 'outcome_kind' => 'no_effect']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [
+                ['injury_pivot_id' => $pivotId, 'result_id' => $result->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect(DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count())->toBe(0);
+});
+
+it('Phase 3 Barter rejects a duplicate purchase of a unique item the crew already owns', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 10]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+    $unique = Upgrade::factory()->campaignEquipmentAlwaysAvailable()->create(['campaign_is_unique' => true, 'campaign_cc' => 2]);
+    CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $unique->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.barter', $aftermath), [
+            'purchases' => [$unique->id],
+        ])
+        ->assertRedirect();
+
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->where('equipment_upgrade_id', $unique->id)->count())->toBe(1);
+    expect($aftermath->fresh()->current_phase)->toBe(3);
+});
+
+it('CustomCharacter::attemptAnnihilation spends Miraculous Recovery the first time, annihilates the second', function () {
+    $user = amUser();
+    $campaign = Campaign::factory()->create();
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $leader = buildLeaderFor($crew, $user);
+
+    expect($leader->attemptAnnihilation())->toBeTrue();
+    expect($leader->fresh()->miraculous_recovery_used)->toBeTrue();
+    expect($leader->fresh()->annihilated_at)->toBeNull();
+
+    expect($leader->attemptAnnihilation())->toBeFalse();
+    expect($leader->fresh()->annihilated_at)->not->toBeNull();
+    expect($leader->fresh()->current)->toBeFalse();
+});
+
+it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id to the defector copy', function () {
+    $user = amUser();
+    $campaign = Campaign::factory()->create();
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $targetCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'granted_keyword_id' => $keyword->id,
+    ]);
+
+    $copy = $model->copyForCampaign($targetCrew->id, 'traitor');
+
+    expect($copy->granted_keyword_id)->toBe($keyword->id);
 });

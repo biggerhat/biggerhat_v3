@@ -46,15 +46,15 @@ class CrewAdminController extends Controller
             $upgradeableRows[] = [
                 'type' => 'action',
                 'id' => $action->id,
-                'restriction' => $action->pivot->restriction,
-                'is_signature' => (bool) $action->pivot->is_signature_action,
+                'restriction' => $action->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'is_signature' => (bool) $action->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
             ];
         }
         foreach ($upgrade->abilities as $ability) {
             $upgradeableRows[] = [
                 'type' => 'ability',
                 'id' => $ability->id,
-                'restriction' => $ability->pivot->restriction,
+                'restriction' => $ability->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'is_signature' => false,
             ];
         }
@@ -62,7 +62,7 @@ class CrewAdminController extends Controller
             $upgradeableRows[] = [
                 'type' => 'trigger',
                 'id' => $trigger->id,
-                'restriction' => $trigger->pivot->restriction,
+                'restriction' => $trigger->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'is_signature' => false,
             ];
         }
@@ -265,6 +265,7 @@ class CrewAdminController extends Controller
                 ]),
                 'ability' => $abilitySync[$id] = ['restriction' => $restriction],
                 'trigger' => $triggerSync[$id] = ['restriction' => $restriction],
+                default => throw new \UnexpectedValueException("Unknown upgradeable row type: {$row['type']}"),
             };
         }
         $upgrade->abilities()->sync($abilitySync);

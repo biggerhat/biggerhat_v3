@@ -8,7 +8,6 @@ use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
-use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
@@ -17,7 +16,7 @@ use App\Models\Campaign\CampaignEquipment;
 use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
-use App\Models\Upgrade;
+use App\Support\Campaign\AftermathCatalog;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,14 +84,11 @@ class LeaderBuilderController extends Controller
             'characteristic_options' => fn () => Characteristic::query()
                 ->orderBy('name')
                 ->pluck('name'),
-            // Lucky Upstart picks a free starter equipment item (pg 17). Send the
-            // catalog + the crew's current pick so the picker is editable.
-            'equipment_catalog' => fn () => Upgrade::query()
-                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
-                ->where('campaign_upgrade_kind', 'equipment')
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->all(),
+            // Lucky Upstart flips a card, then may only take equipment whose BR
+            // matches that flip exactly (pg 17) — same shape/filtering the
+            // Aftermath Barter step already uses for the identical BR-match
+            // concept, so the picker can filter client-side the same way.
+            'equipment_catalog' => fn () => AftermathCatalog::equipment(),
             'lucky_upstart_equipment_id' => CampaignEquipment::query()
                 ->where('campaign_crew_id', $crew->id)
                 ->where('source', 'starting_lucky_upstart')

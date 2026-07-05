@@ -3,13 +3,17 @@
 namespace App\Services\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
+use App\Enums\CharacterStationEnum;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\AdvancementAbility;
 use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
+use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCardAdvancement;
 use App\Models\Campaign\CampaignLeaderAdvancement;
+use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
 use Illuminate\Database\Eloquent\Model;
@@ -121,6 +125,70 @@ class LeaderAdvancementService
                     return "That advancement needs a flip of {$rowFlip} or higher — your flip was {$flip}.";
                 }
             }
+
+            // Any Joker (Action/Ability, pg 49/51): "choose any action/ability on
+            // a non-totem, non-master model that shares a keyword with your
+            // leader with a cost of 10 or less." Verified authoritatively
+            // against the submitted source, not the client-reported name.
+            if ($catalogId !== null && ($table === AdvancementTableEnum::Action || $table === AdvancementTableEnum::Ability)) {
+                $isJoker = match ($table) {
+                    AdvancementTableEnum::Action => (bool) AdvancementAction::query()->whereKey($catalogId)->value('is_joker'),
+                    AdvancementTableEnum::Ability => (bool) AdvancementAbility::query()->whereKey($catalogId)->value('is_joker'),
+                    default => false,
+                };
+                if ($isJoker) {
+                    $sourceId = $a['free_choice']['source_id'] ?? null;
+                    $sourceCharacterId = $a['free_choice']['source_character_id'] ?? null;
+                    if ($sourceId === null || $sourceCharacterId === null) {
+                        return 'Any Joker requires picking a free action/ability from an eligible ally.';
+                    }
+
+                    $keywordIds = array_column($leader->keywords ?? [], 'id');
+                    $relation = $table === AdvancementTableEnum::Action ? 'actions' : 'abilities';
+                    $valid = ! empty($keywordIds) && Character::query()
+                        ->whereKey($sourceCharacterId)
+                        ->where('cost', '<=', 10)
+                        ->where(fn ($w) => $w->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
+                        ->whereDoesntHave('keywords', fn ($k) => $k->where('name', 'like', '%Totem%'))
+                        ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                        ->whereHas($relation, fn ($r) => $r->whereKey($sourceId))
+                        ->exists();
+                    if (! $valid) {
+                        return 'Any Joker pick must be a non-master, non-totem ally (cost <= 10) that shares a keyword with your leader.';
+                    }
+                }
+            }
+
+            // Tier-4 Crew Card (pg 32, 54): "an effect granted by any crew
+            // card associated with a master that has a keyword this crew
+            // chose." The source master is submitted via free_choice, same
+            // shape as Any Joker.
+            if ($table === AdvancementTableEnum::CrewCard && $catalogId !== null) {
+                $sourceMasterId = $a['free_choice']['source_character_id'] ?? null;
+                if ($sourceMasterId === null) {
+                    return 'Crew Card Advancement requires naming the master this effect is borrowed from.';
+                }
+
+                $keywordIds = array_column($leader->keywords ?? [], 'id');
+                $validMaster = ! empty($keywordIds) && Character::query()
+                    ->whereKey($sourceMasterId)
+                    ->where('station', CharacterStationEnum::Master->value)
+                    ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                    ->exists();
+                if (! $validMaster) {
+                    return 'Crew Card Advancement must name a master that shares a keyword with your leader.';
+                }
+
+                $currentStarterEffectId = CampaignCrew::query()->whereKey($leader->campaign_crew_id)->value('crew_card_effect_id');
+                $alreadyHeld = (int) $currentStarterEffectId === (int) $catalogId
+                    || CampaignCrewCardAdvancement::query()
+                        ->where('campaign_crew_id', $leader->campaign_crew_id)
+                        ->where('crew_card_effect_id', $catalogId)
+                        ->exists();
+                if ($alreadyHeld) {
+                    return 'This crew already holds that Crew Card effect.';
+                }
+            }
         }
 
         return null;
@@ -140,7 +208,8 @@ class LeaderAdvancementService
             $actionIndex = (int) ($a['applied_to_action_index'] ?? -1);
 
             $advancementRow = $this->resolveAdvancementRow($table, $catalogId);
-            $coreCatalogId = $this->resolveCoreCatalogId($table, $catalogId, $advancementRow);
+            $freeChoice = is_array($a['free_choice'] ?? null) ? $a['free_choice'] : null;
+            $coreCatalogId = $this->resolveCoreCatalogId($table, $catalogId, $advancementRow, $freeChoice);
 
             CampaignLeaderAdvancement::create([
                 'custom_character_id' => $leader->id,
@@ -167,17 +236,41 @@ class LeaderAdvancementService
                     ? $this->applyActionToLeader($leader, $coreCatalogId)
                     : null,
                 AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
-                    ? $this->applyAdvancementAction($leader, $advancementRow)
+                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
                     : null,
                 AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
-                    ? $this->applyAdvancementAbility($leader, $advancementRow)
+                    ? $this->applyAdvancementAbility($leader, $advancementRow, $freeChoice)
                     : null,
                 AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod)
                     ? $this->applyAdvancementModifier($leader, $advancementRow, $actionIndex)
                     : null,
+                AdvancementTableEnum::CrewCard => $catalogId
+                    ? $this->applyCrewCardAdvancement($leader, $catalogId, $freeChoice, $sourceAftermathId)
+                    : null,
                 default => null,
             };
         }
+    }
+
+    /**
+     * Tier-4 Crew Card (pg 32, 54): the picked effect stacks alongside the
+     * crew's starter effect rather than replacing it — see
+     * CampaignCrewCardAdvancement.
+     *
+     * @param  array<string, mixed>|null  $freeChoice
+     */
+    private function applyCrewCardAdvancement(CustomCharacter $leader, int $catalogId, ?array $freeChoice, ?int $sourceAftermathId): void
+    {
+        if ($leader->campaign_crew_id === null) {
+            return;
+        }
+
+        CampaignCrewCardAdvancement::create([
+            'campaign_crew_id' => $leader->campaign_crew_id,
+            'crew_card_effect_id' => $catalogId,
+            'source_master_id' => $freeChoice['source_character_id'] ?? null,
+            'acquired_aftermath_id' => $sourceAftermathId,
+        ]);
     }
 
     private function resolveAdvancementRow(AdvancementTableEnum $table, ?int $catalogId): ?Model
@@ -200,11 +293,18 @@ class LeaderAdvancementService
      * built from — used for undo. For Attack/Tactical Mod/Action/Ability,
      * that's the row's Lookup FK when set, else the advancement row's own id
      * (a bespoke campaign-only entry has no real catalog analog to point
-     * at). Totem/Summoning/CrewCard are unaffected by this table split —
+     * at). An Any Joker row's core id is the player's free-chosen source
+     * instead. Totem/Summoning/CrewCard are unaffected by this table split —
      * their catalog_id already points at the real core catalog row.
+     *
+     * @param  array<string, mixed>|null  $freeChoice
      */
-    private function resolveCoreCatalogId(AdvancementTableEnum $table, ?int $catalogId, ?Model $advancementRow): ?int
+    private function resolveCoreCatalogId(AdvancementTableEnum $table, ?int $catalogId, ?Model $advancementRow, ?array $freeChoice): ?int
     {
+        if (($advancementRow instanceof AdvancementAction || $advancementRow instanceof AdvancementAbility) && $advancementRow->is_joker) {
+            return isset($freeChoice['source_id']) ? (int) $freeChoice['source_id'] : null;
+        }
+
         return match (true) {
             $advancementRow instanceof AdvancementAttackMod, $advancementRow instanceof AdvancementTacticalMod => $advancementRow->trigger_id ?? $advancementRow->id,
             $advancementRow instanceof AdvancementAction => $advancementRow->action_id ?? $advancementRow->id,
@@ -213,8 +313,19 @@ class LeaderAdvancementService
         };
     }
 
-    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row): void
+    /**
+     * @param  array<string, mixed>|null  $freeChoice
+     */
+    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row, ?array $freeChoice): void
     {
+        if ($row->is_joker) {
+            if (isset($freeChoice['source_id'])) {
+                $this->applyActionToLeader($leader, (int) $freeChoice['source_id']);
+            }
+
+            return;
+        }
+
         if ($row->action_id) {
             $this->applyActionToLeader($leader, $row->action_id);
 
@@ -246,8 +357,19 @@ class LeaderAdvancementService
         $leader->save();
     }
 
-    private function applyAdvancementAbility(CustomCharacter $leader, AdvancementAbility $row): void
+    /**
+     * @param  array<string, mixed>|null  $freeChoice
+     */
+    private function applyAdvancementAbility(CustomCharacter $leader, AdvancementAbility $row, ?array $freeChoice): void
     {
+        if ($row->is_joker) {
+            if (isset($freeChoice['source_id'])) {
+                $this->applyAbilityToLeader($leader, (int) $freeChoice['source_id']);
+            }
+
+            return;
+        }
+
         if ($row->ability_id) {
             $this->applyAbilityToLeader($leader, $row->ability_id);
 
@@ -504,7 +626,9 @@ class LeaderAdvancementService
             'is_unhirable' => true,
             'actions' => $actions,
             'abilities' => $abilities,
-            'keywords' => [],
+            // "Your crew now hires the totem for free... its keywords match
+            // your leader's" (pg 32).
+            'keywords' => $leader->keywords ?? [],
             'characteristics' => [],
         ]);
     }

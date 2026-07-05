@@ -68,7 +68,8 @@ interface EquipmentRow {
 }
 interface InjuryPivotRow {
     pivot_id: number;
-    arsenal_model_id: number;
+    arsenal_model_id: number | null;
+    custom_character_id: number | null;
     label: string | null;
     display_name: string;
     injury_name: string;
@@ -100,6 +101,8 @@ const props = defineProps<{
     doctor_results?: DoctorResultRow[] | null;
     injury_catalog?: InjuryCatalogRow[] | null;
     traitor_target_crews?: TraitorCrewRow[] | null;
+    // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
+    eligible_masters?: Array<{ id: number; name: string }> | null;
 }>();
 
 // Reactive shortcuts so the template can pass the empty default through.
@@ -207,6 +210,8 @@ interface CatalogRow {
     body?: string;
     description?: string | null;
     is_always_available?: boolean;
+    // Action/Ability tables only — the one free-choice row per chart (pg 49/51).
+    is_joker?: boolean;
     // Action fields (source_table: 'action' | 'summoning')
     type?: string | null;
     stat?: number | string | null;
@@ -290,6 +295,13 @@ interface AdvDraft {
     totem_name: string | null;
     totem_size: number | null;
     totem_base: string | null;
+    // Any Joker (Action/Ability tables, pg 49/51): "choose any action/ability on
+    // a non-totem, non-master model that shares a keyword with your leader with
+    // a cost of 10 or less." Resolved via the same search LeaderBuilder uses.
+    is_joker_flipped: boolean;
+    free_choice_source_id: number | null;
+    free_choice_source_character_id: number | null;
+    free_choice_label: string | null;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -325,6 +337,10 @@ watch(
                     totem_name: null,
                     totem_size: null,
                     totem_base: null,
+                    is_joker_flipped: false,
+                    free_choice_source_id: null,
+                    free_choice_source_character_id: null,
+                    free_choice_label: null,
                 };
             }
         }
@@ -340,25 +356,79 @@ const onSourceTableChange = (position: number) => {
     d.totem_name = null;
     d.totem_size = null;
     d.totem_base = null;
+    d.is_joker_flipped = false;
+    d.free_choice_source_id = null;
+    d.free_choice_source_character_id = null;
+    d.free_choice_label = null;
 };
 
 const onCatalogChange = (position: number) => {
     const d = advDrafts.value[position];
     if (!d || d.catalog_id == null) return;
-    if (d.source_table === 'totem') {
+    if (d.source_table === 'totem' && !d.totem_name) {
         const row = catalogRowsFor('totem').find((r) => r.id === d.catalog_id);
-        d.flip_value = row?.flip_value ?? null;
-        if (!d.totem_name) d.totem_name = row?.name ?? null;
+        d.totem_name = row?.name ?? null;
+    }
+    // Switching away from the Any Joker row clears a stale free pick.
+    const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
+    if (!row?.is_joker) {
+        d.free_choice_source_id = null;
+        d.free_choice_source_character_id = null;
+        d.free_choice_label = null;
     }
 };
 
-// Totem excluded — flip auto-derived from the selected template.
-const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability'];
+// ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
+const jokerSearch = ref<Record<number, string>>({});
+const jokerResults = ref<Record<number, Array<{ id: number; name: string; source_id: number; source_character_id: number | null }>>>({});
+
+const searchJokerChoice = async (position: number) => {
+    const d = advDrafts.value[position];
+    const q = jokerSearch.value[position] ?? '';
+    if (!d || q.length < 2) {
+        jokerResults.value[position] = [];
+        return;
+    }
+    const routeName = d.source_table === 'action' ? 'campaigns.crews.leader.search.actions' : 'campaigns.crews.leader.search.abilities';
+    const url = new URL(route(routeName, [props.aftermath.campaign_game.campaign_id, props.aftermath.crew.share_code]), window.location.origin);
+    url.searchParams.set('q', q);
+    url.searchParams.set('max_cost', '10');
+    // No `type` filter — Any Joker may pick either an attack or tactical action.
+    const res = await fetch(url.toString());
+    if (!res.ok) return;
+    const rows: Array<{ id: number; name: string; source_id: number; source_character_id: number | null }> = await res.json();
+    jokerResults.value[position] = rows;
+};
+
+const pickJokerChoice = (position: number, row: { name: string; source_id: number; source_character_id: number | null }) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    d.free_choice_source_id = row.source_id;
+    d.free_choice_source_character_id = row.source_character_id;
+    d.free_choice_label = row.name;
+    jokerSearch.value[position] = '';
+    jokerResults.value[position] = [];
+};
+
+// Totem requires an exact flip match (pg 32), same as the Arsenal Sheet's
+// advancement picker — the player's flip gates which totem is offered, not
+// the other way around.
+const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
 const tableNeedsFlip = (table: string): boolean => FLIP_TABLES.includes(table);
 
-const eligibleCatalogRows = (source_table: string, flip_value: number | null): CatalogRow[] => {
+const eligibleCatalogRows = (source_table: string, flip_value: number | null, isJokerFlipped = false): CatalogRow[] => {
     const rows = catalogRowsFor(source_table);
+    // Action/Ability: the Any Joker row is only offered when the player
+    // actually declares a joker flip — otherwise it's excluded from the
+    // normal flip-ceiling list (it has no flip_value of its own to rank by).
+    if (source_table === 'action' || source_table === 'ability') {
+        if (isJokerFlipped) return rows.filter((r) => r.is_joker);
+        const nonJoker = rows.filter((r) => !r.is_joker);
+        if (!tableNeedsFlip(source_table) || flip_value == null) return nonJoker;
+        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
+    }
     if (!tableNeedsFlip(source_table) || flip_value == null) return rows;
+    if (source_table === 'totem') return rows.filter((r) => r.flip_value === flip_value);
     return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
 };
 
@@ -417,8 +487,10 @@ const submitAdvanceLeader = () => {
                     catalog_id: d.catalog_id,
                     applied_to_action_index: d.applied_to_action_index,
                     position_in_xp_track: adv.position_in_xp_track,
-                    flip_value: tableNeedsFlip(d.source_table) || isTotem ? d.flip_value : null,
-                    free_choice: null,
+                    flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
+                    free_choice: d.free_choice_source_id || d.free_choice_source_character_id
+                        ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
+                        : null,
                     totem_name: isTotem ? d.totem_name || null : null,
                     totem_size: isTotem ? d.totem_size || null : null,
                     totem_base: isTotem ? d.totem_base || null : null,
@@ -814,7 +886,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     {{ opt.label }}
                                 </option>
                             </select>
-                            <!-- Flip input — shown for attack/tactical/action/ability; totem derives flip from the template -->
+                            <!-- Flip input — attack/tactical/action/ability accept this value or lower; totem requires an exact match -->
                             <label
                                 v-if="tableNeedsFlip(advDrafts[adv.position_in_xp_track].source_table)"
                                 class="flex items-center gap-2 text-[11px] text-muted-foreground"
@@ -827,7 +899,25 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     v-model.number="advDrafts[adv.position_in_xp_track].flip_value"
                                     class="h-8 w-20"
                                 />
-                                <span>(this value or lower)</span>
+                                <span>{{ advDrafts[adv.position_in_xp_track].source_table === 'totem' ? '(exact match)' : '(this value or lower)' }}</span>
+                            </label>
+                            <label
+                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'action' || advDrafts[adv.position_in_xp_track].source_table === 'ability'"
+                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
+                            >
+                                <Checkbox
+                                    :checked="advDrafts[adv.position_in_xp_track].is_joker_flipped"
+                                    @update:checked="
+                                        (v: boolean) => {
+                                            advDrafts[adv.position_in_xp_track].is_joker_flipped = v;
+                                            advDrafts[adv.position_in_xp_track].catalog_id = null;
+                                            advDrafts[adv.position_in_xp_track].free_choice_source_id = null;
+                                            advDrafts[adv.position_in_xp_track].free_choice_source_character_id = null;
+                                            advDrafts[adv.position_in_xp_track].free_choice_label = null;
+                                        }
+                                    "
+                                />
+                                I flipped a Joker
                             </label>
                             <select
                                 v-model.number="advDrafts[adv.position_in_xp_track].catalog_id"
@@ -839,16 +929,55 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     v-for="row in eligibleCatalogRows(
                                         advDrafts[adv.position_in_xp_track].source_table,
                                         advDrafts[adv.position_in_xp_track].flip_value,
+                                        advDrafts[adv.position_in_xp_track].is_joker_flipped,
                                     )"
                                     :key="row.id"
                                     :value="row.id"
                                 >
-                                    {{ row.name
-                                    }}<span v-if="row.flip_value != null && advDrafts[adv.position_in_xp_track].source_table !== 'totem'">
-                                        (flip {{ row.flip_value }})</span
-                                    >
+                                    {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
                                 </option>
                             </select>
+                            <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
+                            <div
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].is_joker_flipped &&
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                "
+                                class="space-y-1 rounded border p-2"
+                            >
+                                <p v-if="advDrafts[adv.position_in_xp_track].free_choice_label" class="text-xs font-medium">
+                                    Picked: {{ advDrafts[adv.position_in_xp_track].free_choice_label }}
+                                    <button
+                                        type="button"
+                                        class="ml-2 text-[10px] text-muted-foreground underline"
+                                        @click="
+                                            advDrafts[adv.position_in_xp_track].free_choice_source_id = null;
+                                            advDrafts[adv.position_in_xp_track].free_choice_source_character_id = null;
+                                            advDrafts[adv.position_in_xp_track].free_choice_label = null;
+                                        "
+                                    >
+                                        change
+                                    </button>
+                                </p>
+                                <template v-else>
+                                    <Input
+                                        v-model="jokerSearch[adv.position_in_xp_track]"
+                                        placeholder="Search actions/abilities on an eligible ally (cost ≤ 10)…"
+                                        class="h-8 text-xs"
+                                        @input="searchJokerChoice(adv.position_in_xp_track)"
+                                    />
+                                    <ul v-if="jokerResults[adv.position_in_xp_track]?.length" class="max-h-40 space-y-1 overflow-y-auto text-xs">
+                                        <li
+                                            v-for="r in jokerResults[adv.position_in_xp_track]"
+                                            :key="r.id"
+                                            class="cursor-pointer rounded px-2 py-1 hover:bg-muted"
+                                            @click="pickJokerChoice(adv.position_in_xp_track, r)"
+                                        >
+                                            {{ r.name }}
+                                        </li>
+                                    </ul>
+                                </template>
+                            </div>
                             <!-- Totem: ask for name, size, and base to create the totem card -->
                             <div
                                 v-if="
@@ -884,6 +1013,22 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                         <option value="50mm">50mm</option>
                                     </select>
                                 </div>
+                            </div>
+                            <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
+                            <div
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                "
+                            >
+                                <label class="text-[10px] text-muted-foreground">Borrowed from master</label>
+                                <select
+                                    v-model.number="advDrafts[adv.position_in_xp_track].free_choice_source_character_id"
+                                    class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                >
+                                    <option :value="null">— pick a master —</option>
+                                    <option v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id">{{ m.name }}</option>
+                                </select>
                             </div>
                             <!-- Attack/tactical mod: pick which existing action gets this trigger -->
                             <div

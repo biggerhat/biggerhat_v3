@@ -157,6 +157,26 @@ it('scrap-model annihilates the model and grants ceil(cost/2) scrip', function (
     expect($crew->fresh()->scrip)->toBe(4); // ceil(7/2)
 });
 
+it('a double-submitted scrap only credits scrip once', function () {
+    [$user, $campaign, $crew] = crewWithLeader(['cut_em_up' => true]);
+    $crew->update(['scrip' => 0]);
+    $char = Character::factory()->create(['cost' => 7]);
+    $arsenal = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $char->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.arsenal.scrap', [$campaign, $crew->share_code, $arsenal->id]))
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.arsenal.scrap', [$campaign, $crew->share_code, $arsenal->id]))
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(4); // ceil(7/2), only once
+});
+
 it('scrap-model refuses when the option is disabled', function () {
     [$user, $campaign, $crew] = crewWithLeader(['cut_em_up' => false]);
     $char = Character::factory()->create(['cost' => 7]);

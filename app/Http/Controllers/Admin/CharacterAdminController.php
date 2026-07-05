@@ -100,6 +100,7 @@ class CharacterAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'title' => ['nullable', 'string', 'max:255'],
             'nicknames' => ['nullable', 'string', 'max:255'],
+            'title_group_key' => ['nullable', 'string', 'max:255'],
             'station' => ['nullable', 'string', Rule::enum(CharacterStationEnum::class)],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
             'totem' => ['nullable', 'string'],

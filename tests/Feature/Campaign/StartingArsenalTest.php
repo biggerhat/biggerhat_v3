@@ -114,6 +114,37 @@ it('saves arsenal models + crew card effect + computed scrip', function () {
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(2);
 });
 
+it('hiring one titled model in the Starting Arsenal auto-adds its sibling', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $titleGroup = 'test-titled-group';
+    $versionA = Character::factory()->create([
+        'cost' => 8, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists, 'title_group_key' => $titleGroup,
+    ]);
+    $versionA->keywords()->attach($kw);
+    $versionB = Character::factory()->create([
+        'cost' => 8, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists, 'title_group_key' => $titleGroup,
+    ]);
+    $versionB->keywords()->attach($kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [
+                ['character_id' => $versionA->id],
+            ],
+            'crew_card_effect_id' => $effect->id,
+        ])
+        ->assertRedirect();
+
+    $models = CampaignArsenalModel::where('campaign_crew_id', $crew->id)->get();
+    expect($models)->toHaveCount(2);
+    expect($models->pluck('character_id')->sort()->values()->all())->toEqual([$versionA->id, $versionB->id]);
+    expect($models->pluck('title_group_key')->unique())->toHaveCount(1);
+});
+
 it('saves the crew card to the Card Creator when named, and updates on re-save', function () {
     $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
     $user = arsenalUser();

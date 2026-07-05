@@ -17,6 +17,7 @@ use App\Models\Character;
 use App\Models\CustomUpgrade;
 use App\Models\Upgrade;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
+use App\Traits\Campaign\HiresTitledModelGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,6 +31,7 @@ use Illuminate\Support\Str;
 class StartingArsenalController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use HiresTitledModelGroup;
 
     private const STARTING_BUDGET_SS = 25;
 
@@ -58,7 +60,7 @@ class StartingArsenalController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'description as body', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice'])
                 ->each(fn ($card) => $card->actions->each(
-                    fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action,
+                    fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
                 )),
             // Constrained pool for crew cards that require a token/marker/upgrade
             // choice (pg 17): items listed on a crew card belonging to a master
@@ -178,8 +180,8 @@ class StartingArsenalController extends Controller
             $crew->arsenalModels()->where('acquired_via', 'hire')->whereNull('annihilated_at')->whereNull('removed_at')->delete();
 
             foreach ($hires as $h) {
-                $character = Character::query()->whereKey((int) $h['character_id'])->select(['id', 'station'])->first();
-                CampaignArsenalModel::create([
+                $character = Character::query()->whereKey((int) $h['character_id'])->select(['id', 'station', 'title_group_key'])->first();
+                $arsenalModel = CampaignArsenalModel::create([
                     'campaign_crew_id' => $crew->id,
                     'character_id' => $h['character_id'],
                     'label' => $h['label'] ?? null,
@@ -192,6 +194,11 @@ class StartingArsenalController extends Controller
                     // we leave it null for now.
                     'granted_keyword_id' => null,
                 ]);
+
+                // Titled models (pg 18): hiring one titled version adds the rest.
+                if ($character !== null) {
+                    $this->addTitledSiblings($arsenalModel, $character, $crew->id, 1);
+                }
             }
 
             $crew->update([

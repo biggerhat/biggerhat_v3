@@ -139,6 +139,7 @@ const formInfo = ref({
     name: null,
     title: null,
     nicknames: null,
+    title_group_key: null as string | null,
     station: null,
     totem: null,
     faction: null,
@@ -204,6 +205,7 @@ onMounted(() => {
     formInfo.value.name = props.character?.name ?? null;
     formInfo.value.title = props.character?.title ?? null;
     formInfo.value.nicknames = props.character?.nicknames ?? null;
+    formInfo.value.title_group_key = props.character?.title_group_key ?? null;
     formInfo.value.station = props.character?.station ?? null;
     formInfo.value.totem = props.character?.has_totem_id ? props.character?.totem.slug : null;
     formInfo.value.faction = props.character?.faction ?? null;
@@ -305,6 +307,19 @@ onMounted(() => {
                             <Label for="nicknames">Nicknames (For Bot Lookup, Not Previous Edition Names)</Label>
                             <Input id="nicknames" v-model="formInfo.nicknames" placeholder="Nicknames" />
                             <InputError :message="usePage().props.errors.nicknames" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="title_group_key">Titled Models Group Key (Campaign Mode)</Label>
+                            <Input
+                                id="title_group_key"
+                                v-model="formInfo.title_group_key"
+                                placeholder="e.g. mei-feng"
+                            />
+                            <p class="text-xs text-muted-foreground">
+                                Every titled version of this model (pg 18) shares the same key. Hiring one in Campaign
+                                Mode auto-adds the rest to the arsenal.
+                            </p>
+                            <InputError :message="usePage().props.errors.title_group_key" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="faction">Faction</Label>

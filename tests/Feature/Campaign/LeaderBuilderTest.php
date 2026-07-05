@@ -454,7 +454,7 @@ it('Lucky Upstart leader records a free starter equipment excluded from CR', fun
     $kw1 = keywordWithModelInFaction($faction);
     $kw2 = Keyword::factory()->create();
 
-    $equip = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Lucky Charm']);
+    $equip = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Lucky Charm', 'campaign_br' => 7]);
 
     $this->actingAs($user)
         ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
@@ -467,6 +467,7 @@ it('Lucky Upstart leader records a free starter equipment excluded from CR', fun
             'actions' => [],
             'abilities' => [],
             'lucky_upstart_equipment_id' => $equip->id,
+            'lucky_upstart_flip_value' => 7,
         ])
         ->assertRedirect();
 
@@ -475,4 +476,85 @@ it('Lucky Upstart leader records a free starter equipment excluded from CR', fun
     expect($eq)->not->toBeNull();
     expect($eq->equipment_upgrade_id)->toBe($equip->id);
     expect((bool) $eq->excludes_from_cr)->toBeTrue();
+});
+
+it('Lucky Upstart rejects equipment whose BR does not match the flip', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+
+    $equip = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Lucky Charm', 'campaign_br' => 7]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Upstart',
+            'archetype' => LeaderArchetypeEnum::LuckyUpstart->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [],
+            'abilities' => [],
+            'lucky_upstart_equipment_id' => $equip->id,
+            'lucky_upstart_flip_value' => 3,
+        ])
+        ->assertSessionHasErrors('lucky_upstart_equipment_id');
+
+    expect(\App\Models\Campaign\CampaignEquipment::where('campaign_crew_id', $crew->id)->exists())->toBeFalse();
+});
+
+it('allows Heavy Hitter to grant a free attack trigger', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+    $sourceChar = \App\Models\Character::factory()->create(['cost' => 6]);
+    $sourceChar->keywords()->attach($kw1);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Heavy Hitter Leader',
+            'archetype' => LeaderArchetypeEnum::HeavyHitter->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [[
+                'name' => 'Punch', 'type' => 'attack', 'category' => 'attack',
+                'source_character_id' => $sourceChar->id,
+                'triggers' => [['name' => 'Free Trigger']],
+            ]],
+            'abilities' => [],
+        ])
+        ->assertSessionDoesntHaveErrors('actions.0.triggers');
+});
+
+it('rejects a non-Heavy-Hitter archetype granting a free attack trigger', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+    $sourceChar = \App\Models\Character::factory()->create(['cost' => 6]);
+    $sourceChar->keywords()->attach($kw1);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'NoTriggerForYou',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [[
+                'name' => 'Punch', 'type' => 'attack', 'category' => 'attack',
+                'source_character_id' => $sourceChar->id,
+                'triggers' => [['name' => 'Free Trigger']],
+            ]],
+            'abilities' => [],
+        ])
+        ->assertSessionHasErrors('actions.0.triggers');
 });

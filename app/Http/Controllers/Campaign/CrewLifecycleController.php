@@ -37,13 +37,13 @@ class CrewLifecycleController extends Controller
     {
         $this->ensureOwner($request, $campaign, $crew);
 
-        $leader = CustomCharacter::query()
+        $leaderId = CustomCharacter::query()
             ->where('campaign_crew_id', $crew->id)
             ->where('is_campaign_leader', true)
             ->where('current', true)
-            ->first();
+            ->value('id');
 
-        if (! $leader) {
+        if (! $leaderId) {
             return redirect()->back()->withMessage(
                 'No active leader to annihilate.',
                 null,
@@ -51,18 +51,33 @@ class CrewLifecycleController extends Controller
             );
         }
 
-        if (! $leader->miraculous_recovery_used) {
-            $leader->update(['miraculous_recovery_used' => true]);
+        $survived = null;
 
+        DB::transaction(function () use ($leaderId, &$survived) {
+            $leader = CustomCharacter::query()->whereKey($leaderId)->lockForUpdate()->first();
+
+            // Re-check under the lock — a concurrent request may have already
+            // resolved this leader's annihilation attempt.
+            if (! $leader || ! $leader->current) {
+                return;
+            }
+
+            $survived = $leader->attemptAnnihilation();
+        });
+
+        if ($survived === null) {
+            return redirect()->back()->withMessage(
+                'That leader has already been resolved this attempt.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
+        if ($survived) {
             return redirect()->back()->withMessage(
                 'Fate intervened — your Leader survives (miraculous recovery used). Prior injuries remain.',
             );
         }
-
-        $leader->update([
-            'current' => false,
-            'annihilated_at' => now(),
-        ]);
 
         return redirect()->route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code])
             ->withMessage('Leader annihilated. Use Starting Anew to rebuild your crew.');
@@ -140,13 +155,31 @@ class CrewLifecycleController extends Controller
 
         $cost = (int) ($arsenalModel->character->cost ?? 0);
         $scrip = (int) ceil($cost / 2);
+        $scrapped = false;
 
-        DB::transaction(function () use ($arsenalModel, $crew, $scrip) {
-            $arsenalModel->update(['annihilated_at' => now()]);
+        DB::transaction(function () use ($arsenalModel, $crew, $scrip, &$scrapped) {
+            $locked = CampaignArsenalModel::query()->whereKey($arsenalModel->id)->lockForUpdate()->first();
+
+            // Re-check under the lock — a concurrent scrap/annihilation on the
+            // same model must not double-credit scrip.
+            if (! $locked || $locked->annihilated_at || $locked->removed_at) {
+                return;
+            }
+
+            $locked->update(['annihilated_at' => now()]);
             if ($scrip > 0) {
                 $crew->increment('scrip', $scrip);
             }
+            $scrapped = true;
         });
+
+        if (! $scrapped) {
+            return redirect()->back()->withMessage(
+                'Model already removed from arsenal.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
 
         return redirect()->back()->withMessage("Scrapped for {$scrip} scrip.");
     }

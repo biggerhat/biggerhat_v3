@@ -45,23 +45,40 @@ class WeeklyCycleController extends Controller
             );
         }
 
-        $newWeek = $campaign->current_week + 1;
+        $newWeek = null;
         $event = null;
 
-        DB::transaction(function () use ($campaign, $newWeek, &$event) {
-            $campaign->update(['current_week' => $newWeek]);
+        DB::transaction(function () use ($campaign, &$newWeek, &$event) {
+            $locked = Campaign::query()->whereKey($campaign->id)->lockForUpdate()->first();
 
-            if ($campaign->weekly_event_active) {
-                $event = $this->rollWeeklyEvent($campaign, $newWeek);
+            // Re-check under the lock — the pre-lock checks above are only a
+            // UX guard against a concurrent request that already advanced.
+            if (! $locked || $locked->status !== CampaignStatusEnum::Active || $locked->current_week >= $locked->length_weeks) {
+                return;
+            }
+
+            $newWeek = $locked->current_week + 1;
+            $locked->update(['current_week' => $newWeek]);
+
+            if ($locked->weekly_event_active) {
+                $event = $this->rollWeeklyEvent($locked, $newWeek);
             }
 
             CampaignWeek::create([
-                'campaign_id' => $campaign->id,
+                'campaign_id' => $locked->id,
                 'week_number' => $newWeek,
                 'starts_at' => now(),
                 'weekly_event_id' => $event?->id,
             ]);
         });
+
+        if ($newWeek === null) {
+            return redirect()->back()->withMessage(
+                'Campaign has already been advanced.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
 
         $msg = "Advanced to week {$newWeek}.";
         if ($event) {

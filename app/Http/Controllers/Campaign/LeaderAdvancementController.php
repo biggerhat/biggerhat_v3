@@ -10,6 +10,7 @@ use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCardAdvancement;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
 use App\Services\Campaign\LeaderAdvancementService;
@@ -80,6 +81,17 @@ class LeaderAdvancementController extends Controller
                 ->where('is_campaign_totem', true)
                 ->where('current', true)
                 ->delete();
+        } elseif ($advancement->source_table === AdvancementTableEnum::CrewCard) {
+            // Crew Card advancements stack onto CampaignCrewCardAdvancement,
+            // not the leader's actions/abilities JSON — remove the matching row.
+            $rowId = CampaignCrewCardAdvancement::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->where('crew_card_effect_id', $advancement->advancement_catalog_id)
+                ->latest('id')
+                ->value('id');
+            if ($rowId) {
+                CampaignCrewCardAdvancement::destroy($rowId);
+            }
         } else {
             $this->undoAdvancement($leader, $advancement);
         }

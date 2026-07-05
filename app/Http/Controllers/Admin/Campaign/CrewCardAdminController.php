@@ -40,7 +40,7 @@ class CrewCardAdminController extends Controller
         $crewCard->setRelation('actions', $crewCard->actions->map(fn ($a) => [
             'id' => $a->id,
             'name' => $a->name,
-            'is_signature' => (bool) $a->pivot->is_signature_action,
+            'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
         ])->values());
 
         return inertia('Admin/Campaign/CrewCard/Form', array_merge(

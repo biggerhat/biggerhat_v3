@@ -79,6 +79,7 @@ class Game extends Model
         return $this->belongsTo(User::class, 'creator_id');
     }
 
+    /** @return HasMany<GamePlayer, $this> */
     public function players(): HasMany
     {
         return $this->hasMany(GamePlayer::class)->orderBy('slot');

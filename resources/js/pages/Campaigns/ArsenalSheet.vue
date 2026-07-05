@@ -8,6 +8,7 @@ import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
@@ -161,6 +162,8 @@ interface CrewData {
     keyword_one: KeywordRow | null;
     keyword_two: KeywordRow | null;
     crew_card_effect: CrewCardEffectRow | null;
+    // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter effect.
+    crew_card_advancements: Array<{ id: number; source_master_name: string | null; effect: CrewCardEffectRow | null }>;
     crew_card_choice: { type: string; id: number; name: string } | null;
     arsenal_models: ArsenalRow[];
 }
@@ -232,6 +235,8 @@ interface CatalogRow {
     suits?: string | null;
     defensive_ability_type?: string | null;
     costs_stone?: boolean;
+    // Action/Ability tables only — the one free-choice row per chart (pg 49/51).
+    is_joker?: boolean;
 }
 type AdvancementCatalogs = Record<string, CatalogRow[]>;
 
@@ -246,6 +251,8 @@ const props = defineProps<{
     equipment: EquipmentItem[];
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
+    // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
+    eligible_masters?: Array<{ id: number; name: string }> | null;
 }>();
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
@@ -284,8 +291,17 @@ const tableOptionsForTier = (tier: number) =>
         { value: 'crew_card', label: 'Tier 4 — Crew Card effect', min: 4 },
     ].filter((o) => tier >= o.min);
 
-const eligibleCatalogRows = (table: string, flip: number | null): CatalogRow[] => {
+const eligibleCatalogRows = (table: string, flip: number | null, isJokerFlipped = false): CatalogRow[] => {
     const rows = catalogRowsFor(table);
+    // Action/Ability: the Any Joker row is only offered when the player
+    // actually declares a joker flip — it has no flip_value of its own to
+    // rank against the normal flip-ceiling list.
+    if (table === 'action' || table === 'ability') {
+        if (isJokerFlipped) return rows.filter((r) => r.is_joker);
+        const nonJoker = rows.filter((r) => !r.is_joker);
+        if (!tableNeedsFlip(table) || flip == null) return nonJoker;
+        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+    }
     if (!tableNeedsFlip(table) || flip == null) return rows;
     if (table === 'totem') return rows.filter((r) => r.flip_value === flip);
     return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
@@ -319,6 +335,12 @@ interface AdvDraft {
     totem_size: number | null;
     totem_base: string;
     applied_to_action_index: number;
+    // Any Joker (Action/Ability, pg 49/51) + Crew Card's borrowed-from master
+    // (pg 32, 54) both resolve through free_choice.
+    is_joker_flipped: boolean;
+    free_choice_source_id: number | null;
+    free_choice_source_character_id: number | null;
+    free_choice_label: string | null;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
 watch(
@@ -334,12 +356,46 @@ watch(
                     totem_size: null,
                     totem_base: '30mm',
                     applied_to_action_index: -1,
+                    is_joker_flipped: false,
+                    free_choice_source_id: null,
+                    free_choice_source_character_id: null,
+                    free_choice_label: null,
                 };
             }
         }
     },
     { immediate: true },
 );
+
+// ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
+const jokerSearch = ref<Record<number, string>>({});
+const jokerResults = ref<Record<number, Array<{ id: number; name: string; source_id: number; source_character_id: number | null }>>>({});
+
+const searchJokerChoice = async (position: number) => {
+    const d = drafts.value[position];
+    const q = jokerSearch.value[position] ?? '';
+    if (!d || q.length < 2) {
+        jokerResults.value[position] = [];
+        return;
+    }
+    const routeName = d.source_table === 'action' ? 'campaigns.crews.leader.search.actions' : 'campaigns.crews.leader.search.abilities';
+    const url = new URL(route(routeName, [props.campaign.id, props.crew.share_code]), window.location.origin);
+    url.searchParams.set('q', q);
+    url.searchParams.set('max_cost', '10');
+    const res = await fetch(url.toString());
+    if (!res.ok) return;
+    jokerResults.value[position] = await res.json();
+};
+
+const pickJokerChoice = (position: number, row: { name: string; source_id: number; source_character_id: number | null }) => {
+    const d = drafts.value[position];
+    if (!d) return;
+    d.free_choice_source_id = row.source_id;
+    d.free_choice_source_character_id = row.source_character_id;
+    d.free_choice_label = row.name;
+    jokerSearch.value[position] = '';
+    jokerResults.value[position] = [];
+};
 
 const leaderActionsWithIndex = computed(() =>
     (props.leader?.actions ?? []).map((a, i) => ({
@@ -366,6 +422,10 @@ const logAdvancement = (position: number) => {
         source_table: d.source_table,
         catalog_id: d.catalog_id,
         flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
+        free_choice:
+            d.free_choice_source_id || d.free_choice_source_character_id
+                ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
+                : null,
         totem_name: isTotem ? d.totem_name || null : undefined,
         totem_size: isTotem ? d.totem_size : undefined,
         totem_base: isTotem ? d.totem_base : undefined,
@@ -674,6 +734,22 @@ const totemRendererProps = computed(() => {
                                 Pick one
                             </Link>
                         </p>
+
+                        <!-- Tier-4 borrowed effects (pg 32, 54) stack alongside the starter effect. -->
+                        <div v-if="crew.crew_card_advancements.length" class="mt-3 space-y-3 border-t pt-3">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
+                            <div v-for="adv in crew.crew_card_advancements" :key="adv.id" class="space-y-1">
+                                <p class="text-sm font-medium">
+                                    {{ adv.effect?.name }}
+                                    <span v-if="adv.source_master_name" class="text-xs font-normal text-muted-foreground">
+                                        — borrowed from {{ adv.source_master_name }}
+                                    </span>
+                                </p>
+                                <p v-if="adv.effect?.body" class="text-xs text-muted-foreground">
+                                    <GameText :text="adv.effect.body" />
+                                </p>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -727,7 +803,13 @@ const totemRendererProps = computed(() => {
                                         <select
                                             v-model="drafts[slot.position].source_table"
                                             class="h-8 rounded border bg-background px-2 text-foreground"
-                                            @change="drafts[slot.position].catalog_id = null"
+                                            @change="
+                                                drafts[slot.position].catalog_id = null;
+                                                drafts[slot.position].is_joker_flipped = false;
+                                                drafts[slot.position].free_choice_source_id = null;
+                                                drafts[slot.position].free_choice_source_character_id = null;
+                                                drafts[slot.position].free_choice_label = null;
+                                            "
                                         >
                                             <option v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
                                                 {{ opt.label }}
@@ -741,6 +823,24 @@ const totemRendererProps = computed(() => {
                                             max="13"
                                             class="h-8 w-14"
                                         />
+                                        <label
+                                            v-if="drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'ability'"
+                                            class="flex items-center gap-1 text-[11px] text-muted-foreground"
+                                        >
+                                            <Checkbox
+                                                :checked="drafts[slot.position].is_joker_flipped"
+                                                @update:checked="
+                                                    (v: boolean) => {
+                                                        drafts[slot.position].is_joker_flipped = v;
+                                                        drafts[slot.position].catalog_id = null;
+                                                        drafts[slot.position].free_choice_source_id = null;
+                                                        drafts[slot.position].free_choice_source_character_id = null;
+                                                        drafts[slot.position].free_choice_label = null;
+                                                    }
+                                                "
+                                            />
+                                            Joker
+                                        </label>
                                         <select
                                             v-model.number="drafts[slot.position].catalog_id"
                                             class="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-foreground"
@@ -750,6 +850,7 @@ const totemRendererProps = computed(() => {
                                                 v-for="row in eligibleCatalogRows(
                                                     drafts[slot.position].source_table,
                                                     drafts[slot.position].flip_value,
+                                                    drafts[slot.position].is_joker_flipped,
                                                 )"
                                                 :key="row.id"
                                                 :value="row.id"
@@ -758,6 +859,55 @@ const totemRendererProps = computed(() => {
                                             </option>
                                         </select>
                                         <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                    </div>
+                                    <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
+                                    <div
+                                        v-if="drafts[slot.position].is_joker_flipped && drafts[slot.position].catalog_id !== null"
+                                        class="space-y-1 rounded border p-2"
+                                    >
+                                        <p v-if="drafts[slot.position].free_choice_label" class="text-xs font-medium">
+                                            Picked: {{ drafts[slot.position].free_choice_label }}
+                                            <button
+                                                type="button"
+                                                class="ml-2 text-[10px] text-muted-foreground underline"
+                                                @click="
+                                                    drafts[slot.position].free_choice_source_id = null;
+                                                    drafts[slot.position].free_choice_source_character_id = null;
+                                                    drafts[slot.position].free_choice_label = null;
+                                                "
+                                            >
+                                                change
+                                            </button>
+                                        </p>
+                                        <template v-else>
+                                            <Input
+                                                v-model="jokerSearch[slot.position]"
+                                                placeholder="Search actions/abilities on an eligible ally (cost ≤ 10)…"
+                                                class="h-8 text-xs"
+                                                @input="searchJokerChoice(slot.position)"
+                                            />
+                                            <ul v-if="jokerResults[slot.position]?.length" class="max-h-40 space-y-1 overflow-y-auto text-xs">
+                                                <li
+                                                    v-for="r in jokerResults[slot.position]"
+                                                    :key="r.id"
+                                                    class="cursor-pointer rounded px-2 py-1 hover:bg-muted"
+                                                    @click="pickJokerChoice(slot.position, r)"
+                                                >
+                                                    {{ r.name }}
+                                                </li>
+                                            </ul>
+                                        </template>
+                                    </div>
+                                    <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
+                                    <div v-if="drafts[slot.position].source_table === 'crew_card' && drafts[slot.position].catalog_id !== null">
+                                        <label class="text-[10px] text-muted-foreground">Borrowed from master</label>
+                                        <select
+                                            v-model.number="drafts[slot.position].free_choice_source_character_id"
+                                            class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                        >
+                                            <option :value="null">— pick a master —</option>
+                                            <option v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id">{{ m.name }}</option>
+                                        </select>
                                     </div>
                                     <!-- Totem advancement: name, size, base inputs -->
                                     <div v-if="drafts[slot.position].source_table === 'totem'" class="flex flex-wrap gap-2">

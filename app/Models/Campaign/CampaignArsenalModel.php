@@ -203,6 +203,7 @@ class CampaignArsenalModel extends Model
             'ignored_for_limits' => $ignoredForLimits,
             'title_group_key' => null,
             'gained_characteristics' => $this->gained_characteristics,
+            'granted_keyword_id' => $this->granted_keyword_id,
             'acquired_via' => $acquiredVia,
         ]);
 

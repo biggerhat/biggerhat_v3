@@ -67,6 +67,10 @@ class ArsenalSheetController extends Controller
             // Load full action + trigger data so ActionCard/AbilityCard can render properly.
             'crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'crewCardEffect.abilities',
+            // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
+            'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+            'crewCardAdvancements.crewCardEffect.abilities',
+            'crewCardAdvancements.sourceMaster:id,display_name',
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
@@ -81,7 +85,12 @@ class ArsenalSheetController extends Controller
         // Propagate crew card action pivot signature flag so `is_signature` on
         // each serialized action reflects the crew-card-specific value.
         $crew->crewCardEffect?->actions->each(
-            fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action,
+            fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+        );
+        $crew->crewCardAdvancements->each(
+            fn ($adv) => $adv->crewCardEffect->actions->each(
+                fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+            ),
         );
 
         // Resolve gained Lucky Miss ids to names for display.
@@ -113,6 +122,14 @@ class ArsenalSheetController extends Controller
                     'crew_card_effect' => $crew->crewCardEffect
                         ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description])
                         : null,
+                    // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
+                    'crew_card_advancements' => $crew->crewCardAdvancements->map(fn ($adv) => [
+                        'id' => $adv->id,
+                        'source_master_name' => $adv->sourceMaster?->display_name,
+                        'effect' => $adv->crewCardEffect
+                            ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
+                            : null,
+                    ])->all(),
                     'arsenal_models' => $crew->arsenalModels->map(fn ($m) => [
                         'id' => $m->id,
                         'character_id' => $m->character_id,
@@ -156,7 +173,8 @@ class ArsenalSheetController extends Controller
             // Advancement-table catalogs (same source the Aftermath uses) — used
             // to resolve taken-advancement names for everyone and to drive the
             // owner's pick-an-advancement UI.
-            'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs() : null,
+            'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs($crew) : null,
+            'eligible_masters' => $leader ? AftermathCatalog::eligibleMasters($crew) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
             // model when hiring. Shown on the arsenal sheet below the models.

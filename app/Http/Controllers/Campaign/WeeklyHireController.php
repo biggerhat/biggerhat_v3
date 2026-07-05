@@ -13,6 +13,7 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Character;
 use App\Services\CampaignRules;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
+use App\Traits\Campaign\HiresTitledModelGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\DB;
 class WeeklyHireController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use HiresTitledModelGroup;
 
     public function edit(Request $request, Campaign $campaign, CampaignCrew $crew)
     {
@@ -100,6 +102,8 @@ class WeeklyHireController extends Controller
             );
         }
 
+        // Fast UX guard only — not the concurrency guard. The authoritative
+        // scrip + first-hire-discount check happens again under lock below.
         if ($totalCost > $crew->scrip) {
             return redirect()->back()->withMessage(
                 "Not enough scrip — needs {$totalCost}, have {$crew->scrip}.",
@@ -108,11 +112,38 @@ class WeeklyHireController extends Controller
             );
         }
 
-        DB::transaction(function () use ($crew, $campaign, $hires, $totalCost, $hireableMap, $keywordIds) {
+        $hired = false;
+        $finalCost = 0;
+
+        DB::transaction(function () use ($crew, $campaign, $hires, $hireableMap, $keywordIds, &$hired, &$finalCost) {
+            $lockedCrew = CampaignCrew::query()->whereKey($crew->id)->lockForUpdate()->first();
+            if (! $lockedCrew) {
+                return;
+            }
+
+            // Re-derive the first-hire-of-week discount and total cost under
+            // the lock — a concurrent hire submitted in between could have
+            // already claimed the discount or spent the scrip this request
+            // priced against.
+            $alreadyHired = $this->countHiresThisWeek($lockedCrew, $campaign->current_week);
+            $totalCost = 0;
+            foreach ($hires as $i => $h) {
+                $meta = $hireableMap[(int) $h['character_id']];
+                $totalCost += CampaignRules::newHireScripCost(
+                    modelCost: $meta['cost'],
+                    outOfKeywordInFaction: $meta['out_of_keyword'],
+                    isFirstHireOfWeek: ($alreadyHired + $i) === 0,
+                );
+            }
+
+            if ($totalCost > $lockedCrew->scrip) {
+                return;
+            }
+
             foreach ($hires as $h) {
                 $charId = (int) $h['character_id'];
                 $meta = $hireableMap[$charId];
-                $character = Character::query()->whereKey($charId)->select(['id', 'station'])->first();
+                $character = Character::query()->whereKey($charId)->select(['id', 'station', 'title_group_key'])->first();
 
                 // The other-keyword grant only applies to in-keyword models
                 // (pg 15). For weekly out-of-keyword in-faction hires we don't
@@ -124,8 +155,8 @@ class WeeklyHireController extends Controller
                     $grantedKeyword = array_values(array_diff($keywordIds, [$meta['has_keyword_id']]))[0] ?? null;
                 }
 
-                CampaignArsenalModel::create([
-                    'campaign_crew_id' => $crew->id,
+                $arsenalModel = CampaignArsenalModel::create([
+                    'campaign_crew_id' => $lockedCrew->id,
                     'character_id' => $charId,
                     'label' => $h['label'] ?? null,
                     'is_peon' => $character?->station === CharacterStationEnum::Peon,
@@ -133,13 +164,28 @@ class WeeklyHireController extends Controller
                     'acquired_via' => 'hire',
                     'granted_keyword_id' => $grantedKeyword,
                 ]);
+
+                // Titled models (pg 18): hiring one titled version adds the rest.
+                if ($character !== null) {
+                    $this->addTitledSiblings($arsenalModel, $character, $lockedCrew->id, $campaign->current_week);
+                }
             }
 
-            $crew->decrement('scrip', $totalCost);
+            $lockedCrew->decrement('scrip', $totalCost);
+            $finalCost = $totalCost;
+            $hired = true;
         });
 
+        if (! $hired) {
+            return redirect()->back()->withMessage(
+                'Not enough scrip, or this week\'s hire was already claimed by another request.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
         return redirect()->route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code])
-            ->withMessage('Hired '.count($hires)." model(s) for {$totalCost} scrip.");
+            ->withMessage('Hired '.count($hires)." model(s) for {$finalCost} scrip.");
     }
 
     private function countHiresThisWeek(CampaignCrew $crew, int $week): int

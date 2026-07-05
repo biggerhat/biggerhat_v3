@@ -39,7 +39,11 @@ class StoreLeaderAdvancementRequest extends FormRequest
             'applied_to_action_index' => ['nullable', 'integer'],
             'from_equipment_id' => ['nullable', 'integer', 'exists:campaign_equipment,id'],
             'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            // Any Joker (Action/Ability tables, pg 49/51): the free pick from an
+            // eligible ally, resolved via the same search the Leader Builder uses.
             'free_choice' => ['nullable', 'array'],
+            'free_choice.source_id' => ['nullable', 'integer'],
+            'free_choice.source_character_id' => ['nullable', 'integer', 'exists:characters,id'],
             'totem_name' => ['nullable', 'string', 'max:60'],
             'totem_size' => ['nullable', 'integer', 'min:1', 'max:5'],
             'totem_base' => ['nullable', 'string', 'in:30mm,40mm,50mm'],

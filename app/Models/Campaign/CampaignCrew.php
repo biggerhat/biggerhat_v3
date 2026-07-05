@@ -38,6 +38,7 @@ use Illuminate\Support\Str;
  * @property-read Keyword|null $keywordOne
  * @property-read Keyword|null $keywordTwo
  * @property-read CampaignCrewCard|null $crewCardEffect
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrewCardAdvancement> $crewCardAdvancements
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignArsenalModel> $arsenalModels
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
@@ -110,6 +111,12 @@ class CampaignCrew extends Model
     public function crewCardEffect(): BelongsTo
     {
         return $this->belongsTo(CampaignCrewCard::class, 'crew_card_effect_id');
+    }
+
+    /** Tier-4 crew-card borrows (pg 32, 54) — stack alongside the starter effect. */
+    public function crewCardAdvancements(): HasMany
+    {
+        return $this->hasMany(CampaignCrewCardAdvancement::class, 'campaign_crew_id');
     }
 
     public function arsenalModels(): HasMany

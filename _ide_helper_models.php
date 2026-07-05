@@ -74,7 +74,7 @@ namespace App\Models{
  * @property \App\Enums\GameModeTypeEnum $game_mode_type
  * @property string $name
  * @property string $type
- * @property int $is_signature
+ * @property bool $is_signature
  * @property int $stone_cost
  * @property string $slug
  * @property string|null $range
@@ -727,6 +727,7 @@ namespace App\Models\Campaign{
  * @property-read Keyword|null $keywordOne
  * @property-read Keyword|null $keywordTwo
  * @property-read CampaignCrewCard|null $crewCardEffect
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrewCardAdvancement> $crewCardAdvancements
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignArsenalModel> $arsenalModels
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
@@ -738,6 +739,7 @@ namespace App\Models\Campaign{
  * @property array<array-key, mixed>|null $crew_card_choice
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read int|null $crew_card_advancements_count
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCampaignId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardChoice($value)
@@ -798,6 +800,42 @@ namespace App\Models\Campaign{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperCampaignCrewCard {}
+}
+
+namespace App\Models\Campaign{
+/**
+ * A Tier-4 Crew Card advancement (pg 32, 54) — an extra effect borrowed from
+ * a crew card associated with a master sharing one of this crew's keywords,
+ * added to the crew's own crew card. Unlike the starter effect
+ * (`CampaignCrew::crew_card_effect_id`, a single FK), these accumulate: a
+ * crew can hold its starter effect plus any number of Tier-4 borrows.
+ *
+ * @property int $id
+ * @property int $campaign_crew_id
+ * @property int $crew_card_effect_id
+ * @property int|null $source_master_id
+ * @property int|null $acquired_aftermath_id
+ * @property-read CampaignCrew $crew
+ * @property-read CampaignCrewCard $crewCardEffect
+ * @property-read Character|null $sourceMaster
+ * @property-read CampaignAftermath|null $sourceAftermath
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\Campaign\CampaignCrewCardAdvancementFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereAcquiredAftermathId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCampaignCrewId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardEffectId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignCrewCardAdvancement {}
 }
 
 namespace App\Models\Campaign{
@@ -1161,6 +1199,7 @@ namespace App\Models{
  * @property \App\Enums\GameModeTypeEnum $game_mode_type
  * @property string $name
  * @property string|null $title
+ * @property string|null $title_group_key
  * @property string $display_name
  * @property string $slug
  * @property string|null $nicknames
@@ -1275,6 +1314,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereStationSortOrder($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereSummonTargetNumber($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereTitleGroupKey($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereWillpower($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Character whereWillpowerSuit($value)

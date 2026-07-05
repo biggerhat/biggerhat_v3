@@ -58,6 +58,29 @@ it('advances the week and creates a CampaignWeek row', function () {
     expect(CampaignWeek::where('campaign_id', $campaign->id)->where('week_number', 2)->exists())->toBeTrue();
 });
 
+it('a double-submitted week advance only creates one CampaignWeek row', function () {
+    // Simulates a double-click: both requests read the campaign before
+    // either commits. The lock-then-recheck inside advance() must let only
+    // one of them actually advance the week.
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.weeks.advance', $campaign))
+        ->assertRedirect();
+
+    expect($campaign->fresh()->current_week)->toBe(2);
+
+    // Second submission against the same stale pre-advance state.
+    $this->actingAs($organizer)
+        ->post(route('campaigns.weeks.advance', $campaign))
+        ->assertRedirect();
+
+    expect($campaign->fresh()->current_week)->toBe(3);
+    expect(CampaignWeek::where('campaign_id', $campaign->id)->count())->toBe(2);
+    expect(CampaignWeek::where('campaign_id', $campaign->id)->where('week_number', 2)->count())->toBe(1);
+});
+
 it('rolls a weekly event when the campaign has the option enabled', function () {
     WeeklyEvent::factory()->count(3)->create();
     $organizer = wkUser();
@@ -180,6 +203,82 @@ it('applies first-hire-of-week -5 discount and out-of-keyword +1 surcharge', fun
 
     $crew->refresh();
     expect($crew->scrip)->toBe(20 - 11);
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(2);
+});
+
+it('hiring one titled model auto-adds its sibling to the arsenal sharing an arsenal-side title_group_key', function () {
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+    $kw = Keyword::factory()->create();
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $organizer->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'keyword_1_id' => $kw->id,
+        'scrip' => 20,
+    ]);
+
+    $titleGroup = 'test-titled-group';
+    $versionA = Character::factory()->create([
+        'cost' => 8, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists, 'title_group_key' => $titleGroup,
+    ]);
+    $versionA->keywords()->attach($kw);
+    $versionB = Character::factory()->create([
+        'cost' => 8, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists, 'title_group_key' => $titleGroup,
+    ]);
+    $versionB->keywords()->attach($kw);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), [
+            'hires' => [
+                ['character_id' => $versionA->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    $models = CampaignArsenalModel::where('campaign_crew_id', $crew->id)->get();
+    expect($models)->toHaveCount(2);
+    expect($models->pluck('character_id')->sort()->values()->all())->toEqual([$versionA->id, $versionB->id]);
+    expect($models->pluck('title_group_key')->unique())->toHaveCount(1);
+    expect($models->first()->title_group_key)->not->toBeNull();
+    // Only the originally-hired model's cost was charged.
+    expect($crew->fresh()->scrip)->toBe(20 - 3);
+});
+
+it('a double-submitted hire only claims the first-hire discount once', function () {
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+    $kw = Keyword::factory()->create();
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $organizer->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'keyword_1_id' => $kw->id,
+        'scrip' => 20,
+    ]);
+    $model = Character::factory()->create([
+        'cost' => 8,
+        'station' => CharacterStationEnum::Minion,
+        'faction' => FactionEnum::Arcanists,
+    ]);
+    $model->keywords()->attach($kw);
+
+    // First hire: 8 - 5 = 3 scrip, claims the week's only discount.
+    $this->actingAs($organizer)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), [
+            'hires' => [['character_id' => $model->id]],
+        ])
+        ->assertRedirect();
+    expect($crew->fresh()->scrip)->toBe(17);
+
+    // Second hire this week must NOT get the discount again — full 8 scrip.
+    $this->actingAs($organizer)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), [
+            'hires' => [['character_id' => $model->id]],
+        ])
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(17 - 8);
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(2);
 });
 

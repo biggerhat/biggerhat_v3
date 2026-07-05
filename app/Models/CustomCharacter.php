@@ -144,4 +144,24 @@ class CustomCharacter extends Model
     {
         return $this->belongsToMany(Ability::class, 'campaign_totem_template_abilities');
     }
+
+    /**
+     * Attempts to annihilate this leader/totem, respecting Miraculous Recovery
+     * (pg 24): the first time a leader/totem would be annihilated, it survives
+     * instead and the reprieve is spent. Returns true if it survived (Fate
+     * spent), false if it actually annihilated. Caller is responsible for
+     * locking + rechecking state before calling this inside a transaction.
+     */
+    public function attemptAnnihilation(): bool
+    {
+        if (! $this->miraculous_recovery_used) {
+            $this->update(['miraculous_recovery_used' => true]);
+
+            return true;
+        }
+
+        $this->update(['current' => false, 'annihilated_at' => now()]);
+
+        return false;
+    }
 }

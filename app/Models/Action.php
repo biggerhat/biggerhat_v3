@@ -33,6 +33,7 @@ class Action extends Model
     {
         return [
             'game_mode_type' => GameModeTypeEnum::class,
+            'is_signature' => 'boolean',
         ];
     }
 

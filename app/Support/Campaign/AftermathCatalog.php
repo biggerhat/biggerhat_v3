@@ -2,6 +2,7 @@
 
 namespace App\Support\Campaign;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Ability;
 use App\Models\Action;
@@ -10,7 +11,9 @@ use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
 use App\Models\Upgrade;
@@ -107,7 +110,7 @@ class AftermathCatalog
      */
     public static function crewInjuries(int $crewId): array
     {
-        return DB::table('campaign_arsenal_model_injuries as ami')
+        $modelInjuries = DB::table('campaign_arsenal_model_injuries as ami')
             ->join('campaign_arsenal_models as cam', 'cam.id', '=', 'ami.campaign_arsenal_model_id')
             ->join('upgrades as u', 'u.id', '=', 'ami.injury_upgrade_id')
             ->join('characters as c', 'c.id', '=', 'cam.character_id')
@@ -116,12 +119,30 @@ class AftermathCatalog
             ->select(
                 'ami.id as pivot_id',
                 'cam.id as arsenal_model_id',
+                DB::raw('NULL as custom_character_id'),
                 'cam.label',
                 'c.display_name',
                 'u.name as injury_name',
-            )
-            ->get()
-            ->all();
+            );
+
+        // Leader/totem injuries (pg 34-36) — stored via custom_character_id
+        // instead of campaign_arsenal_model_id (leaders/totems are
+        // CustomCharacter rows, not CampaignArsenalModel rows).
+        $customCharInjuries = DB::table('campaign_arsenal_model_injuries as ami')
+            ->join('custom_characters as cc', 'cc.id', '=', 'ami.custom_character_id')
+            ->join('upgrades as u', 'u.id', '=', 'ami.injury_upgrade_id')
+            ->where('cc.campaign_crew_id', $crewId)
+            ->whereNull('cc.annihilated_at')
+            ->select(
+                'ami.id as pivot_id',
+                DB::raw('NULL as arsenal_model_id'),
+                'cc.id as custom_character_id',
+                DB::raw('NULL as label'),
+                'cc.name as display_name',
+                'u.name as injury_name',
+            );
+
+        return $modelInjuries->unionAll($customCharInjuries)->get()->all();
     }
 
     /**
@@ -129,8 +150,18 @@ class AftermathCatalog
      *
      * @return array<string, mixed>
      */
-    public static function advancementCatalogs(): array
+    public static function advancementCatalogs(?CampaignCrew $crew = null): array
     {
+        // Tier-4 Crew Card: exclude effects the crew already holds (its
+        // starter effect + any effects already borrowed) so the same effect
+        // can't be picked twice.
+        $heldCrewCardIds = $crew
+            ? array_values(array_filter([
+                $crew->crew_card_effect_id,
+                ...$crew->crewCardAdvancements()->pluck('crew_card_effect_id')->all(),
+            ]))
+            : [];
+
         return [
             'attack_mod' => self::attackTacticalAdvancements(AdvancementAttackMod::class),
             'tactical_mod' => self::attackTacticalAdvancements(AdvancementTacticalMod::class),
@@ -229,6 +260,7 @@ class AftermathCatalog
                 ])
                 ->all(),
             'crew_card' => CampaignCrewCard::query()
+                ->when(! empty($heldCrewCardIds), fn ($q) => $q->whereNotIn('id', $heldCrewCardIds))
                 ->with(['actions:id,name', 'abilities:id,name'])
                 ->orderBy('name')
                 ->get()
@@ -241,6 +273,28 @@ class AftermathCatalog
                 ])
                 ->all(),
         ];
+    }
+
+    /**
+     * Masters sharing one of the crew's keywords — the eligible "borrow
+     * from" source for a Tier-4 Crew Card advancement (pg 32, 54).
+     *
+     * @return array<int, array{id: int, name: string}>
+     */
+    public static function eligibleMasters(CampaignCrew $crew): array
+    {
+        $keywordIds = array_values(array_filter([$crew->keyword_1_id, $crew->keyword_2_id]));
+        if (empty($keywordIds)) {
+            return [];
+        }
+
+        return Character::query()
+            ->where('station', CharacterStationEnum::Master->value)
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->orderBy('display_name')
+            ->get(['id', 'display_name'])
+            ->map(fn (Character $c) => ['id' => $c->id, 'name' => $c->display_name])
+            ->all();
     }
 
     /**

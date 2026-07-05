@@ -60,9 +60,50 @@ class BlogPost extends Model
             ->whereNotNull('published_at');
     }
 
+    /**
+     * Flattens the TipTap/ProseMirror content tree into plain text — the SEO
+     * description fallback when no excerpt is set (BuildsPageMeta::pageMeta()
+     * requires a string; $content is a JSON array, not text). Mirrors the
+     * client-side collectText() helper in Blog/View.vue and News/View.vue.
+     */
+    public function plainTextContent(): string
+    {
+        $collect = function ($node) use (&$collect): string {
+            if (! is_array($node)) {
+                return '';
+            }
+            if (isset($node['text']) && is_string($node['text'])) {
+                return $node['text'];
+            }
+            if (isset($node['content']) && is_array($node['content'])) {
+                return implode(' ', array_map($collect, $node['content']));
+            }
+
+            return '';
+        };
+
+        return trim(preg_replace('/\s+/', ' ', $collect($this->content ?? [])) ?? '');
+    }
+
     public function scopeDraft(Builder $query): Builder
     {
         return $query->where('status', BlogPostStatusEnum::Draft->value);
+    }
+
+    /** Site News (pg N/A): posts whose category is flagged is_news. */
+    public function scopeNews(Builder $query): Builder
+    {
+        return $query->whereHas('category', fn (Builder $q) => $q->where('is_news', true));
+    }
+
+    /**
+     * Regular Blog/Article posts. Uses whereDoesntHave (not a negated
+     * whereHas) so uncategorized posts (blog_category_id null) still count
+     * as "not news" and keep showing on /blog.
+     */
+    public function scopeExcludingNews(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('category', fn (Builder $q) => $q->where('is_news', true));
     }
 
     public function author(): BelongsTo

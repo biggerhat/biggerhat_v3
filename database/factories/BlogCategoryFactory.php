@@ -20,4 +20,10 @@ class BlogCategoryFactory extends Factory
             'name' => $this->faker->unique()->words(2, true),
         ];
     }
+
+    /** Site News category — pooled onto /news, excluded from /blog. */
+    public function news(): static
+    {
+        return $this->state(fn () => ['is_news' => true]);
+    }
 }

@@ -16,7 +16,14 @@ const props = defineProps({
             return null;
         },
     },
+    postType: {
+        type: String,
+        required: false,
+        default: 'blog',
+    },
 });
+
+const routeFor = (suffix: string, param?: string) => route(`admin.${props.postType}.categories.${suffix}`, param);
 
 const formInfo = ref({
     name: null as string | null,
@@ -24,7 +31,7 @@ const formInfo = ref({
 });
 
 const submit = () => {
-    router.post(props.category ? route('admin.blog.categories.update', props.category.slug) : route('admin.blog.categories.store'), formInfo.value);
+    router.post(props.category ? routeFor('update', props.category.slug) : routeFor('store'), formInfo.value);
 };
 
 onMounted(() => {
@@ -37,8 +44,10 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Article Category</CardTitle>
-                <CardDescription>Create and Edit Article Category Information</CardDescription>
+                <CardTitle>{{ props.postType === 'news' ? 'News Category' : 'Article Category' }}</CardTitle>
+                <CardDescription>{{
+                    props.postType === 'news' ? 'Create and Edit News Category Information' : 'Create and Edit Article Category Information'
+                }}</CardDescription>
             </CardHeader>
             <CardContent>
                 <form>
@@ -57,7 +66,7 @@ onMounted(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.blog.categories.index'))" variant="outline">Cancel</Button>
+                <Button @click="router.get(routeFor('index'))" variant="outline">Cancel</Button>
                 <Button @click="submit">Save</Button>
             </CardFooter>
         </Card>

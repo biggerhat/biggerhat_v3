@@ -17,6 +17,7 @@ class BlogController extends Controller
     public function index(Request $request)
     {
         $query = BlogPost::published()
+            ->excludingNews()
             ->with(['author', 'category'])
             ->orderBy('published_at', 'DESC');
 
@@ -50,16 +51,19 @@ class BlogController extends Controller
 
         return inertia('Blog/Index', [
             'posts' => $query->paginate(12),
-            'categories' => fn () => BlogCategory::orderBy('name')->get(),
-            'authors' => fn () => User::whereHas('blogPosts', fn ($q) => $q->where('status', BlogPostStatusEnum::Published->value))
+            'categories' => fn () => BlogCategory::excludingNews()->orderBy('name')->get(),
+            'authors' => fn () => User::whereHas('blogPosts', fn ($q) => $q->where('status', BlogPostStatusEnum::Published->value)
+                ->whereDoesntHave('category', fn ($q2) => $q2->where('is_news', true)))
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (User $u) => ['name' => $u->name, 'value' => $u->name]),
-            'tagged_characters' => fn () => \App\Models\Character::standard()->whereHas('blogPosts')
+            'tagged_characters' => fn () => \App\Models\Character::standard()
+                ->whereHas('blogPosts', fn ($q) => $q->whereDoesntHave('category', fn ($q2) => $q2->where('is_news', true)))
                 ->orderBy('display_name')
                 ->get(['id', 'display_name', 'slug'])
                 ->map(fn ($c) => ['name' => $c->display_name, 'value' => $c->slug]),
-            'tagged_keywords' => fn () => \App\Models\Keyword::standard()->whereHas('blogPosts')
+            'tagged_keywords' => fn () => \App\Models\Keyword::standard()
+                ->whereHas('blogPosts', fn ($q) => $q->whereDoesntHave('category', fn ($q2) => $q2->where('is_news', true)))
                 ->orderBy('name')
                 ->get(['id', 'name', 'slug'])
                 ->map(fn ($k) => ['name' => $k->name, 'value' => $k->slug]),
@@ -73,18 +77,18 @@ class BlogController extends Controller
 
     public function view(Request $request, BlogPost $blogPost)
     {
-        if ($blogPost->status !== BlogPostStatusEnum::Published) {
+        $blogPost->loadMissing(['author', 'category', 'characters.miniatures', 'keywords', 'upgrades']);
+
+        if ($blogPost->status !== BlogPostStatusEnum::Published || $blogPost->category?->is_news) {
             abort(404);
         }
-
-        $blogPost->loadMissing(['author', 'category', 'characters.miniatures', 'keywords', 'upgrades']);
 
         return inertia('Blog/View', [
             'post' => $blogPost,
         ])->withViewData([
             'page_meta' => $this->pageMeta(
                 title: $blogPost->title,
-                description: $blogPost->excerpt ?: $blogPost->content,
+                description: $blogPost->excerpt ?: $blogPost->plainTextContent(),
                 image: $blogPost->featured_image,
                 type: 'article',
             ),

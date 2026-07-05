@@ -407,13 +407,7 @@ const submit = async () => {
                 <div v-if="form.archetype === 'lucky_upstart'" class="grid gap-3 md:col-span-2 md:grid-cols-[120px_1fr]">
                     <div>
                         <Label for="lucky_upstart_flip_value">Flip (1–13)</Label>
-                        <Input
-                            id="lucky_upstart_flip_value"
-                            type="number"
-                            min="1"
-                            max="13"
-                            v-model.number="form.lucky_upstart_flip_value"
-                        />
+                        <Input id="lucky_upstart_flip_value" type="number" min="1" max="13" v-model.number="form.lucky_upstart_flip_value" />
                         <InputError :message="usePage().props.errors.lucky_upstart_flip_value" />
                     </div>
                     <div>
@@ -426,8 +420,7 @@ const submit = async () => {
                             <option v-for="e in eligibleLuckyUpstartEquipment" :key="e.id" :value="e.id">{{ e.name }}</option>
                         </select>
                         <p class="mt-1 text-[11px] text-muted-foreground">
-                            Flip a card (may not be cheated) — take equipment whose BR matches exactly. Doesn't count toward Campaign Rating
-                            (pg 17).
+                            Flip a card (may not be cheated) — take equipment whose BR matches exactly. Doesn't count toward Campaign Rating (pg 17).
                         </p>
                         <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
                     </div>

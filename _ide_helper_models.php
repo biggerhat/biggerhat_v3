@@ -186,18 +186,22 @@ namespace App\Models{
  * @property string $name
  * @property string $slug
  * @property string|null $description
+ * @property bool $is_news
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BlogPost> $posts
  * @property-read int|null $posts_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory excludingNews()
  * @method static \Database\Factories\BlogCategoryFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory news()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory toSelectOptions(string $column, $primaryKeyColumn = 'id')
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereIsNews($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogCategory whereUpdatedAt($value)
@@ -236,9 +240,11 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $upgrades
  * @property-read int|null $upgrades_count
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost draft()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost excludingNews()
  * @method static \Database\Factories\BlogPostFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost news()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost onlyTrashed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost published()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost query()

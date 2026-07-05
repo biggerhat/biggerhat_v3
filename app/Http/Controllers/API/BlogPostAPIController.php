@@ -13,6 +13,7 @@ class BlogPostAPIController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = BlogPost::published()
+            ->excludingNews()
             ->with(['category', 'author', 'characters', 'keywords'])
             ->latest('published_at');
 

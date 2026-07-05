@@ -42,7 +42,14 @@ const props = defineProps({
             return [];
         },
     },
+    postType: {
+        type: String,
+        required: false,
+        default: 'blog',
+    },
 });
+
+const routeFor = (suffix: string, param?: string | number) => route(`admin.${props.postType}.posts.${suffix}`, param);
 
 const formInfo = ref({
     title: null as string | null,
@@ -77,7 +84,7 @@ const submit = () => {
     }
     formInfo.value.entities.forEach((e, i) => formData.append(`entities[${i}]`, `${e.entityType}:${e.entitySlug}`));
 
-    const url = props.post ? route('admin.blog.posts.update', props.post.slug) : route('admin.blog.posts.store');
+    const url = props.post ? routeFor('update', props.post.slug) : routeFor('store');
     router.post(url, formData, {
         forceFormData: true,
         onSuccess: () => clearAutosave(),
@@ -85,14 +92,15 @@ const submit = () => {
 };
 
 const availableStatuses = () => {
-    if (page.props.auth.can_publish_posts) {
+    const canPublish = props.postType === 'news' ? page.props.auth.permissions?.includes('manage_news') : page.props.auth.can_publish_posts;
+    if (canPublish) {
         return props.statuses;
     }
     return props.statuses.filter((s: SelectOption) => s.value !== 'published');
 };
 
 // --- Autosave ---
-const AUTOSAVE_KEY = 'biggerhat_blog_autosave';
+const AUTOSAVE_KEY = `biggerhat_${props.postType}_autosave`;
 const autosaveStatus = ref<'saved' | 'saving' | 'restored' | null>(null);
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 let statusTimer: ReturnType<typeof setTimeout> | null = null;
@@ -230,8 +238,8 @@ onBeforeUnmount(() => {
             <CardHeader>
                 <div class="flex items-center justify-between">
                     <div>
-                        <CardTitle>Article</CardTitle>
-                        <CardDescription>Create and Edit Articles</CardDescription>
+                        <CardTitle>{{ props.postType === 'news' ? 'Site News' : 'Article' }}</CardTitle>
+                        <CardDescription>{{ props.postType === 'news' ? 'Create and Edit Site News' : 'Create and Edit Articles' }}</CardDescription>
                     </div>
                     <Badge
                         v-if="autosaveStatus === 'saved'"
@@ -264,7 +272,7 @@ onBeforeUnmount(() => {
 
                         <div class="flex flex-col space-y-1.5">
                             <Label>Content</Label>
-                            <TipTapEditor v-model="formInfo.content" />
+                            <TipTapEditor v-model="formInfo.content" :upload-image-route="routeFor('upload-image')" />
                             <InputError :message="page.props.errors.content" />
                         </div>
 
@@ -317,11 +325,9 @@ onBeforeUnmount(() => {
                 </form>
             </CardContent>
             <CardFooter class="flex justify-between px-6 pb-6">
-                <Button @click="router.get(route('admin.blog.posts.index'))" variant="outline">Cancel</Button>
+                <Button @click="router.get(routeFor('index'))" variant="outline">Cancel</Button>
                 <div class="flex gap-2">
-                    <Button v-if="props.post" @click="router.get(route('admin.blog.posts.preview', props.post.slug))" variant="secondary"
-                        >Preview</Button
-                    >
+                    <Button v-if="props.post" @click="router.get(routeFor('preview', props.post.slug))" variant="secondary">Preview</Button>
                     <Button @click="submit">Save</Button>
                 </div>
             </CardFooter>

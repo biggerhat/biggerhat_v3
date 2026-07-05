@@ -34,6 +34,8 @@ use App\Http\Controllers\Admin\LoreMediaAdminController;
 use App\Http\Controllers\Admin\MaintenanceAdminController;
 use App\Http\Controllers\Admin\MarkerAdminController;
 use App\Http\Controllers\Admin\MiniatureAdminController;
+use App\Http\Controllers\Admin\NewsCategoryAdminController;
+use App\Http\Controllers\Admin\NewsPostAdminController;
 use App\Http\Controllers\Admin\PackageAdminController;
 use App\Http\Controllers\Admin\PodLinkAdminController;
 use App\Http\Controllers\Admin\RoleAdminController;
@@ -361,6 +363,30 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
             Route::post('/store', 'store')->name('store')->middleware('permission:create_posts');
             Route::post('/update/{blogPost}', 'update')->name('update')->middleware('permission:edit_posts');
             Route::post('/delete/{blogPost}', 'delete')->name('delete')->middleware('permission:delete_posts');
+            Route::post('/upload-image', 'uploadImage')->name('upload-image');
+        });
+    });
+
+    // Site News admin routes — single bundled manage_news permission gates
+    // everything (no per-action split like Blog's create/edit/publish/delete).
+    Route::prefix('news')->middleware(['permission:manage_news'])->name('news.')->group(function () {
+        Route::controller(NewsCategoryAdminController::class)->prefix('categories')->name('categories.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/edit/{blogCategory}', 'edit')->name('edit');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
+            Route::post('/update/{blogCategory}', 'update')->name('update');
+            Route::post('/delete/{blogCategory}', 'delete')->name('delete');
+        });
+
+        Route::controller(NewsPostAdminController::class)->prefix('posts')->name('posts.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/preview/{blogPost}', 'preview')->name('preview');
+            Route::get('/edit/{blogPost}', 'edit')->name('edit');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
+            Route::post('/update/{blogPost}', 'update')->name('update');
+            Route::post('/delete/{blogPost}', 'delete')->name('delete');
             Route::post('/upload-image', 'uploadImage')->name('upload-image');
         });
     });

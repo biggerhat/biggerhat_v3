@@ -488,9 +488,10 @@ const submitAdvanceLeader = () => {
                     applied_to_action_index: d.applied_to_action_index,
                     position_in_xp_track: adv.position_in_xp_track,
                     flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
-                    free_choice: d.free_choice_source_id || d.free_choice_source_character_id
-                        ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
-                        : null,
+                    free_choice:
+                        d.free_choice_source_id || d.free_choice_source_character_id
+                            ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
+                            : null,
                     totem_name: isTotem ? d.totem_name || null : null,
                     totem_size: isTotem ? d.totem_size || null : null,
                     totem_base: isTotem ? d.totem_base || null : null,
@@ -899,10 +900,15 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     v-model.number="advDrafts[adv.position_in_xp_track].flip_value"
                                     class="h-8 w-20"
                                 />
-                                <span>{{ advDrafts[adv.position_in_xp_track].source_table === 'totem' ? '(exact match)' : '(this value or lower)' }}</span>
+                                <span>{{
+                                    advDrafts[adv.position_in_xp_track].source_table === 'totem' ? '(exact match)' : '(this value or lower)'
+                                }}</span>
                             </label>
                             <label
-                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'action' || advDrafts[adv.position_in_xp_track].source_table === 'ability'"
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'action' ||
+                                    advDrafts[adv.position_in_xp_track].source_table === 'ability'
+                                "
                                 class="flex items-center gap-2 text-[11px] text-muted-foreground"
                             >
                                 <Checkbox
@@ -939,10 +945,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             </select>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                             <div
-                                v-if="
-                                    advDrafts[adv.position_in_xp_track].is_joker_flipped &&
-                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
-                                "
+                                v-if="advDrafts[adv.position_in_xp_track].is_joker_flipped && advDrafts[adv.position_in_xp_track].catalog_id !== null"
                                 class="space-y-1 rounded border p-2"
                             >
                                 <p v-if="advDrafts[adv.position_in_xp_track].free_choice_label" class="text-xs font-medium">

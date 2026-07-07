@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Campaign;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\CustomCharacter;
@@ -168,6 +167,8 @@ class ArsenalSheetController extends Controller
                         'source_table' => $a->source_table->value,
                         'catalog_id' => $a->catalog_core_id,
                         'free_choice' => $a->free_choice,
+                        'applied_to_custom_character_id' => $a->applied_to_custom_character_id,
+                        'from_equipment_id' => $a->from_equipment_id,
                     ])
                 : [],
             // Advancement-table catalogs (same source the Aftermath uses) — used
@@ -177,21 +178,9 @@ class ArsenalSheetController extends Controller
             'eligible_masters' => $leader ? AftermathCatalog::eligibleMasters($crew) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
-            // model when hiring. Shown on the arsenal sheet below the models.
-            'equipment' => CampaignEquipment::query()
-                ->where('campaign_crew_id', $crew->id)
-                ->active()
-                ->with('catalog:id,name,campaign_cc,campaign_br,description')
-                ->orderBy('id')
-                ->get()
-                ->map(fn (CampaignEquipment $e) => [
-                    'id' => $e->id,
-                    'source' => $e->source,
-                    'name' => $e->catalog->name,
-                    'cc' => $e->catalog->campaign_cc,
-                    'br' => $e->catalog->campaign_br,
-                    'description' => $e->catalog->description,
-                ]),
+            // model when hiring. Shown on the arsenal sheet below the models,
+            // and selectable as an Attack/Tactical Mod advancement target (pg 31).
+            'equipment' => AftermathCatalog::ownedEquipment($crew, $leader),
             'campaign_rating' => [
                 'value' => $cr,
                 'equipment_count' => $equipmentCount,

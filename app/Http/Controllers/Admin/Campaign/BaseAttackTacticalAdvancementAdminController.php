@@ -37,7 +37,10 @@ abstract class BaseAttackTacticalAdvancementAdminController extends Controller
         return inertia(self::INDEX_VIEW, [
             'items' => $model::orderByRaw('flip_value IS NULL, flip_value ASC')
                 ->orderBy('name')
-                ->get(['id', 'name', 'flip_value', 'is_black_joker', 'is_red_joker', 'is_always_available', 'modifier_type', 'suit', 'trigger_id']),
+                ->get([
+                    'id', 'name', 'flip_value', 'is_black_joker', 'is_red_joker', 'is_always_available',
+                    'modifier_type', 'suit', 'skl_from', 'skl_from_max', 'skl_to', 'trigger_id',
+                ]),
             'route_prefix' => $this->routePrefix(),
             'display_label' => $this->displayLabel(),
         ]);

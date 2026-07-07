@@ -232,6 +232,44 @@ it('computes Campaign Rating as equipment + advancements − injuries', function
         );
 });
 
+it('exposes equipment actions and marks equipment locked once an advancement targets it', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Eq Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crew->id]);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack', 'stat' => 5]);
+    $equipment->catalog->actions()->attach($action->id, ['is_signature_action' => false]);
+    $trigger = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['name' => 'Locked Trigger', 'flip_value' => 5]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $trigger->id,
+        'from_equipment_id' => $equipment->id,
+        'applied_to_action_id' => $action->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('equipment.0.locked', true)
+            ->where('equipment.0.applied_effects.0', 'Locked Trigger — Granted Slash')
+            ->where('equipment.0.actions.0.name', 'Granted Slash')
+        );
+});
+
 it('exposes the leader Leadership Experience track with filled boxes', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);

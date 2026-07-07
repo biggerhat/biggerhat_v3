@@ -12,6 +12,7 @@ use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Character;
 use App\Models\CustomCharacter;
@@ -109,20 +110,59 @@ class LeaderAdvancementService
                 }
             }
 
+            $catalogId = $a['catalog_id'] ?? null;
+
+            // Attack Mod / Tactical Mod share one fetched row for the flip-ceiling,
+            // Joker-gate, and Skl Boost range checks below — one query covers all three.
+            $attackTacticalRow = null;
+            if ($catalogId !== null && ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod)) {
+                $attackTacticalRow = match ($table) {
+                    AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($catalogId)
+                        ->first(['flip_value', 'is_black_joker', 'is_red_joker', 'modifier_type', 'skl_from', 'skl_from_max']),
+                    AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($catalogId)
+                        ->first(['flip_value', 'is_black_joker', 'is_red_joker', 'modifier_type', 'skl_from', 'skl_from_max']),
+                    default => null,
+                };
+            }
+
             // Flip-and-choose ceiling. Each table's catalog row carries its own
             // flip_value; the chosen option must be <= the flipped card.
-            $catalogId = $a['catalog_id'] ?? null;
             $flip = $a['flip_value'] ?? null;
             if ($catalogId !== null && $flip !== null) {
-                $rowFlip = match ($table) {
-                    AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($catalogId)->value('flip_value'),
-                    AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($catalogId)->value('flip_value'),
+                $rowFlip = ($attackTacticalRow ? $attackTacticalRow->flip_value : null) ?? match ($table) {
                     AdvancementTableEnum::Action => AdvancementAction::query()->whereKey($catalogId)->value('flip_value'),
                     AdvancementTableEnum::Ability => AdvancementAbility::query()->whereKey($catalogId)->value('flip_value'),
                     default => null,
                 };
                 if ($rowFlip !== null && (int) $rowFlip > (int) $flip) {
                     return "That advancement needs a flip of {$rowFlip} or higher — your flip was {$flip}.";
+                }
+            }
+
+            // Joker gate (Attack Mod / Tactical Mod, pg 38-43): a row with either
+            // Joker flag set requires the player to declare which card they
+            // flipped. Attack Mod's two rows have BOTH flags set ("Any Joker" —
+            // either color qualifies); Tactical Mod's two rows each have exactly
+            // one flag set (Red and Black grant different named triggers) — the
+            // same declared-color check covers both shapes.
+            if ($attackTacticalRow && ($attackTacticalRow->is_black_joker || $attackTacticalRow->is_red_joker)) {
+                $jokerColor = $a['joker_color'] ?? null;
+                $satisfied = ($jokerColor === 'red' && $attackTacticalRow->is_red_joker) || ($jokerColor === 'black' && $attackTacticalRow->is_black_joker);
+                if (! $satisfied) {
+                    return 'That advancement requires flipping a Joker — declare which one you flipped.';
+                }
+            }
+
+            // Target resolution (pg 31, 38-43): an Attack/Tactical Mod applies to
+            // the Leader (default), the crew's current Totem, or an action
+            // granted by owned Equipment — ownership is verified here so a
+            // client can't target another crew's totem/equipment or an action
+            // that equipment doesn't actually grant. Also resolves the target
+            // action's current Skl for the Skl Boost range check below.
+            if ($attackTacticalRow) {
+                $targetError = $this->validateAttackTacticalTarget($leader, $a, $attackTacticalRow);
+                if (is_string($targetError)) {
+                    return $targetError;
                 }
             }
 
@@ -195,6 +235,71 @@ class LeaderAdvancementService
     }
 
     /**
+     * Resolves and validates the Attack/Tactical Mod target (pg 31, 38-43),
+     * then checks the target action's current Skl against a skl_boost row's
+     * qualifying range. Returns an error string, or null if everything checks
+     * out.
+     *
+     * @param  array<string, mixed>  $a
+     */
+    private function validateAttackTacticalTarget(CustomCharacter $leader, array $a, AdvancementAttackMod|AdvancementTacticalMod $row): ?string
+    {
+        $appliedToCustomCharacterId = $a['applied_to_custom_character_id'] ?? null;
+        $fromEquipmentId = $a['from_equipment_id'] ?? null;
+        $actionIndex = $a['applied_to_action_index'] ?? null;
+        $appliedToActionId = $a['applied_to_action_id'] ?? null;
+
+        $targetSkl = null;
+        if ($fromEquipmentId !== null) {
+            $equipment = CampaignEquipment::query()
+                ->whereKey($fromEquipmentId)
+                ->where('campaign_crew_id', $leader->campaign_crew_id)
+                ->active()
+                ->with('catalog.actions')
+                ->first();
+            if (! $equipment) {
+                return 'Selected Equipment is not part of this crew.';
+            }
+            $grantedAction = $appliedToActionId !== null
+                ? $equipment->catalog?->actions->firstWhere('id', $appliedToActionId)
+                : null;
+            if (! $grantedAction) {
+                return 'Selected action is not granted by that Equipment.';
+            }
+            $targetSkl = $grantedAction->stat;
+        } elseif ($appliedToCustomCharacterId !== null) {
+            $totem = CustomCharacter::query()
+                ->whereKey($appliedToCustomCharacterId)
+                ->where('campaign_crew_id', $leader->campaign_crew_id)
+                ->where('is_campaign_totem', true)
+                ->where('current', true)
+                ->first();
+            if (! $totem) {
+                return "Selected Totem doesn't belong to this crew.";
+            }
+            $targetSkl = ($actionIndex !== null && isset($totem->actions[$actionIndex])) ? ($totem->actions[$actionIndex]['stat'] ?? null) : null;
+        } else {
+            $actions = $leader->actions ?? [];
+            $targetSkl = ($actionIndex !== null && isset($actions[$actionIndex])) ? ($actions[$actionIndex]['stat'] ?? null) : null;
+        }
+
+        // Skl Boost qualifying range (pg 38-43): "select one [attack/tactical]
+        // action with a Skl of X [or Y]" — the target's current Skl must fall
+        // within the row's [skl_from, skl_from_max ?? skl_from] range.
+        if ($row->modifier_type === 'skl_boost') {
+            $min = (int) $row->skl_from;
+            $max = (int) ($row->skl_from_max ?? $row->skl_from);
+            if ($targetSkl === null || (int) $targetSkl < $min || (int) $targetSkl > $max) {
+                return $min === $max
+                    ? "That Skl Boost requires an action with a Skl of {$min}."
+                    : "That Skl Boost requires an action with a Skl of {$min}–{$max}.";
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Persist the advancement records against the leader and apply the
      * mechanical effect to the leader's card data (actions/abilities JSON).
      *
@@ -211,14 +316,46 @@ class LeaderAdvancementService
             $freeChoice = is_array($a['free_choice'] ?? null) ? $a['free_choice'] : null;
             $coreCatalogId = $this->resolveCoreCatalogId($table, $catalogId, $advancementRow, $freeChoice);
 
+            // Attack/Tactical Mod target (pg 31, 38-43): resolves to the Leader
+            // (default), the crew's current Totem, or null for Equipment —
+            // Equipment has no per-instance actions[] to mutate, so the
+            // CampaignLeaderAdvancement row below is the sole record of the
+            // effect and nothing gets applied mechanically.
+            $appliedToCustomCharacterId = isset($a['applied_to_custom_character_id']) ? (int) $a['applied_to_custom_character_id'] : null;
+            $fromEquipmentId = isset($a['from_equipment_id']) ? (int) $a['from_equipment_id'] : null;
+            $appliedToActionId = isset($a['applied_to_action_id']) ? (int) $a['applied_to_action_id'] : null;
+            $targetCharacter = match (true) {
+                $fromEquipmentId !== null => null,
+                $appliedToCustomCharacterId !== null => CustomCharacter::find($appliedToCustomCharacterId),
+                default => $leader,
+            };
+
+            // Skl Boost (pg 38-43): capture the target's actual current Skl
+            // before mutating it, so removing the advancement later restores
+            // exactly what was there — the catalog row's skl_from is a
+            // qualifying range (e.g. "Skl of 0 or 1"), not necessarily the
+            // action's exact prior value. N/A for Equipment (nothing mutated).
+            $appliedSklFrom = null;
+            if (
+                $targetCharacter
+                && ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod)
+                && $advancementRow->modifier_type === 'skl_boost'
+                && $actionIndex >= 0
+            ) {
+                $appliedSklFrom = $targetCharacter->actions[$actionIndex]['stat'] ?? null;
+            }
+
             CampaignLeaderAdvancement::create([
                 'custom_character_id' => $leader->id,
                 'source_aftermath_id' => $sourceAftermathId,
                 'source_table' => $a['source_table'],
                 'advancement_catalog_id' => $catalogId,
                 'catalog_core_id' => $coreCatalogId,
-                'from_equipment_id' => $a['from_equipment_id'] ?? null,
+                'from_equipment_id' => $fromEquipmentId,
                 'applied_to_action_index' => $actionIndex,
+                'applied_to_action_id' => $appliedToActionId,
+                'applied_to_custom_character_id' => $appliedToCustomCharacterId,
+                'applied_skl_from' => $appliedSklFrom,
                 'position_in_xp_track' => $a['position_in_xp_track'],
                 'free_choice' => $a['free_choice'] ?? null,
                 'acquired_at' => now(),
@@ -241,8 +378,8 @@ class LeaderAdvancementService
                 AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
                     ? $this->applyAdvancementAbility($leader, $advancementRow, $freeChoice)
                     : null,
-                AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod)
-                    ? $this->applyAdvancementModifier($leader, $advancementRow, $actionIndex)
+                AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => ($targetCharacter && ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod))
+                    ? $this->applyAdvancementModifier($targetCharacter, $advancementRow, $actionIndex)
                     : null,
                 AdvancementTableEnum::CrewCard => $catalogId
                     ? $this->applyCrewCardAdvancement($leader, $catalogId, $freeChoice, $sourceAftermathId)
@@ -389,56 +526,61 @@ class LeaderAdvancementService
         $leader->save();
     }
 
-    private function applyAdvancementModifier(CustomCharacter $leader, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
+    /**
+     * $target is the Leader (default) or the crew's current Totem when the
+     * advancement was routed there (pg 31) — both share the identical
+     * actions[] mechanism, so the same mutation logic applies to either.
+     */
+    private function applyAdvancementModifier(CustomCharacter $target, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
     {
         match ($row->modifier_type) {
-            'skl_boost' => $this->applySklBoostToLeader($leader, $actionIndex, $row->skl_to),
-            'signature' => $this->applySignatureToLeader($leader, $actionIndex),
+            'skl_boost' => $this->applySklBoostToTarget($target, $actionIndex, $row->skl_to),
+            'signature' => $this->applySignatureToTarget($target, $actionIndex),
             default => $row->trigger_id
-                ? $this->applyTriggerToLeader($leader, $row->trigger_id, $actionIndex)
-                : $this->applyBespokeTriggerToLeader($leader, $row, $actionIndex),
+                ? $this->applyTriggerToTarget($target, $row->trigger_id, $actionIndex)
+                : $this->applyBespokeTriggerToTarget($target, $row, $actionIndex),
         };
     }
 
-    private function applySklBoostToLeader(CustomCharacter $leader, int $actionIndex, ?int $sklTo): void
+    private function applySklBoostToTarget(CustomCharacter $target, int $actionIndex, ?int $sklTo): void
     {
         if ($actionIndex < 0 || $sklTo === null) {
             return;
         }
 
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
 
         $actions[$actionIndex]['stat'] = $sklTo;
-        $leader->actions = $actions;
-        $leader->save();
+        $target->actions = $actions;
+        $target->save();
     }
 
-    private function applySignatureToLeader(CustomCharacter $leader, int $actionIndex): void
+    private function applySignatureToTarget(CustomCharacter $target, int $actionIndex): void
     {
         if ($actionIndex < 0) {
             return;
         }
 
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
 
         $actions[$actionIndex]['is_signature'] = true;
-        $leader->actions = $actions;
-        $leader->save();
+        $target->actions = $actions;
+        $target->save();
     }
 
-    private function applyBespokeTriggerToLeader(CustomCharacter $leader, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
+    private function applyBespokeTriggerToTarget(CustomCharacter $target, AdvancementAttackMod|AdvancementTacticalMod $row, int $actionIndex): void
     {
         if ($actionIndex < 0) {
             return;
         }
 
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
@@ -450,8 +592,8 @@ class LeaderAdvancementService
             'description' => $row->effect_text,
             'source_id' => $row->id,
         ];
-        $leader->actions = $actions;
-        $leader->save();
+        $target->actions = $actions;
+        $target->save();
     }
 
     private function applyActionToLeader(CustomCharacter $leader, int $actionId): void
@@ -514,7 +656,7 @@ class LeaderAdvancementService
         $leader->save();
     }
 
-    private function applyTriggerToLeader(CustomCharacter $leader, int $triggerId, int $actionIndex): void
+    private function applyTriggerToTarget(CustomCharacter $target, int $triggerId, int $actionIndex): void
     {
         if ($actionIndex < 0) {
             return;
@@ -525,7 +667,7 @@ class LeaderAdvancementService
             return;
         }
 
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
@@ -537,8 +679,8 @@ class LeaderAdvancementService
             'description' => $trigger->description,
             'source_id' => $trigger->id,
         ];
-        $leader->actions = $actions;
-        $leader->save();
+        $target->actions = $actions;
+        $target->save();
     }
 
     private function createTotemFromTemplate(

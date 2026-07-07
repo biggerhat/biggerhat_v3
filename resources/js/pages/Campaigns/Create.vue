@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -94,8 +95,8 @@ const optionalRuleLabels: Record<string, { title: string; body: string }> = {
                     <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <button
                             type="button"
-                            class="rounded-md border p-3 text-left transition"
-                            :class="!form.is_solo ? 'border-primary bg-background ring-2 ring-primary' : 'hover:border-primary/60'"
+                            class="rounded-md border p-3 text-left"
+                            :class="!form.is_solo ? 'border-primary bg-background ring-2 ring-primary' : CARD_HOVER_QUIET"
                             @click="form.is_solo = false"
                         >
                             <p class="text-sm font-semibold">Multiplayer</p>
@@ -105,8 +106,8 @@ const optionalRuleLabels: Record<string, { title: string; body: string }> = {
                         </button>
                         <button
                             type="button"
-                            class="rounded-md border p-3 text-left transition"
-                            :class="form.is_solo ? 'border-primary bg-background ring-2 ring-primary' : 'hover:border-primary/60'"
+                            class="rounded-md border p-3 text-left"
+                            :class="form.is_solo ? 'border-primary bg-background ring-2 ring-primary' : CARD_HOVER_QUIET"
                             @click="form.is_solo = true"
                         >
                             <p class="text-sm font-semibold">Solo</p>

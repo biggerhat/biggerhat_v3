@@ -72,6 +72,40 @@ it('store links a Trigger Lookup row', function () {
     expect($row->trigger_id)->toBe($trigger->id);
 });
 
+it('store creates a Skl Boost row with a qualifying Skl range', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.campaign.advancement-tactical-mod.store'), [
+            'flip_value' => 7,
+            'is_black_joker' => false,
+            'is_red_joker' => false,
+            'is_always_available' => false,
+            'modifier_type' => 'skl_boost',
+            'name' => 'Ranged Skill Boost',
+            'effect_text' => 'Select one tactical action with a Skl of 0 or 1 and change its Skl to 2.',
+            'suit' => null,
+            'skl_from' => 0,
+            'skl_from_max' => 1,
+            'skl_to' => 2,
+            'trigger_id' => null,
+        ])
+        ->assertRedirect(route('admin.campaign.advancement-tactical-mod.index'));
+
+    $row = AdvancementTacticalMod::firstWhere('name', 'Ranged Skill Boost');
+    expect($row->skl_from)->toBe(0);
+    expect($row->skl_from_max)->toBe(1);
+    expect($row->skl_to)->toBe(2);
+});
+
+it('store rejects a Skl Boost range where the max is below the min', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.campaign.advancement-tactical-mod.store'), [
+            'is_black_joker' => false, 'is_red_joker' => false, 'is_always_available' => false,
+            'modifier_type' => 'skl_boost', 'name' => 'Bad Range', 'effect_text' => 'x',
+            'skl_from' => 3, 'skl_from_max' => 1, 'skl_to' => 4,
+        ])
+        ->assertSessionHasErrors('skl_from_max');
+});
+
 it('store denies users without edit_campaign_catalog', function () {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(PermissionEnum::UseCampaignMode->value);

@@ -1303,6 +1303,41 @@ it('Phase 4 rejects an Attack Mod whose flip value exceeds the flipped card', fu
     expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(0);
 });
 
+it('Phase 4 applies an Attack Mod trigger to an Equipment-granted action via the advance-leader payload', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leader = buildLeaderFor($crew, $user);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crew->id]);
+    $action = \App\Models\Action::factory()->create(['type' => 'attack', 'stat' => 5]);
+    $equipment->catalog->actions()->attach($action->id, ['is_signature_action' => false]);
+    $trigger = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['flip_value' => 5]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'attack_mod',
+                'catalog_id' => $trigger->id,
+                'position_in_xp_track' => 0,
+                'flip_value' => 13,
+                'from_equipment_id' => $equipment->id,
+                'applied_to_action_id' => $action->id,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $advancement = \App\Models\Campaign\CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
+    expect($advancement->from_equipment_id)->toBe($equipment->id);
+    expect($advancement->applied_to_action_id)->toBe($action->id);
+});
+
 it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement without touching the starter effect', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

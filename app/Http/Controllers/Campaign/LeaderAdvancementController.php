@@ -112,6 +112,21 @@ class LeaderAdvancementController extends Controller
         $catalogId = $advancement->catalog_core_id;
 
         if ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod) {
+            // Equipment-targeted advancements never mutated any actions[] —
+            // equipment has no per-instance one to mutate, so the record being
+            // deleted (by the caller, right after this returns) is the entire
+            // undo; nothing mechanical to reverse.
+            if ($advancement->from_equipment_id !== null) {
+                return;
+            }
+
+            $target = $advancement->applied_to_custom_character_id !== null
+                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
+                : $leader;
+            if (! $target) {
+                return;
+            }
+
             $idx = $advancement->applied_to_action_index;
             if ($idx < 0) {
                 return;
@@ -120,13 +135,13 @@ class LeaderAdvancementController extends Controller
             $modifierType = $this->modifierTypeFor($table, $advancement->advancement_catalog_id);
 
             if ($modifierType === 'skl_boost') {
-                $this->undoSklBoost($leader, $table, $advancement->advancement_catalog_id, $idx);
+                $this->undoSklBoost($target, $advancement->applied_skl_from, $idx);
 
                 return;
             }
 
             if ($modifierType === 'signature') {
-                $this->undoSignature($leader, $idx);
+                $this->undoSignature($target, $idx);
 
                 return;
             }
@@ -134,7 +149,7 @@ class LeaderAdvancementController extends Controller
             if ($catalogId === null) {
                 return;
             }
-            $actions = $leader->actions ?? [];
+            $actions = $target->actions ?? [];
             if (! isset($actions[$idx])) {
                 return;
             }
@@ -151,8 +166,8 @@ class LeaderAdvancementController extends Controller
                     return true;
                 }
             ));
-            $leader->actions = $actions;
-            $leader->save();
+            $target->actions = $actions;
+            $target->save();
 
             return;
         }
@@ -213,41 +228,38 @@ class LeaderAdvancementController extends Controller
         };
     }
 
-    private function undoSklBoost(CustomCharacter $leader, AdvancementTableEnum $table, ?int $advancementCatalogId, int $actionIndex): void
+    /**
+     * Reverts a Skl Boost to the action's actual prior Skl, captured on the
+     * advancement record when it was applied — the catalog row's skl_from is
+     * a qualifying range (e.g. "Skl of 0 or 1"), not necessarily the exact
+     * value the action had, so it can't be used to restore it.
+     */
+    private function undoSklBoost(CustomCharacter $target, ?int $appliedSklFrom, int $actionIndex): void
     {
-        if ($advancementCatalogId === null) {
+        if ($appliedSklFrom === null) {
             return;
         }
 
-        $sklFrom = match ($table) {
-            AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($advancementCatalogId)->value('skl_from'),
-            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($advancementCatalogId)->value('skl_from'),
-            default => null,
-        };
-        if ($sklFrom === null) {
-            return;
-        }
-
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
 
-        $actions[$actionIndex]['stat'] = $sklFrom;
-        $leader->actions = $actions;
-        $leader->save();
+        $actions[$actionIndex]['stat'] = $appliedSklFrom;
+        $target->actions = $actions;
+        $target->save();
     }
 
-    private function undoSignature(CustomCharacter $leader, int $actionIndex): void
+    private function undoSignature(CustomCharacter $target, int $actionIndex): void
     {
-        $actions = $leader->actions ?? [];
+        $actions = $target->actions ?? [];
         if (! isset($actions[$actionIndex])) {
             return;
         }
 
         $actions[$actionIndex]['is_signature'] = false;
-        $leader->actions = $actions;
-        $leader->save();
+        $target->actions = $actions;
+        $target->save();
     }
 
     private function currentLeader(CampaignCrew $crew): ?CustomCharacter

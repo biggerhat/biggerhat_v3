@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link } from '@inertiajs/vue3';
 import { Activity, BookOpen, Coins, Hammer, ScrollText, ShieldAlert, Sword, Trophy } from 'lucide-vue-next';
 
@@ -88,11 +90,11 @@ const features: Feature[] = [
         <section class="mt-10">
             <div class="mb-4 flex items-center gap-2">
                 <BookOpen class="h-5 w-5 text-muted-foreground" />
-                <h2 class="text-lg font-semibold uppercase tracking-wider text-muted-foreground">What's in the box</h2>
+                <HeadingEyebrow as="h2" class="text-lg">What's in the box</HeadingEyebrow>
             </div>
 
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card v-for="f in features" :key="f.title" class="transition hover:border-primary hover:shadow-sm">
+                <Card v-for="f in features" :key="f.title" :class="CARD_HOVER_QUIET">
                     <CardContent class="space-y-2 p-5">
                         <div class="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
                             <component :is="f.icon" class="h-5 w-5 text-primary" />

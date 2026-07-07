@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -216,7 +217,7 @@ const submit = () => {
                             </div>
                         </li>
                     </ul>
-                    <p v-else class="text-sm text-muted-foreground">No hires yet — add from the left. Reminder: at least one is required.</p>
+                    <EmptyState v-else compact title="No hires yet" description="Add from the left — at least one is required." />
                 </CardContent>
             </Card>
         </div>

@@ -3,6 +3,7 @@ import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import GameText from '@/components/GameText.vue';
 import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +13,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Calendar, Copy, Swords, Tag } from 'lucide-vue-next';
@@ -189,6 +193,12 @@ interface ViewMode {
     share_url: string;
 }
 
+interface EquipmentAction {
+    id: number;
+    name: string;
+    category: string;
+    stat: number | string | null;
+}
 interface EquipmentItem {
     id: number;
     source: string;
@@ -196,6 +206,11 @@ interface EquipmentItem {
     cc: number | null;
     br: number | null;
     description: string | null;
+    // Attack/Tactical Mod target (pg 31, 38-43) — the actions this equipment
+    // grants, and whether one already has an advancement locked onto it.
+    actions: EquipmentAction[];
+    locked: boolean;
+    applied_effects: string[];
 }
 
 interface XpBox {
@@ -209,6 +224,8 @@ interface AdvancementTaken {
     source_table: string;
     catalog_id: number | null;
     free_choice: Record<string, unknown> | null;
+    applied_to_custom_character_id: number | null;
+    from_equipment_id: number | null;
 }
 interface CatalogRow {
     id: number;
@@ -217,6 +234,15 @@ interface CatalogRow {
     description?: string | null;
     flip_value?: number | null;
     is_always_available?: boolean;
+    // Attack Mod/Tactical Mod tables only (pg 38-43) — both true means "Any
+    // Joker"; exactly one true means that specific card only.
+    is_black_joker?: boolean;
+    is_red_joker?: boolean;
+    modifier_type?: string;
+    // Skl Boost qualifying range (pg 38-43) — see modifier_type === 'skl_boost'.
+    skl_from?: number | null;
+    skl_from_max?: number | null;
+    skl_to?: number | null;
     // Action-specific fields
     type?: string | null;
     stat?: number | string | null;
@@ -291,7 +317,7 @@ const tableOptionsForTier = (tier: number) =>
         { value: 'crew_card', label: 'Tier 4 — Crew Card effect', min: 4 },
     ].filter((o) => tier >= o.min);
 
-const eligibleCatalogRows = (table: string, flip: number | null, isJokerFlipped = false): CatalogRow[] => {
+const eligibleCatalogRows = (table: string, flip: number | null, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
     const rows = catalogRowsFor(table);
     // Action/Ability: the Any Joker row is only offered when the player
     // actually declares a joker flip — it has no flip_value of its own to
@@ -300,6 +326,19 @@ const eligibleCatalogRows = (table: string, flip: number | null, isJokerFlipped 
         if (isJokerFlipped) return rows.filter((r) => r.is_joker);
         const nonJoker = rows.filter((r) => !r.is_joker);
         if (!tableNeedsFlip(table) || flip == null) return nonJoker;
+        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+    }
+    // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
+    // instead of a flip_value. A row with both flags set is "Any Joker" (either
+    // color satisfies it); a row with exactly one flag set needs that specific
+    // color — the same filter covers both since it just checks the declared
+    // color against the row's flag(s).
+    if (table === 'attack_mod' || table === 'tactical_mod') {
+        if (jokerColor) {
+            return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
+        }
+        const nonJoker = rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
+        if (flip == null) return nonJoker;
         return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
     }
     if (!tableNeedsFlip(table) || flip == null) return rows;
@@ -322,6 +361,14 @@ const advancementName = (a: AdvancementTaken): string =>
     SOURCE_TABLE_LABELS[a.source_table] ??
     a.source_table.replace(/_/g, ' ');
 
+// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader
+// (the default), shown for Totem/Equipment so the log records where it went.
+const advancementTargetLabel = (a: AdvancementTaken): string | null => {
+    if (a.from_equipment_id != null) return props.equipment.find((e) => e.id === a.from_equipment_id)?.name ?? 'Equipment';
+    if (a.applied_to_custom_character_id != null) return 'Totem';
+    return null;
+};
+
 // Per-slot picker drafts. Seed reactively: Inertia reuses this component
 // instance across visits (setup doesn't re-run), so a one-time loop would
 // leave newly-earned slots without a draft — the picker then never renders
@@ -334,10 +381,18 @@ interface AdvDraft {
     totem_name: string;
     totem_size: number | null;
     totem_base: string;
+    // Attack/Tactical Mod target (pg 31, 38-43) — defaults to the Leader; the
+    // crew's current Totem shares the identical actions[] mechanism, while
+    // Equipment targets a granted action by its real id (see target_equipment_id).
+    target_type: 'leader' | 'totem' | 'equipment';
+    target_equipment_id: number | null;
     applied_to_action_index: number;
+    applied_to_action_id: number | null;
     // Any Joker (Action/Ability, pg 49/51) + Crew Card's borrowed-from master
     // (pg 32, 54) both resolve through free_choice.
     is_joker_flipped: boolean;
+    // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
+    joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
@@ -355,8 +410,12 @@ watch(
                     totem_name: '',
                     totem_size: null,
                     totem_base: '30mm',
+                    target_type: 'leader',
+                    target_equipment_id: null,
                     applied_to_action_index: -1,
+                    applied_to_action_id: null,
                     is_joker_flipped: false,
+                    joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
@@ -402,8 +461,51 @@ const leaderActionsWithIndex = computed(() =>
         index: i,
         name: (a as { name?: string }).name ?? `Action ${i + 1}`,
         category: (a as { category?: string; type?: string }).category ?? (a as { type?: string }).type ?? '',
+        stat: (a as { stat?: number | string | null }).stat ?? null,
     })),
 );
+
+// Totem shares the Leader's own actions[] mechanism (pg 31) — same shape.
+const totemActionsWithIndex = computed(() =>
+    (props.totem?.actions ?? []).map((a, i) => ({
+        index: i,
+        name: (a as { name?: string }).name ?? `Action ${i + 1}`,
+        category: (a as { category?: string; type?: string }).category ?? (a as { type?: string }).type ?? '',
+        stat: (a as { stat?: number | string | null }).stat ?? null,
+    })),
+);
+
+const equipmentFor = (equipmentId: number | null): EquipmentItem | null => props.equipment.find((e) => e.id === equipmentId) ?? null;
+
+// Skl Boost rows (pg 38-43) only offer actions whose current Skl falls in the
+// row's qualifying range ("select one attack with a Skl of 0 or 1").
+const sklBoostEligible = (row: CatalogRow | null, stat: number | string | null): boolean => {
+    if (!row || row.modifier_type !== 'skl_boost' || row.skl_from == null) return true;
+    const current = Number(stat);
+    if (stat == null || Number.isNaN(current)) return false;
+    const max = row.skl_from_max ?? row.skl_from;
+
+    return current >= row.skl_from && current <= max;
+};
+
+// The category-filtered, Skl-Boost-eligible action options for the picker's
+// draft, sourced from whichever target (Leader/Totem/Equipment) is selected.
+// `ref` is an actions[] array index for Leader/Totem, or the real actions.id
+// for Equipment (it has no per-instance actions[] to index into).
+const targetActionOptions = (position: number): Array<{ ref: number; name: string; category: string; stat: number | string | null }> => {
+    const d = drafts.value[position];
+    if (!d) return [];
+    const category = d.source_table === 'attack_mod' ? 'attack' : 'tactical';
+    const row = selectedDraftRow(position);
+    const source =
+        d.target_type === 'totem'
+            ? totemActionsWithIndex.value.map((a) => ({ ref: a.index, name: a.name, category: a.category, stat: a.stat }))
+            : d.target_type === 'equipment'
+              ? (equipmentFor(d.target_equipment_id)?.actions ?? []).map((a) => ({ ref: a.id, name: a.name, category: a.category, stat: a.stat }))
+              : leaderActionsWithIndex.value.map((a) => ({ ref: a.index, name: a.name, category: a.category, stat: a.stat }));
+
+    return source.filter((a) => a.category === category && sklBoostEligible(row, a.stat));
+};
 
 const logAdvancement = (position: number) => {
     const d = drafts.value[position];
@@ -411,25 +513,32 @@ const logAdvancement = (position: number) => {
         toast.warning('Pick an advancement first.');
         return;
     }
-    const isTotem = d.source_table === 'totem';
+    const isTotemAdvancement = d.source_table === 'totem';
     const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
-    if (isTrigger && d.applied_to_action_index < 0 && leaderActionsWithIndex.value.length) {
-        toast.warning('Select which action this trigger applies to.');
-        return;
+    const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
+    if (isTrigger && targetActionOptions(position).length) {
+        if (isEquipmentTarget ? d.applied_to_action_id == null : d.applied_to_action_index < 0) {
+            toast.warning('Select which action this trigger applies to.');
+            return;
+        }
     }
     router.post(route('campaigns.crews.leader.advancements.store', [props.campaign.id, props.crew.share_code]), {
         position_in_xp_track: position,
         source_table: d.source_table,
         catalog_id: d.catalog_id,
         flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
+        joker_color: isTrigger ? d.joker_color : undefined,
         free_choice:
             d.free_choice_source_id || d.free_choice_source_character_id
                 ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
                 : null,
-        totem_name: isTotem ? d.totem_name || null : undefined,
-        totem_size: isTotem ? d.totem_size : undefined,
-        totem_base: isTotem ? d.totem_base : undefined,
-        applied_to_action_index: isTrigger ? d.applied_to_action_index : undefined,
+        totem_name: isTotemAdvancement ? d.totem_name || null : undefined,
+        totem_size: isTotemAdvancement ? d.totem_size : undefined,
+        totem_base: isTotemAdvancement ? d.totem_base : undefined,
+        applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
+        applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
+        applied_to_custom_character_id: isTrigger && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
+        from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
     });
 };
 
@@ -668,12 +777,13 @@ const totemRendererProps = computed(() => {
                         <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[500px]">
                             <CardRenderer v-bind="leaderRendererProps" />
                         </div>
-                        <div v-else class="rounded-md border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
-                            No leader yet.
-                            <Link v-if="view_mode.is_owner" :href="route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])">
-                                <Button size="sm" class="ml-2">Build Leader</Button>
-                            </Link>
-                        </div>
+                        <EmptyState v-else title="No leader yet" description="">
+                            <template v-if="view_mode.is_owner" #action>
+                                <Link :href="route('campaigns.crews.leader.edit', [campaign.id, crew.share_code])">
+                                    <Button size="sm">Build Leader</Button>
+                                </Link>
+                            </template>
+                        </EmptyState>
                     </CardContent>
                 </Card>
 
@@ -800,21 +910,32 @@ const totemRendererProps = computed(() => {
                                 <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="space-y-2">
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
-                                        <select
-                                            v-model="drafts[slot.position].source_table"
-                                            class="h-8 rounded border bg-background px-2 text-foreground"
-                                            @change="
-                                                drafts[slot.position].catalog_id = null;
-                                                drafts[slot.position].is_joker_flipped = false;
-                                                drafts[slot.position].free_choice_source_id = null;
-                                                drafts[slot.position].free_choice_source_character_id = null;
-                                                drafts[slot.position].free_choice_label = null;
+                                        <Select
+                                            :model-value="drafts[slot.position].source_table"
+                                            @update:model-value="
+                                                (v) => {
+                                                    drafts[slot.position].source_table = v as string;
+                                                    drafts[slot.position].catalog_id = null;
+                                                    drafts[slot.position].is_joker_flipped = false;
+                                                    drafts[slot.position].joker_color = null;
+                                                    drafts[slot.position].target_type = 'leader';
+                                                    drafts[slot.position].target_equipment_id = null;
+                                                    drafts[slot.position].applied_to_action_id = null;
+                                                    drafts[slot.position].free_choice_source_id = null;
+                                                    drafts[slot.position].free_choice_source_character_id = null;
+                                                    drafts[slot.position].free_choice_label = null;
+                                                }
                                             "
                                         >
-                                            <option v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
-                                                {{ opt.label }}
-                                            </option>
-                                        </select>
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="opt in tableOptionsForTier(slot.tier)" :key="opt.value" :value="opt.value">
+                                                    {{ opt.label }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                         <Input
                                             v-if="tableNeedsFlip(drafts[slot.position].source_table)"
                                             v-model.number="drafts[slot.position].flip_value"
@@ -841,23 +962,57 @@ const totemRendererProps = computed(() => {
                                             />
                                             Joker
                                         </label>
-                                        <select
-                                            v-model.number="drafts[slot.position].catalog_id"
-                                            class="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-foreground"
+                                        <Select
+                                            v-if="
+                                                drafts[slot.position].source_table === 'attack_mod' ||
+                                                drafts[slot.position].source_table === 'tactical_mod'
+                                            "
+                                            :model-value="drafts[slot.position].joker_color ?? 'none'"
+                                            @update:model-value="
+                                                (v) => {
+                                                    drafts[slot.position].joker_color = v === 'none' ? null : (v as 'red' | 'black');
+                                                    drafts[slot.position].catalog_id = null;
+                                                }
+                                            "
                                         >
-                                            <option :value="null">— pick —</option>
-                                            <option
-                                                v-for="row in eligibleCatalogRows(
-                                                    drafts[slot.position].source_table,
-                                                    drafts[slot.position].flip_value,
-                                                    drafts[slot.position].is_joker_flipped,
-                                                )"
-                                                :key="row.id"
-                                                :value="row.id"
-                                            >
-                                                {{ row.name }}
-                                            </option>
-                                        </select>
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-[11px] text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">No Joker</SelectItem>
+                                                <SelectItem value="red">Red Joker</SelectItem>
+                                                <SelectItem value="black">Black Joker</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select
+                                            :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
+                                            @update:model-value="
+                                                (v) => {
+                                                    drafts[slot.position].catalog_id = v === '__none__' ? null : Number(v);
+                                                    drafts[slot.position].applied_to_action_index = -1;
+                                                    drafts[slot.position].applied_to_action_id = null;
+                                                }
+                                            "
+                                        >
+                                            <SelectTrigger class="h-8 min-w-0 flex-1 text-foreground">
+                                                <SelectValue placeholder="— pick —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick —</SelectItem>
+                                                <SelectItem
+                                                    v-for="row in eligibleCatalogRows(
+                                                        drafts[slot.position].source_table,
+                                                        drafts[slot.position].flip_value,
+                                                        drafts[slot.position].is_joker_flipped,
+                                                        drafts[slot.position].joker_color,
+                                                    )"
+                                                    :key="row.id"
+                                                    :value="row.id.toString()"
+                                                >
+                                                    {{ row.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                         <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
                                     </div>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
@@ -900,14 +1055,23 @@ const totemRendererProps = computed(() => {
                                     </div>
                                     <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
                                     <div v-if="drafts[slot.position].source_table === 'crew_card' && drafts[slot.position].catalog_id !== null">
-                                        <label class="text-[10px] text-muted-foreground">Borrowed from master</label>
-                                        <select
-                                            v-model.number="drafts[slot.position].free_choice_source_character_id"
-                                            class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                        <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                        <Select
+                                            :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
+                                            @update:model-value="
+                                                (v) => (drafts[slot.position].free_choice_source_character_id = v === '__none__' ? null : Number(v))
+                                            "
                                         >
-                                            <option :value="null">— pick a master —</option>
-                                            <option v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id">{{ m.name }}</option>
-                                        </select>
+                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                <SelectValue placeholder="— pick a master —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick a master —</SelectItem>
+                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
+                                                    m.name
+                                                }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <!-- Totem advancement: name, size, base inputs -->
                                     <div v-if="drafts[slot.position].source_table === 'totem'" class="flex flex-wrap gap-2">
@@ -916,51 +1080,117 @@ const totemRendererProps = computed(() => {
                                             placeholder="Totem name (optional)"
                                             class="h-8 min-w-[160px] flex-1"
                                         />
-                                        <select
-                                            v-model.number="drafts[slot.position].totem_size"
-                                            class="h-8 rounded border bg-background px-2 text-foreground"
+                                        <Select
+                                            :model-value="drafts[slot.position].totem_size?.toString() ?? '__none__'"
+                                            @update:model-value="(v) => (drafts[slot.position].totem_size = v === '__none__' ? null : Number(v))"
                                         >
-                                            <option :value="null">— size —</option>
-                                            <option :value="1">Size 1</option>
-                                            <option :value="2">Size 2</option>
-                                            <option :value="3">Size 3</option>
-                                        </select>
-                                        <select
-                                            v-model="drafts[slot.position].totem_base"
-                                            class="h-8 rounded border bg-background px-2 text-foreground"
-                                        >
-                                            <option value="30mm">30mm base</option>
-                                            <option value="40mm">40mm base</option>
-                                            <option value="50mm">50mm base</option>
-                                        </select>
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-foreground">
+                                                <SelectValue placeholder="— size —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— size —</SelectItem>
+                                                <SelectItem value="1">Size 1</SelectItem>
+                                                <SelectItem value="2">Size 2</SelectItem>
+                                                <SelectItem value="3">Size 3</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select v-model="drafts[slot.position].totem_base">
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="30mm">30mm base</SelectItem>
+                                                <SelectItem value="40mm">40mm base</SelectItem>
+                                                <SelectItem value="50mm">50mm base</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                    <!-- Attack/tactical mod: pick which action gets this trigger -->
+                                    <!-- Attack/tactical mod: pick what to affect (Leader/Totem/Equipment), then which action -->
                                     <div
                                         v-if="
                                             (drafts[slot.position].source_table === 'attack_mod' ||
                                                 drafts[slot.position].source_table === 'tactical_mod') &&
-                                            drafts[slot.position].catalog_id !== null &&
-                                            leaderActionsWithIndex.length
+                                            drafts[slot.position].catalog_id !== null
                                         "
-                                        class="flex items-center gap-2"
+                                        class="flex flex-wrap items-center gap-2"
                                     >
-                                        <label class="shrink-0 text-xs text-muted-foreground">Add to action:</label>
-                                        <select
-                                            v-model.number="drafts[slot.position].applied_to_action_index"
-                                            class="h-8 flex-1 rounded border bg-background px-2 text-sm text-foreground"
+                                        <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                        <Select
+                                            :model-value="drafts[slot.position].target_type"
+                                            @update:model-value="
+                                                (v) => {
+                                                    drafts[slot.position].target_type = v as 'leader' | 'totem' | 'equipment';
+                                                    drafts[slot.position].target_equipment_id = null;
+                                                    drafts[slot.position].applied_to_action_index = -1;
+                                                    drafts[slot.position].applied_to_action_id = null;
+                                                }
+                                            "
                                         >
-                                            <option :value="-1">— select action —</option>
-                                            <option
-                                                v-for="a in leaderActionsWithIndex.filter(
-                                                    (la) =>
-                                                        la.category === (drafts[slot.position].source_table === 'attack_mod' ? 'attack' : 'tactical'),
-                                                )"
-                                                :key="a.index"
-                                                :value="a.index"
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="leader">Leader</SelectItem>
+                                                <SelectItem v-if="totem" value="totem">Totem</SelectItem>
+                                                <SelectItem v-if="equipment.length" value="equipment">Equipment</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select
+                                            v-if="drafts[slot.position].target_type === 'equipment'"
+                                            :model-value="drafts[slot.position].target_equipment_id?.toString() ?? '__none__'"
+                                            @update:model-value="
+                                                (v) => {
+                                                    drafts[slot.position].target_equipment_id = v === '__none__' ? null : Number(v);
+                                                    drafts[slot.position].applied_to_action_index = -1;
+                                                    drafts[slot.position].applied_to_action_id = null;
+                                                }
+                                            "
+                                        >
+                                            <SelectTrigger class="h-8 min-w-0 flex-1 text-foreground">
+                                                <SelectValue placeholder="— pick equipment —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick equipment —</SelectItem>
+                                                <SelectItem v-for="eq in equipment" :key="eq.id" :value="eq.id.toString()">
+                                                    {{ eq.name }}{{ eq.locked ? ' 🔒' : '' }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <template v-if="targetActionOptions(slot.position).length">
+                                            <Label class="shrink-0 text-[11px] text-muted-foreground">Action:</Label>
+                                            <Select
+                                                :model-value="
+                                                    (drafts[slot.position].target_type === 'equipment'
+                                                        ? drafts[slot.position].applied_to_action_id
+                                                        : drafts[slot.position].applied_to_action_index
+                                                    )?.toString() ?? '-1'
+                                                "
+                                                @update:model-value="
+                                                    (v) => {
+                                                        const val = Number(v);
+                                                        if (drafts[slot.position].target_type === 'equipment') {
+                                                            drafts[slot.position].applied_to_action_id = val;
+                                                        } else {
+                                                            drafts[slot.position].applied_to_action_index = val;
+                                                        }
+                                                    }
+                                                "
                                             >
-                                                {{ a.name }}
-                                            </option>
-                                        </select>
+                                                <SelectTrigger class="h-8 flex-1 text-foreground">
+                                                    <SelectValue placeholder="— select action —" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="-1">— select action —</SelectItem>
+                                                    <SelectItem
+                                                        v-for="a in targetActionOptions(slot.position)"
+                                                        :key="a.ref"
+                                                        :value="a.ref.toString()"
+                                                    >
+                                                        {{ a.name }}
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </template>
                                     </div>
                                     <!-- Full card preview for the selected advancement -->
                                     <template v-if="selectedDraftRow(slot.position)">
@@ -1016,7 +1246,7 @@ const totemRendererProps = computed(() => {
                         :key="model.id"
                         role="button"
                         tabindex="0"
-                        class="cursor-pointer rounded-md border p-3 text-sm transition hover:border-primary"
+                        :class="['cursor-pointer rounded-md border p-3 text-sm', CARD_HOVER]"
                         @click="viewUnit(model)"
                         @keydown.enter="viewUnit(model)"
                     >
@@ -1073,7 +1303,7 @@ const totemRendererProps = computed(() => {
                         :key="eq.id"
                         role="button"
                         tabindex="0"
-                        class="flex cursor-pointer items-start justify-between gap-2 rounded-md border p-3 text-sm transition hover:border-primary"
+                        :class="['flex cursor-pointer items-start justify-between gap-2 rounded-md border p-3 text-sm', CARD_HOVER]"
                         @click="viewEquipment(eq)"
                         @keydown.enter="viewEquipment(eq)"
                     >
@@ -1082,12 +1312,15 @@ const totemRendererProps = computed(() => {
                             <p class="text-[10px] capitalize text-muted-foreground">{{ eq.source }}</p>
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
+                            <Badge v-if="eq.locked" variant="outline" class="text-[10px]" title="Advancement attached — must keep this equipment">
+                                🔒 Locked
+                            </Badge>
                             <Badge v-if="eq.br != null" variant="outline" class="text-[10px] tabular-nums">BR {{ eq.br }}</Badge>
                             <Badge v-if="eq.cc != null" variant="outline" class="text-[10px] tabular-nums">{{ eq.cc }} cc</Badge>
                         </div>
                     </div>
                 </div>
-                <p v-else class="text-sm text-muted-foreground">No equipment yet. Earned through Aftermath Barter.</p>
+                <EmptyState v-else compact title="No equipment yet" description="Earned through Aftermath Barter." />
             </CardContent>
         </Card>
 
@@ -1109,10 +1342,11 @@ const totemRendererProps = computed(() => {
                             <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
                             <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
                             <span class="font-medium">{{ advancementName(a) }}</span>
+                            <Badge v-if="advancementTargetLabel(a)" variant="outline" class="text-[10px]">{{ advancementTargetLabel(a) }}</Badge>
                         </span>
                     </li>
                 </ul>
-                <p v-else class="text-sm text-muted-foreground">No advancements yet.</p>
+                <EmptyState v-else compact title="No advancements yet" description="" />
             </CardContent>
         </Card>
 
@@ -1137,6 +1371,12 @@ const totemRendererProps = computed(() => {
                     <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
                         <GameText :text="viewCard.equipment.description" />
                     </p>
+                    <div v-if="viewCard.equipment.applied_effects.length" class="space-y-1 rounded border p-2">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            🔒 Leader Advancements attached to this equipment
+                        </p>
+                        <p v-for="(effect, i) in viewCard.equipment.applied_effects" :key="i" class="text-xs">+ {{ effect }}</p>
+                    </div>
                     <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
                 </div>
 

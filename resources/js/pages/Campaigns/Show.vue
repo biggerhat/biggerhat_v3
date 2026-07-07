@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -249,7 +250,7 @@ const deleteCampaign = async (id: number) => {
                     <p v-else-if="campaign.is_solo" class="text-sm text-muted-foreground">
                         Your crew is being set up — refresh if you don't see the Arsenal buttons yet.
                     </p>
-                    <p v-else class="text-sm text-muted-foreground">No crews yet — players build theirs after accepting invitations.</p>
+                    <EmptyState v-else compact title="No crews yet" description="Players build theirs after accepting invitations." />
                 </CardContent>
             </Card>
         </div>

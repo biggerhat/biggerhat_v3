@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,7 +88,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
         <section v-if="activeCampaigns.length" class="mt-6">
             <div class="mb-3 flex items-center gap-2">
                 <Sparkles class="h-5 w-5 text-primary" />
-                <h2 class="text-lg font-semibold uppercase tracking-wider">Active</h2>
+                <HeadingEyebrow as="h2" class="text-lg text-foreground">Active</HeadingEyebrow>
                 <Badge variant="outline" class="text-[10px]">{{ activeCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -120,7 +121,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
         <section v-if="planningCampaigns.length" class="mt-8">
             <div class="mb-3 flex items-center gap-2">
                 <Users class="h-5 w-5 text-muted-foreground" />
-                <h2 class="text-lg font-semibold uppercase tracking-wider text-muted-foreground">Planning</h2>
+                <HeadingEyebrow as="h2" class="text-lg">Planning</HeadingEyebrow>
                 <Badge variant="outline" class="text-[10px]">{{ planningCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -146,7 +147,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
         <section v-if="endedCampaigns.length" class="mt-8 opacity-75">
             <div class="mb-3 flex items-center gap-2">
                 <Trophy class="h-5 w-5 text-muted-foreground" />
-                <h2 class="text-lg font-semibold uppercase tracking-wider text-muted-foreground">Ended</h2>
+                <HeadingEyebrow as="h2" class="text-lg">Ended</HeadingEyebrow>
                 <Badge variant="outline" class="text-[10px]">{{ endedCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

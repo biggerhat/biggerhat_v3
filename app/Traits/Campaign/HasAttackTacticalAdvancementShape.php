@@ -11,6 +11,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * existing leader action. Both tables have identical columns; only the
  * physical table differs per model.
  *
+ * `is_black_joker` / `is_red_joker` both true on a row means "Any Joker" —
+ * either color qualifies (Attack Mod's Cruel Lessons / Consult the Bones).
+ * Exactly one true means that specific card only (Tactical Mod's Illumination
+ * of Illios / Darkness of Delios grant different triggers per color).
+ *
+ * For skl_boost rows, `skl_from`/`skl_from_max` describe the qualifying range
+ * of the target action's *current* Skl (e.g. "select one attack with a Skl of
+ * 0 or 1"), not a single required value — `skl_from_max` is null when the
+ * row only accepts one exact Skl. `skl_to` is always the single resulting
+ * value the action's Skl becomes.
+ *
  * @property int $id
  * @property int|null $flip_value
  * @property bool $is_black_joker
@@ -21,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $effect_text
  * @property string|null $suit
  * @property int|null $skl_from
+ * @property int|null $skl_from_max
  * @property int|null $skl_to
  * @property int|null $trigger_id
  * @property-read Trigger|null $trigger

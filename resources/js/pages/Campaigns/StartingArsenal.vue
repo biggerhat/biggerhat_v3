@@ -2,6 +2,7 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -10,9 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
+import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Plus, UserPlus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -443,8 +446,8 @@ const submit = () => {
                             type="button"
                             :disabled="locked"
                             @click="selectedCrewCardEffectId = e.id"
-                            class="w-full rounded-md border p-3 text-left text-sm transition hover:border-primary"
-                            :class="selectedCrewCardEffectId === e.id ? 'border-primary bg-primary/10' : ''"
+                            class="w-full rounded-md border p-3 text-left text-sm"
+                            :class="selectedCrewCardEffectId === e.id ? 'border-primary bg-primary/10' : CARD_HOVER_QUIET"
                         >
                             <p class="font-medium">{{ e.name }}</p>
                             <p v-if="e.body" class="text-xs text-muted-foreground">{{ e.body }}</p>
@@ -488,7 +491,7 @@ const submit = () => {
                 <!-- Save the chosen crew card to the player's Card Creator (pg: the
                      master card already lives there). Leave blank to skip. -->
                 <div v-if="selectedCrewCard" class="mt-4 rounded-md border p-3">
-                    <label class="text-xs font-medium" for="crew_card_name">Save crew card to your Card Creator as</label>
+                    <Label class="text-xs font-medium" for="crew_card_name">Save crew card to your Card Creator as</Label>
                     <Input
                         id="crew_card_name"
                         v-model="crewCardName"
@@ -501,26 +504,37 @@ const submit = () => {
 
                 <!-- Constrained pick for crew cards that require a token/marker/upgrade (pg 17). -->
                 <div v-if="requiredChoiceType" class="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3">
-                    <label class="text-xs font-medium">
+                    <Label class="text-xs font-medium">
                         Choose a {{ requiredChoiceType }} — listed on a crew card of a master sharing your keywords
-                    </label>
-                    <!-- No .number: token/marker ids are ints, upgrade-type ids are enum strings. -->
-                    <select
-                        v-model="selectedCrewCardChoiceId"
+                    </Label>
+                    <!-- Ids are looked up by string comparison, not parsed: token/marker ids are ints, upgrade-type ids are enum strings. -->
+                    <Select
+                        :model-value="selectedCrewCardChoiceId?.toString() ?? '__none__'"
                         :disabled="locked"
-                        class="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                        @update:model-value="
+                            (v) =>
+                                (selectedCrewCardChoiceId = v === '__none__' ? null : (choiceOptions.find((o) => o.id.toString() === v)?.id ?? null))
+                        "
                     >
-                        <option :value="null">— pick a {{ requiredChoiceType }} —</option>
-                        <option v-for="opt in choiceOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-                    </select>
+                        <SelectTrigger class="mt-1 h-9 w-full text-sm text-foreground">
+                            <SelectValue :placeholder="`— pick a ${requiredChoiceType} —`" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">— pick a {{ requiredChoiceType }} —</SelectItem>
+                            <SelectItem v-for="opt in choiceOptions" :key="opt.id" :value="opt.id.toString()">{{ opt.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <p v-if="choiceOptions.length === 0" class="mt-1 text-[11px] text-muted-foreground">
                         No eligible {{ requiredChoiceType }}s found for your keywords.
                     </p>
                 </div>
 
-                <p v-if="crew_card_effects.length === 0" class="text-sm text-muted-foreground">
-                    No crew card effects in the catalog yet. Have an admin seed them via the Campaign admin pages.
-                </p>
+                <EmptyState
+                    v-if="crew_card_effects.length === 0"
+                    compact
+                    title="No crew card effects in the catalog yet"
+                    description="Have an admin seed them via the Campaign admin pages."
+                />
             </CardContent>
         </Card>
 

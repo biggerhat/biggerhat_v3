@@ -217,6 +217,16 @@ class CampaignCatalogSeeder extends Seeder
             'name' => "Master's Strike",
             'flip_value' => 12,
         ]);
+
+        // Any Joker rows (pg 40) — either color qualifies.
+        AdvancementAttackMod::factory()->anyJoker()->create([
+            'name' => 'Cruel Lessons',
+            'effect_text' => 'Enemy leader only. After killing, this model gains +1 experience point during this game\'s aftermath phase.',
+        ]);
+        AdvancementAttackMod::factory()->anyJoker()->create([
+            'name' => 'Consult the Bones',
+            'effect_text' => 'Once per turn. Draw two cards, then discard a card.',
+        ]);
     }
 
     private function seedTacticalMods(): void
@@ -235,6 +245,27 @@ class CampaignCatalogSeeder extends Seeder
         }
         AdvancementTacticalMod::factory()->alwaysAvailable()->create([
             'name' => 'Refined Technique',
+        ]);
+
+        // Skl Boost rows with a qualifying range (pg 40-43) — Tactical Mod's read
+        // "Skl of X or Y", unlike Attack Mod's single-value equivalents.
+        AdvancementTacticalMod::factory()->sklBoost(0, 2, 1)->create([
+            'name' => 'Tactical Skill Boost 7',
+            'flip_value' => 7,
+        ]);
+        AdvancementTacticalMod::factory()->sklBoost(2, 4, 3)->create([
+            'name' => 'Tactical Skill Boost 12',
+            'flip_value' => 12,
+        ]);
+
+        // Color-specific Joker rows (pg 43) — Red and Black grant different triggers.
+        AdvancementTacticalMod::factory()->redJoker()->create([
+            'name' => 'Illumination of Illios',
+            'effect_text' => 'Your opponent must tell you one of the schemes from their available pool they did not select.',
+        ]);
+        AdvancementTacticalMod::factory()->blackJoker()->create([
+            'name' => 'Darkness of Delios',
+            'effect_text' => 'You may abandon your scheme without showing it to your opponent and immediately choose a new scheme from its next available schemes.',
         ]);
     }
 

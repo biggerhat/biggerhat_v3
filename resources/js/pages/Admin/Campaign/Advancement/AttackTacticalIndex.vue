@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,6 +15,9 @@ interface AdvancementRow {
     is_always_available: boolean;
     modifier_type: string;
     suit: string | null;
+    skl_from: number | null;
+    skl_from_max: number | null;
+    skl_to: number | null;
     trigger_id: number | null;
 }
 
@@ -24,6 +28,7 @@ const props = defineProps<{
 }>();
 
 const valueLabel = (r: AdvancementRow): string => {
+    if (r.is_black_joker && r.is_red_joker) return 'Any Joker';
     if (r.is_black_joker) return 'Black Joker';
     if (r.is_red_joker) return 'Red Joker';
     if (r.is_always_available) return 'Always';
@@ -34,6 +39,16 @@ const modifierLabel: Record<string, string> = {
     trigger: 'Trigger',
     skl_boost: 'Skl Boost',
     signature: 'Signature',
+};
+
+// Suit only applies to trigger rows; skl_boost rows show their qualifying
+// Skl range (or exact value) here instead — the two are mutually exclusive.
+const suitOrSklCell = (r: AdvancementRow): string => {
+    if (r.modifier_type !== 'skl_boost') return r.suit ?? '—';
+    if (r.skl_from == null) return '—';
+    const range = r.skl_from_max != null && r.skl_from_max !== r.skl_from ? `${r.skl_from}–${r.skl_from_max}` : `${r.skl_from}`;
+
+    return `Skl ${range} → ${r.skl_to ?? '?'}`;
 };
 </script>
 
@@ -54,7 +69,7 @@ const modifierLabel: Record<string, string> = {
                         <TableHead>Value</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead>Suit</TableHead>
+                        <TableHead>Suit / Skl</TableHead>
                         <TableHead>Trigger Lookup</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
@@ -65,7 +80,7 @@ const modifierLabel: Record<string, string> = {
                             <TableCell class="tabular-nums">{{ valueLabel(row) }}</TableCell>
                             <TableCell class="font-medium">{{ row.name }}</TableCell>
                             <TableCell class="text-xs">{{ modifierLabel[row.modifier_type] ?? row.modifier_type }}</TableCell>
-                            <TableCell class="text-xs">{{ row.suit ?? '—' }}</TableCell>
+                            <TableCell class="text-xs">{{ suitOrSklCell(row) }}</TableCell>
                             <TableCell>
                                 <Badge v-if="row.trigger_id" variant="outline" class="text-[10px]">#{{ row.trigger_id }}</Badge>
                                 <span v-else class="text-xs text-muted-foreground">bespoke</span>
@@ -80,8 +95,8 @@ const modifierLabel: Record<string, string> = {
                         </TableRow>
                     </template>
                     <TableRow v-else>
-                        <TableCell colspan="6" class="h-24 text-center text-sm text-muted-foreground">
-                            No rows yet. Use Create to seed from the rulebook.
+                        <TableCell :colspan="6">
+                            <EmptyState compact title="No rows yet" description="Use Create to seed from the rulebook." />
                         </TableCell>
                     </TableRow>
                 </TableBody>

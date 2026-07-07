@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Check } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -195,6 +196,19 @@ interface LeaderActionSummary {
     index: number;
     name: string;
     category: string;
+    stat: number | string | null;
+}
+interface EquipmentActionSummary {
+    id: number;
+    name: string;
+    category: string;
+    stat: number | string | null;
+}
+interface EquipmentTargetItem {
+    id: number;
+    name: string;
+    locked: boolean;
+    actions: EquipmentActionSummary[];
 }
 interface XpTrackPayload {
     leader_id: number;
@@ -202,6 +216,12 @@ interface XpTrackPayload {
     tag: string | null;
     track: XpBox[];
     leader_actions: LeaderActionSummary[];
+    // Attack/Tactical Mod target (pg 31, 38-43) — Totem shares the Leader's
+    // own actions[] mechanism; Equipment doesn't (see EquipmentTargetItem).
+    totem_id: number | null;
+    totem_name: string | null;
+    totem_actions: LeaderActionSummary[];
+    equipment: EquipmentTargetItem[];
 }
 interface CatalogRow {
     id: number;
@@ -212,6 +232,15 @@ interface CatalogRow {
     is_always_available?: boolean;
     // Action/Ability tables only — the one free-choice row per chart (pg 49/51).
     is_joker?: boolean;
+    // Attack Mod/Tactical Mod tables only (pg 38-43) — both true means "Any
+    // Joker"; exactly one true means that specific card only.
+    is_black_joker?: boolean;
+    is_red_joker?: boolean;
+    modifier_type?: string;
+    // Skl Boost qualifying range (pg 38-43) — see modifier_type === 'skl_boost'.
+    skl_from?: number | null;
+    skl_from_max?: number | null;
+    skl_to?: number | null;
     // Action fields (source_table: 'action' | 'summoning')
     type?: string | null;
     stat?: number | string | null;
@@ -291,7 +320,13 @@ interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
     flip_value: number | null;
+    // Attack/Tactical Mod target (pg 31, 38-43) — defaults to the Leader; the
+    // crew's current Totem shares the identical actions[] mechanism, while
+    // Equipment targets a granted action by its real id (see target_equipment_id).
+    target_type: 'leader' | 'totem' | 'equipment';
+    target_equipment_id: number | null;
     applied_to_action_index: number;
+    applied_to_action_id: number | null;
     totem_name: string | null;
     totem_size: number | null;
     totem_base: string | null;
@@ -299,6 +334,8 @@ interface AdvDraft {
     // a non-totem, non-master model that shares a keyword with your leader with
     // a cost of 10 or less." Resolved via the same search LeaderBuilder uses.
     is_joker_flipped: boolean;
+    // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
+    joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
@@ -333,11 +370,15 @@ watch(
                     source_table: defaultTableForTier(adv.box_tier),
                     catalog_id: null,
                     flip_value: 13,
+                    target_type: 'leader',
+                    target_equipment_id: null,
                     applied_to_action_index: -1,
+                    applied_to_action_id: null,
                     totem_name: null,
                     totem_size: null,
                     totem_base: null,
                     is_joker_flipped: false,
+                    joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
@@ -356,7 +397,11 @@ const onSourceTableChange = (position: number) => {
     d.totem_name = null;
     d.totem_size = null;
     d.totem_base = null;
+    d.target_type = 'leader';
+    d.target_equipment_id = null;
+    d.applied_to_action_id = null;
     d.is_joker_flipped = false;
+    d.joker_color = null;
     d.free_choice_source_id = null;
     d.free_choice_source_character_id = null;
     d.free_choice_label = null;
@@ -376,6 +421,10 @@ const onCatalogChange = (position: number) => {
         d.free_choice_source_character_id = null;
         d.free_choice_label = null;
     }
+    // A newly-picked Skl Boost row may have a different qualifying range —
+    // the previously-selected action might no longer be eligible.
+    d.applied_to_action_index = -1;
+    d.applied_to_action_id = null;
 };
 
 // ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
@@ -416,7 +465,12 @@ const pickJokerChoice = (position: number, row: { name: string; source_id: numbe
 const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
 const tableNeedsFlip = (table: string): boolean => FLIP_TABLES.includes(table);
 
-const eligibleCatalogRows = (source_table: string, flip_value: number | null, isJokerFlipped = false): CatalogRow[] => {
+const eligibleCatalogRows = (
+    source_table: string,
+    flip_value: number | null,
+    isJokerFlipped = false,
+    jokerColor: 'red' | 'black' | null = null,
+): CatalogRow[] => {
     const rows = catalogRowsFor(source_table);
     // Action/Ability: the Any Joker row is only offered when the player
     // actually declares a joker flip — otherwise it's excluded from the
@@ -425,6 +479,17 @@ const eligibleCatalogRows = (source_table: string, flip_value: number | null, is
         if (isJokerFlipped) return rows.filter((r) => r.is_joker);
         const nonJoker = rows.filter((r) => !r.is_joker);
         if (!tableNeedsFlip(source_table) || flip_value == null) return nonJoker;
+        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
+    }
+    // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
+    // instead of a flip_value. Both flags set = "Any Joker" (either color
+    // qualifies); exactly one set = that specific color only.
+    if (source_table === 'attack_mod' || source_table === 'tactical_mod') {
+        if (jokerColor) {
+            return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
+        }
+        const nonJoker = rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
+        if (flip_value == null) return nonJoker;
         return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
     }
     if (!tableNeedsFlip(source_table) || flip_value == null) return rows;
@@ -469,6 +534,39 @@ const selectedDraftRow = (position: number): CatalogRow | null => {
     return catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id) ?? null;
 };
 
+const equipmentFor = (equipmentId: number | null): EquipmentTargetItem | null =>
+    (xp_track.value?.equipment ?? []).find((e) => e.id === equipmentId) ?? null;
+
+// Skl Boost rows (pg 38-43) only offer actions whose current Skl falls in the
+// row's qualifying range ("select one attack with a Skl of 0 or 1").
+const sklBoostEligible = (row: CatalogRow | null, stat: number | string | null): boolean => {
+    if (!row || row.modifier_type !== 'skl_boost' || row.skl_from == null) return true;
+    const current = Number(stat);
+    if (stat == null || Number.isNaN(current)) return false;
+    const max = row.skl_from_max ?? row.skl_from;
+
+    return current >= row.skl_from && current <= max;
+};
+
+// The category-filtered, Skl-Boost-eligible action options for the draft,
+// sourced from whichever target (Leader/Totem/Equipment) is selected. `ref`
+// is an actions[] array index for Leader/Totem, or the real actions.id for
+// Equipment (it has no per-instance actions[] to index into).
+const targetActionOptions = (position: number): Array<{ ref: number; name: string; category: string; stat: number | string | null }> => {
+    const d = advDrafts.value[position];
+    if (!d) return [];
+    const category = d.source_table === 'attack_mod' ? 'attack' : 'tactical';
+    const row = selectedDraftRow(position);
+    const source =
+        d.target_type === 'totem'
+            ? (xp_track.value?.totem_actions ?? []).map((a) => ({ ref: a.index, name: a.name, category: a.category, stat: a.stat }))
+            : d.target_type === 'equipment'
+              ? (equipmentFor(d.target_equipment_id)?.actions ?? []).map((a) => ({ ref: a.id, name: a.name, category: a.category, stat: a.stat }))
+              : (xp_track.value?.leader_actions ?? []).map((a) => ({ ref: a.index, name: a.name, category: a.category, stat: a.stat }));
+
+    return source.filter((a) => a.category === category && sklBoostEligible(row, a.stat));
+};
+
 const submitAdvanceLeader = () => {
     router.post(route('campaigns.aftermaths.advance-leader', props.aftermath.id), {
         bruiser_killed_non_peon: xpForm.value.bruiser_killed,
@@ -481,20 +579,26 @@ const submitAdvanceLeader = () => {
             })
             .map((adv) => {
                 const d = advDrafts.value[adv.position_in_xp_track]!;
-                const isTotem = d.source_table === 'totem';
+                const isTotemAdvancement = d.source_table === 'totem';
+                const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
+                const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
                 return {
                     source_table: d.source_table,
                     catalog_id: d.catalog_id,
-                    applied_to_action_index: d.applied_to_action_index,
+                    applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
+                    applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
+                    applied_to_custom_character_id: isTrigger && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
+                    from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
+                    joker_color: isTrigger ? d.joker_color : undefined,
                     position_in_xp_track: adv.position_in_xp_track,
                     flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
                     free_choice:
                         d.free_choice_source_id || d.free_choice_source_character_id
                             ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
                             : null,
-                    totem_name: isTotem ? d.totem_name || null : null,
-                    totem_size: isTotem ? d.totem_size || null : null,
-                    totem_base: isTotem ? d.totem_base || null : null,
+                    totem_name: isTotemAdvancement ? d.totem_name || null : null,
+                    totem_size: isTotemAdvancement ? d.totem_size || null : null,
+                    totem_base: isTotemAdvancement ? d.totem_base || null : null,
                 };
             }),
     } as Record<string, unknown>);
@@ -624,7 +728,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                 >
                     ← {{ aftermath.crew.name }}
                 </Link>
-                <h1 class="mt-1 text-3xl font-bold tracking-tight">Aftermath</h1>
+                <h1 class="mt-1 text-3xl font-black tracking-tight">Aftermath</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
                     {{ aftermath.campaign_game.campaign.name }} • Week {{ aftermath.campaign_game.campaign.current_week }}
                     <Badge :variant="aftermath.status === 'locked' ? 'secondary' : 'default'" class="ml-1 text-[10px] uppercase">{{
@@ -878,15 +982,24 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <div v-for="(adv, idx) in advancementsQueued" :key="idx" class="space-y-2 border-b py-2 last:border-b-0">
                         <p class="text-xs">Box {{ adv.position_in_xp_track + 1 }} — Tier {{ adv.box_tier }} advancement</p>
                         <template v-if="advDrafts[adv.position_in_xp_track]">
-                            <select
-                                v-model="advDrafts[adv.position_in_xp_track].source_table"
-                                class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
-                                @change="onSourceTableChange(adv.position_in_xp_track)"
+                            <Select
+                                :model-value="advDrafts[adv.position_in_xp_track].source_table"
+                                @update:model-value="
+                                    (v) => {
+                                        advDrafts[adv.position_in_xp_track].source_table = v as string;
+                                        onSourceTableChange(adv.position_in_xp_track);
+                                    }
+                                "
                             >
-                                <option v-for="opt in tableOptionsForTier(adv.box_tier)" :key="opt.value" :value="opt.value">
-                                    {{ opt.label }}
-                                </option>
-                            </select>
+                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="opt in tableOptionsForTier(adv.box_tier)" :key="opt.value" :value="opt.value">
+                                        {{ opt.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                             <!-- Flip input — attack/tactical/action/ability accept this value or lower; totem requires an exact match -->
                             <label
                                 v-if="tableNeedsFlip(advDrafts[adv.position_in_xp_track].source_table)"
@@ -925,24 +1038,61 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 />
                                 I flipped a Joker
                             </label>
-                            <select
-                                v-model.number="advDrafts[adv.position_in_xp_track].catalog_id"
-                                class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
-                                @change="onCatalogChange(adv.position_in_xp_track)"
+                            <label
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
+                                    advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'
+                                "
+                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
                             >
-                                <option :value="null">— pick a row —</option>
-                                <option
-                                    v-for="row in eligibleCatalogRows(
-                                        advDrafts[adv.position_in_xp_track].source_table,
-                                        advDrafts[adv.position_in_xp_track].flip_value,
-                                        advDrafts[adv.position_in_xp_track].is_joker_flipped,
-                                    )"
-                                    :key="row.id"
-                                    :value="row.id"
+                                Joker flipped
+                                <Select
+                                    :model-value="advDrafts[adv.position_in_xp_track].joker_color ?? 'none'"
+                                    @update:model-value="
+                                        (v) => {
+                                            advDrafts[adv.position_in_xp_track].joker_color = v === 'none' ? null : (v as 'red' | 'black');
+                                            advDrafts[adv.position_in_xp_track].catalog_id = null;
+                                        }
+                                    "
                                 >
-                                    {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
-                                </option>
-                            </select>
+                                    <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
+                                        <SelectItem value="red">Red Joker</SelectItem>
+                                        <SelectItem value="black">Black Joker</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </label>
+                            <Select
+                                :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
+                                @update:model-value="
+                                    (v) => {
+                                        advDrafts[adv.position_in_xp_track].catalog_id = v === '__none__' ? null : Number(v);
+                                        onCatalogChange(adv.position_in_xp_track);
+                                    }
+                                "
+                            >
+                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                    <SelectValue placeholder="— pick a row —" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— pick a row —</SelectItem>
+                                    <SelectItem
+                                        v-for="row in eligibleCatalogRows(
+                                            advDrafts[adv.position_in_xp_track].source_table,
+                                            advDrafts[adv.position_in_xp_track].flip_value,
+                                            advDrafts[adv.position_in_xp_track].is_joker_flipped,
+                                            advDrafts[adv.position_in_xp_track].joker_color,
+                                        )"
+                                        :key="row.id"
+                                        :value="row.id.toString()"
+                                    >
+                                        {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                             <div
                                 v-if="advDrafts[adv.position_in_xp_track].is_joker_flipped && advDrafts[adv.position_in_xp_track].catalog_id !== null"
@@ -990,11 +1140,11 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 class="grid grid-cols-3 gap-2"
                             >
                                 <div>
-                                    <label class="text-[10px] text-muted-foreground">Totem name</label>
+                                    <Label class="text-[11px] text-muted-foreground">Totem name</Label>
                                     <Input v-model="advDrafts[adv.position_in_xp_track].totem_name" placeholder="e.g. Rat King" class="h-8 text-xs" />
                                 </div>
                                 <div>
-                                    <label class="text-[10px] text-muted-foreground">Size (stat)</label>
+                                    <Label class="text-[11px] text-muted-foreground">Size (stat)</Label>
                                     <Input
                                         type="number"
                                         min="1"
@@ -1005,16 +1155,17 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     />
                                 </div>
                                 <div>
-                                    <label class="text-[10px] text-muted-foreground">Base</label>
-                                    <select
-                                        v-model="advDrafts[adv.position_in_xp_track].totem_base"
-                                        class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
-                                    >
-                                        <option :value="null">— pick —</option>
-                                        <option value="30mm">30mm</option>
-                                        <option value="40mm">40mm</option>
-                                        <option value="50mm">50mm</option>
-                                    </select>
+                                    <Label class="text-[11px] text-muted-foreground">Base</Label>
+                                    <Select v-model="advDrafts[adv.position_in_xp_track].totem_base">
+                                        <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                            <SelectValue placeholder="— pick —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="30mm">30mm</SelectItem>
+                                            <SelectItem value="40mm">40mm</SelectItem>
+                                            <SelectItem value="50mm">50mm</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                             <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
@@ -1024,42 +1175,112 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     advDrafts[adv.position_in_xp_track].catalog_id !== null
                                 "
                             >
-                                <label class="text-[10px] text-muted-foreground">Borrowed from master</label>
-                                <select
-                                    v-model.number="advDrafts[adv.position_in_xp_track].free_choice_source_character_id"
-                                    class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
+                                <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                <Select
+                                    :model-value="advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'"
+                                    @update:model-value="
+                                        (v) =>
+                                            (advDrafts[adv.position_in_xp_track].free_choice_source_character_id =
+                                                v === '__none__' ? null : Number(v))
+                                    "
                                 >
-                                    <option :value="null">— pick a master —</option>
-                                    <option v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id">{{ m.name }}</option>
-                                </select>
+                                    <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                        <SelectValue placeholder="— pick a master —" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">— pick a master —</SelectItem>
+                                        <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{ m.name }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <!-- Attack/tactical mod: pick which existing action gets this trigger -->
+                            <!-- Attack/tactical mod: pick what to affect (Leader/Totem/Equipment), then which action -->
                             <div
                                 v-if="
                                     (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
                                         advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod') &&
-                                    advDrafts[adv.position_in_xp_track].catalog_id !== null &&
-                                    xp_track?.leader_actions?.length
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
                                 "
+                                class="space-y-2"
                             >
-                                <label class="text-[10px] text-muted-foreground">Add trigger to action</label>
-                                <select
-                                    v-model.number="advDrafts[adv.position_in_xp_track].applied_to_action_index"
-                                    class="h-8 w-full rounded border bg-background px-2 text-xs text-foreground"
-                                >
-                                    <option :value="-1">— select action —</option>
-                                    <option
-                                        v-for="a in xp_track.leader_actions.filter(
-                                            (la) =>
-                                                la.category ===
-                                                (advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ? 'attack' : 'tactical'),
-                                        )"
-                                        :key="a.index"
-                                        :value="a.index"
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                    <Select
+                                        :model-value="advDrafts[adv.position_in_xp_track].target_type"
+                                        @update:model-value="
+                                            (v) => {
+                                                advDrafts[adv.position_in_xp_track].target_type = v as 'leader' | 'totem' | 'equipment';
+                                                advDrafts[adv.position_in_xp_track].target_equipment_id = null;
+                                                advDrafts[adv.position_in_xp_track].applied_to_action_index = -1;
+                                                advDrafts[adv.position_in_xp_track].applied_to_action_id = null;
+                                            }
+                                        "
                                     >
-                                        {{ a.name }}
-                                    </option>
-                                </select>
+                                        <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="leader">Leader</SelectItem>
+                                            <SelectItem v-if="xp_track?.totem_id" value="totem">Totem</SelectItem>
+                                            <SelectItem v-if="xp_track?.equipment?.length" value="equipment">Equipment</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select
+                                        v-if="advDrafts[adv.position_in_xp_track].target_type === 'equipment'"
+                                        :model-value="advDrafts[adv.position_in_xp_track].target_equipment_id?.toString() ?? '__none__'"
+                                        @update:model-value="
+                                            (v) => {
+                                                advDrafts[adv.position_in_xp_track].target_equipment_id = v === '__none__' ? null : Number(v);
+                                                advDrafts[adv.position_in_xp_track].applied_to_action_index = -1;
+                                                advDrafts[adv.position_in_xp_track].applied_to_action_id = null;
+                                            }
+                                        "
+                                    >
+                                        <SelectTrigger class="h-8 min-w-0 flex-1 text-xs text-foreground">
+                                            <SelectValue placeholder="— pick equipment —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none__">— pick equipment —</SelectItem>
+                                            <SelectItem v-for="eq in xp_track?.equipment ?? []" :key="eq.id" :value="eq.id.toString()">
+                                                {{ eq.name }}{{ eq.locked ? ' 🔒' : '' }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div v-if="targetActionOptions(adv.position_in_xp_track).length">
+                                    <Label class="text-[11px] text-muted-foreground">Add trigger to action</Label>
+                                    <Select
+                                        :model-value="
+                                            (advDrafts[adv.position_in_xp_track].target_type === 'equipment'
+                                                ? advDrafts[adv.position_in_xp_track].applied_to_action_id
+                                                : advDrafts[adv.position_in_xp_track].applied_to_action_index
+                                            )?.toString() ?? '-1'
+                                        "
+                                        @update:model-value="
+                                            (v) => {
+                                                const val = Number(v);
+                                                if (advDrafts[adv.position_in_xp_track].target_type === 'equipment') {
+                                                    advDrafts[adv.position_in_xp_track].applied_to_action_id = val;
+                                                } else {
+                                                    advDrafts[adv.position_in_xp_track].applied_to_action_index = val;
+                                                }
+                                            }
+                                        "
+                                    >
+                                        <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                            <SelectValue placeholder="— select action —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="-1">— select action —</SelectItem>
+                                            <SelectItem
+                                                v-for="a in targetActionOptions(adv.position_in_xp_track)"
+                                                :key="a.ref"
+                                                :value="a.ref.toString()"
+                                            >
+                                                {{ a.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <!-- Full card preview for the selected advancement -->
                             <template v-if="selectedDraftRow(adv.position_in_xp_track)">
@@ -1133,19 +1354,32 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <ul class="space-y-2">
                         <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate">injury pivot #{{ att.injury_pivot_id }}</span>
-                            <select v-model.number="att.result_id" class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground">
-                                <option :value="null">— pick the result —</option>
-                                <option v-for="r in doctor_results" :key="r.id" :value="r.id">{{ r.name }}</option>
-                            </select>
-                            <!-- "Oops" / flip-9 reflip — pick the new injury that was added. -->
-                            <select
-                                v-if="doctorOutcome(att.result_id) === 'added_injury' || doctorOutcome(att.result_id) === 'removed_and_reflip'"
-                                v-model.number="att.added_injury_upgrade_id"
-                                class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                            <Select
+                                :model-value="att.result_id?.toString() ?? '__none__'"
+                                @update:model-value="(v) => (att.result_id = v === '__none__' ? null : Number(v))"
                             >
-                                <option :value="null">— added injury —</option>
-                                <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
-                            </select>
+                                <SelectTrigger class="h-8 flex-1 text-xs text-foreground">
+                                    <SelectValue placeholder="— pick the result —" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— pick the result —</SelectItem>
+                                    <SelectItem v-for="r in doctor_results" :key="r.id" :value="r.id.toString()">{{ r.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <!-- "Oops" / flip-9 reflip — pick the new injury that was added. -->
+                            <Select
+                                v-if="doctorOutcome(att.result_id) === 'added_injury' || doctorOutcome(att.result_id) === 'removed_and_reflip'"
+                                :model-value="att.added_injury_upgrade_id?.toString() ?? '__none__'"
+                                @update:model-value="(v) => (att.added_injury_upgrade_id = v === '__none__' ? null : Number(v))"
+                            >
+                                <SelectTrigger class="h-8 flex-1 text-xs text-foreground">
+                                    <SelectValue placeholder="— added injury —" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— added injury —</SelectItem>
+                                    <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
                             <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -1228,13 +1462,18 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             </label>
                             <template v-if="f.is_black_joker">
                                 <span class="text-[11px] text-muted-foreground">Defects to</span>
-                                <select
+                                <Select
                                     v-if="traitorTargetCrews.length"
-                                    v-model.number="f.traitor_target_crew_id"
-                                    class="h-8 rounded border bg-background px-2 text-xs text-foreground"
+                                    :model-value="f.traitor_target_crew_id?.toString() ?? undefined"
+                                    @update:model-value="(v) => (f.traitor_target_crew_id = v ? Number(v) : null)"
                                 >
-                                    <option v-for="c in traitorTargetCrews" :key="c.id" :value="c.id">{{ c.name }}</option>
-                                </select>
+                                    <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="c in traitorTargetCrews" :key="c.id" :value="c.id.toString()">{{ c.name }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <span v-else class="text-[11px] text-amber-600">no other crew in this campaign — the model is just removed</span>
                             </template>
                             <template v-else-if="f.is_red_joker">
@@ -1248,13 +1487,18 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 </template>
                             </template>
                             <template v-else>
-                                <select
-                                    v-model.number="f.injury_upgrade_id"
-                                    class="h-8 flex-1 rounded border bg-background px-2 text-xs text-foreground"
+                                <Select
+                                    :model-value="f.injury_upgrade_id?.toString() ?? '__none__'"
+                                    @update:model-value="(v) => (f.injury_upgrade_id = v === '__none__' ? null : Number(v))"
                                 >
-                                    <option :value="null">— pick the injury —</option>
-                                    <option v-for="inj in injury_catalog" :key="inj.id" :value="inj.id">{{ inj.name }}</option>
-                                </select>
+                                    <SelectTrigger class="h-8 flex-1 text-xs text-foreground">
+                                        <SelectValue placeholder="— pick the injury —" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">— pick the injury —</SelectItem>
+                                        <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </template>
                             <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
                         </li>

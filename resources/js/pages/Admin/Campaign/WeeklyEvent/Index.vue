@@ -3,8 +3,13 @@ import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
+import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { h, ref } from 'vue';
 
 interface EventRow {
     id: number;
@@ -16,13 +21,78 @@ interface EventRow {
     is_one_time: boolean;
 }
 
-defineProps<{ items: EventRow[] }>();
-
 const flipLabel = (r: EventRow): string => {
     if (r.is_black_joker) return 'Black Joker';
     if (r.is_red_joker) return 'Red Joker';
     return String(r.flip_value ?? '—');
 };
+
+const globalSearchFilter: FilterFn<EventRow> = (row, _columnId, filterValue) => {
+    return row.original.name.toLowerCase().includes((filterValue as string).toLowerCase());
+};
+
+const columns: ColumnDef<EventRow>[] = [
+    {
+        accessorKey: 'name',
+        header: () => h('div', {}, 'Name'),
+        cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
+    },
+    {
+        id: 'flip',
+        header: () => h('div', {}, 'Flip'),
+        cell: ({ row }) => h('div', { class: 'tabular-nums' }, flipLabel(row.original)),
+    },
+    {
+        id: 'flags',
+        header: () => h('div', {}, 'Flags'),
+        cell: ({ row }) => {
+            const badges = [];
+            if (row.original.requires_placement) {
+                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-[10px]' }, () => 'Placement'));
+            }
+            if (row.original.is_one_time) {
+                badges.push(h(Badge, { variant: 'destructive', class: 'text-[10px]' }, () => 'One-time'));
+            }
+            return h('div', {}, badges);
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        header: () => h('div', {}, 'Actions'),
+        cell: ({ row }) => {
+            const item = row.original;
+            return h(AdminActions, {
+                name: item.name,
+                editRoute: route('admin.campaign.weekly-events.edit', item.id),
+                deleteRoute: route('admin.campaign.weekly-events.delete', item.id),
+            });
+        },
+    },
+];
+
+const props = defineProps<{ items: EventRow[] }>();
+
+const globalFilter = ref('');
+
+const table = useVueTable({
+    get data() {
+        return props.items;
+    },
+    get columns() {
+        return columns;
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: globalSearchFilter,
+    onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),
+    state: {
+        get globalFilter() {
+            return globalFilter.value;
+        },
+    },
+});
 </script>
 
 <template>
@@ -35,41 +105,38 @@ const flipLabel = (r: EventRow): string => {
             </div>
             <Button @click="router.get(route('admin.campaign.weekly-events.create'))">Create</Button>
         </div>
+        <div class="flex items-center justify-between py-2">
+            <Input class="max-w-sm" placeholder="Filter by name..." :model-value="globalFilter" @update:model-value="table.setGlobalFilter($event)" />
+            <div class="text-sm text-muted-foreground">Total {{ table.getFilteredRowModel().rows.length }}</div>
+        </div>
         <div class="rounded-md border">
             <Table>
                 <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Flip</TableHead>
-                        <TableHead>Flags</TableHead>
-                        <TableHead>Actions</TableHead>
+                    <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
+                        <TableHead v-for="header in headerGroup.headers" :key="header.id">
+                            <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                        </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <template v-if="items.length">
-                        <TableRow v-for="row in items" :key="row.id">
-                            <TableCell class="font-medium">{{ row.name }}</TableCell>
-                            <TableCell class="tabular-nums">{{ flipLabel(row) }}</TableCell>
-                            <TableCell>
-                                <Badge v-if="row.requires_placement" variant="outline" class="mr-1 text-[10px]">Placement</Badge>
-                                <Badge v-if="row.is_one_time" variant="destructive" class="text-[10px]">One-time</Badge>
-                            </TableCell>
-                            <TableCell>
-                                <AdminActions
-                                    :name="row.name"
-                                    :edit-route="route('admin.campaign.weekly-events.edit', row.id)"
-                                    :delete-route="route('admin.campaign.weekly-events.delete', row.id)"
-                                />
+                    <template v-if="table.getRowModel().rows?.length">
+                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id">
+                            <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
+                                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
                             </TableCell>
                         </TableRow>
                     </template>
                     <TableRow v-else>
-                        <TableCell :colspan="4">
+                        <TableCell :colspan="columns.length">
                             <EmptyState compact title="No rows yet" description="Use Create to seed from the rulebook." />
                         </TableCell>
                     </TableRow>
                 </TableBody>
             </Table>
+        </div>
+        <div class="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()">Previous</Button>
+            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
         </div>
     </div>
 </template>

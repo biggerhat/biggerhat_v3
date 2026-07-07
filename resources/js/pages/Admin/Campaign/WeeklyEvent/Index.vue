@@ -29,7 +29,7 @@ const flipLabel = (r: EventRow): string => {
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Weekly Events</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Weekly Events</h1>
                 <p class="text-sm text-muted-foreground">Pg 148–149. Rolled at week start when weekly events are enabled.</p>
             </div>
             <Button @click="router.get(route('admin.campaign.weekly-events.create'))">Create</Button>

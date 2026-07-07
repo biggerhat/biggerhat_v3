@@ -7,15 +7,18 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { type SharedData, type User } from '@/types';
 
 interface Props {
     mustVerifyEmail: boolean;
     status?: string;
+    is_supporter: boolean;
+    show_on_supporters_page: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const page = usePage<SharedData>();
 const user = page.props.auth.user as User;
@@ -23,6 +26,7 @@ const user = page.props.auth.user as User;
 const form = useForm({
     name: user.name,
     email: user.email,
+    show_on_supporters_page: props.show_on_supporters_page,
 });
 
 const submit = () => {
@@ -76,6 +80,16 @@ const submit = () => {
                     <div v-if="status === 'verification-link-sent'" class="mt-2 text-sm font-medium text-green-600">
                         A new verification link has been sent to your email address.
                     </div>
+                </div>
+
+                <div v-if="props.is_supporter" class="flex items-center justify-between gap-4 rounded-lg border p-4">
+                    <div>
+                        <Label for="show_on_supporters_page">Show me on the Supporters page</Label>
+                        <p class="text-sm text-muted-foreground">
+                            Thank you for supporting BiggerHat! Opt in to appear on the public /supporters page.
+                        </p>
+                    </div>
+                    <Switch id="show_on_supporters_page" v-model="form.show_on_supporters_page" />
                 </div>
 
                 <div class="flex items-center gap-4">

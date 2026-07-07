@@ -3,6 +3,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -387,7 +388,7 @@ const factionColor = (faction: string) => {
                         <!-- Combat Profile -->
                         <Card v-if="char.actions?.length" class="mb-3">
                             <CardContent class="p-3">
-                                <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Combat Profile</div>
+                                <HeadingEyebrow class="mb-1.5">Combat Profile</HeadingEyebrow>
                                 <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                                     <div class="flex justify-between">
                                         <span class="text-muted-foreground">Actions</span>
@@ -459,7 +460,7 @@ const factionColor = (faction: string) => {
                         <!-- Keywords -->
                         <Card v-if="char.keywords.length" class="mb-3">
                             <CardContent class="p-3">
-                                <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                                <HeadingEyebrow class="mb-1.5">Keywords</HeadingEyebrow>
                                 <div class="flex flex-wrap gap-1">
                                     <Badge v-for="kw in char.keywords" :key="kw.slug" variant="secondary" class="text-[10px]">{{ kw.name }}</Badge>
                                 </div>
@@ -469,7 +470,7 @@ const factionColor = (faction: string) => {
                         <!-- Characteristics -->
                         <Card v-if="char.characteristics.length" class="mb-3">
                             <CardContent class="p-3">
-                                <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Characteristics</div>
+                                <HeadingEyebrow class="mb-1.5">Characteristics</HeadingEyebrow>
                                 <div class="flex flex-wrap gap-1">
                                     <Badge v-for="ch in char.characteristics" :key="ch" variant="outline" class="text-[10px] capitalize">{{
                                         ch

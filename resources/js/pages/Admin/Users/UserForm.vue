@@ -33,6 +33,7 @@ const props = defineProps({
 
 const form = useForm({
     roles: [] as string[],
+    supporter_since: (props.user.supporter_since ?? '') as string,
 });
 
 const toggleRole = (roleName: string) => {
@@ -121,6 +122,16 @@ const copyResetLink = async () => {
                                     {{ role.name }}
                                 </label>
                             </div>
+                        </div>
+
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="supporter_since">Supporter Since</Label>
+                            <p class="text-xs text-muted-foreground">
+                                Set when this user became a Ko-fi supporter (backdate for existing donors). Only meaningful once the Supporter role is
+                                checked above.
+                            </p>
+                            <Input id="supporter_since" v-model="form.supporter_since" type="date" class="max-w-xs" />
+                            <InputError :message="form.errors.supporter_since" />
                         </div>
 
                         <Button type="submit" class="mt-2 w-full" :disabled="form.processing">

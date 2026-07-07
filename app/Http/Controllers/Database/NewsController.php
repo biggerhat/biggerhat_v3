@@ -39,11 +39,13 @@ class NewsController extends Controller
 
     public function view(Request $request, BlogPost $blogPost)
     {
-        $blogPost->loadMissing(['author', 'category', 'characters.miniatures', 'keywords', 'upgrades']);
+        $blogPost->loadMissing(['author.roles', 'category', 'characters.miniatures', 'keywords', 'upgrades']);
 
         if ($blogPost->status !== BlogPostStatusEnum::Published || ! $blogPost->category?->is_news) {
             abort(404);
         }
+
+        $blogPost->author->append('is_supporter');
 
         return inertia('News/View', [
             'post' => $blogPost,

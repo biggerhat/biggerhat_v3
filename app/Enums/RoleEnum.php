@@ -17,4 +17,5 @@ enum RoleEnum: string implements HasDefaultEnumMethods
     case LoreManager = 'lore_manager';
     case Broadcaster = 'broadcaster';
     case TournamentOrganizer = 'tournament_organizer';
+    case Supporter = 'supporter';
 }

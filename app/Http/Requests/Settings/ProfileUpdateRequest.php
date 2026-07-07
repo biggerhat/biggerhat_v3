@@ -29,6 +29,7 @@ class ProfileUpdateRequest extends FormRequest
             // Convenience: lets the profile form create a new meta inline.
             // Free-form input — we find-or-create in the controller.
             'meta_name' => ['nullable', 'string', 'max:100'],
+            'show_on_supporters_page' => ['sometimes', 'boolean'],
         ];
     }
 }

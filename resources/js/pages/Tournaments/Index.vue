@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
+import { CARD_HOVER, CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { csrfToken, formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -121,7 +122,7 @@ const removeTournament = async (t: TournamentSummary) => {
                 :href="route('tournaments.create')"
                 class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-                <Card class="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
+                <Card :class="CARD_HOVER_PROMINENT">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div
                             class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
@@ -138,7 +139,7 @@ const removeTournament = async (t: TournamentSummary) => {
 
             <!-- My Tournaments -->
             <div v-if="isLoggedIn && my_tournaments.length" class="mb-8">
-                <h2 class="mb-3 font-semibold">My Tournaments</h2>
+                <h2 class="mb-3 text-lg font-semibold">My Tournaments</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <Link
                         v-for="t in my_tournaments"
@@ -146,7 +147,7 @@ const removeTournament = async (t: TournamentSummary) => {
                         :href="route('tournaments.manage', t.uuid)"
                         class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                        <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
@@ -189,7 +190,7 @@ const removeTournament = async (t: TournamentSummary) => {
 
             <!-- Public Tournaments -->
             <div v-if="public_tournaments.length">
-                <h2 class="mb-3 font-semibold">Public Tournaments</h2>
+                <h2 class="mb-3 text-lg font-semibold">Public Tournaments</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <Link
                         v-for="t in public_tournaments"
@@ -197,7 +198,7 @@ const removeTournament = async (t: TournamentSummary) => {
                         :href="route('tournaments.view', t.uuid)"
                         class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                        <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{

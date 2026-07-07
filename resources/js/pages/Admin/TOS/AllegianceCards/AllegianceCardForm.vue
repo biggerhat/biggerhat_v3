@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Button } from '@/components/ui/button';
@@ -153,7 +154,7 @@ onMounted(() => {
 
                 <!-- Standard tier -->
                 <section class="rounded-md border-l-4 border-primary/60 bg-muted/30 p-3">
-                    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider">Standard Tier</h3>
+                    <HeadingEyebrow class="mb-2 text-foreground">Standard Tier</HeadingEyebrow>
                     <div class="space-y-3">
                         <div>
                             <Label for="body">Body</Label>
@@ -186,7 +187,7 @@ onMounted(() => {
 
                 <!-- Primary tier -->
                 <section class="rounded-md border-l-4 border-amber-500/70 bg-amber-500/5 p-3">
-                    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Primary Tier</h3>
+                    <HeadingEyebrow class="mb-2 text-amber-700 dark:text-amber-400">Primary Tier</HeadingEyebrow>
                     <p class="mb-2 text-[11px] text-muted-foreground">Leave empty when the card has no Primary side.</p>
                     <div class="space-y-3">
                         <div>

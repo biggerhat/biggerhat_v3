@@ -631,7 +631,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 <TabsContent value="standings">
                     <div class="mb-3 flex items-center gap-2 px-1">
                         <Trophy class="size-4" />
-                        <h2 class="font-semibold">{{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
+                        <h2 class="text-lg font-semibold">{{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
                     </div>
                     <StandingsTable :standings="standings" :highlight-player-id="myPlayerId" />
                 </TabsContent>
@@ -640,7 +640,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 <TabsContent value="rsvps">
                     <Card>
                         <CardContent class="p-4">
-                            <h2 class="mb-3 flex items-center gap-2 font-semibold">
+                            <h2 class="mb-3 flex items-center gap-2 text-lg font-semibold">
                                 <UserPlus class="size-4" /> {{ tournament.rsvps?.length ?? 0 }} RSVPs
                             </h2>
                             <div class="space-y-1.5">

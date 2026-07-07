@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { categoryColor, categoryLabel, factionBackground } from '@/lib/gameDisplay';
+import { factionBackground } from '@/composables/useFactionColor';
+import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { CrewMember, GameData, GamePlayer, SchemeData } from '@/types/game';
 import { Check, Loader2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -99,7 +101,7 @@ const confirmPendingScheme = () => {
 <template>
     <Card class="mb-6">
         <CardContent class="p-4 sm:p-6">
-            <h2 class="mb-1 font-semibold">Select Your Scheme</h2>
+            <h2 class="mb-1 text-lg font-semibold">Select Your Scheme</h2>
             <p v-if="schemeStepDone && !isSolo" class="mb-4 text-xs text-muted-foreground">
                 <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
             </p>
@@ -251,7 +253,7 @@ const confirmPendingScheme = () => {
                 :key="'scheme-cu-' + upgrade.id"
                 class="mt-2"
             >
-                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Crew Card — {{ upgrade.name }}</p>
+                <HeadingEyebrow class="mb-1">Crew Card — {{ upgrade.name }}</HeadingEyebrow>
                 <div class="max-w-[260px] [&_img]:w-full">
                     <UpgradeFlipCard
                         :front-image="upgrade.front_image"

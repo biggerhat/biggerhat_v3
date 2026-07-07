@@ -2,27 +2,14 @@
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import PostCard, { type Post } from '@/components/PostCard.vue';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getInitials } from '@/composables/useInitials';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { Megaphone } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-interface NewsPost {
-    id: number;
-    title: string;
-    slug: string;
-    excerpt: string | null;
-    featured_image: string | null;
-    status: string;
-    published_at: string;
-    author: { name: string };
-    category: { name: string; slug: string } | null;
-}
+type NewsPost = Post;
 
 interface NewsCategory {
     id: number;
@@ -66,10 +53,6 @@ const applyCategoryFilter = (val: string) => {
     const params = val === 'all' ? {} : { category: val };
     router.get(route('news.index'), params, { only: ['posts', 'active_category'], preserveState: true, preserveScroll: true, replace: true });
 };
-
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-};
 </script>
 
 <template>
@@ -104,81 +87,27 @@ const formatDate = (dateStr: string) => {
 
             <template v-if="posts.data.length">
                 <!-- Featured post (first page, no filters) -->
-                <Link v-if="featuredPost" :href="route('news.view', featuredPost.slug)" class="animate-fade-in-up group mb-6 block opacity-0">
-                    <Card class="overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl md:grid md:grid-cols-5">
-                        <div class="aspect-video overflow-hidden md:col-span-3 md:aspect-auto md:h-full">
-                            <img
-                                v-if="featuredPost.featured_image"
-                                :src="`/storage/${featuredPost.featured_image}`"
-                                :alt="featuredPost.title"
-                                loading="lazy"
-                                decoding="async"
-                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                            />
-                            <div v-else class="flex h-full min-h-48 items-center justify-center bg-muted">
-                                <Megaphone class="size-12 text-muted-foreground/20" />
-                            </div>
-                        </div>
-                        <div class="flex flex-col justify-center p-5 md:col-span-2 md:p-6">
-                            <div class="mb-2 flex flex-wrap items-center gap-2">
-                                <Badge v-if="featuredPost.category" variant="secondary" class="text-[10px]">{{ featuredPost.category.name }}</Badge>
-                                <span class="text-xs text-muted-foreground">{{ formatDate(featuredPost.published_at) }}</span>
-                            </div>
-                            <h2 class="mb-2 line-clamp-3 text-xl font-bold leading-tight group-hover:text-primary md:text-2xl">
-                                {{ featuredPost.title }}
-                            </h2>
-                            <p v-if="featuredPost.excerpt" class="mb-3 line-clamp-2 text-sm text-muted-foreground">{{ featuredPost.excerpt }}</p>
-                            <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
-                                    <AvatarFallback>{{ getInitials(featuredPost.author.name) }}</AvatarFallback>
-                                </Avatar>
-                                <span class="font-medium text-foreground">{{ featuredPost.author.name }}</span>
-                            </div>
-                        </div>
-                    </Card>
-                </Link>
+                <PostCard
+                    v-if="featuredPost"
+                    variant="featured"
+                    :post="featuredPost"
+                    :href="route('news.view', featuredPost.slug)"
+                    :icon="Megaphone"
+                    class="animate-fade-in-up mb-6 opacity-0"
+                />
 
                 <!-- Grid -->
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Link
+                    <PostCard
                         v-for="(post, index) in gridPosts"
                         :key="post.id"
+                        variant="grid"
+                        :post="post"
                         :href="route('news.view', post.slug)"
-                        class="animate-fade-in-up group block opacity-0"
+                        :icon="Megaphone"
+                        class="animate-fade-in-up opacity-0"
                         :style="delays[index]"
-                    >
-                        <Card class="h-full overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                            <div class="aspect-video overflow-hidden">
-                                <img
-                                    v-if="post.featured_image"
-                                    :src="`/storage/${post.featured_image}`"
-                                    :alt="post.title"
-                                    loading="lazy"
-                                    decoding="async"
-                                    class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                                />
-                                <div v-else class="flex h-full items-center justify-center bg-muted">
-                                    <Megaphone class="size-8 text-muted-foreground/20" />
-                                </div>
-                            </div>
-                            <CardContent class="p-4">
-                                <div class="mb-2 flex flex-wrap items-center gap-2">
-                                    <Badge v-if="post.category" variant="secondary" class="text-[10px]">{{ post.category.name }}</Badge>
-                                    <span class="text-[11px] text-muted-foreground">{{ formatDate(post.published_at) }}</span>
-                                </div>
-                                <h3 class="mb-1.5 line-clamp-2 text-sm font-bold leading-tight group-hover:text-primary sm:text-base">
-                                    {{ post.title }}
-                                </h3>
-                                <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-xs text-muted-foreground">{{ post.excerpt }}</p>
-                                <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
-                                        <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
-                                    </Avatar>
-                                    <span>{{ post.author.name }}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                    />
                 </div>
             </template>
 

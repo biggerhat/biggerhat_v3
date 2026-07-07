@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import SeoHead from '@/components/SeoHead.vue';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import { Badge } from '@/components/ui/badge';
@@ -124,7 +125,7 @@ const hasRelatedContent = computed(
 
                                 <!-- Masters -->
                                 <div v-if="upgrade.masters.length">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Masters</div>
+                                    <HeadingEyebrow class="mb-1.5">Masters</HeadingEyebrow>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link
                                             v-for="master in upgrade.masters"
@@ -148,7 +149,7 @@ const hasRelatedContent = computed(
 
                                 <!-- Keywords -->
                                 <div v-if="upgrade.keywords.length">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                                    <HeadingEyebrow class="mb-1.5">Keywords</HeadingEyebrow>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link v-for="keyword in upgrade.keywords" :key="keyword.slug" :href="route('keywords.view', keyword.slug)">
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -163,7 +164,7 @@ const hasRelatedContent = computed(
                         <!-- Characters Pane -->
                         <Card v-if="upgrade.characters.length">
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Characters</CardTitle>
+                                <HeadingEyebrow>Characters</HeadingEyebrow>
                             </CardHeader>
                             <CardContent class="px-0 pb-2">
                                 <Link
@@ -231,7 +232,7 @@ const hasRelatedContent = computed(
                     <div class="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                         <!-- Actions -->
                         <div v-if="upgrade.actions.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Actions</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="action in upgrade.actions" :key="action.slug" variant="secondary">
                                     {{ action.name }}
@@ -241,7 +242,7 @@ const hasRelatedContent = computed(
 
                         <!-- Abilities -->
                         <div v-if="upgrade.abilities.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Abilities</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Abilities</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="ability in upgrade.abilities" :key="ability.slug" variant="secondary">
                                     {{ ability.name }}
@@ -251,7 +252,7 @@ const hasRelatedContent = computed(
 
                         <!-- Triggers -->
                         <div v-if="upgrade.triggers.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Triggers</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Triggers</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="trigger in upgrade.triggers" :key="trigger.slug" variant="secondary">
                                     {{ trigger.name }}
@@ -261,7 +262,7 @@ const hasRelatedContent = computed(
 
                         <!-- Markers -->
                         <div v-if="upgrade.markers.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Markers</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Markers</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="marker in upgrade.markers" :key="marker.name" variant="secondary">
                                     {{ marker.name }}
@@ -271,7 +272,7 @@ const hasRelatedContent = computed(
 
                         <!-- Tokens -->
                         <div v-if="upgrade.tokens.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tokens</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Tokens</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="token in upgrade.tokens" :key="token.name" variant="secondary">
                                     {{ token.name }}
@@ -281,7 +282,7 @@ const hasRelatedContent = computed(
 
                         <!-- Print On Demand -->
                         <div v-if="upgrade.pod_links?.length">
-                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Print On Demand</h4>
+                            <HeadingEyebrow as="h4" class="mb-2">Print On Demand</HeadingEyebrow>
                             <div class="space-y-1.5">
                                 <a
                                     v-for="pod in upgrade.pod_links"

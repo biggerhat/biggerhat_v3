@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -216,7 +217,7 @@ onMounted(() => {
                     <div class="sticky top-6 hidden lg:block">
                         <Card>
                             <CardContent class="p-4">
-                                <h3 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Season</h3>
+                                <HeadingEyebrow class="mb-3">Season</HeadingEyebrow>
                                 <nav class="mb-4 flex flex-col gap-1">
                                     <button
                                         v-for="s in seasons"

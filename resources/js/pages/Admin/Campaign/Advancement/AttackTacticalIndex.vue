@@ -42,7 +42,7 @@ const modifierLabel: Record<string, string> = {
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">{{ display_label }} Advancements</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ display_label }} Advancements</h1>
                 <p class="text-sm text-muted-foreground">Index of the Untold leader advancement table — flip &lt;= value picks an option.</p>
             </div>
             <Button @click="router.get(route(`${route_prefix}.create`))">Create</Button>

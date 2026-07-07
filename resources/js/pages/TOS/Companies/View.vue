@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import CompanyCommanderPicker from '@/components/TOS/CompanyCommanderPicker.vue';
 import CompanyHiringPoolPane from '@/components/TOS/CompanyHiringPoolPane.vue';
@@ -668,9 +669,7 @@ async function deleteCompany() {
                         class="mt-3 flex flex-wrap gap-x-6 gap-y-3 border-t pt-3"
                     >
                         <div v-if="company.allegiance.allegiance_cards?.length">
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                {{ company.allegiance.name }} · Primary
-                            </p>
+                            <HeadingEyebrow class="mb-1"> {{ company.allegiance.name }} · Primary </HeadingEyebrow>
                             <div class="flex gap-1.5">
                                 <Link
                                     v-for="c in company.allegiance.allegiance_cards"
@@ -689,9 +688,7 @@ async function deleteCompany() {
                             </div>
                         </div>
                         <div v-if="company.envoy_allegiance?.allegiance_cards?.length">
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                                {{ company.envoy_allegiance.name }} · Envoy
-                            </p>
+                            <HeadingEyebrow class="mb-1 text-sky-600 dark:text-sky-400"> {{ company.envoy_allegiance.name }} · Envoy </HeadingEyebrow>
                             <div class="flex gap-1.5">
                                 <Link
                                     v-for="c in company.envoy_allegiance.allegiance_cards"

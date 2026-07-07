@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Globe, Heart, Lock, Plus, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
@@ -91,7 +92,7 @@ function confirmDelete() {
             <EmptyState v-if="wishlists.length === 0" title="No wishlists yet" description="Create a wishlist to start tracking items you want." />
 
             <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Card v-for="wishlist in wishlists" :key="wishlist.id" class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                <Card v-for="wishlist in wishlists" :key="wishlist.id" :class="CARD_HOVER">
                     <CardContent class="p-4">
                         <div class="flex items-start justify-between gap-3">
                             <Link :href="route('wishlists.show', wishlist.id)" class="min-w-0 flex-1">

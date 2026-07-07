@@ -254,7 +254,7 @@ const copyShareLink = (crew: CrewCard) => {
             <!-- My Crews -->
             <div v-if="isAuthenticated && localMyCrews.length > 0" class="mb-8">
                 <div class="mb-3 flex items-center justify-between">
-                    <h2 class="font-semibold">My Crews</h2>
+                    <h2 class="text-lg font-semibold">My Crews</h2>
                     <Link :href="route('tools.crew_builder.editor')">
                         <Button variant="outline" size="sm" class="gap-1.5">
                             <Pencil class="size-3.5" />

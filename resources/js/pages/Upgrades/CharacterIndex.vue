@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { Head, Link } from '@inertiajs/vue3';
 import { LayoutGrid, List } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -151,7 +152,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                         <div
                             v-for="(upgrade, index) in filteredUpgrades"
                             :key="upgrade.id"
-                            class="animate-fade-in-up opacity-0 transition-transform duration-300 hover:-translate-y-1"
+                            :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                             :style="delays[index]"
                         >
                             <UpgradeCardView :upgrade="upgrade" />

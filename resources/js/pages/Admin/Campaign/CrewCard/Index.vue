@@ -21,7 +21,7 @@ defineProps<{ items: CrewCardRow[] }>();
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Crew Cards</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Crew Cards</h1>
                 <p class="text-sm text-muted-foreground">Starting Crew Cards drawn by each player during arsenal setup (pg 15).</p>
             </div>
             <Button @click="router.get(route('admin.campaign.crew-cards.create'))">Create</Button>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import UnitCard from '@/components/TOS/UnitCard.vue';
@@ -77,7 +78,7 @@ defineProps<{
             <UnitCard :unit="unit" :active-sculpt="active_sculpt" />
 
             <div v-if="unit.sculpts.length > 1">
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sculpts</p>
+                <HeadingEyebrow as="h2" class="mb-2">Sculpts</HeadingEyebrow>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Link
                         v-for="s in unit.sculpts"
@@ -111,7 +112,7 @@ defineProps<{
             </div>
 
             <div v-if="unit.lores?.length" class="rounded-md border p-4">
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lore</p>
+                <HeadingEyebrow as="h2" class="mb-2">Lore</HeadingEyebrow>
                 <ul class="space-y-1.5 text-sm">
                     <li v-for="lore in unit.lores" :key="lore.id" class="flex flex-wrap items-baseline gap-x-2">
                         <span class="font-medium">{{ lore.name }}</span>

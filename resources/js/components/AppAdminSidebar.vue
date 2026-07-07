@@ -75,6 +75,7 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Markers', href: route('admin.markers.index'), icon: Radius, permission: 'view_marker' },
             { title: 'Schemes', href: route('admin.schemes.index'), icon: BookOpen, permission: 'view_scheme' },
             { title: 'Strategies', href: route('admin.strategies.index'), icon: BookOpen, permission: 'view_strategy' },
+            { title: 'Bonanza Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' },
         ],
     },
     {
@@ -88,6 +89,7 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Lore Media', href: route('admin.lore_media.index'), icon: BookOpen, permission: 'view_lore' },
             { title: 'Blueprints', href: route('admin.blueprints.index'), icon: FileImage, permission: 'view_blueprint' },
             { title: 'Packages', href: route('admin.packages.index'), icon: Package, permission: 'view_package' },
+            { title: 'Announcements', href: route('admin.announcements.index'), icon: Megaphone, permission: 'super_admin' },
         ],
     },
     {
@@ -100,29 +102,60 @@ const adminGroups: AdminNavGroup[] = [
         ],
     },
     {
-        title: 'Access',
+        title: 'Access & Security',
         items: [
             { title: 'Users', href: route('admin.users.index'), icon: Users, permission: 'view_user' },
             { title: 'Roles', href: route('admin.roles.index'), icon: ShieldCheck, permission: 'view_role' },
+            { title: 'API Tokens', href: route('admin.api_tokens.index'), icon: Key, permission: 'super_admin' },
+            { title: 'Sessions', href: route('admin.sessions.index'), icon: MonitorSmartphone, permission: 'super_admin' },
+            { title: 'Custom Cards', href: route('admin.custom_cards.index'), icon: ShieldAlert, permission: 'super_admin' },
         ],
     },
     {
-        title: 'Bonanza Brawl',
-        items: [{ title: 'Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' }],
+        // M4E Campaign Mode (Index of the Untold) advancement charts. Gated
+        // below on `campaign_features_enabled` alongside Campaign — Catalog.
+        // Split out of that group since these 5 were faking a second nesting
+        // level via an "Advancement — " label prefix — a real group makes the
+        // prefix redundant, so it's dropped here.
+        title: 'Campaign — Advancement',
+        items: [
+            {
+                title: 'Attack Mod',
+                href: route('admin.campaign.advancement-attack-mod.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Tactical Mod',
+                href: route('admin.campaign.advancement-tactical-mod.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Action',
+                href: route('admin.campaign.advancement-action.index'),
+                icon: Swords,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Ability',
+                href: route('admin.campaign.advancement-ability.index'),
+                icon: Shield,
+                permission: 'view_campaign_catalog',
+            },
+            {
+                title: 'Summoning',
+                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=summoning',
+                icon: Puzzle,
+                permission: 'view_campaign_catalog',
+            },
+        ],
     },
     {
-        // M4E Campaign Mode (Index of the Untold) catalog admin. Whole section is
-        // additionally gated below on `campaign_features_enabled` so it stays
-        // hidden while the feature is pre-release.
-        //
         // Post Catalog Consolidation: equipment / injuries / crew card effects /
-        // summoning / totems all live on the core catalog (upgrades /
-        // abilities / actions / triggers / custom_characters with
-        // game_mode_type='campaign') — those links are filtered shortcuts
-        // into the core admin pages. Attack Mod / Tactical Mod / Action /
-        // Ability advancement moved back to dedicated tables (see
-        // admin.campaign.advancement-*) so QA can tailor each chart's data
-        // shape independently.
+        // totems all live on the core catalog (upgrades / abilities / actions /
+        // triggers / custom_characters with game_mode_type='campaign') — those
+        // links are filtered shortcuts into the core admin pages.
         title: 'Campaign — Catalog',
         items: [
             {
@@ -144,42 +177,17 @@ const adminGroups: AdminNavGroup[] = [
                 permission: 'view_campaign_catalog',
             },
             {
-                title: 'Advancement — Attack Mod',
-                href: route('admin.campaign.advancement-attack-mod.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Advancement — Tactical Mod',
-                href: route('admin.campaign.advancement-tactical-mod.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Advancement — Action',
-                href: route('admin.campaign.advancement-action.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Advancement — Ability',
-                href: route('admin.campaign.advancement-ability.index'),
-                icon: Shield,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Summoning Advancements',
-                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=summoning',
-                icon: Puzzle,
-                permission: 'view_campaign_catalog',
-            },
-            {
                 title: 'Totem Templates',
                 href: route('admin.campaign.totem-templates.index'),
                 icon: Puzzle,
                 permission: 'view_campaign_catalog',
             },
-            { title: 'Crew Cards', href: route('admin.campaign.crew-cards.index'), icon: Newspaper, permission: 'view_campaign_catalog' },
+            {
+                title: 'Campaign Crew Cards',
+                href: route('admin.campaign.crew-cards.index'),
+                icon: Newspaper,
+                permission: 'view_campaign_catalog',
+            },
             { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
             {
                 title: 'Back-Alley Doctor',
@@ -191,7 +199,10 @@ const adminGroups: AdminNavGroup[] = [
         ],
     },
     {
-        title: 'TOS — Units',
+        // Merged "TOS — Units" + "TOS — Cards" — mirrors the single "Game Data"
+        // group Malifaux's equivalent catalog uses; the old split served no
+        // purpose.
+        title: 'TOS Catalog',
         items: [
             { title: 'Units', href: route('admin.tos.units.index'), icon: Swords, permission: 'view_tos_unit' },
             { title: 'Sculpts', href: route('admin.tos.sculpts.index'), icon: FileImage, permission: 'view_tos_sculpt' },
@@ -199,11 +210,6 @@ const adminGroups: AdminNavGroup[] = [
             { title: 'Abilities', href: route('admin.tos.abilities.index'), icon: Shield, permission: 'view_tos_ability' },
             { title: 'Actions', href: route('admin.tos.actions.index'), icon: Swords, permission: 'view_tos_action' },
             { title: 'Triggers', href: route('admin.tos.triggers.index'), icon: Swords, permission: 'view_tos_trigger' },
-        ],
-    },
-    {
-        title: 'TOS — Cards',
-        items: [
             { title: 'Allegiances', href: route('admin.tos.allegiances.index'), icon: Shield, permission: 'view_tos_allegiance' },
             { title: 'Allegiance Cards', href: route('admin.tos.allegiance_cards.index'), icon: BookOpen, permission: 'view_tos_allegiance_card' },
             { title: 'Assets', href: route('admin.tos.assets.index'), icon: Package, permission: 'view_tos_asset' },
@@ -211,29 +217,31 @@ const adminGroups: AdminNavGroup[] = [
         ],
     },
     {
-        // Super-admin-only diagnostics + tooling. Items use `permission: 'super_admin'`
-        // as a sentinel that the hasPermission helper resolves through the role check.
-        title: 'Super Admin',
+        // Read-only observability — nothing here changes state.
+        title: 'Diagnostics',
         items: [
             { title: 'Activity Log', href: route('admin.activity.index'), icon: Activity, permission: 'super_admin' },
-            { title: 'Announcements', href: route('admin.announcements.index'), icon: Megaphone, permission: 'super_admin' },
-            { title: 'Maintenance', href: route('admin.maintenance.index'), icon: ServerCrash, permission: 'super_admin' },
-            { title: 'Cache Controls', href: route('admin.cache.index'), icon: Eraser, permission: 'super_admin' },
-            { title: 'Schedule', href: route('admin.schedule.index'), icon: Clock, permission: 'super_admin' },
-            { title: 'Trash', href: route('admin.trash.index'), icon: Trash2, permission: 'super_admin' },
             { title: 'Failed Jobs', href: route('admin.failed_jobs.index'), icon: AlertTriangle, permission: 'super_admin' },
-            { title: 'Feature Flags', href: route('admin.features.index'), icon: Flag, permission: 'super_admin' },
-            { title: 'API Tokens', href: route('admin.api_tokens.index'), icon: Key, permission: 'super_admin' },
-            { title: 'Sessions', href: route('admin.sessions.index'), icon: MonitorSmartphone, permission: 'super_admin' },
-            { title: 'Custom Cards', href: route('admin.custom_cards.index'), icon: ShieldAlert, permission: 'super_admin' },
             { title: 'Image Health', href: route('admin.image_health.index'), icon: ImageOff, permission: 'super_admin' },
-            { title: 'Tournament Override', href: route('admin.tournaments.index'), icon: Trophy, permission: 'super_admin' },
             // Log Viewer + Telescope are separate Blade-rendered apps. external=true
             // makes the sidebar use a plain <a> so the browser does a full page nav
             // — Inertia's XHR-then-fallback path leaves the prior URL in place,
             // which breaks Log Viewer's relative API calls.
             { title: 'Logs', href: '/log-viewer', icon: FileText, permission: 'super_admin', external: true },
             { title: 'Telescope', href: '/telescope', icon: TelescopeIcon, permission: 'super_admin', external: true },
+        ],
+    },
+    {
+        // Admin actions that change live state/config right now, as opposed to
+        // Diagnostics' read-only tools.
+        title: 'System Controls',
+        items: [
+            { title: 'Maintenance', href: route('admin.maintenance.index'), icon: ServerCrash, permission: 'super_admin' },
+            { title: 'Cache Controls', href: route('admin.cache.index'), icon: Eraser, permission: 'super_admin' },
+            { title: 'Schedule', href: route('admin.schedule.index'), icon: Clock, permission: 'super_admin' },
+            { title: 'Trash', href: route('admin.trash.index'), icon: Trash2, permission: 'super_admin' },
+            { title: 'Feature Flags', href: route('admin.features.index'), icon: Flag, permission: 'super_admin' },
+            { title: 'Tournament Override', href: route('admin.tournaments.index'), icon: Trophy, permission: 'super_admin' },
         ],
     },
 ];

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CARD_HOVER, CARD_HOVER_GROUP, CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { BarChart3, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
@@ -127,7 +128,7 @@ const formatDate = (dateStr: string) => {
                 :href="route('games.create')"
                 class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-                <Card class="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
+                <Card :class="CARD_HOVER_PROMINENT">
                     <CardContent class="flex items-center gap-4 p-5">
                         <div
                             class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
@@ -144,16 +145,14 @@ const formatDate = (dateStr: string) => {
 
             <!-- Active Games -->
             <div v-if="isLoggedIn && active_games.length" class="mb-8">
-                <h2 class="mb-3 font-semibold">Active Games</h2>
+                <h2 class="mb-3 text-lg font-semibold">Active Games</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div v-for="game in active_games" :key="game.id" class="group relative">
                         <Link
                             :href="route('games.show', game.uuid)"
                             class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                            <Card
-                                class="h-full transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-md"
-                            >
+                            <Card :class="['h-full', CARD_HOVER_GROUP]">
                                 <CardContent class="p-4">
                                     <div class="mb-2 flex items-center justify-between">
                                         <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
@@ -204,7 +203,7 @@ const formatDate = (dateStr: string) => {
 
             <!-- Recent Games -->
             <div v-if="isLoggedIn && recent_games.length">
-                <h2 class="mb-3 font-semibold">Recent Games</h2>
+                <h2 class="mb-3 text-lg font-semibold">Recent Games</h2>
                 <div class="space-y-2">
                     <div v-for="game in recent_games" :key="game.id" class="group relative">
                         <Link
@@ -250,7 +249,7 @@ const formatDate = (dateStr: string) => {
             <!-- Observable Games -->
             <div v-if="observable_games.length">
                 <div class="my-6 border-t" />
-                <h2 class="mb-1 flex items-center gap-2 font-semibold">
+                <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
                     <Eye class="size-4 text-amber-500" />
                     Public Games
                 </h2>
@@ -262,7 +261,7 @@ const formatDate = (dateStr: string) => {
                         :href="route('games.observe', game.uuid)"
                         class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <Card class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                        <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">

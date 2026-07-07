@@ -624,7 +624,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                 >
                     ← {{ aftermath.crew.name }}
                 </Link>
-                <h1 class="mt-1 text-3xl font-bold">Aftermath</h1>
+                <h1 class="mt-1 text-3xl font-bold tracking-tight">Aftermath</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
                     {{ aftermath.campaign_game.campaign.name }} • Week {{ aftermath.campaign_game.campaign.current_week }}
                     <Badge :variant="aftermath.status === 'locked' ? 'secondary' : 'default'" class="ml-1 text-[10px] uppercase">{{

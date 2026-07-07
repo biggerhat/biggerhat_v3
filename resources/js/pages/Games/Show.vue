@@ -26,6 +26,7 @@ import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import SeoHead from '@/components/SeoHead.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
@@ -39,10 +40,11 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
+import { factionBackground } from '@/composables/useFactionColor';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
-import { factionBackground, playerName } from '@/lib/gameDisplay';
+import { playerName } from '@/lib/gameDisplay';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import {
@@ -2840,20 +2842,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div class="space-y-1.5 sm:hidden">
                     <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
                         <div>
-                            <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Deployment</div>
+                            <HeadingEyebrow>Deployment</HeadingEyebrow>
                             <div class="text-sm font-medium">{{ deployment.label }}</div>
                         </div>
                         <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="deploymentDrawerOpen = true">View</Button>
                     </div>
                     <div v-if="game.strategy" class="flex items-center justify-between rounded-lg border px-3 py-2">
                         <div>
-                            <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Strategy</div>
+                            <HeadingEyebrow>Strategy</HeadingEyebrow>
                             <div class="text-sm font-medium">{{ game.strategy.name }}</div>
                         </div>
                         <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="strategyDrawerOpen = true">View</Button>
                     </div>
                     <div v-if="schemes.length" class="rounded-lg border px-3 py-2">
-                        <div class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scheme Pool</div>
+                        <HeadingEyebrow class="mb-1">Scheme Pool</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <button
                                 v-for="scheme in schemes"
@@ -2871,7 +2873,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div class="hidden gap-3 sm:grid sm:grid-cols-[1fr_1fr_2fr]">
                     <!-- Deployment -->
                     <div v-if="deployment" class="text-center">
-                        <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Deployment</div>
+                        <HeadingEyebrow class="mb-1.5">Deployment</HeadingEyebrow>
                         <button
                             class="mx-auto block w-full overflow-hidden rounded-lg transition-all hover:-translate-y-0.5 hover:shadow-lg"
                             @click="deploymentDrawerOpen = true"
@@ -2895,7 +2897,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                     <!-- Strategy -->
                     <div v-if="game.strategy" class="text-center">
-                        <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Strategy</div>
+                        <HeadingEyebrow class="mb-1.5">Strategy</HeadingEyebrow>
                         <button
                             class="mx-auto block w-full overflow-hidden rounded-lg transition-all hover:-translate-y-0.5 hover:shadow-lg"
                             @click="strategyDrawerOpen = true"
@@ -2919,7 +2921,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                     <!-- Scheme Pool -->
                     <div v-if="schemes.length">
-                        <div class="mb-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scheme Pool</div>
+                        <HeadingEyebrow class="mb-1.5 text-center">Scheme Pool</HeadingEyebrow>
                         <div class="grid grid-cols-3 gap-2">
                             <button
                                 v-for="scheme in schemes"
@@ -3082,7 +3084,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <Card v-if="isObserver && GAME_SETUP_STATUSES.includes(game.status)" class="mb-6 border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5">
                 <CardContent class="p-4 text-center sm:p-6">
                     <Loader2 class="mx-auto mb-3 size-6 animate-spin text-muted-foreground" />
-                    <h2 class="mb-1 font-semibold">{{ observerSetupLabel }}</h2>
+                    <h2 class="mb-1 text-lg font-semibold">{{ observerSetupLabel }}</h2>
                     <p class="text-sm text-muted-foreground">
                         Players are setting up the game. The crew list will populate here once they begin play.
                     </p>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -210,7 +211,7 @@ const winRateColor = (rate: number) => {
             <!-- Achievement Badges -->
             <Card v-if="profile.badges.length" class="mb-6">
                 <CardContent class="p-4">
-                    <div class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Achievements</div>
+                    <HeadingEyebrow class="mb-3">Achievements</HeadingEyebrow>
                     <div class="flex flex-wrap gap-2">
                         <div
                             v-for="badge in profile.badges"

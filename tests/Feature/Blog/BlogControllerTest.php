@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\RoleEnum;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
+use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 it('index excludes news posts', function () {
     $newsCategory = BlogCategory::factory()->news()->create();
@@ -50,6 +53,24 @@ it('view renders a regular published article', function () {
     $this->get(route('blog.view', $post->slug))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Blog/View')->where('post.id', $post->id));
+});
+
+it('view marks the author as a supporter when they hold the role, and not otherwise', function () {
+    Role::firstOrCreate(['name' => RoleEnum::Supporter->value, 'guard_name' => 'web']);
+    $articleCategory = BlogCategory::factory()->create();
+
+    $supporterAuthor = User::factory()->create();
+    $supporterAuthor->assignRole(RoleEnum::Supporter->value);
+    $supporterPost = BlogPost::factory()->published()->create(['blog_category_id' => $articleCategory->id, 'user_id' => $supporterAuthor->id]);
+
+    $this->get(route('blog.view', $supporterPost->slug))
+        ->assertInertia(fn ($page) => $page->where('post.author.is_supporter', true));
+
+    $regularAuthor = User::factory()->create();
+    $regularPost = BlogPost::factory()->published()->create(['blog_category_id' => $articleCategory->id, 'user_id' => $regularAuthor->id]);
+
+    $this->get(route('blog.view', $regularPost->slug))
+        ->assertInertia(fn ($page) => $page->where('post.author.is_supporter', false));
 });
 
 it('view does not crash building the SEO description when a post has no excerpt', function () {

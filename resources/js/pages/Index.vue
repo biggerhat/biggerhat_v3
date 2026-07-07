@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import JsonLd from '@/components/JsonLd.vue';
 import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
@@ -74,7 +75,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-4 sm:pt-8 lg:pt-12">
                 <img src="/images/hat_side.webp" class="h-32 sm:h-40 md:h-48" alt="BiggerHat.net" fetchpriority="high" />
-                <h1 class="mt-4 text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+                <h1 class="mt-4 text-balance text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
                     Your Companion for Malifaux and The Other Side
                 </h1>
                 <p class="mt-2 max-w-2xl text-center text-sm text-muted-foreground sm:text-base">
@@ -114,7 +115,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
             <!-- ═══ Start Here: 3 Big CTA Cards ═══ -->
             <div class="animate-fade-in-up" style="animation-delay: 80ms">
                 <div class="mb-3 px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Start Here</h2>
+                    <HeadingEyebrow as="h2">Start Here</HeadingEyebrow>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <!-- Crew Builder -->
@@ -129,7 +130,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Swords class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold leading-tight group-hover:text-primary">Crew Builder</h3>
+                                <h3 class="text-base font-semibold leading-tight group-hover:text-primary">Crew Builder</h3>
                                 <p class="mt-1 text-xs text-muted-foreground">
                                     Build, save, and share crews. PDF export, soulstone tracking, and reference cards built in.
                                 </p>
@@ -154,7 +155,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Target class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                <h3 class="text-base font-semibold leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                                     Game Tracker
                                 </h3>
                                 <p class="mt-1 text-xs text-muted-foreground">
@@ -189,7 +190,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <BookMarked class="size-6" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                                <h3 class="text-base font-semibold leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400">
                                     Collection & Wishlist
                                 </h3>
                                 <p class="mt-1 text-xs text-muted-foreground">
@@ -249,15 +250,15 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                         </div>
                         <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center">
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cost</div>
+                                <HeadingEyebrow as="h4">Cost</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.cost ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Health</div>
+                                <HeadingEyebrow as="h4">Health</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.health ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Defense</div>
+                                <HeadingEyebrow as="h4">Defense</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.defense ?? '—' }}</div>
                             </div>
                         </div>
@@ -285,7 +286,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
             <!-- ═══ Community Activity ═══ -->
             <div class="animate-fade-in-up" style="animation-delay: 200ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">From the Community</h2>
+                    <HeadingEyebrow as="h2">From the Community</HeadingEyebrow>
                 </div>
                 <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                     <!-- Articles -->

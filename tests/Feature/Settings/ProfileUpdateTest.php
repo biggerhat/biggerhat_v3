@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\RoleEnum;
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -67,6 +69,33 @@ test('user can delete their account', function () {
 
     $this->assertGuest();
     expect($user->fresh())->toBeNull();
+});
+
+test('profile page exposes is_supporter and show_on_supporters_page for a supporter', function () {
+    Role::firstOrCreate(['name' => RoleEnum::Supporter->value, 'guard_name' => 'web']);
+    $user = User::factory()->create(['show_on_supporters_page' => false]);
+    $user->assignRole(RoleEnum::Supporter->value);
+
+    $this->actingAs($user)
+        ->get('/settings/profile')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('is_supporter', true)->where('show_on_supporters_page', false));
+});
+
+test('a supporter can opt in to the public supporters page', function () {
+    Role::firstOrCreate(['name' => RoleEnum::Supporter->value, 'guard_name' => 'web']);
+    $user = User::factory()->create(['show_on_supporters_page' => false]);
+    $user->assignRole(RoleEnum::Supporter->value);
+
+    $this->actingAs($user)
+        ->patch('/settings/profile', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'show_on_supporters_page' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($user->fresh()->show_on_supporters_page)->toBeTrue();
 });
 
 test('correct password must be provided to delete account', function () {

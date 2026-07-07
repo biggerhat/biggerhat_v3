@@ -4,6 +4,7 @@ import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
@@ -458,7 +459,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                         <section v-if="showUnits">
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Swords class="size-4 text-muted-foreground" aria-hidden="true" />
-                                <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Units</h2>
+                                <HeadingEyebrow as="h2">Units</HeadingEyebrow>
                                 <Badge variant="secondary" class="text-[10px]">{{ units.length }}</Badge>
                             </header>
                             <div v-if="filterParams.page_view === 'table' && units.length" class="overflow-auto rounded-md border">
@@ -557,7 +558,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                         <section v-if="showAssets">
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Package class="size-4 text-muted-foreground" aria-hidden="true" />
-                                <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Assets</h2>
+                                <HeadingEyebrow as="h2">Assets</HeadingEyebrow>
                                 <Badge variant="secondary" class="text-[10px]">{{ assets.length }}</Badge>
                             </header>
                             <div v-if="assets.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -604,7 +605,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                         <section v-if="showStratagems">
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
-                                <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Stratagems</h2>
+                                <HeadingEyebrow as="h2">Stratagems</HeadingEyebrow>
                                 <Badge variant="secondary" class="text-[10px]">{{ stratagems.length }}</Badge>
                             </header>
                             <div v-if="stratagems.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -648,7 +649,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                         <section v-if="showCards">
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
-                                <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Allegiance Cards</h2>
+                                <HeadingEyebrow as="h2">Allegiance Cards</HeadingEyebrow>
                                 <Badge variant="secondary" class="text-[10px]">{{ allegiance_cards.length }}</Badge>
                             </header>
                             <div v-if="allegiance_cards.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

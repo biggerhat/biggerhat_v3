@@ -3788,6 +3788,8 @@ namespace App\Models{
  * @property string|null $remember_token
  * @property string|null $collection_share_code
  * @property int $collection_is_public
+ * @property \Illuminate\Support\Carbon|null $supporter_since
+ * @property bool $show_on_supporters_page
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
@@ -3806,6 +3808,7 @@ namespace App\Models{
  * @property-read int|null $custom_characters_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Game> $games
  * @property-read int|null $games_count
+ * @property-read bool $is_supporter
  * @property-read \App\Models\Meta|null $meta
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
@@ -3837,7 +3840,9 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePassword($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRememberToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereShowOnSupportersPage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereSupporterSince($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutPermission($permissions)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutRole($roles, $guard = null)

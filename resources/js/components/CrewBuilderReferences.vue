@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GameText from '@/components/GameText.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -175,7 +176,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
         <template v-if="!compact">
             <Separator class="mb-3" />
             <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">References</span>
+                <HeadingEyebrow>References</HeadingEyebrow>
                 <Loader2 v-if="loading" class="size-3.5 animate-spin text-muted-foreground" />
             </div>
         </template>

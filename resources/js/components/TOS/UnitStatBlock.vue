@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
+
 interface Side {
     side: string;
     speed: number;
@@ -24,9 +26,7 @@ withDefaults(
             active ? 'border-primary bg-card shadow-sm ring-1 ring-primary/40' : 'border-dashed bg-muted/40 opacity-60',
         ]"
     >
-        <p v-if="label" :class="['mb-2 text-[10px] font-semibold uppercase tracking-wider', active ? 'text-foreground' : 'text-muted-foreground']">
-            {{ label }}
-        </p>
+        <HeadingEyebrow v-if="label" as="h4" :class="['mb-2', active ? 'text-foreground' : '']"> {{ label }} </HeadingEyebrow>
         <div class="grid grid-cols-4 gap-2 text-center text-xs">
             <div>
                 <p class="text-[10px] uppercase text-muted-foreground">Sp</p>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import SupporterBadge from '@/components/SupporterBadge.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/composables/useInitials';
-import type { User } from '@/types';
+import type { SharedData, User } from '@/types';
+import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 interface Props {
@@ -17,6 +19,9 @@ const { getInitials } = useInitials();
 
 // Compute whether we should show the avatar image
 const showAvatar = computed(() => props.user.avatar && props.user.avatar !== '');
+
+// This component always renders the current authenticated user (NavUser/UserMenuContent).
+const isSupporter = computed(() => usePage<SharedData>().props.auth.is_supporter);
 </script>
 
 <template>
@@ -28,7 +33,10 @@ const showAvatar = computed(() => props.user.avatar && props.user.avatar !== '')
     </Avatar>
 
     <div class="grid flex-1 text-left text-sm leading-tight">
-        <span class="truncate font-medium">{{ user.name }}</span>
+        <span class="flex items-center gap-1.5 truncate font-medium">
+            <span class="truncate">{{ user.name }}</span>
+            <SupporterBadge v-if="isSupporter" />
+        </span>
         <span v-if="showEmail" class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
     </div>
 </template>

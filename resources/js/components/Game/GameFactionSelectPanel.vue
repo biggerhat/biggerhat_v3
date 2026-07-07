@@ -35,7 +35,7 @@ defineEmits<{
             <!-- Solo: two-phase faction select -->
             <template v-if="isSolo">
                 <template v-if="!factionStepDone">
-                    <h2 class="mb-1 font-semibold">Select Your Faction</h2>
+                    <h2 class="mb-1 text-lg font-semibold">Select Your Faction</h2>
                     <p class="mb-4 text-xs text-muted-foreground">Choose the faction you'll play this game.</p>
                     <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
                         <button
@@ -61,7 +61,7 @@ defineEmits<{
                         <FactionLogo :faction="myFaction!" class-name="size-6" />
                         <Check class="size-4 text-green-500" />
                     </div>
-                    <h2 class="mb-1 font-semibold">
+                    <h2 class="mb-1 text-lg font-semibold">
                         Select Opponent's Faction
                         <Badge variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Opponent</Badge>
                     </h2>
@@ -89,7 +89,7 @@ defineEmits<{
 
             <!-- Normal 2-player faction select -->
             <template v-else>
-                <h2 class="mb-1 font-semibold">Select Your Faction</h2>
+                <h2 class="mb-1 text-lg font-semibold">Select Your Faction</h2>
                 <p v-if="factionStepDone" class="mb-4 text-xs text-muted-foreground">
                     <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent...
                 </p>

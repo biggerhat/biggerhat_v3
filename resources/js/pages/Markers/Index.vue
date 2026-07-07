@@ -5,6 +5,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { valueUpdater } from '@/lib/utils';
 import { Head } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
@@ -151,7 +152,7 @@ const { delays } = useStaggeredEntry(filteredCount);
                         <Card
                             v-for="(marker, index) in filteredMarkers"
                             :key="marker.name"
-                            class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                            :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                             :style="delays[index]"
                         >
                             <CardHeader class="pb-2">

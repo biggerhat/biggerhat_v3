@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 
 const props = defineProps<{
     lores: any;
@@ -231,7 +232,7 @@ const { delays } = useStaggeredEntry(loreCount);
                                     v-for="(lore, index) in props.lores.data"
                                     :key="lore.id"
                                     :lore="lore"
-                                    class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                                    :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                                     :style="delays[index]"
                                 />
                             </div>

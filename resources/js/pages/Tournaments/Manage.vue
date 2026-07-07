@@ -1987,7 +1987,7 @@ const titlesForMaster = (masterName: string | null) => {
                             <!-- Event Info -->
                             <section class="space-y-3">
                                 <header>
-                                    <h3 class="font-semibold">Event Info</h3>
+                                    <h3 class="text-sm font-semibold">Event Info</h3>
                                     <p class="text-xs text-muted-foreground">The basics — what, when, where.</p>
                                 </header>
                                 <div class="space-y-1">
@@ -2013,7 +2013,7 @@ const titlesForMaster = (masterName: string | null) => {
                             <!-- Format -->
                             <section class="space-y-3 border-t pt-5">
                                 <header>
-                                    <h3 class="font-semibold">Format</h3>
+                                    <h3 class="text-sm font-semibold">Format</h3>
                                     <p class="text-xs text-muted-foreground">Game size, rounds, and encounter type.</p>
                                 </header>
                                 <div class="grid gap-3 sm:grid-cols-3">
@@ -2125,7 +2125,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <Card v-else>
                         <CardContent class="space-y-4 p-4">
                             <div class="flex items-center justify-between">
-                                <h3 class="font-semibold">Tournament Details</h3>
+                                <h3 class="text-sm font-semibold">Tournament Details</h3>
                                 <Button v-if="isEditable" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="openSettingsEdit">
                                     Edit
                                 </Button>
@@ -2175,7 +2175,7 @@ const titlesForMaster = (masterName: string | null) => {
 
                             <div class="border-t pt-4">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <h3 class="font-semibold">Organizers</h3>
+                                    <h3 class="text-sm font-semibold">Organizers</h3>
                                     <Button v-if="isCreator" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="openAddOrganizerDialog">
                                         <Plus class="size-3" /> Add TO
                                     </Button>

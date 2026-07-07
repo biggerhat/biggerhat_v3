@@ -11,6 +11,7 @@ import TosText from '@/components/TosText.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator } from '@/types/tos';
 import { Head } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
@@ -104,11 +105,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
             </div>
 
             <div v-else-if="triggers.data.length" class="grid gap-3 sm:grid-cols-2">
-                <Card
-                    v-for="t in triggers.data"
-                    :key="t.id"
-                    class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                >
+                <Card v-for="t in triggers.data" :key="t.id" :class="['h-full', CARD_HOVER]">
                     <CardContent class="p-4 text-sm">
                         <div class="mb-1 flex items-center justify-between gap-2">
                             <span class="font-semibold">{{ t.name }}</span>

@@ -27,6 +27,7 @@ withDefaults(defineProps<Props>(), {
                         Join Our Discord
                     </a>
                     <a href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline"> Donate on Ko-fi </a>
+                    <Link :href="route('supporters.index')" class="inline-flex items-center gap-1 hover:underline">Our Supporters</Link>
                     <Link :href="route('feedback.show')" class="inline-flex items-center gap-1 hover:underline">Feedback</Link>
                     <Link :href="route('privacy')" class="inline-flex items-center gap-1 hover:underline">Privacy</Link>
                 </div>

@@ -68,6 +68,7 @@ class HandleInertiaRequests extends Middleware
                 'can_access_admin' => $this->canAccessAdmin($request),
                 'can_view_tos' => (bool) $request->user()?->can('view_tos'),
                 'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
+                'is_supporter' => (bool) $request->user()?->isSupporter(),
                 'impersonating' => $request->user() && app('impersonate')->isImpersonating()
                     ? [
                         'as' => ['id' => $request->user()->id, 'name' => $request->user()->name],

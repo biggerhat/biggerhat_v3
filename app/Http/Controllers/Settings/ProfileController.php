@@ -25,6 +25,8 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'meta' => $request->user()?->meta?->only(['id', 'name', 'slug']),
+            'is_supporter' => (bool) $request->user()?->isSupporter(),
+            'show_on_supporters_page' => (bool) $request->user()?->show_on_supporters_page,
         ]);
     }
 

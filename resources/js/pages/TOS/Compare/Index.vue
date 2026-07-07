@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
 import FlipCard from '@/components/TOS/FlipCard.vue';
@@ -206,7 +207,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                         </div>
 
                         <div v-if="standardSide(u)?.abilities.length || glorySide(u)?.abilities.length">
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                            <HeadingEyebrow class="mb-1">Abilities</HeadingEyebrow>
                             <ul class="space-y-1 text-[11px]">
                                 <li v-for="a in standardSide(u)?.abilities ?? []" :key="`s-${a.id}`">
                                     <span class="font-medium">{{ a.name }}</span>
@@ -221,7 +222,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                         </div>
 
                         <div v-if="standardSide(u)?.actions.length || glorySide(u)?.actions.length">
-                            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                            <HeadingEyebrow class="mb-1">Actions</HeadingEyebrow>
                             <ul class="space-y-1 text-[11px]">
                                 <li
                                     v-for="ac in standardSide(u)?.actions ?? []"

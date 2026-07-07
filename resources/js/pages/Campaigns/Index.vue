@@ -3,6 +3,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { CARD_HOVER, CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link } from '@inertiajs/vue3';
 import { Calendar, Plus, Scroll, Sparkles, Trophy, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -91,7 +92,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in activeCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
-                    <Card class="overflow-hidden transition hover:border-primary hover:shadow-lg">
+                    <Card :class="['overflow-hidden', CARD_HOVER]">
                         <div class="h-1.5 bg-muted">
                             <div class="h-full bg-primary transition-all" :style="{ width: progressPct(c) + '%' }" />
                         </div>
@@ -124,7 +125,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in planningCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
-                    <Card class="transition hover:border-primary hover:shadow-md">
+                    <Card :class="CARD_HOVER">
                         <CardContent class="space-y-2 p-5">
                             <div class="flex items-start justify-between gap-2">
                                 <h3 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight">{{ c.name }}</h3>
@@ -150,7 +151,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in endedCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
-                    <Card class="transition hover:border-primary">
+                    <Card :class="CARD_HOVER_QUIET">
                         <CardContent class="space-y-1 p-4 text-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <span class="truncate font-medium">{{ c.name }}</span>

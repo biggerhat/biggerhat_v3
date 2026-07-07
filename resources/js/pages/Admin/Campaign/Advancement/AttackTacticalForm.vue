@@ -21,6 +21,7 @@ interface AdvancementRow {
     modifier_type: string;
     suit: string | null;
     skl_from: number | null;
+    skl_from_max: number | null;
     skl_to: number | null;
     trigger_id: number | null;
 }
@@ -43,6 +44,7 @@ const form = ref({
     modifier_type: 'trigger' as string,
     suit: null as string | null,
     skl_from: null as number | null,
+    skl_from_max: null as number | null,
     skl_to: null as number | null,
     trigger_id: null as number | null,
 });
@@ -124,10 +126,22 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <fieldset v-if="form.modifier_type === 'skl_boost'" class="grid gap-3 rounded-md border p-3 md:grid-cols-2">
+                <fieldset v-if="form.modifier_type === 'skl_boost'" class="grid gap-3 rounded-md border p-3 md:grid-cols-3">
                     <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Skl Boost</legend>
-                    <div><Label>From</Label><Input type="number" v-model.number="form.skl_from" /></div>
+                    <div>
+                        <Label>From (min)</Label>
+                        <Input type="number" v-model.number="form.skl_from" />
+                    </div>
+                    <div>
+                        <Label>From (max, optional)</Label>
+                        <Input type="number" v-model.number="form.skl_from_max" placeholder="Same as min" />
+                        <InputError :message="usePage().props.errors.skl_from_max" />
+                    </div>
                     <div><Label>To</Label><Input type="number" v-model.number="form.skl_to" /></div>
+                    <p class="col-span-full text-[10px] text-muted-foreground">
+                        Leave "max" blank for a single required Skl (e.g. "Skl of 4"). Set it for a qualifying range (e.g. "Skl of 0 or 1" is min 0,
+                        max 1).
+                    </p>
                 </fieldset>
 
                 <div class="grid gap-2 sm:grid-cols-3">
@@ -144,6 +158,10 @@ onMounted(() => {
                         <span>Red Joker entry</span>
                     </label>
                 </div>
+                <p class="text-[10px] text-muted-foreground">
+                    Check <strong>one</strong> color for a card-specific entry (e.g. Tactical Mod's Red/Black-specific triggers). Check
+                    <strong>both</strong> for an Any-Joker entry — either color qualifies (e.g. Attack Mod's Cruel Lessons/Consult the Bones).
+                </p>
             </CardContent>
             <CardFooter class="justify-end gap-2">
                 <Button variant="outline" @click="router.get(route(`${route_prefix}.index`))">Cancel</Button>

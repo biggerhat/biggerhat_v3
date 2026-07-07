@@ -2,6 +2,7 @@
 
 namespace App\Support\Campaign;
 
+use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Ability;
@@ -13,6 +14,8 @@ use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Campaign\CampaignEquipment;
+use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
@@ -56,6 +59,83 @@ class AftermathCatalog
                 'body' => $u->description,
             ])
             ->all();
+    }
+
+    /**
+     * The crew's active, owned Equipment — each with the actions it grants
+     * (from the shared Action catalog via its Upgrade record) so an
+     * Attack/Tactical Mod advancement (pg 38-43) can target one of them.
+     * `locked`/`applied_effects` surface any advancement already attached —
+     * equipment has no per-instance actions[] to mutate, so those records
+     * are the sole source of truth, overlaid here for display (pg 31: once
+     * targeted, the leader must keep that equipment going forward).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function ownedEquipment(CampaignCrew $crew, ?CustomCharacter $leader): array
+    {
+        $advancementInfo = self::equipmentAdvancementInfo($leader?->id);
+
+        return CampaignEquipment::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->with(['catalog:id,name,campaign_cc,campaign_br,description', 'catalog.actions:id,name,type,stat'])
+            ->orderBy('id')
+            ->get()
+            ->map(function (CampaignEquipment $e) use ($advancementInfo) {
+                $info = $advancementInfo[$e->id] ?? null;
+
+                return [
+                    'id' => $e->id,
+                    'source' => $e->source,
+                    'name' => $e->catalog->name,
+                    'cc' => $e->catalog->campaign_cc,
+                    'br' => $e->catalog->campaign_br,
+                    'description' => $e->catalog->description,
+                    'actions' => $e->catalog->actions->map(fn (Action $a) => [
+                        'id' => $a->id,
+                        'name' => $a->name,
+                        'category' => $a->type instanceof \BackedEnum ? $a->type->value : $a->type,
+                        'stat' => $a->stat,
+                    ])->all(),
+                    'locked' => $info !== null,
+                    'applied_effects' => $info['applied_effects'] ?? [],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{applied_effects: array<int, string>}>
+     */
+    private static function equipmentAdvancementInfo(?int $leaderId): array
+    {
+        if ($leaderId === null) {
+            return [];
+        }
+
+        $rows = CampaignLeaderAdvancement::query()
+            ->where('custom_character_id', $leaderId)
+            ->whereNotNull('from_equipment_id')
+            ->whereIn('source_table', [AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod])
+            ->with('appliedToAction:id,name')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $catalogRow = $row->source_table === AdvancementTableEnum::AttackMod
+                ? AdvancementAttackMod::query()->with('trigger:id,name')->find($row->advancement_catalog_id)
+                : AdvancementTacticalMod::query()->with('trigger:id,name')->find($row->advancement_catalog_id);
+            $effectName = 'Advancement';
+            if ($catalogRow) {
+                $effectName = $catalogRow->trigger ? $catalogRow->trigger->name : $catalogRow->name;
+            }
+            $actionName = $row->appliedToAction?->name;
+
+            $result[$row->from_equipment_id]['applied_effects'][] = $actionName ? "{$effectName} — {$actionName}" : $effectName;
+        }
+
+        return $result;
     }
 
     /**
@@ -319,7 +399,11 @@ class AftermathCatalog
 
     /**
      * Attack/tactical-mod catalog (pg 38-43) — identical shape between the
-     * two tables, so one query shape covers both models.
+     * two tables, so one query shape covers both models. `is_black_joker` /
+     * `is_red_joker` both true on a row means "Any Joker" (Attack Mod's
+     * Cruel Lessons / Consult the Bones — either color qualifies); exactly
+     * one true means that specific card only (Tactical Mod's Illumination
+     * of Illios / Darkness of Delios grant different triggers per color).
      *
      * @param  class-string<AdvancementAttackMod>|class-string<AdvancementTacticalMod>  $modelClass
      * @return array<int, array<string, mixed>>
@@ -346,7 +430,12 @@ class AftermathCatalog
                     'stone_cost' => $source->stone_cost ?? 0,
                     'flip_value' => $row->flip_value,
                     'is_always_available' => (bool) $row->is_always_available,
+                    'is_black_joker' => (bool) $row->is_black_joker,
+                    'is_red_joker' => (bool) $row->is_red_joker,
                     'modifier_type' => $row->modifier_type,
+                    'skl_from' => $row->skl_from,
+                    'skl_from_max' => $row->skl_from_max,
+                    'skl_to' => $row->skl_to,
                 ];
             })
             ->all();

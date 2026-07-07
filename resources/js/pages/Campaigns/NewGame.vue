@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -89,14 +91,14 @@ const submit = () => {
         <Card class="mb-4">
             <CardHeader><CardTitle>Pick Opponent</CardTitle></CardHeader>
             <CardContent>
-                <p v-if="opponents.length === 0" class="text-sm text-muted-foreground">No other crews in this campaign yet — invite more players.</p>
+                <EmptyState v-if="opponents.length === 0" compact title="No other crews yet" description="Invite more players to this campaign." />
                 <ul v-else class="space-y-2">
                     <li v-for="o in opponents" :key="o.id">
                         <button
                             type="button"
                             @click="selectedOpponent = o"
-                            class="w-full rounded-md border p-3 text-left transition hover:border-primary"
-                            :class="selectedOpponent?.id === o.id ? 'border-primary bg-primary/10' : ''"
+                            class="w-full rounded-md border p-3 text-left"
+                            :class="selectedOpponent?.id === o.id ? 'border-primary bg-primary/10' : CARD_HOVER_QUIET"
                         >
                             <div class="flex items-center justify-between">
                                 <div>

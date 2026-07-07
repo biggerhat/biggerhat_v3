@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Badge } from '@/components/ui/badge';
@@ -122,12 +123,7 @@ onMounted(() => {
                 <div>
                     <Label>Linked Actions</Label>
                     <div class="mt-1 space-y-1">
-                        <div
-                            v-if="selectedActions.length === 0"
-                            class="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground"
-                        >
-                            No actions linked yet.
-                        </div>
+                        <EmptyState v-if="selectedActions.length === 0" compact title="No actions linked yet" description="" />
                         <div
                             v-for="(action, idx) in selectedActions"
                             :key="action.id + '-' + idx"

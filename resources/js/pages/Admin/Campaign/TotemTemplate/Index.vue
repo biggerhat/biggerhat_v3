@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -62,7 +63,9 @@ defineProps<{ items: TotemRow[] }>();
                         </TableRow>
                     </template>
                     <TableRow v-else>
-                        <TableCell colspan="5" class="h-24 text-center text-sm text-muted-foreground">No totem templates yet.</TableCell>
+                        <TableCell :colspan="5">
+                            <EmptyState compact title="No totem templates yet" description="Use Create to seed from the rulebook." />
+                        </TableCell>
                     </TableRow>
                 </TableBody>
             </Table>

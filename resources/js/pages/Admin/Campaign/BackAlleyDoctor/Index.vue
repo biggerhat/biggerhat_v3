@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -63,7 +64,9 @@ const rangeLabel = (r: DoctorRow): string => {
                         </TableRow>
                     </template>
                     <TableRow v-else>
-                        <TableCell colspan="4" class="h-24 text-center text-sm text-muted-foreground">No rows yet.</TableCell>
+                        <TableCell :colspan="4">
+                            <EmptyState compact title="No rows yet" description="Use Create to seed from the rulebook." />
+                        </TableCell>
                     </TableRow>
                 </TableBody>
             </Table>

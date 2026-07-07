@@ -37,8 +37,20 @@ class StoreLeaderAdvancementRequest extends FormRequest
             'source_table' => ['required', 'string', Rule::enum(AdvancementTableEnum::class)],
             'catalog_id' => ['nullable', 'integer'],
             'applied_to_action_index' => ['nullable', 'integer'],
+            // Attack/Tactical Mod target (pg 31, 38-43): defaults to the Leader.
+            // Set applied_to_custom_character_id to route to the crew's Totem
+            // instead (ownership verified server-side); set from_equipment_id +
+            // applied_to_action_id to target an action a piece of owned
+            // Equipment grants instead — mutually exclusive with the totem case.
+            'applied_to_custom_character_id' => ['nullable', 'integer', 'exists:custom_characters,id'],
             'from_equipment_id' => ['nullable', 'integer', 'exists:campaign_equipment,id'],
+            'applied_to_action_id' => ['nullable', 'integer', 'exists:actions,id'],
             'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            // Which Joker the player flipped for an Attack/Tactical Mod Joker-gated
+            // row (pg 38-43) — Attack Mod's rows accept either color ("Any Joker");
+            // Tactical Mod's are color-specific. Verified against the catalog row
+            // server-side, not trusted on its own.
+            'joker_color' => ['nullable', 'string', 'in:red,black'],
             // Any Joker (Action/Ability tables, pg 49/51): the free pick from an
             // eligible ally, resolved via the same search the Leader Builder uses.
             'free_choice' => ['nullable', 'array'],

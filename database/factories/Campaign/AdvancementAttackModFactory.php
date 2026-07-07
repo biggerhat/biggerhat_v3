@@ -24,6 +24,7 @@ class AdvancementAttackModFactory extends Factory
             'effect_text' => $this->faker->sentence(),
             'suit' => 'ram',
             'skl_from' => null,
+            'skl_from_max' => null,
             'skl_to' => null,
             'trigger_id' => null,
         ];
@@ -37,12 +38,14 @@ class AdvancementAttackModFactory extends Factory
         ]);
     }
 
-    public function sklBoost(int $from, int $to): static
+    /** $fromMax null means an exact-value requirement (skl_from only). */
+    public function sklBoost(int $from, int $to, ?int $fromMax = null): static
     {
         return $this->state(fn () => [
             'modifier_type' => 'skl_boost',
             'suit' => null,
             'skl_from' => $from,
+            'skl_from_max' => $fromMax,
             'skl_to' => $to,
         ]);
     }
@@ -51,6 +54,17 @@ class AdvancementAttackModFactory extends Factory
     {
         return $this->state(fn () => [
             'modifier_type' => 'signature',
+            'suit' => null,
+        ]);
+    }
+
+    /** "Any Joker" row (pg 40) — either color qualifies, both flags true. */
+    public function anyJoker(): static
+    {
+        return $this->state(fn () => [
+            'flip_value' => null,
+            'is_black_joker' => true,
+            'is_red_joker' => true,
             'suit' => null,
         ]);
     }

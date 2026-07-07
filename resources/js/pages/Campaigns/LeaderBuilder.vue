@@ -412,13 +412,18 @@ const submit = async () => {
                     </div>
                     <div>
                         <Label>Free starter equipment (Lucky Upstart)</Label>
-                        <select
-                            v-model.number="form.lucky_upstart_equipment_id"
-                            class="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"
+                        <Select
+                            :model-value="form.lucky_upstart_equipment_id?.toString() ?? '__none__'"
+                            @update:model-value="(v) => (form.lucky_upstart_equipment_id = v === '__none__' ? null : Number(v))"
                         >
-                            <option :value="null">— pick equipment —</option>
-                            <option v-for="e in eligibleLuckyUpstartEquipment" :key="e.id" :value="e.id">{{ e.name }}</option>
-                        </select>
+                            <SelectTrigger class="h-9 w-full text-sm text-foreground">
+                                <SelectValue placeholder="— pick equipment —" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">— pick equipment —</SelectItem>
+                                <SelectItem v-for="e in eligibleLuckyUpstartEquipment" :key="e.id" :value="e.id.toString()">{{ e.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <p class="mt-1 text-[11px] text-muted-foreground">
                             Flip a card (may not be cheated) — take equipment whose BR matches exactly. Doesn't count toward Campaign Rating (pg 17).
                         </p>
@@ -539,15 +544,23 @@ const submit = async () => {
                             <!-- Heavy Hitter keeps one trigger — pick which when the source has several. -->
                             <div v-if="(a.available_triggers?.length ?? 0) > 1" class="flex items-center gap-2 text-[11px] text-muted-foreground">
                                 <span>Trigger:</span>
-                                <select
-                                    :value="a.triggers[0]?.source_id ?? ''"
-                                    @change="(e) => setKeptTrigger(idx, Number((e.target as HTMLSelectElement).value) || null)"
-                                    class="h-7 rounded border bg-background px-2 text-foreground"
+                                <Select
+                                    :model-value="a.triggers[0]?.source_id?.toString() ?? '__none__'"
+                                    @update:model-value="(v) => setKeptTrigger(idx, v === '__none__' ? null : Number(v))"
                                 >
-                                    <option v-for="t in a.available_triggers" :key="t.source_id ?? t.name" :value="t.source_id ?? ''">
-                                        {{ t.name }}
-                                    </option>
-                                </select>
+                                    <SelectTrigger class="h-7 w-auto gap-1 text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="t in a.available_triggers"
+                                            :key="t.source_id ?? t.name"
+                                            :value="t.source_id?.toString() ?? '__none__'"
+                                        >
+                                            {{ t.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <p v-else-if="a.triggers.length" class="text-[11px] text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
                             <InputError :message="(usePage().props.errors as Record<string, string>)[`actions.${idx}.source_character_id`]" />

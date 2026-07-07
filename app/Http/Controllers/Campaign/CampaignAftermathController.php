@@ -635,6 +635,10 @@ class CampaignAftermathController extends Controller
             'advancements.*.source_table' => ['required', 'string', Rule::enum(AdvancementTableEnum::class)],
             'advancements.*.catalog_id' => ['nullable', 'integer'],
             'advancements.*.applied_to_action_index' => ['nullable', 'integer'],
+            // Attack/Tactical Mod target (pg 31, 38-43) — see the sibling rule
+            // block in StoreLeaderAdvancementRequest for the full explanation.
+            'advancements.*.applied_to_custom_character_id' => ['nullable', 'integer', 'exists:custom_characters,id'],
+            'advancements.*.applied_to_action_id' => ['nullable', 'integer', 'exists:actions,id'],
             'advancements.*.position_in_xp_track' => ['required', 'integer', 'min:0', 'max:38'],
             // Any Joker (Action/Ability tables, pg 49/51): the free pick from
             // an eligible ally, resolved via the Leader Builder's search.
@@ -647,6 +651,9 @@ class CampaignAftermathController extends Controller
             // Optional: required for Totem source_table — server validates
             // the flip-value matches the chosen totem template exactly.
             'advancements.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
+            // Which Joker the player flipped for an Attack/Tactical Mod Joker-gated
+            // row (pg 38-43) — verified against the catalog row server-side.
+            'advancements.*.joker_color' => ['nullable', 'string', 'in:red,black'],
             'advancements.*.totem_name' => ['nullable', 'string', 'max:100'],
             'advancements.*.totem_size' => ['nullable', 'integer', 'min:1', 'max:50'],
             'advancements.*.totem_base' => ['nullable', 'string', 'max:10'],
@@ -1148,6 +1155,11 @@ class CampaignAftermathController extends Controller
             return null;
         }
 
+        // Attack/Tactical Mod advancement targets (pg 31, 38-43): the Totem
+        // shares the leader's own actions[] mechanism, Equipment doesn't (see
+        // AftermathCatalog::ownedEquipment).
+        $totem = $aftermath->crew->totem;
+
         return [
             'leader_id' => $leader->id,
             'leader_name' => $leader->name,
@@ -1157,7 +1169,19 @@ class CampaignAftermathController extends Controller
                 'index' => $i,
                 'name' => $a['name'] ?? '',
                 'category' => $a['category'] ?? $a['type'] ?? '',
+                'stat' => $a['stat'] ?? null,
             ])->all(),
+            'totem_id' => $totem?->id,
+            'totem_name' => $totem?->name,
+            'totem_actions' => $totem
+                ? collect($totem->actions ?? [])->values()->map(fn ($a, $i) => [
+                    'index' => $i,
+                    'name' => $a['name'] ?? '',
+                    'category' => $a['category'] ?? $a['type'] ?? '',
+                    'stat' => $a['stat'] ?? null,
+                ])->all()
+                : [],
+            'equipment' => AftermathCatalog::ownedEquipment($aftermath->crew, $leader),
         ];
     }
 

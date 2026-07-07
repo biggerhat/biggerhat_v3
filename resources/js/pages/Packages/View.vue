@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AddToWishlist from '@/components/AddToWishlist.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
+import { CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
@@ -261,7 +263,7 @@ const togglePackageCollection = () => {
 
                                 <!-- Factions -->
                                 <div v-if="package.factions.length > 1">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Factions</div>
+                                    <HeadingEyebrow class="mb-1.5">Factions</HeadingEyebrow>
                                     <div class="flex flex-wrap gap-2">
                                         <Badge v-for="faction in package.factions" :key="faction.value" variant="outline" class="gap-1.5">
                                             <FactionLogo :faction="faction.value" class-name="h-4 w-4" />
@@ -293,7 +295,7 @@ const togglePackageCollection = () => {
 
                                 <!-- Keywords -->
                                 <div v-if="package.keywords.length">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                                    <HeadingEyebrow class="mb-1.5">Keywords</HeadingEyebrow>
                                     <div class="flex flex-wrap gap-1.5">
                                         <Link v-for="keyword in package.keywords" :key="keyword.slug" :href="route('keywords.view', keyword.slug)">
                                             <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -305,7 +307,7 @@ const togglePackageCollection = () => {
 
                                 <!-- Store links -->
                                 <div v-if="package.store_links.length">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Buy</div>
+                                    <HeadingEyebrow class="mb-1.5">Buy</HeadingEyebrow>
                                     <div class="flex flex-col gap-2">
                                         <a
                                             v-for="link in package.store_links"
@@ -324,7 +326,7 @@ const togglePackageCollection = () => {
 
                                 <!-- Collection -->
                                 <div v-if="isAuthenticated" class="space-y-2">
-                                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Collection</div>
+                                    <HeadingEyebrow class="mb-1.5">Collection</HeadingEyebrow>
                                     <Button
                                         :variant="packageInCollection ? 'default' : 'outline'"
                                         class="w-full gap-2"
@@ -361,7 +363,7 @@ const togglePackageCollection = () => {
                             "
                             class="group"
                         >
-                            <Card class="h-full transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                            <Card :class="['h-full', CARD_HOVER_GROUP]">
                                 <CardContent class="flex items-center gap-2 p-3">
                                     <FactionLogo :faction="character.faction" class-name="h-5 w-5 shrink-0" />
                                     <span class="text-sm font-medium group-hover:text-primary">{{ character.display_name }}</span>
@@ -391,9 +393,7 @@ const togglePackageCollection = () => {
                         <Dialog v-for="bp in package.blueprints" :key="bp.id">
                             <DialogTrigger as-child>
                                 <button class="group cursor-pointer text-left">
-                                    <Card
-                                        class="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-lg"
-                                    >
+                                    <Card :class="['h-full overflow-hidden', CARD_HOVER_GROUP]">
                                         <div v-if="bp.image_path" class="border-b bg-muted/30">
                                             <img
                                                 :src="imageSrc(bp.image_path)"

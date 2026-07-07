@@ -233,7 +233,7 @@ const setCategoryFilter = (value: string) => {
                         </div>
 
                         <!-- Subject + body -->
-                        <h3 v-if="entry.subject" class="mb-1 font-semibold">{{ entry.subject }}</h3>
+                        <h3 v-if="entry.subject" class="mb-1 text-sm font-semibold">{{ entry.subject }}</h3>
                         <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ entry.message }}</p>
 
                         <!-- Attribution + context -->

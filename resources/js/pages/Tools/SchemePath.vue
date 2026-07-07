@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -192,7 +193,7 @@ onMounted(() => {
                         <Card>
                             <CardContent class="space-y-4 p-4">
                                 <div>
-                                    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Season</h3>
+                                    <HeadingEyebrow class="mb-2">Season</HeadingEyebrow>
                                     <nav class="flex flex-col gap-1">
                                         <button
                                             v-for="s in seasons"
@@ -207,7 +208,7 @@ onMounted(() => {
                                 </div>
 
                                 <div>
-                                    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Progress</h3>
+                                    <HeadingEyebrow class="mb-2">Progress</HeadingEyebrow>
                                     <div class="flex items-center gap-1">
                                         <div
                                             v-for="n in TURNS"

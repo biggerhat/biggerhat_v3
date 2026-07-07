@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -121,7 +122,7 @@ const { delays: schemeDelays } = useStaggeredEntry(schemeCount);
                     <div class="sticky top-6 hidden lg:block">
                         <Card>
                             <CardContent class="p-4">
-                                <h3 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seasons</h3>
+                                <HeadingEyebrow class="mb-3">Seasons</HeadingEyebrow>
                                 <nav class="flex flex-col gap-1">
                                     <Link
                                         v-for="s in seasons"

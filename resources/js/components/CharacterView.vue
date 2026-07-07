@@ -5,6 +5,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -337,7 +338,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Characteristics -->
                         <div v-if="character.characteristics?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characteristics</div>
+                            <HeadingEyebrow class="mb-1.5">Characteristics</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge v-for="char in character.characteristics" :key="char.id" variant="secondary">{{ char.name }}</Badge>
                             </div>
@@ -345,7 +346,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Keywords -->
                         <div v-if="character.keywords?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</div>
+                            <HeadingEyebrow class="mb-1.5">Keywords</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Link v-for="keyword in character.keywords" :key="keyword.id" :href="route('keywords.view', keyword.slug)">
                                     <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">{{ keyword.name }}</Badge>
@@ -355,7 +356,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Tokens -->
                         <div v-if="character.tokens?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tokens</div>
+                            <HeadingEyebrow class="mb-1.5">Tokens</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge
                                     v-for="token in character.tokens"
@@ -371,7 +372,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Markers -->
                         <div v-if="character.markers?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Markers</div>
+                            <HeadingEyebrow class="mb-1.5">Markers</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge
                                     v-for="marker in character.markers"
@@ -389,7 +390,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Crew Cards -->
                         <div v-if="character.crew_upgrades?.length">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Crew Cards</div>
+                            <HeadingEyebrow class="mb-1.5">Crew Cards</HeadingEyebrow>
                             <div class="flex flex-wrap gap-1.5">
                                 <Badge
                                     v-for="upgrade in character.crew_upgrades"
@@ -406,7 +407,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Totem -->
                         <div v-if="character.totem">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Totem</div>
+                            <HeadingEyebrow class="mb-1.5">Totem</HeadingEyebrow>
                             <Link
                                 :href="
                                     route('characters.view', {
@@ -424,7 +425,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
                         <!-- Totem For -->
                         <div v-if="character.is_totem_for">
-                            <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Totem For</div>
+                            <HeadingEyebrow class="mb-1.5">Totem For</HeadingEyebrow>
                             <Link
                                 :href="
                                     route('characters.view', {
@@ -445,7 +446,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Sculpt selector -->
                 <Card v-if="sortedMiniatures.length > 1">
                     <CardContent class="space-y-2 p-4">
-                        <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sculpt</div>
+                        <HeadingEyebrow>Sculpt</HeadingEyebrow>
                         <Select :model-value="String(miniature.id)" @update:model-value="navigateToSculpt">
                             <SelectTrigger class="w-full">
                                 <SelectValue />
@@ -462,7 +463,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Upgrades -->
                 <Card v-if="character.character_upgrades?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upgrades</CardTitle>
+                        <HeadingEyebrow>Upgrades</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <button
@@ -622,7 +623,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Packages -->
                 <Card v-if="character.packages?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Packages</CardTitle>
+                        <HeadingEyebrow>Packages</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <Link
@@ -641,7 +642,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Lore -->
                 <Card v-if="character.lores?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lore</CardTitle>
+                        <HeadingEyebrow>Lore</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <Link
@@ -667,7 +668,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Build Instructions -->
                 <Card v-if="character.blueprints?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Build Instructions</CardTitle>
+                        <HeadingEyebrow>Build Instructions</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <Dialog v-for="bp in character.blueprints" :key="bp.id">
@@ -702,7 +703,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Transmissions -->
                 <Card v-if="character.transmissions?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Across the Aethervox</CardTitle>
+                        <HeadingEyebrow>Across the Aethervox</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <a
@@ -736,7 +737,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Articles -->
                 <Card v-if="character.blog_posts?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Articles</CardTitle>
+                        <HeadingEyebrow>Articles</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <Link
@@ -768,7 +769,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                 <!-- Print On Demand -->
                 <Card v-if="miniature.pod_links?.length">
                     <CardHeader class="pb-3">
-                        <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Print On Demand</CardTitle>
+                        <HeadingEyebrow>Print On Demand</HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <a

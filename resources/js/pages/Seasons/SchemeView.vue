@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
@@ -62,22 +63,22 @@ defineProps<{
                             </CardHeader>
                             <CardContent class="space-y-6">
                                 <div v-if="scheme.prerequisite">
-                                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prerequisite</h3>
+                                    <HeadingEyebrow class="mb-1">Prerequisite</HeadingEyebrow>
                                     <p class="whitespace-pre-line text-sm">{{ scheme.prerequisite }}</p>
                                 </div>
 
                                 <div v-if="scheme.reveal">
-                                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reveal</h3>
+                                    <HeadingEyebrow class="mb-1">Reveal</HeadingEyebrow>
                                     <p class="whitespace-pre-line text-sm">{{ scheme.reveal }}</p>
                                 </div>
 
                                 <div v-if="scheme.scoring">
-                                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scoring</h3>
+                                    <HeadingEyebrow class="mb-1">Scoring</HeadingEyebrow>
                                     <p class="whitespace-pre-line text-sm">{{ scheme.scoring }}</p>
                                 </div>
 
                                 <div v-if="scheme.additional">
-                                    <h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Additional VP</h3>
+                                    <HeadingEyebrow class="mb-1">Additional VP</HeadingEyebrow>
                                     <p class="whitespace-pre-line text-sm">{{ scheme.additional }}</p>
                                 </div>
                             </CardContent>
@@ -86,7 +87,7 @@ defineProps<{
                         <!-- Next Available Schemes -->
                         <Card v-if="scheme.next_schemes.length" class="mt-3 lg:mt-4">
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Next Schemes</CardTitle>
+                                <HeadingEyebrow>Next Schemes</HeadingEyebrow>
                             </CardHeader>
                             <CardContent class="px-0 pb-2">
                                 <Link

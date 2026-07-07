@@ -20,7 +20,7 @@ defineProps<{ items: LuckyMissRow[] }>();
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Lucky Miss</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Lucky Miss</h1>
                 <p class="text-sm text-muted-foreground">Pg 36. Positive upgrades flipped on red-joker injuries.</p>
             </div>
             <Button @click="router.get(route('admin.campaign.lucky-miss.create'))">Create</Button>

@@ -5,6 +5,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
+import { CARD_HOVER_GROUP_PROMINENT } from '@/lib/cardHover';
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, Crown, Plus, Users } from 'lucide-vue-next';
 
@@ -75,9 +76,7 @@ function relativeTime(iso: string): string {
                     :href="route('tos.companies.view', c.slug)"
                     class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card
-                        class="h-full overflow-hidden transition-all duration-200 ease-out group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"
-                    >
+                    <Card :class="['h-full overflow-hidden', CARD_HOVER_GROUP_PROMINENT]">
                         <div :class="['h-1 w-full', c.allegiance.color_slug ? `bg-${c.allegiance.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
                             <div class="flex items-start gap-3">

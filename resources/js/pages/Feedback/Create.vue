@@ -66,7 +66,7 @@ const charLimit = 5000;
                                 <MessageSquareText class="size-5" />
                             </div>
                             <div>
-                                <h2 class="font-semibold">Tell us what's up</h2>
+                                <h2 class="text-lg font-semibold">Tell us what's up</h2>
                                 <p class="text-sm text-muted-foreground">We'll read every one. Reply only if we need more info.</p>
                             </div>
                         </header>

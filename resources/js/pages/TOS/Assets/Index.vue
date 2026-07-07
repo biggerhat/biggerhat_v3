@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator } from '@/types/tos';
 import { Head, Link } from '@inertiajs/vue3';
 import { Package } from 'lucide-vue-next';
@@ -122,9 +123,7 @@ const limitLabel = (l: Limit): string => {
                     :href="route('tos.assets.view', a.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card
-                        class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10"
-                    >
+                    <Card :class="['h-full overflow-hidden', CARD_HOVER]">
                         <CardImage
                             :src="a.image_path"
                             :alt="a.name"

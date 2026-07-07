@@ -18,7 +18,7 @@ const props = defineProps<Props>();
                 <div class="flex w-full py-2 md:py-4">
                     <slot name="logo" />
                     <div class="flex w-full justify-between md:block" id="page-banner">
-                        <div class="my-auto p-2 text-xl font-bold">{{ title }}</div>
+                        <h1 class="my-auto text-balance p-2 text-lg font-bold tracking-tight sm:text-xl md:text-2xl">{{ title }}</h1>
                         <slot name="subtitle" />
                     </div>
                 </div>

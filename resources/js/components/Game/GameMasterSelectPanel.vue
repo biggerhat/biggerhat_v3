@@ -119,7 +119,7 @@ const confirmOpponentMasterSelection = () => {
 <template>
     <Card class="mb-6" :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''">
         <CardContent class="p-4 sm:p-6">
-            <h2 class="mb-1 font-semibold">
+            <h2 class="mb-1 text-lg font-semibold">
                 <template v-if="isBonanza">
                     {{ isSolo && masterStepDone ? "Select Opponent's Model" : 'Select Your Model' }}
                 </template>

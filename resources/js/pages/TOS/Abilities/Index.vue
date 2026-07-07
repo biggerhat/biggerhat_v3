@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator } from '@/types/tos';
 import { Head } from '@inertiajs/vue3';
 import { Shield } from 'lucide-vue-next';
@@ -108,11 +109,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
 
             <!-- Card view -->
             <div v-else-if="abilities.data.length" class="grid gap-3 sm:grid-cols-2">
-                <Card
-                    v-for="a in abilities.data"
-                    :key="a.id"
-                    class="h-full transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                >
+                <Card v-for="a in abilities.data" :key="a.id" :class="['h-full', CARD_HOVER]">
                     <CardContent class="p-4">
                         <div class="mb-1.5 flex items-center justify-between gap-2">
                             <span class="text-sm font-semibold">{{ a.name }}</span>

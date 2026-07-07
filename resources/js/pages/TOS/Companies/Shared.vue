@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import CompanyRosterPane from '@/components/TOS/CompanyRosterPane.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -214,7 +215,7 @@ const noop = () => {};
 
             <Card v-if="company.notes">
                 <CardContent class="p-4">
-                    <h2 class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</h2>
+                    <HeadingEyebrow as="h2" class="mb-2">Notes</HeadingEyebrow>
                     <p class="whitespace-pre-wrap text-sm">{{ company.notes }}</p>
                 </CardContent>
             </Card>

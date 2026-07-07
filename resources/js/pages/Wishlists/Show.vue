@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -348,7 +349,7 @@ function miniatureHref(mini: MiniatureItem): string {
             <!-- Add items section -->
             <Card v-if="is_owner" class="mb-6">
                 <CardHeader class="pb-3">
-                    <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Add Items</CardTitle>
+                    <HeadingEyebrow>Add Items</HeadingEyebrow>
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <!-- Add by keyword -->

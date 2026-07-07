@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Head } from '@inertiajs/vue3';
 import { BookOpen, Bot, ExternalLink, MessageSquare, Search, Swords, Zap } from 'lucide-vue-next';
 
@@ -203,10 +204,10 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
             <div class="space-y-4">
                 <Card v-for="category in categories" :key="category.title">
                     <CardHeader class="pb-2">
-                        <CardTitle class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                        <HeadingEyebrow class="flex items-center gap-2">
                             <component :is="category.icon" class="size-4" />
                             {{ category.title }}
-                        </CardTitle>
+                        </HeadingEyebrow>
                     </CardHeader>
                     <CardContent class="px-0 pb-2">
                         <div v-for="cmd in category.commands" :key="cmd.name" class="border-t px-4 py-3 sm:px-6">

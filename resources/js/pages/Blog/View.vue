@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import BlogContent from '@/components/blog/BlogContent.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import JsonLd from '@/components/JsonLd.vue';
 import SeoHead from '@/components/SeoHead.vue';
+import SupporterBadge from '@/components/SupporterBadge.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -19,7 +21,7 @@ interface BlogPost {
     featured_image: string | null;
     status: string;
     published_at: string | null;
-    author: { name: string };
+    author: { name: string; is_supporter?: boolean };
     category: { name: string; slug: string } | null;
     characters: Array<{ display_name: string; slug: string; faction: string; miniatures?: Array<{ id: number; slug: string }> }>;
     keywords: Array<{ name: string; slug: string }>;
@@ -135,14 +137,17 @@ const seoDescription = computed(() => {
                     <Badge v-if="post.category" variant="secondary">{{ post.category.name }}</Badge>
                     <span class="text-sm text-muted-foreground">{{ formatDate(post.published_at) }}</span>
                 </div>
-                <h1 class="mb-4 text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
+                <h1 class="mb-4 text-balance text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
                     {{ post.title }}
                 </h1>
                 <div class="flex items-center gap-3">
                     <Avatar size="sm">
                         <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
                     </Avatar>
-                    <span class="text-sm font-medium">{{ post.author.name }}</span>
+                    <span class="flex items-center gap-1.5 text-sm font-medium">
+                        {{ post.author.name }}
+                        <SupporterBadge v-if="post.author.is_supporter" />
+                    </span>
                 </div>
             </div>
 
@@ -158,7 +163,7 @@ const seoDescription = computed(() => {
                 <div class="space-y-4 sm:space-y-6">
                     <!-- Characters -->
                     <div v-if="post.characters.length">
-                        <h4 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Characters</h4>
+                        <HeadingEyebrow as="h4" class="mb-1.5">Characters</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link
                                 v-for="character in post.characters"
@@ -186,7 +191,7 @@ const seoDescription = computed(() => {
 
                     <!-- Keywords -->
                     <div v-if="post.keywords.length">
-                        <h4 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keywords</h4>
+                        <HeadingEyebrow as="h4" class="mb-1.5">Keywords</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link v-for="keyword in post.keywords" :key="`k-${keyword.slug}`" :href="route('keywords.view', keyword.slug)">
                                 <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -198,7 +203,7 @@ const seoDescription = computed(() => {
 
                     <!-- Upgrades -->
                     <div v-if="post.upgrades.length">
-                        <h4 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upgrades</h4>
+                        <HeadingEyebrow as="h4" class="mb-1.5">Upgrades</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link v-for="upgrade in post.upgrades" :key="`u-${upgrade.slug}`" :href="route('upgrades.view', upgrade.slug)">
                                 <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">

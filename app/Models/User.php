@@ -44,6 +44,22 @@ class User extends Authenticatable
         return ! $this->hasRole('super_admin');
     }
 
+    /** Whether this user holds the Ko-fi supporter recognition role. */
+    public function isSupporter(): bool
+    {
+        return $this->hasRole('supporter');
+    }
+
+    /**
+     * Not in $appends — only included in serialization when a call site
+     * explicitly does ->append('is_supporter'), so hasRole() isn't run (and
+     * roles() isn't lazy-loaded) on every User serialized anywhere in the app.
+     */
+    public function getIsSupporterAttribute(): bool
+    {
+        return $this->isSupporter();
+    }
+
     /**
      * Send the password reset notification using the BiggerHat-branded email.
      */
@@ -81,6 +97,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'supporter_since' => 'date',
+            'show_on_supporters_page' => 'boolean',
         ];
     }
 

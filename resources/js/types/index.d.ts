@@ -9,6 +9,7 @@ export interface Auth {
     can_access_admin: boolean;
     can_view_tos: boolean;
     is_super_admin: boolean;
+    is_supporter: boolean;
     impersonating: { as: { id: number; name: string }; leave_url: string } | null;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
@@ -35,6 +36,16 @@ export interface NavItem {
      * does a full page navigation instead of an Inertia XHR.
      */
     external?: boolean;
+    /** Extra search-hint terms for the command palette; ignored by the sidebar renderer. */
+    keywords?: string;
+}
+
+/** A titled, optionally collapsible section of NavItems, as built by AppSidebar.vue's nav trees. */
+export interface NavGroup {
+    title?: string;
+    collapsible?: boolean;
+    collapsed?: boolean;
+    items: NavItem[];
 }
 
 export interface FactionInfo {

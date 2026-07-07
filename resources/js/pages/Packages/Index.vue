@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { BookMarked, Heart, Plus } from 'lucide-vue-next';
@@ -296,7 +297,7 @@ const formatPrice = (cents: number | null) => {
                                     class="animate-fade-in-up opacity-0"
                                     :style="delays[index]"
                                 >
-                                    <Card class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                                    <Card :class="['h-full', CARD_HOVER]">
                                         <div v-if="pkg.front_image" class="overflow-hidden rounded-t-xl">
                                             <img
                                                 :src="`/storage/${pkg.front_image}`"

@@ -15,19 +15,6 @@ export function playerName(player: NamedPlayer | undefined): string {
     return player?.user?.name ?? player?.opponent_name ?? 'Opponent';
 }
 
-/** Tailwind background class for a faction tint (handles the two multi-word factions). */
-export function factionBackground(faction: string): string {
-    if (!faction) return '';
-    switch (faction.toLowerCase()) {
-        case 'explorers_society':
-            return 'bg-explorerssociety';
-        case 'ten_thunders':
-            return 'bg-tenthunders';
-        default:
-            return `bg-${faction}`;
-    }
-}
-
 /** Display label for a crew hiring category. */
 export function categoryLabel(cat: string): string {
     return { leader: 'Leader', totem: 'Totem', 'in-keyword': 'In Keyword', versatile: 'Versatile', ook: 'Out of Keyword' }[cat] ?? cat;

@@ -4,7 +4,8 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { categoryColor, categoryLabel, factionBackground, playerName } from '@/lib/gameDisplay';
+import { factionBackground } from '@/composables/useFactionColor';
+import { categoryColor, categoryLabel, playerName } from '@/lib/gameDisplay';
 import {
     GameStatus,
     type CrewMember,

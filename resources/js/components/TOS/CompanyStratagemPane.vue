@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Plus, X } from 'lucide-vue-next';
@@ -43,7 +44,7 @@ const isDisabled = (s: StratagemMin): boolean => deckFull.value || (s.deck_sourc
 <template>
     <div class="rounded-md border p-4">
         <div class="mb-3 flex items-center justify-between gap-2">
-            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stratagem Deck</p>
+            <HeadingEyebrow>Stratagem Deck</HeadingEyebrow>
             <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span :class="deckFull ? 'font-semibold text-emerald-600' : ''">{{ deck.length }} / {{ deckSize }}</span>
                 <span v-if="hasEnvoy">· {{ deckEnvoyCount }} / {{ maxEnvoy }} Envoy</span>

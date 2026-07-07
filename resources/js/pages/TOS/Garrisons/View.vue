@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import FlipCard from '@/components/TOS/FlipCard.vue';
@@ -452,7 +453,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                 <CardContent class="space-y-3 p-3 sm:p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0 flex-1">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Format</p>
+                            <HeadingEyebrow>Format</HeadingEyebrow>
                             <p class="text-sm font-semibold">{{ format.label }}</p>
                             <p class="mt-1 text-[11px] text-muted-foreground">{{ format.description }}</p>
                         </div>
@@ -600,7 +601,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <section v-if="showCommanders && commanderUnits.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Crown class="size-4 text-amber-500" aria-hidden="true" />
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Commanders</h2>
+                    <HeadingEyebrow as="h2">Commanders</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -646,7 +647,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <section v-if="showUnits && minionUnits.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Swords class="size-4 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Units</h2>
+                    <HeadingEyebrow as="h2">Units</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]">{{ minionUnits.length }}</Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -696,7 +697,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <section v-if="showAssets && garrison.assets.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Package class="size-4 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Assets</h2>
+                    <HeadingEyebrow as="h2">Assets</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]">
                         {{ garrison.assets.reduce((n, a) => n + a.pivot.quantity, 0) }}
                     </Badge>
@@ -752,7 +753,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <section v-if="showStratagems && garrison.stratagems.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Stratagems</h2>
+                    <HeadingEyebrow as="h2">Stratagems</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]"> {{ garrison.stratagems.length }} / {{ format.stratagem_count }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -794,7 +795,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <section v-if="showEnvoys && garrison.envoys.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
                     <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Envoys</h2>
+                    <HeadingEyebrow as="h2">Envoys</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]"> {{ garrison.envoys.length }} / {{ format.envoy_count }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

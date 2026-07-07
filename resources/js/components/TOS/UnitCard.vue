@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import FlipCard from '@/components/TOS/FlipCard.vue';
 import UnitStatBlock from '@/components/TOS/UnitStatBlock.vue';
 import TosMarginCost from '@/components/TosMarginCost.vue';
@@ -199,7 +200,7 @@ function ruleBadge(rule: SpecialRule): string {
                     </div>
 
                     <div v-if="activeSide.abilities.length">
-                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                        <HeadingEyebrow as="h4" class="mb-1">Abilities</HeadingEyebrow>
                         <ul class="space-y-1.5 text-xs">
                             <li v-for="a in activeSide.abilities" :key="a.id">
                                 <span class="font-medium">{{ a.name }}.</span>
@@ -209,7 +210,7 @@ function ruleBadge(rule: SpecialRule): string {
                     </div>
 
                     <div v-if="activeSide.actions.length">
-                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                        <HeadingEyebrow as="h4" class="mb-1">Actions</HeadingEyebrow>
                         <ul class="space-y-2 text-xs">
                             <li v-for="ac in activeSide.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                 <div class="flex items-center justify-between gap-2">

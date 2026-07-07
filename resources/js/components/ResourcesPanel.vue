@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ExternalLink, Newspaper, Radio } from 'lucide-vue-next';
@@ -66,10 +67,10 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                     <div class="grid gap-px sm:grid-cols-2 lg:grid-cols-3">
                         <!-- Articles -->
                         <div v-if="articles?.length" class="p-3">
-                            <div class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <HeadingEyebrow class="mb-2 flex items-center gap-1.5">
                                 <Newspaper class="size-3.5" />
                                 Articles
-                            </div>
+                            </HeadingEyebrow>
                             <div class="space-y-1">
                                 <a
                                     v-for="article in articles"
@@ -91,10 +92,10 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
 
                         <!-- Transmissions -->
                         <div v-if="transmissions?.length" class="p-3">
-                            <div class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <HeadingEyebrow class="mb-2 flex items-center gap-1.5">
                                 <Radio class="size-3.5" />
                                 Across the Aethervox
-                            </div>
+                            </HeadingEyebrow>
                             <div class="space-y-1">
                                 <a
                                     v-for="t in transmissions"
@@ -124,10 +125,10 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
 
                         <!-- Print On Demand -->
                         <div v-if="podLinks?.length" class="p-3">
-                            <div class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <HeadingEyebrow class="mb-2 flex items-center gap-1.5">
                                 <ExternalLink class="size-3.5" />
                                 Print On Demand
-                            </div>
+                            </HeadingEyebrow>
                             <div class="space-y-1">
                                 <a
                                     v-for="pod in podLinks"

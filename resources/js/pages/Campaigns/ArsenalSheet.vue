@@ -591,7 +591,7 @@ const totemRendererProps = computed(() => {
                 ← {{ campaign.name }}
             </Link>
             <p v-else class="text-xs uppercase tracking-wider text-white/70">{{ campaign.name }}</p>
-            <h1 class="mt-1 text-3xl font-black text-white drop-shadow-md">{{ crew.name }}</h1>
+            <h1 class="mt-1 text-3xl font-black tracking-tight text-white drop-shadow-md">{{ crew.name }}</h1>
             <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/90">
                 <span class="inline-flex items-center gap-1">
                     <Calendar class="h-3.5 w-3.5" />

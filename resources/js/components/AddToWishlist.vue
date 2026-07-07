@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
@@ -132,7 +133,7 @@ async function addToWishlist() {
 <template>
     <Card v-if="isAuthenticated">
         <CardHeader class="pb-3">
-            <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Wishlist</CardTitle>
+            <HeadingEyebrow>Wishlist</HeadingEyebrow>
         </CardHeader>
         <CardContent>
             <div v-if="wishlistedOn.length > 0" class="mb-3 flex flex-col gap-1">

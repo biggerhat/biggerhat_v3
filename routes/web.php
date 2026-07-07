@@ -39,6 +39,7 @@ use App\Http\Controllers\RandomCharacterController;
 use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\SupportersController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
@@ -139,6 +140,8 @@ Route::get('/', function () {
 Route::get('/command', CommandController::class)->name('command');
 
 Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy');
+
+Route::get('/supporters', [SupportersController::class, 'index'])->name('supporters.index');
 
 Route::get('/feedback', [FeedbackController::class, 'show'])->name('feedback.show');
 // 5 submissions per hour per IP keeps the inbox useful while still letting

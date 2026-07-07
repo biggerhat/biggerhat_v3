@@ -107,7 +107,7 @@ const submit = () => {
                             <Swords class="size-5" />
                         </div>
                         <div>
-                            <h2 class="font-semibold">New Encounter</h2>
+                            <h2 class="text-lg font-semibold">New Encounter</h2>
                             <p class="text-sm text-muted-foreground">Configure the game format</p>
                         </div>
                     </div>

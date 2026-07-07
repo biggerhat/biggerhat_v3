@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { valueUpdater } from '@/lib/utils';
 import { Head, Link } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
@@ -145,7 +146,7 @@ function openMasterDrawer(master: any, event: Event) {
                             class="animate-fade-in-up opacity-0"
                             :style="delays[index]"
                         >
-                            <Card class="h-full overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                            <Card :class="['h-full overflow-hidden', CARD_HOVER]">
                                 <div class="flex">
                                     <div
                                         v-if="keyword.image"

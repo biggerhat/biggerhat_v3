@@ -27,7 +27,7 @@ const copyJoinLink = async () => {
 <template>
     <Card v-if="isCreator" class="mb-6">
         <CardContent class="p-4 sm:p-6">
-            <h2 class="mb-3 font-semibold">Invite Opponent</h2>
+            <h2 class="mb-3 text-lg font-semibold">Invite Opponent</h2>
             <p class="mb-4 text-sm text-muted-foreground">Share this link with your opponent to join the game.</p>
             <div class="flex items-center gap-2">
                 <Input :model-value="joinUrl" readonly class="text-xs" />

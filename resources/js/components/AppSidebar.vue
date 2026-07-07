@@ -5,36 +5,9 @@ import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { buildMainNav, buildTosNav } from '@/lib/navData';
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    ArrowUpCircle,
-    BarChart3,
-    BookOpen,
-    Bot,
-    Calendar,
-    CircleDollarSign,
-    Coins,
-    Dice6,
-    FileImage,
-    Heart,
-    KeyRound,
-    Library,
-    Map,
-    Newspaper,
-    Package,
-    Puzzle,
-    Radio,
-    Radius,
-    Scale,
-    Shield,
-    ShieldCheck,
-    Swords,
-    TextSearch,
-    Trophy,
-    Users,
-    Zap,
-} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 import GameSystemSwitcher from './GameSystemSwitcher.vue';
@@ -87,301 +60,28 @@ const malifauxFactionItems = computed(() => {
         }));
 });
 
-const tosNavItems = computed<NavItem[]>(() => [
-    {
-        items: [
-            // No "Home" entry — the sidebar logo already routes to tos.index when
-            // the active game system is TOS, matching the Malifaux pattern.
-            { title: 'Advanced Search', href: route('tos.search'), icon: TextSearch },
-            ...(isAuthenticated.value ? [{ title: 'Company Builder', href: route('tos.companies.index'), icon: Users }] : []),
-            ...(isAuthenticated.value ? [{ title: 'Garrison Builder', href: route('tos.garrisons.index'), icon: Shield }] : []),
-            ...(canAccessAdmin.value
-                ? [
-                      {
-                          title: 'Admin',
-                          href: route('admin.dashboard'),
-                          icon: ShieldCheck,
-                      },
-                  ]
-                : []),
-        ],
-    },
-    {
-        title: 'Allegiances',
-        collapsible: true,
-        collapsed: false,
-        items: [
-            { title: 'All Allegiances', href: route('tos.allegiances.index'), icon: Shield },
-            // Type-pooled rosters — pull every Earth- (or Malifaux-) typed
-            // unit plus the matching Neutral pool. Sit above the per-allegiance
-            // entries so users can pick "show me everything Earth" before
-            // narrowing to a specific Company.
-            { title: 'Earth Side', href: route('tos.allegiances.viewByType', 'earth'), icon: Shield },
-            { title: 'Malifaux Side', href: route('tos.allegiances.viewByType', 'malifaux'), icon: Shield },
-            ...tosAllegianceItems.value,
-        ],
-    },
-    {
-        title: 'Tools',
-        collapsible: true,
-        collapsed: false,
-        items: [{ title: 'Compare Units', href: route('tos.compare'), icon: Scale }],
-    },
-    {
-        title: 'References',
-        collapsible: true,
-        collapsed: false,
-        items: [
-            { title: 'Units', href: route('tos.units.index'), icon: Swords },
-            { title: 'Special Rules', href: route('tos.special_rules.index'), icon: BookOpen },
-            { title: 'Abilities', href: route('tos.abilities.index'), icon: Zap },
-            { title: 'Actions', href: route('tos.actions.index'), icon: Swords },
-            { title: 'Triggers', href: route('tos.triggers.index'), icon: Swords },
-            { title: 'Allegiance Cards', href: route('tos.allegiance_cards.index'), icon: BookOpen },
-            { title: 'Assets', href: route('tos.assets.index'), icon: Package },
-            { title: 'Stratagems', href: route('tos.stratagems.index'), icon: Newspaper },
-        ],
-    },
-]);
+const tosNavItems = computed(() =>
+    buildTosNav({
+        isAuthenticated: isAuthenticated.value,
+        canAccessAdmin: canAccessAdmin.value,
+        allegianceItems: tosAllegianceItems.value,
+    }),
+);
 
-const myHatNavItems = computed(() => {
-    if (!isAuthenticated.value) return [];
-    const items = [
-        {
-            title: 'My Collection',
-            href: route('collection.index'),
-            icon: Library,
-        },
-        {
-            title: 'My Stats',
-            href: route('stats.my'),
-            icon: BarChart3,
-        },
-        {
-            title: 'My Wishlists',
-            href: route('wishlists.index'),
-            icon: Heart,
-        },
-    ];
+const mainNavItems = computed(() =>
+    buildMainNav({
+        isAuthenticated: isAuthenticated.value,
+        canAccessAdmin: canAccessAdmin.value,
+        campaignFeaturesEnabled: campaignFeaturesEnabled.value,
+        hasChannels: channelIds.value.length > 0,
+        factionItems: malifauxFactionItems.value,
+    }),
+);
 
-    if (channelIds.value.length > 0) {
-        items.push({
-            title: 'My Channels',
-            href: route('channels.my'),
-            icon: Radio,
-        });
-    }
-
-    return [
-        {
-            title: 'My Hat',
-            collapsible: true,
-            collapsed: false,
-            items,
-        },
-    ];
-});
-
-const mainNavItems = computed<NavItem[]>(() => [
-    {
-        items: [
-            {
-                title: 'Advanced Search',
-                href: route('search.view'),
-                icon: TextSearch,
-            },
-            {
-                // Sidebar "Crew Builder" sends you to the editor (the most common
-                // intent). The community-crews browse list is reachable via a
-                // dedicated entry below + the URL /tools/crew-builder/ for any
-                // existing bookmarks.
-                title: 'Crew Builder',
-                href: route('tools.crew_builder.editor'),
-                icon: Swords,
-            },
-            {
-                title: 'Game Tracker',
-                href: route('games.index'),
-                icon: Swords,
-                badge: 'Beta',
-            },
-            {
-                title: 'Tournament Tracker',
-                href: route('tournaments.index'),
-                icon: Trophy,
-                badge: 'Beta',
-            },
-            // Authed users with campaign access see the full Campaigns link
-            // (Beta badge now that the feature is approaching open beta).
-            // Authed users WITHOUT access see a teaser entry routing to the
-            // public coming-soon page — keeps discovery alive while gating
-            // the actual feature.
-            ...(isAuthenticated.value && campaignFeaturesEnabled.value
-                ? [
-                      {
-                          title: 'Campaigns',
-                          href: route('campaigns.index'),
-                          icon: Trophy,
-                          badge: 'Beta',
-                      },
-                  ]
-                : isAuthenticated.value
-                  ? [
-                        {
-                            title: 'Campaigns',
-                            href: route('campaigns.preview'),
-                            icon: Trophy,
-                            badge: 'Soon',
-                        },
-                    ]
-                  : []),
-            {
-                title: 'Articles',
-                href: route('blog.index'),
-                icon: Newspaper,
-            },
-            {
-                title: 'Across the Aethervox',
-                href: route('channels.index'),
-                icon: Radio,
-            },
-            ...(canAccessAdmin.value
-                ? [
-                      {
-                          title: 'Admin',
-                          href: route('admin.dashboard'),
-                          icon: ShieldCheck,
-                      },
-                  ]
-                : []),
-        ],
-    },
-    {
-        title: 'Factions',
-        collapsible: true,
-        collapsed: false,
-        items: malifauxFactionItems.value,
-    },
-    {
-        title: 'Tools',
-        collapsible: true,
-        collapsed: false,
-        items: [
-            {
-                title: 'Community Crews',
-                href: route('tools.crew_builder.index'),
-                icon: Library,
-            },
-            {
-                title: 'Compare Characters',
-                href: route('tools.compare'),
-                icon: Scale,
-            },
-            {
-                title: 'Scenario Generator',
-                href: route('tools.scenario_generator'),
-                icon: Dice6,
-            },
-            {
-                title: 'Scheme Paths',
-                href: route('tools.scheme_paths'),
-                icon: Map,
-            },
-            {
-                title: 'Random Character',
-                href: route('tools.random_character'),
-                icon: Dice6,
-            },
-            {
-                title: 'Bonanza Loot Deck',
-                href: route('tools.bonanza_loot_deck'),
-                icon: Coins,
-            },
-            {
-                title: 'Hat Gamin Bot',
-                href: route('tools.hat_gamin'),
-                icon: Bot,
-            },
-        ],
-    },
-    {
-        title: 'References',
-        collapsible: true,
-        collapsed: false,
-        items: [
-            // Order intentionally mirrors TOS sidebar: abilities (passive) →
-            // actions (AP-spending) → triggers (action modifiers).
-            {
-                title: 'Abilities',
-                href: route('abilities.index'),
-                icon: Shield,
-            },
-            {
-                title: 'Actions',
-                href: route('actions.index'),
-                icon: Swords,
-            },
-            {
-                title: 'Triggers',
-                href: route('triggers.index'),
-                icon: Swords,
-            },
-            {
-                title: 'Keywords',
-                href: route('keywords.index'),
-                icon: KeyRound,
-            },
-            {
-                title: 'Markers',
-                href: route('markers.index'),
-                icon: Radius,
-            },
-            {
-                title: 'Tokens',
-                href: route('tokens.index'),
-                icon: Puzzle,
-            },
-            {
-                title: 'Crew Cards',
-                href: route('upgrades.crew.index'),
-                icon: ArrowUpCircle,
-            },
-            {
-                title: 'Upgrades',
-                href: route('upgrades.character.index'),
-                icon: ArrowUpCircle,
-            },
-            {
-                title: 'Packages',
-                href: route('packages.index'),
-                icon: Package,
-            },
-            {
-                title: 'Lore',
-                href: route('lores.index'),
-                icon: BookOpen,
-            },
-            {
-                title: 'Build Instructions',
-                href: route('blueprints.index'),
-                icon: FileImage,
-            },
-            {
-                title: 'Gaining Grounds',
-                href: route('seasons.index'),
-                icon: Calendar,
-            },
-        ],
-    },
-]);
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Donate on Ko-fi',
-        href: 'https://ko-fi.com/biggerhat',
-        icon: CircleDollarSign,
-    },
-];
+// Donate on Ko-fi lives in the page footer (AppLayout.vue) only, to avoid a
+// duplicate link — the sidebar footer still renders NavFooter for the
+// guest-only Login item below.
+const footerNavItems: NavItem[] = [];
 </script>
 
 <template>
@@ -423,7 +123,6 @@ const footerNavItems: NavItem[] = [
             </template>
             <template v-else>
                 <NavMain :items="mainNavItems" />
-                <NavMain v-if="myHatNavItems.length > 0" :items="myHatNavItems" />
             </template>
         </SidebarContent>
 

@@ -4,7 +4,8 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { categoryColor, categoryLabel, factionBackground } from '@/lib/gameDisplay';
+import { factionBackground } from '@/composables/useFactionColor';
+import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { GameData, GamePlayer } from '@/types/game';
 import { Link } from '@inertiajs/vue3';
 import { Check, ChevronDown, Loader2, Pencil, Plus } from 'lucide-vue-next';
@@ -171,7 +172,7 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
 <template>
     <Card class="mb-6" :class="isOpponentSetupPhase ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5' : ''">
         <CardContent class="p-4 sm:p-6">
-            <h2 class="mb-1 font-semibold">
+            <h2 class="mb-1 text-lg font-semibold">
                 {{ isSolo && crewStepDone ? "Opponent's Crew" : 'Select Your Crew' }}
                 <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
                     >Opponent</Badge

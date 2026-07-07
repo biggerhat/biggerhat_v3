@@ -23,7 +23,7 @@ defineProps<{ items: TotemRow[] }>();
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Totem Templates</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Totem Templates</h1>
                 <p class="text-sm text-muted-foreground">Campaign totem options drawn by flip value during Tier-3 Totem Advancement (pg 52).</p>
             </div>
             <Button @click="router.get(route('admin.campaign.totem-templates.create'))">Create</Button>

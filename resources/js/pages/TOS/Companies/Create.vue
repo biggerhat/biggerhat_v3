@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
@@ -217,7 +218,7 @@ function submit() {
 
                         <!-- Main Allegiances -->
                         <div v-if="groupedAllegiances.main.length" class="space-y-1.5">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Allegiances</p>
+                            <HeadingEyebrow>Allegiances</HeadingEyebrow>
                             <div class="grid gap-2 sm:grid-cols-2">
                                 <button
                                     v-for="a in groupedAllegiances.main"
@@ -248,7 +249,7 @@ function submit() {
 
                         <!-- Syndicates -->
                         <div v-if="groupedAllegiances.syndicates.length" class="space-y-1.5 pt-1">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Syndicates</p>
+                            <HeadingEyebrow>Syndicates</HeadingEyebrow>
                             <div class="grid gap-2 sm:grid-cols-2">
                                 <button
                                     v-for="a in groupedAllegiances.syndicates"

@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 
 const booleanOptions = [
     { name: 'Yes', value: 'true' },
@@ -317,7 +318,7 @@ const formatDefensiveType = (type: string) => {
                                     v-for="(ability, index) in props.abilities.data"
                                     :key="ability.id"
                                     :ability="ability"
-                                    class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                                    :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                                     :style="delays[index]"
                                 >
                                     <template #footer>

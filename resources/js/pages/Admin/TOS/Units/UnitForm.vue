@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import InputError from '@/components/InputError.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
@@ -289,7 +290,7 @@ onMounted(() => {
 
                 <div class="grid gap-4 md:grid-cols-2">
                     <div v-for="side in formInfo.sides" :key="side.side" class="rounded-md border p-3">
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ side.side }} side</p>
+                        <HeadingEyebrow class="mb-2">{{ side.side }} side</HeadingEyebrow>
                         <div class="grid grid-cols-4 gap-2">
                             <div>
                                 <Label class="text-[10px]">Sp</Label>
@@ -310,7 +311,7 @@ onMounted(() => {
                         </div>
 
                         <div class="mt-3">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                            <HeadingEyebrow as="h4">Abilities</HeadingEyebrow>
                             <SearchableMultiselect
                                 v-model="side.ability_ids"
                                 placeholder="Search abilities…"
@@ -320,7 +321,7 @@ onMounted(() => {
                         </div>
 
                         <div class="mt-3">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                            <HeadingEyebrow as="h4">Actions</HeadingEyebrow>
                             <SearchableMultiselect
                                 v-model="side.action_ids"
                                 placeholder="Search actions…"

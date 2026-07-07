@@ -89,7 +89,7 @@ const submit = () => {
                                     <Trophy class="size-5" />
                                 </div>
                                 <div>
-                                    <h2 class="font-semibold">Event Info</h2>
+                                    <h2 class="text-lg font-semibold">Event Info</h2>
                                     <p class="text-sm text-muted-foreground">The basics — what, when, where.</p>
                                 </div>
                             </header>
@@ -123,7 +123,7 @@ const submit = () => {
                         <!-- ─── Tournament Format ─── -->
                         <section class="space-y-4 border-t pt-6">
                             <header>
-                                <h2 class="font-semibold">Format</h2>
+                                <h2 class="text-lg font-semibold">Format</h2>
                                 <p class="text-sm text-muted-foreground">Game size, rounds, and the scheme/strategy pool.</p>
                             </header>
 

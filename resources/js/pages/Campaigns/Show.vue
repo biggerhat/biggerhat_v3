@@ -124,7 +124,7 @@ const deleteCampaign = async (id: number) => {
                 ← All Campaigns
             </Link>
             <div class="mt-1 flex flex-wrap items-center gap-3">
-                <h1 class="text-3xl font-black">{{ campaign.name }}</h1>
+                <h1 class="text-3xl font-black tracking-tight">{{ campaign.name }}</h1>
                 <Badge :variant="statusVariant" class="text-[10px] uppercase">{{ campaign.status }}</Badge>
                 <Badge v-if="campaign.is_solo" variant="outline" class="text-[10px] uppercase">Solo</Badge>
             </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Head, Link } from '@inertiajs/vue3';
@@ -201,7 +202,7 @@ const typePools = computed(() => [
             <!-- ═══ Earth / Malifaux Type Pools ═══ -->
             <section class="animate-fade-in-up" style="animation-delay: 60ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sides</h2>
+                    <HeadingEyebrow as="h2">Sides</HeadingEyebrow>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <Link
@@ -237,7 +238,7 @@ const typePools = computed(() => [
             <!-- ═══ Allegiances grid ═══ -->
             <section class="animate-fade-in-up" style="animation-delay: 100ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Allegiances</h2>
+                    <HeadingEyebrow as="h2">Allegiances</HeadingEyebrow>
                     <Link :href="route('tos.allegiances.index')" class="text-[11px] text-muted-foreground hover:text-foreground">
                         View all <ArrowRight class="ml-0.5 inline size-3" />
                     </Link>
@@ -276,7 +277,7 @@ const typePools = computed(() => [
             <!-- ═══ Syndicates ═══ -->
             <section v-if="syndicates.length" class="animate-fade-in-up" style="animation-delay: 140ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Syndicates</h2>
+                    <HeadingEyebrow as="h2">Syndicates</HeadingEyebrow>
                     <span class="text-[11px] text-muted-foreground">Cross-allegiance groups within a type</span>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -301,7 +302,7 @@ const typePools = computed(() => [
             <!-- ═══ Browse the Database (4 big tiles) ═══ -->
             <section class="animate-fade-in-up" style="animation-delay: 180ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Browse the database</h2>
+                    <HeadingEyebrow as="h2">Browse the database</HeadingEyebrow>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Link
@@ -319,7 +320,7 @@ const typePools = computed(() => [
                             </div>
                             <div class="min-w-0">
                                 <div class="flex items-baseline justify-between gap-2">
-                                    <h3 class="font-semibold leading-tight">{{ tile.title }}</h3>
+                                    <h3 class="text-base font-semibold leading-tight">{{ tile.title }}</h3>
                                     <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ tile.count }}</Badge>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ tile.description }}</p>
@@ -332,7 +333,7 @@ const typePools = computed(() => [
             <!-- ═══ Reference Library (compact tiles) ═══ -->
             <section class="animate-fade-in-up" style="animation-delay: 220ms">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reference</h2>
+                    <HeadingEyebrow as="h2">Reference</HeadingEyebrow>
                 </div>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                     <Link

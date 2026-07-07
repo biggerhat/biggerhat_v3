@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import TosMarginCost from '@/components/TosMarginCost.vue';
@@ -106,13 +107,13 @@ defineProps<{
                         <!-- Standard tier -->
                         <section class="space-y-3">
                             <div class="flex items-center gap-2 border-l-4 border-primary/60 pl-3">
-                                <h3 class="text-sm font-semibold uppercase tracking-wider">Standard</h3>
+                                <HeadingEyebrow class="text-foreground">Standard</HeadingEyebrow>
                             </div>
 
                             <p v-if="card.body" class="text-sm text-muted-foreground"><TosText :text="card.body" /></p>
 
                             <div v-if="card.abilities.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Abilities</HeadingEyebrow>
                                 <ul class="space-y-1.5 text-sm">
                                     <li v-for="a in card.abilities" :key="a.id">
                                         <span class="font-medium">{{ a.name }}.</span>
@@ -122,7 +123,7 @@ defineProps<{
                             </div>
 
                             <div v-if="card.actions.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Actions</HeadingEyebrow>
                                 <ul class="space-y-2 text-sm">
                                     <li v-for="ac in card.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                         <div class="flex items-center justify-between gap-2">
@@ -159,7 +160,7 @@ defineProps<{
                             </div>
 
                             <div v-if="card.triggers.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Triggers</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Triggers</HeadingEyebrow>
                                 <ul class="space-y-1.5 text-sm">
                                     <li v-for="t in card.triggers" :key="t.id">
                                         <TosSuits v-if="t.suits" :suits="t.suits" />
@@ -177,13 +178,13 @@ defineProps<{
                             class="space-y-3"
                         >
                             <div class="flex items-center gap-2 border-l-4 border-amber-500/70 pl-3">
-                                <h3 class="text-sm font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Primary</h3>
+                                <HeadingEyebrow class="text-amber-700 dark:text-amber-400">Primary</HeadingEyebrow>
                             </div>
 
                             <p v-if="card.primary_body" class="text-sm text-muted-foreground"><TosText :text="card.primary_body" /></p>
 
                             <div v-if="card.primary_abilities.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Abilities</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Abilities</HeadingEyebrow>
                                 <ul class="space-y-1.5 text-sm">
                                     <li v-for="a in card.primary_abilities" :key="a.id">
                                         <span class="font-medium">{{ a.name }}.</span>
@@ -193,7 +194,7 @@ defineProps<{
                             </div>
 
                             <div v-if="card.primary_actions.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Actions</HeadingEyebrow>
                                 <ul class="space-y-2 text-sm">
                                     <li v-for="ac in card.primary_actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                         <div class="flex items-center justify-between gap-2">
@@ -230,7 +231,7 @@ defineProps<{
                             </div>
 
                             <div v-if="card.primary_triggers.length">
-                                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Triggers</p>
+                                <HeadingEyebrow as="h4" class="mb-1">Triggers</HeadingEyebrow>
                                 <ul class="space-y-1.5 text-sm">
                                     <li v-for="t in card.primary_triggers" :key="t.id">
                                         <TosSuits v-if="t.suits" :suits="t.suits" />
@@ -248,7 +249,7 @@ defineProps<{
             <!-- Cross-reference: units that hire into this card's allegiance -->
             <section v-if="related_units.length">
                 <div class="mb-2 flex items-center justify-between">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Units in {{ card.allegiance.name }}</h2>
+                    <HeadingEyebrow as="h2">Units in {{ card.allegiance.name }}</HeadingEyebrow>
                     <span class="text-[11px] text-muted-foreground">
                         {{ related_units.length }} {{ related_units.length === 1 ? 'unit' : 'units' }}
                     </span>

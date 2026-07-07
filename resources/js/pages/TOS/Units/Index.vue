@@ -11,6 +11,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator, TosSelectOption } from '@/types/tos';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
@@ -173,11 +174,7 @@ function setRule(slug: string | null) {
             </div>
 
             <div v-else-if="units.data.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                <Card
-                    v-for="u in units.data"
-                    :key="u.id"
-                    class="h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-black/10"
-                >
+                <Card v-for="u in units.data" :key="u.id" :class="['h-full overflow-hidden', CARD_HOVER]">
                     <FlipCard
                         :front-image="u.sculpts[0]?.front_image"
                         :back-image="u.sculpts[0]?.back_image"

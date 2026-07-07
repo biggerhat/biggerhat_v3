@@ -2,6 +2,7 @@
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -2843,9 +2844,7 @@ onUnmounted(() => {
                                         </div>
                                         <!-- Custom Characters Section (Mobile) -->
                                         <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
-                                            <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Your Custom Characters
-                                            </div>
+                                            <HeadingEyebrow class="mb-2"> Your Custom Characters </HeadingEyebrow>
                                             <div class="space-y-1">
                                                 <div
                                                     v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"
@@ -3337,9 +3336,7 @@ onUnmounted(() => {
                                     </div>
                                     <!-- Custom Characters Section (Desktop) -->
                                     <div v-if="customCharacters.length && selectedFaction" class="mt-3 border-t pt-3">
-                                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Your Custom Characters
-                                        </div>
+                                        <HeadingEyebrow class="mb-2"> Your Custom Characters </HeadingEyebrow>
                                         <div class="space-y-1">
                                             <div
                                                 v-for="cc in customCharacters.filter((c) => c.faction === selectedFaction)"

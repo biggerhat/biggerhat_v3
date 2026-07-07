@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator } from '@/types/tos';
 import { Head, Link } from '@inertiajs/vue3';
 import { Shield } from 'lucide-vue-next';
@@ -115,9 +116,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     :href="route('tos.allegiances.view', a.slug)"
                     class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                    <Card
-                        class="group/card h-full overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                    >
+                    <Card :class="['group/card h-full overflow-hidden', CARD_HOVER]">
                         <div :class="['h-1 w-full', a.color_slug ? `bg-${a.color_slug}` : 'bg-primary/40']" />
                         <CardContent class="p-4">
                             <div class="mb-3 flex items-start gap-3">

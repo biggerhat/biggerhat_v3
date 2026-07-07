@@ -30,7 +30,7 @@ const rangeLabel = (r: DoctorRow): string => {
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Back-Alley Doctor Results</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Back-Alley Doctor Results</h1>
                 <p class="text-sm text-muted-foreground">Pg 33. Outcomes for the Phase 5 injury-removal flip.</p>
             </div>
             <Button @click="router.get(route('admin.campaign.back-alley-doctor.create'))">Create</Button>

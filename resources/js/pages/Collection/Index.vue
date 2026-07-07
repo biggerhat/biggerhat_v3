@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
@@ -670,7 +672,7 @@ const topFactions = computed(() =>
                         <Card
                             v-for="(pkg, index) in owned_packages"
                             :key="pkg.id"
-                            class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                            :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                             :style="packageDelays[index]"
                         >
                             <CardContent class="p-4">
@@ -717,7 +719,7 @@ const topFactions = computed(() =>
                         <Card
                             v-for="(stat, index) in faction_stats"
                             :key="stat.faction"
-                            class="animate-fade-in-up opacity-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                            :class="['animate-fade-in-up opacity-0', CARD_HOVER]"
                             :style="factionDelays[index]"
                         >
                             <CardContent class="p-4">
@@ -829,7 +831,7 @@ const topFactions = computed(() =>
                         <!-- Top factions -->
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Top Factions</CardTitle>
+                                <HeadingEyebrow>Top Factions</HeadingEyebrow>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div v-for="stat in topFactions" :key="stat.faction" class="space-y-1.5">
@@ -854,9 +856,7 @@ const topFactions = computed(() =>
                         <!-- Top owned keywords -->
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-sm font-semibold uppercase tracking-wider text-muted-foreground"
-                                    >Most Complete Keywords</CardTitle
-                                >
+                                <HeadingEyebrow>Most Complete Keywords</HeadingEyebrow>
                             </CardHeader>
                             <CardContent class="space-y-2.5">
                                 <div

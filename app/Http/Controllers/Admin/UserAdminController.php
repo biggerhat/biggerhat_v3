@@ -20,7 +20,10 @@ class UserAdminController extends Controller
     public function edit(Request $request, User $user)
     {
         return inertia('Admin/Users/UserForm', [
-            'user' => $user->loadMissing('roles'),
+            'user' => array_merge(
+                $user->loadMissing('roles')->toArray(),
+                ['supporter_since' => $user->supporter_since?->format('Y-m-d')],
+            ),
             'checked_roles' => $user->roles->pluck('name'),
             'roles' => Role::orderBy('name', 'ASC')->get(),
         ]);
@@ -30,9 +33,11 @@ class UserAdminController extends Controller
     {
         $validated = $request->validate([
             'roles' => ['nullable', 'array'],
+            'supporter_since' => ['nullable', 'date'],
         ]);
 
         $user->syncRoles($validated['roles'] ?? []);
+        $user->update(['supporter_since' => $validated['supporter_since'] ?? null]);
 
         return to_route('admin.users.index')->withMessage($user->name.' updated successfully!');
     }

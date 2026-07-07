@@ -31,7 +31,7 @@ const valueLabel = (r: AdvancementActionRow): string => {
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div>
-                <h1 class="text-2xl font-semibold">Action Advancements</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Action Advancements</h1>
                 <p class="text-sm text-muted-foreground">Index of the Untold leader advancement table — flip &lt;= value picks an option.</p>
             </div>
             <Button @click="router.get(route('admin.campaign.advancement-action.create'))">Create</Button>

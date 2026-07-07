@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,7 +75,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
 <template>
     <Card class="overflow-hidden lg:sticky lg:top-2">
         <div class="flex items-center justify-between border-b px-3 py-2 sm:px-4">
-            <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hiring Pool</h2>
+            <HeadingEyebrow as="h2">Hiring Pool</HeadingEyebrow>
             <Badge variant="secondary" class="px-1.5 py-0 text-[10px]">{{ pool.length }} shown</Badge>
         </div>
         <CardContent class="space-y-2 p-2 sm:p-3">

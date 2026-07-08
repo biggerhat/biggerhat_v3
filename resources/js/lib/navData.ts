@@ -298,6 +298,10 @@ export function buildTosMyStuff(ctx: TosMyStuffContext): NavItem[] {
         // Same destination as Malifaux's "My Hub" entry below — the hub covers
         // both game systems, so it's not TOS- or Malifaux-specific.
         { title: 'My Hub', href: route('overview'), icon: Gauge, keywords: 'dashboard overview hub settings profile' },
+        { title: 'My Collection', href: route('tos.collection.index'), icon: Package, keywords: 'collection unit sculpts owned tos' },
+        // Same destination as Malifaux's "My Wishlists" — Wishlist items can
+        // hold either game system's content, so the list itself isn't TOS-specific.
+        { title: 'My Wishlists', href: route('wishlists.index'), icon: Heart },
         { title: 'Company Builder', href: route('tos.companies.index'), icon: Users, keywords: 'company builder tos build' },
         { title: 'Garrison Builder', href: route('tos.garrisons.index'), icon: Shield, keywords: 'garrison builder tos tournament pool' },
     ];

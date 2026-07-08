@@ -5,15 +5,12 @@ import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
-import FlipCard from '@/components/TOS/FlipCard.vue';
-import { Badge } from '@/components/ui/badge';
+import UnitGridCard from '@/components/TOS/UnitGridCard.vue';
 import Button from '@/components/ui/button/Button.vue';
-import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
-import { CARD_HOVER } from '@/lib/cardHover';
 import type { Paginator, TosSelectOption } from '@/types/tos';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { Swords } from 'lucide-vue-next';
 
 interface SpecialRule {
@@ -174,43 +171,7 @@ function setRule(slug: string | null) {
             </div>
 
             <div v-else-if="units.data.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                <Card v-for="u in units.data" :key="u.id" :class="['h-full overflow-hidden', CARD_HOVER]">
-                    <FlipCard
-                        :front-image="u.sculpts[0]?.front_image"
-                        :back-image="u.sculpts[0]?.back_image"
-                        :front-alt="`${u.name} (standard)`"
-                        :back-alt="`${u.name} (glory)`"
-                        :allegiance-slug="u.allegiances[0]?.slug ?? null"
-                        :placeholder-icon="Swords"
-                        :single-side="!u.sculpts[0]?.back_image"
-                    />
-                    <CardContent class="space-y-1.5 p-3">
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="truncate text-sm font-semibold">{{ u.name }}</span>
-                            <span
-                                v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
-                                class="shrink-0 text-[11px] font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
-                                title="Provides starting Scrip budget"
-                                >+{{ u.scrip }}</span
-                            >
-                            <span v-else class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}</span>
-                        </div>
-                        <p v-if="u.title" class="truncate text-[11px] italic text-muted-foreground">{{ u.title }}</p>
-                        <div class="flex flex-wrap gap-1">
-                            <Badge v-for="r in u.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
-                        </div>
-                        <div v-if="u.sculpts[0]" class="pt-1">
-                            <Button
-                                size="sm"
-                                variant="link"
-                                class="h-6 px-0 text-[11px]"
-                                @click="router.get(route('tos.units.view', u.sculpts[0].slug))"
-                            >
-                                View Unit Page
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                <UnitGridCard v-for="u in units.data" :key="u.id" :unit="u" />
             </div>
             <EmptyState v-else :icon="Swords" title="No units yet" description="Try clearing filters, or check back once units have been seeded." />
 

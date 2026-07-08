@@ -119,73 +119,80 @@ const sculptOptions = computed(() => props.unit.sculpts.map((s) => ({ id: s.id, 
                 </Button>
             </div>
 
-            <div v-if="isAuthenticated" class="grid gap-3 sm:grid-cols-2">
-                <Card>
-                    <CardContent class="flex items-center justify-between gap-3 p-3">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Collection</span>
-                        <Button
-                            :variant="sculptInCollection ? 'default' : 'outline'"
-                            size="sm"
-                            class="gap-1.5"
-                            :class="sculptInCollection ? 'bg-green-600 hover:bg-green-700' : ''"
-                            :disabled="collectionProcessing"
-                            @click="toggleCollection"
-                        >
-                            <Check v-if="sculptInCollection" class="size-3.5" />
-                            <Library v-else class="size-3.5" />
-                            {{ sculptInCollection ? 'In Collection' : 'Add to Collection' }}
-                        </Button>
-                    </CardContent>
-                </Card>
-                <AddToWishlist type="unit" :id="unit.id" :miniatures="sculptOptions" :current-miniature-id="active_sculpt.id" />
-            </div>
+            <div :class="isAuthenticated ? 'grid gap-4 lg:grid-cols-3' : 'space-y-4'">
+                <!-- Main content -->
+                <div :class="isAuthenticated ? 'space-y-4 lg:col-span-2' : 'space-y-4'">
+                    <UnitCard :unit="unit" :active-sculpt="active_sculpt" :show-collection="false" />
 
-            <UnitCard :unit="unit" :active-sculpt="active_sculpt" />
+                    <div v-if="unit.sculpts.length > 1">
+                        <HeadingEyebrow as="h2" class="mb-2">Sculpts</HeadingEyebrow>
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <Link
+                                v-for="s in unit.sculpts"
+                                :key="s.id"
+                                :href="route('tos.units.view', s.slug)"
+                                class="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                                <Card
+                                    :class="['overflow-hidden transition', s.id === active_sculpt.id ? 'border-primary ring-2 ring-primary/40' : '']"
+                                >
+                                    <CardImage
+                                        :src="s.combination_image ?? s.front_image"
+                                        :alt="s.name"
+                                        :allegiance-slug="unit.allegiances[0]?.slug ?? null"
+                                        :placeholder-icon="Swords"
+                                        aspect-class="aspect-[5/7]"
+                                        rounded-class=""
+                                    />
+                                    <CardContent class="p-2 text-xs">
+                                        <p class="font-medium">{{ s.name }}</p>
+                                        <p v-if="s.release_date" class="text-[10px] tabular-nums text-muted-foreground">{{ s.release_date }}</p>
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        </div>
+                    </div>
 
-            <div v-if="unit.sculpts.length > 1">
-                <HeadingEyebrow as="h2" class="mb-2">Sculpts</HeadingEyebrow>
-                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Link
-                        v-for="s in unit.sculpts"
-                        :key="s.id"
-                        :href="route('tos.units.view', s.slug)"
-                        class="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                        <Card :class="['overflow-hidden transition', s.id === active_sculpt.id ? 'border-primary ring-2 ring-primary/40' : '']">
-                            <CardImage
-                                :src="s.combination_image ?? s.front_image"
-                                :alt="s.name"
-                                :allegiance-slug="unit.allegiances[0]?.slug ?? null"
-                                :placeholder-icon="Swords"
-                                aspect-class="aspect-[5/7]"
-                                rounded-class=""
-                            />
-                            <CardContent class="p-2 text-xs">
-                                <p class="font-medium">{{ s.name }}</p>
-                                <p v-if="s.release_date" class="text-[10px] tabular-nums text-muted-foreground">{{ s.release_date }}</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                    <div v-if="unit.combined_arms_child" class="rounded-md border border-dashed p-4 text-xs text-muted-foreground">
+                        <p class="mb-1 font-semibold uppercase tracking-wider text-foreground">Combined Arms attaches</p>
+                        <Link :href="route('tos.units.view', unit.combined_arms_child.slug)" class="text-primary hover:underline">
+                            {{ unit.combined_arms_child.name }}
+                        </Link>
+                    </div>
+
+                    <div v-if="unit.lores?.length" class="rounded-md border p-4">
+                        <HeadingEyebrow as="h2" class="mb-2">Lore</HeadingEyebrow>
+                        <ul class="space-y-1.5 text-sm">
+                            <li v-for="lore in unit.lores" :key="lore.id" class="flex flex-wrap items-baseline gap-x-2">
+                                <span class="font-medium">{{ lore.name }}</span>
+                                <span v-if="lore.media?.length" class="text-xs text-muted-foreground">
+                                    {{ lore.media.map((m) => m.name).join(', ') }}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
-            </div>
 
-            <div v-if="unit.combined_arms_child" class="rounded-md border border-dashed p-4 text-xs text-muted-foreground">
-                <p class="mb-1 font-semibold uppercase tracking-wider text-foreground">Combined Arms attaches</p>
-                <Link :href="route('tos.units.view', unit.combined_arms_child.slug)" class="text-primary hover:underline">
-                    {{ unit.combined_arms_child.name }}
-                </Link>
-            </div>
+                <!-- Collection & Wishlist -->
+                <div v-if="isAuthenticated" class="space-y-4">
+                    <Card>
+                        <CardContent class="space-y-2 p-4">
+                            <Button
+                                class="w-full gap-2"
+                                :variant="sculptInCollection ? 'default' : 'outline'"
+                                :class="sculptInCollection ? 'bg-green-600 hover:bg-green-700' : ''"
+                                :disabled="collectionProcessing"
+                                @click="toggleCollection"
+                            >
+                                <Check v-if="sculptInCollection" class="size-4" />
+                                <Library v-else class="size-4" />
+                                {{ sculptInCollection ? 'In Collection' : 'Add to Collection' }}
+                            </Button>
+                        </CardContent>
+                    </Card>
 
-            <div v-if="unit.lores?.length" class="rounded-md border p-4">
-                <HeadingEyebrow as="h2" class="mb-2">Lore</HeadingEyebrow>
-                <ul class="space-y-1.5 text-sm">
-                    <li v-for="lore in unit.lores" :key="lore.id" class="flex flex-wrap items-baseline gap-x-2">
-                        <span class="font-medium">{{ lore.name }}</span>
-                        <span v-if="lore.media?.length" class="text-xs text-muted-foreground">
-                            {{ lore.media.map((m) => m.name).join(', ') }}
-                        </span>
-                    </li>
-                </ul>
+                    <AddToWishlist type="unit" :id="unit.id" :miniatures="sculptOptions" :current-miniature-id="active_sculpt.id" />
+                </div>
             </div>
         </div>
     </div>

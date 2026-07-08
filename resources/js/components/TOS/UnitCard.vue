@@ -8,7 +8,9 @@ import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, Swords } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { router, usePage } from '@inertiajs/vue3';
+import { BookMarked, Heart, Plus, RefreshCw, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Sculpt {
@@ -68,11 +70,19 @@ interface Unit {
     special_unit_rules: SpecialRule[];
 }
 
-const props = defineProps<{
-    unit: Unit;
-    /** Sculpt to feature as the card art. Defaults to the first sculpt. */
-    activeSculpt?: Sculpt | null;
-}>();
+const props = withDefaults(
+    defineProps<{
+        unit: Unit;
+        /** Sculpt to feature as the card art. Defaults to the first sculpt. */
+        activeSculpt?: Sculpt | null;
+        /** Set to false on pages that already have their own dedicated Collection/Wishlist panel (e.g. the Unit detail page). */
+        showCollection?: boolean;
+    }>(),
+    {
+        activeSculpt: null,
+        showCollection: true,
+    },
+);
 
 const sculpt = computed<Sculpt | null>(() => props.activeSculpt ?? props.unit.sculpts?.[0] ?? null);
 const standardSide = computed(() => props.unit.sides.find((s) => s.side === 'standard') ?? null);
@@ -82,6 +92,48 @@ const glorySide = computed(() => props.unit.sides.find((s) => s.side === 'glory'
 const flipped = ref(false);
 const activeSide = computed(() => (flipped.value ? glorySide.value : standardSide.value));
 const primaryAllegianceSlug = computed(() => props.unit.allegiances[0]?.slug ?? null);
+
+// ─── Collection & Wishlist status (compact — mirrors UnitGridCard.vue) ───
+const page = usePage<SharedData>();
+const isAuthenticated = computed(() => !!page.props.auth.user);
+
+const inCollection = computed(() => {
+    if (!sculpt.value) return false;
+    return (page.props.auth.collection_unit_sculpt_ids ?? []).includes(sculpt.value.id);
+});
+
+const onWishlist = computed(() => {
+    const items = page.props.auth.wishlist_items ?? {};
+    const sculptId = sculpt.value?.id;
+    return Object.values(items).some((wl) => wl.units.includes(props.unit.id) || (sculptId != null && wl.unit_sculpts.includes(sculptId)));
+});
+
+const addingToCollection = ref(false);
+const addToCollection = () => {
+    if (!sculpt.value || inCollection.value) return;
+
+    const sculptId = sculpt.value.id;
+    const ids = page.props.auth.collection_unit_sculpt_ids;
+    const wasAbsent = !ids.includes(sculptId);
+    if (wasAbsent) ids.push(sculptId);
+
+    router.post(
+        route('tos.collection.toggle'),
+        { unit_sculpt_id: sculptId, quantity: 1 },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (addingToCollection.value = true),
+            onError: () => {
+                if (wasAbsent) {
+                    const idx = ids.indexOf(sculptId);
+                    if (idx !== -1) ids.splice(idx, 1);
+                }
+            },
+            onFinish: () => (addingToCollection.value = false),
+        },
+    );
+};
 
 // Commanders don't COST scrip — they provide the Company's starting scrip
 // budget (rulebook p. 9). The `scrip` column stores the magnitude either way;
@@ -156,6 +208,28 @@ function ruleBadge(rule: SpecialRule): string {
                     <Button v-if="sculpt?.back_image" variant="ghost" size="sm" class="h-6 gap-1 px-2 text-[10px]" @click="flipped = !flipped">
                         <RefreshCw class="size-3" /> Flip
                     </Button>
+                </div>
+
+                <div v-if="showCollection" class="space-y-1">
+                    <div v-if="inCollection || onWishlist" class="flex items-center gap-2">
+                        <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                            <BookMarked class="size-3" />
+                            Collected
+                        </span>
+                        <span v-if="onWishlist" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                            <Heart class="size-3 fill-current" />
+                            Wishlisted
+                        </span>
+                    </div>
+                    <button
+                        v-if="isAuthenticated && !inCollection && sculpt"
+                        class="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                        :disabled="addingToCollection"
+                        @click.prevent="addToCollection"
+                    >
+                        <Plus class="size-3" />
+                        Add to Collection
+                    </button>
                 </div>
             </div>
 

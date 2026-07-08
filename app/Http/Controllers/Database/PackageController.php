@@ -22,7 +22,7 @@ class PackageController extends Controller
     public function index(Request $request)
     {
         $query = Package::withCount(['characters', 'miniatures'])
-            ->where('game_system', GameSystemEnum::Malifaux)
+            ->whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])
             ->orderBy('name', 'ASC');
 
         if ($request->filled('name_search')) {
@@ -93,7 +93,7 @@ class PackageController extends Controller
 
     public function view(Request $request, Package $package)
     {
-        abort_if($package->game_system !== GameSystemEnum::Malifaux, 404);
+        abort_if(! in_array($package->game_system, [GameSystemEnum::Malifaux, GameSystemEnum::Both], true), 404);
 
         $package->load(['characters.standardMiniatures', 'miniatures', 'keywords', 'storeLinks', 'blueprints' => fn ($q) => $q->withImage()]);
 

@@ -62,3 +62,22 @@ it('excludes TOS packages from the Malifaux packages index', function () {
         ->assertOk()
         ->assertInertia(fn ($p) => $p->has('packages.data', 1));
 });
+
+it('lists a Both-flagged package on both the Malifaux and TOS package indexes', function () {
+    $both = Package::factory()->both()->create();
+
+    $this->get(route('packages.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->has('packages.data', 1)->where('packages.data.0.id', $both->id));
+
+    $this->get(route('tos.packages.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->has('packages.data', 1)->where('packages.data.0.id', $both->id));
+});
+
+it('views a Both-flagged package through both the Malifaux and TOS routes', function () {
+    $both = Package::factory()->both()->create();
+
+    $this->get(route('packages.view', $both))->assertOk();
+    $this->get(route('tos.packages.view', $both))->assertOk();
+});

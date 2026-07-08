@@ -148,8 +148,12 @@ class HandleInertiaRequests extends Middleware
             'games', 'games/*',
             'tournaments', 'tournaments/*',
             'collection', 'collection/*',
-            'wishlists', 'wishlists/*',
             'tools/*',
+            // Wishlists are deliberately NOT listed here — a wishlist can hold
+            // items from either game system (see WishlistController), so
+            // visiting it shouldn't force Malifaux mode. Leaving it out lets
+            // the cookie fallback below preserve whichever system the user
+            // was last actually browsing.
         ];
 
         if ($request->is(...$malifauxPrefixes)) {

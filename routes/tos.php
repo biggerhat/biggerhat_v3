@@ -78,14 +78,19 @@ Route::prefix('tos')->name('tos.')->group(function () {
     // Personal Collection — auth-gated. Tracks owned Unit Sculpts (mirrors
     // Malifaux's collection.* routes) + TOS-flagged Packages (shared pivot,
     // filtered by game_system in the controller).
-    Route::middleware('auth')->controller(TosCollectionController::class)->prefix('collection')->name('collection.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::post('/toggle', 'toggle')->name('toggle');
-        Route::post('/add-unit', 'addUnit')->name('add_unit');
-        Route::post('/add-units', 'addUnits')->name('add_units');
-        Route::post('/status', 'updateStatus')->name('update_status');
-        Route::post('/status-bulk', 'updateStatusBulk')->name('update_status_bulk');
-        Route::post('/remove-bulk', 'removeBulk')->name('remove_bulk');
+    Route::controller(TosCollectionController::class)->prefix('collection')->name('collection.')->group(function () {
+        Route::get('/share/{shareCode}', 'share')->name('share');
+
+        Route::middleware('auth')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/toggle', 'toggle')->name('toggle');
+            Route::post('/toggle-public', 'togglePublic')->name('toggle_public');
+            Route::post('/add-unit', 'addUnit')->name('add_unit');
+            Route::post('/add-units', 'addUnits')->name('add_units');
+            Route::post('/status', 'updateStatus')->name('update_status');
+            Route::post('/status-bulk', 'updateStatusBulk')->name('update_status_bulk');
+            Route::post('/remove-bulk', 'removeBulk')->name('remove_bulk');
+        });
     });
 
     // Company Builder — auth-gated. Each Company belongs to one user; rule

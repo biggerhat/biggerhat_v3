@@ -48,4 +48,17 @@ class PackageFactory extends Factory
             'factions' => [],
         ]);
     }
+
+    /**
+     * Crossover product sold under both game lines (e.g. terrain/accessory
+     * packs) — appears in both the Malifaux and TOS package browse lists.
+     *
+     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Package>
+     */
+    public function both(): static
+    {
+        return $this->state(fn () => [
+            'game_system' => GameSystemEnum::Both->value,
+        ]);
+    }
 }

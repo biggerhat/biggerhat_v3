@@ -170,6 +170,9 @@ const toggleMiniature = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (collectionProcessing.value = true),
             onError: () => {
                 // Roll back the optimistic update so the UI matches server state.
@@ -202,6 +205,9 @@ const addAllStandard = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (collectionProcessing.value = true),
             onSuccess: () => {
                 toast.success(

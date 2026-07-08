@@ -117,6 +117,9 @@ const addPackageToCollection = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (collectionProcessing.value = true),
             onError: () => {
                 if (pkgAdded) {
@@ -147,6 +150,9 @@ const togglePackageCollection = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (collectionProcessing.value = true),
             onError: () => {
                 // Revert the toggle if the server rejected it.

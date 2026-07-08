@@ -13,7 +13,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { BarChart3, CheckSquare, Grid2x2, Hammer, Library, Minus, Package, Paintbrush, Plus, Search, Trash2, X } from 'lucide-vue-next';
+import {
+    BarChart3,
+    Check,
+    CheckSquare,
+    Copy,
+    Globe,
+    Grid2x2,
+    Hammer,
+    Library,
+    Lock,
+    Minus,
+    Package,
+    Paintbrush,
+    Plus,
+    Search,
+    Trash2,
+    X,
+} from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface CollectionItem {
@@ -62,9 +79,30 @@ const props = defineProps<{
         built_percent: number;
         painted_percent: number;
     };
+    is_owner: boolean;
+    share_code: string;
+    is_public: boolean;
+    owner_name?: string;
 }>();
 
 const activeTab = ref('collection');
+
+// ─── Sharing ───
+const copied = ref(false);
+const copyShareLink = async () => {
+    try {
+        const url = route('tos.collection.share', { shareCode: props.share_code });
+        await navigator.clipboard.writeText(url);
+        copied.value = true;
+        setTimeout(() => (copied.value = false), 2000);
+    } catch {
+        // Clipboard API may be blocked in insecure contexts
+    }
+};
+
+const togglePublic = () => {
+    router.post(route('tos.collection.toggle_public'), {}, { preserveScroll: true, preserveState: true });
+};
 
 // ─── Filters ───
 const filterText = ref('');
@@ -229,7 +267,7 @@ const topAllegiances = computed(() =>
 </script>
 
 <template>
-    <Head title="My TOS Collection" />
+    <Head :title="is_owner ? 'My TOS Collection' : `${owner_name}'s TOS Collection`" />
 
     <div class="relative">
         <div
@@ -237,15 +275,40 @@ const topAllegiances = computed(() =>
             :style="{ background: 'radial-gradient(ellipse at top, hsl(var(--primary)) 0%, transparent 70%)' }"
         />
 
-        <PageBanner title="My Collection">
+        <PageBanner :title="is_owner ? 'My Collection' : `${owner_name}'s Collection`">
             <template #subtitle>
-                <div class="px-2 text-sm text-muted-foreground">
-                    Unit sculpts and packages you already own — track assembly, paint, and play progress here.
+                <div class="flex flex-wrap items-center gap-3 px-2">
+                    <span class="text-sm text-muted-foreground">
+                        {{
+                            is_owner
+                                ? 'Unit sculpts and packages you already own — track assembly, paint, and play progress here.'
+                                : `Viewing ${owner_name}'s TOS collection.`
+                        }}
+                    </span>
+                    <div v-if="is_owner" class="flex items-center gap-1.5">
+                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="togglePublic">
+                            <Globe v-if="is_public" class="size-3.5" />
+                            <Lock v-else class="size-3.5" />
+                            {{ is_public ? 'Public' : 'Private' }}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-7 gap-1 text-xs"
+                            :disabled="!is_public"
+                            :title="!is_public ? 'Make public to share' : 'Copy share link'"
+                            @click="copyShareLink"
+                        >
+                            <Check v-if="copied" class="size-3.5 text-green-500" />
+                            <Copy v-else class="size-3.5" />
+                            {{ copied ? 'Copied!' : 'Share' }}
+                        </Button>
+                    </div>
                 </div>
             </template>
         </PageBanner>
 
-        <div class="container mx-auto mt-6 sm:px-4 lg:px-6" :class="{ 'pb-24': selectMode && selectedIds.size > 0 }">
+        <div class="container mx-auto mt-6 sm:px-4 lg:px-6" :class="{ 'pb-24': is_owner && selectMode && selectedIds.size > 0 }">
             <!-- Overview stats -->
             <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card class="overflow-hidden">
@@ -333,7 +396,7 @@ const topAllegiances = computed(() =>
                             </Select>
                             <Button v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters"> Clear </Button>
                             <Button
-                                v-if="collection.length > 0"
+                                v-if="is_owner && collection.length > 0"
                                 :variant="selectMode ? 'default' : 'outline'"
                                 size="sm"
                                 class="gap-1.5"
@@ -347,7 +410,7 @@ const topAllegiances = computed(() =>
                     </div>
 
                     <div
-                        v-if="selectMode && filteredCollection.length > 0"
+                        v-if="is_owner && selectMode && filteredCollection.length > 0"
                         class="mb-2 flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
                     >
                         <Checkbox
@@ -374,8 +437,8 @@ const topAllegiances = computed(() =>
                     <EmptyState
                         v-else-if="filteredCollection.length === 0"
                         :icon="Library"
-                        title="Your collection is empty"
-                        description="Add unit sculpts from unit pages to get started."
+                        :title="is_owner ? 'Your collection is empty' : 'This collection is empty'"
+                        :description="is_owner ? 'Add unit sculpts from unit pages to get started.' : ''"
                     />
 
                     <div v-else class="space-y-2">
@@ -398,7 +461,7 @@ const topAllegiances = computed(() =>
                             >
                                 <div class="flex items-center gap-2 sm:gap-3">
                                     <Checkbox
-                                        v-if="selectMode"
+                                        v-if="is_owner && selectMode"
                                         :checked="selectedIds.has(item.unit_sculpt_id)"
                                         class="shrink-0"
                                         @update:checked="toggleSelected(item.unit_sculpt_id)"
@@ -417,8 +480,20 @@ const topAllegiances = computed(() =>
                                             {{ item.sculpt_name }}
                                         </div>
                                     </div>
+                                    <!-- Status icons (view-only, non-owner) -->
+                                    <template v-if="!is_owner">
+                                        <div class="flex shrink-0 items-center gap-1">
+                                            <Hammer v-if="item.is_built" class="size-3.5 text-amber-600 dark:text-amber-400" title="Built" />
+                                            <Paintbrush
+                                                v-if="item.is_painted"
+                                                class="size-3.5 text-violet-600 dark:text-violet-400"
+                                                title="Painted"
+                                            />
+                                        </div>
+                                        <span class="text-sm tabular-nums text-muted-foreground">&times;{{ item.quantity }}</span>
+                                    </template>
                                 </div>
-                                <div v-if="!selectMode" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
+                                <div v-if="is_owner && !selectMode" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
                                     <Button
                                         :variant="item.is_built ? 'default' : 'outline'"
                                         size="icon"
@@ -495,8 +570,8 @@ const topAllegiances = computed(() =>
                     <EmptyState
                         v-else-if="owned_packages.length === 0"
                         :icon="Package"
-                        title="No packages tracked yet"
-                        description="Add packages from the TOS package pages to get started."
+                        :title="is_owner ? 'No packages tracked yet' : 'No packages in this collection'"
+                        :description="is_owner ? 'Add packages from the TOS package pages to get started.' : ''"
                     />
                     <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Card
@@ -522,6 +597,7 @@ const topAllegiances = computed(() =>
                                         </Link>
                                     </div>
                                     <Button
+                                        v-if="is_owner"
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 shrink-0 text-destructive hover:text-destructive"
@@ -648,7 +724,7 @@ const topAllegiances = computed(() =>
         leave-to-class="translate-y-full opacity-0"
     >
         <div
-            v-if="selectMode && selectedIds.size > 0"
+            v-if="is_owner && selectMode && selectedIds.size > 0"
             class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-3 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur sm:px-6"
         >
             <div class="container mx-auto flex flex-wrap items-center gap-2">

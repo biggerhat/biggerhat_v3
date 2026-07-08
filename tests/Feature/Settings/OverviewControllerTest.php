@@ -111,6 +111,21 @@ it('renders correct counts once the user has activity', function () {
         );
 });
 
+it('counts malifaux_packages as Malifaux + Both, excluding TOS-only packages', function () {
+    $user = User::factory()->create();
+
+    $malifaux = \App\Models\Package::factory()->create();
+    $tos = \App\Models\Package::factory()->tos()->create();
+    $both = \App\Models\Package::factory()->both()->create();
+
+    $user->collectionPackages()->attach([$malifaux->id, $tos->id, $both->id]);
+
+    $this->actingAs($user)
+        ->get(route('overview'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('collection.malifaux_packages', 2));
+});
+
 it('lists upcoming tournaments the user has RSVP\'d for, excluding past and completed ones', function () {
     $user = User::factory()->create();
 

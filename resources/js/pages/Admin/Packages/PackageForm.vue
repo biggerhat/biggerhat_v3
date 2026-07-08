@@ -296,7 +296,7 @@ onMounted(() => {
                         <TextBar text="Related" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <template v-if="formInfo.game_system === 'tos'">
+                                <template v-if="formInfo.game_system === 'tos' || formInfo.game_system === 'both'">
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="tos_units">TOS Units</Label>
                                         <SearchableMultiselect
@@ -308,7 +308,7 @@ onMounted(() => {
                                         <InputError :message="usePage().props.errors.tos_units" />
                                     </div>
                                 </template>
-                                <template v-else>
+                                <template v-if="formInfo.game_system === 'malifaux' || formInfo.game_system === 'both'">
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="characters">Characters</Label>
                                         <SearchableMultiselect

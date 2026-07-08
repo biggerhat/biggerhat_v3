@@ -61,6 +61,11 @@ const addToCollection = () => {
         route('tos.collection.toggle'),
         { unit_sculpt_id: sculptId, quantity: 1 },
         {
+            // Only the shared `auth` prop actually changes here (the
+            // collection id list) — restrict the reload to it so this
+            // paginated grid's own `units`/`units.data` props don't get
+            // refetched and re-rendered on every click.
+            only: ['auth'],
             preserveScroll: true,
             preserveState: true,
             onStart: () => (addingToCollection.value = true),

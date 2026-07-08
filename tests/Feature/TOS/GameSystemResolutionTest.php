@@ -41,6 +41,23 @@ it('cookie does NOT override URL on Malifaux pages', function () {
         ->assertInertia(fn ($page) => $page->where('currentGameSystem.slug', 'malifaux'));
 });
 
+it('cookie DOES override on Wishlists — it is cross-system content, not Malifaux-specific', function () {
+    $user = \App\Models\User::factory()->create();
+
+    $this->withUnencryptedCookie('preferred_game_system', 'tos')
+        ->actingAs($user)
+        ->get(route('wishlists.index'))
+        ->assertInertia(fn ($page) => $page->where('currentGameSystem.slug', 'tos'));
+});
+
+it('Wishlists default to malifaux when no game-system cookie is set', function () {
+    $user = \App\Models\User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('wishlists.index'))
+        ->assertInertia(fn ($page) => $page->where('currentGameSystem.slug', 'malifaux'));
+});
+
 it('exposes a switch_to target with the opposite system', function () {
     Allegiance::factory()->create();
 

@@ -64,6 +64,8 @@ const toggleCollection = () => {
         route('tos.collection.toggle'),
         { unit_sculpt_id: props.active_sculpt.id, quantity: wasInCollection ? 0 : 1 },
         {
+            // Only the shared `auth` prop changes — see UnitGridCard.vue.
+            only: ['auth'],
             preserveScroll: true,
             preserveState: true,
             onStart: () => (collectionProcessing.value = true),

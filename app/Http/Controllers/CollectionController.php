@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
+use App\Enums\GameSystemEnum;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -349,7 +350,7 @@ class CollectionController extends Controller
         $totalMiniatures = $collectionItems->count();
         $builtCount = $collectionItems->where('is_built', '===', true)->count();
         $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
-        $ownedPackagesCount = $user->collectionPackages()->count();
+        $ownedPackagesCount = $user->collectionPackages()->where('game_system', GameSystemEnum::Malifaux)->count();
 
         return [
             'collection' => $collectionItems,
@@ -416,6 +417,7 @@ class CollectionController extends Controller
     private function buildOwnedPackages(User $user): array
     {
         return $user->collectionPackages()
+            ->where('game_system', GameSystemEnum::Malifaux)
             ->get()
             ->map(fn (Package $p) => [
                 'id' => $p->id,

@@ -7,6 +7,8 @@ use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
+use App\Models\TOS\Unit;
+use App\Models\TOS\UnitSculpt;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
 use Illuminate\Http\Request;
@@ -91,7 +93,7 @@ class WishlistController extends Controller
         $this->authorize('update', $wishlist);
 
         $validated = $request->validate([
-            'type' => 'required|in:character,miniature,package',
+            'type' => 'required|in:character,miniature,package,unit,unit_sculpt',
             'id' => 'required|integer',
         ]);
 
@@ -99,6 +101,8 @@ class WishlistController extends Controller
             'character' => Character::class,
             'miniature' => Miniature::class,
             'package' => Package::class,
+            'unit' => Unit::class,
+            'unit_sculpt' => UnitSculpt::class,
         ];
 
         $modelClass = $modelMap[$validated['type']];
@@ -176,6 +180,8 @@ class WishlistController extends Controller
             $morphTo->morphWith([
                 Character::class => ['standardMiniatures'],
                 Miniature::class => ['character'],
+                Unit::class => ['sculpts', 'allegiances'],
+                UnitSculpt::class => ['unit.allegiances'],
             ]);
         }])->get();
 
@@ -183,10 +189,12 @@ class WishlistController extends Controller
             'characters' => [],
             'miniatures' => [],
             'packages' => [],
+            'units' => [],
+            'unit_sculpts' => [],
         ];
 
         foreach ($items as $item) {
-            /** @var Character|Miniature|Package|null $model */
+            /** @var Character|Miniature|Package|Unit|UnitSculpt|null $model */
             $model = $item->wishlistable;
             if (! $model) {
                 continue;
@@ -236,6 +244,32 @@ class WishlistController extends Controller
                     ])->toArray(),
                     'notes' => $item->notes,
                 ];
+            } elseif ($model instanceof Unit) {
+                /** @var UnitSculpt|null $firstSculpt */
+                $firstSculpt = $model->sculpts->first();
+                $allegiance = $model->allegiances->first();
+                $grouped['units'][] = [
+                    'item_id' => $item->id,
+                    'id' => $model->id,
+                    'name' => $model->name,
+                    'slug' => $model->slug,
+                    'allegiance' => $allegiance?->name,
+                    'allegiance_slug' => $allegiance?->slug,
+                    'front_image' => $firstSculpt?->front_image,
+                    'first_sculpt_slug' => $firstSculpt?->slug,
+                    'notes' => $item->notes,
+                ];
+            } elseif ($model instanceof UnitSculpt) {
+                $grouped['unit_sculpts'][] = [
+                    'item_id' => $item->id,
+                    'id' => $model->id,
+                    'name' => $model->name ?? $model->unit->name,
+                    'slug' => $model->slug,
+                    'unit_name' => $model->unit->name,
+                    'unit_slug' => $model->unit->slug,
+                    'front_image' => $model->front_image,
+                    'notes' => $item->notes,
+                ];
             }
         }
 
@@ -268,6 +302,20 @@ class WishlistController extends Controller
                     ->map(fn (Package $p) => [
                         'id' => $p->id,
                         'name' => $p->name,
+                    ]),
+                'units' => Unit::notCombinedArmsChild()
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Unit $u) => [
+                        'id' => $u->id,
+                        'name' => $u->name,
+                    ]),
+                'unit_sculpts' => UnitSculpt::with('unit:id,name')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'unit_id'])
+                    ->map(fn (UnitSculpt $s) => [
+                        'id' => $s->id,
+                        'name' => $s->name ?? $s->unit->name,
                     ]),
             ],
         ];

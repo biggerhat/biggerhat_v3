@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\TOS;
 
+use App\Enums\GameSystemEnum;
 use App\Enums\TOS\AllegianceTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Package;
 use App\Models\TOS\Ability;
 use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
@@ -57,6 +59,7 @@ class HomeController extends Controller
                 'actions' => Action::count(),
                 'triggers' => Trigger::count(),
                 'special_rules' => SpecialUnitRule::count(),
+                'packages' => Package::where('game_system', GameSystemEnum::Tos)->count(),
             ],
             'type_pool_counts' => [
                 'earth' => $this->typePoolCount(AllegianceTypeEnum::Earth),

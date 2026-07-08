@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const matchesSearch = !term || name.includes(term);
 
     if (unattachedOnly) {
-        return matchesSearch && row.original.characters_count === 0 && row.original.miniatures_count === 0;
+        return matchesSearch && row.original.characters_count === 0 && row.original.miniatures_count === 0 && row.original.tos_units_count === 0;
     }
 
     return matchesSearch;
@@ -35,6 +36,14 @@ const columns: ColumnDef<any>[] = [
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
+        },
+    },
+    {
+        accessorKey: 'game_system',
+        header: () => h('div', {}, 'Game System'),
+        cell: ({ row }) => {
+            const gameSystem = row.getValue('game_system') as string;
+            return h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => (gameSystem === 'tos' ? 'The Other Side' : 'Malifaux'));
         },
     },
     {
@@ -57,6 +66,14 @@ const columns: ColumnDef<any>[] = [
         header: () => h('div', {}, 'Miniatures'),
         cell: ({ row }) => {
             const count = row.getValue('miniatures_count') as number;
+            return h('div', { class: count ? '' : 'text-muted-foreground' }, String(count));
+        },
+    },
+    {
+        accessorKey: 'tos_units_count',
+        header: () => h('div', {}, 'TOS Units'),
+        cell: ({ row }) => {
+            const count = row.getValue('tos_units_count') as number;
             return h('div', { class: count ? '' : 'text-muted-foreground' }, String(count));
         },
     },

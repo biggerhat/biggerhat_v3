@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import AddToWishlist from '@/components/AddToWishlist.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
 import UnitCard from '@/components/TOS/UnitCard.vue';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Download, Swords } from 'lucide-vue-next';
+import { type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, Check, Download, Library, Swords } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Sculpt {
     id: number;
@@ -35,10 +38,51 @@ interface Unit {
     lores: { id: number; name: string; media: { id: number; name: string }[] }[];
 }
 
-defineProps<{
+const props = defineProps<{
     unit: Unit;
     active_sculpt: Sculpt;
 }>();
+
+// ─── Collection ───
+const page = usePage<SharedData>();
+const isAuthenticated = computed(() => !!page.props.auth.user);
+const collectionSculptIds = computed(() => page.props.auth.collection_unit_sculpt_ids ?? []);
+const sculptInCollection = computed(() => collectionSculptIds.value.includes(props.active_sculpt.id));
+
+const collectionProcessing = ref(false);
+const toggleCollection = () => {
+    const ids = page.props.auth.collection_unit_sculpt_ids;
+    const wasInCollection = ids.includes(props.active_sculpt.id);
+    if (wasInCollection) {
+        const idx = ids.indexOf(props.active_sculpt.id);
+        if (idx !== -1) ids.splice(idx, 1);
+    } else {
+        ids.push(props.active_sculpt.id);
+    }
+
+    router.post(
+        route('tos.collection.toggle'),
+        { unit_sculpt_id: props.active_sculpt.id, quantity: wasInCollection ? 0 : 1 },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (collectionProcessing.value = true),
+            onError: () => {
+                if (wasInCollection) {
+                    if (!ids.includes(props.active_sculpt.id)) ids.push(props.active_sculpt.id);
+                } else {
+                    const idx = ids.indexOf(props.active_sculpt.id);
+                    if (idx !== -1) ids.splice(idx, 1);
+                }
+            },
+            onFinish: () => (collectionProcessing.value = false),
+        },
+    );
+};
+
+// AddToWishlist's `miniatures` prop expects `display_name` — Unit sculpts
+// use `name` (often null for a Unit's sole/default sculpt).
+const sculptOptions = computed(() => props.unit.sculpts.map((s) => ({ id: s.id, display_name: s.name ?? props.unit.name })));
 </script>
 
 <template>
@@ -73,6 +117,27 @@ defineProps<{
                 >
                     <Download class="size-3" /> Download PDF
                 </Button>
+            </div>
+
+            <div v-if="isAuthenticated" class="grid gap-3 sm:grid-cols-2">
+                <Card>
+                    <CardContent class="flex items-center justify-between gap-3 p-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Collection</span>
+                        <Button
+                            :variant="sculptInCollection ? 'default' : 'outline'"
+                            size="sm"
+                            class="gap-1.5"
+                            :class="sculptInCollection ? 'bg-green-600 hover:bg-green-700' : ''"
+                            :disabled="collectionProcessing"
+                            @click="toggleCollection"
+                        >
+                            <Check v-if="sculptInCollection" class="size-3.5" />
+                            <Library v-else class="size-3.5" />
+                            {{ sculptInCollection ? 'In Collection' : 'Add to Collection' }}
+                        </Button>
+                    </CardContent>
+                </Card>
+                <AddToWishlist type="unit" :id="unit.id" :miniatures="sculptOptions" :current-miniature-id="active_sculpt.id" />
             </div>
 
             <UnitCard :unit="unit" :active-sculpt="active_sculpt" />

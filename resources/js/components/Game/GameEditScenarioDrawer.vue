@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dices, X } from 'lucide-vue-next';
 
@@ -55,7 +56,7 @@ const emit = defineEmits<{
                 </DrawerHeader>
                 <div class="space-y-4 px-4 pb-4">
                     <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Deployment</label>
+                        <Label class="text-xs font-medium text-muted-foreground">Deployment</Label>
                         <Select
                             :model-value="editDeployment ?? undefined"
                             @update:model-value="(v) => emit('update:editDeployment', (v as string) ?? null)"
@@ -67,7 +68,7 @@ const emit = defineEmits<{
                         </Select>
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Strategy</label>
+                        <Label class="text-xs font-medium text-muted-foreground">Strategy</Label>
                         <Select
                             :model-value="editStrategy ?? undefined"
                             @update:model-value="(v) => emit('update:editStrategy', (v as string) ?? null)"
@@ -79,7 +80,7 @@ const emit = defineEmits<{
                         </Select>
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-xs font-medium text-muted-foreground">Scheme Pool</label>
+                        <Label class="text-xs font-medium text-muted-foreground">Scheme Pool</Label>
                         <div class="space-y-2">
                             <Select
                                 v-for="(_, idx) in editSchemePool"

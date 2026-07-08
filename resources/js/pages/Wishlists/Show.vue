@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
@@ -57,6 +58,29 @@ interface PackageItem {
     notes: string | null;
 }
 
+interface UnitItem {
+    item_id: number;
+    id: number;
+    name: string;
+    slug: string;
+    allegiance: string | null;
+    allegiance_slug: string | null;
+    front_image: string | null;
+    first_sculpt_slug: string | null;
+    notes: string | null;
+}
+
+interface UnitSculptItem {
+    item_id: number;
+    id: number;
+    name: string;
+    slug: string;
+    unit_name: string;
+    unit_slug: string;
+    front_image: string | null;
+    notes: string | null;
+}
+
 interface KeywordOption {
     id: number;
     name: string;
@@ -80,12 +104,16 @@ const props = defineProps<{
         characters: CharacterItem[];
         miniatures: MiniatureItem[];
         packages: PackageItem[];
+        units: UnitItem[];
+        unit_sculpts: UnitSculptItem[];
     };
     keywords: KeywordOption[];
     searchable: {
         characters: SearchOption[];
         miniatures: SearchOption[];
         packages: SearchOption[];
+        units: SearchOption[];
+        unit_sculpts: SearchOption[];
     };
     is_owner: boolean;
     owner_name?: string;
@@ -161,11 +189,18 @@ function removeItem(itemId: number) {
 }
 
 // ─── Search results for adding ───
+const PLURAL_TYPE: Record<string, 'characters' | 'miniatures' | 'packages' | 'units' | 'unit_sculpts'> = {
+    character: 'characters',
+    miniature: 'miniatures',
+    package: 'packages',
+    unit: 'units',
+    unit_sculpt: 'unit_sculpts',
+};
+
 const searchResults = computed(() => {
     if (addSearch.value.length < 2) return [];
     const s = addSearch.value.toLowerCase();
-    const type = addType.value as 'character' | 'miniature' | 'package';
-    const pluralType = `${type}s` as 'characters' | 'miniatures' | 'packages';
+    const pluralType = PLURAL_TYPE[addType.value];
     const existingIds = new Set(props.items[pluralType].map((i: any) => i.id));
     return props.searchable[pluralType]
         .filter((o: SearchOption) => {
@@ -196,13 +231,32 @@ const filteredPackages = computed(() => {
     return props.items.packages.filter((p) => p.name.toLowerCase().includes(s));
 });
 
-const totalItems = computed(() => props.items.characters.length + props.items.miniatures.length + props.items.packages.length);
+const filteredUnits = computed(() => {
+    if (!filterText.value) return props.items.units;
+    const s = filterText.value.toLowerCase();
+    return props.items.units.filter((u) => u.name.toLowerCase().includes(s) || u.allegiance?.toLowerCase().includes(s));
+});
+
+const filteredUnitSculpts = computed(() => {
+    if (!filterText.value) return props.items.unit_sculpts;
+    const s = filterText.value.toLowerCase();
+    return props.items.unit_sculpts.filter((u) => u.name.toLowerCase().includes(s) || u.unit_name.toLowerCase().includes(s));
+});
+
+const totalItems = computed(
+    () =>
+        props.items.characters.length +
+        props.items.miniatures.length +
+        props.items.packages.length +
+        props.items.units.length +
+        props.items.unit_sculpts.length,
+);
 const hasItems = computed(() => totalItems.value > 0);
 
 interface AllItem {
     item_id: number;
     id: number;
-    type: 'character' | 'miniature' | 'package';
+    type: 'character' | 'miniature' | 'package' | 'unit' | 'unit_sculpt';
     name: string;
     slug: string;
     faction?: string | null;
@@ -214,6 +268,11 @@ interface AllItem {
     character_slug?: string | null;
     front_image?: string | null;
     factions?: Array<{ value: string; label: string; color: string; logo: string }>;
+    allegiance_slug?: string | null;
+    allegiance_label?: string | null;
+    unit_name?: string | null;
+    unit_slug?: string | null;
+    first_sculpt_slug?: string | null;
 }
 
 const filteredAll = computed(() => {
@@ -257,6 +316,31 @@ const filteredAll = computed(() => {
             front_image: m.front_image,
         });
     }
+    for (const u of filteredUnits.value) {
+        items.push({
+            item_id: u.item_id,
+            id: u.id,
+            type: 'unit',
+            name: u.name,
+            slug: u.slug,
+            allegiance_slug: u.allegiance_slug,
+            allegiance_label: u.allegiance,
+            front_image: u.front_image,
+            first_sculpt_slug: u.first_sculpt_slug,
+        });
+    }
+    for (const s of filteredUnitSculpts.value) {
+        items.push({
+            item_id: s.item_id,
+            id: s.id,
+            type: 'unit_sculpt',
+            name: s.name,
+            slug: s.slug,
+            unit_name: s.unit_name,
+            unit_slug: s.unit_slug,
+            front_image: s.front_image,
+        });
+    }
 
     return items;
 });
@@ -265,6 +349,8 @@ const typeBadgeClass: Record<string, string> = {
     character: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     package: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
     miniature: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    unit: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    unit_sculpt: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
 };
 
 function itemHref(item: AllItem): string {
@@ -277,6 +363,12 @@ function itemHref(item: AllItem): string {
     // miniatures don't have a dedicated page — link to their character
     if (item.type === 'miniature' && item.character_slug) {
         return route('characters.view', { character: item.character_slug, miniature: item.id, slug: item.slug });
+    }
+    if (item.type === 'unit' && item.first_sculpt_slug) {
+        return route('tos.units.view', item.first_sculpt_slug);
+    }
+    if (item.type === 'unit_sculpt') {
+        return route('tos.units.view', item.slug);
     }
     return '#';
 }
@@ -293,6 +385,17 @@ function miniatureHref(mini: MiniatureItem): string {
         return route('characters.view', { character: mini.character_slug, miniature: mini.id, slug: mini.slug });
     }
     return '#';
+}
+
+function unitHref(unit: UnitItem): string {
+    if (unit.first_sculpt_slug) {
+        return route('tos.units.view', unit.first_sculpt_slug);
+    }
+    return '#';
+}
+
+function unitSculptHref(sculpt: UnitSculptItem): string {
+    return route('tos.units.view', sculpt.slug);
 }
 </script>
 
@@ -386,9 +489,11 @@ function miniatureHref(mini: MiniatureItem): string {
                                     <SelectItem value="character">Character</SelectItem>
                                     <SelectItem value="miniature">Miniature</SelectItem>
                                     <SelectItem value="package">Package</SelectItem>
+                                    <SelectItem value="unit">TOS Unit</SelectItem>
+                                    <SelectItem value="unit_sculpt">TOS Sculpt</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Input v-model="addSearch" :placeholder="`Search ${addType}s...`" class="w-full sm:max-w-sm" />
+                            <Input v-model="addSearch" :placeholder="`Search ${addType.replace('_', ' ')}s...`" class="w-full sm:max-w-sm" />
                         </div>
                         <div v-if="addSearch.length >= 2" class="mt-2 max-h-48 overflow-y-auto rounded-md border">
                             <div v-if="searchResults.length === 0" class="p-3 text-center text-sm text-muted-foreground">No results found.</div>
@@ -409,7 +514,11 @@ function miniatureHref(mini: MiniatureItem): string {
             </Card>
 
             <!-- Items display -->
-            <EmptyState v-if="!hasItems" title="This wishlist is empty" description="Add characters, packages, or miniatures to get started." />
+            <EmptyState
+                v-if="!hasItems"
+                title="This wishlist is empty"
+                description="Add characters, packages, miniatures, or TOS units to get started."
+            />
 
             <template v-else>
                 <!-- Filter -->
@@ -442,6 +551,8 @@ function miniatureHref(mini: MiniatureItem): string {
                             Packages ({{ items.packages.length }})
                         </TabsTrigger>
                         <TabsTrigger v-if="items.miniatures.length" value="miniatures"> Miniatures ({{ items.miniatures.length }}) </TabsTrigger>
+                        <TabsTrigger v-if="items.units.length" value="units"> Units ({{ items.units.length }}) </TabsTrigger>
+                        <TabsTrigger v-if="items.unit_sculpts.length" value="unit_sculpts"> Sculpts ({{ items.unit_sculpts.length }}) </TabsTrigger>
                     </TabsList>
 
                     <!-- All -->
@@ -461,6 +572,7 @@ function miniatureHref(mini: MiniatureItem): string {
                                     loading="lazy"
                                 />
                                 <FactionLogo v-else-if="item.faction" :faction="item.faction" class-name="size-5 shrink-0" />
+                                <AllegianceLogo v-else-if="item.allegiance_slug" :allegiance="item.allegiance_slug" class-name="size-5 shrink-0" />
                                 <Link :href="itemHref(item)" class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2">
                                         <span class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.name }}</span>
@@ -468,13 +580,15 @@ function miniatureHref(mini: MiniatureItem): string {
                                             class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize"
                                             :class="typeBadgeClass[item.type]"
                                         >
-                                            {{ item.type }}
+                                            {{ item.type.replace('_', ' ') }}
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
                                         <span v-if="item.station_label">{{ item.station_label }}</span>
                                         <span v-if="item.faction_label">{{ item.faction_label }}</span>
                                         <span v-if="item.character_name">{{ item.character_name }}</span>
+                                        <span v-if="item.allegiance_label">{{ item.allegiance_label }}</span>
+                                        <span v-if="item.unit_name">{{ item.unit_name }}</span>
                                         <template v-if="item.factions?.length">
                                             <span v-for="f in item.factions" :key="f.value">{{ f.label }}</span>
                                         </template>
@@ -598,6 +712,75 @@ function miniatureHref(mini: MiniatureItem): string {
                                     class="size-7 shrink-0 text-destructive hover:text-destructive"
                                     :disabled="processing"
                                     @click="removeItem(mini.item_id)"
+                                >
+                                    <Trash2 class="size-3" />
+                                </Button>
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <!-- TOS Units -->
+                    <TabsContent value="units">
+                        <div v-if="filteredUnits.length === 0" class="py-8 text-center text-sm text-muted-foreground">No units found.</div>
+                        <div v-else class="space-y-1.5">
+                            <div
+                                v-for="unit in filteredUnits"
+                                :key="unit.item_id"
+                                class="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 transition-all duration-200 hover:shadow-md"
+                            >
+                                <img
+                                    v-if="unit.front_image"
+                                    :src="`/storage/${unit.front_image}`"
+                                    :alt="unit.name"
+                                    class="size-10 shrink-0 rounded object-cover"
+                                    loading="lazy"
+                                />
+                                <AllegianceLogo v-else-if="unit.allegiance_slug" :allegiance="unit.allegiance_slug" class-name="size-5 shrink-0" />
+                                <Link :href="unitHref(unit)" class="min-w-0 flex-1">
+                                    <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ unit.name }}</div>
+                                    <div v-if="unit.allegiance" class="text-xs text-muted-foreground">{{ unit.allegiance }}</div>
+                                </Link>
+                                <Button
+                                    v-if="is_owner"
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-7 shrink-0 text-destructive hover:text-destructive"
+                                    :disabled="processing"
+                                    @click="removeItem(unit.item_id)"
+                                >
+                                    <Trash2 class="size-3" />
+                                </Button>
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <!-- TOS Sculpts -->
+                    <TabsContent value="unit_sculpts">
+                        <div v-if="filteredUnitSculpts.length === 0" class="py-8 text-center text-sm text-muted-foreground">No sculpts found.</div>
+                        <div v-else class="space-y-1.5">
+                            <div
+                                v-for="sculpt in filteredUnitSculpts"
+                                :key="sculpt.item_id"
+                                class="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 transition-all duration-200 hover:shadow-md"
+                            >
+                                <img
+                                    v-if="sculpt.front_image"
+                                    :src="`/storage/${sculpt.front_image}`"
+                                    :alt="sculpt.name"
+                                    class="size-10 shrink-0 rounded object-cover"
+                                    loading="lazy"
+                                />
+                                <Link :href="unitSculptHref(sculpt)" class="min-w-0 flex-1">
+                                    <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ sculpt.name }}</div>
+                                    <div class="text-xs text-muted-foreground">{{ sculpt.unit_name }}</div>
+                                </Link>
+                                <Button
+                                    v-if="is_owner"
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-7 shrink-0 text-destructive hover:text-destructive"
+                                    :disabled="processing"
+                                    @click="removeItem(sculpt.item_id)"
                                 >
                                     <Trash2 class="size-3" />
                                 </Button>

@@ -3,6 +3,7 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Check, Loader2 } from 'lucide-vue-next';
 
 defineProps<{
@@ -42,7 +43,7 @@ defineEmits<{
                             v-for="(faction, key) in factions"
                             :key="key"
                             class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                            :class="selectedFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
+                            :class="selectedFaction === key ? 'border-primary bg-primary/10' : ['border-transparent', CARD_HOVER_QUIET]"
                             @click="selectedFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
@@ -71,7 +72,7 @@ defineEmits<{
                             v-for="(faction, key) in factions"
                             :key="key"
                             class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                            :class="selectedOpponentFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
+                            :class="selectedOpponentFaction === key ? 'border-primary bg-primary/10' : ['border-transparent', CARD_HOVER_QUIET]"
                             @click="selectedOpponentFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
@@ -101,7 +102,7 @@ defineEmits<{
                             v-for="(faction, key) in factions"
                             :key="key"
                             class="flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all sm:p-3"
-                            :class="selectedFaction === key ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
+                            :class="selectedFaction === key ? 'border-primary bg-primary/10' : ['border-transparent', CARD_HOVER_QUIET]"
                             @click="selectedFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />

@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\FactionEnum;
+use App\Enums\GameSystemEnum;
 use App\Enums\SculptVersionEnum;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Package;
+use App\Models\TOS\Unit;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -172,6 +174,48 @@ it('deletes a package', function () {
         ->assertRedirect(route('admin.packages.index'));
 
     expect(Package::find($package->id))->toBeNull();
+});
+
+it('includes game_systems and tos_units in the create form data', function () {
+    $this->actingAs($this->admin)
+        ->get(route('admin.packages.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Admin/Packages/PackageForm')
+            ->has('game_systems')
+            ->has('tos_units')
+        );
+});
+
+it('stores a package flagged as tos with linked tos units', function () {
+    $unit = Unit::factory()->withSides()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Abyssinia Starter Box',
+            'game_system' => GameSystemEnum::Tos->value,
+            'tos_units' => [$unit->name],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Abyssinia Starter Box')->first();
+
+    expect($package)->not->toBeNull()
+        ->and($package->game_system)->toBe(GameSystemEnum::Tos)
+        ->and($package->tosUnits)->toHaveCount(1)
+        ->and($package->tosUnits->first()->id)->toBe($unit->id);
+});
+
+it('defaults game_system to malifaux when not provided', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Default System Package',
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Default System Package')->first();
+
+    expect($package->game_system)->toBe(GameSystemEnum::Malifaux);
 });
 
 it('requires delete permission to delete a package', function () {

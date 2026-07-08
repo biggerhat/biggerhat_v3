@@ -16,7 +16,8 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            // Name is intentionally not validated here — usernames are locked
+            // after signup, so the profile form never submits it.
             'email' => [
                 'required',
                 'string',

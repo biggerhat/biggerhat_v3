@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\FactionEnum;
+use App\Enums\GameSystemEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
+use App\Models\TOS\Unit;
 use Illuminate\Http\Request;
 use Storage;
 use Str;
@@ -18,7 +20,7 @@ class PackageAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Packages/Index', [
-            'packages' => Package::withCount(['characters', 'miniatures'])
+            'packages' => Package::withCount(['characters', 'miniatures', 'tosUnits'])
                 ->orderBy('name', 'ASC')
                 ->get(),
         ]);
@@ -32,7 +34,7 @@ class PackageAdminController extends Controller
     public function edit(Request $request, Package $package)
     {
         return inertia('Admin/Packages/PackageForm', array_merge(
-            ['package' => $package->loadMissing(['characters', 'miniatures', 'keywords'])],
+            ['package' => $package->loadMissing(['characters', 'miniatures', 'keywords', 'tosUnits'])],
             $this->getFormData(),
         ));
     }
@@ -63,10 +65,12 @@ class PackageAdminController extends Controller
     {
         return [
             'factions' => fn () => FactionEnum::toSelectOptions(),
+            'game_systems' => fn () => GameSystemEnum::toSelectOptions(),
             'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'id'),
             'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'id'),
             'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
+            'tos_units' => fn () => Unit::orderBy('name')->pluck('name')->map(fn ($name) => ['name' => $name]),
         ];
     }
 
@@ -75,10 +79,12 @@ class PackageAdminController extends Controller
         $characters = collect([]);
         $miniatures = collect([]);
         $keywords = collect([]);
+        $tosUnits = collect([]);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'game_system' => ['nullable', 'string', 'in:'.implode(',', array_column(GameSystemEnum::toSelectOptions(), 'value'))],
             'factions' => ['nullable', 'array'],
             'factions.*' => ['string'],
             'sku' => ['nullable', 'string', 'max:255'],
@@ -94,6 +100,7 @@ class PackageAdminController extends Controller
             'characters' => ['nullable', 'array'],
             'miniatures' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
+            'tos_units' => ['nullable', 'array'],
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -147,6 +154,11 @@ class PackageAdminController extends Controller
             unset($validated['keywords']);
         }
 
+        if (isset($validated['tos_units'])) {
+            $tosUnits = Unit::whereIn('name', $validated['tos_units'])->get();
+            unset($validated['tos_units']);
+        }
+
         if (! $package) {
             $package = Package::create($validated);
         } else {
@@ -156,6 +168,7 @@ class PackageAdminController extends Controller
         $package->characters()->sync($characters->pluck('id'));
         $package->miniatures()->sync($miniatures->pluck('id'));
         $package->keywords()->sync($keywords->pluck('id'));
+        $package->tosUnits()->sync($tosUnits->pluck('id'));
 
         return $package;
     }

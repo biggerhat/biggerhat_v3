@@ -16,13 +16,12 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
-test('profile information can be updated', function () {
+test('profile email can be updated', function () {
     $user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
         ->patch('/settings/profile', [
-            'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
 
@@ -32,9 +31,25 @@ test('profile information can be updated', function () {
 
     $user->refresh();
 
-    expect($user->name)->toBe('Test User');
     expect($user->email)->toBe('test@example.com');
     expect($user->email_verified_at)->toBeNull();
+});
+
+test('name cannot be changed via the profile form, even if submitted', function () {
+    $user = User::factory()->create(['name' => 'Original Name']);
+
+    $response = $this
+        ->actingAs($user)
+        ->patch('/settings/profile', [
+            'name' => 'Hacked Name',
+            'email' => $user->email,
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/settings/profile');
+
+    expect($user->fresh()->name)->toBe('Original Name');
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
@@ -43,7 +58,6 @@ test('email verification status is unchanged when the email address is unchanged
     $response = $this
         ->actingAs($user)
         ->patch('/settings/profile', [
-            'name' => 'Test User',
             'email' => $user->email,
         ]);
 
@@ -89,7 +103,6 @@ test('a supporter can opt in to the public supporters page', function () {
 
     $this->actingAs($user)
         ->patch('/settings/profile', [
-            'name' => $user->name,
             'email' => $user->email,
             'show_on_supporters_page' => true,
         ])

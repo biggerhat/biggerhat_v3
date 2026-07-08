@@ -3,6 +3,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameSculptVisualPickerDialog from '@/components/Game/GameSculptVisualPickerDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Images, Maximize2, X } from 'lucide-vue-next';
@@ -207,7 +208,7 @@ const handleVisualPick = (miniatureId: number) => {
                 <!-- Misc notes — visible to both players, editable by the owner. -->
                 <div class="space-y-3 px-4 pt-2">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
+                        <Label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</Label>
                         <Textarea
                             v-model="memberNotes"
                             :placeholder="canEditNotes ? 'Anything to remember about this model…' : 'No notes'"

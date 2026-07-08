@@ -6,6 +6,9 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { CrewMember, GameData, GamePlayer, SchemeData } from '@/types/game';
@@ -148,43 +151,50 @@ const confirmPendingScheme = () => {
                     <div v-if="pendingSchemeReqs.length" class="mb-3 space-y-2">
                         <!-- Model selection -->
                         <div v-if="pendingModelReq">
-                            <label class="text-[10px] uppercase text-muted-foreground">{{ pendingModelLabel }}</label>
-                            <select
+                            <Label class="text-[10px] uppercase text-muted-foreground">{{ pendingModelLabel }}</Label>
+                            <Select
                                 v-if="pendingModelOptions.length"
-                                v-model="pendingSchemeModel"
-                                class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                :model-value="pendingSchemeModel || '__none__'"
+                                @update:model-value="(v) => (pendingSchemeModel = v === '__none__' ? '' : (v as string))"
                             >
-                                <option value="">Select...</option>
-                                <option v-for="m in pendingModelOptions" :key="m.id" :value="m.display_name">
-                                    {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
-                                </option>
-                            </select>
-                            <input
-                                v-else
-                                v-model="pendingSchemeModel"
-                                type="text"
-                                placeholder="Type model name..."
-                                class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                            />
+                                <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                    <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Select...</SelectItem>
+                                    <SelectItem v-for="m in pendingModelOptions" :key="m.id" :value="m.display_name">
+                                        {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Input v-else v-model="pendingSchemeModel" type="text" placeholder="Type model name..." class="mt-0.5 h-8 text-xs" />
                         </div>
 
                         <!-- Marker selection -->
                         <div v-if="pendingHasMarkerReq">
-                            <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
-                            <select v-model="pendingSchemeMarker" class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs">
-                                <option value="">Select...</option>
-                                <option v-for="m in allMarkers" :key="m.id" :value="m.name">{{ m.name }}</option>
-                            </select>
+                            <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
+                            <Select
+                                :model-value="pendingSchemeMarker || '__none__'"
+                                @update:model-value="(v) => (pendingSchemeMarker = v === '__none__' ? '' : (v as string))"
+                            >
+                                <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                    <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Select...</SelectItem>
+                                    <SelectItem v-for="m in allMarkers" :key="m.id" :value="m.name">{{ m.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <!-- Terrain note -->
                         <div v-if="pendingHasTerrainReq">
-                            <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
-                            <input
+                            <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
+                            <Input
                                 v-model="pendingSchemeTerrainNote"
                                 type="text"
                                 placeholder="e.g. the building on the left..."
-                                class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                class="mt-0.5 h-8 text-xs"
                             />
                         </div>
                     </div>

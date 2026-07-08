@@ -15,6 +15,7 @@ import {
     Coins,
     Dice6,
     FileImage,
+    Gauge,
     Heart,
     Home,
     KeyRound,
@@ -294,6 +295,9 @@ export interface TosMyStuffContext {
 export function buildTosMyStuff(ctx: TosMyStuffContext): NavItem[] {
     if (!ctx.isAuthenticated) return [];
     return [
+        // Same destination as Malifaux's "My Hub" entry below — the hub covers
+        // both game systems, so it's not TOS- or Malifaux-specific.
+        { title: 'My Hub', href: route('overview'), icon: Gauge, keywords: 'dashboard overview hub settings profile' },
         { title: 'Company Builder', href: route('tos.companies.index'), icon: Users, keywords: 'company builder tos build' },
         { title: 'Garrison Builder', href: route('tos.garrisons.index'), icon: Shield, keywords: 'garrison builder tos tournament pool' },
     ];
@@ -382,6 +386,14 @@ export interface MyHatNavContext {
 export function buildMyHatNav(ctx: MyHatNavContext): NavGroup[] {
     if (!ctx.isAuthenticated) return [];
     const items: NavItem[] = [
+        {
+            // Same destination as TOS's "My Hub" entry in buildTosMyStuff — the
+            // hub covers both game systems, so it's not Malifaux-specific either.
+            title: 'My Hub',
+            href: route('overview'),
+            icon: Gauge,
+            keywords: 'dashboard overview hub settings profile',
+        },
         {
             title: 'My Collection',
             href: route('collection.index'),

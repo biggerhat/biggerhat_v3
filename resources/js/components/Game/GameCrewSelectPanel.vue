@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { factionBackground } from '@/composables/useFactionColor';
+import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { GameData, GamePlayer } from '@/types/game';
 import { Link } from '@inertiajs/vue3';
@@ -275,7 +276,7 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
                         <Card
                             class="transition-all duration-200"
                             :class="[
-                                expandedCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:-translate-y-0.5 hover:shadow-md',
+                                expandedCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : CARD_HOVER_PROMINENT,
                                 crew.is_over_budget ? 'border-destructive/50' : '',
                             ]"
                         >
@@ -421,7 +422,7 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
                         <Card
                             class="transition-all duration-200"
                             :class="[
-                                expandedOpponentCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:-translate-y-0.5 hover:shadow-md',
+                                expandedOpponentCrewId === crew.id ? 'shadow-md ring-1 ring-primary/50' : CARD_HOVER_PROMINENT,
                                 crew.is_over_budget ? 'border-destructive/50' : '',
                             ]"
                         >

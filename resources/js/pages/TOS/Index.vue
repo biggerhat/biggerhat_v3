@@ -46,6 +46,7 @@ interface Stats {
     actions: number;
     triggers: number;
     special_rules: number;
+    packages: number;
 }
 
 const props = defineProps<{
@@ -93,6 +94,15 @@ const browseTiles = computed(() => [
         description: 'Tactics-token-cost battlefield events.',
         accent: 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent group-hover:border-emerald-500/60',
         iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white',
+    },
+    {
+        title: 'Packages',
+        href: route('tos.packages.index'),
+        icon: Package,
+        count: props.stats.packages,
+        description: 'Starter boxes and blisters, with linked units.',
+        accent: 'border-sky-500/30 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-transparent group-hover:border-sky-500/60',
+        iconBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white',
     },
 ]);
 

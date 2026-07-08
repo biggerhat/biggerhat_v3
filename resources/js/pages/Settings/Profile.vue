@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { type SharedData, type User } from '@/types';
 
 interface Props {
@@ -24,7 +23,6 @@ const page = usePage<SharedData>();
 const user = page.props.auth.user as User;
 
 const form = useForm({
-    name: user.name,
     email: user.email,
     show_on_supporters_page: props.show_on_supporters_page,
 });
@@ -39,15 +37,15 @@ const submit = () => {
 <template>
     <Head title="Profile settings" />
 
-    <SettingsLayout>
+    <div class="container mx-auto mt-6 max-w-2xl px-4 pb-12">
         <div class="flex flex-col space-y-6">
-            <HeadingSmall title="Profile information" description="Update your name and email address" />
+            <HeadingSmall title="Profile information" description="Update your email address" />
 
             <form @submit.prevent="submit" class="space-y-6">
                 <div class="grid gap-2">
                     <Label for="name">Name</Label>
-                    <Input id="name" class="mt-1 block w-full" v-model="form.name" required autocomplete="name" placeholder="Full name" />
-                    <InputError class="mt-2" :message="form.errors.name" />
+                    <Input id="name" class="mt-1 block w-full cursor-default bg-muted/50 text-muted-foreground" :model-value="user.name" readonly />
+                    <p class="text-sm text-muted-foreground">Your username can't be changed.</p>
                 </div>
 
                 <div class="grid gap-2">
@@ -108,5 +106,5 @@ const submit = () => {
         </div>
 
         <DeleteUser />
-    </SettingsLayout>
+    </div>
 </template>

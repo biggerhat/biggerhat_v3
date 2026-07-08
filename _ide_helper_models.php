@@ -398,7 +398,9 @@ namespace App\Models\Campaign{
 /**
  * Tier 1 Attack Modification advancement (pg 38–40). Flip value gates
  * options <= value; mostly triggers, a few skl_boost rows, one signature
- * row, Red/Black Joker rows grant specific named triggers.
+ * row. The two Joker rows (Cruel Lessons, Consult the Bones) are "Any
+ * Joker" — both is_black_joker and is_red_joker are true, either color
+ * qualifies.
  *
  * @property int $id
  * @property int|null $flip_value
@@ -410,6 +412,7 @@ namespace App\Models\Campaign{
  * @property string $effect_text
  * @property string|null $suit
  * @property int|null $skl_from
+ * @property int|null $skl_from_max
  * @property int|null $skl_to
  * @property int|null $trigger_id
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -429,6 +432,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereModifierType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSklFromMax($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSklTo($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereSuit($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAttackMod whereTriggerId($value)
@@ -443,7 +447,9 @@ namespace App\Models\Campaign{
 /**
  * Tier 1 Tactical Modification advancement (pg 41–43). Flip value gates
  * options <= value; mostly triggers, a few skl_boost rows, one signature
- * row, Red/Black Joker rows grant specific named triggers.
+ * row. Unlike Attack Mod, the two Joker rows are color-specific — Red
+ * Joker grants Illumination of Illios, Black Joker grants Darkness of
+ * Delios — each with exactly one of is_black_joker/is_red_joker true.
  *
  * @property int $id
  * @property int|null $flip_value
@@ -455,6 +461,7 @@ namespace App\Models\Campaign{
  * @property string $effect_text
  * @property string|null $suit
  * @property int|null $skl_from
+ * @property int|null $skl_from_max
  * @property int|null $skl_to
  * @property int|null $trigger_id
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -474,6 +481,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereModifierType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSklFromMax($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSklTo($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereSuit($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementTacticalMod whereTriggerId($value)
@@ -990,6 +998,26 @@ namespace App\Models\Campaign{
  * One advancement gained by a Leader (or routed to its Totem). The renderer
  * walks these to compose the final action/ability list and any trigger / Skl
  * modifications applied to the underlying CustomCharacter actions.
+ * 
+ * `applied_skl_from` is set only for Skl Boost advancements — the action's
+ * actual Skl at the moment the boost was applied, captured because the
+ * catalog row's own skl_from is a qualifying range, not necessarily the
+ * action's exact prior value, so removing the advancement needs this to
+ * restore it correctly.
+ * 
+ * An Attack/Tactical Mod advancement (pg 38-43) targets exactly one of three
+ * things: the Leader (default — `applied_to_custom_character_id` and
+ * `from_equipment_id` both null, `applied_to_action_index` indexes the
+ * leader's `actions[]`), the crew's current Totem (`applied_to_custom_character_id`
+ * set, `applied_to_action_index` indexes the totem's own `actions[]` —
+ * identical shape/mechanism to the leader), or a piece of owned Equipment
+ * (`from_equipment_id` set, `applied_to_action_id` is the real `actions.id`
+ * the equipment grants — equipment has no per-instance actions[] to index
+ * into, so nothing is mutated; this record alone is the source of truth,
+ * rendered as an overlay wherever that equipment is displayed). Equipment
+ * targeting locks that equipment to the crew going forward (pg 31: "if the
+ * action is from a piece of equipment, the leader must always take that
+ * equipment if possible going forward").
  *
  * @property int $id
  * @property int $custom_character_id
@@ -999,6 +1027,8 @@ namespace App\Models\Campaign{
  * @property int|null $catalog_core_id
  * @property int|null $from_equipment_id
  * @property int $applied_to_action_index
+ * @property int|null $applied_to_action_id
+ * @property int|null $applied_skl_from
  * @property int|null $applied_to_custom_character_id
  * @property int $position_in_xp_track
  * @property array<string, mixed>|null $free_choice
@@ -1007,6 +1037,7 @@ namespace App\Models\Campaign{
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property-read CustomCharacter|null $appliedToCustomCharacter
  * @property-read CampaignEquipment|null $fromEquipment
+ * @property-read Action|null $appliedToAction
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @method static \Database\Factories\Campaign\CampaignLeaderAdvancementFactory factory($count = null, $state = [])
@@ -1015,6 +1046,8 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAcquiredAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAdvancementCatalogId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedSklFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToActionId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToActionIndex($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereAppliedToCustomCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignLeaderAdvancement whereCatalogCoreId($value)
@@ -2253,6 +2286,7 @@ namespace App\Models{
  * @property int $id
  * @property string $name
  * @property string $slug
+ * @property \App\Enums\GameSystemEnum $game_system
  * @property array<array-key, mixed>|null $factions
  * @property string|null $description
  * @property int|null $msrp
@@ -2293,6 +2327,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDistributorDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereFactions($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereFrontImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereGameSystem($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereIsPreassembled($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereMsrp($value)
@@ -3802,6 +3837,8 @@ namespace App\Models{
  * @property-read int|null $collection_miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $collectionPackages
  * @property-read int|null $collection_packages_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\UnitSculpt> $collectionUnitSculpts
+ * @property-read int|null $collection_unit_sculpts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CrewBuild> $crewBuilds
  * @property-read int|null $crew_builds_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CustomCharacter> $customCharacters

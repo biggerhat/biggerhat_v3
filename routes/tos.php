@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GameSystemController;
+use App\Http\Controllers\TOS\CollectionController as TosCollectionController;
 use App\Http\Controllers\TOS\Database\AbilityController;
 use App\Http\Controllers\TOS\Database\ActionController;
 use App\Http\Controllers\TOS\Database\AllegianceCardController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\TOS\Database\AssetController;
 use App\Http\Controllers\TOS\Database\CompanyController;
 use App\Http\Controllers\TOS\Database\CompareController;
 use App\Http\Controllers\TOS\Database\GarrisonController;
+use App\Http\Controllers\TOS\Database\PackageController as TosPackageController;
 use App\Http\Controllers\TOS\Database\PdfController as TosPdfController;
 use App\Http\Controllers\TOS\Database\SearchController as TosSearchController;
 use App\Http\Controllers\TOS\Database\SpecialUnitRuleController;
@@ -50,6 +52,9 @@ Route::prefix('tos')->name('tos.')->group(function () {
         Route::get("/$segment", fn (\Illuminate\Http\Request $request) => app(UnitController::class)->index($request, $rule))->name("units.{$rule}");
     }
 
+    Route::get('/packages', [TosPackageController::class, 'index'])->name('packages.index');
+    Route::get('/packages/{package}', [TosPackageController::class, 'view'])->name('packages.view');
+
     Route::get('/special-rules', [SpecialUnitRuleController::class, 'index'])->name('special_rules.index');
     Route::get('/abilities', [AbilityController::class, 'index'])->name('abilities.index');
     Route::get('/actions', [ActionController::class, 'index'])->name('actions.index');
@@ -68,6 +73,19 @@ Route::prefix('tos')->name('tos.')->group(function () {
     Route::controller(StratagemController::class)->prefix('stratagems')->name('stratagems.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{stratagem}', 'view')->name('view');
+    });
+
+    // Personal Collection — auth-gated. Tracks owned Unit Sculpts (mirrors
+    // Malifaux's collection.* routes) + TOS-flagged Packages (shared pivot,
+    // filtered by game_system in the controller).
+    Route::middleware('auth')->controller(TosCollectionController::class)->prefix('collection')->name('collection.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/toggle', 'toggle')->name('toggle');
+        Route::post('/add-unit', 'addUnit')->name('add_unit');
+        Route::post('/add-units', 'addUnits')->name('add_units');
+        Route::post('/status', 'updateStatus')->name('update_status');
+        Route::post('/status-bulk', 'updateStatusBulk')->name('update_status_bulk');
+        Route::post('/remove-bulk', 'removeBulk')->name('remove_bulk');
     });
 
     // Company Builder — auth-gated. Each Company belongs to one user; rule

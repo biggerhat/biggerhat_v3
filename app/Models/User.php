@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\TOS\UnitSculpt;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Traits\LogsAdminActivity;
 use App\Traits\UsesSlugName;
@@ -118,6 +119,16 @@ class User extends Authenticatable
     public function collectionPackages(): BelongsToMany
     {
         return $this->belongsToMany(Package::class, 'user_packages')
+            ->withTimestamps();
+    }
+
+    /**
+     * @return BelongsToMany<UnitSculpt, $this>
+     */
+    public function collectionUnitSculpts(): BelongsToMany
+    {
+        return $this->belongsToMany(UnitSculpt::class, 'user_unit_sculpts')
+            ->withPivot('quantity', 'is_built', 'is_painted')
             ->withTimestamps();
     }
 

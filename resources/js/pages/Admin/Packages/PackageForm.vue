@@ -56,11 +56,26 @@ const props = defineProps({
             return [];
         },
     },
+    game_systems: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
+    tos_units: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
 });
 
 const formInfo = ref({
     name: null,
     description: null,
+    game_system: 'malifaux',
     factions: [],
     sku: null,
     upc: null,
@@ -75,6 +90,7 @@ const formInfo = ref({
     characters: [],
     miniatures: [],
     keywords: [],
+    tos_units: [],
 });
 
 const submit = () => {
@@ -84,6 +100,7 @@ const submit = () => {
 onMounted(() => {
     formInfo.value.name = props.package?.name ?? null;
     formInfo.value.description = props.package?.description ?? null;
+    formInfo.value.game_system = props.package?.game_system ?? 'malifaux';
     formInfo.value.factions = props.package?.factions ?? [];
     formInfo.value.sku = props.package?.sku ?? null;
     formInfo.value.upc = props.package?.upc ?? null;
@@ -103,6 +120,10 @@ onMounted(() => {
 
     props.package?.keywords.forEach((keyword) => {
         formInfo.value.keywords.push(keyword.name);
+    });
+
+    props.package?.tos_units?.forEach((unit) => {
+        formInfo.value.tos_units.push(unit.name);
     });
 });
 </script>
@@ -125,6 +146,20 @@ onMounted(() => {
                         </div>
 
                         <div class="grid auto-rows-min gap-4 md:grid-cols-2">
+                            <div class="flex flex-col space-y-1.5">
+                                <Label for="game_system">Game System</Label>
+                                <Select id="game_system" v-model="formInfo.game_system">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Game System" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="gs in props.game_systems" :value="gs.value" :key="gs.value">
+                                            {{ gs.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError :message="usePage().props.errors.game_system" />
+                            </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="sku">SKU</Label>
                                 <Input id="sku" v-model="formInfo.sku" placeholder="SKU" />
@@ -261,26 +296,40 @@ onMounted(() => {
                         <TextBar text="Related" />
                         <div class="flex flex-col space-y-1.5">
                             <div class="grid auto-rows-min gap-4 md:grid-cols-2">
-                                <div class="flex flex-col space-y-1.5">
-                                    <Label for="characters">Characters</Label>
-                                    <SearchableMultiselect
-                                        v-model="formInfo.characters"
-                                        placeholder="Select Characters"
-                                        :options="props.characters"
-                                        option-value="name"
-                                    />
-                                    <InputError :message="usePage().props.errors.characters" />
-                                </div>
-                                <div class="flex flex-col space-y-1.5">
-                                    <Label for="miniatures">Miniatures</Label>
-                                    <SearchableMultiselect
-                                        v-model="formInfo.miniatures"
-                                        placeholder="Select Miniatures"
-                                        :options="props.miniatures"
-                                        option-value="name"
-                                    />
-                                    <InputError :message="usePage().props.errors.miniatures" />
-                                </div>
+                                <template v-if="formInfo.game_system === 'tos'">
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="tos_units">TOS Units</Label>
+                                        <SearchableMultiselect
+                                            v-model="formInfo.tos_units"
+                                            placeholder="Select TOS Units"
+                                            :options="props.tos_units"
+                                            option-value="name"
+                                        />
+                                        <InputError :message="usePage().props.errors.tos_units" />
+                                    </div>
+                                </template>
+                                <template v-else>
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="characters">Characters</Label>
+                                        <SearchableMultiselect
+                                            v-model="formInfo.characters"
+                                            placeholder="Select Characters"
+                                            :options="props.characters"
+                                            option-value="name"
+                                        />
+                                        <InputError :message="usePage().props.errors.characters" />
+                                    </div>
+                                    <div class="flex flex-col space-y-1.5">
+                                        <Label for="miniatures">Miniatures</Label>
+                                        <SearchableMultiselect
+                                            v-model="formInfo.miniatures"
+                                            placeholder="Select Miniatures"
+                                            :options="props.miniatures"
+                                            option-value="name"
+                                        />
+                                        <InputError :message="usePage().props.errors.miniatures" />
+                                    </div>
+                                </template>
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="keywords">Keywords</Label>
                                     <SearchableMultiselect

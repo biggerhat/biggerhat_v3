@@ -90,6 +90,9 @@ Route::prefix('tos')->name('tos.')->group(function () {
             Route::post('/status', 'updateStatus')->name('update_status');
             Route::post('/status-bulk', 'updateStatusBulk')->name('update_status_bulk');
             Route::post('/remove-bulk', 'removeBulk')->name('remove_bulk');
+            // Adjunct-limit Assets count as Units for collection purposes.
+            Route::post('/toggle-asset', 'toggleAsset')->name('toggle_asset');
+            Route::post('/asset-status', 'updateAssetStatus')->name('update_asset_status');
         });
     });
 

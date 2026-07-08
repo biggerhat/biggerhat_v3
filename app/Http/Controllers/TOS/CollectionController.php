@@ -4,7 +4,9 @@ namespace App\Http\Controllers\TOS;
 
 use App\Enums\GameSystemEnum;
 use App\Enums\TOS\AllegianceEnum;
+use App\Enums\TOS\AssetLimitTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Models\TOS\Asset;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 use App\Models\User;
@@ -92,6 +94,72 @@ class CollectionController extends Controller
             }
         } else {
             $user->collectionUnitSculpts()->attach($sculptId, ['quantity' => $quantity ?? 1]);
+        }
+
+        return back();
+    }
+
+    /**
+     * Adjunct-limit Assets are physical swap-in models (rulebook p. 12), so
+     * they're addable to the collection the same way a Unit sculpt is —
+     * mirrors toggle() exactly, gated to Adjunct-limit Assets only.
+     */
+    public function toggleAsset(Request $request)
+    {
+        $validated = $request->validate([
+            'asset_id' => 'required|exists:tos_assets,id',
+            'quantity' => 'nullable|integer|min:0',
+        ]);
+
+        $asset = Asset::with('limits')->findOrFail($validated['asset_id']);
+        abort_unless($asset->isAdjunct(), 422, 'Only Adjunct-limit Assets can be added to the collection.');
+
+        $user = Auth::user();
+        $assetId = $validated['asset_id'];
+        $quantity = $validated['quantity'] ?? null;
+
+        $existing = $user->collectionAssets()->where('asset_id', $assetId)->first();
+
+        if ($quantity === 0) {
+            $user->collectionAssets()->detach($assetId);
+
+            return back();
+        }
+
+        if ($existing) {
+            if ($quantity !== null) {
+                $user->collectionAssets()->updateExistingPivot($assetId, ['quantity' => $quantity]);
+            } else {
+                $user->collectionAssets()->detach($assetId);
+            }
+        } else {
+            $user->collectionAssets()->attach($assetId, ['quantity' => $quantity ?? 1]);
+        }
+
+        return back();
+    }
+
+    public function updateAssetStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'asset_id' => 'required|exists:tos_assets,id',
+            'is_built' => 'nullable|boolean',
+            'is_painted' => 'nullable|boolean',
+        ]);
+
+        $user = Auth::user();
+        $assetId = $validated['asset_id'];
+
+        $data = [];
+        if (isset($validated['is_built'])) {
+            $data['is_built'] = $validated['is_built'];
+        }
+        if (isset($validated['is_painted'])) {
+            $data['is_painted'] = $validated['is_painted'];
+        }
+
+        if (! empty($data)) {
+            $user->collectionAssets()->updateExistingPivot($assetId, $data);
         }
 
         return back();
@@ -233,10 +301,25 @@ class CollectionController extends Controller
             return $unit->sculpts->pluck('id')->intersect($ownedSculptIds)->isNotEmpty();
         });
 
+        // Adjunct-limit Assets are physical swap-in models (rulebook p. 12)
+        // — the user asked that they "count as Units" for collection
+        // purposes, so every total/stat/list below folds them in alongside
+        // Unit sculpts rather than tracking them as a separate category.
+        $ownedAssetIds = $user->collectionAssets()->pluck('tos_assets.id')->toArray();
+
+        $allAdjunctAssets = Asset::query()
+            ->whereHas('limits', fn ($q) => $q->where('limit_type', AssetLimitTypeEnum::Adjunct))
+            ->with('allegiances:id,slug,name')
+            ->get();
+
+        $ownedAdjunctAssets = $allAdjunctAssets->filter(fn (Asset $a) => in_array($a->id, $ownedAssetIds, true));
+
         $allegianceStats = [];
         foreach (AllegianceEnum::buildDetails() as $slug => $details) {
-            $total = $allUnits->filter(fn (Unit $u) => $u->allegiances->contains('slug', $slug))->count();
-            $owned = $ownedUnits->filter(fn (Unit $u) => $u->allegiances->contains('slug', $slug))->count();
+            $total = $allUnits->filter(fn (Unit $u) => $u->allegiances->contains('slug', $slug))->count()
+                + $allAdjunctAssets->filter(fn (Asset $a) => $a->allegiances->contains('slug', $slug))->count();
+            $owned = $ownedUnits->filter(fn (Unit $u) => $u->allegiances->contains('slug', $slug))->count()
+                + $ownedAdjunctAssets->filter(fn (Asset $a) => $a->allegiances->contains('slug', $slug))->count();
             $allegianceStats[] = [
                 'allegiance' => $slug,
                 'name' => $details['name'],
@@ -248,14 +331,16 @@ class CollectionController extends Controller
             ];
         }
 
-        $collectionItems = $user->collectionUnitSculpts()
+        $sculptItems = $user->collectionUnitSculpts()
             ->with(['unit.allegiances'])
             ->get()
             ->map(function (UnitSculpt $s) {
                 $unit = $s->unit;
 
                 return [
+                    'type' => 'unit_sculpt',
                     'unit_sculpt_id' => $s->id,
+                    'asset_id' => null,
                     'sculpt_name' => $s->name ?? $unit->name,
                     'sculpt_slug' => $s->slug,
                     'front_image' => $s->front_image,
@@ -269,26 +354,55 @@ class CollectionController extends Controller
                 ];
             });
 
-        $totalSculpts = $collectionItems->count();
+        $assetItems = $user->collectionAssets()
+            ->with('allegiances')
+            ->get()
+            ->map(function (Asset $a) {
+                return [
+                    'type' => 'asset',
+                    'unit_sculpt_id' => null,
+                    'asset_id' => $a->id,
+                    'sculpt_name' => $a->name,
+                    'sculpt_slug' => $a->slug,
+                    'front_image' => $a->image_path,
+                    // Negative so it can never collide with a real Unit id in
+                    // the frontend's group-by-unit map — an Adjunct Asset
+                    // doesn't belong to a Unit, it's its own single-item group.
+                    'unit_id' => -$a->id,
+                    'unit_name' => $a->name,
+                    'unit_slug' => $a->slug,
+                    'allegiances' => $a->allegiances->map(fn ($al) => ['slug' => $al->slug, 'name' => $al->name])->toArray(),
+                    'quantity' => $a->pivot->quantity ?? 1,
+                    'is_built' => (bool) ($a->pivot->is_built ?? false),
+                    'is_painted' => (bool) ($a->pivot->is_painted ?? false),
+                ];
+            });
+
+        $collectionItems = $sculptItems->concat($assetItems)->values();
+
+        $totalCollected = $collectionItems->count();
         $builtCount = $collectionItems->where('is_built', '===', true)->count();
         $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
         $ownedPackagesCount = $user->collectionPackages()->whereIn('game_system', [GameSystemEnum::Tos, GameSystemEnum::Both])->count();
+
+        $totalUnits = $allUnits->count() + $allAdjunctAssets->count();
+        $ownedUnitsCount = $ownedUnits->count() + $ownedAdjunctAssets->count();
 
         return [
             'collection' => $collectionItems,
             'allegiance_stats' => $allegianceStats,
             'totals' => [
-                'units' => $allUnits->count(),
-                'owned_units' => $ownedUnits->count(),
-                'owned_sculpts' => (int) $user->collectionUnitSculpts()->sum('quantity'),
+                'units' => $totalUnits,
+                'owned_units' => $ownedUnitsCount,
+                'owned_sculpts' => (int) $user->collectionUnitSculpts()->sum('quantity') + (int) $user->collectionAssets()->sum('quantity'),
                 'owned_packages' => $ownedPackagesCount,
-                'percent' => $allUnits->count() > 0
-                    ? round(($ownedUnits->count() / $allUnits->count()) * 100, 1)
+                'percent' => $totalUnits > 0
+                    ? round(($ownedUnitsCount / $totalUnits) * 100, 1)
                     : 0,
                 'built' => $builtCount,
                 'painted' => $paintedCount,
-                'built_percent' => $totalSculpts > 0 ? round(($builtCount / $totalSculpts) * 100, 1) : 0,
-                'painted_percent' => $totalSculpts > 0 ? round(($paintedCount / $totalSculpts) * 100, 1) : 0,
+                'built_percent' => $totalCollected > 0 ? round(($builtCount / $totalCollected) * 100, 1) : 0,
+                'painted_percent' => $totalCollected > 0 ? round(($paintedCount / $totalCollected) * 100, 1) : 0,
             ],
         ];
     }

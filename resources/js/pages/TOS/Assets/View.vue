@@ -6,9 +6,12 @@ import FlipCard from '@/components/TOS/FlipCard.vue';
 import TosSuits from '@/components/TosSuits.vue';
 import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Ban, Package, Swords } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, Ban, BookMarked, Package, Plus, Swords } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Limit {
     id: number;
@@ -58,7 +61,7 @@ interface CompatibleUnit {
     allegiances: Array<{ id: number; slug: string; name: string }>;
 }
 
-defineProps<{
+const props = defineProps<{
     asset: Asset;
     compatible_units: CompatibleUnit[];
 }>();
@@ -67,6 +70,41 @@ const describeLimit = (l: Limit): string => {
     const head = l.limit_type.charAt(0).toUpperCase() + l.limit_type.slice(1);
     const tail = l.parameter_unit?.name ?? l.parameter_allegiance?.name ?? l.parameter_value;
     return tail ? `${head} — ${tail}` : head;
+};
+
+// ─── Collection (Adjunct-limit Assets count as Units) ───
+const isAdjunct = computed(() => props.asset.limits.some((l) => l.limit_type === 'adjunct'));
+
+const page = usePage<SharedData>();
+const isAuthenticated = computed(() => !!page.props.auth.user);
+const inCollection = computed(() => (page.props.auth.collection_asset_ids ?? []).includes(props.asset.id));
+
+const addingToCollection = ref(false);
+const addToCollection = () => {
+    if (inCollection.value) return;
+
+    const assetId = props.asset.id;
+    const ids = page.props.auth.collection_asset_ids;
+    const wasAbsent = !ids.includes(assetId);
+    if (wasAbsent) ids.push(assetId);
+
+    router.post(
+        route('tos.collection.toggle_asset'),
+        { asset_id: assetId, quantity: 1 },
+        {
+            only: ['auth'],
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (addingToCollection.value = true),
+            onError: () => {
+                if (wasAbsent) {
+                    const idx = ids.indexOf(assetId);
+                    if (idx !== -1) ids.splice(idx, 1);
+                }
+            },
+            onFinish: () => (addingToCollection.value = false),
+        },
+    );
 };
 </script>
 
@@ -128,6 +166,25 @@ const describeLimit = (l: Limit): string => {
                     <CardContent class="space-y-4 px-0 pb-0">
                         <div class="flex flex-wrap gap-1">
                             <Badge v-for="a in asset.allegiances" :key="a.id" variant="outline" class="text-[10px]">{{ a.name }}</Badge>
+                        </div>
+
+                        <!-- Adjunct-limit Assets are physical swap-in models — count as Units for collection purposes -->
+                        <div v-if="isAdjunct" class="flex items-center gap-3">
+                            <span v-if="inCollection" class="flex items-center gap-1 text-xs" style="color: #059669">
+                                <BookMarked class="size-3.5" />
+                                In your collection
+                            </span>
+                            <Button
+                                v-else-if="isAuthenticated"
+                                variant="outline"
+                                size="sm"
+                                class="h-7 gap-1 text-xs"
+                                :disabled="addingToCollection"
+                                @click="addToCollection"
+                            >
+                                <Plus class="size-3.5" />
+                                Add to Collection
+                            </Button>
                         </div>
 
                         <p v-if="asset.body" class="text-sm text-muted-foreground"><TosText :text="asset.body" /></p>

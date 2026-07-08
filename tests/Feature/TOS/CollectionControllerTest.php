@@ -210,3 +210,96 @@ it('toggles TOS collection visibility and generates a share code if missing', fu
 it('requires authentication to toggle TOS collection visibility', function () {
     $this->postJson(route('tos.collection.toggle_public'))->assertUnauthorized();
 });
+
+it('attaches an Adjunct-limit asset to a user collection via toggle-asset', function () {
+    $asset = \App\Models\TOS\Asset::factory()->adjunct(50)->create();
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.toggle_asset'), [
+        'asset_id' => $asset->id,
+    ])->assertRedirect();
+
+    expect($this->user->collectionAssets()->count())->toBe(1);
+    expect($this->user->collectionAssets()->first()->pivot->quantity)->toBe(1);
+});
+
+it('detaches an Adjunct asset via toggle-asset with quantity 0', function () {
+    $asset = \App\Models\TOS\Asset::factory()->adjunct(50)->create();
+    $this->user->collectionAssets()->attach($asset->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.toggle_asset'), [
+        'asset_id' => $asset->id,
+        'quantity' => 0,
+    ])->assertRedirect();
+
+    expect($this->user->collectionAssets()->count())->toBe(0);
+});
+
+it('rejects adding a non-Adjunct asset to the collection', function () {
+    $asset = \App\Models\TOS\Asset::factory()->unique()->create();
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.toggle_asset'), [
+        'asset_id' => $asset->id,
+    ])->assertStatus(422);
+
+    expect($this->user->collectionAssets()->count())->toBe(0);
+});
+
+it('updates is_built and is_painted on a collected Adjunct asset', function () {
+    $asset = \App\Models\TOS\Asset::factory()->adjunct(50)->create();
+    $this->user->collectionAssets()->attach($asset->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.update_asset_status'), [
+        'asset_id' => $asset->id,
+        'is_built' => true,
+        'is_painted' => true,
+    ])->assertRedirect();
+
+    $pivot = $this->user->collectionAssets()->first()->pivot;
+    expect((bool) $pivot->is_built)->toBeTrue();
+    expect((bool) $pivot->is_painted)->toBeTrue();
+});
+
+it('folds owned Adjunct assets into the Units totals, allegiance stats, and collection list', function () {
+    $allegiance = \App\Models\TOS\Allegiance::factory()->create();
+    $this->unit->allegiances()->attach($allegiance->id);
+
+    $asset = \App\Models\TOS\Asset::factory()->adjunct(50)->forAllegiance($allegiance)->create();
+    $unownedAsset = \App\Models\TOS\Asset::factory()->adjunct(30)->create();
+    // A non-Adjunct asset must never count toward Units totals.
+    \App\Models\TOS\Asset::factory()->unique()->create();
+
+    $this->user->collectionUnitSculpts()->attach($this->sculpt1->id, ['quantity' => 1]);
+    $this->user->collectionAssets()->attach($asset->id, ['quantity' => 2]);
+
+    $response = $this->actingAs($this->user)->get(route('tos.collection.index'));
+
+    $response->assertOk()->assertInertia(fn ($p) => $p->component('TOS/Collection/Index')
+        // 1 Unit + 2 Adjunct assets (owned + unowned) = 3; owned = 1 Unit + 1 Adjunct asset = 2.
+        ->where('totals.units', 3)
+        ->where('totals.owned_units', 2)
+        ->where('totals.owned_sculpts', 3) // 1 sculpt qty + 2 asset qty
+        ->has('collection', 2)
+        ->where('collection.0.type', 'unit_sculpt')
+        ->where('collection.1.type', 'asset')
+        ->where('collection.1.asset_id', $asset->id)
+        ->where('collection.1.quantity', 2)
+    );
+
+    $stats = collect($response->viewData('page')['props']['allegiance_stats']);
+    $stat = $stats->firstWhere('allegiance', $allegiance->slug);
+
+    expect($stat)->not->toBeNull()
+        ->and($stat['total'])->toBe(2) // the Unit + the Adjunct asset both share this allegiance
+        ->and($stat['owned'])->toBe(2)
+        ->and($unownedAsset)->not->toBeNull();
+});
+
+it('surfaces owned Adjunct assets in the shared auth.collection_asset_ids prop', function () {
+    $asset = \App\Models\TOS\Asset::factory()->adjunct(50)->create();
+    $this->user->collectionAssets()->attach($asset->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)
+        ->get(route('tos.units.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('auth.collection_asset_ids', [$asset->id]));
+});

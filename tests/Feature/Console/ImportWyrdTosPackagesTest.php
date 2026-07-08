@@ -116,3 +116,28 @@ it('makes no database changes on a dry run', function () {
 
     expect(Package::count())->toBe(0);
 });
+
+it('retries on a 429 and succeeds once the rate limit clears', function () {
+    Unit::factory()->create(['name' => 'Prince Unathi']);
+
+    Http::fake([
+        WYRD_TOS_URL => Http::sequence()
+            ->push(null, 429, ['Retry-After' => '0'])
+            ->push(['products' => [fakeTosProduct()]])
+            ->push(['products' => []]),
+    ]);
+
+    $this->artisan('app:import-wyrd-tos-packages --skip-images')->assertSuccessful();
+
+    expect(Package::where('slug', 'abyssinia-allegiance-box')->exists())->toBeTrue();
+});
+
+it('gives up after repeated 429s without crashing', function () {
+    Http::fake([
+        WYRD_TOS_URL => Http::response(null, 429, ['Retry-After' => '0']),
+    ]);
+
+    $this->artisan('app:import-wyrd-tos-packages --skip-images')->assertSuccessful();
+
+    expect(Package::count())->toBe(0);
+});

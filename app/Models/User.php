@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\TOS\Asset;
 use App\Models\TOS\UnitSculpt;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Traits\LogsAdminActivity;
@@ -128,6 +129,19 @@ class User extends Authenticatable
     public function collectionUnitSculpts(): BelongsToMany
     {
         return $this->belongsToMany(UnitSculpt::class, 'user_unit_sculpts')
+            ->withPivot('quantity', 'is_built', 'is_painted')
+            ->withTimestamps();
+    }
+
+    /**
+     * Adjunct-limit Assets — physical swap-in models tracked in the
+     * collection the same way a Unit sculpt is (see Asset::isAdjunct()).
+     *
+     * @return BelongsToMany<Asset, $this>
+     */
+    public function collectionAssets(): BelongsToMany
+    {
+        return $this->belongsToMany(Asset::class, 'user_tos_assets')
             ->withPivot('quantity', 'is_built', 'is_painted')
             ->withTimestamps();
     }

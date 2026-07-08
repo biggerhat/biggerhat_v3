@@ -3823,6 +3823,8 @@ namespace App\Models{
  * @property string|null $remember_token
  * @property string|null $collection_share_code
  * @property int $collection_is_public
+ * @property string|null $tos_collection_share_code
+ * @property int $tos_collection_is_public
  * @property \Illuminate\Support\Carbon|null $supporter_since
  * @property bool $show_on_supporters_page
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -3833,6 +3835,8 @@ namespace App\Models{
  * @property-read int|null $blog_posts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Channel> $channels
  * @property-read int|null $channels_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TOS\Asset> $collectionAssets
+ * @property-read int|null $collection_assets_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Miniature> $collectionMiniatures
  * @property-read int|null $collection_miniatures_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Package> $collectionPackages
@@ -3880,6 +3884,8 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereShowOnSupportersPage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereSupporterSince($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTosCollectionIsPublic($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTosCollectionShareCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutPermission($permissions)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutRole($roles, $guard = null)

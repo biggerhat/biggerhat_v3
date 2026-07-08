@@ -78,6 +78,8 @@ class HandleInertiaRequests extends Middleware
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
                 'collection_unit_sculpt_ids' => fn () => $request->user()?->collectionUnitSculpts()->pluck('tos_unit_sculpts.id')->toArray() ?? [],
+                // Adjunct-limit Assets count as Units for collection purposes.
+                'collection_asset_ids' => fn () => $request->user()?->collectionAssets()->pluck('tos_assets.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
                 'wishlist_items' => fn () => $this->getWishlistItems($request),
                 'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],

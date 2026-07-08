@@ -11,9 +11,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { CARD_HOVER } from '@/lib/cardHover';
+import type { SharedData } from '@/types';
 import type { Paginator } from '@/types/tos';
-import { Head, Link } from '@inertiajs/vue3';
-import { Package } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { BookMarked, Package, Plus } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Limit {
     id: number;
@@ -51,6 +53,42 @@ const limitLabel = (l: Limit): string => {
     const head = l.limit_type.charAt(0).toUpperCase() + l.limit_type.slice(1);
     if (!l.parameter_value) return head;
     return `${head} (${l.parameter_value})`;
+};
+
+// ─── Collection (Adjunct-limit Assets count as Units) ───
+const page = usePage<SharedData>();
+const isAuthenticated = computed(() => !!page.props.auth.user);
+const isAdjunct = (a: Asset) => a.limits.some((l) => l.limit_type === 'adjunct');
+const inCollection = (assetId: number) => (page.props.auth.collection_asset_ids ?? []).includes(assetId);
+
+const addingToCollectionId = ref<number | null>(null);
+const addToCollection = (assetId: number) => {
+    if (inCollection(assetId)) return;
+
+    const ids = page.props.auth.collection_asset_ids;
+    const wasAbsent = !ids.includes(assetId);
+    if (wasAbsent) ids.push(assetId);
+
+    router.post(
+        route('tos.collection.toggle_asset'),
+        { asset_id: assetId, quantity: 1 },
+        {
+            // Only the shared `auth` prop actually changes here — restrict
+            // the reload to it so this paginated grid's own `assets` prop
+            // doesn't get refetched/re-rendered on every click.
+            only: ['auth'],
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => (addingToCollectionId.value = assetId),
+            onError: () => {
+                if (wasAbsent) {
+                    const idx = ids.indexOf(assetId);
+                    if (idx !== -1) ids.splice(idx, 1);
+                }
+            },
+            onFinish: () => (addingToCollectionId.value = null),
+        },
+    );
 };
 </script>
 
@@ -142,6 +180,23 @@ const limitLabel = (l: Limit): string => {
                             <p v-if="a.allegiances.length" class="truncate text-[10px] text-muted-foreground">
                                 {{ a.allegiances.map((x) => x.name).join(', ') }}
                             </p>
+
+                            <!-- Adjunct-limit Assets are physical swap-in models — count as Units for collection purposes -->
+                            <template v-if="isAdjunct(a)">
+                                <div v-if="inCollection(a.id)" class="flex items-center gap-1 pt-0.5 text-[11px]" style="color: #059669">
+                                    <BookMarked class="size-3" />
+                                    Collected
+                                </div>
+                                <button
+                                    v-else-if="isAuthenticated"
+                                    class="flex items-center gap-1 pt-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                                    :disabled="addingToCollectionId === a.id"
+                                    @click.stop.prevent="addToCollection(a.id)"
+                                >
+                                    <Plus class="size-3" />
+                                    Add to Collection
+                                </button>
+                            </template>
                         </CardContent>
                     </Card>
                 </Link>

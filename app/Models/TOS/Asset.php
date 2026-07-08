@@ -166,4 +166,22 @@ class Asset extends Model
 
         return false;
     }
+
+    /**
+     * Whether the Asset prints an Adjunct limit (rulebook p. 12 — swaps a
+     * model of matching base size inside a Squad). Adjunct Assets are
+     * physical models in their own right, so they're collectible the same
+     * way a Unit sculpt is — see `User::collectionAssets()`.
+     */
+    public function isAdjunct(): bool
+    {
+        $this->loadMissing('limits');
+        foreach ($this->limits as $limit) {
+            if ($limit->limit_type === AssetLimitTypeEnum::Adjunct) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -34,7 +34,12 @@ import {
 import { computed, ref, watch } from 'vue';
 
 interface CollectionItem {
-    unit_sculpt_id: number;
+    // Adjunct-limit Assets count as Units for collection purposes — `type`
+    // says which table the row actually lives in, so mutations hit the
+    // right endpoint with the right id.
+    type: 'unit_sculpt' | 'asset';
+    unit_sculpt_id: number | null;
+    asset_id: number | null;
     sculpt_name: string;
     sculpt_slug: string;
     front_image: string | null;
@@ -167,31 +172,34 @@ const { delays: packageDelays } = useStaggeredEntry(packageCount);
 // ─── Mutations ───
 const processing = ref(false);
 
-const updateQuantity = (unitSculptId: number, quantity: number) => {
+const updateQuantity = (item: CollectionItem, quantity: number) => {
     processing.value = true;
-    router.post(
-        route('tos.collection.toggle'),
-        { unit_sculpt_id: unitSculptId, quantity: Math.max(0, quantity) },
-        { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) },
-    );
+    const opts = { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) };
+    if (item.type === 'asset') {
+        router.post(route('tos.collection.toggle_asset'), { asset_id: item.asset_id, quantity: Math.max(0, quantity) }, opts);
+    } else {
+        router.post(route('tos.collection.toggle'), { unit_sculpt_id: item.unit_sculpt_id, quantity: Math.max(0, quantity) }, opts);
+    }
 };
 
-const updateStatus = (unitSculptId: number, field: 'is_built' | 'is_painted', value: boolean) => {
+const updateStatus = (item: CollectionItem, field: 'is_built' | 'is_painted', value: boolean) => {
     processing.value = true;
-    router.post(
-        route('tos.collection.update_status'),
-        { unit_sculpt_id: unitSculptId, [field]: value },
-        { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) },
-    );
+    const opts = { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) };
+    if (item.type === 'asset') {
+        router.post(route('tos.collection.update_asset_status'), { asset_id: item.asset_id, [field]: value }, opts);
+    } else {
+        router.post(route('tos.collection.update_status'), { unit_sculpt_id: item.unit_sculpt_id, [field]: value }, opts);
+    }
 };
 
-const removeSculpt = (unitSculptId: number) => {
+const removeSculpt = (item: CollectionItem) => {
     processing.value = true;
-    router.post(
-        route('tos.collection.toggle'),
-        { unit_sculpt_id: unitSculptId, quantity: 0 },
-        { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) },
-    );
+    const opts = { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) };
+    if (item.type === 'asset') {
+        router.post(route('tos.collection.toggle_asset'), { asset_id: item.asset_id, quantity: 0 }, opts);
+    } else {
+        router.post(route('tos.collection.toggle'), { unit_sculpt_id: item.unit_sculpt_id, quantity: 0 }, opts);
+    }
 };
 
 const removePackage = (packageId: number) => {
@@ -214,7 +222,9 @@ const toggleSelected = (unitSculptId: number) => {
     selectedIds.value = next;
 };
 
-const filteredSculptIds = computed(() => filteredCollection.value.map((i) => i.unit_sculpt_id));
+// Bulk select/remove/mark stays Unit-Sculpt-only for now — Adjunct Assets
+// support single-row add/toggle/status/remove, not the bulk endpoints.
+const filteredSculptIds = computed(() => filteredCollection.value.filter((i) => i.type === 'unit_sculpt').map((i) => i.unit_sculpt_id as number));
 const allFilteredSelected = computed(() => filteredSculptIds.value.length > 0 && filteredSculptIds.value.every((id) => selectedIds.value.has(id)));
 const toggleSelectAll = () => {
     if (allFilteredSelected.value) {
@@ -425,12 +435,12 @@ const topAllegiances = computed(() =>
                     </div>
 
                     <div v-if="hasActiveFilter" class="mb-3 text-sm text-muted-foreground">
-                        Showing {{ filteredCollection.length }} of {{ collection.length }} sculpts
+                        Showing {{ filteredCollection.length }} of {{ collection.length }} items
                     </div>
 
                     <EmptyState
                         v-if="filteredCollection.length === 0 && hasActiveFilter"
-                        title="No sculpts match your filter"
+                        title="No items match your filter"
                         description="Try adjusting your search or allegiance filter."
                     />
 
@@ -438,7 +448,7 @@ const topAllegiances = computed(() =>
                         v-else-if="filteredCollection.length === 0"
                         :icon="Library"
                         :title="is_owner ? 'Your collection is empty' : 'This collection is empty'"
-                        :description="is_owner ? 'Add unit sculpts from unit pages to get started.' : ''"
+                        :description="is_owner ? 'Add unit sculpts or Adjunct assets from unit/asset pages to get started.' : ''"
                     />
 
                     <div v-else class="space-y-2">
@@ -450,32 +460,44 @@ const topAllegiances = computed(() =>
                         >
                             <div
                                 v-for="(item, itemIndex) in group.sculpts"
-                                :key="item.unit_sculpt_id"
+                                :key="`${item.type}-${item.unit_sculpt_id ?? item.asset_id}`"
                                 class="px-3 py-2.5 transition-colors sm:px-4"
                                 :class="[
                                     { 'border-t border-border/50': itemIndex > 0 },
-                                    selectMode && selectedIds.has(item.unit_sculpt_id) ? 'bg-primary/5' : '',
-                                    selectMode ? 'cursor-pointer' : '',
+                                    selectMode && item.type === 'unit_sculpt' && selectedIds.has(item.unit_sculpt_id as number) ? 'bg-primary/5' : '',
+                                    selectMode && item.type === 'unit_sculpt' ? 'cursor-pointer' : '',
                                 ]"
-                                @click="selectMode ? toggleSelected(item.unit_sculpt_id) : null"
+                                @click="selectMode && item.type === 'unit_sculpt' ? toggleSelected(item.unit_sculpt_id as number) : null"
                             >
                                 <div class="flex items-center gap-2 sm:gap-3">
                                     <Checkbox
-                                        v-if="is_owner && selectMode"
-                                        :checked="selectedIds.has(item.unit_sculpt_id)"
+                                        v-if="is_owner && selectMode && item.type === 'unit_sculpt'"
+                                        :checked="selectedIds.has(item.unit_sculpt_id as number)"
                                         class="shrink-0"
-                                        @update:checked="toggleSelected(item.unit_sculpt_id)"
+                                        @update:checked="toggleSelected(item.unit_sculpt_id as number)"
                                         @click.stop
                                     />
                                     <AllegianceLogo v-if="item.allegiances[0]" :allegiance="item.allegiances[0].slug" class-name="size-5 shrink-0" />
-                                    <Link v-if="!selectMode" :href="route('tos.units.view', item.sculpt_slug)" class="min-w-0 flex-1">
-                                        <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.unit_name }}</div>
+                                    <Link
+                                        v-if="!selectMode"
+                                        :href="route(item.type === 'asset' ? 'tos.assets.view' : 'tos.units.view', item.sculpt_slug)"
+                                        class="min-w-0 flex-1"
+                                    >
+                                        <div class="flex items-center gap-1.5">
+                                            <div class="truncate text-sm font-medium transition-colors hover:text-primary">
+                                                {{ item.unit_name }}
+                                            </div>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[9px]">Adjunct</Badge>
+                                        </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
                                         </div>
                                     </Link>
                                     <div v-else class="min-w-0 flex-1">
-                                        <div class="truncate text-sm font-medium">{{ item.unit_name }}</div>
+                                        <div class="flex items-center gap-1.5">
+                                            <div class="truncate text-sm font-medium">{{ item.unit_name }}</div>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[9px]">Adjunct</Badge>
+                                        </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
                                         </div>
@@ -501,7 +523,7 @@ const topAllegiances = computed(() =>
                                         :class="item.is_built ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-muted-foreground'"
                                         :disabled="processing"
                                         :title="item.is_built ? 'Mark as unbuilt' : 'Mark as built'"
-                                        @click="updateStatus(item.unit_sculpt_id, 'is_built', !item.is_built)"
+                                        @click="updateStatus(item, 'is_built', !item.is_built)"
                                     >
                                         <Hammer class="size-3.5" />
                                     </Button>
@@ -512,7 +534,7 @@ const topAllegiances = computed(() =>
                                         :class="item.is_painted ? 'bg-violet-600 text-white hover:bg-violet-700' : 'text-muted-foreground'"
                                         :disabled="processing"
                                         :title="item.is_painted ? 'Mark as unpainted' : 'Mark as painted'"
-                                        @click="updateStatus(item.unit_sculpt_id, 'is_painted', !item.is_painted)"
+                                        @click="updateStatus(item, 'is_painted', !item.is_painted)"
                                     >
                                         <Paintbrush class="size-3.5" />
                                     </Button>
@@ -522,7 +544,7 @@ const topAllegiances = computed(() =>
                                             size="icon"
                                             class="size-7"
                                             :disabled="processing"
-                                            @click="updateQuantity(item.unit_sculpt_id, item.quantity - 1)"
+                                            @click="updateQuantity(item, item.quantity - 1)"
                                         >
                                             <Minus class="size-3" />
                                         </Button>
@@ -532,7 +554,7 @@ const topAllegiances = computed(() =>
                                             size="icon"
                                             class="size-7"
                                             :disabled="processing"
-                                            @click="updateQuantity(item.unit_sculpt_id, item.quantity + 1)"
+                                            @click="updateQuantity(item, item.quantity + 1)"
                                         >
                                             <Plus class="size-3" />
                                         </Button>
@@ -542,7 +564,7 @@ const topAllegiances = computed(() =>
                                         size="icon"
                                         class="ml-auto size-7 text-destructive hover:text-destructive"
                                         :disabled="processing"
-                                        @click="removeSculpt(item.unit_sculpt_id)"
+                                        @click="removeSculpt(item)"
                                     >
                                         <Trash2 class="size-3" />
                                     </Button>

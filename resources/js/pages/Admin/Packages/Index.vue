@@ -43,7 +43,8 @@ const columns: ColumnDef<any>[] = [
         header: () => h('div', {}, 'Game System'),
         cell: ({ row }) => {
             const gameSystem = row.getValue('game_system') as string;
-            return h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => (gameSystem === 'tos' ? 'The Other Side' : 'Malifaux'));
+            const label = gameSystem === 'both' ? 'Both' : gameSystem === 'tos' ? 'The Other Side' : 'Malifaux';
+            return h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => label);
         },
     },
     {

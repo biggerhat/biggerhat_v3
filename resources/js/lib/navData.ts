@@ -319,8 +319,15 @@ export function buildTosNav(ctx: TosNavContext): NavGroup[] {
     return [
         {
             items: [
-                // No "Home" entry — the sidebar logo already routes to tos.index when
-                // the active game system is TOS, matching the Malifaux pattern.
+                // Logo-implicit today (no dedicated sidebar row) but a real,
+                // searchable destination for the command palette — mirrors
+                // Malifaux's "Home / Browse" entry for consistency.
+                {
+                    title: 'Home / Browse',
+                    href: route('tos.index'),
+                    icon: Home,
+                    keywords: 'home units allegiances database browse tos the other side',
+                },
                 { title: 'Advanced Search', href: route('tos.search'), icon: TextSearch, keywords: 'advanced search filter tos' },
                 ...(ctx.canAccessAdmin
                     ? [

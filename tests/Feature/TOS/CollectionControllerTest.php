@@ -149,3 +149,64 @@ it('scopes owned packages to TOS-flagged packages only', function () {
     expect($payload['props']['owned_packages'])->toHaveCount(1)
         ->and($payload['props']['owned_packages'][0]['id'])->toBe($tosPackage->id);
 });
+
+it('lazily generates a share code the first time a user visits their TOS collection', function () {
+    expect($this->user->tos_collection_share_code)->toBeNull();
+
+    $this->actingAs($this->user)
+        ->get(route('tos.collection.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('is_owner', true)->where('is_public', false)->has('share_code'));
+
+    expect($this->user->fresh()->tos_collection_share_code)->not->toBeNull();
+});
+
+it('404s a TOS collection share link for an unknown code', function () {
+    $this->get(route('tos.collection.share', ['shareCode' => 'nonexistent']))->assertNotFound();
+});
+
+it('403s a private TOS collection share link for a stranger', function () {
+    $this->user->update(['tos_collection_share_code' => 'abc123', 'tos_collection_is_public' => false]);
+
+    $this->get(route('tos.collection.share', ['shareCode' => 'abc123']))->assertForbidden();
+});
+
+it('allows the owner to view their own private TOS collection share link', function () {
+    $this->user->update(['tos_collection_share_code' => 'abc123', 'tos_collection_is_public' => false]);
+
+    $this->actingAs($this->user)
+        ->get(route('tos.collection.share', ['shareCode' => 'abc123']))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('is_owner', true));
+});
+
+it('lets anyone view a public TOS collection share link, read-only', function () {
+    $this->user->update(['tos_collection_share_code' => 'abc123', 'tos_collection_is_public' => true, 'name' => 'Sculptor']);
+    $this->user->collectionUnitSculpts()->attach($this->sculpt1->id, ['quantity' => 1]);
+
+    $this->get(route('tos.collection.share', ['shareCode' => 'abc123']))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->component('TOS/Collection/Index')
+            ->where('is_owner', false)
+            ->where('is_public', true)
+            ->where('owner_name', 'Sculptor')
+            ->has('collection', 1)
+        );
+});
+
+it('toggles TOS collection visibility and generates a share code if missing', function () {
+    expect($this->user->tos_collection_share_code)->toBeNull();
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.toggle_public'))->assertRedirect();
+
+    $this->user->refresh();
+    expect((bool) $this->user->tos_collection_is_public)->toBeTrue()
+        ->and($this->user->tos_collection_share_code)->not->toBeNull();
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.toggle_public'))->assertRedirect();
+    expect((bool) $this->user->fresh()->tos_collection_is_public)->toBeFalse();
+});
+
+it('requires authentication to toggle TOS collection visibility', function () {
+    $this->postJson(route('tos.collection.toggle_public'))->assertUnauthorized();
+});

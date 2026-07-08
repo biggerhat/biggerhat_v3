@@ -350,7 +350,7 @@ class CollectionController extends Controller
         $totalMiniatures = $collectionItems->count();
         $builtCount = $collectionItems->where('is_built', '===', true)->count();
         $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
-        $ownedPackagesCount = $user->collectionPackages()->where('game_system', GameSystemEnum::Malifaux)->count();
+        $ownedPackagesCount = $user->collectionPackages()->whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])->count();
 
         return [
             'collection' => $collectionItems,
@@ -417,7 +417,7 @@ class CollectionController extends Controller
     private function buildOwnedPackages(User $user): array
     {
         return $user->collectionPackages()
-            ->where('game_system', GameSystemEnum::Malifaux)
+            ->whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])
             ->get()
             ->map(fn (Package $p) => [
                 'id' => $p->id,

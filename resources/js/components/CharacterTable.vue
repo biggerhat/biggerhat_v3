@@ -51,6 +51,9 @@ const addToCollection = (character: any) => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onError: () => {
                 const rollback = new Set(added);
                 page.props.auth.collection_miniature_ids = ids.filter((id) => !rollback.has(id));

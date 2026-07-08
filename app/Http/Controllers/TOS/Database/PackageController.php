@@ -19,7 +19,7 @@ class PackageController extends Controller
         $perPage = $pageView === 'table' ? 50 : 24;
 
         $query = Package::withCount('tosUnits')
-            ->where('game_system', GameSystemEnum::Tos)
+            ->whereIn('game_system', [GameSystemEnum::Tos, GameSystemEnum::Both])
             ->orderBy('name', 'ASC');
 
         if ($nameSearch) {
@@ -41,7 +41,7 @@ class PackageController extends Controller
 
     public function view(Package $package)
     {
-        abort_if($package->game_system !== GameSystemEnum::Tos, 404);
+        abort_if(! in_array($package->game_system, [GameSystemEnum::Tos, GameSystemEnum::Both], true), 404);
 
         $package->loadMissing(['tosUnits.sides', 'tosUnits.allegiances', 'tosUnits.sculpts', 'storeLinks']);
 

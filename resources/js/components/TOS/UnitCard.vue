@@ -121,6 +121,9 @@ const addToCollection = () => {
         route('tos.collection.toggle'),
         { unit_sculpt_id: sculptId, quantity: 1 },
         {
+            // Only the shared `auth` prop changes — see UnitGridCard.vue for why
+            // this matters when embedded in a paginated Search results list.
+            only: ['auth'],
             preserveScroll: true,
             preserveState: true,
             onStart: () => (addingToCollection.value = true),

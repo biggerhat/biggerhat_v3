@@ -92,6 +92,9 @@ const addToCollection = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (addingToCollection.value = true),
             onError: () => {
                 const rollback = new Set(added);

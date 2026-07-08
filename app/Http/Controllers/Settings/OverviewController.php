@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Enums\GameSystemEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
@@ -62,7 +63,11 @@ class OverviewController extends Controller
             'active_games' => Game::forUser($user->id)->active()->count(),
             'collection' => [
                 'malifaux_miniatures' => (int) DB::table('user_miniatures')->where('user_id', $user->id)->sum('quantity'),
-                'malifaux_packages' => DB::table('user_packages')->where('user_id', $user->id)->count(),
+                'malifaux_packages' => DB::table('user_packages')
+                    ->join('packages', 'packages.id', '=', 'user_packages.package_id')
+                    ->where('user_packages.user_id', $user->id)
+                    ->whereIn('packages.game_system', [GameSystemEnum::Malifaux->value, GameSystemEnum::Both->value])
+                    ->count(),
                 'tos_unit_sculpts' => (int) DB::table('user_unit_sculpts')->where('user_id', $user->id)->sum('quantity'),
             ],
             'wishlists' => [

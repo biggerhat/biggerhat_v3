@@ -197,6 +197,9 @@ const addAllToCollection = () => {
         {
             preserveScroll: true,
             preserveState: true,
+            // Already applied optimistically above — only refetch the shared
+            // `auth` prop so this doesn't trigger a full-page re-render/blink.
+            only: ['auth'],
             onStart: () => (addingAll.value = true),
             onError: () => {
                 // Roll back the optimistic additions.

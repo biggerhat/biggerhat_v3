@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CollectionController extends Controller
@@ -19,7 +20,49 @@ class CollectionController extends Controller
     {
         $user = Auth::user();
 
-        return inertia('TOS/Collection/Index', $this->collectionPropsFor($user));
+        // Ensure share code exists
+        if (! $user->tos_collection_share_code) {
+            $user->tos_collection_share_code = Str::random(12);
+            $user->save();
+        }
+
+        return inertia('TOS/Collection/Index', [
+            ...$this->collectionPropsFor($user),
+            'is_owner' => true,
+            'share_code' => $user->tos_collection_share_code,
+            'is_public' => (bool) $user->tos_collection_is_public,
+        ]);
+    }
+
+    public function share(string $shareCode)
+    {
+        $user = User::where('tos_collection_share_code', $shareCode)->firstOrFail();
+
+        if (! $user->tos_collection_is_public && Auth::id() !== $user->id) {
+            abort(403, 'This collection is private.');
+        }
+
+        return inertia('TOS/Collection/Index', [
+            ...$this->collectionPropsFor($user),
+            'is_owner' => Auth::id() === $user->id,
+            'share_code' => $user->tos_collection_share_code,
+            'is_public' => (bool) $user->tos_collection_is_public,
+            'owner_name' => $user->name,
+        ]);
+    }
+
+    public function togglePublic()
+    {
+        $user = Auth::user();
+        $user->tos_collection_is_public = ! $user->tos_collection_is_public;
+
+        if (! $user->tos_collection_share_code) {
+            $user->tos_collection_share_code = Str::random(12);
+        }
+
+        $user->save();
+
+        return back();
     }
 
     public function toggle(Request $request)
@@ -229,7 +272,7 @@ class CollectionController extends Controller
         $totalSculpts = $collectionItems->count();
         $builtCount = $collectionItems->where('is_built', '===', true)->count();
         $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
-        $ownedPackagesCount = $user->collectionPackages()->where('game_system', GameSystemEnum::Tos)->count();
+        $ownedPackagesCount = $user->collectionPackages()->whereIn('game_system', [GameSystemEnum::Tos, GameSystemEnum::Both])->count();
 
         return [
             'collection' => $collectionItems,
@@ -256,7 +299,7 @@ class CollectionController extends Controller
     private function buildOwnedPackages(User $user): array
     {
         return $user->collectionPackages()
-            ->where('game_system', GameSystemEnum::Tos)
+            ->whereIn('game_system', [GameSystemEnum::Tos, GameSystemEnum::Both])
             ->get()
             ->map(fn ($p) => [
                 'id' => $p->id,

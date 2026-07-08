@@ -15,9 +15,26 @@ interface MiniatureOption {
     display_name: string;
 }
 
+type WishlistableType = 'character' | 'miniature' | 'package' | 'unit' | 'unit_sculpt';
+
+const BUCKET_KEYS: Record<WishlistableType, 'characters' | 'miniatures' | 'packages' | 'units' | 'unit_sculpts'> = {
+    character: 'characters',
+    miniature: 'miniatures',
+    package: 'packages',
+    unit: 'units',
+    unit_sculpt: 'unit_sculpts',
+};
+
+// The "entire X vs. one specific sculpt" sub-choice — Character offers
+// Miniature picks, Unit offers UnitSculpt picks.
+const SUB_TYPE: Partial<Record<WishlistableType, WishlistableType>> = {
+    character: 'miniature',
+    unit: 'unit_sculpt',
+};
+
 const props = withDefaults(
     defineProps<{
-        type: 'character' | 'miniature' | 'package';
+        type: WishlistableType;
         id: number;
         miniatures?: MiniatureOption[];
         currentMiniatureId?: number;
@@ -39,7 +56,8 @@ const selectedTarget = ref<string>('character');
 const processing = ref(false);
 const added = ref(false);
 
-const hasMiniatureChoice = computed(() => props.type === 'character' && props.miniatures.length > 0);
+const subType = computed(() => SUB_TYPE[props.type]);
+const hasMiniatureChoice = computed(() => !!subType.value && props.miniatures.length > 0);
 
 const alreadyOnWishlist = computed(() => {
     if (!selectedWishlist.value) return false;
@@ -47,17 +65,16 @@ const alreadyOnWishlist = computed(() => {
     const bucket = wishlistItems.value[wid];
     if (!bucket) return false;
 
-    if (hasMiniatureChoice.value && selectedTarget.value.startsWith('miniature:')) {
-        const miniId = Number(selectedTarget.value.split(':')[1]);
-        return bucket.miniatures.includes(miniId);
+    if (hasMiniatureChoice.value && selectedTarget.value.startsWith('sub:')) {
+        const subId = Number(selectedTarget.value.split(':')[1]);
+        return bucket[BUCKET_KEYS[subType.value!]].includes(subId);
     }
 
-    const key = props.type === 'character' ? 'characters' : props.type === 'package' ? 'packages' : 'miniatures';
-    return bucket[key].includes(props.id);
+    return bucket[BUCKET_KEYS[props.type]].includes(props.id);
 });
 
 const wishlistedOn = computed(() => {
-    const key = props.type === 'character' ? 'characters' : props.type === 'package' ? 'packages' : 'miniatures';
+    const key = BUCKET_KEYS[props.type];
     const result: string[] = [];
     for (const wl of wishlists.value) {
         const bucket = wishlistItems.value[wl.id];
@@ -71,9 +88,9 @@ const wishlistedOn = computed(() => {
 
 const targetOptions = computed(() => {
     if (!hasMiniatureChoice.value) return [];
-    const opts: Array<{ value: string; label: string }> = [{ value: 'character', label: 'Entire Character' }];
+    const opts: Array<{ value: string; label: string }> = [{ value: props.type, label: props.type === 'unit' ? 'Entire Unit' : 'Entire Character' }];
     for (const m of props.miniatures) {
-        opts.push({ value: `miniature:${m.id}`, label: m.display_name });
+        opts.push({ value: `sub:${m.id}`, label: m.display_name });
     }
     return opts;
 });
@@ -81,11 +98,11 @@ const targetOptions = computed(() => {
 async function addToWishlist() {
     if (!selectedWishlist.value) return;
 
-    let addType = props.type;
+    let addType: WishlistableType = props.type;
     let addId = props.id;
 
-    if (hasMiniatureChoice.value && selectedTarget.value.startsWith('miniature:')) {
-        addType = 'miniature';
+    if (hasMiniatureChoice.value && selectedTarget.value.startsWith('sub:')) {
+        addType = subType.value!;
         addId = Number(selectedTarget.value.split(':')[1]);
     }
 
@@ -95,9 +112,9 @@ async function addToWishlist() {
     const wid = Number(selectedWishlist.value);
     const items = page.props.auth.wishlist_items;
     if (!items[wid]) {
-        items[wid] = { characters: [], miniatures: [], packages: [] };
+        items[wid] = { characters: [], miniatures: [], packages: [], units: [], unit_sculpts: [] };
     }
-    const key = addType === 'character' ? 'characters' : addType === 'package' ? 'packages' : 'miniatures';
+    const key = BUCKET_KEYS[addType];
     if (!items[wid][key].includes(addId)) {
         items[wid][key].push(addId);
     }

@@ -4,14 +4,12 @@ import { Head } from '@inertiajs/vue3';
 import AppearanceTabs from '@/components/AppearanceTabs.vue';
 import HeadingSmall from '@/components/HeadingSmall.vue';
 import ThemeTabs from '@/components/ThemeTabs.vue';
-
-import SettingsLayout from '@/layouts/settings/Layout.vue';
 </script>
 
 <template>
     <Head title="Appearance settings" />
 
-    <SettingsLayout>
+    <div class="container mx-auto mt-6 max-w-2xl px-4 pb-12">
         <div class="space-y-10">
             <section class="space-y-3">
                 <HeadingSmall title="Appearance" description="Light, dark, or follow your system setting." />
@@ -23,5 +21,5 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
                 <ThemeTabs />
             </section>
         </div>
-    </SettingsLayout>
+    </div>
 </template>

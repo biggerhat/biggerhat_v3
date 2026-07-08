@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GameSystemEnum;
 use App\Enums\PackageCategoryEnum;
 use App\Traits\UsesMiniatures;
 use App\Traits\UsesSelectOptionsScope;
@@ -29,6 +30,7 @@ class Package extends Model
     {
         return [
             'category' => PackageCategoryEnum::class,
+            'game_system' => GameSystemEnum::class,
             'factions' => 'array',
             'is_preassembled' => 'boolean',
             'released_at' => 'date',

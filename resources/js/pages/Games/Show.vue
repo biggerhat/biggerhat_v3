@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameAbandonDialog from '@/components/Game/GameAbandonDialog.vue';
 import GameAllCardsDialog from '@/components/Game/GameAllCardsDialog.vue';
@@ -37,13 +38,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
+import { CARD_HOVER_PROMINENT, CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { playerName } from '@/lib/gameDisplay';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
@@ -2702,17 +2707,28 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             No live models to attach loot to. Add a model to your crew first.
                         </div>
                         <div v-else class="flex flex-col gap-1.5">
-                            <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attach to</label>
-                            <select v-model.number="lootSidePickerMemberId" class="h-9 rounded-md border border-input bg-background px-2 text-sm">
-                                <option :value="null">Select a model…</option>
-                                <option v-for="m in attachableMembers" :key="m.id" :value="m.id">{{ m.display_name }}</option>
-                            </select>
+                            <Label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attach to</Label>
+                            <Select
+                                :model-value="lootSidePickerMemberId?.toString() ?? '__none__'"
+                                @update:model-value="(v) => (lootSidePickerMemberId = v === '__none__' ? null : Number(v))"
+                            >
+                                <SelectTrigger class="h-9 text-sm">
+                                    <SelectValue placeholder="Select a model…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Select a model…</SelectItem>
+                                    <SelectItem v-for="m in attachableMembers" :key="m.id" :value="m.id.toString()">{{ m.display_name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div class="grid gap-3 md:grid-cols-2">
                             <button
                                 type="button"
                                 :disabled="!lootSidePickerMemberId"
-                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="[
+                                    'flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left disabled:cursor-not-allowed disabled:opacity-50',
+                                    CARD_HOVER_QUIET,
+                                ]"
                                 @click="submitLootSide('a')"
                             >
                                 <div class="flex items-center gap-2 font-semibold">
@@ -2728,7 +2744,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <button
                                 type="button"
                                 :disabled="!lootSidePickerMemberId"
-                                class="flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left transition hover:border-primary/60 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="[
+                                    'flex flex-col gap-1.5 rounded-lg border border-input bg-background/60 p-3 text-left disabled:cursor-not-allowed disabled:opacity-50',
+                                    CARD_HOVER_QUIET,
+                                ]"
                                 @click="submitLootSide('b')"
                             >
                                 <div class="flex items-center gap-2 font-semibold">
@@ -2776,12 +2795,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 {{ s }}
                             </button>
                         </div>
-                        <div
-                            v-if="availableLootCards.length === 0"
-                            class="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground"
-                        >
-                            No cards match your filter.
-                        </div>
+                        <EmptyState v-if="availableLootCards.length === 0" compact title="No cards match your filter" description="" />
                         <div v-else class="max-h-[60dvh] overflow-y-auto pr-1">
                             <div class="grid gap-1.5 sm:grid-cols-2">
                                 <button
@@ -2875,7 +2889,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <div v-if="deployment" class="text-center">
                         <HeadingEyebrow class="mb-1.5">Deployment</HeadingEyebrow>
                         <button
-                            class="mx-auto block w-full overflow-hidden rounded-lg transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                            :class="['mx-auto block w-full overflow-hidden rounded-lg', CARD_HOVER_PROMINENT]"
                             @click="deploymentDrawerOpen = true"
                         >
                             <img
@@ -2898,10 +2912,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <!-- Strategy -->
                     <div v-if="game.strategy" class="text-center">
                         <HeadingEyebrow class="mb-1.5">Strategy</HeadingEyebrow>
-                        <button
-                            class="mx-auto block w-full overflow-hidden rounded-lg transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                            @click="strategyDrawerOpen = true"
-                        >
+                        <button :class="['mx-auto block w-full overflow-hidden rounded-lg', CARD_HOVER_PROMINENT]" @click="strategyDrawerOpen = true">
                             <img
                                 v-if="game.strategy.image_url"
                                 :src="game.strategy.image_url"
@@ -2926,7 +2937,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <button
                                 v-for="scheme in schemes"
                                 :key="scheme.id"
-                                class="text-center transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                                :class="['text-center', CARD_HOVER_PROMINENT]"
                                 @click="openSchemeDrawer(scheme)"
                             >
                                 <img v-if="scheme.image_url" :src="scheme.image_url" :alt="scheme.name" class="w-full rounded-lg" loading="lazy" />
@@ -2944,9 +2955,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- Players (hidden during gameplay — shown in Game tab) -->
-            <h3 v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-3 text-lg font-semibold">
+            <h2 v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-3 text-lg font-semibold">
                 Players
-            </h3>
+            </h2>
             <Card v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
                 <CardContent class="p-4 sm:p-6">
                     <!-- Bonanza is personal-tracking only — slot 2 is inert, so the
@@ -3405,30 +3416,39 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                                 <!-- Model selection -->
                                                 <div v-if="schemeModelReq">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">{{ modelReqLabel }}</label>
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">{{ modelReqLabel }}</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeSelectedModel || 'Not selected' }}
                                                         </div>
                                                     </template>
                                                     <template v-else>
-                                                        <select
+                                                        <Select
                                                             v-if="schemeModelOptions.length"
-                                                            v-model="schemeSelectedModel"
-                                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                                            @change="saveSchemeNotes"
+                                                            :model-value="schemeSelectedModel || '__none__'"
+                                                            @update:model-value="
+                                                                (v) => {
+                                                                    schemeSelectedModel = v === '__none__' ? '' : (v as string);
+                                                                    saveSchemeNotes();
+                                                                }
+                                                            "
                                                         >
-                                                            <option value="">Select...</option>
-                                                            <option v-for="m in schemeModelOptions" :key="m.id" :value="m.display_name">
-                                                                {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
-                                                            </option>
-                                                        </select>
-                                                        <input
+                                                            <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                                                <SelectValue placeholder="Select..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="__none__">Select...</SelectItem>
+                                                                <SelectItem v-for="m in schemeModelOptions" :key="m.id" :value="m.display_name">
+                                                                    {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Input
                                                             v-else
                                                             v-model="schemeSelectedModel"
                                                             type="text"
                                                             placeholder="No matching models in crew — type manually"
-                                                            class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                            class="mt-0.5 h-8 text-xs"
                                                             @input="saveSchemeNotes"
                                                         />
                                                     </template>
@@ -3436,49 +3456,58 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                                 <!-- Marker selection -->
                                                 <div v-if="schemeHasMarkerReq">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeSelectedMarker || 'Not selected' }}
                                                         </div>
                                                     </template>
-                                                    <select
+                                                    <Select
                                                         v-else
-                                                        v-model="schemeSelectedMarker"
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
-                                                        @change="saveSchemeNotes"
+                                                        :model-value="schemeSelectedMarker || '__none__'"
+                                                        @update:model-value="
+                                                            (v) => {
+                                                                schemeSelectedMarker = v === '__none__' ? '' : (v as string);
+                                                                saveSchemeNotes();
+                                                            }
+                                                        "
                                                     >
-                                                        <option value="">None</option>
-                                                        <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
-                                                    </select>
+                                                        <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                                            <SelectValue placeholder="None" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="__none__">None</SelectItem>
+                                                            <SelectItem v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
 
                                                 <!-- Terrain note -->
                                                 <div v-if="schemeHasTerrainReq">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeTerrainNote || 'Not set' }}
                                                         </div>
                                                     </template>
-                                                    <input
+                                                    <Input
                                                         v-else
                                                         v-model="schemeTerrainNote"
                                                         type="text"
                                                         placeholder="e.g. the building on the left..."
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        class="mt-0.5 h-8 text-xs"
                                                         @input="saveSchemeNotes"
                                                     />
                                                 </div>
 
                                                 <!-- Free text note (always editable) -->
                                                 <div>
-                                                    <label class="text-[10px] uppercase text-muted-foreground">Notes</label>
-                                                    <textarea
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">Notes</Label>
+                                                    <Textarea
                                                         v-model="schemeNote"
                                                         placeholder="Any notes about your scheme..."
                                                         rows="2"
-                                                        class="mt-0.5 w-full resize-none rounded border bg-background px-2 py-1 text-xs"
+                                                        class="mt-0.5 resize-none text-xs"
                                                         @input="saveSchemeNotes"
                                                     />
                                                 </div>
@@ -3745,44 +3774,54 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </div>
                                                 <!-- Model -->
                                                 <div v-if="nextSchemeModelReq">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">{{ nextSchemeModelLabel }}</label>
-                                                    <select
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">{{ nextSchemeModelLabel }}</Label>
+                                                    <Select
                                                         v-if="nextSchemeModelOptions.length"
-                                                        v-model="nextSchemeModel"
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        :model-value="nextSchemeModel || '__none__'"
+                                                        @update:model-value="(v) => (nextSchemeModel = v === '__none__' ? '' : (v as string))"
                                                     >
-                                                        <option value="">Select...</option>
-                                                        <option v-for="m in nextSchemeModelOptions" :key="m.id" :value="m.display_name">
-                                                            {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
-                                                        </option>
-                                                    </select>
-                                                    <input
+                                                        <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                                            <SelectValue placeholder="Select..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="__none__">Select...</SelectItem>
+                                                            <SelectItem v-for="m in nextSchemeModelOptions" :key="m.id" :value="m.display_name">
+                                                                {{ m.display_name }}<template v-if="m.cost != null"> ({{ m.cost }}ss)</template>
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input
                                                         v-else
                                                         v-model="nextSchemeModel"
                                                         type="text"
                                                         placeholder="Type model name..."
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        class="mt-0.5 h-8 text-xs"
                                                     />
                                                 </div>
                                                 <!-- Marker -->
                                                 <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'select_marker')">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">Target Marker</label>
-                                                    <select
-                                                        v-model="nextSchemeMarker"
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
+                                                    <Select
+                                                        :model-value="nextSchemeMarker || '__none__'"
+                                                        @update:model-value="(v) => (nextSchemeMarker = v === '__none__' ? '' : (v as string))"
                                                     >
-                                                        <option value="">Select...</option>
-                                                        <option v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</option>
-                                                    </select>
+                                                        <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                                            <SelectValue placeholder="Select..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="__none__">Select...</SelectItem>
+                                                            <SelectItem v-for="m in all_markers" :key="m.id" :value="m.name">{{ m.name }}</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                                 <!-- Terrain -->
                                                 <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'terrain_note')">
-                                                    <label class="text-[10px] uppercase text-muted-foreground">Terrain Note</label>
-                                                    <input
+                                                    <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
+                                                    <Input
                                                         v-model="nextSchemeTerrain"
                                                         type="text"
                                                         placeholder="e.g. the building on the left..."
-                                                        class="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs"
+                                                        class="mt-0.5 h-8 text-xs"
                                                     />
                                                 </div>
                                             </div>
@@ -5150,7 +5189,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     :key="m.id"
                     class="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                 >
-                    <input type="checkbox" :checked="quickAddMemberIds.includes(m.id)" class="size-4" @change="toggleQuickAddMember(m.id)" />
+                    <Checkbox :checked="quickAddMemberIds.includes(m.id)" @update:checked="() => toggleQuickAddMember(m.id)" />
                     <span class="min-w-0 flex-1 truncate">{{ m.display_name }}</span>
                 </label>
                 <p v-if="!myCrewMembers.length" class="py-3 text-center text-xs text-muted-foreground">No living models to add to.</p>
@@ -5284,11 +5323,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </DialogHeader>
             <div v-if="editTurnTarget" class="space-y-3">
                 <div class="space-y-1">
-                    <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Strategy points</label>
+                    <Label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Strategy points</Label>
                     <Input v-model.number="editTurnStrategy" type="number" min="0" max="2" class="h-9 text-sm" />
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scheme points</label>
+                    <Label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Scheme points</Label>
                     <Input v-model.number="editTurnScheme" type="number" min="0" max="3" class="h-9 text-sm" />
                 </div>
                 <div class="flex justify-end gap-2">

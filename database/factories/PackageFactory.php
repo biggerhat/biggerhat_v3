@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\FactionEnum;
+use App\Enums\GameSystemEnum;
 use App\Enums\SculptVersionEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -35,5 +36,16 @@ class PackageFactory extends Factory
             'is_preassembled' => $this->faker->boolean(20),
             'released_at' => $this->faker->optional(0.6)->dateTimeBetween('-5 years', 'now'),
         ];
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Package>
+     */
+    public function tos(): static
+    {
+        return $this->state(fn () => [
+            'game_system' => GameSystemEnum::Tos->value,
+            'factions' => [],
+        ]);
     }
 }

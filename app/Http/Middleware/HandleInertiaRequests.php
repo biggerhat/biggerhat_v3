@@ -77,6 +77,7 @@ class HandleInertiaRequests extends Middleware
                     : null,
                 'collection_miniature_ids' => fn () => $request->user()?->collectionMiniatures()->pluck('miniatures.id')->toArray() ?? [],
                 'collection_package_ids' => fn () => $request->user()?->collectionPackages()->pluck('packages.id')->toArray() ?? [],
+                'collection_unit_sculpt_ids' => fn () => $request->user()?->collectionUnitSculpts()->pluck('tos_unit_sculpts.id')->toArray() ?? [],
                 'wishlists' => fn () => $request->user()?->wishlists()->select('id', 'name')->orderBy('name')->get() ?? [],
                 'wishlist_items' => fn () => $this->getWishlistItems($request),
                 'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],
@@ -215,7 +216,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array<int, array{characters: int[], miniatures: int[], packages: int[]}>
+     * @return array<int, array{characters: int[], miniatures: int[], packages: int[], units: int[], unit_sculpts: int[]}>
      */
     private function getWishlistItems(Request $request): array
     {
@@ -233,13 +234,15 @@ class HandleInertiaRequests extends Middleware
         foreach ($items as $item) {
             $wid = $item->wishlist_id;
             if (! isset($result[$wid])) {
-                $result[$wid] = ['characters' => [], 'miniatures' => [], 'packages' => []];
+                $result[$wid] = ['characters' => [], 'miniatures' => [], 'packages' => [], 'units' => [], 'unit_sculpts' => []];
             }
 
             $key = match ($item->wishlistable_type) {
                 \App\Models\Character::class => 'characters',
                 \App\Models\Miniature::class => 'miniatures',
                 \App\Models\Package::class => 'packages',
+                \App\Models\TOS\Unit::class => 'units',
+                \App\Models\TOS\UnitSculpt::class => 'unit_sculpts',
                 default => null,
             };
 

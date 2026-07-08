@@ -13,8 +13,9 @@ export interface Auth {
     impersonating: { as: { id: number; name: string }; leave_url: string } | null;
     collection_miniature_ids: number[];
     collection_package_ids: number[];
+    collection_unit_sculpt_ids: number[];
     wishlists: Array<{ id: number; name: string }>;
-    wishlist_items: Record<number, { characters: number[]; miniatures: number[]; packages: number[] }>;
+    wishlist_items: Record<number, { characters: number[]; miniatures: number[]; packages: number[]; units: number[]; unit_sculpts: number[] }>;
     channel_ids: number[];
 }
 

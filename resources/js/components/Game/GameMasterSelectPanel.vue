@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { Check, Loader2, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -169,8 +170,7 @@ const confirmOpponentMasterSelection = () => {
                     <Card
                         v-for="master in filteredMasters"
                         :key="master.name"
-                        class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                        :class="selectedMasterName === master.name ? 'ring-2 ring-primary' : ''"
+                        :class="['cursor-pointer', CARD_HOVER_PROMINENT, selectedMasterName === master.name ? 'ring-2 ring-primary' : '']"
                         @click="pickMaster(master)"
                     >
                         <CardContent class="flex items-start gap-3 p-3">
@@ -285,8 +285,7 @@ const confirmOpponentMasterSelection = () => {
                     <Card
                         v-for="master in opponentAvailableMasters"
                         :key="master.name"
-                        class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-primary/50"
-                        :class="selectedOpponentMasterName === master.name ? 'ring-2 ring-primary' : ''"
+                        :class="['cursor-pointer', CARD_HOVER_PROMINENT, selectedOpponentMasterName === master.name ? 'ring-2 ring-primary' : '']"
                         @click="selectedOpponentMasterName = master.name"
                     >
                         <CardContent class="flex items-start gap-3 p-3">

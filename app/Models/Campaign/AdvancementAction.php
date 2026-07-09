@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Tier 2 Action advancement (pg 44–49). Adds a new action to the leader.
- * 
+ *
  * A few "always available" rows are unconditionally selectable. The one
  * "Any Joker" row lets the player pick any action from a non-master/
  * non-totem model sharing a keyword (cost <= 10).
@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $action_id
  * @property bool $is_signature
  * @property-read Action|null $action
+ *
  * @mixin IdeHelperAdvancementAction
  */
 class AdvancementAction extends Model
@@ -38,7 +39,6 @@ class AdvancementAction extends Model
         return [
             ...$this->shapeCasts(),
             'stat_block' => 'array',
-            // Bespoke rows only (pg 31) — see StoreAdvancementActionRequest.
             'is_signature' => 'boolean',
         ];
     }

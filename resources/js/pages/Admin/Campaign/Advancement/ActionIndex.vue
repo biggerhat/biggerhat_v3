@@ -47,9 +47,7 @@ const columns: ColumnDef<AdvancementActionRow>[] = [
         cell: ({ row }) =>
             h('div', { class: 'flex items-center gap-1.5' }, [
                 h('span', { class: 'font-medium' }, row.getValue('talent_name')),
-                row.original.is_signature && !row.original.action_id
-                    ? h(Badge, { variant: 'secondary', class: 'text-[10px]' }, () => 'Signature')
-                    : null,
+                row.original.is_signature ? h(Badge, { variant: 'secondary', class: 'text-[10px]' }, () => 'Signature') : null,
             ]),
     },
     {

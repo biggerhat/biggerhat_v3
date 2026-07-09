@@ -309,25 +309,24 @@ it('marks a bespoke Action advancement as Signature when the admin catalog row i
     expect($gained['is_signature'] ?? null)->toBeTrue();
 });
 
-it('a lookup Action advancement inherits the linked Action\'s own Signature flag, not a client value', function () {
+it('a lookup Action advancement uses the catalog row\'s own Signature flag, independent of the linked Action\'s own flag', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
     $track = $leader->xp_track;
     $track[2]['filled'] = true;
     $leader->update(['xp_track' => $track]);
 
-    $action = \App\Models\Action::factory()->create(['is_signature' => true]);
-    $lookup = \App\Models\Campaign\AdvancementAction::factory()->lookup($action->id)->create(['flip_value' => 6]);
+    // Linked Action itself is NOT flagged signature — the catalog row's
+    // own admin-set flag is authoritative, not the linked Action's.
+    $action = \App\Models\Action::factory()->create(['is_signature' => false]);
+    $lookup = \App\Models\Campaign\AdvancementAction::factory()->lookup($action->id)->signature()->create(['flip_value' => 6]);
 
-    // is_signature is not an accepted field on this request — the value
-    // should come from the linked Action, never from client input.
     $this->actingAs($user)
         ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
             'position_in_xp_track' => 2,
             'source_table' => 'action',
             'catalog_id' => $lookup->id,
             'flip_value' => 13,
-            'is_signature' => false,
         ])
         ->assertRedirect();
 

@@ -464,7 +464,7 @@ class LeaderAdvancementService
         }
 
         if ($row->action_id) {
-            $this->applyActionToLeader($leader, $row->action_id, (bool) $row->action->is_signature);
+            $this->applyActionToLeader($leader, $row->action_id, (bool) $row->is_signature);
 
             return;
         }

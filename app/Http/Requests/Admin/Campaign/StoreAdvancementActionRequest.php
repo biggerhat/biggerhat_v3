@@ -23,9 +23,10 @@ class StoreAdvancementActionRequest extends FormRequest
             'action_id' => ['nullable', 'integer', 'exists:actions,id'],
             // Bespoke stat block — only meaningful when action_id is null.
             'stat_block' => ['nullable', 'array'],
-            // Bespoke rows only (pg 31): whether this grants a Signature
-            // Action. Lookup rows (action_id set) instead inherit the
-            // linked Action's own is_signature flag — see LeaderAdvancementService.
+            // Whether taking this Action Advancement grants a Signature
+            // Action — applies whether this row is bespoke or a lookup
+            // (the linked Action's own is_signature flag is not consulted;
+            // this row's flag is authoritative — see LeaderAdvancementService).
             'is_signature' => ['required', 'boolean'],
         ];
     }

@@ -27,17 +27,6 @@ it('index denies users without view_campaign_catalog', function () {
         ->assertForbidden();
 });
 
-it('create exposes each Action Lookup option\'s own is_signature flag', function () {
-    $signatureAction = Action::factory()->create(['name' => 'Immolate', 'is_signature' => true]);
-    $plainAction = Action::factory()->create(['name' => 'Cast Out', 'is_signature' => false]);
-
-    $response = $this->actingAs($this->admin)->get(route('admin.campaign.advancement-action.create'));
-
-    $response->assertInertia(fn ($page) => $page
-        ->where('actions', fn ($actions) => collect($actions)->firstWhere('value', $signatureAction->id)['is_signature'] === true
-            && collect($actions)->firstWhere('value', $plainAction->id)['is_signature'] === false));
-});
-
 it('store creates a bespoke Action row with its own stat block', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.advancement-action.store'), [
@@ -59,15 +48,17 @@ it('store creates a bespoke Action row with its own stat block', function () {
     expect($row->is_signature)->toBeTrue();
 });
 
-it('store links an Action Lookup row', function () {
-    $action = Action::factory()->create();
+it('store links an Action Lookup row and stores this row\'s own is_signature, independent of the linked Action\'s flag', function () {
+    // Linked Action itself is NOT flagged signature — the row's own
+    // checkbox is authoritative, not the linked Action's flag.
+    $action = Action::factory()->create(['is_signature' => false]);
 
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.advancement-action.store'), [
             'flip_value' => 9,
             'is_joker' => false,
             'is_always_available' => false,
-            'is_signature' => false,
+            'is_signature' => true,
             'talent_name' => 'Reused Action',
             'effect_text' => 'Gains an existing action.',
             'action_id' => $action->id,
@@ -76,6 +67,7 @@ it('store links an Action Lookup row', function () {
 
     $row = AdvancementAction::firstWhere('talent_name', 'Reused Action');
     expect($row->action_id)->toBe($action->id);
+    expect($row->is_signature)->toBeTrue();
 });
 
 it('store denies users without edit_campaign_catalog', function () {

@@ -33,6 +33,7 @@ it('store creates a bespoke Action row with its own stat block', function () {
             'flip_value' => 6,
             'is_joker' => false,
             'is_always_available' => false,
+            'is_signature' => true,
             'talent_name' => 'Bespoke Talent',
             'effect_text' => 'Does a thing.',
             'action_id' => null,
@@ -44,6 +45,7 @@ it('store creates a bespoke Action row with its own stat block', function () {
     expect($row)->not->toBeNull();
     expect($row->action_id)->toBeNull();
     expect($row->stat_block['stat'])->toBe(5);
+    expect($row->is_signature)->toBeTrue();
 });
 
 it('store links an Action Lookup row', function () {
@@ -54,6 +56,7 @@ it('store links an Action Lookup row', function () {
             'flip_value' => 9,
             'is_joker' => false,
             'is_always_available' => false,
+            'is_signature' => false,
             'talent_name' => 'Reused Action',
             'effect_text' => 'Gains an existing action.',
             'action_id' => $action->id,
@@ -71,7 +74,7 @@ it('store denies users without edit_campaign_catalog', function () {
 
     $this->actingAs($viewer)
         ->post(route('admin.campaign.advancement-action.store'), [
-            'is_joker' => false, 'is_always_available' => false,
+            'is_joker' => false, 'is_always_available' => false, 'is_signature' => false,
             'talent_name' => 'Nope', 'effect_text' => 'x',
         ])
         ->assertForbidden();
@@ -80,7 +83,7 @@ it('store denies users without edit_campaign_catalog', function () {
 it('store rejects a non-existent Action lookup id', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.advancement-action.store'), [
-            'is_joker' => false, 'is_always_available' => false,
+            'is_joker' => false, 'is_always_available' => false, 'is_signature' => false,
             'talent_name' => 'Bad Link', 'effect_text' => 'x',
             'action_id' => 999999,
         ])
@@ -93,7 +96,7 @@ it('update changes an Action advancement row', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.advancement-action.update', $row->id), [
             'flip_value' => $row->flip_value,
-            'is_joker' => false, 'is_always_available' => false,
+            'is_joker' => false, 'is_always_available' => false, 'is_signature' => false,
             'talent_name' => 'New',
             'effect_text' => $row->effect_text,
         ])

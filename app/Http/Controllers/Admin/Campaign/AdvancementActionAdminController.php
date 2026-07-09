@@ -18,7 +18,7 @@ class AdvancementActionAdminController extends Controller
                 ->with('action:id,name')
                 ->orderByRaw('flip_value IS NULL, flip_value ASC')
                 ->orderBy('talent_name')
-                ->get(['id', 'flip_value', 'is_joker', 'is_always_available', 'talent_name', 'action_id']),
+                ->get(['id', 'flip_value', 'is_joker', 'is_always_available', 'is_signature', 'talent_name', 'action_id']),
         ]);
     }
 

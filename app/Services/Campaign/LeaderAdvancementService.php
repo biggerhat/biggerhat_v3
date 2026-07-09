@@ -373,7 +373,7 @@ class LeaderAdvancementService
                     ? $this->applyActionToLeader($leader, $coreCatalogId)
                     : null,
                 AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
-                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice, (bool) ($a['is_signature'] ?? false))
+                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
                     : null,
                 AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
                     ? $this->applyAdvancementAbility($leader, $advancementRow, $freeChoice)
@@ -453,18 +453,18 @@ class LeaderAdvancementService
     /**
      * @param  array<string, mixed>|null  $freeChoice
      */
-    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row, ?array $freeChoice, bool $isSignature = false): void
+    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row, ?array $freeChoice): void
     {
         if ($row->is_joker) {
             if (isset($freeChoice['source_id'])) {
-                $this->applyActionToLeader($leader, (int) $freeChoice['source_id'], $isSignature);
+                $this->applyActionToLeader($leader, (int) $freeChoice['source_id'], $this->freeChoiceActionIsSignature($freeChoice));
             }
 
             return;
         }
 
         if ($row->action_id) {
-            $this->applyActionToLeader($leader, $row->action_id, $isSignature);
+            $this->applyActionToLeader($leader, $row->action_id, (bool) $row->action->is_signature);
 
             return;
         }
@@ -475,7 +475,7 @@ class LeaderAdvancementService
             'name' => $row->talent_name,
             'type' => $stat['type'] ?? 'tactical',
             'category' => $stat['type'] ?? 'tactical',
-            'is_signature' => $isSignature,
+            'is_signature' => (bool) $row->is_signature,
             'stone_cost' => 0,
             'range' => $stat['range'] ?? null,
             'range_type' => $stat['range_type'] ?? null,
@@ -594,6 +594,27 @@ class LeaderAdvancementService
         ];
         $target->actions = $actions;
         $target->save();
+    }
+
+    /**
+     * Any Joker (pg 31): "The chosen action retains the same skill (Skl)
+     * and any signature symbol" — inherited from whether it was a
+     * Signature Action on the ally it was copied from, not a player
+     * choice.
+     *
+     * @param  array<string, mixed>|null  $freeChoice
+     */
+    private function freeChoiceActionIsSignature(?array $freeChoice): bool
+    {
+        $sourceId = $freeChoice['source_id'] ?? null;
+        $sourceCharacterId = $freeChoice['source_character_id'] ?? null;
+        if ($sourceId === null || $sourceCharacterId === null) {
+            return false;
+        }
+
+        $character = Character::find($sourceCharacterId);
+
+        return (bool) $character?->actions()->whereKey($sourceId)->first()?->pivot->is_signature_action; // @phpstan-ignore property.notFound (pivot from morphedByMany)
     }
 
     private function applyActionToLeader(CustomCharacter $leader, int $actionId, bool $isSignature = false): void

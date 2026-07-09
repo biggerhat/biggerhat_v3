@@ -21,7 +21,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Carbon\CarbonImmutable $updated_at
  * @property-read CampaignArsenalModel $arsenalModel
  * @property-read Upgrade|null $injury
- *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignArsenalModelInjury
  */

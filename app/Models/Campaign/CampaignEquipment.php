@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One row per per-crew equipment instance — multiple copies of the same
  * underlying Equipment catalog row stack as separate rows. Annihilated
  * instances stay around for history; `active()` scope filters them out.
- *
+ * 
  * Post-Catalog-Consolidation: `equipment_upgrade_id` points at an upgrades
  * row with `game_mode_type=campaign` + `campaign_upgrade_kind=equipment`.
  *
@@ -25,14 +25,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property-read Upgrade|null $catalog
  * @property-read \App\Models\Campaign\CampaignCrew|null $crew
- *
  * @method static Builder<static>|CampaignEquipment active()
  * @method static Builder<static>|CampaignEquipment countsTowardCr()
  * @method static \Database\Factories\Campaign\CampaignEquipmentFactory factory($count = null, $state = [])
  * @method static Builder<static>|CampaignEquipment newModelQuery()
  * @method static Builder<static>|CampaignEquipment newQuery()
  * @method static Builder<static>|CampaignEquipment query()
- *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignEquipment
  */

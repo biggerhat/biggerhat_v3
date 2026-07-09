@@ -59,9 +59,6 @@ class StoreLeaderAdvancementRequest extends FormRequest
             'totem_name' => ['nullable', 'string', 'max:60'],
             'totem_size' => ['nullable', 'integer', 'min:1', 'max:5'],
             'totem_base' => ['nullable', 'string', 'in:30mm,40mm,50mm'],
-            // Action table only (pg 49): whether the newly-gained action is a
-            // Signature Action for the leader.
-            'is_signature' => ['nullable', 'boolean'],
         ];
     }
 }

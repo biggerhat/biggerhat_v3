@@ -396,9 +396,6 @@ interface AdvDraft {
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
-    // Tier 2 — Action advancement only: whether the newly-gained action is a
-    // Signature Action for the leader.
-    is_signature: boolean;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
 watch(
@@ -422,7 +419,6 @@ watch(
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
-                    is_signature: false,
                 };
             }
         }
@@ -543,7 +539,6 @@ const logAdvancement = (position: number) => {
         applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
         applied_to_custom_character_id: isTrigger && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
         from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
-        is_signature: d.source_table === 'action' ? d.is_signature : undefined,
     });
 };
 
@@ -929,7 +924,6 @@ const totemRendererProps = computed(() => {
                                                     drafts[slot.position].free_choice_source_id = null;
                                                     drafts[slot.position].free_choice_source_character_id = null;
                                                     drafts[slot.position].free_choice_label = null;
-                                                    drafts[slot.position].is_signature = false;
                                                 }
                                             "
                                         >
@@ -1227,13 +1221,6 @@ const totemRendererProps = computed(() => {
                                         >
                                             <GameText :text="selectedDraftRow(slot.position)!.body!" />
                                         </p>
-                                        <label v-if="drafts[slot.position].source_table === 'action'" class="flex items-start gap-2 text-sm">
-                                            <Checkbox
-                                                :checked="drafts[slot.position].is_signature"
-                                                @update:checked="(v: boolean) => (drafts[slot.position].is_signature = v)"
-                                            />
-                                            <span>This is a Signature Action</span>
-                                        </label>
                                     </template>
                                 </div>
                                 <!-- Viewer, not yet chosen -->

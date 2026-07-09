@@ -339,9 +339,6 @@ interface AdvDraft {
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
-    // Tier 2 — Action advancement only: whether the newly-gained action is a
-    // Signature Action for the leader.
-    is_signature: boolean;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -385,7 +382,6 @@ watch(
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
-                    is_signature: false,
                 };
             }
         }
@@ -398,7 +394,6 @@ const onSourceTableChange = (position: number) => {
     if (!d) return;
     d.catalog_id = null;
     d.flip_value = 13;
-    d.is_signature = false;
     d.totem_name = null;
     d.totem_size = null;
     d.totem_base = null;
@@ -604,7 +599,6 @@ const submitAdvanceLeader = () => {
                     totem_name: isTotemAdvancement ? d.totem_name || null : null,
                     totem_size: isTotemAdvancement ? d.totem_size || null : null,
                     totem_base: isTotemAdvancement ? d.totem_base || null : null,
-                    is_signature: d.source_table === 'action' ? d.is_signature : undefined,
                 };
             }),
     } as Record<string, unknown>);
@@ -1318,13 +1312,6 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 >
                                     <GameText :text="selectedDraftRow(adv.position_in_xp_track)!.body!" />
                                 </p>
-                                <label v-if="advDrafts[adv.position_in_xp_track].source_table === 'action'" class="flex items-start gap-2 text-sm">
-                                    <Checkbox
-                                        :checked="advDrafts[adv.position_in_xp_track].is_signature"
-                                        @update:checked="(v: boolean) => (advDrafts[adv.position_in_xp_track].is_signature = v)"
-                                    />
-                                    <span>This is a Signature Action</span>
-                                </label>
                             </template>
                         </template>
                     </div>

@@ -270,7 +270,9 @@ class AftermathCatalog
                         'target_suits' => $source->target_suits ?? ($stat['target_suits'] ?? null),
                         'damage' => $source->damage ?? ($stat['damage'] ?? null),
                         'stone_cost' => $source->stone_cost ?? 0,
-                        'is_signature' => (bool) ($source->is_signature ?? false),
+                        // Lookup rows (pg 31) inherit the linked Action's own
+                        // Signature flag; bespoke rows use the catalog row's.
+                        'is_signature' => (bool) ($source->is_signature ?? $row->is_signature),
                         'triggers' => self::triggerSummaries($source?->triggers ?? collect()), // @phpstan-ignore nullsafe.neverNull (action() is a nullable BelongsTo — bespoke rows have no linked Action)
                         'flip_value' => $row->flip_value,
                         'is_always_available' => (bool) $row->is_always_available,

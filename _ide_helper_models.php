@@ -365,6 +365,7 @@ namespace App\Models\Campaign{
  *
  * @property array<string, mixed>|null $stat_block
  * @property int|null $action_id
+ * @property bool $is_signature
  * @property-read Action|null $action
  * @property int $id
  * @property int|null $flip_value
@@ -385,6 +386,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereIsAlwaysAvailable($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereIsJoker($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereIsSignature($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereStatBlock($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereTalentName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AdvancementAction whereUpdatedAt($value)

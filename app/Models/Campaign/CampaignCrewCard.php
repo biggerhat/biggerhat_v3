@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A starting Crew Card option for the Starting Arsenal wizard (pg 15).
- *
+ * 
  * These replace the interim approach of tagging Ability rows with
  * is_crew_card_effect=true — crew cards can have richer structure than
  * a single ability description allows.
@@ -28,11 +28,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
- *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignCrewCard
  */

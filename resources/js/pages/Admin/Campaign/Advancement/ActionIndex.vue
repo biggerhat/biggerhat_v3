@@ -16,6 +16,7 @@ interface AdvancementActionRow {
     flip_value: number | null;
     is_joker: boolean;
     is_always_available: boolean;
+    is_signature: boolean;
     talent_name: string;
     action_id: number | null;
     action: { id: number; name: string } | null;
@@ -43,7 +44,13 @@ const columns: ColumnDef<AdvancementActionRow>[] = [
     {
         accessorKey: 'talent_name',
         header: () => h('div', {}, 'Talent Name'),
-        cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('talent_name')),
+        cell: ({ row }) =>
+            h('div', { class: 'flex items-center gap-1.5' }, [
+                h('span', { class: 'font-medium' }, row.getValue('talent_name')),
+                row.original.is_signature && !row.original.action_id
+                    ? h(Badge, { variant: 'secondary', class: 'text-[10px]' }, () => 'Signature')
+                    : null,
+            ]),
     },
     {
         id: 'action',

@@ -30,7 +30,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $granted_keyword_id
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property \Carbon\CarbonImmutable|null $removed_at
- *
  * @mixin IdeHelperCampaignArsenalModel
  */
 class CampaignArsenalModel extends Model

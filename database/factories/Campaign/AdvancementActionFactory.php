@@ -18,6 +18,7 @@ class AdvancementActionFactory extends Factory
             'flip_value' => $this->faker->numberBetween(1, 13),
             'is_joker' => false,
             'is_always_available' => false,
+            'is_signature' => false,
             'talent_name' => $this->faker->unique()->words(2, true),
             'effect_text' => $this->faker->sentence(),
             'action_id' => null,
@@ -50,5 +51,10 @@ class AdvancementActionFactory extends Factory
             'action_id' => $actionId,
             'stat_block' => null,
         ]);
+    }
+
+    public function signature(): static
+    {
+        return $this->state(fn () => ['is_signature' => true]);
     }
 }

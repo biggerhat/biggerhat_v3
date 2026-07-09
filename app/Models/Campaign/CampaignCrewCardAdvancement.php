@@ -24,7 +24,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CampaignCrewCard $crewCardEffect
  * @property-read Character|null $sourceMaster
  * @property-read CampaignAftermath|null $sourceAftermath
- *
  * @mixin IdeHelperCampaignCrewCardAdvancement
  */
 class CampaignCrewCardAdvancement extends Model

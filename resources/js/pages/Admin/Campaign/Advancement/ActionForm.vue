@@ -24,6 +24,7 @@ interface AdvancementActionRow {
     flip_value: number | null;
     is_joker: boolean;
     is_always_available: boolean;
+    is_signature: boolean;
     talent_name: string;
     effect_text: string;
     action_id: number | null;
@@ -39,6 +40,7 @@ const form = ref({
     flip_value: null as number | null,
     is_joker: false,
     is_always_available: false,
+    is_signature: false,
     talent_name: '' as string,
     effect_text: '' as string,
     action_id: null as number | null,
@@ -129,6 +131,13 @@ onMounted(() => {
                         <Checkbox :checked="form.is_joker" @update:checked="(v: boolean) => (form.is_joker = v)" />
                         <span>Any Joker — free pick (cost &lt;= 10, shares keyword)</span>
                     </label>
+                    <label v-if="!form.action_id" class="flex items-start gap-2 text-sm">
+                        <Checkbox :checked="form.is_signature" @update:checked="(v: boolean) => (form.is_signature = v)" />
+                        <span>Signature Action</span>
+                    </label>
+                    <p v-else class="text-[10px] text-muted-foreground sm:col-span-2">
+                        Signature status is inherited from the looked-up Action's own "Signature" flag.
+                    </p>
                 </div>
             </CardContent>
             <CardFooter class="justify-end gap-2">

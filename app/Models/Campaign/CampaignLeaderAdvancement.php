@@ -14,13 +14,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One advancement gained by a Leader (or routed to its Totem). The renderer
  * walks these to compose the final action/ability list and any trigger / Skl
  * modifications applied to the underlying CustomCharacter actions.
- *
+ * 
  * `applied_skl_from` is set only for Skl Boost advancements — the action's
  * actual Skl at the moment the boost was applied, captured because the
  * catalog row's own skl_from is a qualifying range, not necessarily the
  * action's exact prior value, so removing the advancement needs this to
  * restore it correctly.
- *
+ * 
  * An Attack/Tactical Mod advancement (pg 38-43) targets exactly one of three
  * things: the Leader (default — `applied_to_custom_character_id` and
  * `from_equipment_id` both null, `applied_to_action_index` indexes the
@@ -54,7 +54,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CustomCharacter|null $appliedToCustomCharacter
  * @property-read CampaignEquipment|null $fromEquipment
  * @property-read Action|null $appliedToAction
- *
  * @mixin IdeHelperCampaignLeaderAdvancement
  */
 class CampaignLeaderAdvancement extends Model

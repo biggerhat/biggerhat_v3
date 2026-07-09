@@ -27,6 +27,17 @@ it('index denies users without view_campaign_catalog', function () {
         ->assertForbidden();
 });
 
+it('create exposes each Action Lookup option\'s own is_signature flag', function () {
+    $signatureAction = Action::factory()->create(['name' => 'Immolate', 'is_signature' => true]);
+    $plainAction = Action::factory()->create(['name' => 'Cast Out', 'is_signature' => false]);
+
+    $response = $this->actingAs($this->admin)->get(route('admin.campaign.advancement-action.create'));
+
+    $response->assertInertia(fn ($page) => $page
+        ->where('actions', fn ($actions) => collect($actions)->firstWhere('value', $signatureAction->id)['is_signature'] === true
+            && collect($actions)->firstWhere('value', $plainAction->id)['is_signature'] === false));
+});
+
 it('store creates a bespoke Action row with its own stat block', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.advancement-action.store'), [

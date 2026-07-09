@@ -53,7 +53,10 @@ it('imports a TOS-only package and links its Unit by name', function () {
 });
 
 it('flags a crossover product as Both and links its Character via the Malifaux-alias prose', function () {
-    Character::factory()->create(['name' => 'Datsue Ba', 'display_name' => 'Datsue Ba']);
+    // title: null pins display_name — CharacterObserver::creating() always
+    // recomputes it from name+title, so a random Faker title here (~5% of
+    // factory calls) would otherwise make this assertion flaky.
+    Character::factory()->create(['name' => 'Datsue Ba', 'title' => null, 'display_name' => 'Datsue Ba']);
 
     $product = fakeTosProduct([
         'title' => 'Binh Nguyen',
@@ -121,6 +124,20 @@ it('makes no database changes on a dry run', function () {
     $this->artisan('app:import-wyrd-tos-packages --dry-run --skip-images')->assertSuccessful();
 
     expect(Package::count())->toBe(0);
+});
+
+it('imports from --from-file without touching the network at all', function () {
+    Unit::factory()->create(['name' => 'Prince Unathi']);
+    $path = tempnam(sys_get_temp_dir(), 'wyrd-tos');
+    file_put_contents($path, json_encode([fakeTosProduct()]));
+
+    Http::fake(); // any request the command makes gets faked and recorded — proves --from-file skips the network
+    $this->artisan("app:import-wyrd-tos-packages --skip-images --from-file={$path}")->assertSuccessful();
+
+    Http::assertNothingSent();
+    expect(Package::where('slug', 'abyssinia-allegiance-box')->exists())->toBeTrue();
+
+    unlink($path);
 });
 
 it('retries on a 429 and succeeds once the rate limit clears', function () {

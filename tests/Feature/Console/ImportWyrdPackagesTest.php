@@ -70,3 +70,34 @@ it('makes no database changes on a dry run', function () {
 
     expect(Package::count())->toBe(0);
 });
+
+it('imports from --from-file without touching the network at all', function () {
+    $path = tempnam(sys_get_temp_dir(), 'wyrd');
+    file_put_contents($path, json_encode([fakeMalifauxProduct()]));
+
+    Http::fake(); // any request the command makes gets faked and recorded — proves --from-file skips the network
+    $this->artisan("app:import-wyrd-packages --skip-images --from-file={$path}")->assertSuccessful();
+
+    Http::assertNothingSent();
+    expect(Package::where('slug', 'malifaux-fourth-edition-sonnia-criid-crew')->exists())->toBeTrue();
+
+    unlink($path);
+});
+
+it('--dump-to writes the fetched products to a file and still imports normally', function () {
+    Http::fake([
+        WYRD_URL => Http::sequence()
+            ->push(['products' => [fakeMalifauxProduct()]])
+            ->push(['products' => []]),
+    ]);
+    $path = tempnam(sys_get_temp_dir(), 'wyrd');
+
+    $this->artisan("app:import-wyrd-packages --skip-images --dump-to={$path}")->assertSuccessful();
+
+    $dumped = json_decode((string) file_get_contents($path), true);
+    expect($dumped)->toHaveCount(1);
+    expect($dumped[0]['handle'])->toBe('sonnia-criid-crew');
+    expect(Package::where('slug', 'malifaux-fourth-edition-sonnia-criid-crew')->exists())->toBeTrue();
+
+    unlink($path);
+});

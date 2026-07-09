@@ -21,6 +21,54 @@ trait FetchesWyrdShopifyProducts
     private const RATE_LIMIT_COOLDOWN_MINUTES = 20;
 
     /**
+     * Resolves the raw product list either from a previously-dumped JSON
+     * file (`--from-file`, when the machine running the import is itself
+     * blocked by Wyrd's origin) or by fetching live. `--dump-to` writes
+     * whichever result was used back out to a file — run this on an
+     * unblocked machine, then feed the file to `--from-file` wherever the
+     * import actually needs to run.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function resolveWyrdProducts(string $endpoint): array
+    {
+        $fromFile = $this->option('from-file');
+        $products = $fromFile
+            ? $this->loadWyrdProductsFromFile((string) $fromFile)
+            : $this->fetchAllWyrdProducts($endpoint);
+
+        $dumpTo = $this->option('dump-to');
+        if ($dumpTo && file_put_contents($dumpTo, json_encode($products)) !== false) {
+            $this->info(sprintf('Wrote %d products to %s', count($products), $dumpTo));
+        }
+
+        return $products;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadWyrdProductsFromFile(string $path): array
+    {
+        if (! is_file($path)) {
+            $this->error("No such file: {$path}");
+
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded)) {
+            $this->error("Could not parse {$path} as a JSON array of products.");
+
+            return [];
+        }
+
+        $this->info(sprintf('Loaded %d products from %s', count($decoded), $path));
+
+        return $decoded;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function fetchAllWyrdProducts(string $endpoint): array

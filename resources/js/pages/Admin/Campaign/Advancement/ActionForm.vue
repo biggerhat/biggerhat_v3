@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface StatBlock {
     type?: string | null;
@@ -33,7 +33,7 @@ interface AdvancementActionRow {
 
 const props = defineProps<{
     item?: AdvancementActionRow | null;
-    actions: Array<{ name: string; value: number }>;
+    actions: Array<{ name: string; value: number; is_signature: boolean }>;
 }>();
 
 const form = ref({
@@ -54,6 +54,10 @@ const form = ref({
         damage: null,
     } as StatBlock,
 });
+
+// Lookup rows (pg 31) inherit Signature status from the linked Action
+// itself, not from this row — see LeaderAdvancementService.
+const selectedAction = computed(() => props.actions.find((a) => a.value === form.value.action_id) ?? null);
 
 const submit = () => {
     if (props.item) router.post(route('admin.campaign.advancement-action.update', props.item.id), form.value);
@@ -103,7 +107,9 @@ onMounted(() => {
                     >
                         <SelectTrigger><SelectValue placeholder="Bespoke — no lookup" /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem v-for="opt in actions" :key="opt.value" :value="opt.value.toString()">{{ opt.name }}</SelectItem>
+                            <SelectItem v-for="opt in actions" :key="opt.value" :value="opt.value.toString()">
+                                {{ opt.name }}<span v-if="opt.is_signature" class="text-muted-foreground"> (Signature)</span>
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                     <p class="text-[10px] text-muted-foreground">
@@ -135,9 +141,12 @@ onMounted(() => {
                         <Checkbox :checked="form.is_signature" @update:checked="(v: boolean) => (form.is_signature = v)" />
                         <span>Signature Action</span>
                     </label>
-                    <p v-else class="text-[10px] text-muted-foreground sm:col-span-2">
-                        Signature status is inherited from the looked-up Action's own "Signature" flag.
-                    </p>
+                    <template v-else>
+                        <label class="flex items-start gap-2 text-sm text-muted-foreground">
+                            <Checkbox :checked="selectedAction?.is_signature ?? false" disabled />
+                            <span>Signature Action (read-only — set on the looked-up Action itself)</span>
+                        </label>
+                    </template>
                 </div>
             </CardContent>
             <CardFooter class="justify-end gap-2">

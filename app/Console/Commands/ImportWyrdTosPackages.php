@@ -22,7 +22,9 @@ class ImportWyrdTosPackages extends Command
     protected $signature = 'app:import-wyrd-tos-packages
         {--dry-run : Show what would be imported without saving}
         {--skip-images : Skip downloading product images}
-        {--force : Update existing packages instead of skipping}';
+        {--force : Update existing packages instead of skipping}
+        {--from-file= : Import from a JSON file previously written by --dump-to instead of fetching from Wyrd (for hosts Wyrd blocks)}
+        {--dump-to= : After fetching (or loading via --from-file), write the raw product list to this file}';
 
     protected $description = 'Import packages from the Wyrd Miniatures Shopify store — The Other Side collection';
 
@@ -56,7 +58,7 @@ class ImportWyrdTosPackages extends Command
         $this->allUnits = Unit::all();
         $this->allCharacters = Character::all();
 
-        $products = $this->fetchAllWyrdProducts(self::BASE_URL.'/collections/'.self::COLLECTION_HANDLE.'/products.json');
+        $products = $this->resolveWyrdProducts(self::BASE_URL.'/collections/'.self::COLLECTION_HANDLE.'/products.json');
 
         $this->info(sprintf('Found %d TOS products.', count($products)));
 

@@ -60,7 +60,18 @@ class AdvancementActionAdminController extends Controller
     private function formData(): array
     {
         return [
-            'actions' => fn () => Action::toSelectOptions('name'),
+            // is_signature rides along so the form can show, read-only,
+            // whether the selected Action Lookup is itself flagged
+            // Signature (see LeaderAdvancementService — lookup rows
+            // inherit it from here, not from this row's own is_signature).
+            'actions' => fn () => Action::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_signature'])
+                ->map(fn (Action $a) => [
+                    'value' => $a->id,
+                    'name' => $a->name,
+                    'is_signature' => (bool) $a->is_signature,
+                ]),
         ];
     }
 }

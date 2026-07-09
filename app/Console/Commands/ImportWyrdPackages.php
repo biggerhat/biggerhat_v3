@@ -22,7 +22,9 @@ class ImportWyrdPackages extends Command
     protected $signature = 'app:import-wyrd-packages
         {--dry-run : Show what would be imported without saving}
         {--skip-images : Skip downloading product images}
-        {--force : Update existing packages instead of skipping}';
+        {--force : Update existing packages instead of skipping}
+        {--from-file= : Import from a JSON file previously written by --dump-to instead of fetching from Wyrd (for hosts Wyrd blocks)}
+        {--dump-to= : After fetching (or loading via --from-file), write the raw product list to this file}';
 
     protected $description = 'Import packages from the Wyrd Miniatures Shopify store';
 
@@ -53,7 +55,7 @@ class ImportWyrdPackages extends Command
 
         $this->allCharacters = Character::all();
 
-        $products = $this->fetchAllWyrdProducts(self::BASE_URL.'/products.json');
+        $products = $this->resolveWyrdProducts(self::BASE_URL.'/products.json');
         $malifauxProducts = $this->filterMalifauxProducts($products);
 
         $this->info(sprintf('Found %d total products, %d Malifaux packages.', count($products), count($malifauxProducts)));

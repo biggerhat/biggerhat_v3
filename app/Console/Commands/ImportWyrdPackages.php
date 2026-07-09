@@ -8,8 +8,8 @@ use App\Enums\SculptVersionEnum;
 use App\Models\Character;
 use App\Models\Package;
 use App\Models\PackageStoreLink;
+use App\Traits\Console\FetchesWyrdShopifyProducts;
 use Illuminate\Console\Command;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +17,8 @@ use Illuminate\Support\Str;
 
 class ImportWyrdPackages extends Command
 {
+    use FetchesWyrdShopifyProducts;
+
     protected $signature = 'app:import-wyrd-packages
         {--dry-run : Show what would be imported without saving}
         {--skip-images : Skip downloading product images}
@@ -51,7 +53,7 @@ class ImportWyrdPackages extends Command
 
         $this->allCharacters = Character::all();
 
-        $products = $this->fetchAllProducts();
+        $products = $this->fetchAllWyrdProducts(self::BASE_URL.'/products.json');
         $malifauxProducts = $this->filterMalifauxProducts($products);
 
         $this->info(sprintf('Found %d total products, %d Malifaux packages.', count($products), count($malifauxProducts)));
@@ -81,73 +83,6 @@ class ImportWyrdPackages extends Command
         $this->info(sprintf('Done! Created: %d, Updated: %d, Skipped: %d, Characters linked: %d', $created, $updated, $skipped, $totalLinked));
 
         return self::SUCCESS;
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function fetchAllProducts(): array
-    {
-        $allProducts = [];
-        $page = 1;
-
-        while (true) {
-            $response = $this->fetchPage($page);
-
-            if ($response === null) {
-                break;
-            }
-
-            $products = $response->json('products', []);
-
-            if (empty($products)) {
-                break;
-            }
-
-            $allProducts = array_merge($allProducts, $products);
-            $page++;
-
-            // Shopify's storefront API rate-limits aggressively — a short
-            // pause between pages avoids tripping it in the first place.
-            usleep(300_000);
-        }
-
-        return $allProducts;
-    }
-
-    /**
-     * Fetches one page, retrying with backoff on 429s (honoring
-     * Retry-After when Shopify sends one) since this endpoint rate-limits
-     * fairly aggressively.
-     */
-    private function fetchPage(int $page, int $maxAttempts = 5): ?Response
-    {
-        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $response = Http::withHeaders([
-                'User-Agent' => 'Mozilla/5.0 (compatible; BiggerHatImporter/1.0; +https://biggerhat.io)',
-            ])->get(self::BASE_URL.'/products.json', [
-                'limit' => 250,
-                'page' => $page,
-            ]);
-
-            if ($response->successful()) {
-                return $response;
-            }
-
-            if ($response->status() === 429 && $attempt < $maxAttempts) {
-                $wait = $response->hasHeader('Retry-After') ? (int) $response->header('Retry-After') : $attempt * 5;
-                $this->warn("  Rate limited fetching page {$page} (attempt {$attempt}/{$maxAttempts}) — waiting {$wait}s...");
-                sleep($wait);
-
-                continue;
-            }
-
-            $this->error("Failed to fetch page {$page}: ".$response->status());
-
-            return null;
-        }
-
-        return null;
     }
 
     /**

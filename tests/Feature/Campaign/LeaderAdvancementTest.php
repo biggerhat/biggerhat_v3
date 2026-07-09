@@ -286,6 +286,55 @@ it('applies a bespoke Action advancement with no Lookup directly from its own st
     expect($advancement->catalog_core_id)->toBe($bespoke->id);
 });
 
+it('marks a gained Action advancement as a Signature Action when the checkbox is set', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true; // box index 2 is tier 2 in the canonical track
+    $leader->update(['xp_track' => $track]);
+
+    $action = \App\Models\Action::factory()->create();
+    $lookup = \App\Models\Campaign\AdvancementAction::factory()->lookup($action->id)->create(['flip_value' => 6]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'action',
+            'catalog_id' => $lookup->id,
+            'flip_value' => 13,
+            'is_signature' => true,
+        ])
+        ->assertRedirect();
+
+    $leader->refresh();
+    $gained = collect($leader->actions)->firstWhere('source_id', $action->id);
+    expect($gained['is_signature'] ?? null)->toBeTrue();
+});
+
+it('defaults a gained Action advancement to non-Signature when the checkbox is omitted', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true;
+    $leader->update(['xp_track' => $track]);
+
+    $action = \App\Models\Action::factory()->create();
+    $lookup = \App\Models\Campaign\AdvancementAction::factory()->lookup($action->id)->create(['flip_value' => 6]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'action',
+            'catalog_id' => $lookup->id,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    $leader->refresh();
+    $gained = collect($leader->actions)->firstWhere('source_id', $action->id);
+    expect($gained['is_signature'] ?? null)->toBeFalse();
+});
+
 it('rejects an Attack Mod Any Joker row without declaring which Joker was flipped', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);

@@ -4,9 +4,15 @@ use App\Enums\GameSystemEnum;
 use App\Models\Character;
 use App\Models\Package;
 use App\Models\TOS\Unit;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 const WYRD_TOS_URL = 'https://giveusyourmoneypleasethankyou-wyrd.com/collections/the-other-side/products.json*';
+
+// The rate-limit cooldown lives in cache and is shared across every Wyrd
+// import command — clear it so one test's 429 doesn't skip the next test's
+// fetch entirely.
+beforeEach(fn () => Cache::flush());
 
 function fakeTosResponses(array $products): array
 {

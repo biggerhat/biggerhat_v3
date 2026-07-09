@@ -373,7 +373,7 @@ class LeaderAdvancementService
                     ? $this->applyActionToLeader($leader, $coreCatalogId)
                     : null,
                 AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
-                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
+                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice, (bool) ($a['is_signature'] ?? false))
                     : null,
                 AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
                     ? $this->applyAdvancementAbility($leader, $advancementRow, $freeChoice)
@@ -453,18 +453,18 @@ class LeaderAdvancementService
     /**
      * @param  array<string, mixed>|null  $freeChoice
      */
-    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row, ?array $freeChoice): void
+    private function applyAdvancementAction(CustomCharacter $leader, AdvancementAction $row, ?array $freeChoice, bool $isSignature = false): void
     {
         if ($row->is_joker) {
             if (isset($freeChoice['source_id'])) {
-                $this->applyActionToLeader($leader, (int) $freeChoice['source_id']);
+                $this->applyActionToLeader($leader, (int) $freeChoice['source_id'], $isSignature);
             }
 
             return;
         }
 
         if ($row->action_id) {
-            $this->applyActionToLeader($leader, $row->action_id);
+            $this->applyActionToLeader($leader, $row->action_id, $isSignature);
 
             return;
         }
@@ -475,7 +475,7 @@ class LeaderAdvancementService
             'name' => $row->talent_name,
             'type' => $stat['type'] ?? 'tactical',
             'category' => $stat['type'] ?? 'tactical',
-            'is_signature' => false,
+            'is_signature' => $isSignature,
             'stone_cost' => 0,
             'range' => $stat['range'] ?? null,
             'range_type' => $stat['range_type'] ?? null,
@@ -596,7 +596,7 @@ class LeaderAdvancementService
         $target->save();
     }
 
-    private function applyActionToLeader(CustomCharacter $leader, int $actionId): void
+    private function applyActionToLeader(CustomCharacter $leader, int $actionId, bool $isSignature = false): void
     {
         $action = Action::with('triggers:id,name,suits,stone_cost,description')->find($actionId);
         if (! $action) {
@@ -609,7 +609,7 @@ class LeaderAdvancementService
             'name' => $action->name,
             'type' => $typeValue,
             'category' => $typeValue,
-            'is_signature' => false,
+            'is_signature' => $isSignature,
             'stone_cost' => $action->stone_cost ?? 0,
             'range' => $action->range,
             'range_type' => $action->range_type instanceof \BackedEnum ? $action->range_type->value : $action->range_type,

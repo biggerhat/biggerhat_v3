@@ -657,6 +657,9 @@ class CampaignAftermathController extends Controller
             'advancements.*.totem_name' => ['nullable', 'string', 'max:100'],
             'advancements.*.totem_size' => ['nullable', 'integer', 'min:1', 'max:50'],
             'advancements.*.totem_base' => ['nullable', 'string', 'max:10'],
+            // Action table only (pg 49): whether the newly-gained action is a
+            // Signature Action for the leader.
+            'advancements.*.is_signature' => ['nullable', 'boolean'],
         ]);
 
         $aftermath->loadMissing('crew');

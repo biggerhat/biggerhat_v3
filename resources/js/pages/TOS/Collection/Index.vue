@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,14 @@ interface CollectionItem {
     unit_slug: string;
     allegiances: Array<{ slug: string; name: string }>;
     quantity: number;
+    // Squad units (rulebook Special Unit Rule, e.g. "Squad of 9") track
+    // per-model progress via built_count/painted_count instead of the flat
+    // is_built/is_painted toggle — squad_size is null for everything else.
+    // is_built/is_painted are still always present, derived server-side
+    // (fully built/painted for a squad row means the whole tracked box is).
+    squad_size: number | null;
+    built_count: number;
+    painted_count: number;
     is_built: boolean;
     is_painted: boolean;
 }
@@ -190,6 +199,17 @@ const updateStatus = (item: CollectionItem, field: 'is_built' | 'is_painted', va
     } else {
         router.post(route('tos.collection.update_status'), { unit_sculpt_id: item.unit_sculpt_id, [field]: value }, opts);
     }
+};
+
+// Squad units only (item.squad_size set) — per-model bubble progress,
+// same endpoint as updateStatus but with a count instead of a boolean.
+const updateSquadCount = (item: CollectionItem, field: 'built_count' | 'painted_count', count: number) => {
+    processing.value = true;
+    router.post(
+        route('tos.collection.update_status'),
+        { unit_sculpt_id: item.unit_sculpt_id, [field]: count },
+        { preserveScroll: true, preserveState: true, onFinish: () => (processing.value = false) },
+    );
 };
 
 const removeSculpt = (item: CollectionItem) => {
@@ -504,7 +524,15 @@ const topAllegiances = computed(() =>
                                     </div>
                                     <!-- Status icons (view-only, non-owner) -->
                                     <template v-if="!is_owner">
-                                        <div class="flex shrink-0 items-center gap-1">
+                                        <div v-if="item.squad_size" class="flex shrink-0 items-center gap-2 text-[11px] tabular-nums">
+                                            <span class="flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                                                <Hammer class="size-3" />{{ item.built_count }}/{{ item.squad_size }}
+                                            </span>
+                                            <span class="flex items-center gap-0.5 text-violet-600 dark:text-violet-400">
+                                                <Paintbrush class="size-3" />{{ item.painted_count }}/{{ item.squad_size }}
+                                            </span>
+                                        </div>
+                                        <div v-else class="flex shrink-0 items-center gap-1">
                                             <Hammer v-if="item.is_built" class="size-3.5 text-amber-600 dark:text-amber-400" title="Built" />
                                             <Paintbrush
                                                 v-if="item.is_painted"
@@ -516,28 +544,57 @@ const topAllegiances = computed(() =>
                                     </template>
                                 </div>
                                 <div v-if="is_owner && !selectMode" class="mt-1.5 flex items-center gap-1 pl-7 sm:mt-0 sm:pl-0 sm:pt-0">
-                                    <Button
-                                        :variant="item.is_built ? 'default' : 'outline'"
-                                        size="icon"
-                                        class="size-7"
-                                        :class="item.is_built ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-muted-foreground'"
-                                        :disabled="processing"
-                                        :title="item.is_built ? 'Mark as unbuilt' : 'Mark as built'"
-                                        @click="updateStatus(item, 'is_built', !item.is_built)"
-                                    >
-                                        <Hammer class="size-3.5" />
-                                    </Button>
-                                    <Button
-                                        :variant="item.is_painted ? 'default' : 'outline'"
-                                        size="icon"
-                                        class="size-7"
-                                        :class="item.is_painted ? 'bg-violet-600 text-white hover:bg-violet-700' : 'text-muted-foreground'"
-                                        :disabled="processing"
-                                        :title="item.is_painted ? 'Mark as unpainted' : 'Mark as painted'"
-                                        @click="updateStatus(item, 'is_painted', !item.is_painted)"
-                                    >
-                                        <Paintbrush class="size-3.5" />
-                                    </Button>
+                                    <!-- Squad units track per-model progress via bubbles instead of a flat toggle. -->
+                                    <div v-if="item.squad_size" class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <Hammer class="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <PowerBarBubbles
+                                                :max="item.squad_size"
+                                                :current="item.built_count"
+                                                color="amber"
+                                                label="Built"
+                                                compact
+                                                :readonly="processing"
+                                                @update="(v) => updateSquadCount(item, 'built_count', v)"
+                                            />
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <Paintbrush class="size-3 shrink-0 text-violet-600 dark:text-violet-400" />
+                                            <PowerBarBubbles
+                                                :max="item.squad_size"
+                                                :current="item.painted_count"
+                                                color="violet"
+                                                label="Painted"
+                                                compact
+                                                :readonly="processing"
+                                                @update="(v) => updateSquadCount(item, 'painted_count', v)"
+                                            />
+                                        </div>
+                                    </div>
+                                    <template v-else>
+                                        <Button
+                                            :variant="item.is_built ? 'default' : 'outline'"
+                                            size="icon"
+                                            class="size-7"
+                                            :class="item.is_built ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-muted-foreground'"
+                                            :disabled="processing"
+                                            :title="item.is_built ? 'Mark as unbuilt' : 'Mark as built'"
+                                            @click="updateStatus(item, 'is_built', !item.is_built)"
+                                        >
+                                            <Hammer class="size-3.5" />
+                                        </Button>
+                                        <Button
+                                            :variant="item.is_painted ? 'default' : 'outline'"
+                                            size="icon"
+                                            class="size-7"
+                                            :class="item.is_painted ? 'bg-violet-600 text-white hover:bg-violet-700' : 'text-muted-foreground'"
+                                            :disabled="processing"
+                                            :title="item.is_painted ? 'Mark as unpainted' : 'Mark as painted'"
+                                            @click="updateStatus(item, 'is_painted', !item.is_painted)"
+                                        >
+                                            <Paintbrush class="size-3.5" />
+                                        </Button>
+                                    </template>
                                     <div class="ml-1 flex shrink-0 items-center gap-1">
                                         <Button
                                             variant="ghost"

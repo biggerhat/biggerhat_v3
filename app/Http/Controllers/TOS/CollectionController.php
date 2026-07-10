@@ -217,6 +217,11 @@ class CollectionController extends Controller
             'unit_sculpt_id' => 'required|exists:tos_unit_sculpts,id',
             'is_built' => 'nullable|boolean',
             'is_painted' => 'nullable|boolean',
+            // Per-model progress for Squad units (e.g. "6 of 9 painted") —
+            // clamped server-side to the unit's Squad size below so a stale
+            // client value can't record more than the box actually has.
+            'built_count' => 'nullable|integer|min:0',
+            'painted_count' => 'nullable|integer|min:0',
         ]);
 
         $user = Auth::user();
@@ -229,12 +234,33 @@ class CollectionController extends Controller
         if (isset($validated['is_painted'])) {
             $data['is_painted'] = $validated['is_painted'];
         }
+        if (isset($validated['built_count']) || isset($validated['painted_count'])) {
+            $squadSize = $this->squadSizeForSculpt($sculptId);
+            if (isset($validated['built_count'])) {
+                $data['built_count'] = $squadSize !== null ? min($validated['built_count'], $squadSize) : 0;
+            }
+            if (isset($validated['painted_count'])) {
+                $data['painted_count'] = $squadSize !== null ? min($validated['painted_count'], $squadSize) : 0;
+            }
+        }
 
         if (! empty($data)) {
             $user->collectionUnitSculpts()->updateExistingPivot($sculptId, $data);
         }
 
         return back();
+    }
+
+    /**
+     * The unit's Squad Special Unit Rule size ("Squad of 9" → 9), or null if
+     * the sculpt's unit doesn't carry the Squad rule.
+     */
+    private function squadSizeForSculpt(int $sculptId): ?int
+    {
+        $sculpt = UnitSculpt::query()->with('unit.specialUnitRules')->find($sculptId);
+        $squadRule = $sculpt?->unit?->specialUnitRules->firstWhere('slug', 'squad');
+
+        return $squadRule?->pivot->parameters['fireteam_count'] ?? null;
     }
 
     public function removeBulk(Request $request)
@@ -332,10 +358,20 @@ class CollectionController extends Controller
         }
 
         $sculptItems = $user->collectionUnitSculpts()
-            ->with(['unit.allegiances'])
+            ->with(['unit.allegiances', 'unit.specialUnitRules'])
             ->get()
             ->map(function (UnitSculpt $s) {
                 $unit = $s->unit;
+
+                // Squad units (rulebook Special Unit Rule, e.g. "Squad of 9")
+                // track per-model progress instead of a flat built/painted
+                // toggle — see CollectionController::updateStatus(). Clamp
+                // defensively in case an admin shrinks the squad size after
+                // counts were recorded.
+                $squadRule = $unit->specialUnitRules->firstWhere('slug', 'squad');
+                $squadSize = $squadRule?->pivot->parameters['fireteam_count'] ?? null;
+                $builtCount = $squadSize !== null ? min((int) ($s->pivot->built_count ?? 0), $squadSize) : 0;
+                $paintedCount = $squadSize !== null ? min((int) ($s->pivot->painted_count ?? 0), $squadSize) : 0;
 
                 return [
                     'type' => 'unit_sculpt',
@@ -349,8 +385,11 @@ class CollectionController extends Controller
                     'unit_slug' => $unit->slug,
                     'allegiances' => $unit->allegiances->map(fn ($a) => ['slug' => $a->slug, 'name' => $a->name])->toArray(),
                     'quantity' => $s->pivot->quantity ?? 1,
-                    'is_built' => (bool) ($s->pivot->is_built ?? false),
-                    'is_painted' => (bool) ($s->pivot->is_painted ?? false),
+                    'squad_size' => $squadSize,
+                    'built_count' => $builtCount,
+                    'painted_count' => $paintedCount,
+                    'is_built' => $squadSize !== null ? $builtCount >= $squadSize : (bool) ($s->pivot->is_built ?? false),
+                    'is_painted' => $squadSize !== null ? $paintedCount >= $squadSize : (bool) ($s->pivot->is_painted ?? false),
                 ];
             });
 
@@ -373,6 +412,11 @@ class CollectionController extends Controller
                     'unit_slug' => $a->slug,
                     'allegiances' => $a->allegiances->map(fn ($al) => ['slug' => $al->slug, 'name' => $al->name])->toArray(),
                     'quantity' => $a->pivot->quantity ?? 1,
+                    // Adjunct Assets are never Squad-tagged — no per-model
+                    // bubble tracking, always the plain built/painted toggle.
+                    'squad_size' => null,
+                    'built_count' => 0,
+                    'painted_count' => 0,
                     'is_built' => (bool) ($a->pivot->is_built ?? false),
                     'is_painted' => (bool) ($a->pivot->is_painted ?? false),
                 ];

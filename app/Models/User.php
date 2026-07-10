@@ -129,7 +129,7 @@ class User extends Authenticatable
     public function collectionUnitSculpts(): BelongsToMany
     {
         return $this->belongsToMany(UnitSculpt::class, 'user_unit_sculpts')
-            ->withPivot('quantity', 'is_built', 'is_painted')
+            ->withPivot('quantity', 'is_built', 'is_painted', 'built_count', 'painted_count')
             ->withTimestamps();
     }
 

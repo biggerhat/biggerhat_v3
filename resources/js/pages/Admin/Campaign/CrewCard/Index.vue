@@ -14,6 +14,7 @@ import { h, ref } from 'vue';
 interface CrewCardRow {
     id: number;
     name: string;
+    master: { id: number; display_name: string } | null;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -28,6 +29,14 @@ const columns: ColumnDef<CrewCardRow>[] = [
         accessorKey: 'name',
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
+    },
+    {
+        id: 'master',
+        header: () => h('div', {}, 'Master'),
+        cell: ({ row }) =>
+            row.original.master
+                ? h('span', { class: 'text-sm' }, row.original.master.display_name)
+                : h('span', { class: 'text-xs text-muted-foreground' }, 'generic'),
     },
     {
         id: 'flags',

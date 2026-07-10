@@ -19,11 +19,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $campaign_crew_id
  * @property int $crew_card_effect_id
  * @property int|null $source_master_id
+ * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property int|null $acquired_aftermath_id
  * @property-read CampaignCrew $crew
  * @property-read CampaignCrewCard $crewCardEffect
  * @property-read Character|null $sourceMaster
  * @property-read CampaignAftermath|null $sourceAftermath
+ *
  * @mixin IdeHelperCampaignCrewCardAdvancement
  */
 class CampaignCrewCardAdvancement extends Model
@@ -32,6 +34,13 @@ class CampaignCrewCardAdvancement extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
+
+    public function casts(): array
+    {
+        return [
+            'crew_card_choice' => 'array',
+        ];
+    }
 
     protected static function newFactory(): CampaignCrewCardAdvancementFactory
     {

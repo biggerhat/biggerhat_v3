@@ -296,6 +296,59 @@ it('Phase 6 applies injuries to arsenal models from the catalog', function () {
     expect($aftermath->fresh()->status)->toBe('locked');
 });
 
+it('Phase 6 saves an optional story_entry, and leaves it null when omitted', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [],
+            'story_entry' => 'A hard-fought win against the Ten Thunders.',
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->story_entry)->toBe('A hard-fought win against the Ten Thunders.');
+
+    $aftermath2 = CampaignAftermath::factory()->create([
+        'campaign_game_id' => CampaignGame::factory()->create([
+            'campaign_id' => $game->campaign_id,
+            'crew_a_id' => $crew->id,
+            'crew_b_id' => $game->crew_b_id,
+        ])->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath2), ['flips' => []])
+        ->assertRedirect();
+
+    expect($aftermath2->fresh()->story_entry)->toBeNull();
+});
+
+it('finalize (early-exit) also saves an optional story_entry', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.finalize', $aftermath), ['story_entry' => 'Closed early, but wanted to note the deployment.'])
+        ->assertRedirect();
+
+    $aftermath->refresh();
+    expect($aftermath->status)->toBe('locked');
+    expect($aftermath->story_entry)->toBe('Closed early, but wanted to note the deployment.');
+});
+
 it('Phase 6 annihilates a model that hits 3+ injuries', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1031,7 +1084,7 @@ it('Phase 4 rejects a second Summoning Advancement for the same leader', functio
     expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(1); // no second row
 });
 
-it('Phase 4 enforces exact flip-value match on Totem Advancement', function () {
+it('Phase 4 Totem Advancement no longer requires a flip value (flip-gating removed for now)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1054,7 +1107,9 @@ it('Phase 4 enforces exact flip-value match on Totem Advancement', function () {
         'base' => 30,
     ]);
 
-    // Flipped 7, picked totem with flip_value 7 — should be accepted.
+    // No flip_value submitted at all, and it doesn't match the totem's own
+    // campaign_totem_flip_value (7) — still accepted, since the picker no
+    // longer asks for or enforces a flip.
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
             'bruiser_killed_non_peon' => false,
@@ -1063,33 +1118,12 @@ it('Phase 4 enforces exact flip-value match on Totem Advancement', function () {
             'advancements' => [[
                 'source_table' => 'totem',
                 'catalog_id' => $totemTemplate->id,
-                'flip_value' => 7,
                 // Totem is tier 3 → must sit on a tier-3 box (index 4).
                 'position_in_xp_track' => 4,
             ]],
         ])
         ->assertRedirect();
     expect($aftermath->fresh()->current_phase)->toBe(5);
-
-    // Now try the wrong flip-value (chose totem 7 but flipped 5) — reject.
-    \Illuminate\Support\Facades\DB::table('campaign_aftermaths')
-        ->where('id', $aftermath->id)
-        ->update(['current_phase' => 4]);
-
-    $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
-            'bruiser_killed_non_peon' => false,
-            'strategist_interacted' => false,
-            'lost' => false,
-            'advancements' => [[
-                'source_table' => 'totem',
-                'catalog_id' => $totemTemplate->id,
-                'flip_value' => 5,
-                'position_in_xp_track' => 4,
-            ]],
-        ])
-        ->assertRedirect();
-    expect($aftermath->fresh()->current_phase)->toBe(4);
 });
 
 it('Phase 4 Totem Advancement inherits the leader\'s keywords', function () {
@@ -1380,6 +1414,72 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
     expect($stacked->first()->source_master_id)->toBe($master->id);
 });
 
+it('Phase 4 Crew Card advancement requiring a token choice stores the resolved pick, and rejects one outside the pool', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $master->keywords()->attach($keyword);
+
+    // A crew-card (crew-domain) upgrade sharing the crew's keyword, with a token on it.
+    $token = \App\Models\Token::factory()->create(['name' => 'Fast']);
+    $crewCardUpgrade = \App\Models\Upgrade::factory()->create([
+        'domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value,
+        'game_mode_type' => \App\Enums\GameModeTypeEnum::Standard->value,
+    ]);
+    $crewCardUpgrade->keywords()->attach($keyword);
+    $crewCardUpgrade->tokens()->attach($token);
+
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['requires_token_choice' => true]);
+
+    // A token not on any keyword crew card is rejected.
+    $stray = \App\Models\Token::factory()->create();
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => ['source_character_id' => $master->id],
+                'crew_card_choice' => ['id' => $stray->id],
+            ]],
+        ])
+        ->assertRedirect();
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
+
+    // A valid, in-pool token is stored resolved to { type, id, name }.
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => ['source_character_id' => $master->id],
+                'crew_card_choice' => ['id' => $token->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->firstOrFail();
+    expect($stacked->crew_card_choice)->toMatchArray(['type' => 'token', 'id' => $token->id, 'name' => 'Fast']);
+});
+
 it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keywords', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1413,6 +1513,81 @@ it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keyword
 
     expect($aftermath->fresh()->current_phase)->toBe(4);
     expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
+});
+
+it('Phase 4 Crew Card advancement derives source_master_id from the catalog row, not the client', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+
+    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $master->keywords()->attach($keyword);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['master_id' => $master->id]);
+
+    // No free_choice submitted at all — the row's own master_id is authoritative.
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => null,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
+    expect($stacked)->toHaveCount(1);
+    expect($stacked->first()->source_master_id)->toBe($master->id);
+});
+
+it('Phase 4 Crew Card advancement ignores a client-submitted master that does not match the catalog row', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+
+    $realMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $realMaster->keywords()->attach($keyword);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['master_id' => $realMaster->id]);
+
+    // A second, unrelated eligible master the client tries to spoof as the source.
+    $spoofedMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    $spoofedMaster->keywords()->attach($keyword);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => ['source_character_id' => $spoofedMaster->id],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
+    expect($stacked)->toHaveCount(1);
+    expect($stacked->first()->source_master_id)->toBe($realMaster->id);
 });
 
 it('Phase 4 rejects a Totem Advancement when the crew already has a totem', function () {

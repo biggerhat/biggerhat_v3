@@ -208,7 +208,7 @@ class GameController extends Controller
         // crew + turn snapshots.
         if ($context === GameShowContext::Summary) {
             return array_merge($loads, [
-                'players.crewMembers',
+                'players.crewMembers.customCharacter:id,faction,actions,abilities',
                 'players.crewBuild',
                 'players.master.crewUpgrades',
                 'players.turns',
@@ -219,7 +219,7 @@ class GameController extends Controller
         if ($context === GameShowContext::SelfView) {
             // Participants also need crews during Scheme Select.
             if (in_array($game->status, [GameStatusEnum::SchemeSelect, ...$postSetup])) {
-                $loads[] = 'players.crewMembers';
+                $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities';
                 $loads[] = 'players.crewBuild';
                 $loads[] = 'players.master.crewUpgrades';
             }
@@ -230,7 +230,7 @@ class GameController extends Controller
             }
         } elseif (in_array($game->status, $postSetup)) {
             // Observer: crews + full turns once gameplay has started.
-            $loads[] = 'players.crewMembers';
+            $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities';
             $loads[] = 'players.crewBuild';
             $loads[] = 'players.master.crewUpgrades';
             $loads[] = 'players.turns';
@@ -490,6 +490,7 @@ class GameController extends Controller
             $props['bonanza_crew_upgrades'] = fn () => $this->buildBonanzaCrewUpgrades($game);
             $props['campaign_context'] = fn () => $this->buildCampaignContext($game);
             $props['campaign_arsenal'] = fn () => $this->buildCampaignArsenalProp($game);
+            $props['campaign_owned_equipment'] = fn () => $this->buildCampaignEquipmentProp($game);
             $props['campaign_leader_option'] = fn () => $game->format === \App\Enums\GameFormatEnum::Campaign
                 ? $this->campaignLeaderMasterOption($game)
                 : null;
@@ -511,11 +512,38 @@ class GameController extends Controller
 
         $wrap = \App\Models\Campaign\CampaignGame::query()
             ->where('base_game_id', $game->id)
-            ->with(['campaign:id,name,current_week,length_weeks', 'crewA:id,share_code,name,user_id', 'crewB:id,share_code,name,user_id'])
+            ->with([
+                'campaign:id,name,current_week,length_weeks',
+                'crewA:id,share_code,name,user_id,crew_card_effect_id',
+                'crewB:id,share_code,name,user_id,crew_card_effect_id',
+                'crewA.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'crewA.crewCardEffect.abilities',
+                'crewA.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'crewA.crewCardAdvancements.crewCardEffect.abilities',
+                'crewA.crewCardAdvancements.sourceMaster:id,display_name',
+                'crewB.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'crewB.crewCardEffect.abilities',
+                'crewB.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'crewB.crewCardAdvancements.crewCardEffect.abilities',
+                'crewB.crewCardAdvancements.sourceMaster:id,display_name',
+            ])
             ->first();
 
         if (! $wrap) {
             return null;
+        }
+
+        // Propagate the crew-card action pivot's signature flag onto the
+        // serialized action, same as ArsenalSheetController.
+        foreach ([$wrap->crewA, $wrap->crewB] as $crew) {
+            $crew->crewCardEffect?->actions->each(
+                fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+            );
+            $crew->crewCardAdvancements->each(
+                fn ($adv) => $adv->crewCardEffect->actions->each(
+                    fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+                ),
+            );
         }
 
         return [
@@ -527,6 +555,29 @@ class GameController extends Controller
             'ss_bonus_to_lower' => $wrap->ss_bonus_to_lower,
             'encounter_size' => $wrap->encounter_size,
             'week_number' => $wrap->week_number,
+            // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
+            // effects. Not surfaced anywhere else in Game Tracker.
+            'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
+            'crew_b_card' => $this->campaignCrewCardPayload($wrap->crewB),
+        ];
+    }
+
+    /**
+     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>}
+     */
+    private function campaignCrewCardPayload(\App\Models\Campaign\CampaignCrew $crew): array
+    {
+        return [
+            'effect' => $crew->crewCardEffect
+                ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description])
+                : null,
+            'borrowed' => $crew->crewCardAdvancements->map(fn (\App\Models\Campaign\CampaignCrewCardAdvancement $adv) => [
+                'id' => $adv->id,
+                'source_master_name' => $adv->sourceMaster?->display_name,
+                'effect' => $adv->crewCardEffect
+                    ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
+                    : null,
+            ])->all(),
         ];
     }
 
@@ -544,43 +595,11 @@ class GameController extends Controller
             return [];
         }
 
-        $userId = Auth::id();
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()
-            ->where('base_game_id', $game->id)
-            ->with(['crewA.leader', 'crewB.leader'])
-            ->first();
-
-        $campaignCrew = null;
-        $leader = null;
-
-        if ($campaignGame) {
-            if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
-                $campaignCrew = $campaignGame->crewA;
-                $leader = $campaignGame->crewA->leader;
-            } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
-                $campaignCrew = $campaignGame->crewB;
-                $leader = $campaignGame->crewB->leader;
-            }
-        } else {
-            // Solo Campaign game created outside the campaign hub — no CampaignGame link.
-            // Match the crew by the faction the user picked for this game.
-            if ($game->is_solo) {
-                $player = $game->players->first(fn ($p) => $p->user_id === $userId);
-                if ($player?->faction) {
-                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
-                        ->where('user_id', $userId)
-                        ->where('faction', $player->getRawOriginal('faction'))
-                        ->with('leader')
-                        ->latest('id')
-                        ->first();
-                    $leader = $campaignCrew?->leader;
-                }
-            }
-        }
-
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
         if (! $campaignCrew) {
             return [];
         }
+        $leader = $campaignCrew->leader;
 
         $leaderKeywordSlugs = collect($leader !== null ? ($leader->keywords ?? []) : [])
             ->pluck('name')
@@ -624,7 +643,7 @@ class GameController extends Controller
     {
         if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
             return \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')
-                ->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count'])
+                ->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count', 'description'])
                 ->map(fn (\App\Models\Upgrade $u) => [
                     'id' => $u->id,
                     'name' => $u->name,
@@ -634,65 +653,86 @@ class GameController extends Controller
                     'type' => $u->type,
                     'plentiful' => $u->plentiful,
                     'power_bar_count' => $u->power_bar_count,
+                    'description' => $u->description,
                 ])
                 ->values();
         }
 
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
+        if (! $campaignCrew) {
+            return collect();
+        }
+
+        return collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew));
+    }
+
+    /**
+     * The current user's CampaignCrew for a Campaign-format game — resolved
+     * via the CampaignGame link (crewA/crewB by user_id), or by matching
+     * faction for a solo game created outside the campaign hub (no
+     * CampaignGame link exists in that case).
+     */
+    private function resolveCampaignCrewForUser(Game $game): ?\App\Models\Campaign\CampaignCrew
+    {
         $userId = Auth::id();
+        if (! $userId) {
+            return null;
+        }
+
         $campaignGame = \App\Models\Campaign\CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with(['crewA', 'crewB'])
             ->first();
 
-        $campaignCrew = null;
         if ($campaignGame) {
             if ($campaignGame->crewA && $campaignGame->crewA->user_id === $userId) {
-                $campaignCrew = $campaignGame->crewA;
-            } elseif ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
-                $campaignCrew = $campaignGame->crewB;
+                return $campaignGame->crewA;
             }
-        } elseif ($game->is_solo) {
-            $player = $game->players->first(fn ($p) => $p->user_id === $userId);
-            if ($player?->faction) {
-                $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
-                    ->where('user_id', $userId)
-                    ->where('faction', $player->getRawOriginal('faction'))
-                    ->latest('id')
-                    ->first();
+            if ($campaignGame->crewB && $campaignGame->crewB->user_id === $userId) {
+                return $campaignGame->crewB;
             }
+
+            return null;
         }
 
+        if (! $game->is_solo) {
+            return null;
+        }
+
+        $player = $game->players->first(fn ($p) => $p->user_id === $userId);
+        if (! $player?->faction) {
+            return null;
+        }
+
+        return \App\Models\Campaign\CampaignCrew::query()
+            ->where('user_id', $userId)
+            ->where('faction', $player->getRawOriginal('faction'))
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * The crew's owned equipment (pg 19), offered for optional assignment to
+     * a specific hire (or the Leader) during CrewSelect — same catalog the
+     * in-play "attach upgrade" editor uses, just available earlier. Empty
+     * array on any non-Campaign game or wrong status.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCampaignEquipmentProp(Game $game): array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
+            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+            || ! Auth::check()) {
+            return [];
+        }
+
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
         if (! $campaignCrew) {
-            return collect();
+            return [];
         }
 
-        // Group by catalog upgrade so multiple owned copies of the same
-        // equipment (pg 19: "arsenals may include any number of copies of
-        // these upgrades") report as one entry with plentiful = copies owned,
-        // rather than the catalog's static (usually 1) plentiful value.
-        return \App\Models\Campaign\CampaignEquipment::query()
-            ->where('campaign_crew_id', $campaignCrew->id)
-            ->active()
-            ->with('catalog:id,name,slug,front_image,back_image,type,power_bar_count')
-            ->get()
-            ->filter(fn (\App\Models\Campaign\CampaignEquipment $e) => $e->catalog !== null)
-            ->groupBy('equipment_upgrade_id')
-            ->map(function (\Illuminate\Support\Collection $owned) {
-                $u = $owned->first()->catalog;
-
-                return [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'slug' => $u->slug,
-                    'front_image' => $u->front_image,
-                    'back_image' => $u->back_image,
-                    'type' => $u->type,
-                    'plentiful' => $owned->count(),
-                    'power_bar_count' => $u->power_bar_count,
-                ];
-            })
-            ->sortBy('name')
-            ->values();
+        return \App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew);
     }
 
     /**

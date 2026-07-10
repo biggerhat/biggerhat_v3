@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Tier 2 Ability advancement (pg 50–51). Adds a new ability to the leader.
- * 
+ *
  * A few "always available" rows are unconditionally selectable. The one
  * "Any Joker" row mirrors the Action table's free-pick mechanic.
  *
@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $defensive_ability_type
  * @property int|null $ability_id
  * @property-read Ability|null $ability
+ *
  * @mixin IdeHelperAdvancementAbility
  */
 class AdvancementAbility extends Model

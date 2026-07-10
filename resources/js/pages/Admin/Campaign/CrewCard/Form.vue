@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
@@ -30,6 +31,7 @@ interface CrewCardRow {
     id: number;
     name: string;
     description: string | null;
+    master_id: number | null;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -41,11 +43,13 @@ const props = defineProps<{
     item?: CrewCardRow | null;
     all_actions: ActionOption[];
     all_abilities: { id: number; name: string }[];
+    masters: { id: number; display_name: string }[];
 }>();
 
 const form = ref({
     name: '',
     description: null as string | null,
+    master_id: null as number | null,
     requires_token_choice: false,
     requires_marker_choice: false,
     requires_upgrade_type_choice: false,
@@ -84,6 +88,7 @@ onMounted(() => {
     if (!props.item) return;
     form.value.name = props.item.name;
     form.value.description = props.item.description;
+    form.value.master_id = props.item.master_id;
     form.value.requires_token_choice = props.item.requires_token_choice;
     form.value.requires_marker_choice = props.item.requires_marker_choice;
     form.value.requires_upgrade_type_choice = props.item.requires_upgrade_type_choice;
@@ -117,6 +122,25 @@ onMounted(() => {
                     <Label for="description">Description</Label>
                     <Textarea id="description" v-model="form.description" rows="5" placeholder="The rule text that appears on the card..." />
                     <InputError :message="usePage().props.errors.description" />
+                </div>
+                <div>
+                    <Label>Master</Label>
+                    <p class="mb-1 text-xs text-muted-foreground">
+                        The master this card is actually printed on. Leave unset for a generic effect not tied to one master.
+                    </p>
+                    <Select
+                        :model-value="form.master_id?.toString() ?? '__none__'"
+                        @update:model-value="(v) => (form.master_id = v === '__none__' ? null : Number(v))"
+                    >
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="— generic, no master —" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">— generic, no master —</SelectItem>
+                            <SelectItem v-for="m in masters" :key="m.id" :value="m.id.toString()">{{ m.display_name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <InputError :message="usePage().props.errors.master_id" />
                 </div>
 
                 <!-- Actions: inline list with per-action signature checkbox -->

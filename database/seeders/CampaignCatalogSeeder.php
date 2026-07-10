@@ -11,6 +11,7 @@ use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\WeeklyEvent;
 use App\Models\CustomCharacter;
@@ -63,20 +64,14 @@ class CampaignCatalogSeeder extends Seeder
 
     private function seedCrewCardEffects(): void
     {
-        $exists = $this->campaignAbilityQuery()->where('is_crew_card_effect', true)->exists();
-        if ($exists) {
+        if (CampaignCrewCard::query()->exists()) {
             return;
         }
 
         foreach (['Expert Coordination', 'Heavy Blow', 'Shape the Landscape', 'Prepared For Anything', 'Loot Their Stash'] as $name) {
-            Ability::factory()->create([
+            CampaignCrewCard::factory()->create([
                 'name' => $name,
                 'description' => "Placeholder body for {$name}.",
-                'game_mode_type' => GameModeTypeEnum::Campaign->value,
-                'is_crew_card_effect' => true,
-                'requires_token_choice' => false,
-                'requires_marker_choice' => false,
-                'requires_upgrade_type_choice' => false,
             ]);
         }
     }

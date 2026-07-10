@@ -5,6 +5,7 @@ namespace App\Support\Campaign;
 use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\GameModeTypeEnum;
+use App\Enums\UpgradeTypeEnum;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\AdvancementAbility;
@@ -343,7 +344,7 @@ class AftermathCatalog
                 ->all(),
             'crew_card' => CampaignCrewCard::query()
                 ->when(! empty($heldCrewCardIds), fn ($q) => $q->whereNotIn('id', $heldCrewCardIds))
-                ->with(['actions:id,name', 'abilities:id,name'])
+                ->with(['actions:id,name', 'abilities:id,name', 'master:id,faction,display_name'])
                 ->orderBy('name')
                 ->get()
                 ->map(fn (CampaignCrewCard $c) => [
@@ -352,6 +353,17 @@ class AftermathCatalog
                     'body' => $c->description,
                     'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
                     'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
+                    // The master this card is actually printed on (null =
+                    // generic, not yet assigned) — drives the cascading
+                    // Master → their own Crew Card picker (pg 32, 54).
+                    'master_id' => $c->master_id,
+                    'master_name' => $c->master?->display_name,
+                    // Whether taking this borrowed effect also requires picking
+                    // a token/marker/upgrade type from the constrained pool
+                    // (pg 17-18) — same mechanism as the Starting Arsenal pick.
+                    'requires_token_choice' => (bool) $c->requires_token_choice,
+                    'requires_marker_choice' => (bool) $c->requires_marker_choice,
+                    'requires_upgrade_type_choice' => (bool) $c->requires_upgrade_type_choice,
                 ])
                 ->all(),
         ];
@@ -376,6 +388,107 @@ class AftermathCatalog
             ->orderBy('display_name')
             ->get(['id', 'display_name'])
             ->map(fn (Character $c) => ['id' => $c->id, 'name' => $c->display_name])
+            ->all();
+    }
+
+    /**
+     * Constrained pool for a crew card that requires a token/marker/upgrade
+     * choice (pg 17): items listed on a crew card belonging to a master
+     * sharing either of the crew's keywords. Shared between Starting Arsenal
+     * (the starter effect) and the Tier-4 Crew Card advancement (borrowed
+     * effects, pg 32, 54) — the pool is identical, scoped by the crew's own
+     * keywords either way.
+     *
+     * @return array{tokens: array<int, array{id: int, name: string}>, markers: array<int, array{id: int, name: string}>, upgrades: array<int, array{id: string, name: string}>}
+     */
+    public static function crewCardChoiceOptions(CampaignCrew $crew): array
+    {
+        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
+        if (empty($keywordIds)) {
+            return ['tokens' => [], 'markers' => [], 'upgrades' => []];
+        }
+
+        // Crew-card upgrades (crew-domain) associated with the keywords —
+        // used for tokens, markers, and crew-card upgrade types.
+        $crewCards = Upgrade::query()
+            ->forCrews()
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->with(['tokens:id,name', 'markers:id,name'])
+            ->get(['id', 'name', 'type']);
+
+        // Masters belonging to either keyword.
+        $masters = Character::query()
+            ->where('station', CharacterStationEnum::Master->value)
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->get(['id', 'has_totem_id']);
+
+        $masterIds = $masters->pluck('id');
+        $totemIds = $masters->pluck('has_totem_id')->filter();
+        $characterIds = $masterIds->merge($totemIds)->unique()->values();
+
+        // Character-domain Upgrade records attached to those masters/totems.
+        $characterUpgradeTypes = collect();
+        if ($characterIds->isNotEmpty()) {
+            $characterUpgradeTypes = Upgrade::query()
+                ->forCharacters()
+                ->whereNotNull('type')
+                ->whereHas('characters', fn ($q) => $q->whereIn('characters.id', $characterIds))
+                ->pluck('type'); // already cast to UpgradeTypeEnum
+        }
+
+        $shape = fn ($row) => ['id' => $row->id, 'name' => $row->name];
+
+        // Merge types from character upgrades + crew-card upgrades, dedupe.
+        $upgradeTypes = $characterUpgradeTypes
+            ->merge($crewCards->pluck('type')->filter())
+            ->unique(fn (UpgradeTypeEnum $t) => $t->value)
+            ->map(fn (UpgradeTypeEnum $t) => ['id' => $t->value, 'name' => $t->label()])
+            ->sortBy('name')
+            ->values()
+            ->all();
+
+        return [
+            'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
+            'upgrades' => $upgradeTypes,
+        ];
+    }
+
+    /**
+     * The crew's owned equipment (pg 19), grouped by catalog upgrade so
+     * multiple owned copies report as one entry with plentiful = copies
+     * owned. Shaped to drop straight into a GameCrewMember's
+     * `attached_upgrades` — shared by Game Tracker's in-play "attach
+     * upgrade" editor and by equipment assignment at crew selection.
+     *
+     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null}>
+     */
+    public static function ownedEquipmentForAttachment(CampaignCrew $crew): array
+    {
+        return CampaignEquipment::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->with('catalog:id,name,slug,front_image,back_image,type,power_bar_count,description')
+            ->get()
+            ->filter(fn (CampaignEquipment $e) => $e->catalog !== null)
+            ->groupBy('equipment_upgrade_id')
+            ->map(function (Collection $owned) {
+                $u = $owned->first()->catalog;
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'slug' => $u->slug,
+                    'front_image' => $u->front_image,
+                    'back_image' => $u->back_image,
+                    'type' => $u->type,
+                    'plentiful' => $owned->count(),
+                    'power_bar_count' => $u->power_bar_count,
+                    'description' => $u->description,
+                ];
+            })
+            ->sortBy('name')
+            ->values()
             ->all();
     }
 

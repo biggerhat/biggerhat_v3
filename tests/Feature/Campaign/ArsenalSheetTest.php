@@ -136,6 +136,47 @@ it('exposes arsenal models + crew card effect in the payload', function () {
         );
 });
 
+it('exposes story_log entries in chronological order, only for locked aftermaths with a written entry', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $gameA = \App\Models\Campaign\CampaignGame::factory()->create(['campaign_id' => $campaign->id, 'crew_a_id' => $crew->id, 'week_number' => 1]);
+    $gameB = \App\Models\Campaign\CampaignGame::factory()->create(['campaign_id' => $campaign->id, 'crew_a_id' => $crew->id, 'week_number' => 2]);
+    $gameC = \App\Models\Campaign\CampaignGame::factory()->create(['campaign_id' => $campaign->id, 'crew_a_id' => $crew->id, 'week_number' => 3]);
+
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $gameA->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+        'story_entry' => 'First game of the campaign.',
+        'created_at' => now()->subDays(2),
+    ]);
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $gameB->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+        'story_entry' => null, // no entry written — must not appear
+        'created_at' => now()->subDay(),
+    ]);
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $gameC->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+        'story_entry' => 'Second entry, more recent.',
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('story_log', 2)
+            ->where('story_log.0.story_entry', 'First game of the campaign.')
+            ->where('story_log.0.week_number', 1)
+            ->where('story_log.1.story_entry', 'Second entry, more recent.')
+        );
+});
+
 it('omits annihilated arsenal models from the active payload', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -230,6 +271,46 @@ it('computes Campaign Rating as equipment + advancements − injuries', function
             ->where('campaign_rating.injury_count', 2)
             ->where('campaign_rating.value', 4)
         );
+});
+
+it('exposes Leader/Totem injuries in the payload and counts them toward Campaign Rating', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Injured Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $totem = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'Injured Totem',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed']);
+    \Illuminate\Support\Facades\DB::table('campaign_arsenal_model_injuries')->insert([
+        ['custom_character_id' => $leader->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
+        ['custom_character_id' => $totem->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leader.injury_names', ['Concussed'])
+            ->where('totem.injury_names', ['Concussed'])
+            ->where('campaign_rating.injury_count', 2)
+        );
+
+    expect($crew->activeInjuryCount())->toBe(2);
 });
 
 it('exposes equipment actions and marks equipment locked once an advancement targets it', function () {

@@ -59,6 +59,11 @@ class StoreLeaderAdvancementRequest extends FormRequest
             'totem_name' => ['nullable', 'string', 'max:60'],
             'totem_size' => ['nullable', 'integer', 'min:1', 'max:5'],
             'totem_base' => ['nullable', 'string', 'in:30mm,40mm,50mm'],
+            // Crew Card table (pg 17-18): the token/marker/upgrade-type pick a
+            // borrowed effect requires, if any — re-resolved and verified
+            // server-side against the constrained pool, this is just the id.
+            'crew_card_choice' => ['nullable', 'array'],
+            'crew_card_choice.id' => ['nullable'],
         ];
     }
 }

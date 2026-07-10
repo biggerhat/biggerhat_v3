@@ -43,10 +43,12 @@ use Illuminate\Support\Str;
  * @property-read int|null $arsenal_models_count
  * @property-read CustomCharacter|null $leader
  * @property-read CustomCharacter|null $totem
+ *
  * @method static \Database\Factories\Campaign\CampaignCrewFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
+ *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignCrew
  */
@@ -178,17 +180,28 @@ class CampaignCrew extends Model
     }
 
     /**
-     * Injuries across the crew's active arsenal models for Campaign Rating
-     * (pg 19). Annihilated arsenal models do not contribute to CR — they are
-     * out of the arsenal entirely.
+     * Injuries across the crew's active arsenal models, plus its current
+     * Leader/Totem, for Campaign Rating (pg 19). Annihilated arsenal models
+     * do not contribute to CR — they are out of the arsenal entirely.
      */
     public function activeInjuryCount(): int
     {
-        return \DB::table('campaign_arsenal_model_injuries as i')
+        $modelInjuries = \DB::table('campaign_arsenal_model_injuries as i')
             ->join('campaign_arsenal_models as m', 'm.id', '=', 'i.campaign_arsenal_model_id')
             ->where('m.campaign_crew_id', $this->id)
             ->whereNull('m.annihilated_at')
             ->count();
+
+        // Leader/Totem injuries (pg 33-34) share the same table, keyed by
+        // custom_character_id instead of campaign_arsenal_model_id.
+        $leaderTotemInjuries = \DB::table('campaign_arsenal_model_injuries as i')
+            ->join('custom_characters as c', 'c.id', '=', 'i.custom_character_id')
+            ->where('c.campaign_crew_id', $this->id)
+            ->where('c.current', true)
+            ->where(fn ($q) => $q->where('c.is_campaign_leader', true)->orWhere('c.is_campaign_totem', true))
+            ->count();
+
+        return $modelInjuries + $leaderTotemInjuries;
     }
 
     /**

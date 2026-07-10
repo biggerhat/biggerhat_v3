@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -27,6 +29,7 @@ import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import GameText from '@/components/GameText.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import SeoHead from '@/components/SeoHead.vue';
@@ -149,6 +152,43 @@ interface CrewOption {
     members: CrewOptionMember[];
 }
 
+// Crew Card effect (pg 17, 32, 54) — same shape ArsenalSheet.vue uses.
+interface CrewCardActionData {
+    name: string;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | string | null;
+    range_type?: string | null;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    description?: string | null;
+    triggers?: Array<{ name: string; suits?: string | null; stone_cost?: number; description?: string | null }>;
+}
+interface CrewCardAbilityData {
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
+interface CrewCardEffect {
+    id: number;
+    name: string;
+    body: string | null;
+    actions: CrewCardActionData[];
+    abilities: CrewCardAbilityData[];
+}
+interface CampaignCrewCardPayload {
+    effect: CrewCardEffect | null;
+    borrowed: Array<{ id: number; source_master_name: string | null; effect: CrewCardEffect | null }>;
+}
+
 const props = defineProps<{
     game: GameData;
     schemes: SchemeData[];
@@ -217,6 +257,9 @@ const props = defineProps<{
         ss_bonus_to_lower: number;
         encounter_size: number;
         week_number: number;
+        // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed effects.
+        crew_a_card: CampaignCrewCardPayload;
+        crew_b_card: CampaignCrewCardPayload;
     } | null;
     campaign_arsenal?: {
         character_id: number;
@@ -227,6 +270,19 @@ const props = defineProps<{
         effective_cost: number;
         is_ook: boolean;
         is_peon: boolean;
+    }[];
+    /** Campaign games only: the crew's owned equipment (pg 19), offered for
+     *  optional assignment to the Leader or a hired model during crew select. */
+    campaign_owned_equipment?: {
+        id: number;
+        name: string;
+        slug: string;
+        front_image: string | null;
+        back_image: string | null;
+        type: string | null;
+        plentiful: number;
+        power_bar_count: number | null;
+        description: string | null;
     }[];
     /** Campaign games only: the current user's built leader for their own master pick. */
     campaign_leader_option?: MasterOption | null;
@@ -380,6 +436,7 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 'loot_card_catalog',
                 'bonanza_crew_upgrades',
                 'campaign_arsenal',
+                'campaign_owned_equipment',
                 // campaign_leader_option depends on the player's faction, which is
                 // only set once submitFaction completes — must reload here or the
                 // leader stays blank at Master Select until a manual refresh.
@@ -1038,6 +1095,13 @@ watch(
 // Card preview drawers
 const crewMemberDrawerOpen = ref(false);
 const previewMember = ref<any>(null);
+
+// Crew Card effect (pg 17, 32, 54) — inline toggle per side, since it's
+// crew-wide rather than tied to one member.
+const expandedCrewCard = ref<'a' | 'b' | null>(null);
+const toggleCrewCard = (side: 'a' | 'b') => {
+    expandedCrewCard.value = expandedCrewCard.value === side ? null : side;
+};
 const cardFullscreenOpen = ref(false);
 const cardFullscreenSrc = ref<string | null>(null);
 const cardFullscreenBackSrc = ref<string | null>(null);
@@ -1051,8 +1115,13 @@ const openCardFullscreen = (payload: { src: string; backSrc?: string | null; tit
 const upgradeDrawerOpen = ref(false);
 const previewUpgrade = ref<any>(null);
 
+// Campaign Leader/Totem (pg 31, 52) have no card art at all — their stat
+// block is JSON on the linked CustomCharacter instead of front_image.
+const hasCustomCharacterCard = (member: any): boolean =>
+    (member.custom_character?.actions?.length ?? 0) > 0 || (member.custom_character?.abilities?.length ?? 0) > 0;
+
 const openMemberPreview = (member: any) => {
-    if (!member.front_image && !member.back_image) return;
+    if (!member.front_image && !member.back_image && !hasCustomCharacterCard(member)) return;
     previewMember.value = member;
     crewMemberDrawerOpen.value = true;
     // Only load sculpts for own crew members (or both in solo mode)
@@ -1254,7 +1323,7 @@ const closeLootPicker = () => {
 };
 
 const openUpgradePreview = (upgrade: any) => {
-    if (!upgrade.front_image) return;
+    if (!upgrade.front_image && !upgrade.description) return;
     previewUpgrade.value = upgrade;
     upgradeDrawerOpen.value = true;
 };
@@ -1325,7 +1394,7 @@ const toggleAllCards = (crew: 'my' | 'opponent') => {
     const upgradeRef = crew === 'my' ? expandedMyCrewUpgradeId : expandedOppCrewUpgradeId;
     const crewUpgradeId = crewUpgradeToExpand(crew);
 
-    const allWithImages = members.value.filter((m: any) => m.front_image).map((m: any) => m.id);
+    const allWithImages = members.value.filter((m: any) => m.front_image || hasCustomCharacterCard(m)).map((m: any) => m.id);
     const membersExpanded = allWithImages.length === 0 || allWithImages.every((id: number) => set.value.has(id));
     const upgradeExpanded = crewUpgradeId === null || upgradeRef.value === crewUpgradeId;
 
@@ -2433,7 +2502,7 @@ const previewAttachedUpgrade = ref<any>(null);
 const attachedUpgradeDrawerOpen = ref(false);
 
 const openAttachedUpgradePreview = (upgrade: any) => {
-    if (!upgrade.front_image) return;
+    if (!upgrade.front_image && !upgrade.description) return;
     previewAttachedUpgrade.value = upgrade;
     attachedUpgradeDrawerOpen.value = true;
 };
@@ -2524,6 +2593,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             >{{ campaign_context.crew_a.name }}</Link
                         >
                         — CR <span class="tabular-nums">{{ campaign_context.cr_a }}</span>
+                        <button
+                            v-if="campaign_context.crew_a_card.effect"
+                            type="button"
+                            class="ml-1 text-primary hover:underline"
+                            @click="toggleCrewCard('a')"
+                        >
+                            [{{ expandedCrewCard === 'a' ? 'hide' : 'crew card' }}]
+                        </button>
                     </span>
                     <span class="text-foreground/40">vs</span>
                     <span v-if="campaign_context.crew_b">
@@ -2533,10 +2610,78 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             >{{ campaign_context.crew_b.name }}</Link
                         >
                         — CR <span class="tabular-nums">{{ campaign_context.cr_b }}</span>
+                        <button
+                            v-if="campaign_context.crew_b_card.effect"
+                            type="button"
+                            class="ml-1 text-primary hover:underline"
+                            @click="toggleCrewCard('b')"
+                        >
+                            [{{ expandedCrewCard === 'b' ? 'hide' : 'crew card' }}]
+                        </button>
                     </span>
                     <span v-if="campaign_context.ss_bonus_to_lower > 0" class="ml-auto rounded bg-primary/15 px-2 py-0.5 text-primary">
                         +{{ campaign_context.ss_bonus_to_lower }} ss to lower-rated crew
                     </span>
+                </div>
+                <div
+                    v-for="side in ['a', 'b'] as const"
+                    :key="side"
+                    v-show="expandedCrewCard === side"
+                    class="mt-2 space-y-2 rounded-md border bg-background p-2 text-foreground"
+                >
+                    <template v-if="side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect">
+                        <p class="text-sm font-medium">
+                            {{ (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.name }}
+                        </p>
+                        <p
+                            v-if="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.body"
+                            class="text-xs leading-relaxed text-muted-foreground"
+                        >
+                            <GameText :text="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)!.body!" />
+                        </p>
+                        <ActionCard
+                            v-for="(a, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.actions ??
+                            []"
+                            :key="`cc-action-${side}-${i}`"
+                            :action="a"
+                            :hide-footer="true"
+                        />
+                        <AbilityCard
+                            v-for="(ab, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.abilities ??
+                            []"
+                            :key="`cc-ability-${side}-${i}`"
+                            :ability="ab"
+                            :hide-footer="true"
+                        />
+                        <template
+                            v-for="adv in side === 'a' ? campaign_context.crew_a_card.borrowed : campaign_context.crew_b_card.borrowed"
+                            :key="`cc-borrowed-${side}-${adv.id}`"
+                        >
+                            <div v-if="adv.effect" class="border-t pt-2">
+                                <p class="text-xs font-medium">
+                                    {{ adv.effect.name }}
+                                    <span v-if="adv.source_master_name" class="text-muted-foreground"
+                                        >— borrowed from {{ adv.source_master_name }}</span
+                                    >
+                                </p>
+                                <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                    <GameText :text="adv.effect.body" />
+                                </p>
+                                <ActionCard
+                                    v-for="(a, i) in adv.effect.actions"
+                                    :key="`cc-badv-action-${side}-${adv.id}-${i}`"
+                                    :action="a"
+                                    :hide-footer="true"
+                                />
+                                <AbilityCard
+                                    v-for="(ab, i) in adv.effect.abilities"
+                                    :key="`cc-badv-ability-${side}-${adv.id}-${i}`"
+                                    :ability="ab"
+                                    :hide-footer="true"
+                                />
+                            </div>
+                        </template>
+                    </template>
                 </div>
             </div>
 
@@ -3154,6 +3299,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :is-solo="isSolo"
                 :is-campaign="isCampaign"
                 :campaign-arsenal="campaign_arsenal ?? []"
+                :campaign-owned-equipment="campaign_owned_equipment ?? []"
                 :submitting="submitting"
                 :my-slot="mySlot"
                 :opponent-slot="opponentSlot"
@@ -3161,7 +3307,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :crew-step-done="myStepDone('crew')"
                 :opponent-crew-step-done="opponentStepDone('crew')"
                 @confirm="(body) => postSetup(route('games.setup.crew', game.uuid), body)"
-                @confirm-campaign-crew="(ids) => postSetup(route('games.setup.campaign-crew', game.uuid), { character_ids: ids })"
+                @confirm-campaign-crew="
+                    (ids, equipmentAssignments) =>
+                        postSetup(route('games.setup.campaign-crew', game.uuid), { character_ids: ids, equipment_assignments: equipmentAssignments })
+                "
                 @skip-opponent-crew="onSkipOpponentCrew"
             />
 
@@ -4060,7 +4209,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     myActiveUpgradeId === upgrade.id
                                         ? 'border-amber-500/50 bg-amber-500/10'
                                         : 'border-border/50 bg-accent/30 opacity-60',
-                                    upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
+                                    upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-accent' : '',
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
@@ -4190,7 +4339,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             {{ member.display_name }}
                                         </button>
                                         <button
-                                            v-if="member.front_image"
+                                            v-if="member.front_image || hasCustomCharacterCard(member)"
                                             class="ml-auto shrink-0 rounded p-1 hover:bg-white/20"
                                             aria-label="Toggle card preview"
                                             title="Toggle card preview"
@@ -4336,12 +4485,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'au-' + upgrade.id"
                                         class="rounded bg-black/20 px-2 py-1 text-sm"
-                                        :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
+                                        :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
                                     >
                                         <div
                                             class="flex items-center gap-1.5"
-                                            :role="upgrade.front_image ? 'button' : undefined"
-                                            :tabindex="upgrade.front_image ? 0 : undefined"
+                                            :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
+                                            :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
                                             @click="openAttachedUpgradePreview(upgrade)"
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
@@ -4409,6 +4558,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             }"
                                             :show-link="false"
                                             :show-collection="false"
+                                        />
+                                    </div>
+                                    <!-- Campaign Leader/Totem (pg 31, 52) have no card art — render the JSON stat block instead. -->
+                                    <div
+                                        v-else-if="expandedMyCards.has(member.id) && hasCustomCharacterCard(member)"
+                                        class="mt-2 space-y-2 overflow-hidden"
+                                    >
+                                        <ActionCard
+                                            v-for="(a, i) in member.custom_character.actions"
+                                            :key="`my-action-${member.id}-${i}`"
+                                            :action="a"
+                                            :hide-footer="true"
+                                        />
+                                        <AbilityCard
+                                            v-for="(ab, i) in member.custom_character.abilities"
+                                            :key="`my-ability-${member.id}-${i}`"
+                                            :ability="ab"
+                                            :hide-footer="true"
                                         />
                                     </div>
                                 </Transition>
@@ -4554,7 +4721,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     opponentActiveUpgradeId === upgrade.id
                                         ? 'border-amber-500/50 bg-amber-500/10'
                                         : 'border-border/50 bg-accent/30 opacity-60',
-                                    upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
+                                    upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-accent' : '',
                                 ]"
                                 @click="openUpgradePreview(upgrade)"
                             >
@@ -4644,7 +4811,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             {{ member.display_name }}
                                         </button>
                                         <button
-                                            v-if="member.front_image"
+                                            v-if="member.front_image || hasCustomCharacterCard(member)"
                                             class="ml-auto shrink-0 rounded p-1 hover:bg-white/20"
                                             aria-label="Toggle card preview"
                                             title="Toggle card preview"
@@ -4790,12 +4957,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         v-for="upgrade in member.attached_upgrades"
                                         :key="'oau-' + upgrade.id"
                                         class="rounded bg-black/20 px-2 py-1 text-sm"
-                                        :class="upgrade.front_image ? 'cursor-pointer hover:bg-black/30' : ''"
+                                        :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
                                     >
                                         <div
                                             class="flex items-center gap-1.5"
-                                            :role="upgrade.front_image ? 'button' : undefined"
-                                            :tabindex="upgrade.front_image ? 0 : undefined"
+                                            :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
+                                            :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
                                             @click="openAttachedUpgradePreview(upgrade)"
                                             @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                         >
@@ -4863,6 +5030,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             }"
                                             :show-link="false"
                                             :show-collection="false"
+                                        />
+                                    </div>
+                                    <!-- Campaign Leader/Totem (pg 31, 52) have no card art — render the JSON stat block instead. -->
+                                    <div
+                                        v-else-if="expandedOpponentCards.has(member.id) && hasCustomCharacterCard(member)"
+                                        class="mt-2 space-y-2 overflow-hidden"
+                                    >
+                                        <ActionCard
+                                            v-for="(a, i) in member.custom_character.actions"
+                                            :key="`opp-action-${member.id}-${i}`"
+                                            :action="a"
+                                            :hide-footer="true"
+                                        />
+                                        <AbilityCard
+                                            v-for="(ab, i) in member.custom_character.abilities"
+                                            :key="`opp-ability-${member.id}-${i}`"
+                                            :ability="ab"
+                                            :hide-footer="true"
                                         />
                                     </div>
                                 </Transition>

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Admin\Campaign;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\PermissionEnum;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCrewCardRequest extends FormRequest
 {
@@ -17,6 +19,7 @@ class StoreCrewCardRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'master_id' => ['nullable', 'integer', Rule::exists('characters', 'id')->where('station', CharacterStationEnum::Master->value)],
             'requires_token_choice' => ['required', 'boolean'],
             'requires_marker_choice' => ['required', 'boolean'],
             'requires_upgrade_type_choice' => ['required', 'boolean'],

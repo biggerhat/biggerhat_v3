@@ -6,11 +6,13 @@ use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -143,6 +145,18 @@ class CustomCharacter extends Model
     public function campaignTotemAbilities(): BelongsToMany
     {
         return $this->belongsToMany(Ability::class, 'campaign_totem_template_abilities');
+    }
+
+    /**
+     * Injuries attached to a Leader/Totem via the Back-Alley Doctor (pg 33) —
+     * shares campaign_arsenal_model_injuries with CampaignArsenalModel, keyed
+     * by custom_character_id instead.
+     *
+     * @return HasMany<CampaignArsenalModelInjury, $this>
+     */
+    public function injuries(): HasMany
+    {
+        return $this->hasMany(CampaignArsenalModelInjury::class, 'custom_character_id');
     }
 
     /**

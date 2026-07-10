@@ -15,12 +15,12 @@ use Illuminate\Support\Str;
 
 /**
  * Tournament-level pool a player declares before a Fields-of-Glory event.
- * 
+ *
  * Distinct from Company: a Company is a single battlefield force assembled
  * around one Commander; a Garrison is the larger pool a player draws from
  * when building Companies between rounds. The validation profile (commander
  * cap, scrip ceiling, stratagem count, envoy count) is set by `format`.
- * 
+ *
  * Envoys are stored as a pivot to `tos_allegiance_cards` because the
  * codebase folded the old standalone Envoy entity into the Allegiance Card
  * Primary tier (see drop migration 2026_04_29_120000). The pivot keeps the

@@ -125,6 +125,7 @@ interface CustomCharacterData {
     abilities: AbilityData[];
     linked_crew_upgrades: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
     linked_totems: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
+    injury_names?: string[];
 }
 
 interface ArsenalCharacter {
@@ -263,8 +264,27 @@ interface CatalogRow {
     costs_stone?: boolean;
     // Action/Ability tables only — the one free-choice row per chart (pg 49/51).
     is_joker?: boolean;
+    // Crew Card table only (pg 17-18) — whether this borrowed effect also
+    // requires picking a token/marker/upgrade type from the constrained pool.
+    requires_token_choice?: boolean;
+    requires_marker_choice?: boolean;
+    requires_upgrade_type_choice?: boolean;
+    // Crew Card table only — the master this card is actually printed on
+    // (null = generic, listed directly rather than via the Master cascade).
+    master_id?: number | null;
+    master_name?: string | null;
 }
 type AdvancementCatalogs = Record<string, CatalogRow[]>;
+interface ChoiceOption {
+    // int for a token/marker, enum-value string for an upgrade type.
+    id: number | string;
+    name: string;
+}
+interface CrewCardChoiceOptions {
+    tokens: ChoiceOption[];
+    markers: ChoiceOption[];
+    upgrades: ChoiceOption[];
+}
 
 const props = defineProps<{
     campaign: CampaignData;
@@ -279,6 +299,11 @@ const props = defineProps<{
     view_mode: ViewMode;
     // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
     eligible_masters?: Array<{ id: number; name: string }> | null;
+    // Constrained pool for crew cards that require a token/marker/upgrade
+    // choice (pg 17-18) — same pool Starting Arsenal uses.
+    crew_card_choice_options?: CrewCardChoiceOptions | null;
+    // Optional per-game journal entries, chronological.
+    story_log: Array<{ id: number; week_number: number | null; story_entry: string; created_at: string }>;
 }>();
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
@@ -294,14 +319,32 @@ const advancementSlots = computed(() =>
     xpTrack.value.filter((b) => b.filled && b.tier !== null).map((b) => ({ position: b.index, tier: b.tier as number })),
 );
 
-const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
-const tableNeedsFlip = (t: string) => FLIP_TABLES.includes(t);
 const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
 
 const selectedDraftRow = (position: number): CatalogRow | null => {
     const d = drafts.value[position];
     if (!d || d.catalog_id == null) return null;
     return catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id) ?? null;
+};
+
+// Crew Card table only (pg 17-18): whether the selected borrowed effect also
+// requires picking a token/marker/upgrade type, and the constrained pool it
+// picks from (same pool Starting Arsenal uses).
+const requiredCrewCardChoiceType = (position: number): 'token' | 'marker' | 'upgrade' | null => {
+    const row = selectedDraftRow(position);
+    if (!row) return null;
+    if (row.requires_token_choice) return 'token';
+    if (row.requires_marker_choice) return 'marker';
+    if (row.requires_upgrade_type_choice) return 'upgrade';
+    return null;
+};
+const crewCardChoiceOptionsFor = (position: number): ChoiceOption[] => {
+    const type = requiredCrewCardChoiceType(position);
+    const options = props.crew_card_choice_options ?? { tokens: [], markers: [], upgrades: [] };
+    if (type === 'token') return options.tokens;
+    if (type === 'marker') return options.markers;
+    if (type === 'upgrade') return options.upgrades;
+    return [];
 };
 
 const defaultTableForTier = (tier: number): string => (tier === 1 ? 'attack_mod' : tier === 2 ? 'action' : tier === 3 ? 'totem' : 'crew_card');
@@ -317,33 +360,70 @@ const tableOptionsForTier = (tier: number) =>
         { value: 'crew_card', label: 'Tier 4 — Crew Card effect', min: 4 },
     ].filter((o) => tier >= o.min);
 
-const eligibleCatalogRows = (table: string, flip: number | null, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
+// Flip-value gating removed for now — every row from the table is offered,
+// with its own flip_value shown inline in the label as a reference only.
+// Joker declarations (Any Joker / Joker color) are a separate mechanism and
+// still gate the list, since they're not flip-value based.
+const eligibleCatalogRows = (table: string, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
     const rows = catalogRowsFor(table);
-    // Action/Ability: the Any Joker row is only offered when the player
-    // actually declares a joker flip — it has no flip_value of its own to
-    // rank against the normal flip-ceiling list.
     if (table === 'action' || table === 'ability') {
-        if (isJokerFlipped) return rows.filter((r) => r.is_joker);
-        const nonJoker = rows.filter((r) => !r.is_joker);
-        if (!tableNeedsFlip(table) || flip == null) return nonJoker;
-        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+        return isJokerFlipped ? rows.filter((r) => r.is_joker) : rows.filter((r) => !r.is_joker);
     }
     // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
     // instead of a flip_value. A row with both flags set is "Any Joker" (either
     // color satisfies it); a row with exactly one flag set needs that specific
-    // color — the same filter covers both since it just checks the declared
-    // color against the row's flag(s).
+    // color.
     if (table === 'attack_mod' || table === 'tactical_mod') {
         if (jokerColor) {
             return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
         }
-        const nonJoker = rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
-        if (flip == null) return nonJoker;
-        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+        return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
     }
-    if (!tableNeedsFlip(table) || flip == null) return rows;
-    if (table === 'totem') return rows.filter((r) => r.flip_value === flip);
-    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= flip);
+    return rows;
+};
+
+// ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
+// Top-level list mixes generic (master_id === null) rows with a "Choose from
+// a Master" sentinel; picking that reveals a Master select, then a second
+// select scoped to that master's own rows — so the stored attribution always
+// matches the actual card, instead of an unrelated free-text "borrowed from".
+const CREW_CARD_FROM_MASTER = '__from_master__';
+
+const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
+
+const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
+
+const onCrewCardTopChange = (position: number, v: string) => {
+    const d = drafts.value[position];
+    if (!d) return;
+    if (v === CREW_CARD_FROM_MASTER) {
+        d.crew_card_master_mode = true;
+        d.catalog_id = null;
+        d.free_choice_source_character_id = null;
+        d.crew_card_choice_id = null;
+        return;
+    }
+    d.crew_card_master_mode = false;
+    d.free_choice_source_character_id = null;
+    d.catalog_id = v === '__none__' ? null : Number(v);
+    d.applied_to_action_index = -1;
+    d.applied_to_action_id = null;
+    d.crew_card_choice_id = null;
+};
+
+const onCrewCardMasterChange = (position: number, v: string) => {
+    const d = drafts.value[position];
+    if (!d) return;
+    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
+    d.catalog_id = null;
+    d.crew_card_choice_id = null;
+};
+
+const onCrewCardMasterRowChange = (position: number, v: string) => {
+    const d = drafts.value[position];
+    if (!d) return;
+    d.catalog_id = v === '__none__' ? null : Number(v);
+    d.crew_card_choice_id = null;
 };
 
 const SOURCE_TABLE_LABELS: Record<string, string> = {
@@ -377,7 +457,6 @@ const advancementTargetLabel = (a: AdvancementTaken): string | null => {
 interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
-    flip_value: number | null;
     totem_name: string;
     totem_size: number | null;
     totem_base: string;
@@ -396,6 +475,13 @@ interface AdvDraft {
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
+    // Crew Card table only (pg 17-18): the token/marker/upgrade-type pick a
+    // borrowed effect requires, if any.
+    crew_card_choice_id: number | string | null;
+    // Crew Card table only: true while browsing a specific master's own
+    // cards (the "Choose from a Master" cascade) rather than picking a
+    // generic row directly from the flat list.
+    crew_card_master_mode: boolean;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
 watch(
@@ -406,7 +492,6 @@ watch(
                 drafts.value[slot.position] = {
                     source_table: defaultTableForTier(slot.tier),
                     catalog_id: null,
-                    flip_value: 13,
                     totem_name: '',
                     totem_size: null,
                     totem_base: '30mm',
@@ -419,6 +504,8 @@ watch(
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
+                    crew_card_choice_id: null,
+                    crew_card_master_mode: false,
                 };
             }
         }
@@ -515,6 +602,7 @@ const logAdvancement = (position: number) => {
     }
     const isTotemAdvancement = d.source_table === 'totem';
     const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
+    const isAbility = d.source_table === 'ability';
     const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
     if (isTrigger && targetActionOptions(position).length) {
         if (isEquipmentTarget ? d.applied_to_action_id == null : d.applied_to_action_index < 0) {
@@ -526,7 +614,6 @@ const logAdvancement = (position: number) => {
         position_in_xp_track: position,
         source_table: d.source_table,
         catalog_id: d.catalog_id,
-        flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
         joker_color: isTrigger ? d.joker_color : undefined,
         free_choice:
             d.free_choice_source_id || d.free_choice_source_character_id
@@ -537,8 +624,9 @@ const logAdvancement = (position: number) => {
         totem_base: isTotemAdvancement ? d.totem_base : undefined,
         applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
         applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
-        applied_to_custom_character_id: isTrigger && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
+        applied_to_custom_character_id: (isTrigger || isAbility) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
         from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
+        crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
     });
 };
 
@@ -563,8 +651,21 @@ const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
 };
+// Merges the starter effect with every currently-held Tier-4 borrowed effect
+// (pg 32, 54) into one combined card view, so newly-added borrowed effects
+// show up here too instead of only in the plain-text "Borrowed Effects" list.
 const viewCrewCard = () => {
-    if (props.crew.crew_card_effect) viewCard.value = { kind: 'crew', title: props.crew.crew_card_effect.name, effect: props.crew.crew_card_effect };
+    const starter = props.crew.crew_card_effect;
+    if (!starter) return;
+    const borrowed = props.crew.crew_card_advancements.map((a) => a.effect).filter((e): e is CrewCardEffectRow => e !== null);
+    const merged: CrewCardEffectRow = {
+        id: starter.id,
+        name: starter.name,
+        body: starter.body,
+        actions: [...starter.actions, ...borrowed.flatMap((e) => e.actions)],
+        abilities: [...starter.abilities, ...borrowed.flatMap((e) => e.abilities)],
+    };
+    viewCard.value = { kind: 'crew', title: starter.name, effect: merged };
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
@@ -774,8 +875,13 @@ const totemRendererProps = computed(() => {
                 <Card>
                     <CardHeader><CardTitle>Leader</CardTitle></CardHeader>
                     <CardContent>
-                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[500px]">
+                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[500px] space-y-2">
                             <CardRenderer v-bind="leaderRendererProps" />
+                            <div v-if="leader?.injury_names?.length" class="flex flex-wrap gap-1">
+                                <Badge v-for="inj in leader.injury_names" :key="`leader-i-${inj}`" variant="destructive" class="text-[10px]">
+                                    {{ inj }}
+                                </Badge>
+                            </div>
                         </div>
                         <EmptyState v-else title="No leader yet" description="">
                             <template v-if="view_mode.is_owner" #action>
@@ -790,8 +896,13 @@ const totemRendererProps = computed(() => {
                 <Card v-if="totemRendererProps" class="mt-4">
                     <CardHeader><CardTitle>Totem</CardTitle></CardHeader>
                     <CardContent>
-                        <div class="mx-auto w-full max-w-[500px]">
+                        <div class="mx-auto w-full max-w-[500px] space-y-2">
                             <CardRenderer v-bind="totemRendererProps" />
+                            <div v-if="totem?.injury_names?.length" class="flex flex-wrap gap-1">
+                                <Badge v-for="inj in totem.injury_names" :key="`totem-i-${inj}`" variant="destructive" class="text-[10px]">
+                                    {{ inj }}
+                                </Badge>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -924,6 +1035,8 @@ const totemRendererProps = computed(() => {
                                                     drafts[slot.position].free_choice_source_id = null;
                                                     drafts[slot.position].free_choice_source_character_id = null;
                                                     drafts[slot.position].free_choice_label = null;
+                                                    drafts[slot.position].crew_card_choice_id = null;
+                                                    drafts[slot.position].crew_card_master_mode = false;
                                                 }
                                             "
                                         >
@@ -936,14 +1049,6 @@ const totemRendererProps = computed(() => {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <Input
-                                            v-if="tableNeedsFlip(drafts[slot.position].source_table)"
-                                            v-model.number="drafts[slot.position].flip_value"
-                                            type="number"
-                                            min="1"
-                                            max="13"
-                                            class="h-8 w-14"
-                                        />
                                         <label
                                             v-if="drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'ability'"
                                             class="flex items-center gap-1 text-[11px] text-muted-foreground"
@@ -985,12 +1090,14 @@ const totemRendererProps = computed(() => {
                                             </SelectContent>
                                         </Select>
                                         <Select
+                                            v-if="drafts[slot.position].source_table !== 'crew_card'"
                                             :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
                                             @update:model-value="
                                                 (v) => {
                                                     drafts[slot.position].catalog_id = v === '__none__' ? null : Number(v);
                                                     drafts[slot.position].applied_to_action_index = -1;
                                                     drafts[slot.position].applied_to_action_id = null;
+                                                    drafts[slot.position].crew_card_choice_id = null;
                                                 }
                                             "
                                         >
@@ -1002,18 +1109,86 @@ const totemRendererProps = computed(() => {
                                                 <SelectItem
                                                     v-for="row in eligibleCatalogRows(
                                                         drafts[slot.position].source_table,
-                                                        drafts[slot.position].flip_value,
                                                         drafts[slot.position].is_joker_flipped,
                                                         drafts[slot.position].joker_color,
                                                     )"
                                                     :key="row.id"
                                                     :value="row.id.toString()"
                                                 >
+                                                    {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select
+                                            v-if="drafts[slot.position].source_table === 'crew_card'"
+                                            :model-value="
+                                                drafts[slot.position].crew_card_master_mode
+                                                    ? CREW_CARD_FROM_MASTER
+                                                    : (drafts[slot.position].catalog_id?.toString() ?? '__none__')
+                                            "
+                                            @update:model-value="(v) => onCrewCardTopChange(slot.position, v as string)"
+                                        >
+                                            <SelectTrigger class="h-8 min-w-0 flex-1 text-foreground">
+                                                <SelectValue placeholder="— pick —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick —</SelectItem>
+                                                <SelectItem :value="CREW_CARD_FROM_MASTER">Choose from a Master…</SelectItem>
+                                                <SelectItem v-for="row in crewCardGenericRows" :key="row.id" :value="row.id.toString()">
                                                     {{ row.name }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
+                                    </div>
+                                    <!-- Crew Card Master cascade: Master, then their own card (pg 32, 54) -->
+                                    <div
+                                        v-if="drafts[slot.position].source_table === 'crew_card' && drafts[slot.position].crew_card_master_mode"
+                                        class="space-y-2 rounded border p-2"
+                                    >
+                                        <div>
+                                            <Label class="text-[11px] text-muted-foreground">Master</Label>
+                                            <Select
+                                                :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
+                                                @update:model-value="(v) => onCrewCardMasterChange(slot.position, v as string)"
+                                            >
+                                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                    <SelectValue placeholder="— pick a master —" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__none__">— pick a master —</SelectItem>
+                                                    <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
+                                                        m.name
+                                                    }}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div v-if="drafts[slot.position].free_choice_source_character_id !== null">
+                                            <Label class="text-[11px] text-muted-foreground">Their Crew Card</Label>
+                                            <Select
+                                                :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
+                                                @update:model-value="(v) => onCrewCardMasterRowChange(slot.position, v as string)"
+                                            >
+                                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                    <SelectValue placeholder="— pick a card —" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__none__">— pick a card —</SelectItem>
+                                                    <SelectItem
+                                                        v-for="row in crewCardRowsForMaster(drafts[slot.position].free_choice_source_character_id)"
+                                                        :key="row.id"
+                                                        :value="row.id.toString()"
+                                                        >{{ row.name }}</SelectItem
+                                                    >
+                                                </SelectContent>
+                                            </Select>
+                                            <p
+                                                v-if="crewCardRowsForMaster(drafts[slot.position].free_choice_source_character_id).length === 0"
+                                                class="mt-1 text-[11px] text-muted-foreground"
+                                            >
+                                                No Crew Card catalog rows are linked to this master yet.
+                                            </p>
+                                        </div>
                                     </div>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                                     <div
@@ -1053,25 +1228,46 @@ const totemRendererProps = computed(() => {
                                             </ul>
                                         </template>
                                     </div>
-                                    <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
-                                    <div v-if="drafts[slot.position].source_table === 'crew_card' && drafts[slot.position].catalog_id !== null">
-                                        <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                    <!-- Crew Card: constrained pick for a chosen effect that itself requires a token/marker/upgrade (pg 17-18). -->
+                                    <div
+                                        v-if="
+                                            drafts[slot.position].source_table === 'crew_card' &&
+                                            drafts[slot.position].catalog_id !== null &&
+                                            requiredCrewCardChoiceType(slot.position)
+                                        "
+                                        class="rounded-md border border-primary/30 bg-primary/5 p-2"
+                                    >
+                                        <Label class="text-[11px] font-medium">
+                                            Choose a {{ requiredCrewCardChoiceType(slot.position) }} — listed on a crew card of a master sharing your
+                                            keywords
+                                        </Label>
                                         <Select
-                                            :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
+                                            :model-value="drafts[slot.position].crew_card_choice_id?.toString() ?? '__none__'"
                                             @update:model-value="
-                                                (v) => (drafts[slot.position].free_choice_source_character_id = v === '__none__' ? null : Number(v))
+                                                (v) =>
+                                                    (drafts[slot.position].crew_card_choice_id =
+                                                        v === '__none__'
+                                                            ? null
+                                                            : (crewCardChoiceOptionsFor(slot.position).find((o) => o.id.toString() === v)?.id ??
+                                                              null))
                                             "
                                         >
-                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                <SelectValue placeholder="— pick a master —" />
+                                            <SelectTrigger class="mt-1 h-8 w-full text-xs text-foreground">
+                                                <SelectValue :placeholder="`— pick a ${requiredCrewCardChoiceType(slot.position)} —`" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="__none__">— pick a master —</SelectItem>
-                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
-                                                    m.name
-                                                }}</SelectItem>
+                                                <SelectItem value="__none__">— pick a {{ requiredCrewCardChoiceType(slot.position) }} —</SelectItem>
+                                                <SelectItem
+                                                    v-for="opt in crewCardChoiceOptionsFor(slot.position)"
+                                                    :key="opt.id"
+                                                    :value="opt.id.toString()"
+                                                    >{{ opt.name }}</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
+                                        <p v-if="crewCardChoiceOptionsFor(slot.position).length === 0" class="mt-1 text-[11px] text-muted-foreground">
+                                            No eligible {{ requiredCrewCardChoiceType(slot.position) }}s found for your keywords.
+                                        </p>
                                     </div>
                                     <!-- Totem advancement: name, size, base inputs -->
                                     <div v-if="drafts[slot.position].source_table === 'totem'" class="flex flex-wrap gap-2">
@@ -1191,6 +1387,27 @@ const totemRendererProps = computed(() => {
                                                 </SelectContent>
                                             </Select>
                                         </template>
+                                    </div>
+                                    <!-- Ability: pick what to affect (Leader/Totem) -->
+                                    <div
+                                        v-if="drafts[slot.position].source_table === 'ability' && drafts[slot.position].catalog_id !== null"
+                                        class="flex flex-wrap items-center gap-2"
+                                    >
+                                        <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                        <Select
+                                            :model-value="
+                                                drafts[slot.position].target_type === 'equipment' ? 'leader' : drafts[slot.position].target_type
+                                            "
+                                            @update:model-value="(v) => (drafts[slot.position].target_type = v as 'leader' | 'totem')"
+                                        >
+                                            <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="leader">Leader</SelectItem>
+                                                <SelectItem v-if="totem" value="totem">Totem</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <!-- Full card preview for the selected advancement -->
                                     <template v-if="selectedDraftRow(slot.position)">
@@ -1347,6 +1564,26 @@ const totemRendererProps = computed(() => {
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No advancements yet" description="" />
+            </CardContent>
+        </Card>
+
+        <!-- Story log — optional per-game journal entries, chronological. -->
+        <Card class="mt-6">
+            <CardHeader>
+                <CardTitle>Story Log</CardTitle>
+                <p class="text-[10px] text-muted-foreground">Optional notes written at the end of each logged game.</p>
+            </CardHeader>
+            <CardContent>
+                <ul v-if="story_log.length" class="space-y-2">
+                    <li v-for="entry in story_log" :key="entry.id" class="rounded-md border p-3 text-sm">
+                        <div class="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <Badge v-if="entry.week_number != null" variant="outline" class="text-[10px]">Week {{ entry.week_number }}</Badge>
+                            <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
+                        </div>
+                        <p class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
+                    </li>
+                </ul>
+                <EmptyState v-else compact title="No story entries yet" description="Written at the end of Log Game, if you want one." />
             </CardContent>
         </Card>
 

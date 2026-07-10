@@ -65,6 +65,7 @@ onMounted(() => {
                             <SelectContent>
                                 <SelectItem value="no_effect">No effect</SelectItem>
                                 <SelectItem value="removed">Injury removed</SelectItem>
+                                <SelectItem value="removed_and_reflip">Removed + reflip for a new injury (How many fingers?)</SelectItem>
                                 <SelectItem value="added_injury">Added injury (Oops)</SelectItem>
                                 <SelectItem value="gained_undead">Removed + gained Undead</SelectItem>
                                 <SelectItem value="gained_construct">Removed + gained Construct</SelectItem>

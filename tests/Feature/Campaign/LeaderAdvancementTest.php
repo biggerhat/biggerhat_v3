@@ -366,6 +366,67 @@ it('an Any Joker Action pick inherits Signature status from the source ally\'s a
     expect($gained['is_signature'] ?? null)->toBeTrue();
 });
 
+it('applies an Ability advancement to the crew\'s Totem instead of the Leader', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true; // box index 2 is tier 2 in the canonical track
+    $leader->update(['xp_track' => $track]);
+    $totem = totemForCrew($crew, $user);
+
+    $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Totem Ward']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'ability',
+            'catalog_id' => $ability->id,
+            'applied_to_custom_character_id' => $totem->id,
+        ])
+        ->assertRedirect();
+
+    $leader->refresh();
+    $totem->refresh();
+    expect(collect($totem->abilities)->pluck('name'))->toContain('Totem Ward');
+    expect($leader->abilities ?? [])->toBeEmpty();
+
+    $advancement = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
+    expect($advancement->applied_to_custom_character_id)->toBe($totem->id);
+
+    $this->actingAs($user)
+        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->assertRedirect();
+
+    $totem->refresh();
+    expect(collect($totem->abilities)->pluck('name'))->not->toContain('Totem Ward');
+});
+
+it('rejects an Ability Advancement targeting a Totem that does not belong to this crew', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true;
+    $leader->update(['xp_track' => $track]);
+
+    $otherUser = advUser();
+    $otherCampaign = Campaign::factory()->create(['organizer_user_id' => $otherUser->id]);
+    $otherCrew = CampaignCrew::factory()->create(['campaign_id' => $otherCampaign->id, 'user_id' => $otherUser->id]);
+    $otherTotem = totemForCrew($otherCrew, $otherUser);
+
+    $ability = \App\Models\Campaign\AdvancementAbility::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'ability',
+            'catalog_id' => $ability->id,
+            'applied_to_custom_character_id' => $otherTotem->id,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+});
+
 it('rejects an Attack Mod Any Joker row without declaring which Joker was flipped', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);

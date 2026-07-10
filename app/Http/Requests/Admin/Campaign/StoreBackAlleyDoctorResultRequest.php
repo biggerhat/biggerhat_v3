@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Campaign;
 
+use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\PermissionEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,9 +23,7 @@ class StoreBackAlleyDoctorResultRequest extends FormRequest
             'flip_value_max' => ['nullable', 'integer', 'min:1', 'max:13', 'gte:flip_value_min'],
             'is_black_joker' => ['required', 'boolean'],
             'is_red_joker' => ['required', 'boolean'],
-            'outcome_kind' => ['required', 'string', Rule::in([
-                'no_effect', 'removed', 'added_injury', 'gained_undead', 'gained_construct', 'lucky_miss_reflip',
-            ])],
+            'outcome_kind' => ['required', 'string', Rule::enum(BackAlleyDoctorOutcomeEnum::class)],
         ];
     }
 }

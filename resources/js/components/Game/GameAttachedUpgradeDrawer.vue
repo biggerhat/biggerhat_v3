@@ -9,6 +9,7 @@ interface UpgradePreview {
     name: string;
     front_image: string;
     back_image: string | null;
+    description?: string | null;
     loot_card_id?: number;
     loot_side?: 'a' | 'b';
 }
@@ -54,17 +55,26 @@ const emit = defineEmits<{
                 >
                     <BonanzaCardImage :image="upgrade.front_image" :name="upgrade.name" :initial-side="upgrade.loot_side ?? 'a'" />
                 </div>
-                <div
-                    v-else
-                    class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain"
-                >
-                    <UpgradeFlipCard
-                        :front-image="upgrade.front_image"
-                        :back-image="upgrade.back_image"
-                        :alt-text="upgrade.name"
-                        :show-link="false"
-                    />
-                </div>
+                <template v-else>
+                    <div
+                        v-if="upgrade.front_image"
+                        class="flex min-h-0 flex-1 items-start justify-center px-4 pb-2 [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain"
+                    >
+                        <UpgradeFlipCard
+                            :front-image="upgrade.front_image"
+                            :back-image="upgrade.back_image"
+                            :alt-text="upgrade.name"
+                            :show-link="false"
+                        />
+                    </div>
+                    <!-- No card art uploaded — show the effect text instead of a blank preview. -->
+                    <p v-else class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
+                        {{ upgrade.description || 'No description available.' }}
+                    </p>
+                    <p v-if="upgrade.front_image && upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
+                        {{ upgrade.description }}
+                    </p>
+                </template>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>

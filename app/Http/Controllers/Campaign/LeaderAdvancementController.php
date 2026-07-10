@@ -198,9 +198,15 @@ class LeaderAdvancementController extends Controller
             if ($catalogId === null) {
                 return;
             }
+            $target = $advancement->applied_to_custom_character_id !== null
+                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
+                : $leader;
+            if (! $target) {
+                return;
+            }
             $removed = false;
-            $leader->abilities = array_values(array_filter(
-                $leader->abilities ?? [],
+            $target->abilities = array_values(array_filter(
+                $target->abilities ?? [],
                 function (array $a) use ($catalogId, &$removed): bool {
                     if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
                         $removed = true;
@@ -211,7 +217,7 @@ class LeaderAdvancementController extends Controller
                     return true;
                 }
             ));
-            $leader->save();
+            $target->save();
         }
     }
 

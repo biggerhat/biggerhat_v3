@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Check } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -104,6 +105,9 @@ const props = defineProps<{
     traitor_target_crews?: TraitorCrewRow[] | null;
     // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
     eligible_masters?: Array<{ id: number; name: string }> | null;
+    // Constrained pool for crew cards that require a token/marker/upgrade
+    // choice (pg 17-18) — same pool Starting Arsenal uses.
+    crew_card_choice_options?: CrewCardChoiceOptions | null;
 }>();
 
 // Reactive shortcuts so the template can pass the empty default through.
@@ -259,6 +263,25 @@ interface CatalogRow {
     suits?: string | null;
     defensive_ability_type?: string | null;
     costs_stone?: boolean;
+    // Crew Card table only (pg 17-18) — whether this borrowed effect also
+    // requires picking a token/marker/upgrade type from the constrained pool.
+    requires_token_choice?: boolean;
+    requires_marker_choice?: boolean;
+    requires_upgrade_type_choice?: boolean;
+    // Crew Card table only — the master this card is actually printed on
+    // (null = generic, listed directly rather than via the Master cascade).
+    master_id?: number | null;
+    master_name?: string | null;
+}
+interface ChoiceOption {
+    // int for a token/marker, enum-value string for an upgrade type.
+    id: number | string;
+    name: string;
+}
+interface CrewCardChoiceOptions {
+    tokens: ChoiceOption[];
+    markers: ChoiceOption[];
+    upgrades: ChoiceOption[];
 }
 interface AdvancementCatalogs {
     attack_mod: CatalogRow[];
@@ -319,7 +342,6 @@ interface QueuedAdvancement {
 interface AdvDraft {
     source_table: string;
     catalog_id: number | null;
-    flip_value: number | null;
     // Attack/Tactical Mod target (pg 31, 38-43) — defaults to the Leader; the
     // crew's current Totem shares the identical actions[] mechanism, while
     // Equipment targets a granted action by its real id (see target_equipment_id).
@@ -339,6 +361,13 @@ interface AdvDraft {
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
+    // Crew Card table only (pg 17-18): the token/marker/upgrade-type pick a
+    // borrowed effect requires, if any.
+    crew_card_choice_id: number | string | null;
+    // Crew Card table only: true while the player is browsing a specific
+    // master's own cards (the "Choose from a Master" cascade) rather than
+    // picking a generic row directly from the flat list.
+    crew_card_master_mode: boolean;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -369,7 +398,6 @@ watch(
                 advDrafts.value[adv.position_in_xp_track] = {
                     source_table: defaultTableForTier(adv.box_tier),
                     catalog_id: null,
-                    flip_value: 13,
                     target_type: 'leader',
                     target_equipment_id: null,
                     applied_to_action_index: -1,
@@ -382,6 +410,8 @@ watch(
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
+                    crew_card_choice_id: null,
+                    crew_card_master_mode: false,
                 };
             }
         }
@@ -393,7 +423,6 @@ const onSourceTableChange = (position: number) => {
     const d = advDrafts.value[position];
     if (!d) return;
     d.catalog_id = null;
-    d.flip_value = 13;
     d.totem_name = null;
     d.totem_size = null;
     d.totem_base = null;
@@ -405,6 +434,8 @@ const onSourceTableChange = (position: number) => {
     d.free_choice_source_id = null;
     d.free_choice_source_character_id = null;
     d.free_choice_label = null;
+    d.crew_card_choice_id = null;
+    d.crew_card_master_mode = false;
 };
 
 const onCatalogChange = (position: number) => {
@@ -414,17 +445,63 @@ const onCatalogChange = (position: number) => {
         const row = catalogRowsFor('totem').find((r) => r.id === d.catalog_id);
         d.totem_name = row?.name ?? null;
     }
-    // Switching away from the Any Joker row clears a stale free pick.
+    // Switching away from the Any Joker row clears a stale free pick. Crew
+    // Card rows carry their own master attribution via free_choice_source_
+    // character_id (set by the Master cascade below) and must keep it.
     const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
-    if (!row?.is_joker) {
+    if (!row?.is_joker && d.source_table !== 'crew_card') {
         d.free_choice_source_id = null;
         d.free_choice_source_character_id = null;
         d.free_choice_label = null;
     }
+    // A newly-picked crew card may not require the same (or any) choice.
+    d.crew_card_choice_id = null;
     // A newly-picked Skl Boost row may have a different qualifying range —
     // the previously-selected action might no longer be eligible.
     d.applied_to_action_index = -1;
     d.applied_to_action_id = null;
+};
+
+// ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
+// Top-level list mixes generic (master_id === null) rows with a "Choose from
+// a Master" sentinel; picking that reveals a Master select, then a second
+// select scoped to that master's own rows — so the stored attribution always
+// matches the actual card, instead of an unrelated free-text "borrowed from".
+const CREW_CARD_FROM_MASTER = '__from_master__';
+
+const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
+
+const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
+
+const onCrewCardTopChange = (position: number, v: string) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    if (v === CREW_CARD_FROM_MASTER) {
+        d.crew_card_master_mode = true;
+        d.catalog_id = null;
+        d.free_choice_source_character_id = null;
+        d.crew_card_choice_id = null;
+        return;
+    }
+    d.crew_card_master_mode = false;
+    d.free_choice_source_character_id = null;
+    d.catalog_id = v === '__none__' ? null : Number(v);
+    onCatalogChange(position);
+};
+
+const onCrewCardMasterChange = (position: number, v: string) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
+    d.catalog_id = null;
+    d.crew_card_choice_id = null;
+};
+
+const onCrewCardMasterRowChange = (position: number, v: string) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    d.catalog_id = v === '__none__' ? null : Number(v);
+    onCatalogChange(position);
 };
 
 // ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
@@ -459,27 +536,17 @@ const pickJokerChoice = (position: number, row: { name: string; source_id: numbe
     jokerResults.value[position] = [];
 };
 
-// Totem requires an exact flip match (pg 32), same as the Arsenal Sheet's
-// advancement picker — the player's flip gates which totem is offered, not
-// the other way around.
-const FLIP_TABLES = ['attack_mod', 'tactical_mod', 'action', 'ability', 'totem'];
-const tableNeedsFlip = (table: string): boolean => FLIP_TABLES.includes(table);
-
-const eligibleCatalogRows = (
-    source_table: string,
-    flip_value: number | null,
-    isJokerFlipped = false,
-    jokerColor: 'red' | 'black' | null = null,
-): CatalogRow[] => {
+// Flip-value gating removed for now (pg 31, 38-51 normally cap these lists by
+// the player's flipped card) — every row from the table is offered, with its
+// own flip_value shown inline in the label as a reference only. Joker
+// declarations (Any Joker / Joker color) are a separate mechanism and still
+// gate the list, since they're not flip-value based.
+const eligibleCatalogRows = (source_table: string, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
     const rows = catalogRowsFor(source_table);
     // Action/Ability: the Any Joker row is only offered when the player
-    // actually declares a joker flip — otherwise it's excluded from the
-    // normal flip-ceiling list (it has no flip_value of its own to rank by).
+    // actually declares a joker flip.
     if (source_table === 'action' || source_table === 'ability') {
-        if (isJokerFlipped) return rows.filter((r) => r.is_joker);
-        const nonJoker = rows.filter((r) => !r.is_joker);
-        if (!tableNeedsFlip(source_table) || flip_value == null) return nonJoker;
-        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
+        return isJokerFlipped ? rows.filter((r) => r.is_joker) : rows.filter((r) => !r.is_joker);
     }
     // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
     // instead of a flip_value. Both flags set = "Any Joker" (either color
@@ -488,13 +555,9 @@ const eligibleCatalogRows = (
         if (jokerColor) {
             return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
         }
-        const nonJoker = rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
-        if (flip_value == null) return nonJoker;
-        return nonJoker.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
+        return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
     }
-    if (!tableNeedsFlip(source_table) || flip_value == null) return rows;
-    if (source_table === 'totem') return rows.filter((r) => r.flip_value === flip_value);
-    return rows.filter((r) => r.is_always_available || r.flip_value == null || (r.flip_value ?? 99) <= (flip_value ?? 0));
+    return rows;
 };
 
 function defaultTableForTier(tier: number): string {
@@ -536,6 +599,26 @@ const selectedDraftRow = (position: number): CatalogRow | null => {
 
 const equipmentFor = (equipmentId: number | null): EquipmentTargetItem | null =>
     (xp_track.value?.equipment ?? []).find((e) => e.id === equipmentId) ?? null;
+
+// Crew Card table only (pg 17-18): whether the selected borrowed effect also
+// requires picking a token/marker/upgrade type, and the constrained pool it
+// picks from (same pool Starting Arsenal uses).
+const requiredCrewCardChoiceType = (position: number): 'token' | 'marker' | 'upgrade' | null => {
+    const row = selectedDraftRow(position);
+    if (!row) return null;
+    if (row.requires_token_choice) return 'token';
+    if (row.requires_marker_choice) return 'marker';
+    if (row.requires_upgrade_type_choice) return 'upgrade';
+    return null;
+};
+const crewCardChoiceOptionsFor = (position: number): ChoiceOption[] => {
+    const type = requiredCrewCardChoiceType(position);
+    const options = props.crew_card_choice_options ?? { tokens: [], markers: [], upgrades: [] };
+    if (type === 'token') return options.tokens;
+    if (type === 'marker') return options.markers;
+    if (type === 'upgrade') return options.upgrades;
+    return [];
+};
 
 // Skl Boost rows (pg 38-43) only offer actions whose current Skl falls in the
 // row's qualifying range ("select one attack with a Skl of 0 or 1").
@@ -581,17 +664,18 @@ const submitAdvanceLeader = () => {
                 const d = advDrafts.value[adv.position_in_xp_track]!;
                 const isTotemAdvancement = d.source_table === 'totem';
                 const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
+                const isAbility = d.source_table === 'ability';
                 const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
                 return {
                     source_table: d.source_table,
                     catalog_id: d.catalog_id,
                     applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
                     applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
-                    applied_to_custom_character_id: isTrigger && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
+                    applied_to_custom_character_id:
+                        (isTrigger || isAbility) && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
                     from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
                     joker_color: isTrigger ? d.joker_color : undefined,
                     position_in_xp_track: adv.position_in_xp_track,
-                    flip_value: tableNeedsFlip(d.source_table) ? d.flip_value : null,
                     free_choice:
                         d.free_choice_source_id || d.free_choice_source_character_id
                             ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
@@ -599,6 +683,7 @@ const submitAdvanceLeader = () => {
                     totem_name: isTotemAdvancement ? d.totem_name || null : null,
                     totem_size: isTotemAdvancement ? d.totem_size || null : null,
                     totem_base: isTotemAdvancement ? d.totem_base || null : null,
+                    crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
                 };
             }),
     } as Record<string, unknown>);
@@ -628,6 +713,13 @@ const addDoctorAttempt = (pivotId: number) => {
         lucky_miss_flip_value: 1,
         lucky_miss_is_joker: false,
     });
+};
+
+const doctorAttemptLabel = (pivotId: number): string => {
+    const inj = crew_injuries.value.find((i) => i.pivot_id === pivotId);
+    if (!inj) return `injury pivot #${pivotId}`;
+    const label = inj.label ? ` (${inj.label})` : '';
+    return `${inj.display_name}${label} — ${inj.injury_name}`;
 };
 
 const removeDoctorAttempt = (idx: number) => doctorAttempts.value.splice(idx, 1);
@@ -708,13 +800,21 @@ interface TraitorCrewRow {
 }
 const traitorTargetCrews = computed<TraitorCrewRow[]>(() => props.traitor_target_crews ?? []);
 
+// Optional per-game journal entry (not a rules mechanic) — shown
+// chronologically on the Arsenal Sheet.
+const storyEntry = ref('');
+
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
         flips: injuryFlips.value,
+        story_entry: storyEntry.value || null,
     } as Record<string, unknown>);
 };
 
-const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.aftermath.id));
+const finalize = () =>
+    router.post(route('campaigns.aftermaths.finalize', props.aftermath.id), {
+        story_entry: storyEntry.value || null,
+    });
 </script>
 
 <template>
@@ -1000,23 +1100,6 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <!-- Flip input — attack/tactical/action/ability accept this value or lower; totem requires an exact match -->
-                            <label
-                                v-if="tableNeedsFlip(advDrafts[adv.position_in_xp_track].source_table)"
-                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
-                            >
-                                Flipped card
-                                <Input
-                                    type="number"
-                                    min="1"
-                                    max="13"
-                                    v-model.number="advDrafts[adv.position_in_xp_track].flip_value"
-                                    class="h-8 w-20"
-                                />
-                                <span>{{
-                                    advDrafts[adv.position_in_xp_track].source_table === 'totem' ? '(exact match)' : '(this value or lower)'
-                                }}</span>
-                            </label>
                             <label
                                 v-if="
                                     advDrafts[adv.position_in_xp_track].source_table === 'action' ||
@@ -1066,6 +1149,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                 </Select>
                             </label>
                             <Select
+                                v-if="advDrafts[adv.position_in_xp_track].source_table !== 'crew_card'"
                                 :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
                                 @update:model-value="
                                     (v) => {
@@ -1082,7 +1166,6 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     <SelectItem
                                         v-for="row in eligibleCatalogRows(
                                             advDrafts[adv.position_in_xp_track].source_table,
-                                            advDrafts[adv.position_in_xp_track].flip_value,
                                             advDrafts[adv.position_in_xp_track].is_joker_flipped,
                                             advDrafts[adv.position_in_xp_track].joker_color,
                                         )"
@@ -1093,6 +1176,80 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <!-- Crew Card: flat list of generic effects, or cascade Master → their own card (pg 32, 54) -->
+                            <div v-if="advDrafts[adv.position_in_xp_track].source_table === 'crew_card'" class="space-y-2">
+                                <Select
+                                    :model-value="
+                                        advDrafts[adv.position_in_xp_track].crew_card_master_mode
+                                            ? CREW_CARD_FROM_MASTER
+                                            : (advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__')
+                                    "
+                                    @update:model-value="(v) => onCrewCardTopChange(adv.position_in_xp_track, v as string)"
+                                >
+                                    <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                        <SelectValue placeholder="— pick a row —" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">— pick a row —</SelectItem>
+                                        <SelectItem :value="CREW_CARD_FROM_MASTER">Choose from a Master…</SelectItem>
+                                        <SelectItem v-for="row in crewCardGenericRows" :key="row.id" :value="row.id.toString()">
+                                            {{ row.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <div v-if="advDrafts[adv.position_in_xp_track].crew_card_master_mode" class="space-y-2 rounded border p-2">
+                                    <div>
+                                        <Label class="text-[11px] text-muted-foreground">Master</Label>
+                                        <Select
+                                            :model-value="
+                                                advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'
+                                            "
+                                            @update:model-value="(v) => onCrewCardMasterChange(adv.position_in_xp_track, v as string)"
+                                        >
+                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                <SelectValue placeholder="— pick a master —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick a master —</SelectItem>
+                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
+                                                    m.name
+                                                }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div v-if="advDrafts[adv.position_in_xp_track].free_choice_source_character_id !== null">
+                                        <Label class="text-[11px] text-muted-foreground">Their Crew Card</Label>
+                                        <Select
+                                            :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
+                                            @update:model-value="(v) => onCrewCardMasterRowChange(adv.position_in_xp_track, v as string)"
+                                        >
+                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                <SelectValue placeholder="— pick a card —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick a card —</SelectItem>
+                                                <SelectItem
+                                                    v-for="row in crewCardRowsForMaster(
+                                                        advDrafts[adv.position_in_xp_track].free_choice_source_character_id,
+                                                    )"
+                                                    :key="row.id"
+                                                    :value="row.id.toString()"
+                                                    >{{ row.name }}</SelectItem
+                                                >
+                                            </SelectContent>
+                                        </Select>
+                                        <p
+                                            v-if="
+                                                crewCardRowsForMaster(advDrafts[adv.position_in_xp_track].free_choice_source_character_id).length ===
+                                                0
+                                            "
+                                            class="mt-1 text-[11px] text-muted-foreground"
+                                        >
+                                            No Crew Card catalog rows are linked to this master yet.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                             <div
                                 v-if="advDrafts[adv.position_in_xp_track].is_joker_flipped && advDrafts[adv.position_in_xp_track].catalog_id !== null"
@@ -1168,30 +1325,51 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     </Select>
                                 </div>
                             </div>
-                            <!-- Crew Card: name the master this effect is borrowed from (pg 32, 54) -->
+                            <!-- Crew Card: constrained pick for a chosen effect that itself requires a token/marker/upgrade (pg 17-18). -->
                             <div
                                 v-if="
                                     advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
-                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null &&
+                                    requiredCrewCardChoiceType(adv.position_in_xp_track)
                                 "
+                                class="rounded-md border border-primary/30 bg-primary/5 p-2"
                             >
-                                <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                <Label class="text-[11px] font-medium">
+                                    Choose a {{ requiredCrewCardChoiceType(adv.position_in_xp_track) }} — listed on a crew card of a master sharing
+                                    your keywords
+                                </Label>
                                 <Select
-                                    :model-value="advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'"
+                                    :model-value="advDrafts[adv.position_in_xp_track].crew_card_choice_id?.toString() ?? '__none__'"
                                     @update:model-value="
                                         (v) =>
-                                            (advDrafts[adv.position_in_xp_track].free_choice_source_character_id =
-                                                v === '__none__' ? null : Number(v))
+                                            (advDrafts[adv.position_in_xp_track].crew_card_choice_id =
+                                                v === '__none__'
+                                                    ? null
+                                                    : (crewCardChoiceOptionsFor(adv.position_in_xp_track).find((o) => o.id.toString() === v)?.id ??
+                                                      null))
                                     "
                                 >
-                                    <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                        <SelectValue placeholder="— pick a master —" />
+                                    <SelectTrigger class="mt-1 h-8 w-full text-xs text-foreground">
+                                        <SelectValue :placeholder="`— pick a ${requiredCrewCardChoiceType(adv.position_in_xp_track)} —`" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="__none__">— pick a master —</SelectItem>
-                                        <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{ m.name }}</SelectItem>
+                                        <SelectItem value="__none__"
+                                            >— pick a {{ requiredCrewCardChoiceType(adv.position_in_xp_track) }} —</SelectItem
+                                        >
+                                        <SelectItem
+                                            v-for="opt in crewCardChoiceOptionsFor(adv.position_in_xp_track)"
+                                            :key="opt.id"
+                                            :value="opt.id.toString()"
+                                            >{{ opt.name }}</SelectItem
+                                        >
                                     </SelectContent>
                                 </Select>
+                                <p
+                                    v-if="crewCardChoiceOptionsFor(adv.position_in_xp_track).length === 0"
+                                    class="mt-1 text-[11px] text-muted-foreground"
+                                >
+                                    No eligible {{ requiredCrewCardChoiceType(adv.position_in_xp_track) }}s found for your keywords.
+                                </p>
                             </div>
                             <!-- Attack/tactical mod: pick what to affect (Leader/Totem/Equipment), then which action -->
                             <div
@@ -1282,6 +1460,32 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                                     </Select>
                                 </div>
                             </div>
+                            <!-- Ability: pick what to affect (Leader/Totem) -->
+                            <div
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'ability' &&
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                "
+                                class="flex flex-wrap items-center gap-2"
+                            >
+                                <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                <Select
+                                    :model-value="
+                                        advDrafts[adv.position_in_xp_track].target_type === 'equipment'
+                                            ? 'leader'
+                                            : advDrafts[adv.position_in_xp_track].target_type
+                                    "
+                                    @update:model-value="(v) => (advDrafts[adv.position_in_xp_track].target_type = v as 'leader' | 'totem')"
+                                >
+                                    <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="leader">Leader</SelectItem>
+                                        <SelectItem v-if="xp_track?.totem_id" value="totem">Totem</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <!-- Full card preview for the selected advancement -->
                             <template v-if="selectedDraftRow(adv.position_in_xp_track)">
                                 <ActionCard
@@ -1353,7 +1557,7 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Attempts ({{ doctorAttempts.length }} scrip)</p>
                     <ul class="space-y-2">
                         <li v-for="(att, idx) in doctorAttempts" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
-                            <span class="flex-1 truncate">injury pivot #{{ att.injury_pivot_id }}</span>
+                            <span class="flex-1 truncate">{{ doctorAttemptLabel(att.injury_pivot_id) }}</span>
                             <Select
                                 :model-value="att.result_id?.toString() ?? '__none__'"
                                 @update:model-value="(v) => (att.result_id = v === '__none__' ? null : Number(v))"
@@ -1503,6 +1707,17 @@ const finalize = () => router.post(route('campaigns.aftermaths.finalize', props.
                             <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
                         </li>
                     </ul>
+                </div>
+
+                <div>
+                    <Label for="story_entry" class="text-xs text-muted-foreground">Story entry (optional)</Label>
+                    <Textarea
+                        id="story_entry"
+                        v-model="storyEntry"
+                        :disabled="!is_owner"
+                        rows="3"
+                        placeholder="Write a bit about how this game went, if you want it saved to your crew's story log..."
+                    />
                 </div>
 
                 <div class="flex justify-end">

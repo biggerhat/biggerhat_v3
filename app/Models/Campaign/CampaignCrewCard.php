@@ -4,15 +4,17 @@ namespace App\Models\Campaign;
 
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Character;
 use Database\Factories\Campaign\CampaignCrewCardFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A starting Crew Card option for the Starting Arsenal wizard (pg 15).
- * 
+ *
  * These replace the interim approach of tagging Ability rows with
  * is_crew_card_effect=true — crew cards can have richer structure than
  * a single ability description allows.
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $name
  * @property string|null $description
+ * @property int|null $master_id the master this card is actually printed on (nullable — some rows are generic/unassigned)
  * @property bool $requires_token_choice
  * @property bool $requires_marker_choice
  * @property bool $requires_upgrade_type_choice
@@ -28,9 +31,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
+ * @property-read Character|null $master
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
+ *
  * @mixin \Eloquent
  * @mixin IdeHelperCampaignCrewCard
  */
@@ -71,5 +77,11 @@ class CampaignCrewCard extends Model
     public function crews(): HasMany
     {
         return $this->hasMany(CampaignCrew::class, 'crew_card_effect_id');
+    }
+
+    /** @return BelongsTo<Character, $this> */
+    public function master(): BelongsTo
+    {
+        return $this->belongsTo(Character::class, 'master_id');
     }
 }

@@ -86,6 +86,33 @@ it('Games/Show payload includes campaign_context when format=Campaign', function
         );
 });
 
+it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Card effects', function () {
+    [$userA, , $campaign, $crewA] = campaignGameSetup();
+    $game = Game::first();
+
+    $starter = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Fire in the Hole', 'description' => 'Starter body text.']);
+    $crewA->update(['crew_card_effect_id' => $starter->id]);
+
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
+    $master = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crewA->id,
+        'crew_card_effect_id' => $borrowedEffect->id,
+        'source_master_id' => $master->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_context.crew_a_card.effect.name', 'Fire in the Hole')
+            ->where('campaign_context.crew_a_card.effect.body', 'Starter body text.')
+            ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
+            ->where('campaign_context.crew_a_card.borrowed.0.source_master_name', $master->fresh()->display_name)
+            ->where('campaign_context.crew_b_card.effect', null)
+        );
+});
+
 it('Games/Show payload campaign_context is null for non-campaign games', function () {
     $user = cintUser();
     $game = Game::factory()->create([
@@ -114,8 +141,11 @@ it('submitCrew rejects characters not in the player crew arsenal', function () {
     CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $allowed->id]);
     CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $master->id]);
 
-    // Build a crew including an outside character.
-    $forbidden = Character::factory()->create(['cost' => 7, 'name' => 'Disallowed Model']);
+    // Build a crew including an outside character. title: null pins
+    // display_name — CharacterObserver::creating() always recomputes it from
+    // name+title, so a random Faker title here (~5% of factory calls) would
+    // otherwise make the exact-match assertion below flaky.
+    $forbidden = Character::factory()->create(['cost' => 7, 'name' => 'Disallowed Model', 'title' => null]);
     $build = CrewBuild::create([
         'user_id' => $userA->id,
         'master_id' => $master->id,
@@ -242,6 +272,41 @@ it('submitCampaignCrew copies the selected arsenal models into game_crew_members
         ->toBeTrue();
 });
 
+it('Games/Show exposes the Campaign Leader\'s actions/abilities via custom_character, since it has no card art', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-004',
+        'name' => 'Card-less Leader',
+        'display_name' => 'Card-less Leader',
+        'slug' => 'card-less-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'actions' => [['name' => 'Immolate', 'type' => 'attack']],
+        'abilities' => [['name' => 'Cast to Cinders']],
+    ]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['character_ids' => []])
+        ->assertOk();
+
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where(
+                'game.players.0.crew_members',
+                fn ($members) => collect($members)->firstWhere('hiring_category', 'leader')['custom_character']['actions'][0]['name'] === 'Immolate'
+                    && collect($members)->firstWhere('hiring_category', 'leader')['custom_character']['abilities'][0]['name'] === 'Cast to Cinders',
+            ));
+});
+
 it('submitCampaignCrew carries injuries from a previous aftermath onto the leader and hired models', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 
@@ -285,6 +350,90 @@ it('submitCampaignCrew carries injuries from a previous aftermath onto the leade
 
     expect(collect($leaderMember->attached_upgrades)->pluck('name')->all())->toBe(['Leadfooted'])
         ->and(collect($hiredMember->attached_upgrades)->pluck('name')->all())->toBe(['Severe Amputation']);
+});
+
+it('submitCampaignCrew assigns owned equipment to the Leader or a specific hire (pg 19)', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-005',
+        'name' => 'Equipped Leader',
+        'display_name' => 'Equipped Leader',
+        'slug' => 'equipped-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket']);
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [$hired->id],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hired->id],
+            ],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $members = \App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->get();
+    $hiredMember = $members->firstWhere('display_name', $hired->display_name);
+    $leaderMember = $members->firstWhere('hiring_category', 'leader');
+
+    expect(collect($hiredMember->attached_upgrades)->pluck('name')->all())->toBe(['Owned Trinket']);
+    expect($leaderMember->attached_upgrades)->toBeEmpty();
+});
+
+it('submitCampaignCrew rejects an equipment_assignments target outside the Leader/hired set', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create();
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+    $notHired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $notHired->id],
+            ],
+        ])
+        ->assertStatus(422);
+
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
+});
+
+it('submitCampaignCrew rejects assigning more copies of an equipment than the crew owns', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $hiredA = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $hiredB = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredA->id]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredB->id]);
+
+    // Only one copy owned.
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create();
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [$hiredA->id, $hiredB->id],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hiredA->id],
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hiredB->id],
+            ],
+        ])
+        ->assertStatus(422);
+
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
 });
 
 it('solo Campaign setup auto-fills a generic opponent — no opponent faction/master picker required', function () {
@@ -383,6 +532,7 @@ it('character_upgrades at InProgress offers the campaign crew\'s own earned equi
                 'type' => $owned->type?->value,
                 'plentiful' => 2,
                 'power_bar_count' => $owned->power_bar_count,
+                'description' => $owned->description,
             ]])
         );
 });

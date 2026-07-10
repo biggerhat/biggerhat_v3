@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignAftermath;
+use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
@@ -98,6 +100,28 @@ class ArsenalSheetController extends Controller
         $leader = $crew->leader;
         $totem = $crew->totem;
 
+        // Leader/Totem injuries (pg 33-34) — same table as arsenal model
+        // injuries, keyed by custom_character_id instead. Neither
+        // CustomCharacter has an `injuries` array in its own columns, so this
+        // rides along as a separate attribute rather than a raw relation dump.
+        $leaderTotemIds = array_filter([$leader?->id, $totem?->id]);
+        if (! empty($leaderTotemIds)) {
+            $injuriesByCharacter = CampaignArsenalModelInjury::query()
+                ->whereIn('custom_character_id', $leaderTotemIds)
+                ->with('injury:id,name')
+                ->get()
+                ->groupBy('custom_character_id');
+
+            $leader?->setAttribute(
+                'injury_names',
+                ($injuriesByCharacter->get($leader->id) ?? collect())->map(fn ($i) => $i->injury?->name)->filter()->values(),
+            );
+            $totem?->setAttribute(
+                'injury_names',
+                ($injuriesByCharacter->get($totem->id) ?? collect())->map(fn ($i) => $i->injury?->name)->filter()->values(),
+            );
+        }
+
         // Campaign Rating (pg 19): equipment + leader/totem advancements − injuries.
         // All three counters come from the consolidated post-refactor sources:
         // campaign_equipment, campaign_leader_advancements, campaign_arsenal_model_injuries.
@@ -176,6 +200,7 @@ class ArsenalSheetController extends Controller
             // owner's pick-an-advancement UI.
             'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs($crew) : null,
             'eligible_masters' => $leader ? AftermathCatalog::eligibleMasters($crew) : null,
+            'crew_card_choice_options' => $leader ? AftermathCatalog::crewCardChoiceOptions($crew) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
             // model when hiring. Shown on the arsenal sheet below the models,
@@ -187,6 +212,21 @@ class ArsenalSheetController extends Controller
                 'advancement_count' => $advancementCount,
                 'injury_count' => $injuryCount,
             ],
+            // Optional per-game journal entries (not a rules mechanic) —
+            // written at the end of the Aftermath's Log Game flow, shown here
+            // in chronological order.
+            'story_log' => CampaignAftermath::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->whereNotNull('story_entry')
+                ->with('campaignGame:id,week_number,crew_a_id,crew_b_id')
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (CampaignAftermath $a) => [
+                    'id' => $a->id,
+                    'week_number' => $a->campaignGame->week_number,
+                    'story_entry' => $a->story_entry,
+                    'created_at' => $a->created_at,
+                ]),
             'view_mode' => [
                 'is_member' => $isMember,
                 'is_owner' => $isOwner,

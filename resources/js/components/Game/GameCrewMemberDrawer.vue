@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameSculptVisualPickerDialog from '@/components/Game/GameSculptVisualPickerDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -15,6 +17,33 @@ interface AttachedUpgrade {
     notes?: string | null;
 }
 
+// Campaign Leader/Totem card data (pg 31, 52) — these have no card art, so
+// their stat block lives here instead of front_image/back_image.
+interface CustomCharacterAction {
+    name: string;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | string | null;
+    range_type?: string | null;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    description?: string | null;
+    triggers?: Array<{ name: string; suits?: string | null; stone_cost?: number; description?: string | null }>;
+}
+interface CustomCharacterAbility {
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
+
 interface PreviewMember {
     id: number;
     display_name: string;
@@ -22,6 +51,7 @@ interface PreviewMember {
     back_image: string | null;
     notes?: string | null;
     attached_upgrades?: AttachedUpgrade[];
+    custom_character?: { actions: CustomCharacterAction[]; abilities: CustomCharacterAbility[] } | null;
 }
 
 interface Miniature {
@@ -202,6 +232,14 @@ const handleVisualPick = (miniatureId: number) => {
                             :show-collection="false"
                         />
                     </div>
+                </div>
+                <!-- No card art (Campaign Leader/Totem) — render the JSON stat block instead (pg 31, 52). -->
+                <div
+                    v-else-if="member.custom_character && (member.custom_character.actions.length || member.custom_character.abilities.length)"
+                    class="space-y-2 px-4 pb-2"
+                >
+                    <ActionCard v-for="(a, i) in member.custom_character.actions" :key="`action-${i}`" :action="a" :hide-footer="true" />
+                    <AbilityCard v-for="(ab, i) in member.custom_character.abilities" :key="`ability-${i}`" :ability="ab" :hide-footer="true" />
                 </div>
                 <div v-else class="px-4 py-8 pb-2 text-center text-sm text-muted-foreground">No card image available</div>
 

@@ -108,6 +108,7 @@ class CampaignAftermathController extends Controller
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs($aftermath->crew) : null,
             'eligible_masters' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::eligibleMasters($aftermath->crew) : null,
+            'crew_card_choice_options' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::crewCardChoiceOptions($aftermath->crew) : null,
             // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
             // CR) forms from the logged game so the player confirms, not re-enters.
             'prefill' => $this->aftermathPrefill($aftermath),
@@ -657,6 +658,10 @@ class CampaignAftermathController extends Controller
             'advancements.*.totem_name' => ['nullable', 'string', 'max:100'],
             'advancements.*.totem_size' => ['nullable', 'integer', 'min:1', 'max:50'],
             'advancements.*.totem_base' => ['nullable', 'string', 'max:10'],
+            // Crew Card table (pg 17-18): the token/marker/upgrade-type pick a
+            // borrowed effect requires, if any — see StoreLeaderAdvancementRequest.
+            'advancements.*.crew_card_choice' => ['nullable', 'array'],
+            'advancements.*.crew_card_choice.id' => ['nullable'],
         ]);
 
         $aftermath->loadMissing('crew');
@@ -761,6 +766,9 @@ class CampaignAftermathController extends Controller
             // the campaign. Must be another crew in the same campaign.
             'flips.*.traitor_target_crew_id' => ['nullable', 'integer', Rule::exists('campaign_crews', 'id')
                 ->where('campaign_id', $aftermath->campaignGame->campaign_id)],
+            // Optional freeform journal entry for this game (pg n/a — not a
+            // rules mechanic), shown chronologically on the Arsenal Sheet.
+            'story_entry' => ['nullable', 'string', 'max:5000'],
         ]);
 
         $flips = $data['flips'] ?? [];
@@ -784,7 +792,9 @@ class CampaignAftermathController extends Controller
         $game = $aftermath->campaignGame;
         $opponentCrewId = $game->crew_a_id === $aftermath->campaign_crew_id ? $game->crew_b_id : $game->crew_a_id;
 
-        $this->lockAndAdvance($aftermath, 6, function (CampaignAftermath $locked) use ($flips, $opponentCrewId) {
+        $storyEntry = $data['story_entry'] ?? null;
+
+        $this->lockAndAdvance($aftermath, 6, function (CampaignAftermath $locked) use ($flips, $opponentCrewId, $storyEntry) {
             foreach ($flips as $f) {
                 $customCharId = ! empty($f['custom_character_id']) ? (int) $f['custom_character_id'] : null;
                 $arsenalModelId = ! empty($f['arsenal_model_id']) ? (int) $f['arsenal_model_id'] : null;
@@ -911,6 +921,7 @@ class CampaignAftermathController extends Controller
             $locked->update([
                 'current_phase' => 6,
                 'status' => 'locked',
+                'story_entry' => $storyEntry,
             ]);
         });
 
@@ -923,7 +934,14 @@ class CampaignAftermathController extends Controller
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
-        $aftermath->update(['status' => 'locked']);
+        $data = $request->validate([
+            'story_entry' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $aftermath->update([
+            'status' => 'locked',
+            'story_entry' => $data['story_entry'] ?? null,
+        ]);
 
         return redirect()->route('campaigns.crews.arsenal.show', [
             $aftermath->campaignGame->campaign_id, $aftermath->crew->share_code,

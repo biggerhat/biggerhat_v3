@@ -26,10 +26,6 @@ namespace App\Models{
  * @property string|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property int $is_crew_card_effect
- * @property int $requires_token_choice
- * @property int $requires_marker_choice
- * @property int $requires_upgrade_type_choice
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Upgrade> $characterUpgrades
  * @property-read int|null $character_upgrades_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Character> $characters
@@ -52,11 +48,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereGameModeType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereIsCrewCardEffect($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresMarkerChoice($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresTokenChoice($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereRequiresUpgradeTypeChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereSuits($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Ability whereUpdatedAt($value)
@@ -605,6 +597,7 @@ namespace App\Models\Campaign{
  * @property array<int, array{phase: int, used_for: string, notes: string, at: string}>|null $hand_used
  * @property int $scrip_earned
  * @property string $status
+ * @property string|null $story_entry
  * @property-read CampaignGame $campaignGame
  * @property-read CampaignCrew $crew
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -622,6 +615,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereScripEarned($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereStoryEntry($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -688,10 +682,12 @@ namespace App\Models\Campaign{
 
 namespace App\Models\Campaign{
 /**
- * Pivot row: one injury upgrade attached to one arsenal model (pg 34). A model
- * may hold up to two injuries; the third (distinct) injury annihilates it. The
- * same injury is never stacked twice on one model — a duplicate flip is ignored
- * ("the model got lucky and suffers no injury this game").
+ * Pivot row: one injury upgrade attached to one arsenal model, or to a
+ * Leader/Totem (pg 34). A model may hold up to two injuries; the third
+ * (distinct) injury annihilates it. The same injury is never stacked twice
+ * on one model — a duplicate flip is ignored ("the model got lucky and
+ * suffers no injury this game"). Exactly one of campaign_arsenal_model_id /
+ * custom_character_id is set per row.
  *
  * @property int $id
  * @property int|null $campaign_arsenal_model_id
@@ -701,6 +697,7 @@ namespace App\Models\Campaign{
  * @property \Carbon\CarbonImmutable $created_at
  * @property \Carbon\CarbonImmutable $updated_at
  * @property-read CampaignArsenalModel $arsenalModel
+ * @property-read CustomCharacter|null $customCharacter
  * @property-read Upgrade|null $injury
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModelInjury newQuery()
@@ -789,6 +786,7 @@ namespace App\Models\Campaign{
  * @property int $id
  * @property string $name
  * @property string|null $description
+ * @property int|null $master_id the master this card is actually printed on (nullable — some rows are generic/unassigned)
  * @property bool $requires_token_choice
  * @property bool $requires_marker_choice
  * @property bool $requires_upgrade_type_choice
@@ -797,6 +795,7 @@ namespace App\Models\Campaign{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
+ * @property-read Character|null $master
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
@@ -807,6 +806,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereMasterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresMarkerChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresTokenChoice($value)
@@ -830,6 +830,7 @@ namespace App\Models\Campaign{
  * @property int $campaign_crew_id
  * @property int $crew_card_effect_id
  * @property int|null $source_master_id
+ * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property int|null $acquired_aftermath_id
  * @property-read CampaignCrew $crew
  * @property-read CampaignCrewCard $crewCardEffect
@@ -844,6 +845,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereAcquiredAftermathId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCampaignCrewId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardEffectId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterId($value)
@@ -1517,6 +1519,8 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $campaignTotemActions
  * @property-read int|null $campaign_totem_actions_count
  * @property-read string $faction_color
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Campaign\CampaignArsenalModelInjury> $injuries
+ * @property-read int|null $injuries_count
  * @property-read \App\Models\User $user
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter newQuery()

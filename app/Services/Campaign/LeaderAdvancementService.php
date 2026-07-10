@@ -11,12 +11,14 @@ use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
+use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -94,9 +96,8 @@ class LeaderAdvancementService
                 }
 
                 $catalogId = $a['catalog_id'] ?? null;
-                $flipValue = $a['flip_value'] ?? null;
-                if ($catalogId === null || $flipValue === null) {
-                    return 'Totem Advancement requires both a totem choice and the flipped value.';
+                if ($catalogId === null) {
+                    return 'Totem Advancement requires a totem choice.';
                 }
                 $template = CustomCharacter::query()
                     ->where('is_campaign_totem_template', true)
@@ -104,9 +105,6 @@ class LeaderAdvancementService
                     ->first();
                 if (! $template) {
                     return 'Selected Totem is not a recognized template.';
-                }
-                if ((int) $template->campaign_totem_flip_value !== (int) $flipValue) {
-                    return 'Totem Advancement requires an exact flip-value match — chosen totem does not match the flip.';
                 }
             }
 
@@ -166,6 +164,25 @@ class LeaderAdvancementService
                 }
             }
 
+            // Ability target resolution (pg 44-51): applies to the Leader
+            // (default) or the crew's current Totem — same routing as
+            // Attack/Tactical Mod, minus the per-action Skl range check
+            // (an Ability isn't attached to a specific existing action).
+            if ($table === AdvancementTableEnum::Ability) {
+                $appliedToCustomCharacterId = $a['applied_to_custom_character_id'] ?? null;
+                if ($appliedToCustomCharacterId !== null) {
+                    $totemExists = CustomCharacter::query()
+                        ->whereKey($appliedToCustomCharacterId)
+                        ->where('campaign_crew_id', $leader->campaign_crew_id)
+                        ->where('is_campaign_totem', true)
+                        ->where('current', true)
+                        ->exists();
+                    if (! $totemExists) {
+                        return "Selected Totem doesn't belong to this crew.";
+                    }
+                }
+            }
+
             // Any Joker (Action/Ability, pg 49/51): "choose any action/ability on
             // a non-totem, non-master model that shares a keyword with your
             // leader with a cost of 10 or less." Verified authoritatively
@@ -201,10 +218,14 @@ class LeaderAdvancementService
 
             // Tier-4 Crew Card (pg 32, 54): "an effect granted by any crew
             // card associated with a master that has a keyword this crew
-            // chose." The source master is submitted via free_choice, same
-            // shape as Any Joker.
+            // chose." When the catalog row itself is tied to a master
+            // (master_id), that's authoritative — the client can't submit a
+            // mismatched "borrowed from" master for someone else's card.
+            // Only a generic (master_id null) row still needs the client to
+            // name its source master.
             if ($table === AdvancementTableEnum::CrewCard && $catalogId !== null) {
-                $sourceMasterId = $a['free_choice']['source_character_id'] ?? null;
+                $crewCardForSource = CampaignCrewCard::find($catalogId);
+                $sourceMasterId = $crewCardForSource->master_id ?? ($a['free_choice']['source_character_id'] ?? null);
                 if ($sourceMasterId === null) {
                     return 'Crew Card Advancement requires naming the master this effect is borrowed from.';
                 }
@@ -227,6 +248,25 @@ class LeaderAdvancementService
                         ->exists();
                 if ($alreadyHeld) {
                     return 'This crew already holds that Crew Card effect.';
+                }
+
+                // A borrowed effect that itself requires a token/marker/upgrade
+                // choice (pg 17-18) must pick from the same constrained pool
+                // Starting Arsenal uses, scoped to this crew's keywords.
+                $crewCard = CampaignCrewCard::find($catalogId);
+                $requiredChoiceType = match (true) {
+                    (bool) $crewCard?->requires_token_choice => 'token',
+                    (bool) $crewCard?->requires_marker_choice => 'marker',
+                    (bool) $crewCard?->requires_upgrade_type_choice => 'upgrade',
+                    default => null,
+                };
+                if ($requiredChoiceType !== null) {
+                    $crew = CampaignCrew::find($leader->campaign_crew_id);
+                    $options = $crew ? AftermathCatalog::crewCardChoiceOptions($crew)[$requiredChoiceType.'s'] : [];
+                    $picked = collect($options)->firstWhere('id', $a['crew_card_choice']['id'] ?? null);
+                    if (! $picked) {
+                        return 'This crew card requires choosing a '.$requiredChoiceType.' from a crew card of a master sharing your keywords.';
+                    }
                 }
             }
         }
@@ -375,14 +415,20 @@ class LeaderAdvancementService
                 AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
                     ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
                     : null,
-                AdvancementTableEnum::Ability => $advancementRow instanceof AdvancementAbility
-                    ? $this->applyAdvancementAbility($leader, $advancementRow, $freeChoice)
+                AdvancementTableEnum::Ability => ($targetCharacter && $advancementRow instanceof AdvancementAbility)
+                    ? $this->applyAdvancementAbility($targetCharacter, $advancementRow, $freeChoice)
                     : null,
                 AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => ($targetCharacter && ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod))
                     ? $this->applyAdvancementModifier($targetCharacter, $advancementRow, $actionIndex)
                     : null,
                 AdvancementTableEnum::CrewCard => $catalogId
-                    ? $this->applyCrewCardAdvancement($leader, $catalogId, $freeChoice, $sourceAftermathId)
+                    ? $this->applyCrewCardAdvancement(
+                        $leader,
+                        $catalogId,
+                        $freeChoice,
+                        $sourceAftermathId,
+                        is_array($a['crew_card_choice'] ?? null) ? $a['crew_card_choice'] : null,
+                    )
                     : null,
                 default => null,
             };
@@ -395,19 +441,57 @@ class LeaderAdvancementService
      * CampaignCrewCardAdvancement.
      *
      * @param  array<string, mixed>|null  $freeChoice
+     * @param  array<string, mixed>|null  $crewCardChoiceInput
      */
-    private function applyCrewCardAdvancement(CustomCharacter $leader, int $catalogId, ?array $freeChoice, ?int $sourceAftermathId): void
-    {
+    private function applyCrewCardAdvancement(
+        CustomCharacter $leader,
+        int $catalogId,
+        ?array $freeChoice,
+        ?int $sourceAftermathId,
+        ?array $crewCardChoiceInput,
+    ): void {
         if ($leader->campaign_crew_id === null) {
             return;
         }
 
+        $crewCard = CampaignCrewCard::find($catalogId);
+
         CampaignCrewCardAdvancement::create([
             'campaign_crew_id' => $leader->campaign_crew_id,
             'crew_card_effect_id' => $catalogId,
-            'source_master_id' => $freeChoice['source_character_id'] ?? null,
+            'source_master_id' => $crewCard->master_id ?? ($freeChoice['source_character_id'] ?? null),
+            'crew_card_choice' => $this->resolveCrewCardChoice($leader->campaign_crew_id, $catalogId, $crewCardChoiceInput),
             'acquired_aftermath_id' => $sourceAftermathId,
         ]);
+    }
+
+    /**
+     * Re-resolves the picked token/marker/upgrade-type against the
+     * constrained pool (validate() already confirmed it's valid) so the
+     * persisted row stores the canonical { type, id, name } shape, not raw
+     * client input.
+     *
+     * @param  array<string, mixed>|null  $input
+     * @return array{type: string, id: int|string, name: string}|null
+     */
+    private function resolveCrewCardChoice(int $campaignCrewId, int $catalogId, ?array $input): ?array
+    {
+        $crewCard = CampaignCrewCard::find($catalogId);
+        $requiredType = match (true) {
+            (bool) $crewCard?->requires_token_choice => 'token',
+            (bool) $crewCard?->requires_marker_choice => 'marker',
+            (bool) $crewCard?->requires_upgrade_type_choice => 'upgrade',
+            default => null,
+        };
+        if ($requiredType === null) {
+            return null;
+        }
+
+        $crew = CampaignCrew::find($campaignCrewId);
+        $options = $crew ? AftermathCatalog::crewCardChoiceOptions($crew)[$requiredType.'s'] : [];
+        $picked = collect($options)->firstWhere('id', $input['id'] ?? null);
+
+        return $picked ? ['type' => $requiredType, 'id' => $picked['id'], 'name' => $picked['name']] : null;
     }
 
     private function resolveAdvancementRow(AdvancementTableEnum $table, ?int $catalogId): ?Model
@@ -495,25 +579,29 @@ class LeaderAdvancementService
     }
 
     /**
+     * $target is the Leader (default) or the crew's current Totem when the
+     * advancement was routed there (pg 31) — same routing as Attack/Tactical
+     * Mod.
+     *
      * @param  array<string, mixed>|null  $freeChoice
      */
-    private function applyAdvancementAbility(CustomCharacter $leader, AdvancementAbility $row, ?array $freeChoice): void
+    private function applyAdvancementAbility(CustomCharacter $target, AdvancementAbility $row, ?array $freeChoice): void
     {
         if ($row->is_joker) {
             if (isset($freeChoice['source_id'])) {
-                $this->applyAbilityToLeader($leader, (int) $freeChoice['source_id']);
+                $this->applyAbilityToTarget($target, (int) $freeChoice['source_id']);
             }
 
             return;
         }
 
         if ($row->ability_id) {
-            $this->applyAbilityToLeader($leader, $row->ability_id);
+            $this->applyAbilityToTarget($target, $row->ability_id);
 
             return;
         }
 
-        $abilities = $leader->abilities ?? [];
+        $abilities = $target->abilities ?? [];
         $abilities[] = [
             'name' => $row->talent_name,
             'suits' => $row->suits,
@@ -522,8 +610,8 @@ class LeaderAdvancementService
             'description' => $row->effect_text,
             'source_id' => $row->id,
         ];
-        $leader->abilities = $abilities;
-        $leader->save();
+        $target->abilities = $abilities;
+        $target->save();
     }
 
     /**
@@ -655,14 +743,14 @@ class LeaderAdvancementService
         $leader->save();
     }
 
-    private function applyAbilityToLeader(CustomCharacter $leader, int $abilityId): void
+    private function applyAbilityToTarget(CustomCharacter $target, int $abilityId): void
     {
         $ability = Ability::find($abilityId);
         if (! $ability) {
             return;
         }
 
-        $abilities = $leader->abilities ?? [];
+        $abilities = $target->abilities ?? [];
         $abilities[] = [
             'name' => $ability->name,
             'suits' => $ability->suits,
@@ -673,8 +761,8 @@ class LeaderAdvancementService
             'description' => $ability->description,
             'source_id' => $ability->id,
         ];
-        $leader->abilities = $abilities;
-        $leader->save();
+        $target->abilities = $abilities;
+        $target->save();
     }
 
     private function applyTriggerToTarget(CustomCharacter $target, int $triggerId, int $actionIndex): void

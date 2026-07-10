@@ -4,6 +4,7 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
 import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
@@ -54,6 +55,18 @@ interface CampaignArsenalModel {
     is_peon: boolean;
 }
 
+interface CampaignOwnedEquipment {
+    id: number;
+    name: string;
+    slug: string;
+    front_image: string | null;
+    back_image: string | null;
+    type: string | null;
+    plentiful: number;
+    power_bar_count: number | null;
+    description: string | null;
+}
+
 const props = defineProps<{
     game: GameData;
     myCrews: CrewOption[];
@@ -63,6 +76,7 @@ const props = defineProps<{
     isSolo: boolean;
     isCampaign: boolean;
     campaignArsenal: CampaignArsenalModel[];
+    campaignOwnedEquipment: CampaignOwnedEquipment[];
     submitting: boolean;
     mySlot: number;
     opponentSlot: number;
@@ -74,8 +88,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     /** Select a saved crew (parent owns the POST + reload). Body carries crew_build_id + slot. */
     confirm: [body: Record<string, unknown>];
-    /** Campaign games: confirm with selected arsenal character IDs. */
-    'confirm-campaign-crew': [characterIds: number[]];
+    /** Campaign games: confirm with selected arsenal character IDs + optional equipment assignments (pg 19). */
+    'confirm-campaign-crew': [characterIds: number[], equipmentAssignments: { equipment_id: number; target: string }[]];
     /** Skip the opponent's crew in solo setup, optionally locking in their title first. */
     'skip-opponent-crew': [titleDisplayName: string | null];
 }>();
@@ -167,7 +181,47 @@ const campaignTotalCost = computed(() =>
     }, 0),
 );
 const campaignOverBudget = computed(() => campaignTotalCost.value > props.game.encounter_size);
-const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalIds.value);
+
+// Equipment assignment (pg 19): optional, one slot per owned copy. Value is
+// '__none__' (unassigned), 'leader', or a selected arsenal character_id as a string.
+const equipmentTargets = ref<Record<string, string>>({});
+interface EquipmentSlot {
+    key: string;
+    equipmentId: number;
+    name: string;
+    copyLabel: string | null;
+}
+const equipmentSlots = computed<EquipmentSlot[]>(() =>
+    props.campaignOwnedEquipment.flatMap((e) =>
+        Array.from({ length: e.plentiful }, (_, i) => ({
+            key: `${e.id}:${i}`,
+            equipmentId: e.id,
+            name: e.name,
+            copyLabel: e.plentiful > 1 ? `copy ${i + 1}/${e.plentiful}` : null,
+        })),
+    ),
+);
+const equipmentTargetOptions = computed(() => [
+    { value: 'leader', label: 'Leader' },
+    ...selectedArsenalIds.value.map((id) => ({
+        value: String(id),
+        label: props.campaignArsenal.find((a) => a.character_id === id)?.name ?? `#${id}`,
+    })),
+]);
+// Drop any assignment whose target was deselected from the crew.
+watch(selectedArsenalIds, () => {
+    const validTargets = new Set(['__none__', 'leader', ...selectedArsenalIds.value.map(String)]);
+    for (const key of Object.keys(equipmentTargets.value)) {
+        if (!validTargets.has(equipmentTargets.value[key])) equipmentTargets.value[key] = '__none__';
+    }
+});
+
+const confirmCampaignCrew = () => {
+    const equipmentAssignments = equipmentSlots.value
+        .map((slot) => ({ equipment_id: slot.equipmentId, target: equipmentTargets.value[slot.key] ?? '__none__' }))
+        .filter((a) => a.target !== '__none__');
+    emit('confirm-campaign-crew', selectedArsenalIds.value, equipmentAssignments);
+};
 </script>
 
 <template>
@@ -258,6 +312,32 @@ const confirmCampaignCrew = () => emit('confirm-campaign-crew', selectedArsenalI
                     </div>
                 </div>
                 <div v-else class="py-6 text-center text-sm text-muted-foreground">No models in your campaign arsenal yet.</div>
+
+                <!-- Owned equipment: optional assignment to the Leader or a hired model (pg 19) -->
+                <div v-if="equipmentSlots.length" class="mt-4 border-t pt-3">
+                    <p class="mb-2 text-xs font-medium text-muted-foreground">Assign owned equipment (optional):</p>
+                    <div class="space-y-1.5">
+                        <div v-for="slot in equipmentSlots" :key="slot.key" class="flex items-center justify-between gap-2 text-sm">
+                            <span class="min-w-0 truncate"
+                                >{{ slot.name }} <span v-if="slot.copyLabel" class="text-xs text-muted-foreground">({{ slot.copyLabel }})</span>
+                            </span>
+                            <Select
+                                :model-value="equipmentTargets[slot.key] ?? '__none__'"
+                                @update:model-value="(v) => (equipmentTargets[slot.key] = v as string)"
+                            >
+                                <SelectTrigger class="h-8 w-40 shrink-0 text-xs">
+                                    <SelectValue placeholder="Unassigned" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Unassigned</SelectItem>
+                                    <SelectItem v-for="opt in equipmentTargetOptions" :key="opt.value" :value="opt.value">
+                                        {{ opt.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
             </template>
 
             <!-- Standard: saved crew builds picker -->

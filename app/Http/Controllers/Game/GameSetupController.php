@@ -282,6 +282,11 @@ class GameSetupController extends Controller
         $validated = $request->validate([
             'character_ids' => ['present', 'array'],
             'character_ids.*' => ['integer', 'exists:characters,id'],
+            // Owned equipment (pg 19) optionally attached to a specific hire
+            // (or the Leader) at selection time, instead of only during play.
+            'equipment_assignments' => ['nullable', 'array'],
+            'equipment_assignments.*.equipment_id' => ['required', 'integer'],
+            'equipment_assignments.*.target' => ['required', 'string'],
         ]);
 
         $characterIds = array_map('intval', $validated['character_ids']);
@@ -339,9 +344,14 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Build your campaign leader before selecting crew'], 422);
         }
 
-        DB::transaction(function () use ($player, $game, $characterIds) {
+        $equipmentByTarget = $this->resolveEquipmentAssignments($campaignCrew, $characterIds, $validated['equipment_assignments'] ?? []);
+        if (is_string($equipmentByTarget)) {
+            return response()->json(['error' => $equipmentByTarget], 422);
+        }
+
+        DB::transaction(function () use ($player, $game, $characterIds, $equipmentByTarget) {
             $player->update(['crew_skipped' => true]);
-            $this->copyCrewToGame($game, $player, null, $characterIds);
+            $this->copyCrewToGame($game, $player, null, $characterIds, $equipmentByTarget);
 
             $totalSpent = GameCrewMember::where('game_id', $game->id)
                 ->where('game_player_id', $player->id)
@@ -623,7 +633,11 @@ class GameSetupController extends Controller
         return $player;
     }
 
-    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild, array $campaignCharacterIds = []): void
+    /**
+     * @param  array<int, int>  $campaignCharacterIds
+     * @param  array<string, array<int, array<string, mixed>>>  $equipmentByTarget  keyed by 'leader' or a character_id
+     */
+    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild, array $campaignCharacterIds = [], array $equipmentByTarget = []): void
     {
         // Delete existing crew members for this player (in case of re-selection)
         GameCrewMember::where('game_id', $game->id)
@@ -682,9 +696,12 @@ class GameSetupController extends Controller
                     'back_image' => null,
                     'is_custom' => true,
                     // Injuries (pg 34) are permanent and "must always be attached
-                    // to the model when it is hired" — carried over every game,
-                    // not an optional pick like equipment.
-                    'attached_upgrades' => $this->injuryUpgrades('custom_character_id', $campaignLeader->id),
+                    // to the model when it is hired" — carried over every game.
+                    // Equipment (pg 19) is an optional pick made at CrewSelect.
+                    'attached_upgrades' => array_merge(
+                        $this->injuryUpgrades('custom_character_id', $campaignLeader->id),
+                        $equipmentByTarget['leader'] ?? [],
+                    ),
                     'attached_tokens' => [],
                     'attached_markers' => [],
                     'sort_order' => $sortOrder++,
@@ -761,8 +778,9 @@ class GameSetupController extends Controller
 
                 $arsenalModel = $arsenalModelsByCharacterId->get($charId);
                 $injuryUpgrades = $arsenalModel ? $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id) : [];
+                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$charId] ?? []);
 
-                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes, $injuryUpgrades);
+                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes, $attachedUpgrades);
             }
 
             return;
@@ -865,6 +883,57 @@ class GameSetupController extends Controller
     }
 
     /**
+     * Validates + resolves equipment_assignments into a target => [attached
+     * upgrade entries] map ready to merge into GameCrewMember.attached_upgrades
+     * (pg 19: "any equipment in your arsenal may be attached to any model in
+     * your crew... without cost"). Returns an error string instead of the map
+     * if any assignment is invalid.
+     *
+     * @param  array<int, int>  $characterIds
+     * @param  array<int, array{equipment_id: int, target: string}>  $assignments
+     * @return array<string, array<int, array<string, mixed>>>|string
+     */
+    private function resolveEquipmentAssignments(\App\Models\Campaign\CampaignCrew $crew, array $characterIds, array $assignments): array|string
+    {
+        if (empty($assignments)) {
+            return [];
+        }
+
+        $owned = collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($crew))->keyBy('id');
+        $usedCounts = [];
+        $byTarget = [];
+
+        foreach ($assignments as $a) {
+            $equipmentId = (int) $a['equipment_id'];
+            $target = $a['target'] === 'leader' ? 'leader' : (int) $a['target'];
+
+            $entry = $owned->get($equipmentId);
+            if (! $entry) {
+                return "One or more assigned equipment pieces aren't in your crew's owned equipment.";
+            }
+
+            if ($target !== 'leader' && ! in_array($target, $characterIds, true)) {
+                return 'Equipment can only be assigned to the Leader or a model you\'re hiring this game.';
+            }
+
+            $usedCounts[$equipmentId] = ($usedCounts[$equipmentId] ?? 0) + 1;
+            if ($usedCounts[$equipmentId] > $entry['plentiful']) {
+                return "You don't own enough copies of {$entry['name']} for that many assignments.";
+            }
+
+            $byTarget[$target][] = [
+                'id' => $entry['id'],
+                'name' => $entry['name'],
+                'front_image' => $entry['front_image'],
+                'back_image' => $entry['back_image'],
+                'description' => $entry['description'],
+            ];
+        }
+
+        return $byTarget;
+    }
+
+    /**
      * Injury upgrades (pg 34) attached to a specific arsenal model or
      * leader/totem, shaped to drop straight into a GameCrewMember's
      * `attached_upgrades`. Unlike equipment these are permanent and carried
@@ -876,7 +945,7 @@ class GameSetupController extends Controller
     {
         return \App\Models\Campaign\CampaignArsenalModelInjury::query()
             ->where($column, $id)
-            ->with('injury:id,name,front_image,back_image')
+            ->with('injury:id,name,front_image,back_image,description')
             ->get()
             ->pluck('injury')
             ->filter()
@@ -885,6 +954,7 @@ class GameSetupController extends Controller
                 'name' => $u->name,
                 'front_image' => $u->front_image,
                 'back_image' => $u->back_image,
+                'description' => $u->description,
             ])
             ->values()
             ->all();

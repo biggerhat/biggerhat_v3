@@ -6,7 +6,6 @@ use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
-use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
 use App\Models\Campaign\Campaign;
@@ -15,7 +14,7 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Character;
 use App\Models\CustomUpgrade;
-use App\Models\Upgrade;
+use App\Support\Campaign\AftermathCatalog;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use App\Traits\Campaign\HiresTitledModelGroup;
 use Illuminate\Http\Request;
@@ -65,7 +64,7 @@ class StartingArsenalController extends Controller
             // Constrained pool for crew cards that require a token/marker/upgrade
             // choice (pg 17): items listed on a crew card belonging to a master
             // sharing either of the crew's keywords.
-            'crew_card_choice_options' => fn () => $this->crewCardChoiceOptions($crew),
+            'crew_card_choice_options' => fn () => AftermathCatalog::crewCardChoiceOptions($crew),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
             'locked' => $campaign->status !== CampaignStatusEnum::Planning,
@@ -158,7 +157,7 @@ class StartingArsenalController extends Controller
         };
         $crewCardChoice = null;
         if ($requiredType !== null) {
-            $options = $this->crewCardChoiceOptions($crew)[$requiredType.'s'];
+            $options = AftermathCatalog::crewCardChoiceOptions($crew)[$requiredType.'s'];
             $picked = collect($options)->firstWhere('id', $data['crew_card_choice']['id'] ?? null);
             if (! $picked) {
                 return redirect()->back()->withMessage(
@@ -368,72 +367,5 @@ class StartingArsenalController extends Controller
                         ->orWhere('faction', $crew->faction->value);
                 });
             });
-    }
-
-    /**
-     * Options for a crew-card choice (pg 17-18).
-     *
-     * Tokens/markers: items listed on crew-card upgrades belonging to a master
-     * sharing the crew's keywords.
-     *
-     * Upgrade types (pg 18 "Specialized Tools"): every distinct upgrade type
-     * listed on any master, totem, or crew card belonging to either keyword.
-     * Concretely — character-domain Upgrade records attached (via the
-     * `upgradeables` pivot) to those masters/totems, PLUS the type carried by
-     * crew-card Upgrades sharing the keywords.
-     *
-     * @return array{tokens: list<array{id:int,name:string}>, markers: list<array{id:int,name:string}>, upgrades: list<array{id:string,name:string}>}
-     */
-    private function crewCardChoiceOptions(CampaignCrew $crew): array
-    {
-        $keywordIds = array_filter([$crew->keyword_1_id, $crew->keyword_2_id]);
-        if (empty($keywordIds)) {
-            return ['tokens' => [], 'markers' => [], 'upgrades' => []];
-        }
-
-        // Crew-card upgrades (crew-domain) associated with the keywords —
-        // used for tokens, markers, and crew-card upgrade types.
-        $crewCards = Upgrade::query()
-            ->forCrews()
-            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-            ->with(['tokens:id,name', 'markers:id,name'])
-            ->get(['id', 'name', 'type']);
-
-        // Masters belonging to either keyword.
-        $masters = Character::query()
-            ->where('station', CharacterStationEnum::Master->value)
-            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-            ->get(['id', 'has_totem_id']);
-
-        $masterIds = $masters->pluck('id');
-        $totemIds = $masters->pluck('has_totem_id')->filter();
-        $characterIds = $masterIds->merge($totemIds)->unique()->values();
-
-        // Character-domain Upgrade records attached to those masters/totems.
-        $characterUpgradeTypes = collect();
-        if ($characterIds->isNotEmpty()) {
-            $characterUpgradeTypes = Upgrade::query()
-                ->forCharacters()
-                ->whereNotNull('type')
-                ->whereHas('characters', fn ($q) => $q->whereIn('characters.id', $characterIds))
-                ->pluck('type'); // already cast to UpgradeTypeEnum
-        }
-
-        $shape = fn ($row) => ['id' => $row->id, 'name' => $row->name];
-
-        // Merge types from character upgrades + crew-card upgrades, dedupe.
-        $upgradeTypes = $characterUpgradeTypes
-            ->merge($crewCards->pluck('type')->filter())
-            ->unique(fn (UpgradeTypeEnum $t) => $t->value)
-            ->map(fn (UpgradeTypeEnum $t) => ['id' => $t->value, 'name' => $t->label()])
-            ->sortBy('name')
-            ->values()
-            ->all();
-
-        return [
-            'tokens' => $crewCards->flatMap->tokens->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            'markers' => $crewCards->flatMap->markers->unique('id')->sortBy('name')->map($shape)->values()->all(),
-            'upgrades' => $upgradeTypes,
-        ];
     }
 }

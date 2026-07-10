@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Check } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -108,6 +109,8 @@ const props = defineProps<{
     // Constrained pool for crew cards that require a token/marker/upgrade
     // choice (pg 17-18) — same pool Starting Arsenal uses.
     crew_card_choice_options?: CrewCardChoiceOptions | null;
+    // Phase 6 review screen: a rundown of what Phases 1-5 already committed.
+    phase_summary?: PhaseSummary | null;
 }>();
 
 // Reactive shortcuts so the template can pass the empty default through.
@@ -190,6 +193,25 @@ const submitBarter = () => {
 
 // ───────── Phase 4 (Advance Leader) ─────────
 const advance = () => router.post(route('campaigns.aftermaths.advance', props.aftermath.id));
+
+// Undoes the previous phase's writes and steps current_phase back by one.
+// Reversible through Phase 6 (undoing Phase 5, Back-Alley Doctor) while the
+// Aftermath is still open — Phase 6's own submit is what locks it, and the
+// review sub-step below is the guard against a mistake there instead.
+const confirmDialog = useConfirm();
+const canGoBack = computed(() => props.aftermath.current_phase > 1 && props.aftermath.current_phase <= 6 && props.aftermath.status !== 'locked');
+const goBackAPhase = async () => {
+    if (
+        !(await confirmDialog({
+            title: 'Go back a phase',
+            message: 'This undoes what the previous phase recorded (scrip, purchases, etc.) so you can redo it. Continue?',
+            destructive: true,
+        }))
+    ) {
+        return;
+    }
+    router.post(route('campaigns.aftermaths.back', props.aftermath.id));
+};
 
 interface XpBox {
     index: number;
@@ -282,6 +304,14 @@ interface CrewCardChoiceOptions {
     tokens: ChoiceOption[];
     markers: ChoiceOption[];
     upgrades: ChoiceOption[];
+}
+interface PhaseSummary {
+    hand_size: number | null;
+    scrip_earned: number;
+    barter: Array<{ name: string; cc: number }>;
+    barter_total_cc: number;
+    advancements: Array<{ table: string; name: string }>;
+    doctor_attempts: Array<{ target: string; outcome: string }>;
 }
 interface AdvancementCatalogs {
     attack_mod: CatalogRow[];
@@ -804,6 +834,23 @@ const traitorTargetCrews = computed<TraitorCrewRow[]>(() => props.traitor_target
 // chronologically on the Arsenal Sheet.
 const storyEntry = ref('');
 
+// Phase 6 has two client-side sub-steps so nothing locks the Aftermath until
+// the player has seen a full rundown and explicitly confirmed — 'flips' is
+// the existing injury picker, 'review' is a summary of everything Phases 1-5
+// already committed plus this phase's not-yet-submitted draft.
+const phase6Step = ref<'flips' | 'review'>('flips');
+
+// Human-readable label for a pending injury-flip entry, for the review list.
+const injuryFlipSummary = (f: InjuryEntry): string => {
+    if (f.is_black_joker) return 'Black Joker — Traitor (defects)';
+    if (f.is_red_joker) {
+        return f.lucky_miss_is_joker ? 'Red Joker — Lucky Miss (Doppelganger)' : `Red Joker — Lucky Miss (flip ${f.lucky_miss_flip_value})`;
+    }
+    const injury = injury_catalog.value.find((i) => i.id === f.injury_upgrade_id);
+
+    return injury?.name ?? '— no injury picked —';
+};
+
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
         flips: injuryFlips.value,
@@ -939,7 +986,10 @@ const finalize = () =>
                         </label>
                     </div>
                 </div>
-                <Button :disabled="!is_owner" @click="submitPayday">Confirm &amp; advance</Button>
+                <div class="flex justify-end gap-2">
+                    <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <Button :disabled="!is_owner" @click="submitPayday">Confirm &amp; advance</Button>
+                </div>
             </CardContent>
         </Card>
 
@@ -997,9 +1047,12 @@ const finalize = () =>
                         Total:
                         <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                     </span>
-                    <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
-                    </Button>
+                    <div class="flex gap-2">
+                        <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                        <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
+                            {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -1522,6 +1575,7 @@ const finalize = () =>
                 </fieldset>
 
                 <div class="flex justify-end gap-2">
+                    <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
                     <Button :disabled="!is_owner" @click="submitAdvanceLeader">Confirm Advancements &amp; advance</Button>
                 </div>
@@ -1600,14 +1654,15 @@ const finalize = () =>
                     </ul>
                 </div>
 
-                <div class="flex justify-end">
+                <div class="flex justify-end gap-2">
+                    <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
                 </div>
             </CardContent>
         </Card>
 
-        <!-- Phase 6 -->
-        <Card v-if="aftermath.current_phase === 6" class="mb-4">
+        <!-- Phase 6 — flips sub-step -->
+        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'flips'" class="mb-4">
             <CardHeader>
                 <CardTitle>Phase 6 — Determine Injuries</CardTitle>
                 <p class="text-sm text-muted-foreground">
@@ -1709,6 +1764,63 @@ const finalize = () =>
                     </ul>
                 </div>
 
+                <div class="flex justify-end gap-2">
+                    <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <Button :disabled="!is_owner" @click="phase6Step = 'review'">Review &amp; continue →</Button>
+                </div>
+            </CardContent>
+        </Card>
+
+        <!-- Phase 6 — review sub-step: nothing here is persisted until "Lock it in" -->
+        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'review'" class="mb-4 border-primary/50">
+            <CardHeader>
+                <CardTitle>Review before locking</CardTitle>
+                <p class="text-sm text-muted-foreground">
+                    Double-check everything below — this is your last chance to fix a mistake before the Aftermath locks.
+                </p>
+            </CardHeader>
+            <CardContent class="space-y-4">
+                <div v-if="phase_summary" class="space-y-2 rounded-md border p-3 text-sm">
+                    <p class="text-xs font-medium uppercase text-muted-foreground">Phases 1–5</p>
+                    <p>
+                        Aftermath hand: <span class="font-medium">{{ phase_summary.hand_size ?? 'skipped' }}</span>
+                    </p>
+                    <p>
+                        Scrip earned: <span class="font-medium">{{ phase_summary.scrip_earned }}</span>
+                    </p>
+                    <p>
+                        Barter:
+                        <span v-if="phase_summary.barter.length" class="font-medium"
+                            >{{ phase_summary.barter.map((b) => b.name).join(', ') }} ({{ phase_summary.barter_total_cc }} cc)</span
+                        >
+                        <span v-else class="font-medium">nothing bought</span>
+                    </p>
+                    <p>
+                        Advancements:
+                        <span v-if="phase_summary.advancements.length" class="font-medium">{{
+                            phase_summary.advancements.map((a) => `${a.table}: ${a.name}`).join(', ')
+                        }}</span>
+                        <span v-else class="font-medium">none taken</span>
+                    </p>
+                    <p>
+                        Doctor:
+                        <span v-if="phase_summary.doctor_attempts.length" class="font-medium">{{
+                            phase_summary.doctor_attempts.map((d) => `${d.target} — ${d.outcome}`).join(', ')
+                        }}</span>
+                        <span v-else class="font-medium">no attempts</span>
+                    </p>
+                </div>
+
+                <div class="space-y-2 rounded-md border p-3 text-sm">
+                    <p class="text-xs font-medium uppercase text-muted-foreground">Phase 6 — Determine Injuries (not yet saved)</p>
+                    <p v-if="!injuryFlips.length" class="font-medium">No injuries recorded.</p>
+                    <ul v-else class="space-y-1">
+                        <li v-for="(f, idx) in injuryFlips" :key="idx">
+                            <span class="font-medium">{{ modelDisplayName(f) }}</span> — {{ injuryFlipSummary(f) }}
+                        </li>
+                    </ul>
+                </div>
+
                 <div>
                     <Label for="story_entry" class="text-xs text-muted-foreground">Story entry (optional)</Label>
                     <Textarea
@@ -1720,8 +1832,9 @@ const finalize = () =>
                     />
                 </div>
 
-                <div class="flex justify-end">
-                    <Button :disabled="!is_owner" @click="submitInjuries">Apply &amp; finalize</Button>
+                <div class="flex items-center justify-between">
+                    <Button variant="ghost" @click="phase6Step = 'flips'">← Back to injuries</Button>
+                    <Button :disabled="!is_owner" @click="submitInjuries">Lock it in</Button>
                 </div>
             </CardContent>
         </Card>

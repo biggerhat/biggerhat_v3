@@ -2,15 +2,11 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderAdvancementRequest;
-use App\Models\Campaign\AdvancementAttackMod;
-use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignCrewCardAdvancement;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\CustomCharacter;
 use App\Services\Campaign\LeaderAdvancementService;
@@ -64,7 +60,7 @@ class LeaderAdvancementController extends Controller
         return redirect()->back()->withMessage('Advancement logged.');
     }
 
-    public function destroy(Request $request, Campaign $campaign, CampaignCrew $crew, CampaignLeaderAdvancement $advancement)
+    public function destroy(Request $request, Campaign $campaign, CampaignCrew $crew, CampaignLeaderAdvancement $advancement, LeaderAdvancementService $service)
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
@@ -73,199 +69,10 @@ class LeaderAdvancementController extends Controller
             abort(403);
         }
 
-        // Totem advancement removal: tear down the crew's active totem so the
-        // next Totem advancement can be taken and crewCardEffect stays in sync.
-        if ($advancement->source_table === AdvancementTableEnum::Totem) {
-            CustomCharacter::query()
-                ->where('campaign_crew_id', $crew->id)
-                ->where('is_campaign_totem', true)
-                ->where('current', true)
-                ->delete();
-        } elseif ($advancement->source_table === AdvancementTableEnum::CrewCard) {
-            // Crew Card advancements stack onto CampaignCrewCardAdvancement,
-            // not the leader's actions/abilities JSON — remove the matching row.
-            $rowId = CampaignCrewCardAdvancement::query()
-                ->where('campaign_crew_id', $crew->id)
-                ->where('crew_card_effect_id', $advancement->advancement_catalog_id)
-                ->latest('id')
-                ->value('id');
-            if ($rowId) {
-                CampaignCrewCardAdvancement::destroy($rowId);
-            }
-        } else {
-            $this->undoAdvancement($leader, $advancement);
-        }
-
+        $service->revertAdvancement($leader, $advancement, $crew);
         $advancement->delete();
 
         return redirect()->back()->withMessage('Advancement removed.');
-    }
-
-    /**
-     * Reverse the mechanical effect that was applied to the leader's card data
-     * when the advancement was first logged (mirror of LeaderAdvancementService).
-     * Removes the first matching entry so duplicate source_ids aren't over-removed.
-     */
-    private function undoAdvancement(CustomCharacter $leader, CampaignLeaderAdvancement $advancement): void
-    {
-        $table = $advancement->source_table;
-        $catalogId = $advancement->catalog_core_id;
-
-        if ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod) {
-            // Equipment-targeted advancements never mutated any actions[] —
-            // equipment has no per-instance one to mutate, so the record being
-            // deleted (by the caller, right after this returns) is the entire
-            // undo; nothing mechanical to reverse.
-            if ($advancement->from_equipment_id !== null) {
-                return;
-            }
-
-            $target = $advancement->applied_to_custom_character_id !== null
-                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
-                : $leader;
-            if (! $target) {
-                return;
-            }
-
-            $idx = $advancement->applied_to_action_index;
-            if ($idx < 0) {
-                return;
-            }
-
-            $modifierType = $this->modifierTypeFor($table, $advancement->advancement_catalog_id);
-
-            if ($modifierType === 'skl_boost') {
-                $this->undoSklBoost($target, $advancement->applied_skl_from, $idx);
-
-                return;
-            }
-
-            if ($modifierType === 'signature') {
-                $this->undoSignature($target, $idx);
-
-                return;
-            }
-
-            if ($catalogId === null) {
-                return;
-            }
-            $actions = $target->actions ?? [];
-            if (! isset($actions[$idx])) {
-                return;
-            }
-            $removed = false;
-            $actions[$idx]['triggers'] = array_values(array_filter(
-                $actions[$idx]['triggers'] ?? [],
-                function (array $t) use ($catalogId, &$removed): bool {
-                    if (! $removed && ($t['source_id'] ?? null) === $catalogId) {
-                        $removed = true;
-
-                        return false;
-                    }
-
-                    return true;
-                }
-            ));
-            $target->actions = $actions;
-            $target->save();
-
-            return;
-        }
-
-        if ($table === AdvancementTableEnum::Action || $table === AdvancementTableEnum::Summoning) {
-            if ($catalogId === null) {
-                return;
-            }
-            $removed = false;
-            $leader->actions = array_values(array_filter(
-                $leader->actions ?? [],
-                function (array $a) use ($catalogId, &$removed): bool {
-                    if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
-                        $removed = true;
-
-                        return false;
-                    }
-
-                    return true;
-                }
-            ));
-            $leader->save();
-
-            return;
-        }
-
-        if ($table === AdvancementTableEnum::Ability) {
-            if ($catalogId === null) {
-                return;
-            }
-            $target = $advancement->applied_to_custom_character_id !== null
-                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
-                : $leader;
-            if (! $target) {
-                return;
-            }
-            $removed = false;
-            $target->abilities = array_values(array_filter(
-                $target->abilities ?? [],
-                function (array $a) use ($catalogId, &$removed): bool {
-                    if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
-                        $removed = true;
-
-                        return false;
-                    }
-
-                    return true;
-                }
-            ));
-            $target->save();
-        }
-    }
-
-    private function modifierTypeFor(AdvancementTableEnum $table, ?int $advancementCatalogId): ?string
-    {
-        if ($advancementCatalogId === null) {
-            return null;
-        }
-
-        return match ($table) {
-            AdvancementTableEnum::AttackMod => AdvancementAttackMod::query()->whereKey($advancementCatalogId)->value('modifier_type'),
-            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::query()->whereKey($advancementCatalogId)->value('modifier_type'),
-            default => null,
-        };
-    }
-
-    /**
-     * Reverts a Skl Boost to the action's actual prior Skl, captured on the
-     * advancement record when it was applied — the catalog row's skl_from is
-     * a qualifying range (e.g. "Skl of 0 or 1"), not necessarily the exact
-     * value the action had, so it can't be used to restore it.
-     */
-    private function undoSklBoost(CustomCharacter $target, ?int $appliedSklFrom, int $actionIndex): void
-    {
-        if ($appliedSklFrom === null) {
-            return;
-        }
-
-        $actions = $target->actions ?? [];
-        if (! isset($actions[$actionIndex])) {
-            return;
-        }
-
-        $actions[$actionIndex]['stat'] = $appliedSklFrom;
-        $target->actions = $actions;
-        $target->save();
-    }
-
-    private function undoSignature(CustomCharacter $target, int $actionIndex): void
-    {
-        $actions = $target->actions ?? [];
-        if (! isset($actions[$actionIndex])) {
-            return;
-        }
-
-        $actions[$actionIndex]['is_signature'] = false;
-        $target->actions = $actions;
-        $target->save();
     }
 
     private function currentLeader(CampaignCrew $crew): ?CustomCharacter

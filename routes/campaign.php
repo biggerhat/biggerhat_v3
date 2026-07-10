@@ -144,6 +144,8 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.aftermaths.barter');
         Route::post('/campaigns/aftermaths/{aftermath}/advance', [CampaignAftermathController::class, 'advance'])
             ->name('campaigns.aftermaths.advance');
+        Route::post('/campaigns/aftermaths/{aftermath}/back', [CampaignAftermathController::class, 'goBack'])
+            ->name('campaigns.aftermaths.back');
         Route::post('/campaigns/aftermaths/{aftermath}/advance-leader', [CampaignAftermathController::class, 'advanceLeader'])
             ->name('campaigns.aftermaths.advance-leader');
         Route::post('/campaigns/aftermaths/{aftermath}/doctor', [CampaignAftermathController::class, 'doctor'])

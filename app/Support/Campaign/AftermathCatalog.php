@@ -3,6 +3,7 @@
 namespace App\Support\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
+use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeTypeEnum;
@@ -13,6 +14,8 @@ use App\Models\Campaign\AdvancementAction;
 use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
+use App\Models\Campaign\CampaignAftermath;
+use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignEquipment;
@@ -554,5 +557,101 @@ class AftermathCatalog
                 ];
             })
             ->all();
+    }
+
+    /**
+     * Phase 6 review-screen rundown of what Phases 1-5 already committed —
+     * those phases persist immediately on submit (see `lockAndAdvance()`),
+     * so this reads back already-written rows rather than trusting client
+     * state. Lets the player sanity-check their picks before the Phase 6
+     * submit locks the whole Aftermath.
+     *
+     * @return array<string, mixed>
+     */
+    public static function phaseSummary(CampaignAftermath $aftermath): array
+    {
+        $barterRows = CampaignEquipment::query()
+            ->where('acquired_aftermath_id', $aftermath->id)
+            ->whereIn('source', ['barter', 'joker'])
+            ->with('catalog:id,name,campaign_cc')
+            ->get();
+
+        $advancementRows = CampaignLeaderAdvancement::query()
+            ->where('source_aftermath_id', $aftermath->id)
+            ->get();
+
+        $doctorRows = DB::table('campaign_aftermath_doctor')
+            ->where('campaign_aftermath_id', $aftermath->id)
+            ->get();
+
+        $arsenalNames = CampaignArsenalModel::query()
+            ->whereIn('id', $doctorRows->pluck('target_arsenal_model_id')->filter()->all())
+            ->with('character:id,display_name')
+            ->get()
+            ->keyBy('id');
+        $customCharNames = CustomCharacter::query()
+            ->whereIn('id', $doctorRows->pluck('target_custom_character_id')->filter()->all())
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
+        return [
+            'hand_size' => $aftermath->hand_drawn['size'] ?? null,
+            'scrip_earned' => (int) $aftermath->scrip_earned,
+            'barter' => $barterRows->map(fn (CampaignEquipment $e) => [
+                'name' => $e->catalog->name ?? 'Unknown item',
+                'cc' => $e->catalog->campaign_cc ?? 0,
+            ])->all(),
+            'barter_total_cc' => (int) $barterRows->sum(fn (CampaignEquipment $e) => $e->catalog->campaign_cc ?? 0),
+            'advancements' => $advancementRows->map(fn (CampaignLeaderAdvancement $row) => [
+                'table' => $row->source_table->label(),
+                'name' => self::advancementDisplayName($row),
+            ])->all(),
+            'doctor_attempts' => $doctorRows->map(fn ($row) => [
+                'target' => $row->target_arsenal_model_id
+                    ? ($arsenalNames->get($row->target_arsenal_model_id)?->character->display_name ?? 'Model')
+                    : ($customCharNames->get($row->target_custom_character_id)->name ?? 'Leader/Totem'),
+                'outcome' => BackAlleyDoctorOutcomeEnum::from($row->outcome)->label(),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Best-effort human name for an advancement pick — `advancement_catalog_id`
+     * points at a different table depending on `source_table`, so this walks
+     * the same per-table shape `LeaderAdvancementService::create()` writes.
+     */
+    private static function advancementDisplayName(CampaignLeaderAdvancement $row): string
+    {
+        $name = match ($row->source_table) {
+            AdvancementTableEnum::AttackMod => AdvancementAttackMod::find($row->advancement_catalog_id)?->name,
+            AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::find($row->advancement_catalog_id)?->name,
+            AdvancementTableEnum::Action => self::advancementActionName($row->advancement_catalog_id),
+            AdvancementTableEnum::Ability => self::advancementAbilityName($row->advancement_catalog_id),
+            AdvancementTableEnum::Totem => CustomCharacter::find($row->advancement_catalog_id)?->name,
+            AdvancementTableEnum::Summoning => Action::find($row->catalog_core_id)?->name,
+            AdvancementTableEnum::CrewCard => CampaignCrewCard::find($row->advancement_catalog_id)?->name,
+        };
+
+        return $name ?? $row->source_table->label();
+    }
+
+    private static function advancementActionName(?int $advancementActionId): ?string
+    {
+        if ($advancementActionId === null) {
+            return null;
+        }
+        $row = AdvancementAction::query()->with('action:id,name')->find($advancementActionId);
+
+        return $row?->action->name ?? $row?->talent_name;
+    }
+
+    private static function advancementAbilityName(?int $advancementAbilityId): ?string
+    {
+        if ($advancementAbilityId === null) {
+            return null;
+        }
+        $row = AdvancementAbility::query()->with('ability:id,name')->find($advancementAbilityId);
+
+        return $row?->ability->name ?? $row?->talent_name;
     }
 }

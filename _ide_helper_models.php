@@ -600,6 +600,7 @@ namespace App\Models\Campaign{
  * @property string|null $story_entry
  * @property-read CampaignGame $campaignGame
  * @property-read CampaignCrew $crew
+ * @property int|null $xp_earned
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @method static \Database\Factories\Campaign\CampaignAftermathFactory factory($count = null, $state = [])
@@ -617,6 +618,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereStoryEntry($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignAftermath whereXpEarned($value)
  * @mixin \Eloquent
  */
 	#[\AllowDynamicProperties]

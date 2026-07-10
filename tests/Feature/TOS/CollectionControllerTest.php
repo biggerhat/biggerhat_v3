@@ -57,6 +57,80 @@ it('updates is_built and is_painted on a single unit sculpt', function () {
     expect((bool) $pivot->is_painted)->toBeTrue();
 });
 
+it('records built_count/painted_count on a Squad unit sculpt', function () {
+    $squadUnit = Unit::factory()->squad(9)->withSides()->create();
+    $squadSculpt = UnitSculpt::factory()->forUnit($squadUnit)->create();
+    $this->user->collectionUnitSculpts()->attach($squadSculpt->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.update_status'), [
+        'unit_sculpt_id' => $squadSculpt->id,
+        'built_count' => 6,
+        'painted_count' => 4,
+    ])->assertRedirect();
+
+    $pivot = $this->user->collectionUnitSculpts()->where('tos_unit_sculpts.id', $squadSculpt->id)->first()->pivot;
+    expect((int) $pivot->built_count)->toBe(6);
+    expect((int) $pivot->painted_count)->toBe(4);
+});
+
+it('clamps built_count/painted_count to the unit\'s squad size', function () {
+    $squadUnit = Unit::factory()->squad(9)->withSides()->create();
+    $squadSculpt = UnitSculpt::factory()->forUnit($squadUnit)->create();
+    $this->user->collectionUnitSculpts()->attach($squadSculpt->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.update_status'), [
+        'unit_sculpt_id' => $squadSculpt->id,
+        'built_count' => 999,
+        'painted_count' => 999,
+    ])->assertRedirect();
+
+    $pivot = $this->user->collectionUnitSculpts()->where('tos_unit_sculpts.id', $squadSculpt->id)->first()->pivot;
+    expect((int) $pivot->built_count)->toBe(9);
+    expect((int) $pivot->painted_count)->toBe(9);
+});
+
+it('zeroes built_count/painted_count for a non-Squad unit even if submitted', function () {
+    $this->user->collectionUnitSculpts()->attach($this->sculpt1->id, ['quantity' => 1]);
+
+    $this->actingAs($this->user)->postJson(route('tos.collection.update_status'), [
+        'unit_sculpt_id' => $this->sculpt1->id,
+        'built_count' => 5,
+    ])->assertRedirect();
+
+    $pivot = $this->user->collectionUnitSculpts()->first()->pivot;
+    expect((int) $pivot->built_count)->toBe(0);
+});
+
+it('exposes squad_size and derives is_built/is_painted from the counts on the collection payload', function () {
+    $squadUnit = Unit::factory()->squad(9)->withSides()->create();
+    $squadSculpt = UnitSculpt::factory()->forUnit($squadUnit)->create();
+    $this->user->collectionUnitSculpts()->attach($squadSculpt->id, [
+        'quantity' => 1, 'built_count' => 9, 'painted_count' => 6,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('tos.collection.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p
+            ->where('collection.0.squad_size', 9)
+            ->where('collection.0.built_count', 9)
+            ->where('collection.0.painted_count', 6)
+            // Fully built (9/9) but not fully painted (6/9).
+            ->where('collection.0.is_built', true)
+            ->where('collection.0.is_painted', false));
+});
+
+it('a non-Squad sculpt has null squad_size and keeps the plain boolean semantics', function () {
+    $this->user->collectionUnitSculpts()->attach($this->sculpt1->id, ['quantity' => 1, 'is_painted' => true]);
+
+    $this->actingAs($this->user)
+        ->get(route('tos.collection.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p
+            ->where('collection.0.squad_size', null)
+            ->where('collection.0.is_painted', true));
+});
+
 it('adds a unit via add-unit, attaching its first sculpt', function () {
     $this->actingAs($this->user)->postJson(route('tos.collection.add_unit'), [
         'unit_id' => $this->unit->id,

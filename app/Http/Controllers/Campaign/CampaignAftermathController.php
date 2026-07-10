@@ -16,6 +16,7 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
+use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\CustomCharacter;
 use App\Models\Upgrade;
@@ -109,6 +110,10 @@ class CampaignAftermathController extends Controller
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs($aftermath->crew) : null,
             'eligible_masters' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::eligibleMasters($aftermath->crew) : null,
             'crew_card_choice_options' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::crewCardChoiceOptions($aftermath->crew) : null,
+            // Phase 6 review screen: a rundown of what Phases 1-5 already
+            // committed, so the player can sanity-check before the final,
+            // locking submit.
+            'phase_summary' => fn () => $aftermath->current_phase === 6 ? AftermathCatalog::phaseSummary($aftermath) : null,
             // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
             // CR) forms from the logged game so the player confirms, not re-enters.
             'prefill' => $this->aftermathPrefill($aftermath),
@@ -495,6 +500,7 @@ class CampaignAftermathController extends Controller
                 // 9, original already removed above) both attach a NEW injury from
                 // the client-supplied reflip. attachInjury() enforces flesh-wound /
                 // duplicate / 3-injury annihilation / titled-cascade rules.
+                $addedInjuryPivotId = null;
                 if ($outcome === BackAlleyDoctorOutcomeEnum::AddedInjury || $outcome === BackAlleyDoctorOutcomeEnum::RemovedAndReflip) {
                     $newInjuryId = $attempt['added_injury_upgrade_id'] ?? null;
                     if ($newInjuryId !== null) {
@@ -503,8 +509,12 @@ class CampaignAftermathController extends Controller
                             ->where('campaign_upgrade_kind', 'injury')
                             ->whereKey($newInjuryId)
                             ->first();
-                        if ($newInjury) {
-                            $model->attachInjury($newInjury, $locked->id);
+                        if ($newInjury && $model->attachInjury($newInjury, $locked->id)) {
+                            $addedInjuryPivotId = DB::table('campaign_arsenal_model_injuries')
+                                ->where('campaign_arsenal_model_id', $model->id)
+                                ->where('injury_upgrade_id', $newInjury->id)
+                                ->orderByDesc('id')
+                                ->value('id');
                         }
                     }
                 }
@@ -513,9 +523,10 @@ class CampaignAftermathController extends Controller
                 // above; the model then flips on the Lucky Miss table and keeps
                 // the result. An any-joker Lucky Miss flip is Doppelganger — a
                 // free copy joins this crew's arsenal (pg 36).
+                $createdCopyModelId = null;
                 if ($outcome === BackAlleyDoctorOutcomeEnum::LuckyMissReflip) {
                     if (! empty($attempt['lucky_miss_is_joker'])) {
-                        $model->copyForCampaign($model->campaign_crew_id, 'doppelganger', ignoredForLimits: true);
+                        $createdCopyModelId = $model->copyForCampaign($model->campaign_crew_id, 'doppelganger', ignoredForLimits: true)->id;
                     } else {
                         $luckyMiss = LuckyMiss::query()
                             ->where('flip_value', $attempt['lucky_miss_flip_value'] ?? null)
@@ -537,6 +548,11 @@ class CampaignAftermathController extends Controller
                     // so the audit row keeps a null reference (FK is nullOnDelete)
                     // rather than a dangling id that fails the FK in MySQL.
                     'target_injury_id' => $removesInjury ? null : $pivot->id,
+                    // Captured so "go back a phase" can restore/delete exactly
+                    // what this outcome removed/added.
+                    'removed_injury_upgrade_id' => $removesInjury ? $pivot->injury_upgrade_id : null,
+                    'added_injury_pivot_id' => $addedInjuryPivotId,
+                    'created_copy_model_id' => $createdCopyModelId,
                     // No raw flip value any more — the player records the chosen
                     // result row, not a flip number (column is nullable).
                     'flip_value' => null,
@@ -597,6 +613,274 @@ class CampaignAftermathController extends Controller
         });
 
         return redirect()->route('campaigns.aftermaths.show', $aftermath);
+    }
+
+    /**
+     * Undo whatever the previous phase wrote and step `current_phase` back by
+     * one — lets the player fix a mistyped answer instead of living with it
+     * for the rest of the campaign. Each phase persists immediately on
+     * submit (see `lockAndAdvance()`), so "going back" means mechanically
+     * reversing that phase's specific writes, not just re-showing a form.
+     *
+     * Reversible through Phase 6 (i.e. up to and including undoing Phase 5,
+     * Back-Alley Doctor) while `status` is still 'open' — once Phase 6's own
+     * `determineInjuries()` submit locks the aftermath, `goBack()` refuses
+     * (the review screen in Phase 6 is the guard against a mistake there;
+     * see Aftermath.vue's review sub-step).
+     */
+    public function goBack(Request $request, CampaignAftermath $aftermath)
+    {
+        $this->ensureAftermathOwner($request, $aftermath);
+
+        if ($aftermath->current_phase <= 1 || $aftermath->current_phase > 6 || $aftermath->status !== 'open') {
+            return redirect()->back();
+        }
+
+        $reverted = $this->lockAndRevert($aftermath, $aftermath->current_phase, function (CampaignAftermath $locked) {
+            match ($locked->current_phase) {
+                2 => $this->revertToDrawHand($locked),
+                3 => $this->revertToPayday($locked),
+                4 => $this->revertToBarter($locked),
+                5 => $this->revertToAdvanceLeader($locked),
+                6 => $this->revertToDoctor($locked),
+                default => null,
+            };
+        });
+
+        if (! $reverted) {
+            return redirect()->route('campaigns.aftermaths.show', $aftermath);
+        }
+
+        return redirect()->route('campaigns.aftermaths.show', $aftermath)
+            ->withMessage('Went back a phase — pick up where you left off.');
+    }
+
+    /** Reverse Phase 1 (Draw Hand) — clears the recorded hand size. */
+    private function revertToDrawHand(CampaignAftermath $locked): void
+    {
+        $locked->update([
+            'hand_drawn' => null,
+            'hand_used' => $this->popSkipEntry($locked, 1),
+            'current_phase' => 1,
+        ]);
+    }
+
+    /**
+     * Reverse Phase 2 (Payday) — refunds the scrip it granted. Payday can't
+     * be skipped (see `advance()`'s guard), so this is always a real refund.
+     */
+    private function revertToPayday(CampaignAftermath $locked): void
+    {
+        if ($locked->scrip_earned > 0) {
+            $locked->crew()->decrement('scrip', $locked->scrip_earned);
+        }
+        $locked->update([
+            'scrip_earned' => 0,
+            'current_phase' => 2,
+        ]);
+    }
+
+    /** Reverse Phase 3 (Barter) — deletes the purchases and refunds their cc. */
+    private function revertToBarter(CampaignAftermath $locked): void
+    {
+        $items = CampaignEquipment::query()
+            ->where('acquired_aftermath_id', $locked->id)
+            ->whereIn('source', ['barter', 'joker'])
+            ->with('catalog:id,campaign_cc')
+            ->get();
+
+        $refund = (int) $items->sum(fn (CampaignEquipment $e) => $e->catalog->campaign_cc ?? 0);
+        if ($items->isNotEmpty()) {
+            CampaignEquipment::query()->whereIn('id', $items->pluck('id'))->delete();
+        }
+        if ($refund > 0) {
+            $locked->crew()->increment('scrip', $refund);
+        }
+
+        $locked->update([
+            'hand_used' => $this->popSkipEntry($locked, 3),
+            'current_phase' => 3,
+        ]);
+    }
+
+    /**
+     * Reverse Phase 4 (Advance Leader) — deletes every advancement this
+     * aftermath granted (via the same per-row reversal `LeaderAdvancement
+     * Controller::destroy()` uses, so both stay in sync) and unfills exactly
+     * the XP-track boxes this aftermath's game filled.
+     */
+    private function revertToAdvanceLeader(CampaignAftermath $locked): void
+    {
+        $locked->loadMissing('crew.leader');
+        $crew = $locked->crew;
+        $leader = $crew->leader;
+
+        if ($leader) {
+            $advancementService = app(LeaderAdvancementService::class);
+            $advancements = CampaignLeaderAdvancement::query()
+                ->where('custom_character_id', $leader->id)
+                ->where('source_aftermath_id', $locked->id)
+                ->get();
+            foreach ($advancements as $advancement) {
+                $advancementService->revertAdvancement($leader, $advancement, $crew);
+                $advancement->delete();
+            }
+
+            // Unfill the LAST N filled boxes, N = xp_earned — safe because
+            // fills always happen in ascending index order and nothing else
+            // fills boxes between this aftermath's Phase 4 submit and an
+            // immediate undo.
+            $toUnfill = $locked->xp_earned ?? 0;
+            if ($toUnfill > 0) {
+                $track = $leader->xp_track ?? [];
+                for ($i = count($track) - 1; $i >= 0 && $toUnfill > 0; $i--) {
+                    if (! empty($track[$i]['filled'])) {
+                        $track[$i]['filled'] = false;
+                        $toUnfill--;
+                    }
+                }
+                $leader->update(['xp_track' => $track]);
+            }
+        }
+
+        $locked->update([
+            'xp_earned' => null,
+            'current_phase' => 4,
+        ]);
+    }
+
+    /**
+     * Reverse Phase 5 (Back-Alley Doctor) — walks each attempt newest-first
+     * and undoes exactly what it did, using the `removed_injury_upgrade_id`
+     * / `added_injury_pivot_id` / `created_copy_model_id` captured at
+     * write-time (see `doctor()`), then refunds the 1-scrip-per-attempt cost.
+     *
+     * Known limitation, accepted as a narrow edge case: if the reflipped
+     * injury a doctor attempt added was itself self-annihilating ("Killed
+     * Off"), `attachInjury()`/`attachInjuryToCustomChar()` annihilate the
+     * target directly and store no pivot row at all — there's nothing here
+     * to detect and reverse that specific annihilation. The far more common
+     * "this doctor attempt's own added injury pushed the model to 3 and
+     * annihilated it" case IS reversed below.
+     */
+    private function revertToDoctor(CampaignAftermath $locked): void
+    {
+        $rows = DB::table('campaign_aftermath_doctor')
+            ->where('campaign_aftermath_id', $locked->id)
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($rows as $row) {
+            $outcome = BackAlleyDoctorOutcomeEnum::from($row->outcome);
+
+            if ($row->removed_injury_upgrade_id !== null) {
+                DB::table('campaign_arsenal_model_injuries')->insert([
+                    'campaign_arsenal_model_id' => $row->target_arsenal_model_id,
+                    'custom_character_id' => $row->target_custom_character_id,
+                    'injury_upgrade_id' => $row->removed_injury_upgrade_id,
+                    'acquired_aftermath_id' => $locked->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($outcome === BackAlleyDoctorOutcomeEnum::GainedUndead || $outcome === BackAlleyDoctorOutcomeEnum::GainedConstruct) {
+                $this->removeGainedCharacteristic($row, $outcome === BackAlleyDoctorOutcomeEnum::GainedUndead ? 'Undead' : 'Construct');
+            }
+
+            if ($row->added_injury_pivot_id !== null) {
+                DB::table('campaign_arsenal_model_injuries')->where('id', $row->added_injury_pivot_id)->delete();
+                $this->reviveIfNoLongerOverInjured($row);
+            }
+
+            if ($row->created_copy_model_id !== null) {
+                CampaignArsenalModel::query()->whereKey($row->created_copy_model_id)->delete();
+            }
+
+            // A Lucky Miss (not Doppelganger) always appends the LAST entry
+            // in gained_lucky_miss_ids — popping it here, in strict reverse-
+            // chronological order across this aftermath's own rows, undoes
+            // exactly that append without needing to store which id it was.
+            if ($outcome === BackAlleyDoctorOutcomeEnum::LuckyMissReflip && $row->created_copy_model_id === null && $row->target_arsenal_model_id !== null) {
+                $model = CampaignArsenalModel::find($row->target_arsenal_model_id);
+                if ($model) {
+                    $ids = $model->gained_lucky_miss_ids ?? [];
+                    array_pop($ids);
+                    $model->update(['gained_lucky_miss_ids' => $ids]);
+                }
+            }
+        }
+
+        DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $locked->id)->delete();
+
+        if ($rows->count() > 0) {
+            $locked->crew()->increment('scrip', $rows->count());
+        }
+
+        $locked->update(['current_phase' => 5]);
+    }
+
+    private function removeGainedCharacteristic(object $row, string $characteristic): void
+    {
+        if ($row->target_arsenal_model_id !== null) {
+            $model = CampaignArsenalModel::find($row->target_arsenal_model_id);
+            if ($model) {
+                $model->update(['gained_characteristics' => array_values(array_diff($model->gained_characteristics ?? [], [$characteristic]))]);
+            }
+
+            return;
+        }
+
+        $char = CustomCharacter::find($row->target_custom_character_id);
+        if ($char) {
+            $char->update(['characteristics' => array_values(array_diff($char->characteristics ?? [], [$characteristic]))]);
+        }
+    }
+
+    /**
+     * If deleting this row's added injury pivot brought the target back
+     * under the 3-injury annihilation threshold, and it's currently marked
+     * annihilated, revive it — the most common way a Doctor attempt
+     * annihilates a target is its own "Oops" injury being the third one.
+     */
+    private function reviveIfNoLongerOverInjured(object $row): void
+    {
+        if ($row->target_arsenal_model_id !== null) {
+            $model = CampaignArsenalModel::find($row->target_arsenal_model_id);
+            if ($model && $model->annihilated_at !== null && $model->injuries()->count() < 3) {
+                $model->update(['annihilated_at' => null]);
+            }
+
+            return;
+        }
+
+        $char = CustomCharacter::find($row->target_custom_character_id);
+        if ($char && $char->annihilated_at !== null) {
+            $count = DB::table('campaign_arsenal_model_injuries')->where('custom_character_id', $char->id)->count();
+            if ($count < 3) {
+                $char->update(['annihilated_at' => null]);
+            }
+        }
+    }
+
+    /**
+     * Pops the trailing `hand_used` skip-marker for $phase, if the phase we're
+     * reversing away from was actually reached via `advance()`'s skip path
+     * rather than a real submission — keeps the skip-history clean rather
+     * than leaving a stale "skipped phase 3" entry after the player goes
+     * back and actually bartered something.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function popSkipEntry(CampaignAftermath $locked, int $phase): array
+    {
+        $entries = $locked->hand_used ?? [];
+        $last = end($entries);
+        if ($last && ($last['phase'] ?? null) === $phase && ($last['used_for'] ?? null) === 'skip') {
+            array_pop($entries);
+        }
+
+        return array_values($entries);
     }
 
     /**
@@ -714,7 +998,10 @@ class CampaignAftermathController extends Controller
 
             $advancementService->create($leader, $data['advancements'] ?? [], $locked->id);
 
-            $locked->update(['current_phase' => 5]);
+            // The actual boxes filled (not the requested $xpEarned) — the
+            // track could already have fewer unfilled boxes left than that.
+            // Recorded so "go back a phase" unfills exactly this many.
+            $locked->update(['current_phase' => 5, 'xp_earned' => $xpEarned - $toFill]);
         });
 
         if (! $advanced) {
@@ -1039,6 +1326,7 @@ class CampaignAftermathController extends Controller
             }
         }
 
+        $addedInjuryPivotId = null;
         if ($outcome === BackAlleyDoctorOutcomeEnum::AddedInjury || $outcome === BackAlleyDoctorOutcomeEnum::RemovedAndReflip) {
             $newInjuryId = $attempt['added_injury_upgrade_id'] ?? null;
             if ($newInjuryId !== null) {
@@ -1048,7 +1336,7 @@ class CampaignAftermathController extends Controller
                     ->whereKey($newInjuryId)
                     ->first();
                 if ($newInjury) {
-                    $this->attachInjuryToCustomChar($char, $newInjury, $locked->id);
+                    $addedInjuryPivotId = $this->attachInjuryToCustomChar($char, $newInjury, $locked->id);
                 }
             }
         }
@@ -1061,6 +1349,9 @@ class CampaignAftermathController extends Controller
             'target_arsenal_model_id' => null,
             'target_custom_character_id' => $char->id,
             'target_injury_id' => $removesInjury ? null : $pivot->id,
+            'removed_injury_upgrade_id' => $removesInjury ? $pivot->injury_upgrade_id : null,
+            'added_injury_pivot_id' => $addedInjuryPivotId,
+            'created_copy_model_id' => null,
             'flip_value' => null,
             'cheated' => (bool) ($attempt['cheated'] ?? false),
             'outcome' => $outcome->value,
@@ -1072,21 +1363,23 @@ class CampaignAftermathController extends Controller
     /**
      * Attach an injury upgrade to a leader or totem CustomCharacter.
      * Mirrors CampaignArsenalModel::attachInjury() but stores via custom_character_id.
-     * Three distinct injuries → annihilate (set annihilated_at).
+     * Three distinct injuries → annihilate (set annihilated_at). Returns the
+     * created pivot's id (so a Doctor undo can find and delete it), or null
+     * when nothing was actually attached.
      */
-    private function attachInjuryToCustomChar(CustomCharacter $char, Upgrade $injury, int $aftermathId): void
+    private function attachInjuryToCustomChar(CustomCharacter $char, Upgrade $injury, int $aftermathId): ?int
     {
         // Self-annihilating (Killed Off): attempt annihilation, respecting
         // Miraculous Recovery (pg 24) — no row stored either way.
         if ($injury->campaign_annihilates_model) {
             $char->attemptAnnihilation();
 
-            return;
+            return null;
         }
 
         // Purely cosmetic "Just a Flesh Wound" results attach nothing.
         if (str_contains(strtolower((string) $injury->name), 'flesh wound')) {
-            return;
+            return null;
         }
 
         $existingCount = DB::table('campaign_arsenal_model_injuries')
@@ -1099,10 +1392,10 @@ class CampaignAftermathController extends Controller
             ->where('injury_upgrade_id', $injury->id)
             ->exists();
         if ($alreadyHas) {
-            return;
+            return null;
         }
 
-        DB::table('campaign_arsenal_model_injuries')->insert([
+        $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
             'campaign_arsenal_model_id' => null,
             'custom_character_id' => $char->id,
             'injury_upgrade_id' => $injury->id,
@@ -1114,6 +1407,8 @@ class CampaignAftermathController extends Controller
         if ($existingCount + 1 >= 3) {
             $char->attemptAnnihilation();
         }
+
+        return $pivotId;
     }
 
     /** Shape a CampaignArsenalModel as the unified killed-model payload. */
@@ -1235,6 +1530,33 @@ class CampaignAftermathController extends Controller
         });
 
         return $advanced;
+    }
+
+    /**
+     * Symmetric counterpart to `lockAndAdvance()` for `goBack()` — same
+     * pessimistic-lock-then-recheck shape, just named for the reverse
+     * direction so intent reads clearly at each call site.
+     *
+     * @param  \Closure(CampaignAftermath): void  $work
+     */
+    private function lockAndRevert(CampaignAftermath $aftermath, int $expectedPhase, \Closure $work): bool
+    {
+        $reverted = false;
+        DB::transaction(function () use ($aftermath, $expectedPhase, $work, &$reverted) {
+            $locked = CampaignAftermath::query()
+                ->whereKey($aftermath->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $locked || $locked->current_phase !== $expectedPhase || $locked->status !== 'open') {
+                return;
+            }
+
+            $work($locked);
+            $reverted = true;
+        });
+
+        return $reverted;
     }
 
     /**

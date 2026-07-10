@@ -2027,3 +2027,644 @@ it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id to the 
 
     expect($copy->granted_keyword_id)->toBe($keyword->id);
 });
+
+it('Phase 6 review screen: phase_summary rolls up what Phases 1-5 already committed', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => ['size' => 3],
+        'scrip_earned' => 4,
+    ]);
+
+    $blade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Test Blade', 'campaign_cc' => 3]);
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $blade->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $attackMod = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['name' => 'Test Attack Mod']);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_aftermath_id' => $aftermath->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $attackMod->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 3,
+        'acquired_at' => now(),
+    ]);
+
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    DB::table('campaign_aftermath_doctor')->insert([
+        'campaign_aftermath_id' => $aftermath->id,
+        'target_arsenal_model_id' => $model->id,
+        'target_custom_character_id' => null,
+        'target_injury_id' => null,
+        'flip_value' => null,
+        'outcome' => 'removed',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('phase_summary.hand_size', 3)
+            ->where('phase_summary.scrip_earned', 4)
+            ->where('phase_summary.barter.0.name', 'Test Blade')
+            ->where('phase_summary.barter_total_cc', 3)
+            ->where('phase_summary.advancements.0.table', 'Attack Mod')
+            ->where('phase_summary.advancements.0.name', 'Test Attack Mod')
+            ->has('phase_summary.doctor_attempts', 1)
+            ->where('phase_summary.doctor_attempts.0.outcome', 'Removed')
+            ->etc());
+});
+
+it('phase_summary is null outside Phase 6', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('phase_summary', null));
+});
+
+it('goBack from Phase 2 clears the drawn hand and returns to Phase 1', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 2,
+        'hand_drawn' => ['size' => 2],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(1);
+    expect($fresh->hand_drawn)->toBeNull();
+});
+
+it('goBack from Phase 2 pops a Phase 1 skip marker instead of leaving it stale', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 1,
+        'hand_drawn' => null,
+    ]);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.advance', $aftermath))->assertRedirect();
+    expect($aftermath->fresh()->current_phase)->toBe(2);
+    expect($aftermath->fresh()->hand_used)->toHaveCount(1);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.back', $aftermath))->assertRedirect();
+
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(1);
+    expect($fresh->hand_used)->toBe([]);
+});
+
+it('goBack from Phase 3 refunds the scrip Payday granted and returns to Phase 2', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 10]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+        'scrip_earned' => 4,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(2);
+    expect($fresh->scrip_earned)->toBe(0);
+    expect($crew->fresh()->scrip)->toBe(6);
+});
+
+it('goBack from Phase 4 deletes the barter purchases and refunds their cc, returning to Phase 3', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 2]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $blade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['campaign_cc' => 3]);
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $blade->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+    // A purchase from a DIFFERENT aftermath must not be touched or refunded.
+    $otherGame = \App\Models\Campaign\CampaignGame::factory()->create([
+        'campaign_id' => $game->campaign_id,
+        'crew_a_id' => $crew->id,
+    ]);
+    $otherAftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $otherGame->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $unrelated = \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $otherAftermath->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(3);
+    expect($crew->fresh()->scrip)->toBe(5);
+    expect(\App\Models\Campaign\CampaignEquipment::where('acquired_aftermath_id', $aftermath->id)->exists())->toBeFalse();
+    expect(\App\Models\Campaign\CampaignEquipment::whereKey($unrelated->id)->exists())->toBeTrue();
+});
+
+it('goBack refuses once the aftermath is locked', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'status' => 'locked',
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(6);
+    expect($aftermath->fresh()->status)->toBe('locked');
+});
+
+it('goBack chains correctly across repeated calls without double-reverting a single phase', function () {
+    // Each click of "Back" legitimately steps back one more phase — unlike a
+    // phase-specific submit endpoint, goBack has no single "owning" phase to
+    // stale-guard against, so two calls in a row should chain (3 -> 2 -> 1),
+    // not silently no-op the second one.
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 10]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => ['size' => 2],
+        'scrip_earned' => 4,
+    ]);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.back', $aftermath))->assertRedirect();
+    expect($aftermath->fresh()->current_phase)->toBe(2);
+    expect($crew->fresh()->scrip)->toBe(6);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.back', $aftermath))->assertRedirect();
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(1);
+    expect($fresh->hand_drawn)->toBeNull();
+    // Scrip refund only happened once, on the phase-3->2 step — not doubled.
+    expect($crew->fresh()->scrip)->toBe(6);
+});
+
+it('goBack refuses on Phase 1 (nothing before it)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 1,
+        'hand_drawn' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(1);
+});
+
+it('goBack from Phase 5 deletes the Phase 4 advancements and unfills exactly the XP boxes it filled', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leader = buildLeaderFor($crew, $user);
+    $attackMod = \App\Models\Campaign\AdvancementAttackMod::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            // play (+1) + lost (+1) = 2 XP — fills boxes 0 and 1.
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => true,
+            'advancements' => [[
+                'source_table' => 'attack_mod',
+                'catalog_id' => $attackMod->id,
+                'applied_to_action_index' => 0,
+                'position_in_xp_track' => 0,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(5);
+    expect($aftermath->fresh()->xp_earned)->toBe(2);
+    expect(\App\Models\Campaign\CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(1);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $fresh = $aftermath->fresh();
+    expect($fresh->current_phase)->toBe(4);
+    expect($fresh->xp_earned)->toBeNull();
+    expect(\App\Models\Campaign\CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+
+    $track = $leader->fresh()->xp_track;
+    expect($track[0]['filled'])->toBeFalse();
+    expect($track[1]['filled'])->toBeFalse();
+});
+
+it('goBack from Phase 5 restores a Skl Boost target action to its prior value', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['actions' => [
+        ['name' => 'Test Attack', 'type' => 'attack', 'category' => 'attack', 'is_signature' => false, 'stone_cost' => 0, 'stat' => 5, 'triggers' => []],
+    ]]);
+    $sklBoost = \App\Models\Campaign\AdvancementAttackMod::factory()->sklBoost(5, 6)->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => true,
+            'advancements' => [[
+                'source_table' => 'attack_mod',
+                'catalog_id' => $sklBoost->id,
+                'applied_to_action_index' => 0,
+                'position_in_xp_track' => 0,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($leader->fresh()->actions[0]['stat'])->toBe(6);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect($leader->fresh()->actions[0]['stat'])->toBe(5);
+});
+
+it('goBack refuses once current_phase exceeds 6 (defensive — should never happen in practice)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 7,
+        'hand_drawn' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(7);
+});
+
+it('goBack from Phase 6 restores a removed injury and refunds the doctor scrip', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => 12, 'flip_value_max' => 13, 'outcome_kind' => 'removed',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id]],
+        ])
+        ->assertRedirect();
+    expect($crew->fresh()->scrip)->toBe(4);
+    expect(DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->exists())->toBeFalse();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(5);
+    expect($crew->fresh()->scrip)->toBe(5);
+    expect(DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count())->toBe(0);
+    $restored = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->first();
+    expect($restored)->not->toBeNull();
+    expect($restored->injury_upgrade_id)->toBe($injury->id);
+});
+
+it('goBack from Phase 6 undoes flip 9 — restores the original injury and deletes the reflipped one', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $original = Upgrade::factory()->campaignInjury()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 3]);
+    $reflipped = Upgrade::factory()->campaignInjury()->create(['campaign_suit_pool' => 'te', 'campaign_flip_value' => 7]);
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $original->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => 9, 'flip_value_max' => 9, 'outcome_kind' => 'removed_and_reflip',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [[
+                'injury_pivot_id' => $pivotId,
+                'result_id' => $result->id,
+                'added_injury_upgrade_id' => $reflipped->id,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $remaining = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->pluck('injury_upgrade_id')->all();
+    expect($remaining)->toEqual([$original->id]);
+});
+
+it('goBack from Phase 6 deletes an "Oops" added injury, leaving the original attached', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $original = Upgrade::factory()->campaignInjury()->create();
+    $added = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $original->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create(['outcome_kind' => 'added_injury']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [[
+                'injury_pivot_id' => $pivotId,
+                'result_id' => $result->id,
+                'added_injury_upgrade_id' => $added->id,
+            ]],
+        ])
+        ->assertRedirect();
+    expect(DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->count())->toBe(2);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $remaining = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->pluck('injury_upgrade_id')->all();
+    expect($remaining)->toEqual([$original->id]);
+});
+
+it('goBack from Phase 6 strips a gained characteristic and restores the removed injury', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create(['outcome_kind' => 'gained_undead']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id]],
+        ])
+        ->assertRedirect();
+    expect($model->fresh()->gained_characteristics)->toEqual(['Undead']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($model->fresh()->gained_characteristics)->toEqual([]);
+    $restored = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->first();
+    expect($restored)->not->toBeNull();
+    expect($restored->injury_upgrade_id)->toBe($injury->id);
+});
+
+it('goBack from Phase 6 pops the applied Lucky Miss and restores the removed injury', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => null, 'flip_value_max' => null, 'is_red_joker' => true, 'outcome_kind' => 'lucky_miss_reflip',
+    ]);
+    $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['flip_value' => 4, 'is_doppelganger' => false]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id, 'lucky_miss_flip_value' => 4]],
+        ])
+        ->assertRedirect();
+    expect($model->fresh()->gained_lucky_miss_ids)->toEqual([$luckyMiss->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($model->fresh()->gained_lucky_miss_ids)->toEqual([]);
+    $restored = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->first();
+    expect($restored)->not->toBeNull();
+});
+
+it('goBack from Phase 6 deletes a Doppelganger copy created by an any-joker Lucky Miss', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'flip_value_min' => null, 'flip_value_max' => null, 'is_red_joker' => true, 'outcome_kind' => 'lucky_miss_reflip',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id, 'lucky_miss_is_joker' => true]],
+        ])
+        ->assertRedirect();
+    $copyCount = CampaignArsenalModel::where('campaign_crew_id', $crew->id)->where('acquired_via', 'doppelganger')->count();
+    expect($copyCount)->toBe(1);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->where('acquired_via', 'doppelganger')->count())->toBe(0);
+});
+
+it('goBack from Phase 6 un-annihilates a model whose 3rd injury came from this Doctor attempt', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    // One pre-existing injury from an earlier, unrelated aftermath.
+    DB::table('campaign_arsenal_model_injuries')->insert([
+        'campaign_arsenal_model_id' => $model->id, 'injury_upgrade_id' => Upgrade::factory()->campaignInjury()->create()->id, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $treated = Upgrade::factory()->campaignInjury()->create();
+    $treatedPivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $treated->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $thirdInjury = Upgrade::factory()->campaignInjury()->create();
+    $result = BackAlleyDoctorResult::factory()->create(['outcome_kind' => 'added_injury']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [[
+                'injury_pivot_id' => $treatedPivotId,
+                'result_id' => $result->id,
+                'added_injury_upgrade_id' => $thirdInjury->id,
+            ]],
+        ])
+        ->assertRedirect();
+    expect($model->fresh()->annihilated_at)->not->toBeNull();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    expect($model->fresh()->annihilated_at)->toBeNull();
+});
+
+it('goBack from Phase 6 restores a removed leader/totem injury', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $leader = buildLeaderFor($crew, $user);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'custom_character_id' => $leader->id,
+        'injury_upgrade_id' => $injury->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create(['outcome_kind' => 'removed']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [['injury_pivot_id' => $pivotId, 'result_id' => $result->id]],
+        ])
+        ->assertRedirect();
+    expect(DB::table('campaign_arsenal_model_injuries')->where('custom_character_id', $leader->id)->exists())->toBeFalse();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.back', $aftermath))
+        ->assertRedirect();
+
+    $restored = DB::table('campaign_arsenal_model_injuries')->where('custom_character_id', $leader->id)->first();
+    expect($restored)->not->toBeNull();
+    expect($restored->injury_upgrade_id)->toBe($injury->id);
+});

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CardSkeleton from '@/components/CardSkeleton.vue';
+import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
 import ListSearchBar from '@/components/ListSearchBar.vue';
@@ -53,21 +54,24 @@ interface Unit {
 const props = defineProps<{
     units: Paginator<Unit>;
     rule_filter: string | null;
+    allegiance_filter: string | null;
     name_search: string | null;
     page_view: string;
     special_rules: TosSelectOption[];
+    allegiances: TosSelectOption[];
 }>();
 
 const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clearNameSearch, handleViewChange, isLoading } = useListFiltering(
     {
         rule: props.rule_filter as string | null,
+        allegiance: props.allegiance_filter as string | null,
         name_search: props.name_search as string | null,
         page_view: props.page_view as string | null,
     },
     {
         routeName: 'tos.units.index',
-        filterKeys: ['rule'],
-        only: ['units', 'rule_filter', 'name_search', 'page_view'],
+        filterKeys: ['rule', 'allegiance'],
+        only: ['units', 'rule_filter', 'allegiance_filter', 'name_search', 'page_view'],
     },
 );
 
@@ -106,7 +110,7 @@ function setRule(slug: string | null) {
 
         <div class="container mx-auto sm:px-4">
             <!-- Special-rule filter chips — segmented control aligned with the rest of TOS -->
-            <div class="mb-4 flex flex-wrap items-center gap-1">
+            <div class="mb-2 flex flex-wrap items-center gap-1">
                 <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Rule:</span>
                 <Button :variant="!filterParams.rule ? 'default' : 'outline'" size="sm" class="h-6 px-2 text-[11px]" @click="setRule(null)"
                     >All</Button
@@ -120,6 +124,19 @@ function setRule(slug: string | null) {
                     @click="setRule(r.value)"
                     >{{ r.name }}</Button
                 >
+            </div>
+            <!-- Allegiance filter — a single-select dropdown rather than chips since
+                 the allegiance list is longer than the rule list. Full AND/OR/exclude
+                 allegiance filtering lives on Advanced Search for users who need it. -->
+            <div class="mb-4 flex flex-wrap items-center gap-1">
+                <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Allegiance:</span>
+                <ClearableSelect
+                    v-model="filterParams.allegiance"
+                    :options="allegiances"
+                    placeholder="All allegiances"
+                    trigger-class="h-6 w-48 text-[11px]"
+                    @update:model-value="filter"
+                />
             </div>
 
             <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
@@ -175,7 +192,11 @@ function setRule(slug: string | null) {
             </div>
             <EmptyState v-else :icon="Swords" title="No units yet" description="Try clearing filters, or check back once units have been seeded." />
 
-            <InertiaPagination v-if="!isLoading" :paginator="units" :only="['units', 'rule_filter', 'name_search', 'page_view']" />
+            <InertiaPagination
+                v-if="!isLoading"
+                :paginator="units"
+                :only="['units', 'rule_filter', 'allegiance_filter', 'name_search', 'page_view']"
+            />
         </div>
     </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,14 +54,21 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
 
 <template>
     <Head title="Trash - Admin" />
+
+    <PageBanner title="Trash" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <Trash2 class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Soft-deleted records across the schema. Restore brings them back to the public site; force-delete removes them permanently.
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <Trash2 class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Trash</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Soft-deleted records across the schema. Restore brings them back to the public site; force-delete removes them permanently.
-        </p>
 
         <div class="flex flex-wrap gap-1.5">
             <Button v-for="tab in tabs" :key="tab.key" size="sm" :variant="tab.key === kind ? 'default' : 'outline'" @click="switchTab(tab.key)">

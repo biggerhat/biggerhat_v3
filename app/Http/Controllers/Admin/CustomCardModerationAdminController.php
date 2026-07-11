@@ -37,7 +37,7 @@ class CustomCardModerationAdminController extends Controller
                 'id' => $c->id,
                 'share_code' => $c->share_code,
                 'name' => $c->display_name ?? $c->name,
-                'faction' => $c->faction->value,
+                'faction' => $c->faction?->value,
                 'is_public' => (bool) $c->is_public,
                 'user' => $c->user ? ['id' => $c->user->id, 'name' => $c->user->name] : null,
                 'created_at' => $c->created_at?->toIso8601String(),

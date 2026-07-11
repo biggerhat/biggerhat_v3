@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,14 +90,19 @@ const table = useVueTable({
 
 <template>
     <Head title="Campaign Back-Alley Doctor — Admin" />
-    <div class="container mx-auto mt-6 h-full px-2">
-        <div class="flex items-center justify-between py-4">
-            <div>
-                <h1 class="text-2xl font-semibold tracking-tight">Back-Alley Doctor Results</h1>
-                <p class="text-sm text-muted-foreground">Pg 33. Outcomes for the Phase 5 injury-removal flip.</p>
+
+    <PageBanner title="Back-Alley Doctor Results" class="mb-2">
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Pg 33. Outcomes for the Phase 5 injury-removal flip.
             </div>
-            <Button @click="router.get(route('admin.campaign.back-alley-doctor.create'))">Create</Button>
-        </div>
+        </template>
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.campaign.back-alley-doctor.create'))">Create</Button>
+        </template>
+    </PageBanner>
+
+    <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-2">
             <Input class="max-w-sm" placeholder="Filter by name..." :model-value="globalFilter" @update:model-value="table.setGlobalFilter($event)" />
             <div class="text-sm text-muted-foreground">Total {{ table.getFilteredRowModel().rows.length }}</div>

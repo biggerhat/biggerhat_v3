@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -92,6 +93,11 @@ const table = useVueTable({
 
 <template>
     <Head title="TOS Sculpts — Admin" />
+    <PageBanner title="TOS Sculpts" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.tos.sculpts.create'))">Create Sculpt</Button>
+        </template>
+    </PageBanner>
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
@@ -100,7 +106,6 @@ const table = useVueTable({
                 :model-value="globalFilter"
                 @update:model-value="(v) => table.setGlobalFilter(String(v ?? ''))"
             />
-            <Button @click="router.get(route('admin.tos.sculpts.create'))">Create Sculpt</Button>
         </div>
         <div class="rounded-md border">
             <Table>

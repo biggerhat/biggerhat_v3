@@ -722,7 +722,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelected" />
                                 </label>
                                 <p class="mt-1 text-[10px] text-muted-foreground/60">
-                                    Art is used for preview only and must be re-added each session.
+                                    Preview only — this image isn't saved with the card, so it won't be here after a
+                                    refresh or on the public share link. Re-upload it each time you edit.
                                 </p>
                             </div>
                         </CardContent>
@@ -1250,7 +1251,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </div>
 
                 <!-- ═══ LIVE PREVIEW ═══ -->
-                <div class="lg:col-span-1">
+                <!-- order-first below lg so the preview leads on mobile/tablet (users get live
+                     feedback while filling in the form instead of scrolling past it entirely);
+                     lg:order-none restores normal DOM order (form left, preview right) at desktop. -->
+                <div class="order-first lg:order-none lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-sm font-semibold">Preview</h3>

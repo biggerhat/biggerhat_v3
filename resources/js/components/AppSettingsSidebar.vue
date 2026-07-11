@@ -20,6 +20,7 @@ import {
     Palette,
     Shield,
     Swords,
+    TextSearch,
     Trophy,
     UserRound,
 } from 'lucide-vue-next';
@@ -68,6 +69,7 @@ const malifauxGroup: NavGroup = {
         { title: 'Campaigns', href: route('campaigns.index'), icon: CalendarDays },
         { title: 'Games', href: route('games.index'), icon: Dice6 },
         { title: 'Tournaments', href: route('tournaments.index'), icon: Trophy },
+        { title: 'Saved Searches', href: route('search.view'), icon: TextSearch },
     ],
 };
 
@@ -79,6 +81,7 @@ const tosGroup: NavGroup = {
         { title: 'Collection', href: route('tos.collection.index'), icon: Package },
         { title: 'Companies', href: route('tos.companies.index'), icon: Building2 },
         { title: 'Garrisons', href: route('tos.garrisons.index'), icon: Shield },
+        { title: 'Saved Searches', href: route('tos.search'), icon: TextSearch },
     ],
 };
 

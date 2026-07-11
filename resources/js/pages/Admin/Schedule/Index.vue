@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head } from '@inertiajs/vue3';
@@ -19,17 +20,24 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
 
 <template>
     <Head title="Scheduled Tasks - Admin" />
+
+    <PageBanner title="Scheduled Tasks" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <Clock class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Every entry registered through Laravel's scheduler. Cron must run
+                <code class="rounded bg-muted px-1 text-xs">php artisan schedule:run</code>
+                every minute for these to fire.
+                <Badge variant="secondary">{{ tasks.length }}</Badge>
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <Clock class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Scheduled Tasks</h1>
-            <Badge variant="secondary">{{ tasks.length }}</Badge>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Every entry registered through Laravel's scheduler. Cron must run
-            <code class="rounded bg-muted px-1 text-xs">php artisan schedule:run</code>
-            every minute for these to fire.
-        </p>
 
         <div class="space-y-2">
             <Card v-for="(task, idx) in tasks" :key="idx">

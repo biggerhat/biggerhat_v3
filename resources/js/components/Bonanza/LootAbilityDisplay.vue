@@ -16,7 +16,7 @@ defineProps<{
 </script>
 
 <template>
-    <div class="rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[8px] text-black">
+    <div class="rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[8px] text-foreground">
         <div class="flex flex-wrap items-baseline gap-1 leading-tight">
             <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="text-[9px] inline-block shrink-0 self-center" />
             <span class="font-semibold">{{ ability.name }}</span>

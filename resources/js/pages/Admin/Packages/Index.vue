@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -149,6 +150,12 @@ const table = useVueTable({
 <template>
     <Head title="Packages - Admin" />
 
+    <PageBanner title="Packages" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.packages.create'))"> Create New Package </Button>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-4">
@@ -159,7 +166,6 @@ const table = useVueTable({
                 </label>
             </div>
             <div>Total {{ table.getFilteredRowModel().rows.length }}</div>
-            <Button @click="router.get(route('admin.packages.create'))"> Create New Package </Button>
         </div>
         <div class="rounded-md border">
             <Table>

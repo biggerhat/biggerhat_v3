@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { valueUpdater } from '@/lib/utils';
@@ -107,6 +108,12 @@ const table = useVueTable({
 <template>
     <Head title="Lore - Admin" />
 
+    <PageBanner title="Lore" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.lores.create'))"> Create New Lore </Button>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
@@ -131,7 +138,6 @@ const table = useVueTable({
                 </Link>
             </div>
             <div>Total {{ props.lores.length }}</div>
-            <Button @click="router.get(route('admin.lores.create'))"> Create New Lore </Button>
         </div>
         <div class="rounded-md border">
             <Table>

@@ -158,7 +158,7 @@ const cardsBySuit = computed(() => {
                     <Input v-model="search" placeholder="Search cards, titles, or effect text…" class="h-9 pl-8 text-sm" />
                 </div>
                 <Tabs v-model="suitFilter" class="shrink-0">
-                    <TabsList class="grid grid-cols-6">
+                    <TabsList class="grid grid-cols-3 sm:grid-cols-6">
                         <TabsTrigger value="all" class="text-xs">All</TabsTrigger>
                         <TabsTrigger value="crow" class="text-xs">Crows</TabsTrigger>
                         <TabsTrigger value="mask" class="text-xs">Masks</TabsTrigger>
@@ -201,6 +201,7 @@ const cardsBySuit = computed(() => {
                             <BonanzaCardImage v-if="card.image" :image="card.image" :name="card.name" />
                             <BonanzaSplitCard
                                 v-else
+                                mode="display"
                                 :name="card.name"
                                 :suit="card.suit"
                                 :value-label="card.value_label"

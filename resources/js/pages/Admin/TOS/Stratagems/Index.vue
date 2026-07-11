@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -72,6 +73,11 @@ const table = useVueTable({
 
 <template>
     <Head title="TOS Stratagems — Admin" />
+    <PageBanner title="TOS Stratagems" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.tos.stratagems.create'))">Create Stratagem</Button>
+        </template>
+    </PageBanner>
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
@@ -80,7 +86,6 @@ const table = useVueTable({
                 :model-value="table.getColumn('name')?.getFilterValue() as string"
                 @update:model-value="table.getColumn('name')?.setFilterValue($event)"
             />
-            <Button @click="router.get(route('admin.tos.stratagems.create'))">Create Stratagem</Button>
         </div>
         <div class="rounded-md border">
             <Table>

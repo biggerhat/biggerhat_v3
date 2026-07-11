@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,6 +119,7 @@ const table = useVueTable({
 <template>
     <Head title="Users - Admin" />
 
+    <PageBanner title="Users" class="mb-2" />
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input class="max-w-sm" placeholder="Filter Users" v-model="globalFilter" />

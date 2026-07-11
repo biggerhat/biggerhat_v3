@@ -382,10 +382,6 @@ interface AdvDraft {
     totem_name: string | null;
     totem_size: number | null;
     totem_base: string | null;
-    // Any Joker (Action/Ability tables, pg 49/51): "choose any action/ability on
-    // a non-totem, non-master model that shares a keyword with your leader with
-    // a cost of 10 or less." Resolved via the same search LeaderBuilder uses.
-    is_joker_flipped: boolean;
     // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
     joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
@@ -435,7 +431,6 @@ watch(
                     totem_name: null,
                     totem_size: null,
                     totem_base: null,
-                    is_joker_flipped: false,
                     joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
@@ -459,7 +454,6 @@ const onSourceTableChange = (position: number) => {
     d.target_type = 'leader';
     d.target_equipment_id = null;
     d.applied_to_action_id = null;
-    d.is_joker_flipped = false;
     d.joker_color = null;
     d.free_choice_source_id = null;
     d.free_choice_source_character_id = null;
@@ -583,13 +577,8 @@ const pickJokerChoice = (position: number, row: { name: string; source_id: numbe
 // own flip_value shown inline in the label as a reference only. Joker
 // declarations (Any Joker / Joker color) are a separate mechanism and still
 // gate the list, since they're not flip-value based.
-const eligibleCatalogRows = (source_table: string, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
+const eligibleCatalogRows = (source_table: string, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
     const rows = catalogRowsFor(source_table);
-    // Action/Ability: the Any Joker row is only offered when the player
-    // actually declares a joker flip.
-    if (source_table === 'action' || source_table === 'ability') {
-        return isJokerFlipped ? rows.filter((r) => r.is_joker) : rows.filter((r) => !r.is_joker);
-    }
     // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
     // instead of a flip_value. Both flags set = "Any Joker" (either color
     // qualifies); exactly one set = that specific color only.
@@ -599,7 +588,17 @@ const eligibleCatalogRows = (source_table: string, isJokerFlipped = false, joker
         }
         return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
     }
+    // Action/Ability: Any Joker rows are just part of the same table's list —
+    // no separate "did you flip a joker" declaration needed. Picking one
+    // (row.is_joker) reveals the free-choice ally search below.
     return rows;
+};
+
+const isSelectedRowJoker = (position: number): boolean => {
+    const d = advDrafts.value[position];
+    if (!d || d.catalog_id === null) return false;
+
+    return !!catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id)?.is_joker;
 };
 
 function defaultTableForTier(tier: number): string {
@@ -1173,27 +1172,6 @@ const finalize = () =>
                             </Select>
                             <label
                                 v-if="
-                                    advDrafts[adv.position_in_xp_track].source_table === 'action' ||
-                                    advDrafts[adv.position_in_xp_track].source_table === 'ability'
-                                "
-                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
-                            >
-                                <Checkbox
-                                    :checked="advDrafts[adv.position_in_xp_track].is_joker_flipped"
-                                    @update:checked="
-                                        (v: boolean) => {
-                                            advDrafts[adv.position_in_xp_track].is_joker_flipped = v;
-                                            advDrafts[adv.position_in_xp_track].catalog_id = null;
-                                            advDrafts[adv.position_in_xp_track].free_choice_source_id = null;
-                                            advDrafts[adv.position_in_xp_track].free_choice_source_character_id = null;
-                                            advDrafts[adv.position_in_xp_track].free_choice_label = null;
-                                        }
-                                    "
-                                />
-                                I flipped a Joker
-                            </label>
-                            <label
-                                v-if="
                                     advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
                                     advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'
                                 "
@@ -1237,7 +1215,6 @@ const finalize = () =>
                                     <SelectItem
                                         v-for="row in eligibleCatalogRows(
                                             advDrafts[adv.position_in_xp_track].source_table,
-                                            advDrafts[adv.position_in_xp_track].is_joker_flipped,
                                             advDrafts[adv.position_in_xp_track].joker_color,
                                         )"
                                         :key="row.id"
@@ -1346,10 +1323,7 @@ const finalize = () =>
                                 </div>
                             </div>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
-                            <div
-                                v-if="advDrafts[adv.position_in_xp_track].is_joker_flipped && advDrafts[adv.position_in_xp_track].catalog_id !== null"
-                                class="space-y-1 rounded border p-2"
-                            >
+                            <div v-if="isSelectedRowJoker(adv.position_in_xp_track)" class="space-y-1 rounded border p-2">
                                 <p v-if="advDrafts[adv.position_in_xp_track].free_choice_label" class="text-xs font-medium">
                                     Picked: {{ advDrafts[adv.position_in_xp_track].free_choice_label }}
                                     <button

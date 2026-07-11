@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -100,21 +101,21 @@ const deleteCard = async (card: LootCardRow) => {
 <template>
     <Head title="Bonanza Loot Cards · Admin" />
 
-    <div class="container mx-auto space-y-4 p-4 lg:p-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h1 class="text-xl font-bold">Bonanza Loot Cards</h1>
-                <p class="text-sm text-muted-foreground">
-                    Fill in effect text from the Wyrd loot deck doc. The 54 rulebook cards are seeded; admins can also add homebrew cards.
-                </p>
-            </div>
-            <div class="flex items-center gap-2">
+    <PageBanner title="Bonanza Loot Cards" class="mb-2">
+        <template #subtitle>
+            <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Fill in effect text from the Wyrd loot deck doc. The 54 rulebook cards are seeded; admins can also add homebrew cards.
                 <Badge variant="secondary">{{ totalWithEffects }} / {{ cards.length }} cards have effects</Badge>
-                <Link :href="route('admin.loot_cards.create')">
-                    <Button size="sm" class="gap-1.5"> <Plus class="size-4" /> Add Card </Button>
-                </Link>
             </div>
-        </div>
+        </template>
+        <template #actions>
+            <Link class="my-auto mr-2" :href="route('admin.loot_cards.create')">
+                <Button size="sm" class="gap-1.5"> <Plus class="size-4" /> Add Card </Button>
+            </Link>
+        </template>
+    </PageBanner>
+
+    <div class="container mx-auto space-y-4 p-4 lg:p-6">
 
         <!-- Print deck PDF — server-rendered (headless Chrome), cached, refreshed on every card edit. -->
         <Card>

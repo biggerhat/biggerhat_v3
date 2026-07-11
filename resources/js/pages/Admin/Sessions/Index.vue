@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -83,13 +84,22 @@ const revokeAllForUser = async (userId: number) => {
 
 <template>
     <Head title="Active Sessions - Admin" />
+
+    <PageBanner title="Active Sessions" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <MonitorSmartphone class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Database-stored sessions. Revoking a session forces a logout on the next request.
+                <Badge variant="secondary">{{ sessions.length }}</Badge>
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex flex-wrap items-center gap-2">
-            <MonitorSmartphone class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Active Sessions</h1>
-            <Badge variant="secondary">{{ sessions.length }}</Badge>
-        </div>
-        <p class="text-sm text-muted-foreground">Database-stored sessions. Revoking a session forces a logout on the next request.</p>
 
         <div class="space-y-3">
             <Card v-for="group in grouped" :key="group.user?.id ?? 'guest'">

@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
@@ -32,6 +32,7 @@ interface CrewCardRow {
     name: string;
     description: string | null;
     master_id: number | null;
+    master_type: 'official' | 'custom' | null;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -44,17 +45,34 @@ const props = defineProps<{
     all_actions: ActionOption[];
     all_abilities: { id: number; name: string }[];
     masters: { id: number; display_name: string }[];
+    custom_masters: { id: number; display_name: string }[];
 }>();
 
 const form = ref({
     name: '',
     description: null as string | null,
     master_id: null as number | null,
+    master_type: null as 'official' | 'custom' | null,
     requires_token_choice: false,
     requires_marker_choice: false,
     requires_upgrade_type_choice: false,
     ability_ids: [] as string[],
 });
+
+// The master Select combines official masters and custom-built Campaign
+// Leaders into one dropdown; the option value encodes which table the id
+// belongs to ("official:5" / "custom:3") since ids collide across tables.
+const masterSelectValue = computed(() => (form.value.master_id ? `${form.value.master_type ?? 'official'}:${form.value.master_id}` : '__none__'));
+const onMasterSelect = (v: string) => {
+    if (v === '__none__') {
+        form.value.master_id = null;
+        form.value.master_type = null;
+        return;
+    }
+    const [type, id] = v.split(':');
+    form.value.master_type = type as 'official' | 'custom';
+    form.value.master_id = Number(id);
+};
 
 // Actions are managed as a list of {id, name, type, is_signature} objects
 // so each entry can carry the pivot signature flag.
@@ -89,6 +107,7 @@ onMounted(() => {
     form.value.name = props.item.name;
     form.value.description = props.item.description;
     form.value.master_id = props.item.master_id;
+    form.value.master_type = props.item.master_type;
     form.value.requires_token_choice = props.item.requires_token_choice;
     form.value.requires_marker_choice = props.item.requires_marker_choice;
     form.value.requires_upgrade_type_choice = props.item.requires_upgrade_type_choice;
@@ -128,19 +147,26 @@ onMounted(() => {
                     <p class="mb-1 text-xs text-muted-foreground">
                         The master this card is actually printed on. Leave unset for a generic effect not tied to one master.
                     </p>
-                    <Select
-                        :model-value="form.master_id?.toString() ?? '__none__'"
-                        @update:model-value="(v) => (form.master_id = v === '__none__' ? null : Number(v))"
-                    >
+                    <Select :model-value="masterSelectValue" @update:model-value="(v) => onMasterSelect(v as string)">
                         <SelectTrigger class="w-full">
                             <SelectValue placeholder="— generic, no master —" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__none__">— generic, no master —</SelectItem>
-                            <SelectItem v-for="m in masters" :key="m.id" :value="m.id.toString()">{{ m.display_name }}</SelectItem>
+                            <SelectGroup>
+                                <SelectLabel>Official Masters</SelectLabel>
+                                <SelectItem v-for="m in masters" :key="'official:' + m.id" :value="'official:' + m.id">{{ m.display_name }}</SelectItem>
+                            </SelectGroup>
+                            <SelectGroup v-if="custom_masters.length">
+                                <SelectLabel>Custom Campaign Leaders</SelectLabel>
+                                <SelectItem v-for="m in custom_masters" :key="'custom:' + m.id" :value="'custom:' + m.id">
+                                    {{ m.display_name }}
+                                </SelectItem>
+                            </SelectGroup>
                         </SelectContent>
                     </Select>
                     <InputError :message="usePage().props.errors.master_id" />
+                    <InputError :message="usePage().props.errors.master_type" />
                 </div>
 
                 <!-- Actions: inline list with per-action signature checkbox -->

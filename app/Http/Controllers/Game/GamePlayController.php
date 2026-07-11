@@ -599,12 +599,17 @@ class GamePlayController extends Controller
         }
 
         $card->load([
-            'sideAActions',
-            'sideAAbilities',
-            'sideATriggers',
-            'sideBActions',
-            'sideBAbilities',
-            'sideBTriggers',
+            // Full detail (not just names) so the side-picker can render the same
+            // ActionCard/AbilityCard/LootTriggerDisplay the reference page does —
+            // column lists mirror BonanzaLootDeckController's public reference page.
+            'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+            'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+            'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
+            'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+            'sideATriggers:id,name,slug,suits,stone_cost,description',
+            'sideBTriggers:id,name,slug,suits,stone_cost,description',
         ]);
 
         $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'loot_drawn'));

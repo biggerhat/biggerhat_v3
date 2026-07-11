@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ interface CrewCardRow {
     id: number;
     name: string;
     master: { id: number; display_name: string } | null;
+    master_is_custom: boolean;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -33,10 +35,13 @@ const columns: ColumnDef<CrewCardRow>[] = [
     {
         id: 'master',
         header: () => h('div', {}, 'Master'),
-        cell: ({ row }) =>
-            row.original.master
-                ? h('span', { class: 'text-sm' }, row.original.master.display_name)
-                : h('span', { class: 'text-xs text-muted-foreground' }, 'generic'),
+        cell: ({ row }) => {
+            if (!row.original.master) return h('span', { class: 'text-xs text-muted-foreground' }, 'generic');
+            return h('div', { class: 'flex items-center gap-1.5' }, [
+                h('span', { class: 'text-sm' }, row.original.master.display_name),
+                row.original.master_is_custom ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => 'Custom') : null,
+            ]);
+        },
     },
     {
         id: 'flags',
@@ -96,14 +101,19 @@ const table = useVueTable({
 
 <template>
     <Head title="Campaign Crew Cards — Admin" />
-    <div class="container mx-auto mt-6 h-full px-2">
-        <div class="flex items-center justify-between py-4">
-            <div>
-                <h1 class="text-2xl font-semibold tracking-tight">Crew Cards</h1>
-                <p class="text-sm text-muted-foreground">Starting Crew Cards drawn by each player during arsenal setup (pg 15).</p>
+
+    <PageBanner title="Crew Cards" class="mb-2">
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Starting Crew Cards drawn by each player during arsenal setup (pg 15).
             </div>
-            <Button @click="router.get(route('admin.campaign.crew-cards.create'))">Create</Button>
-        </div>
+        </template>
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.campaign.crew-cards.create'))">Create</Button>
+        </template>
+    </PageBanner>
+
+    <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-2">
             <Input class="max-w-sm" placeholder="Filter by name..." :model-value="globalFilter" @update:model-value="table.setGlobalFilter($event)" />
             <div class="text-sm text-muted-foreground">Total {{ table.getFilteredRowModel().rows.length }}</div>

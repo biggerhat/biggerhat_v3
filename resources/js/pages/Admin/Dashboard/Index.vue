@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -108,12 +109,16 @@ const fetchedAgo = computed(() => {
 
 <template>
     <Head title="Admin Dashboard" />
-    <div class="container mx-auto space-y-6 px-4 py-6 lg:px-8 xl:px-12">
-        <div>
-            <h1 class="text-2xl font-semibold tracking-tight">Admin</h1>
-            <p class="text-sm text-muted-foreground">Overview and shortcuts to admin sections.</p>
-        </div>
 
+    <PageBanner title="Admin" class="mb-2">
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Overview and shortcuts to admin sections.
+            </div>
+        </template>
+    </PageBanner>
+
+    <div class="container mx-auto space-y-6 px-4 py-6 lg:px-8 xl:px-12">
         <!-- Inbox / quick stats -->
         <div v-if="stats.pending_feedback !== null" class="grid gap-4 md:grid-cols-3">
             <Card>

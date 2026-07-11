@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { Crown, Lock, Package, Plus, UserMinus, Users, X } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -98,7 +99,7 @@ function slotLocations(asset: AssetMin): string[] {
             <div
                 v-for="cu in renderableUnits"
                 :key="cu.id"
-                class="group relative overflow-hidden rounded-lg border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                :class="['group relative overflow-hidden rounded-lg border bg-card', CARD_HOVER]"
             >
                 <div :class="['absolute inset-y-0 left-0 w-1', allegianceBg]" />
                 <div :class="['pointer-events-none absolute inset-0 opacity-[0.04] transition-opacity group-hover:opacity-[0.08]', allegianceBg]" />

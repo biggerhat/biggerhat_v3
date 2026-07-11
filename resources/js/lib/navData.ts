@@ -50,8 +50,9 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
         {
             items: [
                 {
-                    // Logo-implicit today (no dedicated sidebar row) but a real,
-                    // searchable destination for the command palette.
+                    // Also reachable via the logo click, but given a real
+                    // sidebar row (not just palette-only) so the two nav
+                    // surfaces stay in parity with each other.
                     title: 'Home / Browse',
                     href: route('index'),
                     icon: Home,
@@ -97,7 +98,6 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     title: 'Game Tracker',
                     href: route('games.index'),
                     icon: Swords,
-                    badge: 'Beta',
                 },
                 {
                     title: 'Tournament Tracker',
@@ -155,12 +155,9 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
             ],
         },
         {
-            title: 'Factions',
-            collapsible: true,
-            collapsed: false,
-            items: ctx.factionItems,
-        },
-        {
+            // Genuinely useful utility tools — moved ahead of Factions so a
+            // first-time user isn't scrolling past a 7-item faction list to
+            // reach them.
             title: 'Tools',
             collapsible: true,
             collapsed: false,
@@ -206,12 +203,25 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     keywords: 'bonanza brawl loot deck solo format',
                 },
                 {
+                    title: 'Custom Card Creator',
+                    href: route('tools.card_creator.index'),
+                    icon: FileImage,
+                    badge: 'Beta',
+                    keywords: 'custom card creator homebrew character upgrade design',
+                },
+                {
                     title: 'Hat Gamin Bot',
                     href: route('tools.hat_gamin'),
                     icon: Bot,
                     keywords: 'hat gamin bot chat assistant ai',
                 },
             ],
+        },
+        {
+            title: 'Factions',
+            collapsible: true,
+            collapsed: false,
+            items: ctx.factionItems,
         },
         {
             title: 'References',
@@ -319,9 +329,9 @@ export function buildTosNav(ctx: TosNavContext): NavGroup[] {
     return [
         {
             items: [
-                // Logo-implicit today (no dedicated sidebar row) but a real,
-                // searchable destination for the command palette — mirrors
-                // Malifaux's "Home / Browse" entry for consistency.
+                // Also reachable via the logo click, but given a real sidebar
+                // row (not just palette-only) so the two nav surfaces stay in
+                // parity — mirrors Malifaux's "Home / Browse" entry.
                 {
                     title: 'Home / Browse',
                     href: route('tos.index'),

@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { Trophy } from 'lucide-vue-next';
 
 interface TournamentRow {
     id: number;
@@ -38,15 +38,14 @@ const statusBadgeClass = (status: string | null) => {
 
 <template>
     <Head title="Tournaments - Admin Override" />
+    <PageBanner title="Tournament Override" class="mb-2">
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Super-admin escape hatch for the tournament state machine. Use sparingly — every change is recorded in the activity log.
+            </div>
+        </template>
+    </PageBanner>
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <Trophy class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Tournament Override</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Super-admin escape hatch for the tournament state machine. Use sparingly — every change is recorded in the activity log.
-        </p>
-
         <div class="space-y-2">
             <Card v-for="t in tournaments" :key="t.id">
                 <CardContent class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,15 +56,22 @@ const grouped = computed(() => {
 
 <template>
     <Head title="Image Health - Admin" />
+
+    <PageBanner title="Image Health" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <ImageOff class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for
+                60 minutes after each scan.
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <ImageOff class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Image Health</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for 60
-            minutes after each scan.
-        </p>
 
         <Card>
             <CardContent class="flex flex-wrap items-center justify-between gap-3 p-4">

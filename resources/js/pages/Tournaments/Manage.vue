@@ -215,8 +215,23 @@ const visibleTabs = computed(() => {
     }
     return t;
 });
-const initialTab = typeof window !== 'undefined' && window.location.hash ? window.location.hash.slice(1) : 'standings';
-const activeTab = ref(visibleTabs.value.includes(initialTab) ? initialTab : 'standings');
+const initialTab = typeof window !== 'undefined' && window.location.hash ? window.location.hash.slice(1) : null;
+// No hash to restore — default to Rounds when a round is actively being
+// played (the organizer's most likely next task: pairing/scoring/ending it),
+// else Standings.
+const activeRoundInProgress = props.tournament.rounds.some((r) => r.status === 'in_progress');
+const defaultTab = activeRoundInProgress ? 'rounds' : 'standings';
+const activeTab = ref(initialTab && visibleTabs.value.includes(initialTab) ? initialTab : defaultTab);
+
+// Which round the tournament is currently at, for the "Round X of Y" header
+// badge — the in-progress round if there is one, else the most recently
+// created round (covers the gap between rounds), else null pre-start.
+const currentRoundNumber = computed(() => {
+    const inProgress = props.tournament.rounds.find((r) => r.status === 'in_progress');
+    if (inProgress) return inProgress.round_number;
+    if (!props.tournament.rounds.length) return null;
+    return Math.max(...props.tournament.rounds.map((r) => r.round_number));
+});
 
 const encounterTypeLabel = computed(() => {
     const map: Record<string, string> = {
@@ -1231,7 +1246,8 @@ const titlesForMaster = (masterName: string | null) => {
                     <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(tournament.event_date) }}</span>
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
                     <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
-                    <span>{{ tournament.planned_rounds }} rounds</span>
+                    <span v-if="currentRoundNumber !== null">Round {{ currentRoundNumber }} of {{ tournament.planned_rounds }}</span>
+                    <span v-else>{{ tournament.planned_rounds }} rounds</span>
                     <span>{{ tournament.season_label }}</span>
                 </div>
             </template>
@@ -1611,9 +1627,12 @@ const titlesForMaster = (masterName: string | null) => {
                                                         : 'Setup'
                                             }}
                                         </Badge>
-                                        <span v-if="round.strategy" class="hidden text-xs text-muted-foreground sm:inline">{{
-                                            round.strategy.name
-                                        }}</span>
+                                        <span
+                                            v-if="round.strategy"
+                                            class="max-w-[110px] truncate text-xs text-muted-foreground sm:max-w-none"
+                                            :title="round.strategy.name"
+                                            >{{ round.strategy.name }}</span
+                                        >
                                         <button
                                             v-if="round.status !== 'in_progress'"
                                             class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

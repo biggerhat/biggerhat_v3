@@ -104,9 +104,6 @@ const formatDate = (dateStr: string) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Track your Malifaux games in real time
-                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
-                        >Beta</Badge
-                    >
                 </div>
             </template>
         </PageBanner>

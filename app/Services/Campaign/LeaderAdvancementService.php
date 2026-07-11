@@ -232,11 +232,25 @@ class LeaderAdvancementService
                 }
 
                 $keywordIds = array_column($leader->keywords ?? [], 'id');
-                $validMaster = ! empty($keywordIds) && Character::query()
-                    ->whereKey($sourceMasterId)
-                    ->where('station', CharacterStationEnum::Master->value)
-                    ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                    ->exists();
+                // The card's own assigned master is authoritative when set —
+                // and can be a custom-built Campaign Leader, whose keywords
+                // live in a JSON column rather than a keywords() relation.
+                // A generic (master_id null) row falls back to the client's
+                // free choice, which is always an official Character (Any
+                // Joker sourcing, pg 31).
+                $sourceMasterType = $crewCardForSource->master_id !== null ? $crewCardForSource->master_type : Character::class;
+                $validMaster = ! empty($keywordIds) && match ($sourceMasterType) {
+                    CustomCharacter::class => CustomCharacter::query()
+                        ->whereKey($sourceMasterId)
+                        ->where('is_campaign_leader', true)
+                        ->get(['id', 'keywords'])
+                        ->contains(fn (CustomCharacter $c) => collect($c->keywords ?? [])->pluck('id')->filter()->intersect($keywordIds)->isNotEmpty()),
+                    default => Character::query()
+                        ->whereKey($sourceMasterId)
+                        ->where('station', CharacterStationEnum::Master->value)
+                        ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                        ->exists(),
+                };
                 if (! $validMaster) {
                     return 'Crew Card Advancement must name a master that shares a keyword with your leader.';
                 }
@@ -457,10 +471,20 @@ class LeaderAdvancementService
 
         $crewCard = CampaignCrewCard::find($catalogId);
 
+        // The card being borrowed already knows whose master printed it
+        // (official or custom-built) — only fall back to the Any Joker
+        // free-choice source (always an official Character, pg 31) when the
+        // catalog row itself is generic/unassigned.
+        $sourceMasterId = $crewCard->master_id ?? ($freeChoice['source_character_id'] ?? null);
+        $sourceMasterType = $crewCard?->master_id !== null
+            ? $crewCard->master_type
+            : ($sourceMasterId !== null ? Character::class : null);
+
         CampaignCrewCardAdvancement::create([
             'campaign_crew_id' => $leader->campaign_crew_id,
             'crew_card_effect_id' => $catalogId,
-            'source_master_id' => $crewCard->master_id ?? ($freeChoice['source_character_id'] ?? null),
+            'source_master_id' => $sourceMasterId,
+            'source_master_type' => $sourceMasterType,
             'crew_card_choice' => $this->resolveCrewCardChoice($leader->campaign_crew_id, $catalogId, $crewCardChoiceInput),
             'acquired_aftermath_id' => $sourceAftermathId,
         ]);

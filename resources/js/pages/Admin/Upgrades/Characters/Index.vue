@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -96,6 +97,11 @@ watch(gameModeFilter, (val) => {
 <template>
     <Head title="Upgrades - Admin" />
 
+    <PageBanner title="Upgrades" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.upgrades.create'))"> Create New Upgrade </Button>
+        </template>
+    </PageBanner>
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-2">
@@ -119,7 +125,6 @@ watch(gameModeFilter, (val) => {
                 </Select>
             </div>
             <div>Total {{ table.getFilteredRowModel().rows.length }}</div>
-            <Button @click="router.get(route('admin.upgrades.create'))"> Create New Upgrade </Button>
         </div>
         <div class="rounded-md border">
             <Table>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { valueUpdater } from '@/lib/utils';
@@ -91,6 +92,12 @@ const table = useVueTable({
 <template>
     <Head title="Lore Media - Admin" />
 
+    <PageBanner title="Lore Media" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.lore_media.create'))"> Create New Lore Media </Button>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
@@ -100,7 +107,6 @@ const table = useVueTable({
                 @update:model-value="table.setGlobalFilter($event)"
             />
             <div>Total {{ props.lore_media.length }}</div>
-            <Button @click="router.get(route('admin.lore_media.create'))"> Create New Lore Media </Button>
         </div>
         <div class="rounded-md border">
             <Table>

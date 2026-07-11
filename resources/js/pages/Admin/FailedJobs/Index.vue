@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -78,16 +79,27 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
 
 <template>
     <Head title="Failed Jobs - Admin" />
-    <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex flex-wrap items-center gap-2">
-            <AlertTriangle class="size-5 text-amber-500" />
-            <h1 class="text-2xl font-semibold tracking-tight">Failed Jobs</h1>
-            <Badge variant="secondary" class="ml-1">{{ jobs.total }}</Badge>
-            <div class="ml-auto flex gap-2">
+
+    <PageBanner title="Failed Jobs" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <AlertTriangle class="size-8 text-amber-500 md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                <Badge variant="secondary">{{ jobs.total }}</Badge>
+            </div>
+        </template>
+        <template #actions>
+            <div class="my-auto mr-2 flex gap-2">
                 <Button v-if="jobs.total > 0" variant="outline" size="sm" @click="retryAll"> <RefreshCw class="mr-1.5 size-3.5" /> Retry all </Button>
                 <Button v-if="jobs.total > 0" variant="destructive" size="sm" @click="flush"> <Trash2 class="mr-1.5 size-3.5" /> Flush all </Button>
             </div>
-        </div>
+        </template>
+    </PageBanner>
+
+    <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
         <p class="text-sm text-muted-foreground">Jobs that hit the failed_jobs table. Inspect the exception, retry, or discard.</p>
 
         <div v-if="jobs.data.length === 0" class="py-16 text-center text-sm text-muted-foreground">No failed jobs. 🎉</div>

@@ -3,6 +3,12 @@ import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
 import { Head } from '@inertiajs/vue3';
 
+// Headless-capture-only page — no sidebar/header/cookie-banner chrome.
+// app.ts defaults every page to AppLayout unless it opts out here; without
+// this, LeaderCardImageGenerator's Browsershot capture picked up the full
+// site layout around the card divs, squeezing their width via flexbox.
+defineOptions({ layout: null });
+
 interface KeywordData {
     id: number | null;
     name: string;

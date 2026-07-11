@@ -3,6 +3,8 @@ import { type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
+const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false });
+
 const page = usePage<SharedData>();
 
 const current = computed(() => page.props.currentGameSystem.slug);
@@ -41,21 +43,27 @@ function switchTo(target: 'malifaux' | 'tos') {
     >
         <button
             type="button"
-            class="inline-flex h-7 items-center rounded px-2 transition-colors"
-            :class="current === 'malifaux' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            class="inline-flex h-7 items-center rounded transition-colors"
+            :class="[
+                props.compact ? 'px-1.5' : 'px-2',
+                current === 'malifaux' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            ]"
             :aria-pressed="current === 'malifaux'"
             @click="switchTo('malifaux')"
         >
-            Malifaux
+            {{ props.compact ? 'MAL' : 'Malifaux' }}
         </button>
         <button
             type="button"
-            class="inline-flex h-7 items-center rounded px-2 transition-colors"
-            :class="current === 'tos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            class="inline-flex h-7 items-center rounded transition-colors"
+            :class="[
+                props.compact ? 'px-1.5' : 'px-2',
+                current === 'tos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            ]"
             :aria-pressed="current === 'tos'"
             @click="switchTo('tos')"
         >
-            The Other Side
+            {{ props.compact ? 'TOS' : 'The Other Side' }}
         </button>
     </div>
 </template>

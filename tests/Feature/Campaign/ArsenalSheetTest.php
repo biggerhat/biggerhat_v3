@@ -329,8 +329,10 @@ it('exposes equipment actions and marks equipment locked once an advancement tar
         'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
     ]);
     $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crew->id]);
-    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack', 'stat' => 5]);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack', 'stat' => 5, 'description' => 'Slash body text.']);
     $equipment->catalog->actions()->attach($action->id, ['is_signature_action' => false]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Granted Toughness', 'description' => 'Toughness body text.']);
+    $equipment->catalog->abilities()->attach($ability->id);
     $trigger = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['name' => 'Locked Trigger', 'flip_value' => 5]);
     \App\Models\Campaign\CampaignLeaderAdvancement::create([
         'custom_character_id' => $leader->id,
@@ -350,6 +352,12 @@ it('exposes equipment actions and marks equipment locked once an advancement tar
             ->where('equipment.0.locked', true)
             ->where('equipment.0.applied_effects.0', 'Locked Trigger — Granted Slash')
             ->where('equipment.0.actions.0.name', 'Granted Slash')
+            // Regression: the equipment card view was showing only the bare
+            // description, not full action/ability rules text (QA report).
+            ->where('equipment.0.actions.0.description', 'Slash body text.')
+            ->where('equipment.0.actions.0.stat', '5')
+            ->where('equipment.0.abilities.0.name', 'Granted Toughness')
+            ->where('equipment.0.abilities.0.description', 'Toughness body text.')
         );
 });
 

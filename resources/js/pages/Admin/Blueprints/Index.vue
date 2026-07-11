@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -155,6 +156,12 @@ const table = useVueTable({
 <template>
     <Head title="Blueprints - Admin" />
 
+    <PageBanner title="Blueprints" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.blueprints.create'))"> Create New Blueprint </Button>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-4">
@@ -170,7 +177,6 @@ const table = useVueTable({
                 </label>
             </div>
             <div>Total {{ table.getFilteredRowModel().rows.length }}</div>
-            <Button @click="router.get(route('admin.blueprints.create'))"> Create New Blueprint </Button>
         </div>
         <div class="rounded-md border">
             <Table>

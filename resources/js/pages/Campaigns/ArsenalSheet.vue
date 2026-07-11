@@ -10,7 +10,6 @@ import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
@@ -208,11 +207,9 @@ interface ViewMode {
     share_url: string;
 }
 
-interface EquipmentAction {
-    id: number;
-    name: string;
+interface EquipmentAction extends CrewCardLinkedAction {
+    // The Skl Boost target picker (pg 38-43) only reads category/stat.
     category: string;
-    stat: number | string | null;
 }
 interface EquipmentItem {
     id: number;
@@ -224,6 +221,7 @@ interface EquipmentItem {
     // Attack/Tactical Mod target (pg 31, 38-43) — the actions this equipment
     // grants, and whether one already has an advancement locked onto it.
     actions: EquipmentAction[];
+    abilities: CrewCardLinkedAbility[];
     locked: boolean;
     applied_effects: string[];
 }
@@ -378,11 +376,8 @@ const tableOptionsForTier = (tier: number) =>
 // with its own flip_value shown inline in the label as a reference only.
 // Joker declarations (Any Joker / Joker color) are a separate mechanism and
 // still gate the list, since they're not flip-value based.
-const eligibleCatalogRows = (table: string, isJokerFlipped = false, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
+const eligibleCatalogRows = (table: string, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
     const rows = catalogRowsFor(table);
-    if (table === 'action' || table === 'ability') {
-        return isJokerFlipped ? rows.filter((r) => r.is_joker) : rows.filter((r) => !r.is_joker);
-    }
     // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
     // instead of a flip_value. A row with both flags set is "Any Joker" (either
     // color satisfies it); a row with exactly one flag set needs that specific
@@ -393,7 +388,17 @@ const eligibleCatalogRows = (table: string, isJokerFlipped = false, jokerColor: 
         }
         return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
     }
+    // Action/Ability: Any Joker rows are just part of the same table's list —
+    // no separate "did you flip a joker" declaration needed. Picking one
+    // (row.is_joker) reveals the free-choice ally search below.
     return rows;
+};
+
+const isSelectedRowJoker = (position: number): boolean => {
+    const d = drafts.value[position];
+    if (!d || d.catalog_id === null) return false;
+
+    return !!catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id)?.is_joker;
 };
 
 // ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
@@ -493,7 +498,6 @@ interface AdvDraft {
     applied_to_action_id: number | null;
     // Any Joker (Action/Ability, pg 49/51) + Crew Card's borrowed-from master
     // (pg 32, 54) both resolve through free_choice.
-    is_joker_flipped: boolean;
     // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
     joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
@@ -523,7 +527,6 @@ watch(
                     target_equipment_id: null,
                     applied_to_action_index: -1,
                     applied_to_action_id: null,
-                    is_joker_flipped: false,
                     joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
@@ -1226,7 +1229,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 (v) => {
                                                     drafts[slot.position].source_table = v as string;
                                                     drafts[slot.position].catalog_id = null;
-                                                    drafts[slot.position].is_joker_flipped = false;
                                                     drafts[slot.position].joker_color = null;
                                                     drafts[slot.position].target_type = 'leader';
                                                     drafts[slot.position].target_equipment_id = null;
@@ -1248,24 +1250,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <label
-                                            v-if="drafts[slot.position].source_table === 'action' || drafts[slot.position].source_table === 'ability'"
-                                            class="flex items-center gap-1 text-[11px] text-muted-foreground"
-                                        >
-                                            <Checkbox
-                                                :checked="drafts[slot.position].is_joker_flipped"
-                                                @update:checked="
-                                                    (v: boolean) => {
-                                                        drafts[slot.position].is_joker_flipped = v;
-                                                        drafts[slot.position].catalog_id = null;
-                                                        drafts[slot.position].free_choice_source_id = null;
-                                                        drafts[slot.position].free_choice_source_character_id = null;
-                                                        drafts[slot.position].free_choice_label = null;
-                                                    }
-                                                "
-                                            />
-                                            Joker
-                                        </label>
                                         <Select
                                             v-if="
                                                 drafts[slot.position].source_table === 'attack_mod' ||
@@ -1308,7 +1292,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 <SelectItem
                                                     v-for="row in eligibleCatalogRows(
                                                         drafts[slot.position].source_table,
-                                                        drafts[slot.position].is_joker_flipped,
                                                         drafts[slot.position].joker_color,
                                                     )"
                                                     :key="row.id"
@@ -1415,10 +1398,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         </Select>
                                     </div>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
-                                    <div
-                                        v-if="drafts[slot.position].is_joker_flipped && drafts[slot.position].catalog_id !== null"
-                                        class="space-y-1 rounded border p-2"
-                                    >
+                                    <div v-if="isSelectedRowJoker(slot.position)" class="space-y-1 rounded border p-2">
                                         <p v-if="drafts[slot.position].free_choice_label" class="text-xs font-medium">
                                             Picked: {{ drafts[slot.position].free_choice_label }}
                                             <button
@@ -1847,13 +1827,26 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
                         <GameText :text="viewCard.equipment.description" />
                     </p>
+                    <div v-if="viewCard.equipment.abilities.length" class="space-y-2">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                        <AbilityCard v-for="ab in viewCard.equipment.abilities" :key="`eqab-${ab.id}`" :ability="ab" :hide-footer="true" />
+                    </div>
+                    <div v-if="viewCard.equipment.actions.length" class="space-y-2">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                        <ActionCard v-for="ac in viewCard.equipment.actions" :key="`eqac-${ac.id}`" :action="ac" :hide-footer="true" />
+                    </div>
                     <div v-if="viewCard.equipment.applied_effects.length" class="space-y-1 rounded border p-2">
                         <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             🔒 Leader Advancements attached to this equipment
                         </p>
                         <p v-for="(effect, i) in viewCard.equipment.applied_effects" :key="i" class="text-xs">+ {{ effect }}</p>
                     </div>
-                    <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
+                    <p
+                        v-if="!viewCard.equipment.description && !viewCard.equipment.abilities.length && !viewCard.equipment.actions.length"
+                        class="text-xs text-muted-foreground"
+                    >
+                        No rules text recorded for this equipment.
+                    </p>
                 </div>
 
                 <!-- Crew card -->

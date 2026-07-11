@@ -178,6 +178,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
     >
         <div class="flex items-center gap-2">
             <SidebarTrigger class="-ml-1" />
+            <GameSystemSwitcher compact class="sm:hidden" />
             <GameSystemSwitcher class="hidden sm:inline-flex" />
             <template v-if="breadcrumbs.length > 0">
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />

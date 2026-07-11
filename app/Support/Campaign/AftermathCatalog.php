@@ -66,9 +66,12 @@ class AftermathCatalog
     }
 
     /**
-     * The crew's active, owned Equipment — each with the actions it grants
-     * (from the shared Action catalog via its Upgrade record) so an
-     * Attack/Tactical Mod advancement (pg 38-43) can target one of them.
+     * The crew's active, owned Equipment — full rules text plus the actions
+     * and abilities it grants (from the shared Action/Ability catalogs via
+     * its Upgrade record), so the Arsenal Sheet's equipment card view has the
+     * same full-text rendering as a Crew Card, and an Attack/Tactical Mod
+     * advancement (pg 38-43) can target one of its actions. `category`/`type`
+     * are kept in sync — the Skl Boost target picker only reads `category`.
      * `locked`/`applied_effects` surface any advancement already attached —
      * equipment has no per-instance actions[] to mutate, so those records
      * are the sole source of truth, overlaid here for display (pg 31: once
@@ -83,11 +86,16 @@ class AftermathCatalog
         return CampaignEquipment::query()
             ->where('campaign_crew_id', $crew->id)
             ->active()
-            ->with(['catalog:id,name,campaign_cc,campaign_br,description', 'catalog.actions:id,name,type,stat'])
+            ->with([
+                'catalog:id,name,campaign_cc,campaign_br,description',
+                'catalog.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'catalog.abilities',
+            ])
             ->orderBy('id')
             ->get()
             ->map(function (CampaignEquipment $e) use ($advancementInfo) {
                 $info = $advancementInfo[$e->id] ?? null;
+                $category = fn (Action $a) => $a->type instanceof \BackedEnum ? $a->type->value : $a->type;
 
                 return [
                     'id' => $e->id,
@@ -99,8 +107,29 @@ class AftermathCatalog
                     'actions' => $e->catalog->actions->map(fn (Action $a) => [
                         'id' => $a->id,
                         'name' => $a->name,
-                        'category' => $a->type instanceof \BackedEnum ? $a->type->value : $a->type,
+                        'category' => $category($a),
+                        'type' => $category($a),
+                        'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from morphedByMany)
+                        'stone_cost' => $a->stone_cost,
+                        'range' => $a->range,
+                        'range_type' => $a->range_type instanceof \BackedEnum ? $a->range_type->value : $a->range_type,
                         'stat' => $a->stat,
+                        'stat_suits' => $a->stat_suits,
+                        'stat_modifier' => $a->stat_modifier instanceof \BackedEnum ? $a->stat_modifier->value : $a->stat_modifier,
+                        'resisted_by' => $a->resisted_by,
+                        'target_number' => $a->target_number,
+                        'target_suits' => $a->target_suits,
+                        'damage' => $a->damage,
+                        'description' => $a->description,
+                        'triggers' => self::triggerSummaries($a->triggers),
+                    ])->all(),
+                    'abilities' => $e->catalog->abilities->map(fn (Ability $a) => [
+                        'id' => $a->id,
+                        'name' => $a->name,
+                        'suits' => $a->suits,
+                        'defensive_ability_type' => $a->defensive_ability_type,
+                        'costs_stone' => (bool) $a->costs_stone,
+                        'description' => $a->description,
                     ])->all(),
                     'locked' => $info !== null,
                     'applied_effects' => $info['applied_effects'] ?? [],

@@ -278,17 +278,27 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::middleware('auth')->group(function () {
             Route::get('/', [CustomCharacterController::class, 'index'])->name('index');
             Route::get('/create', [CustomCharacterController::class, 'create'])->name('create');
-            Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
             Route::get('/{customCharacter}/edit', [CustomCharacterController::class, 'edit'])->name('edit');
-            Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
-            Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
 
             Route::prefix('upgrades')->name('upgrades.')->group(function () {
                 Route::get('/create', [CustomUpgradeController::class, 'create'])->name('create');
-                Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
                 Route::get('/{customUpgrade}/edit', [CustomUpgradeController::class, 'edit'])->name('edit');
-                Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
-                Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+            });
+
+            // Writes get a shared per-user rate limit — generous enough for
+            // normal iterative editing, tight enough to bound scripted
+            // spam-creation once this is public (create/update had no
+            // throttle at all before).
+            Route::middleware('throttle:60,1')->group(function () {
+                Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
+                Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
+                Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
+
+                Route::prefix('upgrades')->name('upgrades.')->group(function () {
+                    Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
+                    Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
+                    Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+                });
             });
         });
     });

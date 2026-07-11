@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TOS\Database;
 
 use App\Enums\TOS\SpecialUnitRuleEnum;
 use App\Http\Controllers\Controller;
+use App\Models\TOS\Allegiance;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class UnitController extends Controller
         // from the query string (so useListFiltering on the client can
         // partial-reload without changing URL segments).
         $rule = $rule ?? ($request->filled('rule') ? (string) $request->get('rule') : null);
+        $allegiance = $request->filled('allegiance') ? (string) $request->get('allegiance') : null;
         $nameSearch = $request->filled('name_search') ? trim((string) $request->get('name_search')) : null;
         $pageView = $request->get('page_view', 'cards');
         $perPage = $pageView === 'table' ? 50 : 24;
@@ -45,6 +47,10 @@ class UnitController extends Controller
             }
         }
 
+        if ($allegiance !== null && $allegiance !== '') {
+            $query->whereHas('allegiances', fn ($q) => $q->where('slug', $allegiance));
+        }
+
         if ($nameSearch) {
             $query->where(function ($q) use ($nameSearch) {
                 $q->where('name', 'LIKE', "%{$nameSearch}%")
@@ -55,9 +61,15 @@ class UnitController extends Controller
         return inertia('TOS/Units/Index', [
             'units' => $query->paginate($perPage)->withQueryString(),
             'rule_filter' => $rule,
+            'allegiance_filter' => $allegiance,
             'name_search' => $nameSearch,
             'page_view' => $pageView,
             'special_rules' => SpecialUnitRuleEnum::toSelectOptions(),
+            // Simple single-select filter (mirrors the Rule chips above it) —
+            // the full AND/OR/exclude allegiance filter lives on Advanced
+            // Search for users who need that much control.
+            'allegiances' => Allegiance::query()->orderBy('name')->get(['slug', 'name'])
+                ->map(fn (Allegiance $a) => ['name' => $a->name, 'value' => $a->slug])->all(),
         ]);
     }
 

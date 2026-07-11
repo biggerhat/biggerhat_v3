@@ -730,6 +730,52 @@ it('Phase 5 Doctor flip 9 removes the original injury and attaches the reflipped
     expect($remaining)->toEqual([$reflipped->id]);
 });
 
+it('Phase 5 Doctor "How many fingers do you need?" (the real seeded flip-9 row) swaps the injury just like "Oops" does', function () {
+    // Regression check for a reported QA bug: "How many fingers do you
+    // need?" (RemovedAndReflip, pg 33) was suspected of not prompting for a
+    // replacement injury the way "Oops" (AddedInjury) does. Uses the actual
+    // catalog row CampaignCatalogSeeder writes — not just a factory row with
+    // a matching outcome_kind — so this traces directly to the reported name.
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 5]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 5,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $original = Upgrade::factory()->campaignInjury()->create(['campaign_suit_pool' => 'pc', 'campaign_flip_value' => 3]);
+    $reflipped = Upgrade::factory()->campaignInjury()->create(['campaign_suit_pool' => 'te', 'campaign_flip_value' => 7]);
+    $pivotId = DB::table('campaign_arsenal_model_injuries')->insertGetId([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => $original->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $result = BackAlleyDoctorResult::factory()->create([
+        'name' => 'How many fingers do you need?',
+        'body' => 'Annihilate the chosen injury, then reflip on the injury chart for a new one.',
+        'flip_value_min' => 9,
+        'flip_value_max' => 9,
+        'outcome_kind' => \App\Enums\Campaign\BackAlleyDoctorOutcomeEnum::RemovedAndReflip->value,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.doctor', $aftermath), [
+            'attempts' => [[
+                'injury_pivot_id' => $pivotId,
+                'result_id' => $result->id,
+                'added_injury_upgrade_id' => $reflipped->id,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect(DB::table('campaign_arsenal_model_injuries')->where('id', $pivotId)->exists())->toBeFalse();
+    $remaining = DB::table('campaign_arsenal_model_injuries')->where('campaign_arsenal_model_id', $model->id)->pluck('injury_upgrade_id')->all();
+    expect($remaining)->toEqual([$reflipped->id]);
+});
+
 it('Phase 5 Doctor red joker annihilates the injury and applies a Lucky Miss', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $crew->update(['scrip' => 5]);
@@ -1620,7 +1666,7 @@ it('Phase 4 Crew Card advancement derives source_master_id from the catalog row,
 
     $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
     $master->keywords()->attach($keyword);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['master_id' => $master->id]);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($master)->create();
 
     // No free_choice submitted at all — the row's own master_id is authoritative.
     $this->actingAs($user)
@@ -1640,6 +1686,59 @@ it('Phase 4 Crew Card advancement derives source_master_id from the catalog row,
     $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
     expect($stacked)->toHaveCount(1);
     expect($stacked->first()->source_master_id)->toBe($master->id);
+    expect($stacked->first()->source_master_type)->toBe(\App\Models\Character::class);
+});
+
+it('Phase 4 Crew Card advancement derives source_master from a custom-built Campaign Leader catalog row', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $leader = buildLeaderFor($crew, $user);
+    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+
+    // An unrelated ally's custom-built Leader sharing the same keyword — the
+    // crew card it's printed on can be borrowed from without belonging to
+    // this crew.
+    $customMaster = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'AllyLeader',
+        'tag' => 'ally',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14,
+        'defense' => 5,
+        'willpower' => 5,
+        'speed' => 6,
+        'base' => 30,
+        'keywords' => [['id' => $keyword->id, 'name' => $keyword->name]],
+    ]);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forCustomMaster($customMaster)->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+                'free_choice' => null,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
+    expect($stacked)->toHaveCount(1);
+    expect($stacked->first()->source_master_id)->toBe($customMaster->id);
+    expect($stacked->first()->source_master_type)->toBe(\App\Models\CustomCharacter::class);
+    expect($stacked->first()->sourceMaster)->toBeInstanceOf(\App\Models\CustomCharacter::class);
 });
 
 it('Phase 4 Crew Card advancement ignores a client-submitted master that does not match the catalog row', function () {
@@ -1656,7 +1755,7 @@ it('Phase 4 Crew Card advancement ignores a client-submitted master that does no
 
     $realMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
     $realMaster->keywords()->attach($keyword);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['master_id' => $realMaster->id]);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($realMaster)->create();
 
     // A second, unrelated eligible master the client tries to spoof as the source.
     $spoofedMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);

@@ -126,9 +126,22 @@ useTournamentChannel(props.tournament.uuid, () => {
 
 const isCompleted = computed(() => props.tournament.status === 'completed');
 
-// Default tab is always Standings — users want to see the leaderboard first,
-// not the latest round's pairings.
-const activeTab = ref('standings');
+// Default to the round currently being played, if any — that's the most
+// actionable view mid-tournament (your pairing, live scores). Falls back to
+// Standings once nothing is actively in progress: before the first round
+// starts, between rounds, or after the tournament completes.
+const activeInProgressRound = props.rounds.find((r) => r.status === 'in_progress');
+const activeTab = ref(activeInProgressRound ? `r${activeInProgressRound.round_number}` : 'standings');
+
+// Which round the tournament is currently at, for the "Round X of Y" header
+// badge — the in-progress round if there is one, else the most recently
+// created round (covers the gap between rounds), else null pre-start.
+const currentRoundNumber = computed(() => {
+    const inProgress = props.rounds.find((r) => r.status === 'in_progress');
+    if (inProgress) return inProgress.round_number;
+    if (!props.rounds.length) return null;
+    return Math.max(...props.rounds.map((r) => r.round_number));
+});
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
@@ -281,6 +294,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 ? 'Registration Open'
                                 : 'Draft'
                     }}</Badge>
+                    <span v-if="currentRoundNumber !== null">Round {{ currentRoundNumber }} of {{ tournament.planned_rounds }}</span>
                     <span>{{ tournament.season_label }}</span>
                     <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
                     <span v-if="tournament.event_date" class="flex items-center gap-1"

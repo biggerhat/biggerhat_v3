@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { router } from '@inertiajs/vue3';
 import { Maximize2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -21,7 +22,7 @@ const backImageUrl = computed(() => (props.backImage ? '/storage/' + props.backI
 </script>
 
 <template>
-    <div class="text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
+    <div :class="['text-center', CARD_HOVER]">
         <div class="relative mx-auto w-fit">
             <div @click="flipped = !flipped" class="cursor-pointer" style="perspective: 1000px">
                 <div class="relative w-full" :class="{ 'card-flipped': flipped }" style="transition: transform 0.5s; transform-style: preserve-3d">

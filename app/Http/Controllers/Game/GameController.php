@@ -472,12 +472,17 @@ class GameController extends Controller
         if ($context !== GameShowContext::Summary) {
             $props['loot_card_catalog'] = fn () => ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && $game->status === GameStatusEnum::InProgress)
                 ? \App\Models\LootCard::with([
-                    'sideAActions',
-                    'sideAAbilities',
-                    'sideATriggers',
-                    'sideBActions',
-                    'sideBAbilities',
-                    'sideBTriggers',
+                    // Column lists mirror BonanzaLootDeckController's public reference
+                    // page so the in-game side-picker can render the same full
+                    // ActionCard/AbilityCard/LootTriggerDisplay detail, not just names.
+                    'sideAActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                    'sideBActions:id,name,slug,type,is_signature,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description',
+                    'sideAActions.triggers:id,name,slug,suits,stone_cost,description',
+                    'sideBActions.triggers:id,name,slug,suits,stone_cost,description',
+                    'sideAAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                    'sideBAbilities:id,name,slug,suits,defensive_ability_type,costs_stone,description',
+                    'sideATriggers:id,name,slug,suits,stone_cost,description',
+                    'sideBTriggers:id,name,slug,suits,stone_cost,description',
                 ])->orderBy('id')->get()
                 : [];
         }
@@ -531,20 +536,18 @@ class GameController extends Controller
             ->first();
 
         if (! $wrap) {
-            return null;
+            // Solo games created outside the campaign hub (no CampaignGame
+            // link is ever created for them, unlike hub-started games) —
+            // fall back to the same crew resolution Arsenal/Equipment props
+            // already use, so at least the player's own crew card still
+            // shows instead of the whole banner silently disappearing.
+            return $this->buildCampaignContextForSoloFallback($game);
         }
 
         // Propagate the crew-card action pivot's signature flag onto the
         // serialized action, same as ArsenalSheetController.
         foreach ([$wrap->crewA, $wrap->crewB] as $crew) {
-            $crew->crewCardEffect?->actions->each(
-                fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
-            );
-            $crew->crewCardAdvancements->each(
-                fn ($adv) => $adv->crewCardEffect->actions->each(
-                    fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
-                ),
-            );
+            $this->applyCrewCardSignatureFlags($crew);
         }
 
         return [
@@ -561,6 +564,59 @@ class GameController extends Controller
             'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
             'crew_b_card' => $this->campaignCrewCardPayload($wrap->crewB),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildCampaignContextForSoloFallback(Game $game): ?array
+    {
+        if (! $game->is_solo) {
+            return null;
+        }
+
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
+        if (! $campaignCrew) {
+            return null;
+        }
+
+        $campaignCrew->load([
+            'campaign:id,name,current_week,length_weeks',
+            'crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+            'crewCardEffect.abilities',
+            'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+            'crewCardAdvancements.crewCardEffect.abilities',
+            'crewCardAdvancements.sourceMaster:id,display_name',
+        ]);
+        $this->applyCrewCardSignatureFlags($campaignCrew);
+
+        return [
+            'campaign' => $campaignCrew->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
+            'crew_a' => $campaignCrew->only(['id', 'share_code', 'name', 'user_id']),
+            // No CampaignGame link means no tracked opponent/CR/encounter
+            // stats for this game — only the player's own crew card is
+            // resolvable this way.
+            'crew_b' => null,
+            'cr_a' => 0,
+            'cr_b' => 0,
+            'ss_bonus_to_lower' => 0,
+            'encounter_size' => 0,
+            'week_number' => $campaignCrew->campaign->current_week,
+            'crew_a_card' => $this->campaignCrewCardPayload($campaignCrew),
+            'crew_b_card' => ['effect' => null, 'borrowed' => []],
+        ];
+    }
+
+    private function applyCrewCardSignatureFlags(\App\Models\Campaign\CampaignCrew $crew): void
+    {
+        $crew->crewCardEffect?->actions->each(
+            fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+        );
+        $crew->crewCardAdvancements->each(
+            fn ($adv) => $adv->crewCardEffect->actions->each(
+                fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+            ),
+        );
     }
 
     /**

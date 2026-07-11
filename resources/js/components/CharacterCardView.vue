@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
+import { CARD_HOVER } from '@/lib/cardHover';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { BookMarked, Heart, Maximize2, Plus } from 'lucide-vue-next';
@@ -110,7 +111,7 @@ const backImageUrl = computed(() => (props.miniature.back_image ? '/storage/' + 
 </script>
 
 <template>
-    <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
+    <div :class="['w-full rounded-lg text-center', CARD_HOVER]">
         <p class="mb-1 text-xs text-muted-foreground">{{ miniature.display_name }}</p>
         <div class="relative mx-auto w-fit">
             <div @click="flip" @keydown.enter="flip" role="button" tabindex="0" class="cursor-pointer" style="perspective: 1000px">

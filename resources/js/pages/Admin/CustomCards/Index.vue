@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -82,14 +83,21 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
 
 <template>
     <Head title="Custom Cards - Admin" />
+
+    <PageBanner title="Custom Card Moderation" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <ShieldAlert class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                User-created Characters and Upgrades. Force-unpublish hides from the public site without deleting.
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <ShieldAlert class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Custom Card Moderation</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            User-created Characters and Upgrades. Force-unpublish hides from the public site without deleting.
-        </p>
 
         <div class="grid gap-3 sm:grid-cols-4">
             <Card

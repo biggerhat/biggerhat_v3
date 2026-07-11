@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
+import LootEffectText from '@/components/Bonanza/LootEffectText.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -2907,9 +2908,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         — {{ lootSidePicker.card.title_a }}
                                     </span>
                                 </div>
-                                <p v-if="lootSidePicker.card.effect_a" class="whitespace-pre-line text-xs text-muted-foreground">
-                                    {{ lootSidePicker.card.effect_a }}
-                                </p>
+                                <LootEffectText
+                                    v-if="
+                                        lootSidePicker.card.effect_a ||
+                                        lootSidePicker.card.side_a_actions.length ||
+                                        lootSidePicker.card.side_a_abilities.length ||
+                                        lootSidePicker.card.side_a_triggers.length
+                                    "
+                                    :text="lootSidePicker.card.effect_a"
+                                    :abilities="lootSidePicker.card.side_a_abilities"
+                                    :actions="lootSidePicker.card.side_a_actions"
+                                    :triggers="lootSidePicker.card.side_a_triggers"
+                                    class="text-xs"
+                                />
                             </button>
                             <button
                                 type="button"
@@ -2926,9 +2937,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         — {{ lootSidePicker.card.title_b }}
                                     </span>
                                 </div>
-                                <p v-if="lootSidePicker.card.effect_b" class="whitespace-pre-line text-xs text-muted-foreground">
-                                    {{ lootSidePicker.card.effect_b }}
-                                </p>
+                                <LootEffectText
+                                    v-if="
+                                        lootSidePicker.card.effect_b ||
+                                        lootSidePicker.card.side_b_actions.length ||
+                                        lootSidePicker.card.side_b_abilities.length ||
+                                        lootSidePicker.card.side_b_triggers.length
+                                    "
+                                    :text="lootSidePicker.card.effect_b"
+                                    :abilities="lootSidePicker.card.side_b_abilities"
+                                    :actions="lootSidePicker.card.side_b_actions"
+                                    :triggers="lootSidePicker.card.side_b_triggers"
+                                    class="text-xs"
+                                />
                             </button>
                         </div>
                     </div>

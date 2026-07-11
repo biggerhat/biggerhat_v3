@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Check, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
@@ -158,15 +160,16 @@ const stationLabel = (station: string | null) => {
                     </Link>
                 </div>
 
-                <div v-if="characters.length === 0" class="rounded-lg border border-dashed p-12 text-center">
-                    <div class="text-muted-foreground">No custom characters yet.</div>
-                    <Link :href="route('tools.card_creator.create')" class="mt-4 inline-block">
-                        <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
-                    </Link>
-                </div>
+                <EmptyState v-if="characters.length === 0" title="No custom characters yet" description="">
+                    <template #action>
+                        <Link :href="route('tools.card_creator.create')">
+                            <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
+                        </Link>
+                    </template>
+                </EmptyState>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="character in characters" :key="character.id" class="group overflow-hidden transition-shadow hover:shadow-md">
+                    <Card v-for="character in characters" :key="character.id" :class="['group overflow-hidden', CARD_HOVER]">
                         <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
@@ -222,15 +225,16 @@ const stationLabel = (station: string | null) => {
                     </Link>
                 </div>
 
-                <div v-if="crewCards.length === 0" class="rounded-lg border border-dashed p-12 text-center">
-                    <div class="text-muted-foreground">No custom crew cards yet.</div>
-                    <Link :href="route('tools.card_creator.upgrades.create', { domain: 'crew' })" class="mt-4 inline-block">
-                        <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
-                    </Link>
-                </div>
+                <EmptyState v-if="crewCards.length === 0" title="No custom crew cards yet" description="">
+                    <template #action>
+                        <Link :href="route('tools.card_creator.upgrades.create', { domain: 'crew' })">
+                            <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
+                        </Link>
+                    </template>
+                </EmptyState>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="card in crewCards" :key="card.id" class="group overflow-hidden transition-shadow hover:shadow-md">
+                    <Card v-for="card in crewCards" :key="card.id" :class="['group overflow-hidden', CARD_HOVER]">
                         <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-12 opacity-30" />
@@ -281,15 +285,16 @@ const stationLabel = (station: string | null) => {
                     </Link>
                 </div>
 
-                <div v-if="characterUpgrades.length === 0" class="rounded-lg border border-dashed p-12 text-center">
-                    <div class="text-muted-foreground">No custom upgrades yet.</div>
-                    <Link :href="route('tools.card_creator.upgrades.create', { domain: 'character' })" class="mt-4 inline-block">
-                        <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
-                    </Link>
-                </div>
+                <EmptyState v-if="characterUpgrades.length === 0" title="No custom upgrades yet" description="">
+                    <template #action>
+                        <Link :href="route('tools.card_creator.upgrades.create', { domain: 'character' })">
+                            <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
+                        </Link>
+                    </template>
+                </EmptyState>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="upgrade in characterUpgrades" :key="upgrade.id" class="group overflow-hidden transition-shadow hover:shadow-md">
+                    <Card v-for="upgrade in characterUpgrades" :key="upgrade.id" :class="['group overflow-hidden', CARD_HOVER]">
                         <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="upgrade.faction" :faction="upgrade.faction" class-name="size-12 opacity-30" />

@@ -36,8 +36,12 @@ createInertiaApp({
     },
     resolve: async (name) => {
         const page = await resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));
-        page.default.layout =
-            page.default.layout || (name.startsWith('Admin/') ? AppAdminLayout : name.startsWith('Settings/') ? AppSettingsLayout : AppLayout);
+        // `|| (...)` would clobber a page's explicit `layout: null` (falsy,
+        // same as unset) — only fall back when the page never set it at all,
+        // so a headless-capture-style page can genuinely opt out of chrome.
+        if (page.default.layout === undefined) {
+            page.default.layout = name.startsWith('Admin/') ? AppAdminLayout : name.startsWith('Settings/') ? AppSettingsLayout : AppLayout;
+        }
         return page;
     },
     setup({ el, App, props, plugin }) {

@@ -99,6 +99,7 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
         'campaign_crew_id' => $crewA->id,
         'crew_card_effect_id' => $borrowedEffect->id,
         'source_master_id' => $master->id,
+        'source_master_type' => Character::class,
     ]);
 
     $this->actingAs($userA)
@@ -110,6 +111,45 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
             ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
             ->where('campaign_context.crew_a_card.borrowed.0.source_master_name', $master->fresh()->display_name)
             ->where('campaign_context.crew_b_card.effect', null)
+        );
+});
+
+it('Games/Show campaign_context falls back to the player\'s own crew card for a solo game with no CampaignGame link', function () {
+    // Regression check for a reported QA bug: "new crew, new game — not
+    // getting a crew card." Root cause: buildCampaignContext() only ever
+    // resolved crews via a CampaignGame row linked to the base Game, but a
+    // solo game started outside the campaign hub never gets one — the whole
+    // campaign_context (crew card included) silently came back null.
+    $user = cintUser();
+    $campaign = Campaign::factory()->active()->create(['organizer_user_id' => $user->id]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'faction' => FactionEnum::Arcanists->value]);
+    $starter = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Solo Starter Effect']);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $game = Game::factory()->create([
+        'format' => GameFormatEnum::Campaign->value,
+        'status' => GameStatusEnum::CrewSelect->value,
+        'creator_id' => $user->id,
+        'is_solo' => true,
+    ]);
+    GamePlayer::factory()->create([
+        'game_id' => $game->id,
+        'user_id' => $user->id,
+        'slot' => 1,
+        'faction' => FactionEnum::Arcanists->value,
+    ]);
+    // No CampaignGame::create() at all — this is the exact gap being fixed.
+    expect(CampaignGame::where('base_game_id', $game->id)->exists())->toBeFalse();
+
+    $this->actingAs($user)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_context.campaign.id', $campaign->id)
+            ->where('campaign_context.crew_a.id', $crew->id)
+            ->where('campaign_context.crew_a_card.effect.name', 'Solo Starter Effect')
+            ->where('campaign_context.crew_b', null)
         );
 });
 

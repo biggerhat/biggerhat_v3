@@ -9,11 +9,11 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Http\Requests\CustomCharacterRequest;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 
@@ -43,9 +43,9 @@ class CustomCharacterController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(CustomCharacterRequest $request): JsonResponse
     {
-        $validated = $this->validateCharacter($request);
+        $validated = $request->validated();
         $validated['user_id'] = Auth::id();
 
         $character = CustomCharacter::create($validated);
@@ -75,11 +75,9 @@ class CustomCharacterController extends Controller
         ]);
     }
 
-    public function update(Request $request, CustomCharacter $customCharacter): JsonResponse
+    public function update(CustomCharacterRequest $request, CustomCharacter $customCharacter): JsonResponse
     {
-        $this->authorize('update', $customCharacter);
-
-        $validated = $this->validateCharacter($request);
+        $validated = $request->validated();
 
         // A campaign leader can be edited here for action/ability detail, but the
         // generic editor must not break its campaign invariants — it must stay a
@@ -158,73 +156,6 @@ class CustomCharacterController extends Controller
                 'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
                 'linkedTotems' => $character->linked_totems ?? [],
             ],
-        ]);
-    }
-
-    private function validateCharacter(Request $request): array
-    {
-        return $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'faction' => ['required', 'string'],
-            'second_faction' => ['nullable', 'string'],
-            'station' => ['nullable', 'string'],
-            'cost' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'health' => ['required', 'integer', 'min:1', 'max:99'],
-            'size' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'base' => ['required', 'string'],
-            'defense' => ['required', 'integer', 'min:0', 'max:20'],
-            'defense_suit' => ['nullable', 'string'],
-            'willpower' => ['required', 'integer', 'min:0', 'max:20'],
-            'willpower_suit' => ['nullable', 'string'],
-            'speed' => ['required', 'integer', 'min:0', 'max:20'],
-            'count' => ['nullable', 'integer', 'min:1', 'max:10'],
-            'summon_target_number' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'generates_stone' => ['boolean'],
-            'is_unhirable' => ['boolean'],
-            'actions' => ['nullable', 'array'],
-            'actions.*.name' => ['required', 'string', 'max:255'],
-            'actions.*.type' => ['required', 'string'],
-            'actions.*.is_signature' => ['boolean'],
-            'actions.*.stone_cost' => ['nullable'],
-            'actions.*.range' => ['nullable'],
-            'actions.*.range_type' => ['nullable', 'string'],
-            'actions.*.stat' => ['nullable'],
-            'actions.*.stat_suits' => ['nullable', 'string'],
-            'actions.*.stat_modifier' => ['nullable', 'string'],
-            'actions.*.resisted_by' => ['nullable', 'string'],
-            'actions.*.target_number' => ['nullable'],
-            'actions.*.target_suits' => ['nullable', 'string'],
-            'actions.*.damage' => ['nullable', 'string'],
-            'actions.*.description' => ['nullable', 'string'],
-            'actions.*.source_id' => ['nullable', 'integer'],
-            'actions.*.triggers' => ['nullable', 'array'],
-            'actions.*.triggers.*.name' => ['required', 'string', 'max:255'],
-            'actions.*.triggers.*.suits' => ['nullable', 'string'],
-            'actions.*.triggers.*.stone_cost' => ['nullable'],
-            'actions.*.triggers.*.description' => ['nullable', 'string'],
-            'actions.*.triggers.*.source_id' => ['nullable', 'integer'],
-            'abilities' => ['nullable', 'array'],
-            'abilities.*.name' => ['required', 'string', 'max:255'],
-            'abilities.*.suits' => ['nullable', 'string'],
-            'abilities.*.defensive_ability_type' => ['nullable', 'string'],
-            'abilities.*.costs_stone' => ['boolean'],
-            'abilities.*.description' => ['nullable', 'string'],
-            'abilities.*.source_id' => ['nullable', 'integer'],
-            'keywords' => ['nullable', 'array'],
-            'keywords.*.id' => ['nullable', 'integer'],
-            'keywords.*.name' => ['required', 'string', 'max:255'],
-            'characteristics' => ['nullable', 'array'],
-            'characteristics.*' => ['string', 'max:255'],
-            'linked_crew_upgrades' => ['nullable', 'array'],
-            'linked_crew_upgrades.*.source_type' => ['required', 'string', 'in:official,custom'],
-            'linked_crew_upgrades.*.id' => ['required', 'integer'],
-            'linked_crew_upgrades.*.name' => ['required', 'string', 'max:255'],
-            'linked_totems' => ['nullable', 'array'],
-            'linked_totems.*.source_type' => ['required', 'string', 'in:official,custom'],
-            'linked_totems.*.id' => ['required', 'integer'],
-            'linked_totems.*.name' => ['required', 'string', 'max:255'],
-            'notes' => ['nullable', 'string', 'max:5000'],
         ]);
     }
 

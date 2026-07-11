@@ -145,16 +145,28 @@ const badgeIcon = (icon: string) => {
                         </CardContent>
                     </Card>
                 </Link>
-                <Card>
-                    <CardContent class="p-4 text-center">
+                <Card class="h-full">
+                    <CardContent class="flex h-full flex-col p-4 text-center">
                         <Search class="mx-auto mb-1 size-5 text-muted-foreground" />
                         <div class="text-sm font-semibold">Saved Searches</div>
-                        <div class="mt-1 flex items-center justify-center gap-3 text-xs">
-                            <Link :href="route('search.view')" class="text-muted-foreground hover:text-foreground hover:underline">
-                                {{ props.saved_searches.malifaux }} Malifaux
+                        <!-- Two distinct destinations, so the card itself isn't a single
+                             link — instead each half gets its own obviously-clickable
+                             treatment (not just small underlined text) so it doesn't read
+                             as a dead click zone next to fully-clickable sibling tiles. -->
+                        <div class="mt-2 grid flex-1 grid-cols-2 gap-1.5 text-xs">
+                            <Link
+                                :href="route('search.view')"
+                                class="flex flex-col items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-accent hover:text-foreground"
+                            >
+                                <span class="text-base font-semibold tabular-nums text-foreground">{{ props.saved_searches.malifaux }}</span>
+                                Malifaux
                             </Link>
-                            <Link :href="route('tos.search')" class="text-muted-foreground hover:text-foreground hover:underline">
-                                {{ props.saved_searches.tos }} TOS
+                            <Link
+                                :href="route('tos.search')"
+                                class="flex flex-col items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-accent hover:text-foreground"
+                            >
+                                <span class="text-base font-semibold tabular-nums text-foreground">{{ props.saved_searches.tos }}</span>
+                                TOS
                             </Link>
                         </div>
                     </CardContent>

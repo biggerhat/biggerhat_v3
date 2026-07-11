@@ -54,6 +54,15 @@ class LeaderCardImageGenerator
         $browsershot = Browsershot::url($url)
             ->noSandbox()
             ->select($selector)
+            // Capture.vue lays both 550x950 card divs out side by side
+            // (flex gap-8, p-8 outer padding) — that's 2*550 + 32 (gap) + 64
+            // (padding) = 1196px wide, and 950 + 64 (padding) = 1014px tall.
+            // A too-small viewport both clips the tall dimension (reported
+            // as a squashed, single-face image) AND — more subtly — lets
+            // flexbox's default shrink-to-fit narrow each card below its
+            // real 550px width once the pair no longer fits. Sized with
+            // margin above both minimums so neither happens.
+            ->windowSize(1300, 1100)
             ->deviceScaleFactor(2)
             ->waitUntilNetworkIdle()
             ->timeout(60);

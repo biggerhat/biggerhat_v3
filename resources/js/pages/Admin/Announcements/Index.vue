@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -107,16 +108,23 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
 
 <template>
     <Head title="Announcements - Admin" />
+
+    <PageBanner title="Announcements" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <Megaphone class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Site-wide banners pushed via the shared Inertia data. Active when current time is within
+                <code class="rounded bg-muted px-1 text-xs">starts_at</code> / <code class="rounded bg-muted px-1 text-xs">ends_at</code>; both fields
+                are optional.
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <Megaphone class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Announcements</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Site-wide banners pushed via the shared Inertia data. Active when current time is within
-            <code class="rounded bg-muted px-1 text-xs">starts_at</code> / <code class="rounded bg-muted px-1 text-xs">ends_at</code>; both fields are
-            optional.
-        </p>
 
         <Card>
             <CardContent class="space-y-3 p-4">

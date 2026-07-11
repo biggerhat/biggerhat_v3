@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,15 +32,22 @@ const clearOverride = (flag: Flag) => {
 
 <template>
     <Head title="Feature Flags - Admin" />
+
+    <PageBanner title="Feature Flags" class="mb-2">
+        <template #logo>
+            <div class="flex size-16 items-center justify-center md:size-20">
+                <Flag class="size-8 text-primary md:size-10" />
+            </div>
+        </template>
+        <template #subtitle>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                Site-wide overrides for flags registered in <code class="rounded bg-muted px-1 text-xs">FeatureFlagsServiceProvider</code>. Toggle
+                active to activate the flag for everyone; clear the override to fall back to the registry default.
+            </div>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-        <div class="flex items-center gap-2">
-            <Flag class="size-5" />
-            <h1 class="text-2xl font-semibold tracking-tight">Feature Flags</h1>
-        </div>
-        <p class="text-sm text-muted-foreground">
-            Site-wide overrides for flags registered in <code class="rounded bg-muted px-1 text-xs">FeatureFlagsServiceProvider</code>. Toggle active
-            to activate the flag for everyone; clear the override to fall back to the registry default.
-        </p>
 
         <div
             v-if="storage_ready === false"

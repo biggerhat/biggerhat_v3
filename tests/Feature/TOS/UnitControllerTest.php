@@ -48,6 +48,32 @@ it('excludes Commanders from the champions filter', function () {
         ->assertInertia(fn ($p) => $p->has('units.data', 1)->where('units.data.0.name', 'Pure Champion'));
 });
 
+it('filters the units index by allegiance', function () {
+    $union = Allegiance::factory()->create(['slug' => 'union', 'name' => 'Union']);
+    $confederacy = Allegiance::factory()->create(['slug' => 'confederacy', 'name' => 'Immortal Confederacy']);
+
+    $unionUnit = Unit::factory()->withSides()->create(['name' => 'Union Trooper']);
+    $unionUnit->allegiances()->attach($union->id);
+
+    $confederacyUnit = Unit::factory()->withSides()->create(['name' => 'Confederacy Trooper']);
+    $confederacyUnit->allegiances()->attach($confederacy->id);
+
+    $this->get(route('tos.units.index', ['allegiance' => 'union']))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p
+            ->where('allegiance_filter', 'union')
+            ->has('units.data', 1)
+            ->where('units.data.0.name', 'Union Trooper'));
+});
+
+it('exposes the allegiance select options on the units index', function () {
+    Allegiance::factory()->create(['slug' => 'union', 'name' => 'Union']);
+
+    $this->get(route('tos.units.index'))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->has('allegiances', 1)->where('allegiances.0.value', 'union'));
+});
+
 it('view resolves a unit by sculpt slug', function () {
     $unit = Unit::factory()->withSides()->commander()->create(['name' => 'Earl Burns']);
     $sculpt = UnitSculpt::factory()->forUnit($unit)->create(['slug' => 'earl-burns-sculpt']);

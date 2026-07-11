@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -455,7 +456,7 @@ const copyShareLink = (crew: CrewCard) => {
                         class="animate-fade-in-up group opacity-0"
                         :style="delays[index]"
                     >
-                        <Card class="h-full transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
+                        <Card :class="['h-full', CARD_HOVER_GROUP]">
                             <CardContent class="flex items-start gap-3 p-3">
                                 <FactionLogo :faction="crew.faction" class-name="size-7 shrink-0 mt-0.5" />
                                 <div class="min-w-0 flex-1">

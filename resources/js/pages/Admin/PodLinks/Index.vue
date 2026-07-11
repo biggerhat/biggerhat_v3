@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,12 @@ const table = useVueTable({
 <template>
     <Head title="POD Links - Admin" />
 
+    <PageBanner title="POD Links" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.pod_links.create'))">Create POD Link</Button>
+        </template>
+    </PageBanner>
+
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
             <Input
@@ -111,7 +118,6 @@ const table = useVueTable({
                 @update:model-value="table.getColumn('name')?.setFilterValue($event)"
             />
             <div>Total {{ props.pod_links.length }}</div>
-            <Button @click="router.get(route('admin.pod_links.create'))">Create POD Link</Button>
         </div>
         <div class="rounded-md border">
             <Table>

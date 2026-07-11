@@ -135,6 +135,45 @@ export interface LootMarker {
     dropped_by_player_id: number | null;
 }
 
+// Full detail (stats, ranges, damage, descriptions, nested triggers) — not
+// name-only stubs — so the in-game side-picker can render the same
+// ActionCard/AbilityCard/LootTriggerDisplay the public reference page does.
+// Shape matches LootEffectText.vue's LootActionRef/LootAbilityRef/LootTriggerRef.
+export interface LootCardActionSummary {
+    id: number;
+    name: string;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | null;
+    range_type?: string | null;
+    stat?: number | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | null;
+    target_suits?: string | null;
+    damage?: number | string | null;
+    description?: string | null;
+    triggers?: Array<{ id?: number; name: string; suits?: string | null; stone_cost?: number; description?: string | null }>;
+    pivot?: { is_signature_action?: boolean | number };
+}
+export interface LootCardAbilitySummary {
+    id: number;
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
+export interface LootCardTriggerSummary {
+    id: number;
+    name: string;
+    suits?: string | null;
+    stone_cost?: number;
+    description?: string | null;
+}
+
 export interface LootCardSummary {
     id: number;
     name: string;
@@ -146,12 +185,12 @@ export interface LootCardSummary {
     suit: string | null;
     value: number | null;
     value_label: string | null;
-    side_a_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
-    side_b_actions: { id: number; name: string; pivot: { is_signature_action: boolean | number } }[];
-    side_a_abilities: { id: number; name: string }[];
-    side_b_abilities: { id: number; name: string }[];
-    side_a_triggers: { id: number; name: string }[];
-    side_b_triggers: { id: number; name: string }[];
+    side_a_actions: LootCardActionSummary[];
+    side_b_actions: LootCardActionSummary[];
+    side_a_abilities: LootCardAbilitySummary[];
+    side_b_abilities: LootCardAbilitySummary[];
+    side_a_triggers: LootCardTriggerSummary[];
+    side_b_triggers: LootCardTriggerSummary[];
 }
 
 export interface GameData {

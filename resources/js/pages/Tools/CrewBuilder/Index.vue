@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
+import CrewStatsBar from '@/components/CrewStatsBar.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -2540,26 +2541,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Stats bar -->
-                        <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                            <div class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Spent:</span>
-                                <span class="font-medium" :class="totalSpent > encounterSize ? 'text-destructive' : ''">
-                                    {{ totalSpent }} / {{ encounterSize }}
-                                </span>
-                                <GameIcon type="soulstone" class-name="h-4 inline-block" />
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Pool:</span>
-                                <span class="font-medium">{{ soulstonePool }}</span>
-                                <GameIcon type="soulstone" class-name="h-4 inline-block" />
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <span class="text-muted-foreground">OOK:</span>
-                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
-                                    {{ ookCount }} / 2
-                                </span>
-                            </div>
-                        </div>
+                        <CrewStatsBar :total-spent="totalSpent" :encounter-size="encounterSize" :soulstone-pool="soulstonePool" :ook-count="ookCount" />
 
                         <!-- Crew Stats Panel -->
                         <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
@@ -3370,26 +3352,13 @@ onUnmounted(() => {
                             </div>
                             <Card>
                                 <CardContent class="p-2 md:p-3">
-                                    <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                                        <div class="flex items-center gap-1">
-                                            <span class="text-muted-foreground">Spent:</span>
-                                            <span class="font-medium" :class="totalSpent > encounterSize ? 'text-destructive' : ''">
-                                                {{ totalSpent }} / {{ encounterSize }}
-                                            </span>
-                                            <GameIcon type="soulstone" class-name="h-4 inline-block" />
-                                        </div>
-                                        <div class="flex items-center gap-1">
-                                            <span class="text-muted-foreground">Pool:</span>
-                                            <span class="font-medium">{{ soulstonePool }}</span>
-                                            <GameIcon type="soulstone" class-name="h-4 inline-block" />
-                                        </div>
-                                        <div class="flex items-center gap-1">
-                                            <span class="text-muted-foreground">OOK:</span>
-                                            <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
-                                                {{ ookCount }} / 2
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <CrewStatsBar
+                                        :total-spent="totalSpent"
+                                        :encounter-size="encounterSize"
+                                        :soulstone-pool="soulstonePool"
+                                        :ook-count="ookCount"
+                                        row-class="mb-3"
+                                    />
 
                                     <!-- Crew Stats Panel -->
                                     <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">

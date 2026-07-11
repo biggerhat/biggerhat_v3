@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
+import { CARD_HOVER } from '@/lib/cardHover';
 import { router } from '@inertiajs/vue3';
 import { Maximize2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -34,7 +35,7 @@ const backImageUrl = computed(() => (props.upgrade.back_image ? '/storage/' + pr
 </script>
 
 <template>
-    <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
+    <div :class="['w-full rounded-lg text-center', CARD_HOVER]">
         <p class="mb-1 text-xs text-muted-foreground">{{ upgrade.name }}</p>
         <div class="relative mx-auto w-fit">
             <div

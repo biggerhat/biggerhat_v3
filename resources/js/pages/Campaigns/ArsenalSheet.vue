@@ -2,6 +2,7 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import GameText from '@/components/GameText.vue';
@@ -21,7 +22,7 @@ import { useToast } from '@/composables/useToast';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Calendar, Copy, Swords, Tag } from 'lucide-vue-next';
+import { Calendar, Copy, Download, Swords, Tag } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface KeywordRow {
@@ -105,6 +106,7 @@ interface AbilityData {
 interface CustomCharacterData {
     id: number;
     name: string;
+    display_name: string;
     title: string | null;
     faction: string;
     second_faction: string | null;
@@ -121,11 +123,23 @@ interface CustomCharacterData {
     keywords: Array<{ id: number | null; name: string }>;
     characteristics: string[];
     image_path: string | null;
+    // Server-rendered card images (App\Services\Campaign\LeaderCardImageGenerator),
+    // regenerated automatically whenever the card-relevant fields above change.
+    // Null until the first render lands — callers fall back to the live CardRenderer.
+    front_image: string | null;
+    back_image: string | null;
+    combination_image: string | null;
     actions: ActionData[];
     abilities: AbilityData[];
     linked_crew_upgrades: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
     linked_totems: Array<{ source_type: 'official' | 'custom'; id: number; name: string }>;
-    injury_names?: string[];
+    injury_names?: InjuryItem[];
+}
+
+interface InjuryItem {
+    id: number;
+    name: string;
+    description: string | null;
 }
 
 interface ArsenalCharacter {
@@ -152,7 +166,7 @@ interface ArsenalRow {
     ignored_for_limits: boolean;
     acquired_via: string;
     character: ArsenalCharacter | null;
-    injuries: string[];
+    injuries: InjuryItem[];
     gained_characteristics: string[];
     lucky_miss: string[];
 }
@@ -426,6 +440,16 @@ const onCrewCardMasterRowChange = (position: number, v: string) => {
     d.crew_card_choice_id = null;
 };
 
+// A generic (master_id === null) row picked straight from the flat list still
+// requires naming the master it's borrowed from (pg 32, 54). Unlike
+// onCrewCardMasterChange, this doesn't touch catalog_id — the picked row
+// itself doesn't change, only its attribution.
+const onCrewCardGenericMasterChange = (position: number, v: string) => {
+    const d = drafts.value[position];
+    if (!d) return;
+    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
+};
+
 const SOURCE_TABLE_LABELS: Record<string, string> = {
     attack_mod: 'Attack Modification',
     tactical_mod: 'Tactical Modification',
@@ -603,6 +627,7 @@ const logAdvancement = (position: number) => {
     const isTotemAdvancement = d.source_table === 'totem';
     const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
     const isAbility = d.source_table === 'ability';
+    const isSummoning = d.source_table === 'summoning';
     const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
     if (isTrigger && targetActionOptions(position).length) {
         if (isEquipmentTarget ? d.applied_to_action_id == null : d.applied_to_action_index < 0) {
@@ -624,7 +649,8 @@ const logAdvancement = (position: number) => {
         totem_base: isTotemAdvancement ? d.totem_base : undefined,
         applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
         applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
-        applied_to_custom_character_id: (isTrigger || isAbility) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
+        applied_to_custom_character_id:
+            (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
         from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
         crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
     });
@@ -645,11 +671,17 @@ const removeAdvancement = async (a: AdvancementTaken) => {
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
-// ───────── Card viewer (equipment / crew card — Dialog) ─────────
-type CardView = { kind: 'equipment'; title: string; equipment: EquipmentItem } | { kind: 'crew'; title: string; effect: CrewCardEffectRow };
+// ───────── Card viewer (equipment / crew card / injury — Dialog) ─────────
+type CardView =
+    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
+    | { kind: 'crew'; title: string; effect: CrewCardEffectRow }
+    | { kind: 'injury'; title: string; description: string | null };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
+};
+const viewInjury = (injury: InjuryItem) => {
+    viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
 };
 // Merges the starter effect with every currently-held Tier-4 borrowed effect
 // (pg 32, 54) into one combined card view, so newly-added borrowed effects
@@ -783,6 +815,65 @@ const totemRendererProps = computed(() => {
         linkedTotems: props.totem.linked_totems ?? [],
     };
 });
+
+// Card image export (pg 31, 52) — same front+back PNG capture the Custom
+// Card Creator's editor uses (html-to-image + the shared CardCreator/utils
+// helpers), reused here so a Leader/Totem's card can be saved/shared like any
+// other Malifaux card. Leader/Totem never have uploaded art (characterImage
+// is always null), so there are no blob: image sources to convert — the
+// blobToDataURL step is a no-op but kept for parity with the editor.
+const leaderCardRendererRef = ref<InstanceType<typeof CardRenderer> | null>(null);
+const totemCardRendererRef = ref<InstanceType<typeof CardRenderer> | null>(null);
+const exportingCard = ref<'leader' | 'totem' | null>(null);
+
+const exportCardImage = async (which: 'leader' | 'totem') => {
+    const rendererRef = which === 'leader' ? leaderCardRendererRef.value : totemCardRendererRef.value;
+    const cardName = which === 'leader' ? props.leader?.name : props.totem?.name;
+    if (!rendererRef || !cardName) return;
+
+    exportingCard.value = which;
+    try {
+        const frontEl = rendererRef.frontRef;
+        const backEl = rendererRef.backRef;
+        if (!frontEl || !backEl) return;
+
+        const { toPng } = await import('html-to-image');
+        const fontEmbedCSS = await fetchFontEmbedCSS();
+        const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
+
+        const blobImages = frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]');
+        const origSrcs: { el: HTMLImageElement; src: string }[] = [];
+        for (const img of blobImages) {
+            origSrcs.push({ el: img, src: img.src });
+            img.src = await blobToDataURL(img.src);
+        }
+
+        const origFrontBackface = frontEl.style.backfaceVisibility;
+        frontEl.style.backfaceVisibility = 'visible';
+        const frontData = await toPng(frontEl, opts);
+        frontEl.style.backfaceVisibility = origFrontBackface;
+
+        for (const { el, src } of origSrcs) {
+            el.src = src;
+        }
+
+        const origTransform = backEl.style.transform;
+        const origBackface = backEl.style.backfaceVisibility;
+        backEl.style.transform = 'none';
+        backEl.style.backfaceVisibility = 'visible';
+        const backData = await toPng(backEl, opts);
+        backEl.style.transform = origTransform;
+        backEl.style.backfaceVisibility = origBackface;
+
+        const comboData = await createComboImage(frontData, backData);
+        triggerDownload(comboData, `${cardName}.png`);
+    } catch (e) {
+        console.error('Card image export failed:', e);
+        toast.error('Could not export the card image — try again.');
+    } finally {
+        exportingCard.value = null;
+    }
+};
 </script>
 
 <template>
@@ -873,13 +964,70 @@ const totemRendererProps = computed(() => {
             <!-- Leader card -->
             <div class="lg:col-span-2">
                 <Card>
-                    <CardHeader><CardTitle>Leader</CardTitle></CardHeader>
+                    <CardHeader class="flex-row items-center justify-between space-y-0">
+                        <CardTitle>Leader</CardTitle>
+                        <a
+                            v-if="leader?.combination_image"
+                            :href="'/storage/' + leader.combination_image"
+                            download
+                            class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        >
+                            <Download class="size-3.5" />
+                            Download Card
+                        </a>
+                        <Button
+                            v-else-if="leaderRendererProps"
+                            size="sm"
+                            variant="outline"
+                            :disabled="exportingCard === 'leader'"
+                            @click="exportCardImage('leader')"
+                        >
+                            <Download class="size-3.5" />
+                            {{ exportingCard === 'leader' ? 'Exporting…' : 'Download Card' }}
+                        </Button>
+                    </CardHeader>
                     <CardContent>
-                        <div v-if="leaderRendererProps" class="mx-auto w-full max-w-[500px] space-y-2">
-                            <CardRenderer v-bind="leaderRendererProps" />
+                        <div v-if="leader?.front_image" class="mx-auto w-full max-w-[280px] space-y-2">
+                            <CharacterCardView
+                                :miniature="{
+                                    id: leader.id,
+                                    display_name: leader.display_name,
+                                    slug: '',
+                                    front_image: leader.front_image,
+                                    back_image: leader.back_image,
+                                }"
+                                :show-link="false"
+                                :show-collection="false"
+                            />
                             <div v-if="leader?.injury_names?.length" class="flex flex-wrap gap-1">
-                                <Badge v-for="inj in leader.injury_names" :key="`leader-i-${inj}`" variant="destructive" class="text-[10px]">
-                                    {{ inj }}
+                                <Badge
+                                    v-for="inj in leader.injury_names"
+                                    :key="`leader-i-${inj.id}`"
+                                    variant="destructive"
+                                    class="cursor-pointer text-[10px]"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="viewInjury(inj)"
+                                    @keydown.enter="viewInjury(inj)"
+                                >
+                                    {{ inj.name }}
+                                </Badge>
+                            </div>
+                        </div>
+                        <div v-else-if="leaderRendererProps" class="mx-auto w-full max-w-[500px] space-y-2">
+                            <CardRenderer ref="leaderCardRendererRef" v-bind="leaderRendererProps" />
+                            <div v-if="leader?.injury_names?.length" class="flex flex-wrap gap-1">
+                                <Badge
+                                    v-for="inj in leader.injury_names"
+                                    :key="`leader-i-${inj.id}`"
+                                    variant="destructive"
+                                    class="cursor-pointer text-[10px]"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="viewInjury(inj)"
+                                    @keydown.enter="viewInjury(inj)"
+                                >
+                                    {{ inj.name }}
                                 </Badge>
                             </div>
                         </div>
@@ -894,13 +1042,64 @@ const totemRendererProps = computed(() => {
                 </Card>
 
                 <Card v-if="totemRendererProps" class="mt-4">
-                    <CardHeader><CardTitle>Totem</CardTitle></CardHeader>
+                    <CardHeader class="flex-row items-center justify-between space-y-0">
+                        <CardTitle>Totem</CardTitle>
+                        <a
+                            v-if="totem?.combination_image"
+                            :href="'/storage/' + totem.combination_image"
+                            download
+                            class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        >
+                            <Download class="size-3.5" />
+                            Download Card
+                        </a>
+                        <Button v-else size="sm" variant="outline" :disabled="exportingCard === 'totem'" @click="exportCardImage('totem')">
+                            <Download class="size-3.5" />
+                            {{ exportingCard === 'totem' ? 'Exporting…' : 'Download Card' }}
+                        </Button>
+                    </CardHeader>
                     <CardContent>
-                        <div class="mx-auto w-full max-w-[500px] space-y-2">
-                            <CardRenderer v-bind="totemRendererProps" />
+                        <div v-if="totem?.front_image" class="mx-auto w-full max-w-[280px] space-y-2">
+                            <CharacterCardView
+                                :miniature="{
+                                    id: totem.id,
+                                    display_name: totem.display_name,
+                                    slug: '',
+                                    front_image: totem.front_image,
+                                    back_image: totem.back_image,
+                                }"
+                                :show-link="false"
+                                :show-collection="false"
+                            />
                             <div v-if="totem?.injury_names?.length" class="flex flex-wrap gap-1">
-                                <Badge v-for="inj in totem.injury_names" :key="`totem-i-${inj}`" variant="destructive" class="text-[10px]">
-                                    {{ inj }}
+                                <Badge
+                                    v-for="inj in totem.injury_names"
+                                    :key="`totem-i-${inj.id}`"
+                                    variant="destructive"
+                                    class="cursor-pointer text-[10px]"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="viewInjury(inj)"
+                                    @keydown.enter="viewInjury(inj)"
+                                >
+                                    {{ inj.name }}
+                                </Badge>
+                            </div>
+                        </div>
+                        <div v-else class="mx-auto w-full max-w-[500px] space-y-2">
+                            <CardRenderer ref="totemCardRendererRef" v-bind="totemRendererProps" />
+                            <div v-if="totem?.injury_names?.length" class="flex flex-wrap gap-1">
+                                <Badge
+                                    v-for="inj in totem.injury_names"
+                                    :key="`totem-i-${inj.id}`"
+                                    variant="destructive"
+                                    class="cursor-pointer text-[10px]"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="viewInjury(inj)"
+                                    @keydown.enter="viewInjury(inj)"
+                                >
+                                    {{ inj.name }}
                                 </Badge>
                             </div>
                         </div>
@@ -1115,7 +1314,7 @@ const totemRendererProps = computed(() => {
                                                     :key="row.id"
                                                     :value="row.id.toString()"
                                                 >
-                                                    {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
+                                                    {{ row.name }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -1189,6 +1388,31 @@ const totemRendererProps = computed(() => {
                                                 No Crew Card catalog rows are linked to this master yet.
                                             </p>
                                         </div>
+                                    </div>
+                                    <!-- A generic row was picked directly — still needs a "borrowed from" master (pg 32, 54). -->
+                                    <div
+                                        v-if="
+                                            drafts[slot.position].source_table === 'crew_card' &&
+                                            !drafts[slot.position].crew_card_master_mode &&
+                                            drafts[slot.position].catalog_id !== null
+                                        "
+                                        class="rounded border p-2"
+                                    >
+                                        <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                        <Select
+                                            :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
+                                            @update:model-value="(v) => onCrewCardGenericMasterChange(slot.position, v as string)"
+                                        >
+                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                                <SelectValue placeholder="— pick a master —" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none__">— pick a master —</SelectItem>
+                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
+                                                    m.name
+                                                }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                                     <div
@@ -1388,9 +1612,13 @@ const totemRendererProps = computed(() => {
                                             </Select>
                                         </template>
                                     </div>
-                                    <!-- Ability: pick what to affect (Leader/Totem) -->
+                                    <!-- Ability/Summoning: pick what to affect (Leader/Totem) -->
                                     <div
-                                        v-if="drafts[slot.position].source_table === 'ability' && drafts[slot.position].catalog_id !== null"
+                                        v-if="
+                                            (drafts[slot.position].source_table === 'ability' ||
+                                                drafts[slot.position].source_table === 'summoning') &&
+                                            drafts[slot.position].catalog_id !== null
+                                        "
                                         class="flex flex-wrap items-center gap-2"
                                     >
                                         <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
@@ -1487,7 +1715,18 @@ const totemRendererProps = computed(() => {
                         >
                             <Badge v-if="model.acquired_via === 'doppelganger'" variant="secondary" class="text-[10px]">Doppelganger</Badge>
                             <Badge v-if="model.acquired_via === 'traitor'" variant="secondary" class="text-[10px]">Defected</Badge>
-                            <Badge v-for="inj in model.injuries" :key="`i-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
+                            <Badge
+                                v-for="inj in model.injuries"
+                                :key="`i-${inj.id}`"
+                                variant="destructive"
+                                class="cursor-pointer text-[10px]"
+                                role="button"
+                                tabindex="0"
+                                @click.stop="viewInjury(inj)"
+                                @keydown.enter.stop="viewInjury(inj)"
+                            >
+                                {{ inj.name }}
+                            </Badge>
                             <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
                             <Badge v-for="lm in model.lucky_miss" :key="`l-${lm}`" class="bg-green-600 text-[10px] text-white hover:bg-green-600">
                                 {{ lm }}
@@ -1629,6 +1868,14 @@ const totemRendererProps = computed(() => {
                         <ActionCard v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
                     </div>
                 </div>
+
+                <!-- Injury -->
+                <div v-else-if="viewCard?.kind === 'injury'" class="text-sm">
+                    <p v-if="viewCard.description" class="text-xs leading-relaxed text-muted-foreground">
+                        <GameText :text="viewCard.description" />
+                    </p>
+                    <p v-else class="text-xs text-muted-foreground">No rules text recorded for this injury.</p>
+                </div>
             </DialogContent>
         </Dialog>
     </div>
@@ -1650,7 +1897,18 @@ const totemRendererProps = computed(() => {
                         v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length"
                         class="mt-1.5 flex flex-wrap justify-center gap-1"
                     >
-                        <Badge v-for="inj in unitPreviewRow.injuries" :key="`di-${inj}`" variant="destructive" class="text-[10px]">{{ inj }}</Badge>
+                        <Badge
+                            v-for="inj in unitPreviewRow.injuries"
+                            :key="`di-${inj.id}`"
+                            variant="destructive"
+                            class="cursor-pointer text-[10px]"
+                            role="button"
+                            tabindex="0"
+                            @click="viewInjury(inj)"
+                            @keydown.enter="viewInjury(inj)"
+                        >
+                            {{ inj.name }}
+                        </Badge>
                         <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-[10px]">{{
                             ch
                         }}</Badge>

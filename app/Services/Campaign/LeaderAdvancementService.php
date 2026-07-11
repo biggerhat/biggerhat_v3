@@ -164,11 +164,12 @@ class LeaderAdvancementService
                 }
             }
 
-            // Ability target resolution (pg 44-51): applies to the Leader
-            // (default) or the crew's current Totem — same routing as
-            // Attack/Tactical Mod, minus the per-action Skl range check
-            // (an Ability isn't attached to a specific existing action).
-            if ($table === AdvancementTableEnum::Ability) {
+            // Ability/Summoning target resolution (pg 44-51): applies to the
+            // Leader (default) or the crew's current Totem — same routing as
+            // Attack/Tactical Mod, minus the per-action Skl range check (an
+            // Ability/Summoning action isn't attached to a specific existing
+            // action).
+            if ($table === AdvancementTableEnum::Ability || $table === AdvancementTableEnum::Summoning) {
                 $appliedToCustomCharacterId = $a['applied_to_custom_character_id'] ?? null;
                 if ($appliedToCustomCharacterId !== null) {
                     $totemExists = CustomCharacter::query()
@@ -409,8 +410,8 @@ class LeaderAdvancementService
                     isset($a['totem_size']) ? (int) $a['totem_size'] : null,
                     $a['totem_base'] ?? null,
                 ),
-                AdvancementTableEnum::Summoning => $coreCatalogId
-                    ? $this->applyActionToLeader($leader, $coreCatalogId)
+                AdvancementTableEnum::Summoning => ($targetCharacter && $coreCatalogId)
+                    ? $this->applyActionToLeader($targetCharacter, $coreCatalogId)
                     : null,
                 AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
                     ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
@@ -836,7 +837,7 @@ class LeaderAdvancementService
 
         $abilities = $template->campaignTotemAbilities->map(fn (Ability $ab) => [
             'name' => $ab->name,
-            'body' => $ab->description,
+            'description' => $ab->description,
             'suits' => $ab->suits,
             'source_id' => $ab->id,
         ])->all();
@@ -995,7 +996,7 @@ class LeaderAdvancementService
             return;
         }
 
-        if ($table === AdvancementTableEnum::Action || $table === AdvancementTableEnum::Summoning) {
+        if ($table === AdvancementTableEnum::Action) {
             if ($catalogId === null) {
                 return;
             }
@@ -1013,6 +1014,34 @@ class LeaderAdvancementService
                 }
             ));
             $leader->save();
+
+            return;
+        }
+
+        if ($table === AdvancementTableEnum::Summoning) {
+            if ($catalogId === null) {
+                return;
+            }
+            $target = $advancement->applied_to_custom_character_id !== null
+                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
+                : $leader;
+            if (! $target) {
+                return;
+            }
+            $removed = false;
+            $target->actions = array_values(array_filter(
+                $target->actions ?? [],
+                function (array $a) use ($catalogId, &$removed): bool {
+                    if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
+                        $removed = true;
+
+                        return false;
+                    }
+
+                    return true;
+                }
+            ));
+            $target->save();
 
             return;
         }

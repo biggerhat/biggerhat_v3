@@ -464,19 +464,29 @@ class AftermathCatalog
      * `attached_upgrades` — shared by Game Tracker's in-play "attach
      * upgrade" editor and by equipment assignment at crew selection.
      *
-     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null}>
+     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
      */
     public static function ownedEquipmentForAttachment(CampaignCrew $crew): array
     {
         return CampaignEquipment::query()
             ->where('campaign_crew_id', $crew->id)
             ->active()
-            ->with('catalog:id,name,slug,front_image,back_image,type,power_bar_count,description')
+            ->with([
+                'catalog:id,name,slug,front_image,back_image,type,power_bar_count,description',
+                // Full action/ability text so the in-play "attach upgrade"
+                // drawer can render ActionCard/AbilityCard instead of just
+                // the bare description — same pattern as crewCardEffect.
+                'catalog.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'catalog.abilities',
+            ])
             ->get()
             ->filter(fn (CampaignEquipment $e) => $e->catalog !== null)
             ->groupBy('equipment_upgrade_id')
             ->map(function (Collection $owned) {
                 $u = $owned->first()->catalog;
+                $u->actions->each(
+                    fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from morphedByMany)
+                );
 
                 return [
                     'id' => $u->id,
@@ -488,6 +498,30 @@ class AftermathCatalog
                     'plentiful' => $owned->count(),
                     'power_bar_count' => $u->power_bar_count,
                     'description' => $u->description,
+                    'actions' => $u->actions->map(fn (Action $a) => [
+                        'name' => $a->name,
+                        'type' => $a->type,
+                        'is_signature' => $a->is_signature,
+                        'stone_cost' => $a->stone_cost,
+                        'range' => $a->range,
+                        'range_type' => $a->range_type,
+                        'stat' => $a->stat,
+                        'stat_suits' => $a->stat_suits,
+                        'stat_modifier' => $a->stat_modifier,
+                        'resisted_by' => $a->resisted_by,
+                        'target_number' => $a->target_number,
+                        'target_suits' => $a->target_suits,
+                        'damage' => $a->damage,
+                        'description' => $a->description,
+                        'triggers' => self::triggerSummaries($a->triggers),
+                    ])->all(),
+                    'abilities' => $u->abilities->map(fn (Ability $ab) => [
+                        'name' => $ab->name,
+                        'suits' => $ab->suits,
+                        'defensive_ability_type' => $ab->defensive_ability_type,
+                        'costs_stone' => $ab->costs_stone,
+                        'description' => $ab->description,
+                    ])->all(),
                 ];
             })
             ->sortBy('name')
@@ -605,6 +639,7 @@ class AftermathCatalog
             'advancements' => $advancementRows->map(fn (CampaignLeaderAdvancement $row) => [
                 'table' => $row->source_table->label(),
                 'name' => self::advancementDisplayName($row),
+                'target' => self::advancementTargetName($row),
             ])->all(),
             'doctor_attempts' => $doctorRows->map(fn ($row) => [
                 'target' => $row->target_arsenal_model_id
@@ -633,6 +668,25 @@ class AftermathCatalog
         };
 
         return $name ?? $row->source_table->label();
+    }
+
+    /**
+     * Who an advancement actually landed on — the Leader by default, the
+     * routed Totem (pg 31, 38-43), or the piece of Equipment it modifies.
+     * `custom_character_id` is always the row's owning Leader; a set
+     * `applied_to_custom_character_id` overrides that with a Totem reroute.
+     */
+    private static function advancementTargetName(CampaignLeaderAdvancement $row): string
+    {
+        if ($row->from_equipment_id !== null) {
+            $equipment = CampaignEquipment::query()->with('catalog:id,name')->find($row->from_equipment_id);
+
+            return $equipment?->catalog->name ?? 'Equipment';
+        }
+
+        $targetId = $row->applied_to_custom_character_id ?? $row->custom_character_id;
+
+        return CustomCharacter::find($targetId)->name ?? 'Leader';
     }
 
     private static function advancementActionName(?int $advancementActionId): ?string

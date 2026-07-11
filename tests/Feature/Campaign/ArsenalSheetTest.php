@@ -295,7 +295,7 @@ it('exposes Leader/Totem injuries in the payload and counts them toward Campaign
         'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
         'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
-    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed']);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed', 'description' => 'Take a nap.']);
     \Illuminate\Support\Facades\DB::table('campaign_arsenal_model_injuries')->insert([
         ['custom_character_id' => $leader->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
         ['custom_character_id' => $totem->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
@@ -305,8 +305,10 @@ it('exposes Leader/Totem injuries in the payload and counts them toward Campaign
         ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('leader.injury_names', ['Concussed'])
-            ->where('totem.injury_names', ['Concussed'])
+            ->where('leader.injury_names.0.name', 'Concussed')
+            ->where('leader.injury_names.0.description', 'Take a nap.')
+            ->where('totem.injury_names.0.name', 'Concussed')
+            ->where('totem.injury_names.0.description', 'Take a nap.')
             ->where('campaign_rating.injury_count', 2)
         );
 

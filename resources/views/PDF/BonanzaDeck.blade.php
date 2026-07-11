@@ -90,7 +90,8 @@
         foreach ($action->triggers as $t) {
             $tsuit = '';
             if ($t->suits) foreach (explode(' ', $t->suits) as $s) if (isset($glyphs[strtolower($s)])) $tsuit .= '<span class="gi">' . $glyphs[strtolower($s)] . '</span>';
-            $h .= '<div class="trig">' . $tsuit . ' <b>' . e($t->name) . ':</b> ' . $renderTokens($t->description) . '</div>';
+            $tstone = $t->stone_cost ? str_repeat('<span class="gi">s</span>', $t->stone_cost) . ' ' : '';
+            $h .= '<div class="trig">' . $tsuit . $tstone . ' <b>' . e($t->name) . ':</b> ' . $renderTokens($t->description) . '</div>';
         }
         return $h . '</div>';
     };
@@ -110,8 +111,9 @@
         }
         foreach ($actions as $a) $h .= $renderAction($a);
         foreach ($triggers as $t) {
-            $tsuit = '';
-            $h .= '<div class="abil"><b>' . e($t->name) . ':</b> ' . $renderTokens($t->description) . '</div>';
+            $tsuit = $renderGlyphList($t->suits);
+            $tstone = $t->stone_cost ? str_repeat('<span class="gi">s</span>', $t->stone_cost) . ' ' : '';
+            $h .= '<div class="abil">' . $tsuit . $tstone . '<b>' . e($t->name) . ':</b> ' . $renderTokens($t->description) . '</div>';
         }
         return $h;
     };

@@ -1,7 +1,11 @@
 <?php
 
+use App\Models\Action;
+use App\Models\LootCard;
+use App\Models\Trigger;
 use App\Services\BonanzaDeckPdfGenerator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 
 it('serves the cached print PDF without re-rendering', function () {
     Storage::fake('public');
@@ -14,4 +18,35 @@ it('serves the cached print PDF without re-rendering', function () {
     $resp->assertOk();
     expect($resp->headers->get('content-type'))->toContain('application/pdf');
     expect($resp->getContent())->toStartWith('%PDF');
+});
+
+it('BonanzaDeck Blade renders a soulstone glyph for a stone-cost trigger, both standalone and action-nested', function () {
+    $standaloneTrigger = Trigger::factory()->create(['name' => 'Standalone Trig', 'stone_cost' => 1, 'suits' => null]);
+    $nestedTrigger = Trigger::factory()->create(['name' => 'Nested Trig', 'stone_cost' => 2, 'suits' => null]);
+    $action = Action::factory()->create(['name' => 'Host Action']);
+    $action->triggers()->attach($nestedTrigger->id);
+
+    $card = LootCard::create([
+        'slug' => 'stone-test', 'name' => 'Stone Test', 'suit' => 'crow', 'value' => 1, 'value_label' => '1', 'sort_order' => 1,
+    ]);
+    $card->syncSideTriggers('a', [$standaloneTrigger->id]);
+    $card->syncSideActions('a', [['action_id' => $action->id, 'is_signature_action' => false]]);
+
+    $card->load([
+        'sideAActions.triggers', 'sideBActions.triggers',
+        'sideAAbilities', 'sideBAbilities',
+        'sideATriggers', 'sideBTriggers',
+    ]);
+
+    $html = View::make('PDF.BonanzaDeck', ['cards' => collect([$card])])->render();
+
+    // Two soulstone glyphs for the nested trigger's stone_cost of 2, one for
+    // the standalone trigger's stone_cost of 1 — plus each trigger's name,
+    // right next to the glyphs (not floating elsewhere in the page).
+    expect($html)->toContain('Standalone Trig');
+    expect($html)->toContain('Nested Trig');
+    $standaloneChunk = substr($html, (int) strpos($html, 'Standalone Trig') - 60, 60);
+    $nestedChunk = substr($html, (int) strpos($html, 'Nested Trig') - 80, 80);
+    expect(substr_count($standaloneChunk, '<span class="gi">s</span>'))->toBe(1);
+    expect(substr_count($nestedChunk, '<span class="gi">s</span>'))->toBe(2);
 });

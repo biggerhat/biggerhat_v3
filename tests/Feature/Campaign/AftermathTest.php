@@ -1084,6 +1084,54 @@ it('Phase 4 rejects a second Summoning Advancement for the same leader', functio
     expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(1); // no second row
 });
 
+it('Phase 4 Summoning Advancement can be routed to the Totem instead of the Leader', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leader = buildLeaderFor($crew, $user);
+    $totem = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'Test Totem',
+        'display_name' => 'Test Totem',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $summoning = \App\Models\Action::factory()->create([
+        'name' => 'Test Summoning',
+        'game_mode_type' => \App\Enums\GameModeTypeEnum::Campaign->value,
+        'campaign_advancement_kind' => 'summoning',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [
+                [
+                    'source_table' => 'summoning',
+                    'catalog_id' => $summoning->id,
+                    'applied_to_custom_character_id' => $totem->id,
+                    // Tier-3 box (the default XP track has a 3 at index 4).
+                    'position_in_xp_track' => 4,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $recorded = \App\Models\Campaign\CampaignLeaderAdvancement::sole();
+    expect($recorded->applied_to_custom_character_id)->toBe($totem->id);
+    expect(collect($totem->fresh()->actions)->pluck('name'))->toContain('Test Summoning');
+    expect(collect($leader->fresh()->actions)->pluck('name'))->not->toContain('Test Summoning');
+});
+
 it('Phase 4 Totem Advancement no longer requires a flip value (flip-gating removed for now)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1124,6 +1172,49 @@ it('Phase 4 Totem Advancement no longer requires a flip value (flip-gating remov
         ])
         ->assertRedirect();
     expect($aftermath->fresh()->current_phase)->toBe(5);
+});
+
+it('Phase 4 Totem Advancement carries the template ability body under the description key', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $totemTemplate = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'is_campaign_totem_template' => true,
+        'name' => 'Wisp',
+        'display_name' => 'Wisp',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 4,
+        'defense' => 4,
+        'willpower' => 4,
+        'speed' => 5,
+        'base' => 30,
+    ]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Test Totem Ability', 'description' => 'Does a totem thing.']);
+    $totemTemplate->campaignTotemAbilities()->attach($ability->id);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'totem',
+                'catalog_id' => $totemTemplate->id,
+                'position_in_xp_track' => 4,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $totem = \App\Models\CustomCharacter::where('is_campaign_totem', true)->where('campaign_crew_id', $crew->id)->firstOrFail();
+    expect($totem->abilities[0]['name'])->toBe('Test Totem Ability');
+    expect($totem->abilities[0]['description'])->toBe('Does a totem thing.');
+    expect($totem->abilities[0])->not->toHaveKey('body');
 });
 
 it('Phase 4 Totem Advancement inherits the leader\'s keywords', function () {
@@ -2080,8 +2171,49 @@ it('Phase 6 review screen: phase_summary rolls up what Phases 1-5 already commit
             ->where('phase_summary.barter_total_cc', 3)
             ->where('phase_summary.advancements.0.table', 'Attack Mod')
             ->where('phase_summary.advancements.0.name', 'Test Attack Mod')
+            ->where('phase_summary.advancements.0.target', 'TestLeader')
             ->has('phase_summary.doctor_attempts', 1)
             ->where('phase_summary.doctor_attempts.0.outcome', 'Removed')
+            ->etc());
+});
+
+it('Phase 6 review screen: phase_summary resolves the Totem/Equipment target for a rerouted advancement', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $leader = buildLeaderFor($crew, $user);
+    $totem = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'Test Totem',
+        'display_name' => 'Test Totem',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $attackMod = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['name' => 'Totem-routed Trigger']);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_aftermath_id' => $aftermath->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $attackMod->id,
+        'applied_to_custom_character_id' => $totem->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 3,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('phase_summary.advancements.0.name', 'Totem-routed Trigger')
+            ->where('phase_summary.advancements.0.target', 'Test Totem')
             ->etc());
 });
 

@@ -729,7 +729,10 @@ class GameSetupController extends Controller
                     'front_image' => null,
                     'back_image' => null,
                     'is_custom' => true,
-                    'attached_upgrades' => $this->injuryUpgrades('custom_character_id', $campaignTotem->id),
+                    'attached_upgrades' => array_merge(
+                        $this->injuryUpgrades('custom_character_id', $campaignTotem->id),
+                        $equipmentByTarget['totem'] ?? [],
+                    ),
                     'attached_tokens' => [],
                     'attached_markers' => [],
                     'sort_order' => $sortOrder++,
@@ -905,15 +908,19 @@ class GameSetupController extends Controller
 
         foreach ($assignments as $a) {
             $equipmentId = (int) $a['equipment_id'];
-            $target = $a['target'] === 'leader' ? 'leader' : (int) $a['target'];
+            $target = in_array($a['target'], ['leader', 'totem'], true) ? $a['target'] : (int) $a['target'];
 
             $entry = $owned->get($equipmentId);
             if (! $entry) {
                 return "One or more assigned equipment pieces aren't in your crew's owned equipment.";
             }
 
-            if ($target !== 'leader' && ! in_array($target, $characterIds, true)) {
-                return 'Equipment can only be assigned to the Leader or a model you\'re hiring this game.';
+            if ($target === 'totem') {
+                if (! $crew->totem) {
+                    return "Equipment can't be assigned to a Totem — this crew hasn't unlocked one yet.";
+                }
+            } elseif ($target !== 'leader' && ! in_array($target, $characterIds, true)) {
+                return 'Equipment can only be assigned to the Leader, Totem, or a model you\'re hiring this game.';
             }
 
             $usedCounts[$equipmentId] = ($usedCounts[$equipmentId] ?? 0) + 1;

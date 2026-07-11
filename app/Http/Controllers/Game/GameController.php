@@ -208,7 +208,7 @@ class GameController extends Controller
         // crew + turn snapshots.
         if ($context === GameShowContext::Summary) {
             return array_merge($loads, [
-                'players.crewMembers.customCharacter:id,faction,actions,abilities',
+                'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image',
                 'players.crewBuild',
                 'players.master.crewUpgrades',
                 'players.turns',
@@ -219,7 +219,7 @@ class GameController extends Controller
         if ($context === GameShowContext::SelfView) {
             // Participants also need crews during Scheme Select.
             if (in_array($game->status, [GameStatusEnum::SchemeSelect, ...$postSetup])) {
-                $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities';
+                $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image';
                 $loads[] = 'players.crewBuild';
                 $loads[] = 'players.master.crewUpgrades';
             }
@@ -230,7 +230,7 @@ class GameController extends Controller
             }
         } elseif (in_array($game->status, $postSetup)) {
             // Observer: crews + full turns once gameplay has started.
-            $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities';
+            $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image';
             $loads[] = 'players.crewBuild';
             $loads[] = 'players.master.crewUpgrades';
             $loads[] = 'players.turns';
@@ -494,6 +494,7 @@ class GameController extends Controller
             $props['campaign_leader_option'] = fn () => $game->format === \App\Enums\GameFormatEnum::Campaign
                 ? $this->campaignLeaderMasterOption($game)
                 : null;
+            $props['campaign_totem'] = fn () => $this->buildCampaignTotemProp($game);
         }
 
         return $props;
@@ -630,6 +631,28 @@ class GameController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * The crew's current Totem (if unlocked, Tier-3+), offered as an
+     * equipment-assignment target alongside the Leader and hires at
+     * CrewSelect. Null on any non-Campaign game, wrong status, or a crew
+     * that hasn't unlocked a Totem yet.
+     *
+     * @return array{id: int, name: string}|null
+     */
+    private function buildCampaignTotemProp(Game $game): ?array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
+            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+            || ! Auth::check()) {
+            return null;
+        }
+
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
+        $totem = $campaignCrew?->totem;
+
+        return $totem ? ['id' => $totem->id, 'name' => $totem->name] : null;
     }
 
     /**

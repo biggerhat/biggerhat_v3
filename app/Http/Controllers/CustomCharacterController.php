@@ -121,6 +121,46 @@ class CustomCharacterController extends Controller
         ]);
     }
 
+    /**
+     * Bare front/back card faces, no page chrome — the headless-Chrome
+     * capture target for App\Services\Campaign\LeaderCardImageGenerator.
+     * Props are shaped here (camelCase, enums resolved to their value)
+     * instead of client-side, matching what CardFrontFace/CardBackFace
+     * expect directly, so the capture page needs no adapter logic.
+     */
+    public function capture(string $shareCode): Response
+    {
+        $character = CustomCharacter::where('share_code', $shareCode)->firstOrFail();
+
+        return inertia('CardCreator/Capture', [
+            'card' => [
+                'name' => $character->name,
+                'title' => $character->title,
+                'faction' => $character->faction?->value,
+                'secondFaction' => $character->second_faction?->value,
+                'station' => $character->station?->value,
+                'cost' => $character->cost,
+                'health' => $character->health,
+                'defense' => $character->defense,
+                'defenseSuit' => $character->defense_suit?->value,
+                'willpower' => $character->willpower,
+                'willpowerSuit' => $character->willpower_suit?->value,
+                'speed' => $character->speed,
+                'size' => $character->size,
+                'base' => (string) ($character->base->value ?? ''),
+                'keywords' => $character->keywords ?? [],
+                'characteristics' => $character->characteristics ?? [],
+                // Never populated — Custom Card Creator character art is
+                // client-blob-only, not persisted server-side.
+                'characterImage' => null,
+                'actions' => $character->actions ?? [],
+                'abilities' => $character->abilities ?? [],
+                'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
+                'linkedTotems' => $character->linked_totems ?? [],
+            ],
+        ]);
+    }
+
     private function validateCharacter(Request $request): array
     {
         return $request->validate([

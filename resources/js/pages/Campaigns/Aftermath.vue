@@ -310,7 +310,7 @@ interface PhaseSummary {
     scrip_earned: number;
     barter: Array<{ name: string; cc: number }>;
     barter_total_cc: number;
-    advancements: Array<{ table: string; name: string }>;
+    advancements: Array<{ table: string; name: string; target: string }>;
     doctor_attempts: Array<{ target: string; outcome: string }>;
 }
 interface AdvancementCatalogs {
@@ -534,6 +534,18 @@ const onCrewCardMasterRowChange = (position: number, v: string) => {
     onCatalogChange(position);
 };
 
+// A generic (master_id === null) row picked straight from the flat list still
+// requires naming the master it's borrowed from (pg 32, 54 — every Tier-4
+// effect is tied to a real master's card, even if the catalog hasn't been
+// backfilled with that master yet). Unlike onCrewCardMasterChange, this
+// doesn't touch catalog_id — the picked row itself doesn't change, only its
+// attribution.
+const onCrewCardGenericMasterChange = (position: number, v: string) => {
+    const d = advDrafts.value[position];
+    if (!d) return;
+    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
+};
+
 // ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
 const jokerSearch = ref<Record<number, string>>({});
 const jokerResults = ref<Record<number, Array<{ id: number; name: string; source_id: number; source_character_id: number | null }>>>({});
@@ -695,6 +707,7 @@ const submitAdvanceLeader = () => {
                 const isTotemAdvancement = d.source_table === 'totem';
                 const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
                 const isAbility = d.source_table === 'ability';
+                const isSummoning = d.source_table === 'summoning';
                 const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
                 return {
                     source_table: d.source_table,
@@ -702,7 +715,7 @@ const submitAdvanceLeader = () => {
                     applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
                     applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
                     applied_to_custom_character_id:
-                        (isTrigger || isAbility) && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
+                        (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
                     from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
                     joker_color: isTrigger ? d.joker_color : undefined,
                     position_in_xp_track: adv.position_in_xp_track,
@@ -1132,7 +1145,12 @@ const finalize = () =>
                 <!-- Advancements queued for numbered boxes -->
                 <fieldset v-if="advancementsQueued.length" class="rounded-md border p-3 text-sm">
                     <legend class="px-1 text-xs font-medium uppercase text-muted-foreground">Advancements ({{ advancementsQueued.length }})</legend>
-                    <div v-for="(adv, idx) in advancementsQueued" :key="idx" class="space-y-2 border-b py-2 last:border-b-0">
+                    <div
+                        v-for="(adv, idx) in advancementsQueued"
+                        :key="idx"
+                        class="space-y-2 border-b px-2 py-2 last:border-b-0"
+                        :class="idx % 2 === 1 ? 'bg-muted/40' : ''"
+                    >
                         <p class="text-xs">Box {{ adv.position_in_xp_track + 1 }} — Tier {{ adv.box_tier }} advancement</p>
                         <template v-if="advDrafts[adv.position_in_xp_track]">
                             <Select
@@ -1225,7 +1243,7 @@ const finalize = () =>
                                         :key="row.id"
                                         :value="row.id.toString()"
                                     >
-                                        {{ row.name }}<span v-if="row.flip_value != null"> (flip {{ row.flip_value }})</span>
+                                        {{ row.name }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -1301,6 +1319,30 @@ const finalize = () =>
                                             No Crew Card catalog rows are linked to this master yet.
                                         </p>
                                     </div>
+                                </div>
+                                <!-- A generic row was picked directly — still needs a "borrowed from" master (pg 32, 54). -->
+                                <div
+                                    v-if="
+                                        !advDrafts[adv.position_in_xp_track].crew_card_master_mode &&
+                                        advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                    "
+                                    class="rounded border p-2"
+                                >
+                                    <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
+                                    <Select
+                                        :model-value="advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'"
+                                        @update:model-value="(v) => onCrewCardGenericMasterChange(adv.position_in_xp_track, v as string)"
+                                    >
+                                        <SelectTrigger class="h-8 w-full text-xs text-foreground">
+                                            <SelectValue placeholder="— pick a master —" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none__">— pick a master —</SelectItem>
+                                            <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
+                                                m.name
+                                            }}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
@@ -1513,10 +1555,11 @@ const finalize = () =>
                                     </Select>
                                 </div>
                             </div>
-                            <!-- Ability: pick what to affect (Leader/Totem) -->
+                            <!-- Ability/Summoning: pick what to affect (Leader/Totem) -->
                             <div
                                 v-if="
-                                    advDrafts[adv.position_in_xp_track].source_table === 'ability' &&
+                                    (advDrafts[adv.position_in_xp_track].source_table === 'ability' ||
+                                        advDrafts[adv.position_in_xp_track].source_table === 'summoning') &&
                                     advDrafts[adv.position_in_xp_track].catalog_id !== null
                                 "
                                 class="flex flex-wrap items-center gap-2"
@@ -1795,13 +1838,15 @@ const finalize = () =>
                         >
                         <span v-else class="font-medium">nothing bought</span>
                     </p>
-                    <p>
-                        Advancements:
-                        <span v-if="phase_summary.advancements.length" class="font-medium">{{
-                            phase_summary.advancements.map((a) => `${a.table}: ${a.name}`).join(', ')
-                        }}</span>
-                        <span v-else class="font-medium">none taken</span>
-                    </p>
+                    <div>
+                        <span>Advancements:</span>
+                        <span v-if="!phase_summary.advancements.length" class="font-medium">none taken</span>
+                        <ul v-else class="mt-1 list-disc space-y-0.5 pl-5">
+                            <li v-for="(a, i) in phase_summary.advancements" :key="i">
+                                <span class="font-medium">{{ a.table }}: {{ a.name }}</span> — {{ a.target }}
+                            </li>
+                        </ul>
+                    </div>
                     <p>
                         Doctor:
                         <span v-if="phase_summary.doctor_attempts.length" class="font-medium">{{
@@ -1813,7 +1858,7 @@ const finalize = () =>
 
                 <div class="space-y-2 rounded-md border p-3 text-sm">
                     <p class="text-xs font-medium uppercase text-muted-foreground">Phase 6 — Determine Injuries (not yet saved)</p>
-                    <p v-if="!injuryFlips.length" class="font-medium">No injuries recorded.</p>
+                    <p v-if="!injuryFlips.length" class="font-medium">No new injuries.</p>
                     <ul v-else class="space-y-1">
                         <li v-for="(f, idx) in injuryFlips" :key="idx">
                             <span class="font-medium">{{ modelDisplayName(f) }}</span> — {{ injuryFlipSummary(f) }}

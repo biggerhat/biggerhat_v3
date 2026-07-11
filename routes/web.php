@@ -270,6 +270,10 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
+        // Headless-Chrome capture target for App\Services\Campaign\LeaderCardImageGenerator —
+        // bare front/back faces only, no page chrome. Public/unauthenticated like `share`
+        // above (same unguessable share_code trust model), hit only by the queue worker.
+        Route::get('/capture/{shareCode}', [CustomCharacterController::class, 'capture'])->name('capture');
 
         Route::middleware('auth')->group(function () {
             Route::get('/', [CustomCharacterController::class, 'index'])->name('index');

@@ -79,7 +79,7 @@ class ArsenalSheetController extends Controller
                 'character:id,slug,display_name,cost,faction,station',
                 // First standard miniature provides the card image for CharacterCardView.
                 'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',
-                'injuries.injury:id,name',
+                'injuries.injury:id,name,description',
             ]),
         ]);
 
@@ -108,17 +108,17 @@ class ArsenalSheetController extends Controller
         if (! empty($leaderTotemIds)) {
             $injuriesByCharacter = CampaignArsenalModelInjury::query()
                 ->whereIn('custom_character_id', $leaderTotemIds)
-                ->with('injury:id,name')
+                ->with('injury:id,name,description')
                 ->get()
                 ->groupBy('custom_character_id');
 
             $leader?->setAttribute(
                 'injury_names',
-                ($injuriesByCharacter->get($leader->id) ?? collect())->map(fn ($i) => $i->injury?->name)->filter()->values(),
+                ($injuriesByCharacter->get($leader->id) ?? collect())->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
             );
             $totem?->setAttribute(
                 'injury_names',
-                ($injuriesByCharacter->get($totem->id) ?? collect())->map(fn ($i) => $i->injury?->name)->filter()->values(),
+                ($injuriesByCharacter->get($totem->id) ?? collect())->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
             );
         }
 
@@ -164,7 +164,7 @@ class ArsenalSheetController extends Controller
                             ...$m->character->only(['id', 'slug', 'display_name', 'cost', 'faction', 'station']),
                             'standard_miniature' => $m->character->standardMiniatures->first()?->only(['id', 'display_name', 'front_image', 'back_image', 'character_id', 'slug']),
                         ] : null,
-                        'injuries' => $m->injuries->map(fn ($i) => $i->injury?->name)->filter()->values(),
+                        'injuries' => $m->injuries->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
                         'gained_characteristics' => $m->gained_characteristics ?? [],
                         'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
                             ->map(fn ($id) => $luckyMissNames[$id] ?? null)
@@ -233,5 +233,22 @@ class ArsenalSheetController extends Controller
                 'share_url' => route('campaigns.crews.arsenal.share', $crew->share_code),
             ],
         ]);
+    }
+
+    /**
+     * Shapes an injury pivot's loaded `injury` relation for display — the
+     * description is what lets the Arsenal Sheet's injury badges open a
+     * "what does this do" viewer instead of just showing the bare name.
+     *
+     * @return array{id: int, name: string, description: string|null}|null
+     */
+    private function shapeInjury(CampaignArsenalModelInjury $pivot): ?array
+    {
+        $injury = $pivot->injury;
+        if (! $injury) {
+            return null;
+        }
+
+        return ['id' => $injury->id, 'name' => $injury->name, 'description' => $injury->description];
     }
 }

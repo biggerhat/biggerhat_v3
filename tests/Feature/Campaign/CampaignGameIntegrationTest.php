@@ -411,6 +411,62 @@ it('submitCampaignCrew rejects an equipment_assignments target outside the Leade
     expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
 });
 
+it('submitCampaignCrew assigns owned equipment to a Tier-3 Totem', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'share_code' => 'totem-test-001',
+        'name' => 'Test Totem',
+        'display_name' => 'Test Totem',
+        'slug' => 'test-totem',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Totem Trinket']);
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => 'totem'],
+            ],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $totemMember = \App\Models\GameCrewMember::where('game_id', $game->id)
+        ->where('game_player_id', $player->id)
+        ->where('hiring_category', 'totem')
+        ->first();
+
+    expect($totemMember)->not->toBeNull();
+    expect(collect($totemMember->attached_upgrades)->pluck('name')->all())->toBe(['Totem Trinket']);
+});
+
+it('submitCampaignCrew rejects a totem equipment assignment when the crew has no Totem yet', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create();
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'character_ids' => [],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => 'totem'],
+            ],
+        ])
+        ->assertStatus(422);
+
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
+});
+
 it('submitCampaignCrew rejects assigning more copies of an equipment than the crew owns', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 
@@ -533,6 +589,32 @@ it('character_upgrades at InProgress offers the campaign crew\'s own earned equi
                 'plentiful' => 2,
                 'power_bar_count' => $owned->power_bar_count,
                 'description' => $owned->description,
+                'actions' => [],
+                'abilities' => [],
             ]])
+        );
+});
+
+it('character_upgrades at InProgress carries the equipment\'s granted actions/abilities in full, not just the description', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+
+    $owned = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket']);
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'equipment_upgrade_id' => $owned->id,
+    ]);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack', 'stat' => 5]);
+    $owned->actions()->attach($action->id, ['is_signature_action' => true]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Granted Ward']);
+    $owned->abilities()->attach($ability->id);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('character_upgrades.0.actions.0.name', 'Granted Slash')
+            ->where('character_upgrades.0.actions.0.is_signature', true)
+            ->where('character_upgrades.0.abilities.0.name', 'Granted Ward')
         );
 });

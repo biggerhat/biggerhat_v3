@@ -216,6 +216,11 @@ const props = defineProps<{
         type: string | null;
         plentiful: number | null;
         power_bar_count: number | null;
+        description?: string | null;
+        // Campaign equipment only (pg 19) — full granted actions/abilities so
+        // the attach-upgrade drawer can render real rules text.
+        actions?: Array<Record<string, unknown>>;
+        abilities?: Array<Record<string, unknown>>;
     }[];
     all_markers: { id: number; name: string; slug: string }[];
     all_reachable_schemes: SchemeData[];
@@ -286,6 +291,9 @@ const props = defineProps<{
     }[];
     /** Campaign games only: the current user's built leader for their own master pick. */
     campaign_leader_option?: MasterOption | null;
+    /** Campaign games only: the crew's current Totem (Tier-3+ unlock), offered
+     *  as an equipment-assignment target during crew select. Null if not yet unlocked. */
+    campaign_totem?: { id: number; name: string } | null;
 }>();
 
 const page = usePage<SharedData>();
@@ -437,10 +445,16 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 'bonanza_crew_upgrades',
                 'campaign_arsenal',
                 'campaign_owned_equipment',
+                'campaign_totem',
                 // campaign_leader_option depends on the player's faction, which is
                 // only set once submitFaction completes — must reload here or the
                 // leader stays blank at Master Select until a manual refresh.
                 'campaign_leader_option',
+                // campaign_context carries crew_a_card/crew_b_card (starter +
+                // borrowed Crew Card effects) — must reload here too, or the
+                // in-game "[crew card]" toggle stays stale/empty until a manual
+                // refresh once crew selection actually sets up the crews.
+                'campaign_context',
             ],
             preserveScroll: true,
             preserveState: true,
@@ -1115,10 +1129,13 @@ const openCardFullscreen = (payload: { src: string; backSrc?: string | null; tit
 const upgradeDrawerOpen = ref(false);
 const previewUpgrade = ref<any>(null);
 
-// Campaign Leader/Totem (pg 31, 52) have no card art at all — their stat
-// block is JSON on the linked CustomCharacter instead of front_image.
+// Campaign Leader/Totem (pg 31, 52) — a server-rendered card image
+// (custom_character.front_image) once one's been generated, else the raw
+// actions/abilities JSON as a fallback stat block.
 const hasCustomCharacterCard = (member: any): boolean =>
-    (member.custom_character?.actions?.length ?? 0) > 0 || (member.custom_character?.abilities?.length ?? 0) > 0;
+    !!member.custom_character?.front_image ||
+    (member.custom_character?.actions?.length ?? 0) > 0 ||
+    (member.custom_character?.abilities?.length ?? 0) > 0;
 
 const openMemberPreview = (member: any) => {
     if (!member.front_image && !member.back_image && !hasCustomCharacterCard(member)) return;
@@ -1323,7 +1340,7 @@ const closeLootPicker = () => {
 };
 
 const openUpgradePreview = (upgrade: any) => {
-    if (!upgrade.front_image && !upgrade.description) return;
+    if (!upgrade.front_image && !upgrade.description && !upgrade.actions?.length && !upgrade.abilities?.length) return;
     previewUpgrade.value = upgrade;
     upgradeDrawerOpen.value = true;
 };
@@ -2446,7 +2463,15 @@ const toggleUpgrade = async (upgrade: {
     // catalog (character_upgrades) so callers don't have to thread it through.
     const catalog = props.character_upgrades.find((u) => u.id === upgrade.id);
     const powerMax = catalog?.power_bar_count ?? upgrade.power_bar_count ?? null;
-    const newRow: any = { id: upgrade.id, name: upgrade.name, front_image: upgrade.front_image, back_image: upgrade.back_image };
+    const newRow: any = {
+        id: upgrade.id,
+        name: upgrade.name,
+        front_image: upgrade.front_image,
+        back_image: upgrade.back_image,
+        description: catalog?.description ?? null,
+        actions: catalog?.actions ?? [],
+        abilities: catalog?.abilities ?? [],
+    };
     if (powerMax !== null && powerMax > 0) {
         newRow.current_power_bar = 0;
     }
@@ -2502,7 +2527,7 @@ const previewAttachedUpgrade = ref<any>(null);
 const attachedUpgradeDrawerOpen = ref(false);
 
 const openAttachedUpgradePreview = (upgrade: any) => {
-    if (!upgrade.front_image && !upgrade.description) return;
+    if (!upgrade.front_image && !upgrade.description && !upgrade.actions?.length && !upgrade.abilities?.length) return;
     previewAttachedUpgrade.value = upgrade;
     attachedUpgradeDrawerOpen.value = true;
 };
@@ -3300,6 +3325,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :is-campaign="isCampaign"
                 :campaign-arsenal="campaign_arsenal ?? []"
                 :campaign-owned-equipment="campaign_owned_equipment ?? []"
+                :campaign-totem="campaign_totem ?? null"
                 :submitting="submitting"
                 :my-slot="mySlot"
                 :opponent-slot="opponentSlot"
@@ -4560,7 +4586,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             :show-collection="false"
                                         />
                                     </div>
-                                    <!-- Campaign Leader/Totem (pg 31, 52) have no card art — render the JSON stat block instead. -->
+                                    <!-- Campaign Leader/Totem (pg 31, 52) — server-rendered card image, once generated. -->
+                                    <div
+                                        v-else-if="expandedMyCards.has(member.id) && member.custom_character?.front_image"
+                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
+                                    >
+                                        <CharacterCardView
+                                            :miniature="{
+                                                id: member.custom_character.id,
+                                                display_name: member.custom_character.display_name,
+                                                slug: '',
+                                                front_image: member.custom_character.front_image,
+                                                back_image: member.custom_character.back_image,
+                                            }"
+                                            :show-link="false"
+                                            :show-collection="false"
+                                        />
+                                    </div>
+                                    <!-- No image generated yet — render the JSON stat block instead. -->
                                     <div
                                         v-else-if="expandedMyCards.has(member.id) && hasCustomCharacterCard(member)"
                                         class="mt-2 space-y-2 overflow-hidden"
@@ -5032,7 +5075,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             :show-collection="false"
                                         />
                                     </div>
-                                    <!-- Campaign Leader/Totem (pg 31, 52) have no card art — render the JSON stat block instead. -->
+                                    <!-- Campaign Leader/Totem (pg 31, 52) — server-rendered card image, once generated. -->
+                                    <div
+                                        v-else-if="expandedOpponentCards.has(member.id) && member.custom_character?.front_image"
+                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
+                                    >
+                                        <CharacterCardView
+                                            :miniature="{
+                                                id: member.custom_character.id,
+                                                display_name: member.custom_character.display_name,
+                                                slug: '',
+                                                front_image: member.custom_character.front_image,
+                                                back_image: member.custom_character.back_image,
+                                            }"
+                                            :show-link="false"
+                                            :show-collection="false"
+                                        />
+                                    </div>
+                                    <!-- No image generated yet — render the JSON stat block instead. -->
                                     <div
                                         v-else-if="expandedOpponentCards.has(member.id) && hasCustomCharacterCard(member)"
                                         class="mt-2 space-y-2 overflow-hidden"

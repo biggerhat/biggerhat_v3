@@ -77,6 +77,7 @@ const props = defineProps<{
     isCampaign: boolean;
     campaignArsenal: CampaignArsenalModel[];
     campaignOwnedEquipment: CampaignOwnedEquipment[];
+    campaignTotem: { id: number; name: string } | null;
     submitting: boolean;
     mySlot: number;
     opponentSlot: number;
@@ -203,6 +204,7 @@ const equipmentSlots = computed<EquipmentSlot[]>(() =>
 );
 const equipmentTargetOptions = computed(() => [
     { value: 'leader', label: 'Leader' },
+    ...(props.campaignTotem ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
     ...selectedArsenalIds.value.map((id) => ({
         value: String(id),
         label: props.campaignArsenal.find((a) => a.character_id === id)?.name ?? `#${id}`,
@@ -210,7 +212,7 @@ const equipmentTargetOptions = computed(() => [
 ]);
 // Drop any assignment whose target was deselected from the crew.
 watch(selectedArsenalIds, () => {
-    const validTargets = new Set(['__none__', 'leader', ...selectedArsenalIds.value.map(String)]);
+    const validTargets = new Set(['__none__', 'leader', 'totem', ...selectedArsenalIds.value.map(String)]);
     for (const key of Object.keys(equipmentTargets.value)) {
         if (!validTargets.has(equipmentTargets.value[key])) equipmentTargets.value[key] = '__none__';
     }

@@ -1,15 +1,48 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import BonanzaCardImage from '@/components/Bonanza/BonanzaCardImage.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { X } from 'lucide-vue-next';
 
+interface UpgradeAction {
+    name: string;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | string | null;
+    range_type?: string;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    description?: string | null;
+    triggers?: Array<{ id?: number; name: string; suits?: string; stone_cost?: number; description?: string }>;
+}
+
+interface UpgradeAbility {
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
+
 interface UpgradePreview {
     name: string;
     front_image: string;
     back_image: string | null;
     description?: string | null;
+    // Full granted actions/abilities (Campaign equipment, pg 19) — rendered
+    // as proper ActionCard/AbilityCard so a player can see the real rules
+    // text, not just the flavor description.
+    actions?: UpgradeAction[];
+    abilities?: UpgradeAbility[];
     loot_card_id?: number;
     loot_side?: 'a' | 'b';
 }
@@ -68,12 +101,23 @@ const emit = defineEmits<{
                         />
                     </div>
                     <!-- No card art uploaded — show the effect text instead of a blank preview. -->
-                    <p v-else class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
-                        {{ upgrade.description || 'No description available.' }}
+                    <p
+                        v-else-if="!upgrade.description && !upgrade.actions?.length && !upgrade.abilities?.length"
+                        class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground"
+                    >
+                        No description available.
+                    </p>
+                    <p v-else-if="upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
+                        {{ upgrade.description }}
                     </p>
                     <p v-if="upgrade.front_image && upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
                         {{ upgrade.description }}
                     </p>
+                    <!-- Granted actions/abilities (Campaign equipment, pg 19) — full rules text, not just flavor. -->
+                    <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="max-h-[40dvh] space-y-2 overflow-y-auto px-4 pb-2">
+                        <ActionCard v-for="(a, i) in upgrade.actions ?? []" :key="`eq-action-${i}`" :action="a" :hide-footer="true" />
+                        <AbilityCard v-for="(ab, i) in upgrade.abilities ?? []" :key="`eq-ability-${i}`" :ability="ab" :hide-footer="true" />
+                    </div>
                 </template>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>

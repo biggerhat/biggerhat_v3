@@ -1512,6 +1512,9 @@ namespace App\Models{
  * @property array<array-key, mixed>|null $characteristics
  * @property array<array-key, mixed>|null $linked_crew_upgrades
  * @property array<array-key, mixed>|null $linked_totems
+ * @property string|null $front_image
+ * @property string|null $back_image
+ * @property string|null $combination_image
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -1532,6 +1535,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereActions($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereAnnihilatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereArchetype($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereBackImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereBase($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignCrewId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignDf($value)
@@ -1545,6 +1549,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignTotemSpecialReplace($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignWp($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCharacteristics($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCombinationImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCreatedAt($value)
@@ -1554,6 +1559,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereDisplayName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereFrontImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereGeneratesStone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereHealth($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereId($value)

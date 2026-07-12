@@ -15,6 +15,8 @@ use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\User;
+use App\Notifications\Campaign\CampaignGameStarted;
+use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -155,4 +157,17 @@ it('refuses to start a game on a non-active campaign', function () {
         ->assertRedirect();
 
     expect(Game::count())->toBe(0);
+});
+
+it('notifies the opponent when a campaign game is started against their crew', function () {
+    Notification::fake();
+    [$campaign, , $crewB, $organizer, $opponent] = twoCrewCampaign();
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.games.store', $campaign), [
+            'opponent_crew_id' => $crewB->id,
+        ])
+        ->assertRedirect();
+
+    Notification::assertSentTo($opponent, CampaignGameStarted::class);
 });

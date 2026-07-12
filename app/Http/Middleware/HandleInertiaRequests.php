@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
             'currentGameSystem' => $this->resolveGameSystem($request),
             'campaign_features_enabled' => CampaignAccess::canUse($request->user()),
             'announcements' => fn () => $this->activeAnnouncements($request),
+            'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [
                 'user' => $request->user() ?? null,
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
@@ -205,6 +206,20 @@ class HandleInertiaRequests extends Middleware
                 'link_label' => $a->link_label,
             ])
             ->all();
+    }
+
+    /**
+     * Schema-guarded like activeAnnouncements() — the notifications table
+     * ships as a migration, so any environment that hasn't run it yet
+     * (fresh checkout) must not 500 on every page load.
+     */
+    private function unreadNotificationsCount(Request $request): int
+    {
+        if (! Schema::hasTable('notifications')) {
+            return 0;
+        }
+
+        return $request->user()?->unreadNotifications()->count() ?? 0;
     }
 
     private function canAccessAdmin(Request $request): bool

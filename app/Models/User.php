@@ -201,4 +201,47 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Meta::class);
     }
+
+    /** @return HasMany<Friendship, $this> */
+    public function friendshipsSent(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'requester_id');
+    }
+
+    /** @return HasMany<Friendship, $this> */
+    public function friendshipsReceived(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'addressee_id');
+    }
+
+    /**
+     * Plain query-scoped helpers rather than one Eloquent relation — the
+     * asymmetric requester/addressee-with-acceptance-state shape doesn't map
+     * cleanly to a single relation.
+     */
+    public function isFriendsWith(User $other): bool
+    {
+        return Friendship::query()->between($this->id, $other->id)->accepted()->exists();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Friendship> */
+    public function pendingFriendRequestsReceived(): \Illuminate\Support\Collection
+    {
+        return $this->friendshipsReceived()->pending()->with('requester:id,name')->get();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Friendship> */
+    public function pendingFriendRequestsSent(): \Illuminate\Support\Collection
+    {
+        return $this->friendshipsSent()->pending()->with('addressee:id,name')->get();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, User> */
+    public function acceptedFriends(): \Illuminate\Support\Collection
+    {
+        return $this->friendshipsSent()->accepted()->with('addressee:id,name')->get()->pluck('addressee')
+            ->concat($this->friendshipsReceived()->accepted()->with('requester:id,name')->get()->pluck('requester'))
+            ->sortBy('name')
+            ->values();
+    }
 }

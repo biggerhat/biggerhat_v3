@@ -1517,16 +1517,15 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
         'current_phase' => 4,
         'hand_drawn' => [],
     ]);
-    $keyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+    buildLeaderFor($crew, $user);
 
     $starterEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Starter Effect']);
     $crew->update(['crew_card_effect_id' => $starterEffect->id]);
 
+    // A generic (master_id null) row — one of the book-native starting crew
+    // card effects (pg 15-16), not tied to any master. Rulebook confirms this
+    // path needs no master attribution at all, unlike a master-tied pick.
     $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Effect']);
-    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $master->keywords()->attach($keyword);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
@@ -1538,7 +1537,6 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
                 'catalog_id' => $borrowedEffect->id,
                 // Tier-4 box (the default XP track has a 4 at index 6).
                 'position_in_xp_track' => 6,
-                'free_choice' => ['source_character_id' => $master->id],
             ]],
         ])
         ->assertRedirect();
@@ -1548,7 +1546,8 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
     $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
     expect($stacked)->toHaveCount(1);
     expect($stacked->first()->crew_card_effect_id)->toBe($borrowedEffect->id);
-    expect($stacked->first()->source_master_id)->toBe($master->id);
+    expect($stacked->first()->source_master_id)->toBeNull();
+    expect($stacked->first()->source_master_type)->toBeNull();
 });
 
 it('Phase 4 Crew Card advancement requiring a token choice stores the resolved pick, and rejects one outside the pool', function () {
@@ -1560,12 +1559,8 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
         'hand_drawn' => [],
     ]);
     $keyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+    buildLeaderFor($crew, $user);
     $crew->update(['keyword_1_id' => $keyword->id]);
-
-    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $master->keywords()->attach($keyword);
 
     // A crew-card (crew-domain) upgrade sharing the crew's keyword, with a token on it.
     $token = \App\Models\Token::factory()->create(['name' => 'Fast']);
@@ -1589,7 +1584,6 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
                 'source_table' => 'crew_card',
                 'catalog_id' => $borrowedEffect->id,
                 'position_in_xp_track' => 6,
-                'free_choice' => ['source_character_id' => $master->id],
                 'crew_card_choice' => ['id' => $stray->id],
             ]],
         ])
@@ -1607,7 +1601,6 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
                 'source_table' => 'crew_card',
                 'catalog_id' => $borrowedEffect->id,
                 'position_in_xp_track' => 6,
-                'free_choice' => ['source_character_id' => $master->id],
                 'crew_card_choice' => ['id' => $token->id],
             ]],
         ])
@@ -1617,7 +1610,7 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
     expect($stacked->crew_card_choice)->toMatchArray(['type' => 'token', 'id' => $token->id, 'name' => 'Fast']);
 });
 
-it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keywords', function () {
+it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outside the leader\'s keywords', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1630,9 +1623,9 @@ it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keyword
     $leader = buildLeaderFor($crew, $user);
     $leader->update(['keywords' => [['id' => $leaderKeyword->id, 'name' => $leaderKeyword->name]]]);
 
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create();
     $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
     $master->keywords()->attach($otherKeyword);
+    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($master)->create();
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
@@ -1643,7 +1636,6 @@ it('Phase 4 Crew Card advancement rejects a master outside the leader\'s keyword
                 'source_table' => 'crew_card',
                 'catalog_id' => $borrowedEffect->id,
                 'position_in_xp_track' => 6,
-                'free_choice' => ['source_character_id' => $master->id],
             ]],
         ])
         ->assertRedirect();

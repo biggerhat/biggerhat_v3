@@ -2,6 +2,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import CommandPaletteCatalog from '@/components/CommandPaletteCatalog.vue';
 import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
+import NotificationBell from '@/components/NotificationBell.vue';
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { buildMainNav, buildMyHatNav, buildTosMyStuff, buildTosNav } from '@/lib/navData';
@@ -208,6 +209,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             >
                 <Dice6 class="size-4" />
             </button>
+            <NotificationBell v-if="page.props.auth.user" />
         </div>
     </header>
 

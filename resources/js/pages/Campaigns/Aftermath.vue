@@ -382,8 +382,6 @@ interface AdvDraft {
     totem_name: string | null;
     totem_size: number | null;
     totem_base: string | null;
-    // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
-    joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
@@ -431,7 +429,6 @@ watch(
                     totem_name: null,
                     totem_size: null,
                     totem_base: null,
-                    joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
@@ -454,7 +451,6 @@ const onSourceTableChange = (position: number) => {
     d.target_type = 'leader';
     d.target_equipment_id = null;
     d.applied_to_action_id = null;
-    d.joker_color = null;
     d.free_choice_source_id = null;
     d.free_choice_source_character_id = null;
     d.free_choice_label = null;
@@ -528,18 +524,6 @@ const onCrewCardMasterRowChange = (position: number, v: string) => {
     onCatalogChange(position);
 };
 
-// A generic (master_id === null) row picked straight from the flat list still
-// requires naming the master it's borrowed from (pg 32, 54 — every Tier-4
-// effect is tied to a real master's card, even if the catalog hasn't been
-// backfilled with that master yet). Unlike onCrewCardMasterChange, this
-// doesn't touch catalog_id — the picked row itself doesn't change, only its
-// attribution.
-const onCrewCardGenericMasterChange = (position: number, v: string) => {
-    const d = advDrafts.value[position];
-    if (!d) return;
-    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
-};
-
 // ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
 const jokerSearch = ref<Record<number, string>>({});
 const jokerResults = ref<Record<number, Array<{ id: number; name: string; source_id: number; source_character_id: number | null }>>>({});
@@ -574,31 +558,34 @@ const pickJokerChoice = (position: number, row: { name: string; source_id: numbe
 
 // Flip-value gating removed for now (pg 31, 38-51 normally cap these lists by
 // the player's flipped card) — every row from the table is offered, with its
-// own flip_value shown inline in the label as a reference only. Joker
-// declarations (Any Joker / Joker color) are a separate mechanism and still
-// gate the list, since they're not flip-value based.
-const eligibleCatalogRows = (source_table: string, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
-    const rows = catalogRowsFor(source_table);
-    // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
-    // instead of a flip_value. Both flags set = "Any Joker" (either color
-    // qualifies); exactly one set = that specific color only.
-    if (source_table === 'attack_mod' || source_table === 'tactical_mod') {
-        if (jokerColor) {
-            return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
-        }
-        return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
-    }
-    // Action/Ability: Any Joker rows are just part of the same table's list —
-    // no separate "did you flip a joker" declaration needed. Picking one
-    // (row.is_joker) reveals the free-choice ally search below.
-    return rows;
-};
+// own flip_value shown inline in the label as a reference only. Joker rows
+// (Action/Ability's Any Joker, Attack/Tactical Mod's Any-Joker or
+// color-specific rows) are just part of the same list, each uniquely named
+// in the catalog — no separate "did you flip a joker" declaration needed
+// before picking. See deriveJokerColor() for how the color the backend
+// still wants gets filled in automatically from the row itself.
+const eligibleCatalogRows = (source_table: string): CatalogRow[] => catalogRowsFor(source_table);
 
 const isSelectedRowJoker = (position: number): boolean => {
     const d = advDrafts.value[position];
     if (!d || d.catalog_id === null) return false;
 
     return !!catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id)?.is_joker;
+};
+
+// Attack/Tactical Mod (pg 38-43): the backend still wants an explicit
+// joker_color to cross-check against the picked row's own is_red_joker/
+// is_black_joker flags — derive it from the row instead of asking the
+// player to declare it separately. An "Any Joker" row (both flags true)
+// satisfies the backend check with either color, so 'red' is an arbitrary
+// but always-valid choice there.
+const deriveJokerColor = (position: number): 'red' | 'black' | null => {
+    const d = advDrafts.value[position];
+    if (!d || d.catalog_id === null) return null;
+    const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
+    if (!row?.is_red_joker && !row?.is_black_joker) return null;
+
+    return row.is_red_joker ? 'red' : 'black';
 };
 
 function defaultTableForTier(tier: number): string {
@@ -716,7 +703,7 @@ const submitAdvanceLeader = () => {
                     applied_to_custom_character_id:
                         (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
                     from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
-                    joker_color: isTrigger ? d.joker_color : undefined,
+                    joker_color: isTrigger ? deriveJokerColor(adv.position_in_xp_track) : undefined,
                     position_in_xp_track: adv.position_in_xp_track,
                     free_choice:
                         d.free_choice_source_id || d.free_choice_source_character_id
@@ -1170,33 +1157,6 @@ const finalize = () =>
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <label
-                                v-if="
-                                    advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
-                                    advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'
-                                "
-                                class="flex items-center gap-2 text-[11px] text-muted-foreground"
-                            >
-                                Joker flipped
-                                <Select
-                                    :model-value="advDrafts[adv.position_in_xp_track].joker_color ?? 'none'"
-                                    @update:model-value="
-                                        (v) => {
-                                            advDrafts[adv.position_in_xp_track].joker_color = v === 'none' ? null : (v as 'red' | 'black');
-                                            advDrafts[adv.position_in_xp_track].catalog_id = null;
-                                        }
-                                    "
-                                >
-                                    <SelectTrigger class="h-8 w-auto gap-1 text-xs text-foreground">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        <SelectItem value="red">Red Joker</SelectItem>
-                                        <SelectItem value="black">Black Joker</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </label>
                             <Select
                                 v-if="advDrafts[adv.position_in_xp_track].source_table !== 'crew_card'"
                                 :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
@@ -1213,10 +1173,7 @@ const finalize = () =>
                                 <SelectContent>
                                     <SelectItem value="__none__">— pick a row —</SelectItem>
                                     <SelectItem
-                                        v-for="row in eligibleCatalogRows(
-                                            advDrafts[adv.position_in_xp_track].source_table,
-                                            advDrafts[adv.position_in_xp_track].joker_color,
-                                        )"
+                                        v-for="row in eligibleCatalogRows(advDrafts[adv.position_in_xp_track].source_table)"
                                         :key="row.id"
                                         :value="row.id.toString()"
                                     >
@@ -1296,30 +1253,6 @@ const finalize = () =>
                                             No Crew Card catalog rows are linked to this master yet.
                                         </p>
                                     </div>
-                                </div>
-                                <!-- A generic row was picked directly — still needs a "borrowed from" master (pg 32, 54). -->
-                                <div
-                                    v-if="
-                                        !advDrafts[adv.position_in_xp_track].crew_card_master_mode &&
-                                        advDrafts[adv.position_in_xp_track].catalog_id !== null
-                                    "
-                                    class="rounded border p-2"
-                                >
-                                    <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
-                                    <Select
-                                        :model-value="advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'"
-                                        @update:model-value="(v) => onCrewCardGenericMasterChange(adv.position_in_xp_track, v as string)"
-                                    >
-                                        <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                            <SelectValue placeholder="— pick a master —" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="__none__">— pick a master —</SelectItem>
-                                            <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
-                                                m.name
-                                            }}</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                             </div>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->

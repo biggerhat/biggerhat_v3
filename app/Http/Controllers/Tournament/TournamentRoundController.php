@@ -9,7 +9,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
+use App\Models\TournamentGame;
 use App\Models\TournamentRound;
+use App\Models\User;
+use App\Notifications\Tournament\TournamentRoundPaired;
 use App\Services\TournamentPairingService;
 use App\Services\TournamentStateMachine;
 use App\Services\TournamentTrackerGameFactory;
@@ -240,6 +243,25 @@ class TournamentRoundController extends Controller
 
             return $this->pairing->regeneratePairings($tournament, $round);
         });
+
+        /** @var \Illuminate\Support\Collection<int, TournamentGame> $pairedGames */
+        $pairedGames = $round->games()
+            ->whereNotNull('player_one_id')
+            ->whereNotNull('player_two_id')
+            ->where('is_bye', false)
+            ->with(['playerOne:id,user_id,display_name', 'playerTwo:id,user_id,display_name'])
+            ->get();
+
+        $pairedGames->each(function (TournamentGame $game) use ($tournament, $round) {
+                if ($game->playerOne->user_id) {
+                    User::find($game->playerOne->user_id)
+                        ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name));
+                }
+                if ($game->playerTwo->user_id) {
+                    User::find($game->playerTwo->user_id)
+                        ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name));
+                }
+            });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');
 

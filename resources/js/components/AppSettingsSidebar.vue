@@ -8,6 +8,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     BarChart3,
+    Bell,
     Building2,
     CalendarDays,
     Dice6,
@@ -23,6 +24,7 @@ import {
     TextSearch,
     Trophy,
     UserRound,
+    Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -43,6 +45,8 @@ const accountGroup: NavGroup = {
         { title: 'Profile', href: route('profile.edit'), icon: UserRound },
         { title: 'Password', href: route('password.edit'), icon: Lock },
         { title: 'Appearance', href: route('appearance'), icon: Palette },
+        { title: 'Friends', href: route('friends.index'), icon: Users, keywords: 'friends friend requests social' },
+        { title: 'Notifications', href: route('notifications.index'), icon: Bell },
     ],
 };
 

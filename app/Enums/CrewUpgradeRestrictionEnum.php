@@ -14,6 +14,7 @@ enum CrewUpgradeRestrictionEnum: string implements HasDefaultEnumMethods
     case FriendlyKeyword = 'friendly_keyword';
     case FriendlyUniqueKeyword = 'friendly_unique_keyword';
     case FriendlyLivingKeyword = 'friendly_living_keyword';
+    case FriendlyConstructKeyword = 'friendly_construct_keyword';
     case FriendlyNonPeonKeyword = 'friendly_non_peon_keyword';
     case FriendlyNonBeastNonPeonKeyword = 'friendly_non_beast_non_peon_keyword';
     case FriendlyUniqueKeywordAndKeywordWithPromotedToken = 'friendly_unique_keyword_and_keyword_with_promoted_token';

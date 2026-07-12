@@ -8,6 +8,8 @@ use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\User;
+use App\Notifications\Game\GameOpponentJoined;
+use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
     $this->strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
@@ -88,6 +90,23 @@ it('allows a second player to join a 2-player game', function () {
     expect($game->players)->toHaveCount(2);
     expect($game->status->value)->toBe('faction_select');
     expect($game->players->firstWhere('slot', 2)->user_id)->toBe($joiner->id);
+});
+
+it('notifies the creator when someone joins their game', function () {
+    Notification::fake();
+    $creator = User::factory()->create();
+    $joiner = User::factory()->create();
+
+    $this->actingAs($creator)->post(route('games.store'), [
+        'encounter_size' => 50,
+        'season' => 'core',
+    ]);
+
+    $game = Game::latest('id')->first();
+
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+
+    Notification::assertSentTo($creator, GameOpponentJoined::class);
 });
 
 it('rejects joining a solo game', function () {
@@ -188,7 +207,11 @@ it('does not surface Campaign in the format list when user lacks campaign access
         );
 });
 
-it('surfaces Campaign in the format list when user has the use_campaign_mode permission', function () {
+it('never surfaces Campaign in the standalone game-create format list, even with use_campaign_mode permission', function () {
+    // Campaign games always start from the Campaign hub (CampaignGameController::
+    // store()/playLive()), which eagerly links a campaign_games row — a
+    // standalone Campaign-format Game created here would have no such link,
+    // and its crew could only ever be guessed after the fact.
     Spatie\Permission\Models\Permission::firstOrCreate(['name' => App\Enums\PermissionEnum::UseCampaignMode->value]);
 
     $user = User::factory()->create();
@@ -198,7 +221,7 @@ it('surfaces Campaign in the format list when user has the use_campaign_mode per
         ->get(route('games.create'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->contains('campaign'))
+            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->doesntContain('campaign'))
         );
 });
 

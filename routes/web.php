@@ -27,11 +27,13 @@ use App\Http\Controllers\Database\TokenController;
 use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\Game\GameController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PrintBonanzaLootDeckController;
 use App\Http\Controllers\PrivacyController;
@@ -48,6 +50,7 @@ use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TransmissionController;
+use App\Http\Controllers\UserSearchController;
 use App\Http\Controllers\WishlistController;
 use App\Models\BlogPost;
 use App\Models\Character;
@@ -65,6 +68,21 @@ Broadcast::routes(['middleware' => ['web', 'auth']]);
 // can take, and they can't take other super_admins.
 Route::middleware(['auth'])->group(function () {
     Route::impersonate();
+
+    // Shared user-name search, reused by the Campaign "invite an existing
+    // player" picker and the friend-request search box.
+    Route::get('/users/search', UserSearchController::class)->name('users.search');
+
+    Route::get('/friends', [FriendshipController::class, 'index'])->name('friends.index');
+    Route::get('/friends/accepted', [FriendshipController::class, 'accepted'])->name('friends.accepted');
+    Route::post('/friends', [FriendshipController::class, 'store'])->name('friends.store');
+    Route::post('/friends/{friendship}/accept', [FriendshipController::class, 'accept'])->name('friends.accept');
+    Route::delete('/friends/{friendship}', [FriendshipController::class, 'destroy'])->name('friends.destroy');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/recent', [NotificationController::class, 'recent'])->name('notifications.recent');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');

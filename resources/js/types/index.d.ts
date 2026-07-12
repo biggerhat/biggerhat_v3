@@ -98,6 +98,7 @@ export interface SharedData extends PageProps {
      */
     campaign_features_enabled: boolean;
     announcements: AnnouncementBannerData[];
+    unread_notifications_count: number;
     ziggy: Config & { location: string };
 }
 

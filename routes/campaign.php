@@ -44,6 +44,12 @@ Route::middleware(['campaign.access'])->group(function () {
     Route::get('/a/{share_code}', [ArsenalSheetController::class, 'share'])
         ->name('campaigns.crews.arsenal.share');
 
+    // Public, reusable campaign invite link — same "outside auth, bounce
+    // unauthenticated visitors to login" treatment as the invitation accept
+    // screen above. Bound by uuid, not the campaign's normal integer id.
+    Route::get('/campaigns/join/{campaign:uuid}', [CampaignController::class, 'joinPublic'])
+        ->name('campaigns.join');
+
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
         Route::get('/campaigns/create', [CampaignController::class, 'create'])->name('campaigns.create');
@@ -55,6 +61,8 @@ Route::middleware(['campaign.access'])->group(function () {
         Route::post('/campaigns/{campaign}/start', [CampaignController::class, 'start'])->name('campaigns.start');
         Route::post('/campaigns/{campaign}/end', [CampaignController::class, 'end'])->name('campaigns.end');
         Route::post('/campaigns/{campaign}/delete', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
+        Route::post('/campaigns/{campaign}/join-link/regenerate', [CampaignController::class, 'regenerateJoinLink'])
+            ->name('campaigns.join-link.regenerate');
 
         // Invitations — only the organizer can create/revoke; accept is the
         // invitee's action and binds via token.
@@ -118,6 +126,13 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.games.log');
         Route::post('/campaigns/{campaign}/games/log', [CampaignGameController::class, 'storeSolo'])
             ->name('campaigns.games.log.store');
+
+        // Solo campaign: start a genuine live Game Tracker session (unlike
+        // the retroactive log above) — no confirmation page needed since the
+        // crew is already unique per campaign+user, so this is POST-only,
+        // triggered directly from a button click.
+        Route::post('/campaigns/{campaign}/games/play', [CampaignGameController::class, 'playLive'])
+            ->name('campaigns.games.play');
 
         // Crew lifecycle (meta-level mutations outside game / aftermath flow).
         // Phase 10 — annihilate leader (miraculous recovery on first call),

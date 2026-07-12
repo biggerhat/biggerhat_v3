@@ -8,6 +8,8 @@ use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
+use App\Models\User;
+use App\Notifications\Tournament\TournamentPlayerRegistered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -72,6 +74,10 @@ class TournamentPlayerController extends Controller
             'faction' => $validated['faction'] ?? null,
             'is_ringer' => $validated['is_ringer'] ?? false,
         ]);
+
+        if ($player->user_id) {
+            User::find($player->user_id)?->notify(new TournamentPlayerRegistered($player));
+        }
 
         $this->broadcastUpdate($tournament, 'player_added');
 

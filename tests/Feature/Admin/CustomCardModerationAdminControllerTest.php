@@ -3,6 +3,8 @@
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use App\Models\User;
+use App\Notifications\CustomCardModerated;
+use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 
 function ccmSuperAdmin(): User
@@ -90,4 +92,36 @@ it('destroy soft-deletes the card', function () {
 
     expect(CustomUpgrade::find($upgrade->id))->toBeNull();
     expect(CustomUpgrade::withTrashed()->find($upgrade->id))->not->toBeNull();
+});
+
+it('notifies the card owner when unpublished', function () {
+    Notification::fake();
+    $admin = ccmSuperAdmin();
+    $owner = User::factory()->create();
+    $character = CustomCharacter::create([
+        'user_id' => $owner->id, 'name' => 'To Unpublish', 'faction' => 'guild',
+        'health' => 10, 'base' => 30, 'defense' => 5, 'willpower' => 5, 'speed' => 5,
+        'is_public' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.custom_cards.unpublish', ['kind' => 'character', 'id' => $character->id]))
+        ->assertRedirect();
+
+    Notification::assertSentTo($owner, CustomCardModerated::class);
+});
+
+it('notifies the card owner when removed', function () {
+    Notification::fake();
+    $admin = ccmSuperAdmin();
+    $owner = User::factory()->create();
+    $upgrade = CustomUpgrade::create([
+        'user_id' => $owner->id, 'name' => 'To Delete', 'domain' => 'character', 'faction' => 'guild',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.custom_cards.delete', ['kind' => 'upgrade', 'id' => $upgrade->id]))
+        ->assertRedirect();
+
+    Notification::assertSentTo($owner, CustomCardModerated::class);
 });

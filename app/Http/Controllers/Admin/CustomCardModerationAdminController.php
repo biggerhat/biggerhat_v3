@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
+use App\Notifications\CustomCardModerated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Response;
@@ -92,6 +93,7 @@ class CustomCardModerationAdminController extends Controller
             return back()->withMessage('Card not found.');
         }
         $model->update(['is_public' => false]);
+        $model->user->notify(new CustomCardModerated($model, 'unpublished'));
 
         return back()->withMessage('Card unpublished.');
     }
@@ -102,6 +104,7 @@ class CustomCardModerationAdminController extends Controller
         if (! $model) {
             return back()->withMessage('Card not found.');
         }
+        $model->user->notify(new CustomCardModerated($model, 'removed'));
         // Soft-delete — both models use SoftDeletes, owner can recover via support if needed.
         $model->delete();
 

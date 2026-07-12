@@ -51,6 +51,29 @@ it('lets the organizer send an email invitation', function () {
     expect($invitation->expires_at)->not->toBeNull();
 });
 
+it('notifies an existing user invited by user_id', function () {
+    \Illuminate\Support\Facades\Notification::fake();
+    $organizer = invUser();
+    $invitee = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.invitations.store', $campaign), ['user_id' => $invitee->id]);
+
+    \Illuminate\Support\Facades\Notification::assertSentTo($invitee, \App\Notifications\Campaign\CampaignInvitationReceived::class);
+});
+
+it('does not notify anyone for an email-only invite (no User row to notify)', function () {
+    \Illuminate\Support\Facades\Notification::fake();
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.invitations.store', $campaign), ['email' => 'nobody@example.com']);
+
+    \Illuminate\Support\Facades\Notification::assertNothingSent();
+});
+
 it('blocks non-organizers from inviting', function () {
     $organizer = invUser();
     $other = invUser();
@@ -194,4 +217,115 @@ it('blocks non-organizer from revoking', function () {
     $this->actingAs($other)
         ->post(route('campaigns.invitations.revoke', [$campaign, $invitation]))
         ->assertForbidden();
+});
+
+// ─── Public join link (reusable, not single-use) ───
+
+it('joinPublic creates membership + stub crew for a new visitor', function () {
+    $organizer = invUser();
+    $visitor = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($visitor)
+        ->get(route('campaigns.join', $campaign->uuid))
+        ->assertRedirect(route('campaigns.show', $campaign));
+
+    expect(CampaignPlayer::where('campaign_id', $campaign->id)->where('user_id', $visitor->id)->exists())->toBeTrue();
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $visitor->id)->exists())->toBeTrue();
+});
+
+it('joinPublic is idempotent for an already-existing member', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)
+        ->get(route('campaigns.join', $campaign->uuid))
+        ->assertRedirect(route('campaigns.show', $campaign));
+
+    expect(CampaignPlayer::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->count())->toBe(1);
+});
+
+it('joinPublic rejects solo campaigns', function () {
+    $organizer = invUser();
+    $visitor = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    $campaign->update(['is_solo' => true]);
+
+    $this->actingAs($visitor)
+        ->get(route('campaigns.join', $campaign->uuid))
+        ->assertRedirect();
+
+    expect(CampaignPlayer::where('campaign_id', $campaign->id)->where('user_id', $visitor->id)->exists())->toBeFalse();
+});
+
+it('joinPublic rejects ended campaigns', function () {
+    $organizer = invUser();
+    $visitor = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    $campaign->update(['status' => CampaignStatusEnum::Ended]);
+
+    $this->actingAs($visitor)
+        ->get(route('campaigns.join', $campaign->uuid))
+        ->assertRedirect();
+
+    expect(CampaignPlayer::where('campaign_id', $campaign->id)->where('user_id', $visitor->id)->exists())->toBeFalse();
+});
+
+it('joinPublic bounces an unauthenticated visitor to login and back', function () {
+    // Anonymous requests only pass the campaign.access gate at all once the
+    // feature is globally live (CampaignAccess::canUse(null) is otherwise
+    // always false pre-launch) — same as the existing invitation-accept
+    // screen's anonymous behavior (see AccessGateTest.php).
+    \Laravel\Pennant\Feature::for(null)->activate('m4e-campaign-mode');
+
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->get(route('campaigns.join', $campaign->uuid))
+        ->assertRedirect(route('login'));
+
+    expect(session('url.intended'))->toBe(route('campaigns.join', $campaign->uuid));
+});
+
+it('regenerateJoinLink changes the uuid and invalidates the old link', function () {
+    $organizer = invUser();
+    $visitor = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    $oldUuid = $campaign->uuid;
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.join-link.regenerate', $campaign))
+        ->assertRedirect();
+
+    $campaign->refresh();
+    expect($campaign->uuid)->not->toBe($oldUuid);
+
+    $this->actingAs($visitor)
+        ->get(route('campaigns.join', $oldUuid))
+        ->assertNotFound();
+});
+
+it('blocks non-organizer from regenerating the join link', function () {
+    $organizer = invUser();
+    $other = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $other->id]);
+
+    $this->actingAs($other)
+        ->post(route('campaigns.join-link.regenerate', $campaign))
+        ->assertForbidden();
+});
+
+it('lazily backfills uuid for a pre-existing campaign on show', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    // Simulate a campaign created before the uuid column existed.
+    $campaign->update(['uuid' => null]);
+    expect($campaign->fresh()->uuid)->toBeNull();
+
+    $this->actingAs($organizer)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk();
+
+    expect($campaign->fresh()->uuid)->not->toBeNull();
 });

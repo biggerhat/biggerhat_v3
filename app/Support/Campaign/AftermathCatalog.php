@@ -121,7 +121,11 @@ class AftermathCatalog
                         'target_suits' => $a->target_suits,
                         'damage' => $a->damage,
                         'description' => $a->description,
-                        'triggers' => self::triggerSummaries($a->triggers),
+                        // Base catalog triggers plus any Trigger-type Attack/
+                        // Tactical Mod advancement applied to this specific
+                        // action (pg 38-43) — rendered as a real trigger, not
+                        // just the "+ Effect" applied_effects label below.
+                        'triggers' => array_merge(self::triggerSummaries($a->triggers), $info['triggers_by_action_id'][$a->id] ?? []),
                     ])->all(),
                     'abilities' => $e->catalog->abilities->map(fn (Ability $a) => [
                         'id' => $a->id,
@@ -139,7 +143,7 @@ class AftermathCatalog
     }
 
     /**
-     * @return array<int, array{applied_effects: array<int, string>}>
+     * @return array<int, array{applied_effects: array<int, string>, triggers_by_action_id: array<int, array<int, array<string, mixed>>>}>
      */
     private static function equipmentAdvancementInfo(?int $leaderId): array
     {
@@ -157,8 +161,8 @@ class AftermathCatalog
         $result = [];
         foreach ($rows as $row) {
             $catalogRow = $row->source_table === AdvancementTableEnum::AttackMod
-                ? AdvancementAttackMod::query()->with('trigger:id,name')->find($row->advancement_catalog_id)
-                : AdvancementTacticalMod::query()->with('trigger:id,name')->find($row->advancement_catalog_id);
+                ? AdvancementAttackMod::query()->with('trigger')->find($row->advancement_catalog_id)
+                : AdvancementTacticalMod::query()->with('trigger')->find($row->advancement_catalog_id);
             $effectName = 'Advancement';
             if ($catalogRow) {
                 $effectName = $catalogRow->trigger ? $catalogRow->trigger->name : $catalogRow->name;
@@ -166,6 +170,20 @@ class AftermathCatalog
             $actionName = $row->appliedToAction?->name;
 
             $result[$row->from_equipment_id]['applied_effects'][] = $actionName ? "{$effectName} — {$actionName}" : $effectName;
+
+            // A Trigger-type modifier grants a real, renderable Trigger —
+            // merged into the target action's own triggers[] in
+            // ownedEquipment() so the card shows full rules text instead of
+            // just the "+ Effect — Action" applied_effects label above.
+            if ($catalogRow?->trigger && $row->applied_to_action_id !== null) {
+                $result[$row->from_equipment_id]['triggers_by_action_id'][$row->applied_to_action_id][] = [
+                    'id' => $catalogRow->trigger->id,
+                    'name' => $catalogRow->trigger->name,
+                    'suits' => $catalogRow->trigger->suits,
+                    'stone_cost' => $catalogRow->trigger->stone_cost ?? 0,
+                    'description' => $catalogRow->trigger->description,
+                ];
+            }
         }
 
         return $result;

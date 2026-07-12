@@ -6,8 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/composables/useConfirm';
+import AppSettingsLayout from '@/layouts/AppSettingsLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+
+// File lives outside pages/Settings/, so app.ts would default it to the
+// plain Malifaux/TOS browse layout — stranding a visitor here with no path
+// back to the User Hub sidebar they came from. Force the settings layout
+// explicitly instead.
+defineOptions({ layout: AppSettingsLayout });
 
 interface UserMini {
     id: number;

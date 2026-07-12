@@ -98,6 +98,7 @@ const revokeInvite = async (campaignId: number, inviteId: number) => {
 };
 
 const startCampaign = (id: number) => router.post(route('campaigns.start', id));
+const playLive = (id: number) => router.post(route('campaigns.games.play', id));
 const endCampaign = async (id: number) => {
     if (!(await confirmDialog({ title: 'End Campaign', message: 'End the campaign? This freezes all arsenals.', destructive: true }))) return;
     router.post(route('campaigns.end', id));
@@ -156,9 +157,12 @@ const deleteCampaign = async (id: number) => {
             >
                 Start Campaign
             </Button>
-            <Link v-if="campaign.status === 'active' && campaign.is_solo" :href="route('campaigns.games.log', campaign.id)">
-                <Button>Log Game</Button>
-            </Link>
+            <template v-if="campaign.status === 'active' && campaign.is_solo">
+                <Button @click="playLive(campaign.id)">Play Live</Button>
+                <Link :href="route('campaigns.games.log', campaign.id)">
+                    <Button variant="outline">Log Game</Button>
+                </Link>
+            </template>
             <Link v-else-if="campaign.status === 'active'" :href="route('campaigns.games.create', campaign.id)">
                 <Button>New Game</Button>
             </Link>

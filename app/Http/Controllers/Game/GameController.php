@@ -25,7 +25,6 @@ use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
-use App\Support\CampaignAccess;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -78,14 +77,14 @@ class GameController extends Controller
             'label' => $s->label(),
         ]);
 
-        // Campaign format is only available to users who can access the
-        // wrapping Campaign Mode UI — a standalone Campaign-format Game with
-        // no campaign_games wrapper isn't meaningful. Mirrors the
-        // CampaignAccess::canUse() gate used by the campaign.access middleware.
-        $canUseCampaign = CampaignAccess::canUse(request()->user());
-
+        // Campaign format is never offered here, regardless of Campaign Mode
+        // access — a standalone Campaign-format Game with no campaign_games
+        // wrapper isn't meaningful (its crew can only ever be guessed after
+        // the fact). Campaign games always start from the Campaign hub
+        // instead (CampaignGameController::store()/playLive()), which
+        // creates the campaign_games link eagerly and unambiguously.
         $formats = collect(\App\Enums\GameFormatEnum::cases())
-            ->reject(fn (\App\Enums\GameFormatEnum $f) => $f === \App\Enums\GameFormatEnum::Campaign && ! $canUseCampaign)
+            ->reject(fn (\App\Enums\GameFormatEnum $f) => $f === \App\Enums\GameFormatEnum::Campaign)
             ->map(fn (\App\Enums\GameFormatEnum $f) => [
                 'value' => $f->value,
                 'label' => $f->label(),
@@ -545,15 +544,19 @@ class GameController extends Controller
         }
 
         // Propagate the crew-card action pivot's signature flag onto the
-        // serialized action, same as ArsenalSheetController.
-        foreach ([$wrap->crewA, $wrap->crewB] as $crew) {
-            $this->applyCrewCardSignatureFlags($crew);
+        // serialized action, same as ArsenalSheetController. crewB is null
+        // for a solo live game (CampaignGameController::playLive()) — a
+        // CampaignGame row exists (base_game_id set) but there's no
+        // opponent crew, unlike every other case this branch previously saw.
+        $this->applyCrewCardSignatureFlags($wrap->crewA);
+        if ($wrap->crewB) {
+            $this->applyCrewCardSignatureFlags($wrap->crewB);
         }
 
         return [
             'campaign' => $wrap->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
             'crew_a' => $wrap->crewA->only(['id', 'share_code', 'name', 'user_id']),
-            'crew_b' => $wrap->crewB->only(['id', 'share_code', 'name', 'user_id']),
+            'crew_b' => $wrap->crewB?->only(['id', 'share_code', 'name', 'user_id']),
             'cr_a' => $wrap->cr_a,
             'cr_b' => $wrap->cr_b,
             'ss_bonus_to_lower' => $wrap->ss_bonus_to_lower,
@@ -562,7 +565,7 @@ class GameController extends Controller
             // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
             // effects. Not surfaced anywhere else in Game Tracker.
             'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
-            'crew_b_card' => $this->campaignCrewCardPayload($wrap->crewB),
+            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => []],
         ];
     }
 

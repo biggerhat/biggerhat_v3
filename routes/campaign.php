@@ -119,6 +119,13 @@ Route::middleware(['campaign.access'])->group(function () {
         Route::post('/campaigns/{campaign}/games/log', [CampaignGameController::class, 'storeSolo'])
             ->name('campaigns.games.log.store');
 
+        // Solo campaign: start a genuine live Game Tracker session (unlike
+        // the retroactive log above) — no confirmation page needed since the
+        // crew is already unique per campaign+user, so this is POST-only,
+        // triggered directly from a button click.
+        Route::post('/campaigns/{campaign}/games/play', [CampaignGameController::class, 'playLive'])
+            ->name('campaigns.games.play');
+
         // Crew lifecycle (meta-level mutations outside game / aftermath flow).
         // Phase 10 — annihilate leader (miraculous recovery on first call),
         // start anew (rebuild crew), scrap model (Cut 'Em Up For Parts).

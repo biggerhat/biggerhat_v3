@@ -188,7 +188,11 @@ it('does not surface Campaign in the format list when user lacks campaign access
         );
 });
 
-it('surfaces Campaign in the format list when user has the use_campaign_mode permission', function () {
+it('never surfaces Campaign in the standalone game-create format list, even with use_campaign_mode permission', function () {
+    // Campaign games always start from the Campaign hub (CampaignGameController::
+    // store()/playLive()), which eagerly links a campaign_games row — a
+    // standalone Campaign-format Game created here would have no such link,
+    // and its crew could only ever be guessed after the fact.
     Spatie\Permission\Models\Permission::firstOrCreate(['name' => App\Enums\PermissionEnum::UseCampaignMode->value]);
 
     $user = User::factory()->create();
@@ -198,7 +202,7 @@ it('surfaces Campaign in the format list when user has the use_campaign_mode per
         ->get(route('games.create'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->contains('campaign'))
+            ->where('formats', fn ($formats) => collect($formats)->pluck('value')->doesntContain('campaign'))
         );
 });
 

@@ -112,15 +112,7 @@ class CampaignGameController extends Controller
         // Generate scenario triple just like the standard flow (pg 19 — campaign
         // games use scenario).
         $seasonEnum = PoolSeasonEnum::cases()[0]; // First/default season
-        $strategies = Strategy::forSeason($seasonEnum)->get();
-        $schemes = Scheme::forSeason($seasonEnum)->get();
-        $deployments = DeploymentEnum::cases();
-
-        $strategy = $strategies->isNotEmpty() ? $strategies->random() : null;
-        $deployment = $deployments[array_rand($deployments)];
-        $schemePool = $schemes->count() >= 3
-            ? $schemes->random(3)->pluck('id')->toArray()
-            : $schemes->pluck('id')->toArray();
+        [$strategy, $deployment, $schemePool] = $this->resolveScenario($seasonEnum);
 
         $game = DB::transaction(function () use ($campaign, $data, $myCrew, $opponentCrew, $encounterSize, $crA, $crB, $ssBonus, $strategy, $deployment, $schemePool, $seasonEnum, $request) {
             $game = Game::create([
@@ -175,6 +167,102 @@ class CampaignGameController extends Controller
 
         return redirect()->route('games.show', $game->uuid)
             ->withMessage("Campaign game created (encounter size {$encounterSize}ss).");
+    }
+
+    /**
+     * Starts a live Game Tracker session for a solo campaign — the eager,
+     * unambiguous counterpart to store()'s duel flow. Solo games previously
+     * launched through the generic /games/create page (GameController::store()),
+     * which has no campaign awareness and never links a CampaignGame row;
+     * the crew then had to be guessed after the fact by matching
+     * user_id+faction, which breaks when a player has more than one crew
+     * sharing a faction. This creates the Game + GamePlayer(s) +
+     * CampaignGame atomically, exactly like store() does for duel, with a
+     * generic stand-in opponent (no real second crew to pick).
+     */
+    public function playLive(Request $request, Campaign $campaign)
+    {
+        $this->ensureCampaignMember($request, $campaign);
+        abort_unless($campaign->is_solo, 404);
+
+        if ($campaign->status !== CampaignStatusEnum::Active) {
+            return redirect()->route('campaigns.show', $campaign)->withMessage(
+                'Campaign must be active to start a game.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
+        // Self-heal, same as createSolo()/storeSolo() — a solo campaign
+        // created before the auto-crew patch shouldn't 404 here either.
+        $myCrew = CampaignCrew::firstOrCreate(
+            ['campaign_id' => $campaign->id, 'user_id' => $request->user()->id],
+            ['name' => $request->user()->name."'s Crew"],
+        );
+
+        $arsenalA = $this->arsenalSs($myCrew);
+        // Solo games skip the encounter-size negotiation, same formula storeSolo() uses.
+        $encounterSize = max(20, min(50, $arsenalA + 6));
+        $crA = $myCrew->campaignRating();
+
+        $seasonEnum = PoolSeasonEnum::cases()[0];
+        [$strategy, $deployment, $schemePool] = $this->resolveScenario($seasonEnum);
+
+        $game = DB::transaction(function () use ($campaign, $myCrew, $encounterSize, $crA, $strategy, $deployment, $schemePool, $seasonEnum, $request) {
+            $game = Game::create([
+                'encounter_size' => $encounterSize,
+                'season' => $seasonEnum->value,
+                'format' => GameFormatEnum::Campaign->value,
+                'strategy_id' => $strategy?->id,
+                'deployment' => $deployment->value,
+                'scheme_pool' => $schemePool,
+                // Faction is already known from the crew — skip Setup and
+                // FactionSelect, same as duel's store().
+                'status' => GameStatusEnum::MasterSelect,
+                'started_at' => now(),
+                'creator_id' => $request->user()->id,
+                'is_solo' => true,
+            ]);
+
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+
+            GamePlayer::create([
+                'game_id' => $game->id,
+                'user_id' => $request->user()->id,
+                'slot' => 1,
+                'role' => $roles[0],
+                'faction' => $myCrew->faction,
+            ]);
+            // Generic stand-in opponent — no real second crew for solo play.
+            // Faction mirrors the player's own, same as submitFaction()'s
+            // existing solo-Campaign auto-fill treats the phantom opponent.
+            GamePlayer::create([
+                'game_id' => $game->id,
+                'user_id' => null,
+                'slot' => 2,
+                'opponent_name' => 'Opponent',
+                'role' => $roles[1],
+                'faction' => $myCrew->faction,
+            ]);
+
+            CampaignGame::create([
+                'campaign_id' => $campaign->id,
+                'week_number' => $campaign->current_week,
+                'crew_a_id' => $myCrew->id,
+                'crew_b_id' => null,
+                'base_game_id' => $game->id,
+                'encounter_size' => $encounterSize,
+                'cr_a' => $crA,
+                'cr_b' => 0,
+                'ss_bonus_to_lower' => 0,
+                'status' => 'setup',
+            ]);
+
+            return $game;
+        });
+
+        return redirect()->route('games.show', $game->uuid)
+            ->withMessage("Campaign game started (encounter size {$encounterSize}ss).");
     }
 
     /**
@@ -300,5 +388,26 @@ class CampaignGameController extends Controller
             ->active()
             ->join('characters', 'characters.id', '=', 'campaign_arsenal_models.character_id')
             ->sum('characters.cost');
+    }
+
+    /**
+     * Random scenario triple (pg 19 — campaign games use scenario), shared
+     * between the duel and solo-live game-creation flows.
+     *
+     * @return array{0: Strategy|null, 1: DeploymentEnum, 2: array<int, int>}
+     */
+    private function resolveScenario(PoolSeasonEnum $seasonEnum): array
+    {
+        $strategies = Strategy::forSeason($seasonEnum)->get();
+        $schemes = Scheme::forSeason($seasonEnum)->get();
+        $deployments = DeploymentEnum::cases();
+
+        $strategy = $strategies->isNotEmpty() ? $strategies->random() : null;
+        $deployment = $deployments[array_rand($deployments)];
+        $schemePool = $schemes->count() >= 3
+            ? $schemes->random(3)->pluck('id')->toArray()
+            : $schemes->pluck('id')->toArray();
+
+        return [$strategy, $deployment, $schemePool];
     }
 }

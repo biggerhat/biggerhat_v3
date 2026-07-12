@@ -153,6 +153,87 @@ it('Games/Show campaign_context falls back to the player\'s own crew card for a 
         );
 });
 
+it('Games/Show campaign_context handles a linked solo game (crew_b_id null) without crashing', function () {
+    // Regression check: buildCampaignContext()'s "CampaignGame row exists"
+    // branch had only ever seen duel games (crewA + crewB both real crews)
+    // before CampaignGameController::playLive() started eagerly linking
+    // solo games too — crew_b_id is null there, and the code unconditionally
+    // called applyCrewCardSignatureFlags($wrap->crewB) and read
+    // $wrap->crewB->only(...), both of which throw a TypeError on null.
+    $user = cintUser();
+    $campaign = Campaign::factory()->active()->create(['organizer_user_id' => $user->id, 'is_solo' => true]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'faction' => FactionEnum::Arcanists->value]);
+    $starter = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Linked Solo Starter']);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $game = Game::factory()->create([
+        'format' => GameFormatEnum::Campaign->value,
+        'status' => GameStatusEnum::MasterSelect->value,
+        'creator_id' => $user->id,
+        'is_solo' => true,
+    ]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1, 'faction' => FactionEnum::Arcanists->value]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => null, 'slot' => 2, 'faction' => FactionEnum::Arcanists->value]);
+    CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'crew_b_id' => null,
+        'base_game_id' => $game->id,
+        'cr_b' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_context.crew_a.id', $crew->id)
+            ->where('campaign_context.crew_a_card.effect.name', 'Linked Solo Starter')
+            ->where('campaign_context.crew_b', null)
+            ->where('campaign_context.crew_b_card.effect', null)
+            ->where('campaign_context.crew_b_card.borrowed', [])
+        );
+});
+
+it('Games/Show resolves the correct crew for a solo live game when the user has two crews sharing a faction', function () {
+    // The actual reported bug: a user with more than one CampaignCrew
+    // sharing a faction got the WRONG one resolved by the old
+    // user_id+faction guessing fallback. CampaignGameController::playLive()
+    // fixes this by linking the CampaignGame row eagerly at game-creation
+    // time, so buildCampaignContext() never needs to guess.
+    $user = cintUser();
+
+    // An OLDER, incomplete crew in a different campaign, same faction, no
+    // starter effect set — this is exactly what the old fallback could
+    // wrongly resolve to (an incomplete sibling crew).
+    $staleCampaign = Campaign::factory()->active()->create(['organizer_user_id' => $user->id, 'is_solo' => true]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $staleCampaign->id, 'user_id' => $user->id]);
+    CampaignCrew::factory()->create([
+        'campaign_id' => $staleCampaign->id,
+        'user_id' => $user->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'crew_card_effect_id' => null,
+    ]);
+
+    // The REAL, fully set-up crew for the game actually being played.
+    $campaign = Campaign::factory()->active()->create(['organizer_user_id' => $user->id, 'is_solo' => true, 'current_week' => 1]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $realCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'faction' => FactionEnum::Arcanists->value]);
+    $starter = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Specialized Tools']);
+    $realCrew->update(['crew_card_effect_id' => $starter->id]);
+
+    $this->actingAs($user)->post(route('campaigns.games.play', $campaign))->assertRedirect();
+    $game = Game::query()->where('creator_id', $user->id)->latest('id')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_context.crew_a.id', $realCrew->id)
+            ->where('campaign_context.crew_a_card.effect.name', 'Specialized Tools')
+        );
+});
+
 it('Games/Show payload campaign_context is null for non-campaign games', function () {
     $user = cintUser();
     $game = Game::factory()->create([

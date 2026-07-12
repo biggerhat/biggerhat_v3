@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $campaign_id
  * @property int $week_number
  * @property int $crew_a_id
- * @property int $crew_b_id
+ * @property int|null $crew_b_id
  * @property int|null $base_game_id
  * @property int $encounter_size
  * @property int $cr_a
@@ -35,7 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $status
  * @property-read Campaign $campaign
  * @property-read CampaignCrew $crewA
- * @property-read CampaignCrew $crewB
+ * @property-read CampaignCrew|null $crewB
  * @property-read \App\Models\Game|null $baseGame
  *
  * @mixin IdeHelperCampaignGame

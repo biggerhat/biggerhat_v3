@@ -331,3 +331,92 @@ it('refuses solo log when campaign is not active', function () {
 
     expect(CampaignGame::query()->where('campaign_id', $campaign->id)->count())->toBe(0);
 });
+
+// ─── Play Live (live Game Tracker session for solo campaigns) ───
+
+it('playLive starts a live game with an eagerly-linked CampaignGame row', function () {
+    $user = soloUser();
+    $campaign = Campaign::factory()->create([
+        'organizer_user_id' => $user->id,
+        'status' => CampaignStatusEnum::Active,
+        'is_solo' => true,
+        'current_week' => 3,
+    ]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $user->id,
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.games.play', $campaign))
+        ->assertRedirect();
+
+    $game = \App\Models\Game::query()->where('creator_id', $user->id)->latest('id')->firstOrFail();
+    expect($game->format)->toBe(\App\Enums\GameFormatEnum::Campaign)
+        ->and($game->is_solo)->toBeTrue()
+        ->and($game->status)->toBe(\App\Enums\GameStatusEnum::MasterSelect);
+
+    $players = $game->players()->orderBy('slot')->get();
+    expect($players)->toHaveCount(2)
+        ->and($players[0]->user_id)->toBe($user->id)
+        ->and($players[0]->getRawOriginal('faction'))->toBe($crew->getRawOriginal('faction'))
+        ->and($players[1]->user_id)->toBeNull()
+        ->and($players[1]->getRawOriginal('faction'))->toBe($crew->getRawOriginal('faction'));
+
+    $wrap = CampaignGame::query()->where('base_game_id', $game->id)->firstOrFail();
+    expect($wrap->campaign_id)->toBe($campaign->id)
+        ->and($wrap->crew_a_id)->toBe($crew->id)
+        ->and($wrap->crew_b_id)->toBeNull()
+        ->and((int) $wrap->week_number)->toBe(3);
+});
+
+it('playLive 404s on a non-solo campaign', function () {
+    $user = soloUser();
+    $campaign = Campaign::factory()->create([
+        'organizer_user_id' => $user->id,
+        'status' => CampaignStatusEnum::Active,
+        'is_solo' => false,
+    ]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.games.play', $campaign))
+        ->assertNotFound();
+});
+
+it('playLive refuses when the campaign is not active', function () {
+    $user = soloUser();
+    $campaign = Campaign::factory()->create([
+        'organizer_user_id' => $user->id,
+        'status' => CampaignStatusEnum::Planning,
+        'is_solo' => true,
+    ]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.games.play', $campaign))
+        ->assertRedirect();
+
+    expect(\App\Models\Game::query()->where('creator_id', $user->id)->count())->toBe(0);
+});
+
+it('playLive self-heals the organizer crew when missing', function () {
+    $user = soloUser();
+    $campaign = Campaign::factory()->create([
+        'organizer_user_id' => $user->id,
+        'status' => CampaignStatusEnum::Active,
+        'is_solo' => true,
+    ]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    // Deliberately no CampaignCrew row.
+
+    $this->actingAs($user)
+        ->post(route('campaigns.games.play', $campaign))
+        ->assertRedirect();
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $user->id)->exists())->toBeTrue();
+});

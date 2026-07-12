@@ -529,6 +529,7 @@ namespace App\Models\Campaign{
  * once they accept. Status transitions: planning → active → ended.
  *
  * @property int $id
+ * @property string|null $uuid unguessable public join-link identifier (see CampaignController::joinPublic())
  * @property string $name
  * @property int $length_weeks
  * @property int $current_week
@@ -568,6 +569,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereStartedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereUuid($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Campaign whereWeeklyEventActive($value)
  * @mixin \Eloquent
  */
@@ -789,6 +791,7 @@ namespace App\Models\Campaign{
  * @property string $name
  * @property string|null $description
  * @property int|null $master_id the master this card is actually printed on (nullable — some rows are generic/unassigned)
+ * @property string|null $master_type Character::class or CustomCharacter::class — a Crew Card can be printed on a custom-built Campaign Leader, not just an official master
  * @property bool $requires_token_choice
  * @property bool $requires_marker_choice
  * @property bool $requires_upgrade_type_choice
@@ -797,7 +800,7 @@ namespace App\Models\Campaign{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
- * @property-read Character|null $master
+ * @property-read Character|CustomCharacter|null $master
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
@@ -809,6 +812,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereDescription($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereMasterType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresMarkerChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresTokenChoice($value)
@@ -832,11 +836,12 @@ namespace App\Models\Campaign{
  * @property int $campaign_crew_id
  * @property int $crew_card_effect_id
  * @property int|null $source_master_id
+ * @property string|null $source_master_type Character::class or CustomCharacter::class
  * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property int|null $acquired_aftermath_id
  * @property-read CampaignCrew $crew
  * @property-read CampaignCrewCard $crewCardEffect
- * @property-read Character|null $sourceMaster
+ * @property-read Character|CustomCharacter|null $sourceMaster
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -851,6 +856,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardEffectId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -910,7 +916,7 @@ namespace App\Models\Campaign{
  * @property int $campaign_id
  * @property int $week_number
  * @property int $crew_a_id
- * @property int $crew_b_id
+ * @property int|null $crew_b_id
  * @property int|null $base_game_id
  * @property int $encounter_size
  * @property int $cr_a
@@ -927,7 +933,7 @@ namespace App\Models\Campaign{
  * @property string $status
  * @property-read Campaign $campaign
  * @property-read CampaignCrew $crewA
- * @property-read CampaignCrew $crewB
+ * @property-read CampaignCrew|null $crewB
  * @property-read \App\Models\Game|null $baseGame
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -1695,6 +1701,41 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperFeedback {}
+}
+
+namespace App\Models{
+/**
+ * A friend request/friendship between two users. Binary pending↔accepted
+ * state via a nullable `accepted_at` (mirrors CampaignInvitation) — declining
+ * a request or unfriending just deletes the row, no separate "declined"
+ * state. Directional (requester/addressee) rather than a symmetric pivot, so
+ * "who sent it" is always known while pending.
+ *
+ * @property int $id
+ * @property int $requester_id
+ * @property int $addressee_id
+ * @property \Carbon\CarbonImmutable|null $accepted_at
+ * @property-read User $requester
+ * @property-read User $addressee
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship accepted()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship between(int $userIdA, int $userIdB)
+ * @method static \Database\Factories\FriendshipFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship pending()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereAcceptedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereAddresseeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereRequesterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Friendship whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperFriendship {}
 }
 
 namespace App\Models{
@@ -3861,6 +3902,10 @@ namespace App\Models{
  * @property-read int|null $crew_builds_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CustomCharacter> $customCharacters
  * @property-read int|null $custom_characters_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Friendship> $friendshipsReceived
+ * @property-read int|null $friendships_received_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Friendship> $friendshipsSent
+ * @property-read int|null $friendships_sent_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Game> $games
  * @property-read int|null $games_count
  * @property-read bool $is_supporter

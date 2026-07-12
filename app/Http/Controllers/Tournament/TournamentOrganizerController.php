@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tournament;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
+use App\Models\User;
+use App\Notifications\Tournament\TournamentOrganizerAdded;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +27,7 @@ class TournamentOrganizerController extends Controller
         }
 
         $tournament->organizers()->attach($validated['user_id']);
+        User::find($validated['user_id'])?->notify(new TournamentOrganizerAdded($tournament));
 
         $this->broadcastUpdate($tournament, 'organizer_added');
 

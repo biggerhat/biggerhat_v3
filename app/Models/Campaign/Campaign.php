@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * A Malifaux 4E Campaign Mode game. One per group of players. The organizer
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * once they accept. Status transitions: planning → active → ended.
  *
  * @property int $id
+ * @property string|null $uuid unguessable public join-link identifier (see CampaignController::joinPublic())
  * @property string $name
  * @property int $length_weeks
  * @property int $current_week
@@ -58,6 +60,15 @@ class Campaign extends Model
     protected static function newFactory(): CampaignFactory
     {
         return CampaignFactory::new();
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Campaign $campaign) {
+            if (! $campaign->uuid) {
+                $campaign->uuid = (string) Str::uuid();
+            }
+        });
     }
 
     public function organizer(): BelongsTo

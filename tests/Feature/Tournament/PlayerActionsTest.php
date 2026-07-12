@@ -4,6 +4,8 @@ use App\Enums\PermissionEnum;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\User;
+use App\Notifications\Tournament\TournamentPlayerRegistered;
+use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
@@ -49,6 +51,34 @@ it('rejects updating a player to a faction outside the enum', function () {
 
     // The stored faction is untouched and still a valid enum value.
     expect($player->fresh()->getRawOriginal('faction'))->toBe('guild');
+});
+
+it('notifies the linked user when registered with a user_id', function () {
+    Notification::fake();
+    $registrant = User::factory()->create();
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.players.add', $this->tournament->uuid), [
+            'display_name' => 'Registrant',
+            'faction' => 'guild',
+            'user_id' => $registrant->id,
+        ])
+        ->assertOk();
+
+    Notification::assertSentTo($registrant, TournamentPlayerRegistered::class);
+});
+
+it('does not notify anyone for a display-name-only add (no user_id)', function () {
+    Notification::fake();
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.players.add', $this->tournament->uuid), [
+            'display_name' => 'Walk-in',
+            'faction' => 'guild',
+        ])
+        ->assertOk();
+
+    Notification::assertNothingSent();
 });
 
 it('rejects linking the same user to two players when adding', function () {

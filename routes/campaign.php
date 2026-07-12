@@ -44,6 +44,12 @@ Route::middleware(['campaign.access'])->group(function () {
     Route::get('/a/{share_code}', [ArsenalSheetController::class, 'share'])
         ->name('campaigns.crews.arsenal.share');
 
+    // Public, reusable campaign invite link — same "outside auth, bounce
+    // unauthenticated visitors to login" treatment as the invitation accept
+    // screen above. Bound by uuid, not the campaign's normal integer id.
+    Route::get('/campaigns/join/{campaign:uuid}', [CampaignController::class, 'joinPublic'])
+        ->name('campaigns.join');
+
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
         Route::get('/campaigns/create', [CampaignController::class, 'create'])->name('campaigns.create');
@@ -55,6 +61,8 @@ Route::middleware(['campaign.access'])->group(function () {
         Route::post('/campaigns/{campaign}/start', [CampaignController::class, 'start'])->name('campaigns.start');
         Route::post('/campaigns/{campaign}/end', [CampaignController::class, 'end'])->name('campaigns.end');
         Route::post('/campaigns/{campaign}/delete', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
+        Route::post('/campaigns/{campaign}/join-link/regenerate', [CampaignController::class, 'regenerateJoinLink'])
+            ->name('campaigns.join-link.regenerate');
 
         // Invitations — only the organizer can create/revoke; accept is the
         // invitee's action and binds via token.

@@ -25,6 +25,8 @@ use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
+use App\Models\User;
+use App\Notifications\Game\GameOpponentJoined;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -899,6 +901,7 @@ class GameController extends Controller
 
         broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
         broadcast(new GameStatusChanged($game))->toOthers();
+        User::find($game->creator_id)?->notify(new GameOpponentJoined($game, $player->user->name));
 
         return redirect()->route('games.show', $game->uuid);
     }

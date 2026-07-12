@@ -8,6 +8,8 @@ use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\User;
+use App\Notifications\Game\GameOpponentJoined;
+use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
     $this->strategy = Strategy::factory()->create(['season' => PoolSeasonEnum::GainingGrounds0]);
@@ -88,6 +90,23 @@ it('allows a second player to join a 2-player game', function () {
     expect($game->players)->toHaveCount(2);
     expect($game->status->value)->toBe('faction_select');
     expect($game->players->firstWhere('slot', 2)->user_id)->toBe($joiner->id);
+});
+
+it('notifies the creator when someone joins their game', function () {
+    Notification::fake();
+    $creator = User::factory()->create();
+    $joiner = User::factory()->create();
+
+    $this->actingAs($creator)->post(route('games.store'), [
+        'encounter_size' => 50,
+        'season' => 'core',
+    ]);
+
+    $game = Game::latest('id')->first();
+
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+
+    Notification::assertSentTo($creator, GameOpponentJoined::class);
 });
 
 it('rejects joining a solo game', function () {

@@ -504,6 +504,22 @@ const addOrganizerSearching = ref(false);
 const addOrganizerError = ref<string | null>(null);
 let addOrganizerSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Friends-only quick-pick — reused for both the Add Organizer and Link User
+// dialogs so an organizer doesn't have to type a name for someone already
+// on their friend list.
+const friendOptions = ref<{ id: number; name: string }[]>([]);
+onMounted(async () => {
+    const res = await fetch(route('friends.accepted'), { headers: { Accept: 'application/json' } });
+    if (res.ok) {
+        const data = await res.json();
+        friendOptions.value = data.friends ?? [];
+    }
+});
+const addOrganizerFriendOptions = computed(() => {
+    const existing = new Set(props.tournament.organizers.map((o) => o.id));
+    return friendOptions.value.filter((f) => !existing.has(f.id));
+});
+
 const openAddOrganizerDialog = () => {
     addOrganizerQuery.value = '';
     addOrganizerResults.value = [];
@@ -2662,6 +2678,17 @@ const titlesForMaster = (masterName: string | null) => {
                 <DialogTitle>Add Tournament Organizer</DialogTitle>
                 <DialogDescription>Search by name. Added organizers can manage all aspects of this tournament.</DialogDescription>
             </DialogHeader>
+            <div v-if="!addOrganizerQuery.trim() && addOrganizerFriendOptions.length" class="flex flex-wrap gap-2">
+                <button
+                    v-for="f in addOrganizerFriendOptions"
+                    :key="f.id"
+                    type="button"
+                    class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
+                    @click="addOrganizer(f.id)"
+                >
+                    {{ f.name }}
+                </button>
+            </div>
             <Input v-model="addOrganizerQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
             <div class="max-h-64 overflow-y-auto">
                 <div v-if="addOrganizerSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>
@@ -2695,6 +2722,17 @@ const titlesForMaster = (masterName: string | null) => {
                 <DialogTitle>Link {{ linkUserTarget?.display_name ?? 'Player' }} to a BiggerHat account</DialogTitle>
                 <DialogDescription>Search by name. Linking lets the player see this tournament in their account.</DialogDescription>
             </DialogHeader>
+            <div v-if="!linkUserQuery.trim() && friendOptions.length" class="flex flex-wrap gap-2">
+                <button
+                    v-for="f in friendOptions"
+                    :key="f.id"
+                    type="button"
+                    class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
+                    @click="linkUserToPlayer(f.id)"
+                >
+                    {{ f.name }}
+                </button>
+            </div>
             <Input v-model="linkUserQuery" placeholder="Search users (min 2 chars)..." class="text-sm" />
             <div class="max-h-64 overflow-y-auto">
                 <div v-if="linkUserSearching" class="py-2 text-center text-xs text-muted-foreground">Searching...</div>

@@ -4,17 +4,22 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreCampaignRequest;
 use App\Http\Requests\Campaign\UpdateCampaignRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignPlayer;
+use App\Traits\Campaign\AddsCampaignMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CampaignController extends Controller
 {
+    use AddsCampaignMember;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -85,6 +90,13 @@ class CampaignController extends Controller
                 ['campaign_id' => $campaign->id, 'user_id' => $request->user()->id],
                 ['name' => $request->user()->name."'s Crew"],
             );
+        }
+
+        // Same idea for campaigns that predate the public join-link column —
+        // every organizer gets a working link the first time they view the
+        // page, no data migration needed.
+        if (! $campaign->uuid) {
+            $campaign->update(['uuid' => (string) Str::uuid()]);
         }
 
         $campaign->load([
@@ -191,5 +203,58 @@ class CampaignController extends Controller
         $campaign->delete();
 
         return redirect()->route('campaigns.index')->withMessage("{$name} deleted.");
+    }
+
+    /**
+     * Public, reusable "anyone with this link can join" invite — bound by
+     * {campaign:uuid}, not the campaign's normal integer id. Unlike
+     * CampaignInvitation (single-use, per-recipient token), this link stays
+     * valid until the organizer regenerates it.
+     */
+    public function joinPublic(Request $request, Campaign $campaign)
+    {
+        if (! $request->user()) {
+            session()->put('url.intended', route('campaigns.join', $campaign->uuid));
+
+            return redirect()->route('login')
+                ->with('message', 'Please log in or create an account to join this campaign.')
+                ->with('messageType', 'warning');
+        }
+
+        if ($campaign->is_solo) {
+            return redirect()->route('campaigns.index')
+                ->withMessage('This is a solo campaign and can\'t be joined.', null, MessageTypeEnum::error);
+        }
+
+        if ($campaign->status === CampaignStatusEnum::Ended) {
+            return redirect()->route('campaigns.index')
+                ->withMessage('This campaign has ended.', null, MessageTypeEnum::error);
+        }
+
+        $isMember = $campaign->players()->where('user_id', $request->user()->id)->exists();
+        if ($isMember) {
+            return redirect()->route('campaigns.show', $campaign);
+        }
+
+        $this->addCampaignMember($campaign, $request->user());
+
+        return redirect()->route('campaigns.show', $campaign)
+            ->withMessage("Welcome to {$campaign->name}!");
+    }
+
+    /**
+     * Invalidates the current public join link by assigning a fresh uuid —
+     * unlike a Game's uuid (hours-lived), a Campaign's link stays valid for
+     * the life of the campaign (weeks), so a leaked link needs a way to be
+     * revoked without deleting the campaign itself.
+     */
+    public function regenerateJoinLink(Request $request, Campaign $campaign)
+    {
+        $this->authorize('update', $campaign);
+
+        $campaign->update(['uuid' => (string) Str::uuid()]);
+
+        return redirect()->route('campaigns.show', $campaign)
+            ->withMessage('Invite link regenerated — the old link no longer works.');
     }
 }

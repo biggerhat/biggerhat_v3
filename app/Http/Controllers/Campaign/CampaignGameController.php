@@ -19,6 +19,8 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\User;
+use App\Notifications\Campaign\CampaignGameStarted;
 use App\Services\CampaignRules;
 use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Http\Request;
@@ -164,6 +166,8 @@ class CampaignGameController extends Controller
 
             return $game;
         });
+
+        User::find($opponentCrew->user_id)?->notify(new CampaignGameStarted($game, $request->user()->name));
 
         return redirect()->route('games.show', $game->uuid)
             ->withMessage("Campaign game created (encounter size {$encounterSize}ss).");

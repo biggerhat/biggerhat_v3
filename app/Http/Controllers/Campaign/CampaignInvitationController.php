@@ -2,21 +2,22 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreInvitationRequest;
 use App\Models\Campaign\Campaign;
-use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignInvitation;
-use App\Models\Campaign\CampaignPlayer;
 use App\Models\User;
+use App\Notifications\Campaign\CampaignInvitationReceived;
+use App\Traits\Campaign\AddsCampaignMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CampaignInvitationController extends Controller
 {
+    use AddsCampaignMember;
+
     public function store(StoreInvitationRequest $request, Campaign $campaign)
     {
         $data = $request->validated();
@@ -41,12 +42,18 @@ class CampaignInvitationController extends Controller
             return redirect()->back()->withMessage('That user is already in this campaign.', null, MessageTypeEnum::error);
         }
 
-        CampaignInvitation::create([
+        $invitation = CampaignInvitation::create([
             'campaign_id' => $campaign->id,
             'user_id' => $data['user_id'] ?? null,
             'email' => $data['email'] ?? null,
             'expires_at' => now()->addDays($expiresIn),
         ]);
+
+        // Only an existing-user invite has someone to notify — an
+        // email-only invite has no User row yet.
+        if ($invitation->user_id) {
+            User::find($invitation->user_id)?->notify(new CampaignInvitationReceived($invitation));
+        }
 
         return redirect()->route('campaigns.show', $campaign)->withMessage('Invitation sent.');
     }
@@ -115,24 +122,10 @@ class CampaignInvitationController extends Controller
         }
 
         DB::transaction(function () use ($invitation, $request, $campaign) {
-            $userId = $request->user()->id;
-
             // Mark invitation consumed.
-            $invitation->update(['accepted_at' => now(), 'user_id' => $userId]);
+            $invitation->update(['accepted_at' => now(), 'user_id' => $request->user()->id]);
 
-            // Create the membership row (firstOrCreate so re-accept on a
-            // duplicate invitation is idempotent).
-            CampaignPlayer::firstOrCreate(
-                ['campaign_id' => $campaign->id, 'user_id' => $userId],
-                ['role' => CampaignPlayerRoleEnum::Player],
-            );
-
-            // Auto-stub crew — Leader Builder + Starting Arsenal flows
-            // (Phases 4–5) complete the rest of the row.
-            CampaignCrew::firstOrCreate(
-                ['campaign_id' => $campaign->id, 'user_id' => $userId],
-                ['name' => $request->user()->name."'s Crew"],
-            );
+            $this->addCampaignMember($campaign, $request->user());
         });
 
         return redirect()->route('campaigns.show', $invitation->campaign_id)

@@ -7,6 +7,8 @@ use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
 use App\Models\User;
+use App\Notifications\Tournament\TournamentRoundPaired;
+use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
@@ -205,6 +207,52 @@ it('does not create tracker games when auto-pairing a Setup round', function () 
     // yet — they get materialized when the round is Started.
     expect($round->fresh()->games()->whereNotNull('game_id')->count())->toBe(0);
     expect(Game::count())->toBe(0);
+});
+
+it('notifies both linked players when the round is paired', function () {
+    Notification::fake();
+    $opponent = User::factory()->create();
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $this->creator->id]);
+    TournamentPlayer::factory()->for($this->tournament)->create(['user_id' => $opponent->id]);
+
+    $strategy = \App\Models\Strategy::factory()->create();
+    $schemes = \App\Models\Scheme::factory()->count(3)->create();
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->toArray(),
+    ]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
+        ->assertOk();
+
+    Notification::assertSentTo($this->creator, TournamentRoundPaired::class);
+    Notification::assertSentTo($opponent, TournamentRoundPaired::class);
+});
+
+it('does not notify unlinked players (no User to notify)', function () {
+    Notification::fake();
+    TournamentPlayer::factory()->for($this->tournament)->create(); // no user_id
+    TournamentPlayer::factory()->for($this->tournament)->create(); // no user_id
+
+    $strategy = \App\Models\Strategy::factory()->create();
+    $schemes = \App\Models\Scheme::factory()->count(3)->create();
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'status' => TournamentRoundStatusEnum::Setup,
+        'strategy_id' => $strategy->id,
+        'deployment' => 'standard',
+        'scheme_pool' => $schemes->pluck('id')->toArray(),
+    ]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
+        ->assertOk();
+
+    Notification::assertNothingSent();
 });
 
 it('blocks auto-pair when the round scenario is not configured', function () {

@@ -360,7 +360,7 @@ const submit = async () => {
             </div>
         </template>
         <template #actions>
-            <div class="flex items-center gap-2 px-2 py-2 md:py-4">
+            <div class="flex flex-wrap items-center gap-2 px-2 py-2 md:py-4">
                 <Link :href="route('campaigns.crews.arsenal.show', [campaign.id, crew.share_code])">
                     <Button variant="outline">← Back to Arsenal Sheet</Button>
                 </Link>

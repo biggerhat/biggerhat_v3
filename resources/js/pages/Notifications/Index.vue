@@ -4,8 +4,15 @@ import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import AppSettingsLayout from '@/layouts/AppSettingsLayout.vue';
 import { type SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
+
+// File lives outside pages/Settings/, so app.ts would default it to the
+// plain Malifaux/TOS browse layout — stranding a visitor here with no path
+// back to the User Hub sidebar they came from. Force the settings layout
+// explicitly instead.
+defineOptions({ layout: AppSettingsLayout });
 
 interface NotificationRow {
     id: string;

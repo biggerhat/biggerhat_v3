@@ -361,6 +361,45 @@ it('exposes equipment actions and marks equipment locked once an advancement tar
         );
 });
 
+it('merges a Trigger-type Attack Mod advancement into the target action\'s own triggers, not just applied_effects', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Eq Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crew->id]);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack']);
+    $equipment->catalog->actions()->attach($action->id, ['is_signature_action' => false]);
+    $realTrigger = \App\Models\Trigger::factory()->create(['name' => 'Vicious Cut', 'description' => 'Push the target 3".']);
+    $advancementRow = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['trigger_id' => $realTrigger->id, 'flip_value' => 5]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $advancementRow->id,
+        'from_equipment_id' => $equipment->id,
+        'applied_to_action_id' => $action->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('equipment.0.actions.0.name', 'Granted Slash')
+            ->where('equipment.0.actions.0.triggers.0.name', 'Vicious Cut')
+            ->where('equipment.0.actions.0.triggers.0.description', 'Push the target 3".')
+        );
+});
+
 it('exposes the leader Leadership Experience track with filled boxes', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);

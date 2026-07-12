@@ -374,31 +374,33 @@ const tableOptionsForTier = (tier: number) =>
 
 // Flip-value gating removed for now — every row from the table is offered,
 // with its own flip_value shown inline in the label as a reference only.
-// Joker declarations (Any Joker / Joker color) are a separate mechanism and
-// still gate the list, since they're not flip-value based.
-const eligibleCatalogRows = (table: string, jokerColor: 'red' | 'black' | null = null): CatalogRow[] => {
-    const rows = catalogRowsFor(table);
-    // Attack Mod/Tactical Mod: Joker-gated rows carry is_black_joker/is_red_joker
-    // instead of a flip_value. A row with both flags set is "Any Joker" (either
-    // color satisfies it); a row with exactly one flag set needs that specific
-    // color.
-    if (table === 'attack_mod' || table === 'tactical_mod') {
-        if (jokerColor) {
-            return rows.filter((r) => (jokerColor === 'red' && r.is_red_joker) || (jokerColor === 'black' && r.is_black_joker));
-        }
-        return rows.filter((r) => !r.is_black_joker && !r.is_red_joker);
-    }
-    // Action/Ability: Any Joker rows are just part of the same table's list —
-    // no separate "did you flip a joker" declaration needed. Picking one
-    // (row.is_joker) reveals the free-choice ally search below.
-    return rows;
-};
+// Joker rows (Action/Ability's Any Joker, Attack/Tactical Mod's Any-Joker or
+// color-specific rows) are just part of the same list, each uniquely named
+// in the catalog — no separate "did you flip a joker" declaration needed
+// before picking. See deriveJokerColor() for how the color the backend
+// still wants gets filled in automatically from the row itself.
+const eligibleCatalogRows = (table: string): CatalogRow[] => catalogRowsFor(table);
 
 const isSelectedRowJoker = (position: number): boolean => {
     const d = drafts.value[position];
     if (!d || d.catalog_id === null) return false;
 
     return !!catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id)?.is_joker;
+};
+
+// Attack/Tactical Mod (pg 38-43): the backend still wants an explicit
+// joker_color to cross-check against the picked row's own is_red_joker/
+// is_black_joker flags — derive it from the row instead of asking the
+// player to declare it separately. An "Any Joker" row (both flags true)
+// satisfies the backend check with either color, so 'red' is an arbitrary
+// but always-valid choice there.
+const deriveJokerColor = (position: number): 'red' | 'black' | null => {
+    const d = drafts.value[position];
+    if (!d || d.catalog_id === null) return null;
+    const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
+    if (!row?.is_red_joker && !row?.is_black_joker) return null;
+
+    return row.is_red_joker ? 'red' : 'black';
 };
 
 // ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
@@ -445,16 +447,6 @@ const onCrewCardMasterRowChange = (position: number, v: string) => {
     d.crew_card_choice_id = null;
 };
 
-// A generic (master_id === null) row picked straight from the flat list still
-// requires naming the master it's borrowed from (pg 32, 54). Unlike
-// onCrewCardMasterChange, this doesn't touch catalog_id — the picked row
-// itself doesn't change, only its attribution.
-const onCrewCardGenericMasterChange = (position: number, v: string) => {
-    const d = drafts.value[position];
-    if (!d) return;
-    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
-};
-
 const SOURCE_TABLE_LABELS: Record<string, string> = {
     attack_mod: 'Attack Modification',
     tactical_mod: 'Tactical Modification',
@@ -498,8 +490,6 @@ interface AdvDraft {
     applied_to_action_id: number | null;
     // Any Joker (Action/Ability, pg 49/51) + Crew Card's borrowed-from master
     // (pg 32, 54) both resolve through free_choice.
-    // Which Joker was flipped for an Attack Mod/Tactical Mod pick (pg 38-43).
-    joker_color: 'red' | 'black' | null;
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
@@ -527,7 +517,6 @@ watch(
                     target_equipment_id: null,
                     applied_to_action_index: -1,
                     applied_to_action_id: null,
-                    joker_color: null,
                     free_choice_source_id: null,
                     free_choice_source_character_id: null,
                     free_choice_label: null,
@@ -642,7 +631,7 @@ const logAdvancement = (position: number) => {
         position_in_xp_track: position,
         source_table: d.source_table,
         catalog_id: d.catalog_id,
-        joker_color: isTrigger ? d.joker_color : undefined,
+        joker_color: isTrigger ? deriveJokerColor(position) : undefined,
         free_choice:
             d.free_choice_source_id || d.free_choice_source_character_id
                 ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
@@ -1229,7 +1218,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 (v) => {
                                                     drafts[slot.position].source_table = v as string;
                                                     drafts[slot.position].catalog_id = null;
-                                                    drafts[slot.position].joker_color = null;
                                                     drafts[slot.position].target_type = 'leader';
                                                     drafts[slot.position].target_equipment_id = null;
                                                     drafts[slot.position].applied_to_action_id = null;
@@ -1251,28 +1239,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </SelectContent>
                                         </Select>
                                         <Select
-                                            v-if="
-                                                drafts[slot.position].source_table === 'attack_mod' ||
-                                                drafts[slot.position].source_table === 'tactical_mod'
-                                            "
-                                            :model-value="drafts[slot.position].joker_color ?? 'none'"
-                                            @update:model-value="
-                                                (v) => {
-                                                    drafts[slot.position].joker_color = v === 'none' ? null : (v as 'red' | 'black');
-                                                    drafts[slot.position].catalog_id = null;
-                                                }
-                                            "
-                                        >
-                                            <SelectTrigger class="h-8 w-auto gap-1 text-[11px] text-foreground">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">No Joker</SelectItem>
-                                                <SelectItem value="red">Red Joker</SelectItem>
-                                                <SelectItem value="black">Black Joker</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
                                             v-if="drafts[slot.position].source_table !== 'crew_card'"
                                             :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
                                             @update:model-value="
@@ -1290,10 +1256,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             <SelectContent>
                                                 <SelectItem value="__none__">— pick —</SelectItem>
                                                 <SelectItem
-                                                    v-for="row in eligibleCatalogRows(
-                                                        drafts[slot.position].source_table,
-                                                        drafts[slot.position].joker_color,
-                                                    )"
+                                                    v-for="row in eligibleCatalogRows(drafts[slot.position].source_table)"
                                                     :key="row.id"
                                                     :value="row.id.toString()"
                                                 >
@@ -1371,31 +1334,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 No Crew Card catalog rows are linked to this master yet.
                                             </p>
                                         </div>
-                                    </div>
-                                    <!-- A generic row was picked directly — still needs a "borrowed from" master (pg 32, 54). -->
-                                    <div
-                                        v-if="
-                                            drafts[slot.position].source_table === 'crew_card' &&
-                                            !drafts[slot.position].crew_card_master_mode &&
-                                            drafts[slot.position].catalog_id !== null
-                                        "
-                                        class="rounded border p-2"
-                                    >
-                                        <Label class="text-[11px] text-muted-foreground">Borrowed from master</Label>
-                                        <Select
-                                            :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
-                                            @update:model-value="(v) => onCrewCardGenericMasterChange(slot.position, v as string)"
-                                        >
-                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                <SelectValue placeholder="— pick a master —" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__none__">— pick a master —</SelectItem>
-                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
-                                                    m.name
-                                                }}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
                                     </div>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                                     <div v-if="isSelectedRowJoker(slot.position)" class="space-y-1 rounded border p-2">

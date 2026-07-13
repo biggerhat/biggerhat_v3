@@ -6,6 +6,7 @@ use App\Enums\DeploymentEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
+use App\Models\Campaign\CampaignGame;
 use App\Observers\GameObserver;
 use App\Traits\LogsCreationActivity;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -114,6 +115,12 @@ class Game extends Model
     public function tournamentGame(): HasOne
     {
         return $this->hasOne(TournamentGame::class);
+    }
+
+    /** CampaignGame wrapper this tracker game was created for, if any. */
+    public function campaignGame(): HasOne
+    {
+        return $this->hasOne(CampaignGame::class, 'base_game_id');
     }
 
     public function playerOne(): ?GamePlayer

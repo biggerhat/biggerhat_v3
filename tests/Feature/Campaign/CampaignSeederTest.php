@@ -145,9 +145,9 @@ it('solo campaign game returns leader and arsenal via faction fallback when no C
         );
 
     // submitCampaignCrew accepts picks from the arsenal.
-    $firstCharId = $crew->arsenalModels()->active()->value('character_id');
+    $firstArsenalModelId = $crew->arsenalModels()->active()->value('id');
     test()->actingAs($user)
-        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['character_ids' => [$firstCharId]])
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => [$firstArsenalModelId]])
         ->assertOk()
         ->assertJson(['success' => true]);
 });

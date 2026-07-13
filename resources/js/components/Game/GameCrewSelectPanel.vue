@@ -45,6 +45,11 @@ interface CrewOption {
 }
 
 interface CampaignArsenalModel {
+    /** The CampaignArsenalModel row's own id — distinct per owned physical
+     *  copy, even when several share the same character_id. Selection state
+     *  keys off this, not character_id, so owning multiple copies of the
+     *  same catalog Character can be hired individually. */
+    id: number;
     character_id: number;
     name: string;
     faction: string;
@@ -89,8 +94,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     /** Select a saved crew (parent owns the POST + reload). Body carries crew_build_id + slot. */
     confirm: [body: Record<string, unknown>];
-    /** Campaign games: confirm with selected arsenal character IDs + optional equipment assignments (pg 19). */
-    'confirm-campaign-crew': [characterIds: number[], equipmentAssignments: { equipment_id: number; target: string }[]];
+    /** Campaign games: confirm with selected CampaignArsenalModel row IDs + optional equipment assignments (pg 19). */
+    'confirm-campaign-crew': [arsenalModelIds: number[], equipmentAssignments: { equipment_id: number; target: string }[]];
     /** Skip the opponent's crew in solo setup, optionally locking in their title first. */
     'skip-opponent-crew': [titleDisplayName: string | null];
 }>();
@@ -166,25 +171,48 @@ const skipOpponentCrew = () => {
     emit('skip-opponent-crew', title?.display_name ?? null);
 };
 
+// Keyed by CampaignArsenalModel row id (not character_id) so owning several
+// copies of the same catalog Character — each its own arsenal row — can be
+// selected/hired individually instead of all copies toggling together.
 const selectedArsenalIds = ref<number[]>([]);
-const toggleArsenalModel = (characterId: number) => {
-    const idx = selectedArsenalIds.value.indexOf(characterId);
+const toggleArsenalModel = (arsenalModelId: number) => {
+    const idx = selectedArsenalIds.value.indexOf(arsenalModelId);
     if (idx >= 0) {
         selectedArsenalIds.value.splice(idx, 1);
     } else {
-        selectedArsenalIds.value.push(characterId);
+        selectedArsenalIds.value.push(arsenalModelId);
     }
 };
 const campaignTotalCost = computed(() =>
     selectedArsenalIds.value.reduce((sum, id) => {
-        const m = props.campaignArsenal.find((a) => a.character_id === id);
+        const m = props.campaignArsenal.find((a) => a.id === id);
         return sum + (m?.effective_cost ?? 0);
     }, 0),
 );
 const campaignOverBudget = computed(() => campaignTotalCost.value > props.game.encounter_size);
 
+// "(2/3)" copy-index suffix when the arsenal owns more than one of the same
+// catalog model — otherwise two identical-looking "Guild Guard" rows would
+// give no visual hint they're independently selectable owned copies.
+const campaignArsenalCopyLabel = computed(() => {
+    const totalByName: Record<string, number> = {};
+    for (const m of props.campaignArsenal) totalByName[m.name] = (totalByName[m.name] ?? 0) + 1;
+    const seen: Record<string, number> = {};
+    const labels: Record<number, string | null> = {};
+    for (const m of props.campaignArsenal) {
+        if (totalByName[m.name] <= 1) {
+            labels[m.id] = null;
+            continue;
+        }
+        seen[m.name] = (seen[m.name] ?? 0) + 1;
+        labels[m.id] = `${seen[m.name]}/${totalByName[m.name]}`;
+    }
+
+    return labels;
+});
+
 // Equipment assignment (pg 19): optional, one slot per owned copy. Value is
-// '__none__' (unassigned), 'leader', or a selected arsenal character_id as a string.
+// '__none__' (unassigned), 'leader', or a selected arsenal row id as a string.
 const equipmentTargets = ref<Record<string, string>>({});
 interface EquipmentSlot {
     key: string;
@@ -202,14 +230,32 @@ const equipmentSlots = computed<EquipmentSlot[]>(() =>
         })),
     ),
 );
-const equipmentTargetOptions = computed(() => [
-    { value: 'leader', label: 'Leader' },
-    ...(props.campaignTotem ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
-    ...selectedArsenalIds.value.map((id) => ({
-        value: String(id),
-        label: props.campaignArsenal.find((a) => a.character_id === id)?.name ?? `#${id}`,
-    })),
-]);
+const equipmentTargetOptions = computed(() => {
+    // Disambiguate when the same catalog model is hired more than once this
+    // game (multiple selected arsenal rows sharing a name) — otherwise the
+    // dropdown would show two identical, unpickable-apart "Guild Guard" entries.
+    const nameCounts: Record<string, number> = {};
+    for (const id of selectedArsenalIds.value) {
+        const name = props.campaignArsenal.find((a) => a.id === id)?.name;
+        if (name) nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
+    const seen: Record<string, number> = {};
+
+    return [
+        { value: 'leader', label: 'Leader' },
+        ...(props.campaignTotem ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
+        ...selectedArsenalIds.value.map((id) => {
+            const name = props.campaignArsenal.find((a) => a.id === id)?.name ?? `#${id}`;
+            if ((nameCounts[name] ?? 0) > 1) {
+                seen[name] = (seen[name] ?? 0) + 1;
+
+                return { value: String(id), label: `${name} (${seen[name]})` };
+            }
+
+            return { value: String(id), label: name };
+        }),
+    ];
+});
 // Drop any assignment whose target was deselected from the crew.
 watch(selectedArsenalIds, () => {
     const validTargets = new Set(['__none__', 'leader', 'totem', ...selectedArsenalIds.value.map(String)]);
@@ -288,17 +334,20 @@ const confirmCampaignCrew = () => {
                 <div v-if="campaignArsenal.length" class="space-y-1">
                     <div
                         v-for="m in campaignArsenal"
-                        :key="m.character_id"
+                        :key="m.id"
                         class="flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors"
-                        :class="selectedArsenalIds.includes(m.character_id) ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'"
-                        @click="toggleArsenalModel(m.character_id)"
+                        :class="selectedArsenalIds.includes(m.id) ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'"
+                        @click="toggleArsenalModel(m.id)"
                     >
                         <div class="flex min-w-0 items-center gap-2">
                             <div
                                 class="size-4 shrink-0 rounded border-2 transition-colors"
-                                :class="selectedArsenalIds.includes(m.character_id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
+                                :class="selectedArsenalIds.includes(m.id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
                             />
                             <span class="truncate font-medium">{{ m.name }}</span>
+                            <span v-if="campaignArsenalCopyLabel[m.id]" class="shrink-0 text-[10px] text-muted-foreground"
+                                >({{ campaignArsenalCopyLabel[m.id] }})</span
+                            >
                             <Badge
                                 v-if="m.is_ook"
                                 variant="outline"

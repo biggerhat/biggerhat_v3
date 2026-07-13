@@ -74,7 +74,13 @@ class CustomCharacterObserver
     public function created(CustomCharacter $character): void
     {
         if ($character->is_campaign_leader || $character->is_campaign_totem) {
-            GenerateLeaderCardImage::dispatch($character->id);
+            // afterCommit(): every call site that creates/updates a Leader or
+            // Totem (Leader Builder, Advance Leader, Aftermath) does so inside
+            // DB::transaction. Queue connections here run with after_commit=false,
+            // so a worker can otherwise dequeue this before the transaction
+            // commits, fail to find the row, and silently no-op — the card
+            // then never renders and there's no retry to catch it.
+            GenerateLeaderCardImage::dispatch($character->id)->afterCommit();
         }
     }
 
@@ -88,6 +94,6 @@ class CustomCharacterObserver
             return;
         }
 
-        GenerateLeaderCardImage::dispatch($character->id);
+        GenerateLeaderCardImage::dispatch($character->id)->afterCommit();
     }
 }

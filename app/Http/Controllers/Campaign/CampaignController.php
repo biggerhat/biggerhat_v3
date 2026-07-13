@@ -11,6 +11,7 @@ use App\Http\Requests\Campaign\UpdateCampaignRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignPlayer;
+use App\Models\Game;
 use App\Traits\Campaign\AddsCampaignMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -116,7 +117,33 @@ class CampaignController extends Controller
             'campaign' => $campaign,
             'is_organizer' => $request->user()->can('update', $campaign),
             'all_arsenals_complete' => ! $incompleteCrew,
+            'active_solo_game' => $campaign->is_solo ? $this->activeSoloGame($campaign, $request->user()->id) : null,
         ]);
+    }
+
+    /**
+     * The user's own not-yet-finished live game for this solo campaign, if
+     * one exists — Play Live otherwise mints a brand new Game every click,
+     * orphaning whatever the player was mid-way through. Lets the hub offer
+     * "Resume" instead of silently abandoning it.
+     *
+     * @return array{uuid: string, status: string, started_at: string|null}|null
+     */
+    private function activeSoloGame(Campaign $campaign, int $userId): ?array
+    {
+        $game = Game::query()
+            ->active()
+            ->where('creator_id', $userId)
+            ->where('is_solo', true)
+            ->whereHas('campaignGame', fn ($q) => $q->where('campaign_id', $campaign->id))
+            ->latest('id')
+            ->first(['id', 'uuid', 'status', 'started_at']);
+
+        return $game ? [
+            'uuid' => $game->uuid,
+            'status' => $game->status->value,
+            'started_at' => $game->started_at?->toIso8601String(),
+        ] : null;
     }
 
     public function settings(Request $request, Campaign $campaign)

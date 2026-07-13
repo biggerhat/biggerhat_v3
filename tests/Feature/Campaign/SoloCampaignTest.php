@@ -372,6 +372,48 @@ it('playLive starts a live game with an eagerly-linked CampaignGame row', functi
         ->and((int) $wrap->week_number)->toBe(3);
 });
 
+it('Campaigns/Show exposes active_solo_game once Play Live has been clicked, so the hub can offer Resume', function () {
+    $user = soloUser();
+    $campaign = Campaign::factory()->create([
+        'organizer_user_id' => $user->id,
+        'status' => CampaignStatusEnum::Active,
+        'is_solo' => true,
+    ]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $user->id,
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+    ]);
+
+    // No game yet — hub should not offer a resume option.
+    $this->actingAs($user)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('active_solo_game', null));
+
+    $this->actingAs($user)->post(route('campaigns.games.play', $campaign))->assertRedirect();
+    $game = \App\Models\Game::query()->where('creator_id', $user->id)->latest('id')->firstOrFail();
+
+    // Not finished yet — hub should surface it for Resume.
+    $this->actingAs($user)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('active_solo_game.uuid', $game->uuid)
+            ->where('active_solo_game.status', 'master_select')
+        );
+
+    // Once finished, it's no longer "active" — a fresh Play Live click should
+    // mint a new game rather than offering to resume a completed one.
+    $game->update(['status' => \App\Enums\GameStatusEnum::Completed->value]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('active_solo_game', null));
+});
+
 it('playLive 404s on a non-solo campaign', function () {
     $user = soloUser();
     $campaign = Campaign::factory()->create([

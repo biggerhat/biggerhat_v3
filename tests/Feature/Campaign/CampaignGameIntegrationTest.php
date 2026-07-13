@@ -377,11 +377,11 @@ it('submitCampaignCrew copies the selected arsenal models into game_crew_members
     ]);
 
     $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
-    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [$hired->id],
+            'arsenal_model_ids' => [$arsenalModel->id],
         ])
         ->assertOk();
 
@@ -391,6 +391,55 @@ it('submitCampaignCrew copies the selected arsenal models into game_crew_members
         ->toContain($hired->display_name)
         ->and(\App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->where('hiring_category', 'leader')->exists())
         ->toBeTrue();
+});
+
+it('submitCampaignCrew hires exactly the selected arsenal row when the crew owns several copies of the same model', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-006',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance-6',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    // Three separate owned copies of the same catalog model — each its own
+    // CampaignArsenalModel row (no count column; that's how ownership of
+    // multiples is represented). Only one gets injured.
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $copy1 = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $copy2 = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Broken Arm']);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $copy2->id,
+        'injury_upgrade_id' => $injury->id,
+    ]);
+
+    // Hire only copy1 — not "every copy of Guild Guard the crew owns".
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$copy1->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $hiredMembers = \App\Models\GameCrewMember::where('game_id', $game->id)
+        ->where('game_player_id', $player->id)
+        ->where('display_name', $hired->display_name)
+        ->get();
+
+    // Exactly one hire, not three.
+    expect($hiredMembers)->toHaveCount(1);
+    // And it's copy1's injuries that carried over, not copy2's or copy3's.
+    expect(collect($hiredMembers->first()->attached_upgrades)->pluck('name')->all())->toBe([]);
 });
 
 it('Games/Show exposes the Campaign Leader\'s actions/abilities via custom_character, since it has no card art', function () {
@@ -412,7 +461,7 @@ it('Games/Show exposes the Campaign Leader\'s actions/abilities via custom_chara
     ]);
 
     $this->actingAs($userA)
-        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['character_ids' => []])
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => []])
         ->assertOk();
 
     $game->update(['status' => GameStatusEnum::InProgress->value]);
@@ -459,7 +508,7 @@ it('submitCampaignCrew carries injuries from a previous aftermath onto the leade
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [$hired->id],
+            'arsenal_model_ids' => [$arsenalModel->id],
         ])
         ->assertOk();
 
@@ -490,16 +539,16 @@ it('submitCampaignCrew assigns owned equipment to the Leader or a specific hire 
     ]);
 
     $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
-    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
 
     $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket']);
     \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [$hired->id],
+            'arsenal_model_ids' => [$arsenalModel->id],
             'equipment_assignments' => [
-                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hired->id],
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $arsenalModel->id],
             ],
         ])
         ->assertOk();
@@ -522,7 +571,7 @@ it('submitCampaignCrew rejects an equipment_assignments target outside the Leade
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [],
+            'arsenal_model_ids' => [],
             'equipment_assignments' => [
                 ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $notHired->id],
             ],
@@ -553,7 +602,7 @@ it('submitCampaignCrew assigns owned equipment to a Tier-3 Totem', function () {
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [],
+            'arsenal_model_ids' => [],
             'equipment_assignments' => [
                 ['equipment_id' => $equipmentUpgrade->id, 'target' => 'totem'],
             ],
@@ -578,7 +627,7 @@ it('submitCampaignCrew rejects a totem equipment assignment when the crew has no
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [],
+            'arsenal_model_ids' => [],
             'equipment_assignments' => [
                 ['equipment_id' => $equipmentUpgrade->id, 'target' => 'totem'],
             ],
@@ -593,8 +642,8 @@ it('submitCampaignCrew rejects assigning more copies of an equipment than the cr
 
     $hiredA = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
     $hiredB = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
-    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredA->id]);
-    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredB->id]);
+    $arsenalModelA = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredA->id]);
+    $arsenalModelB = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hiredB->id]);
 
     // Only one copy owned.
     $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create();
@@ -602,10 +651,10 @@ it('submitCampaignCrew rejects assigning more copies of an equipment than the cr
 
     $this->actingAs($userA)
         ->postJson(route('games.setup.campaign-crew', $game->uuid), [
-            'character_ids' => [$hiredA->id, $hiredB->id],
+            'arsenal_model_ids' => [$arsenalModelA->id, $arsenalModelB->id],
             'equipment_assignments' => [
-                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hiredA->id],
-                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $hiredB->id],
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $arsenalModelA->id],
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $arsenalModelB->id],
             ],
         ])
         ->assertStatus(422);
@@ -668,7 +717,7 @@ it('solo Campaign setup auto-fills a generic opponent — no opponent faction/ma
     // Player 1 confirms their campaign crew alone — opponent auto-skips too,
     // advancing straight to Scheme Select with no further interaction needed.
     $this->actingAs($user)
-        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['character_ids' => []])
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => []])
         ->assertOk()
         ->assertJson(['both_done' => true]);
 

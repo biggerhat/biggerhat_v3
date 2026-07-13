@@ -680,6 +680,12 @@ class GameController extends Controller
                 $isOok = ! $sharesKeyword && ! $isVersatile;
 
                 return [
+                    // The arsenal row's own id — not just character_id — so
+                    // owning several copies of the same catalog Character
+                    // (each its own CampaignArsenalModel row) can be selected
+                    // and hired individually instead of collapsing into one
+                    // shared toggle. See GameCrewSelectPanel.vue.
+                    'id' => $m->id,
                     'character_id' => $m->character_id,
                     'name' => $char->display_name ?? $char->name,
                     'faction' => $char->getRawOriginal('faction'),

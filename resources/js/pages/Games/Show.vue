@@ -268,6 +268,9 @@ const props = defineProps<{
         crew_b_card: CampaignCrewCardPayload;
     } | null;
     campaign_arsenal?: {
+        /** The CampaignArsenalModel row's own id — distinct per owned physical
+         *  copy, even when several share the same character_id. */
+        id: number;
         character_id: number;
         name: string;
         faction: string;
@@ -1358,6 +1361,17 @@ const myActiveUpgradeId = computed(() => myPlayer.value?.active_crew_upgrade_id 
 const opponentActiveUpgradeId = computed(() => opponent.value?.active_crew_upgrade_id ?? opponent.value?.crew_build?.crew_upgrade_id ?? null);
 const myUpgradeMode = computed(() => myPlayer.value?.master?.crew_upgrade_mode ?? 'select_one');
 const opponentUpgradeMode = computed(() => opponent.value?.master?.crew_upgrade_mode ?? 'select_one');
+
+// Campaign Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
+// effects. campaign_context.crew_a always belongs to slot 1 (see
+// GameController::buildCampaignContext), so "my" side follows mySlot rather
+// than always being crew_a — the opponent in a duel campaign game is slot 2
+// looking at the same payload from their own perspective.
+const myCrewCard = computed<CampaignCrewCardPayload | null>(() => {
+    if (!isCampaign.value || !props.campaign_context) return null;
+    return mySlot.value === 1 ? props.campaign_context.crew_a_card : props.campaign_context.crew_b_card;
+});
+const expandedMyCrewCardEffect = ref(false);
 
 const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     const payload: Record<string, any> = { active_crew_upgrade_id: upgradeId };
@@ -3356,7 +3370,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 @confirm="(body) => postSetup(route('games.setup.crew', game.uuid), body)"
                 @confirm-campaign-crew="
                     (ids, equipmentAssignments) =>
-                        postSetup(route('games.setup.campaign-crew', game.uuid), { character_ids: ids, equipment_assignments: equipmentAssignments })
+                        postSetup(route('games.setup.campaign-crew', game.uuid), {
+                            arsenal_model_ids: ids,
+                            equipment_assignments: equipmentAssignments,
+                        })
                 "
                 @skip-opponent-crew="onSkipOpponentCrew"
             />
@@ -4320,6 +4337,78 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             :alt-text="upgrade.name"
                                             :show-link="false"
                                         />
+                                    </div>
+                                </Transition>
+                            </div>
+                        </div>
+                        <!-- Campaign Crew Card (pg 17, 32, 54) — starter + any Tier-4 borrowed effects.
+                             Same reference-row treatment as Reference Upgrades above: crew-level, not
+                             tied to a specific model, so it lives above the member list rather than
+                             only in the top campaign banner. -->
+                        <div v-if="isCampaign && myCrewCard?.effect" class="mb-2 space-y-1">
+                            <div class="rounded-md border border-border/50 bg-accent/30 px-2 py-1.5 text-sm">
+                                <div class="flex items-center gap-1.5">
+                                    <Star class="size-3.5 shrink-0 text-muted-foreground" />
+                                    <span class="flex-1 font-semibold">{{ myCrewCard.effect.name }}</span>
+                                    <Badge variant="outline" class="px-1.5 py-0 text-[9px]">Crew Card</Badge>
+                                    <button
+                                        type="button"
+                                        class="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                        :title="expandedMyCrewCardEffect ? 'Collapse card' : 'Expand card'"
+                                        @click="expandedMyCrewCardEffect = !expandedMyCrewCardEffect"
+                                    >
+                                        <ChevronDown class="size-3.5 transition-transform" :class="expandedMyCrewCardEffect ? 'rotate-180' : ''" />
+                                    </button>
+                                </div>
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-200 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-[600px] opacity-100"
+                                    leave-from-class="max-h-[600px] opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div v-if="expandedMyCrewCardEffect" class="mt-2 space-y-2 overflow-hidden">
+                                        <p v-if="myCrewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                            <GameText :text="myCrewCard.effect.body" />
+                                        </p>
+                                        <ActionCard
+                                            v-for="(a, i) in myCrewCard.effect.actions"
+                                            :key="`mycc-action-${i}`"
+                                            :action="a"
+                                            :hide-footer="true"
+                                        />
+                                        <AbilityCard
+                                            v-for="(ab, i) in myCrewCard.effect.abilities"
+                                            :key="`mycc-ability-${i}`"
+                                            :ability="ab"
+                                            :hide-footer="true"
+                                        />
+                                        <template v-for="adv in myCrewCard.borrowed" :key="`mycc-borrowed-${adv.id}`">
+                                            <div v-if="adv.effect" class="border-t pt-2">
+                                                <p class="text-xs font-medium">
+                                                    {{ adv.effect.name }}
+                                                    <span v-if="adv.source_master_name" class="text-muted-foreground"
+                                                        >— borrowed from {{ adv.source_master_name }}</span
+                                                    >
+                                                </p>
+                                                <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                                    <GameText :text="adv.effect.body" />
+                                                </p>
+                                                <ActionCard
+                                                    v-for="(a, i) in adv.effect.actions"
+                                                    :key="`mycc-badv-action-${adv.id}-${i}`"
+                                                    :action="a"
+                                                    :hide-footer="true"
+                                                />
+                                                <AbilityCard
+                                                    v-for="(ab, i) in adv.effect.abilities"
+                                                    :key="`mycc-badv-ability-${adv.id}-${i}`"
+                                                    :ability="ab"
+                                                    :hide-footer="true"
+                                                />
+                                            </div>
+                                        </template>
                                     </div>
                                 </Transition>
                             </div>

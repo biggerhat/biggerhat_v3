@@ -60,7 +60,31 @@ interface CampaignData {
     invitations: InvitationRow[];
 }
 
-const props = defineProps<{ campaign: CampaignData; is_organizer: boolean; all_arsenals_complete: boolean }>();
+interface ActiveSoloGame {
+    uuid: string;
+    status: string;
+    started_at: string | null;
+}
+
+const props = defineProps<{
+    campaign: CampaignData;
+    is_organizer: boolean;
+    all_arsenals_complete: boolean;
+    /** The player's own not-yet-finished live game for this solo campaign, if
+     *  one exists — lets the hub offer "Resume" instead of Play Live silently
+     *  orphaning it by minting a brand new game every click. */
+    active_solo_game: ActiveSoloGame | null;
+}>();
+
+const activeSoloGameStatusLabel = (status: string): string =>
+    (
+        {
+            master_select: 'Selecting Master',
+            crew_select: 'Selecting Crew',
+            scheme_select: 'Selecting Schemes',
+            in_progress: 'In Progress',
+        } as Record<string, string>
+    )[status] ?? status;
 
 const statusVariant = computed((): 'default' | 'outline' | 'destructive' | 'secondary' => {
     switch (props.campaign.status) {
@@ -234,7 +258,13 @@ const deleteCampaign = async (id: number) => {
                 Start Campaign
             </Button>
             <template v-if="campaign.status === 'active' && campaign.is_solo">
-                <Button @click="playLive(campaign.id)">Play Live</Button>
+                <template v-if="active_solo_game">
+                    <Link :href="route('games.show', active_solo_game.uuid)">
+                        <Button>Resume Game <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ activeSoloGameStatusLabel(active_solo_game.status) }}</Badge></Button>
+                    </Link>
+                    <Button variant="outline" @click="playLive(campaign.id)">New Game</Button>
+                </template>
+                <Button v-else @click="playLive(campaign.id)">Play Live</Button>
                 <Link :href="route('campaigns.games.log', campaign.id)">
                     <Button variant="outline">Log Game</Button>
                 </Link>

@@ -280,8 +280,12 @@ class GameSetupController extends Controller
         }
 
         $validated = $request->validate([
-            'character_ids' => ['present', 'array'],
-            'character_ids.*' => ['integer', 'exists:characters,id'],
+            // CampaignArsenalModel row ids, not Character catalog ids — one
+            // entry per physical model hired, so owning several copies of the
+            // same catalog Character hires exactly the ones picked instead of
+            // every owned copy at once.
+            'arsenal_model_ids' => ['present', 'array'],
+            'arsenal_model_ids.*' => ['integer', 'exists:campaign_arsenal_models,id'],
             // Owned equipment (pg 19) optionally attached to a specific hire
             // (or the Leader) at selection time, instead of only during play.
             'equipment_assignments' => ['nullable', 'array'],
@@ -289,7 +293,7 @@ class GameSetupController extends Controller
             'equipment_assignments.*.target' => ['required', 'string'],
         ]);
 
-        $characterIds = array_map('intval', $validated['character_ids']);
+        $arsenalModelIds = array_map('intval', $validated['arsenal_model_ids']);
 
         $userId = Auth::id();
         $campaignGame = \App\Models\Campaign\CampaignGame::query()
@@ -324,16 +328,18 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Campaign crew not found — ensure you have an active campaign with a built leader for your faction.'], 422);
         }
 
-        if (! empty($characterIds)) {
-            $arsenalIds = \App\Models\Campaign\CampaignArsenalModel::query()
-                ->where('campaign_crew_id', $campaignCrew->id)
-                ->active()
-                ->pluck('character_id')
-                ->all();
+        $ownedArsenalModels = \App\Models\Campaign\CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $campaignCrew->id)
+            ->active()
+            ->get(['id', 'character_id'])
+            ->keyBy('id');
 
-            $outside = array_diff($characterIds, $arsenalIds);
+        if (! empty($arsenalModelIds)) {
+            $outside = array_diff($arsenalModelIds, $ownedArsenalModels->keys()->all());
             if (! empty($outside)) {
-                $names = Character::whereIn('id', $outside)->pluck('display_name')->implode(', ');
+                $names = \App\Models\Campaign\CampaignArsenalModel::whereIn('id', $outside)->with('character:id,display_name')->get()
+                    ->map(fn ($m) => $m->character->display_name ?? "#{$m->id}")
+                    ->implode(', ');
 
                 return response()->json(['error' => "Not in your campaign arsenal: {$names}"], 422);
             }
@@ -344,14 +350,14 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Build your campaign leader before selecting crew'], 422);
         }
 
-        $equipmentByTarget = $this->resolveEquipmentAssignments($campaignCrew, $characterIds, $validated['equipment_assignments'] ?? []);
+        $equipmentByTarget = $this->resolveEquipmentAssignments($campaignCrew, $arsenalModelIds, $validated['equipment_assignments'] ?? []);
         if (is_string($equipmentByTarget)) {
             return response()->json(['error' => $equipmentByTarget], 422);
         }
 
-        DB::transaction(function () use ($player, $game, $characterIds, $equipmentByTarget) {
+        DB::transaction(function () use ($player, $game, $arsenalModelIds, $equipmentByTarget) {
             $player->update(['crew_skipped' => true]);
-            $this->copyCrewToGame($game, $player, null, $characterIds, $equipmentByTarget);
+            $this->copyCrewToGame($game, $player, null, $arsenalModelIds, $equipmentByTarget);
 
             $totalSpent = GameCrewMember::where('game_id', $game->id)
                 ->where('game_player_id', $player->id)
@@ -634,10 +640,14 @@ class GameSetupController extends Controller
     }
 
     /**
-     * @param  array<int, int>  $campaignCharacterIds
-     * @param  array<string, array<int, array<string, mixed>>>  $equipmentByTarget  keyed by 'leader' or a character_id
+     * @param  array<int, int>  $campaignArsenalModelIds  CampaignArsenalModel row ids — one per
+     *                                                    physical model hired, so owning several
+     *                                                    copies of the same catalog Character
+     *                                                    hires exactly the ones selected rather
+     *                                                    than every owned copy.
+     * @param  array<int|string, array<int, array<string, mixed>>>  $equipmentByTarget  keyed by 'leader', 'totem', or a CampaignArsenalModel id
      */
-    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild, array $campaignCharacterIds = [], array $equipmentByTarget = []): void
+    private function copyCrewToGame(Game $game, GamePlayer $player, ?CrewBuild $crewBuild, array $campaignArsenalModelIds = [], array $equipmentByTarget = []): void
     {
         // Delete existing crew members for this player (in case of re-selection)
         GameCrewMember::where('game_id', $game->id)
@@ -747,29 +757,34 @@ class GameSetupController extends Controller
                 ->toArray();
 
             // Campaign crews hire from CampaignArsenalModel (real Character catalog
-            // rows), never a CrewBuild — the selected arsenal IDs come in directly
-            // from submitCampaignCrew rather than $crewBuild->crew_data.
-            $crewCharacters = Character::with('miniatures', 'keywords', 'characteristics')
-                ->whereIn('id', $campaignCharacterIds)
-                ->get()
-                ->keyBy('id');
-
-            // Injuries are attached per specific arsenal-model row (not per
-            // catalog character), so resolve which row backs each selected hire.
-            $arsenalModelsByCharacterId = $campaignCrew
+            // rows), never a CrewBuild — the selected arsenal row IDs come in
+            // directly from submitCampaignCrew rather than $crewBuild->crew_data.
+            // Keyed by the arsenal row's own id (not character_id) so owning
+            // several copies of the same catalog Character hires exactly the
+            // rows the player selected, each with its own injuries.
+            $arsenalModels = $campaignCrew
                 ? \App\Models\Campaign\CampaignArsenalModel::query()
                     ->where('campaign_crew_id', $campaignCrew->id)
-                    ->whereIn('character_id', $campaignCharacterIds)
+                    ->whereIn('id', $campaignArsenalModelIds)
                     ->active()
                     ->get()
-                    ->keyBy('character_id')
+                    ->keyBy('id')
                 : collect();
+
+            $crewCharacters = Character::with('miniatures', 'keywords', 'characteristics')
+                ->whereIn('id', $arsenalModels->pluck('character_id')->unique())
+                ->get()
+                ->keyBy('id');
 
             $miniatureSelections = [];
             $miniatureIndexes = [];
 
-            foreach ($campaignCharacterIds as $charId) {
-                $character = $crewCharacters->get($charId);
+            foreach ($campaignArsenalModelIds as $arsenalModelId) {
+                $arsenalModel = $arsenalModels->get($arsenalModelId);
+                if (! $arsenalModel) {
+                    continue;
+                }
+                $character = $crewCharacters->get($arsenalModel->character_id);
                 if (! $character) {
                     continue;
                 }
@@ -779,9 +794,8 @@ class GameSetupController extends Controller
                 $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
                 $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
 
-                $arsenalModel = $arsenalModelsByCharacterId->get($charId);
-                $injuryUpgrades = $arsenalModel ? $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id) : [];
-                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$charId] ?? []);
+                $injuryUpgrades = $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id);
+                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$arsenalModel->id] ?? []);
 
                 $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes, $attachedUpgrades);
             }
@@ -892,11 +906,11 @@ class GameSetupController extends Controller
      * your crew... without cost"). Returns an error string instead of the map
      * if any assignment is invalid.
      *
-     * @param  array<int, int>  $characterIds
+     * @param  array<int, int>  $arsenalModelIds  CampaignArsenalModel row ids being hired this game
      * @param  array<int, array{equipment_id: int, target: string}>  $assignments
-     * @return array<string, array<int, array<string, mixed>>>|string
+     * @return array<int|string, array<int, array<string, mixed>>>|string
      */
-    private function resolveEquipmentAssignments(\App\Models\Campaign\CampaignCrew $crew, array $characterIds, array $assignments): array|string
+    private function resolveEquipmentAssignments(\App\Models\Campaign\CampaignCrew $crew, array $arsenalModelIds, array $assignments): array|string
     {
         if (empty($assignments)) {
             return [];
@@ -919,7 +933,7 @@ class GameSetupController extends Controller
                 if (! $crew->totem) {
                     return "Equipment can't be assigned to a Totem — this crew hasn't unlocked one yet.";
                 }
-            } elseif ($target !== 'leader' && ! in_array($target, $characterIds, true)) {
+            } elseif ($target !== 'leader' && ! in_array($target, $arsenalModelIds, true)) {
                 return 'Equipment can only be assigned to the Leader, Totem, or a model you\'re hiring this game.';
             }
 

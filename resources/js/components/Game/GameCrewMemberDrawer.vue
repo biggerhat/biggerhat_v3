@@ -51,7 +51,12 @@ interface PreviewMember {
     back_image: string | null;
     notes?: string | null;
     attached_upgrades?: AttachedUpgrade[];
-    custom_character?: { actions: CustomCharacterAction[]; abilities: CustomCharacterAbility[] } | null;
+    custom_character?: {
+        actions: CustomCharacterAction[];
+        abilities: CustomCharacterAbility[];
+        front_image?: string | null;
+        back_image?: string | null;
+    } | null;
 }
 
 interface Miniature {
@@ -124,6 +129,13 @@ const currentSculptId = computed(() => {
     return String(match?.id ?? props.miniatures[0]?.id ?? '');
 });
 
+// Campaign Leader/Totem card art (pg 31, 52) lives on custom_character, not
+// the member's own front_image/back_image columns — those stay null for
+// custom rows (see GameSetupController::copyCrewToGame). Fall back to it so
+// the generated card renders once one exists, same as the inline expand view.
+const effectiveFrontImage = computed(() => props.member?.front_image ?? props.member?.custom_character?.front_image ?? null);
+const effectiveBackImage = computed(() => props.member?.back_image ?? props.member?.custom_character?.back_image ?? null);
+
 // Visual sculpt picker: dropdown is fast for keyboard users and power-users,
 // but picking by name alone is hard when half the sculpts share one. The
 // visual picker surfaces the card fronts in a scrollable grid.
@@ -171,12 +183,12 @@ const handleVisualPick = (miniatureId: number) => {
                         </Button>
                     </div>
                 </DrawerHeader>
-                <div v-if="member.front_image" class="px-4 pb-2">
+                <div v-if="effectiveFrontImage" class="px-4 pb-2">
                     <!-- Desktop: side-by-side combo view -->
                     <div class="hidden items-start justify-center gap-2 sm:flex">
                         <div class="relative">
                             <img
-                                :src="'/storage/' + member.front_image"
+                                :src="'/storage/' + effectiveFrontImage"
                                 :alt="member.display_name + ' front'"
                                 class="max-h-[65dvh] w-auto rounded-lg object-contain"
                             />
@@ -186,8 +198,8 @@ const handleVisualPick = (miniatureId: number) => {
                                 aria-label="View fullscreen"
                                 @click="
                                     emit('open-fullscreen', {
-                                        src: '/storage/' + member.front_image,
-                                        backSrc: member.back_image ? '/storage/' + member.back_image : null,
+                                        src: '/storage/' + effectiveFrontImage,
+                                        backSrc: effectiveBackImage ? '/storage/' + effectiveBackImage : null,
                                         title: member.display_name,
                                     })
                                 "
@@ -195,9 +207,9 @@ const handleVisualPick = (miniatureId: number) => {
                                 <Maximize2 class="size-3.5" />
                             </button>
                         </div>
-                        <div v-if="member.back_image" class="relative">
+                        <div v-if="effectiveBackImage" class="relative">
                             <img
-                                :src="'/storage/' + member.back_image"
+                                :src="'/storage/' + effectiveBackImage"
                                 :alt="member.display_name + ' back'"
                                 class="max-h-[65dvh] w-auto rounded-lg object-contain"
                             />
@@ -207,8 +219,8 @@ const handleVisualPick = (miniatureId: number) => {
                                 aria-label="View fullscreen"
                                 @click="
                                     emit('open-fullscreen', {
-                                        src: '/storage/' + member.back_image,
-                                        backSrc: '/storage/' + member.front_image,
+                                        src: '/storage/' + effectiveBackImage,
+                                        backSrc: '/storage/' + effectiveFrontImage,
                                         title: member.display_name,
                                     })
                                 "
@@ -220,20 +232,20 @@ const handleVisualPick = (miniatureId: number) => {
                     <!-- Mobile: flip card -->
                     <div class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
                         <CharacterCardView
-                            :key="member.front_image"
+                            :key="effectiveFrontImage"
                             :miniature="{
                                 id: member.id,
                                 display_name: member.display_name,
                                 slug: '',
-                                front_image: member.front_image,
-                                back_image: member.back_image,
+                                front_image: effectiveFrontImage,
+                                back_image: effectiveBackImage,
                             }"
                             :show-link="false"
                             :show-collection="false"
                         />
                     </div>
                 </div>
-                <!-- No card art (Campaign Leader/Totem) — render the JSON stat block instead (pg 31, 52). -->
+                <!-- No card art (Campaign Leader/Totem, before an image is generated) — render the JSON stat block instead (pg 31, 52). -->
                 <div
                     v-else-if="member.custom_character && (member.custom_character.actions.length || member.custom_character.abilities.length)"
                     class="space-y-2 px-4 pb-2"

@@ -83,7 +83,11 @@ const props = defineProps<{
 }>();
 
 const generatePDF = () => {
-    window.open(route('tools.bonanza_loot_deck.print'), '_blank');
+    // Cache-buster: the server sends Cache-Control: no-store on this route,
+    // but a CDN/proxy in front of the app may not honor that for a PDF
+    // response — a fresh query string guarantees this click isn't served an
+    // old cached copy of the exact same URL.
+    window.open(route('tools.bonanza_loot_deck.print') + '?v=' + Date.now(), '_blank');
 };
 
 const suitFilter = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');

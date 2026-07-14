@@ -222,6 +222,9 @@ const submit = () => {
             </Card>
         </div>
 
+        <p v-if="totalScripCost > crew.scrip" class="mt-4 text-right text-xs text-destructive">
+            Not enough scrip — needs {{ totalScripCost }}, have {{ crew.scrip }}.
+        </p>
         <div class="mt-8 flex justify-end gap-2">
             <Link :href="route('campaigns.crews.arsenal.show', [campaign.id, crew.share_code])">
                 <Button variant="outline">Cancel</Button>

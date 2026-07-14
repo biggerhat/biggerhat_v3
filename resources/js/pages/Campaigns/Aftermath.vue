@@ -104,8 +104,6 @@ const props = defineProps<{
     doctor_results?: DoctorResultRow[] | null;
     injury_catalog?: InjuryCatalogRow[] | null;
     traitor_target_crews?: TraitorCrewRow[] | null;
-    // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
-    eligible_masters?: Array<{ id: number; name: string }> | null;
     // Constrained pool for crew cards that require a token/marker/upgrade
     // choice (pg 17-18) — same pool Starting Arsenal uses.
     crew_card_choice_options?: CrewCardChoiceOptions | null;
@@ -290,10 +288,14 @@ interface CatalogRow {
     requires_token_choice?: boolean;
     requires_marker_choice?: boolean;
     requires_upgrade_type_choice?: boolean;
-    // Crew Card table only — the master this card is actually printed on
-    // (null = generic, listed directly rather than via the Master cascade).
-    master_id?: number | null;
-    master_name?: string | null;
+    // Crew Card table only — which of the two Tier-4 pools this row came from
+    // (pg 32, 54): the fixed generic catalog, or a real keyword-matched Crew
+    // Card Upgrade. Submitted back as crew_card_source alongside catalog_id.
+    source?: 'campaign_crew_card' | 'crew_upgrade';
+    // crew_upgrade rows only — tokens/markers granted directly alongside the
+    // card's actions/abilities (no separate constrained-pool choice step).
+    tokens?: Array<{ id: number; name: string }>;
+    markers?: Array<{ id: number; name: string }>;
 }
 interface ChoiceOption {
     // int for a token/marker, enum-value string for an upgrade type.
@@ -388,10 +390,6 @@ interface AdvDraft {
     // Crew Card table only (pg 17-18): the token/marker/upgrade-type pick a
     // borrowed effect requires, if any.
     crew_card_choice_id: number | string | null;
-    // Crew Card table only: true while the player is browsing a specific
-    // master's own cards (the "Choose from a Master" cascade) rather than
-    // picking a generic row directly from the flat list.
-    crew_card_master_mode: boolean;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -433,7 +431,6 @@ watch(
                     free_choice_source_character_id: null,
                     free_choice_label: null,
                     crew_card_choice_id: null,
-                    crew_card_master_mode: false,
                 };
             }
         }
@@ -455,7 +452,6 @@ const onSourceTableChange = (position: number) => {
     d.free_choice_source_character_id = null;
     d.free_choice_label = null;
     d.crew_card_choice_id = null;
-    d.crew_card_master_mode = false;
 };
 
 const onCatalogChange = (position: number) => {
@@ -465,11 +461,9 @@ const onCatalogChange = (position: number) => {
         const row = catalogRowsFor('totem').find((r) => r.id === d.catalog_id);
         d.totem_name = row?.name ?? null;
     }
-    // Switching away from the Any Joker row clears a stale free pick. Crew
-    // Card rows carry their own master attribution via free_choice_source_
-    // character_id (set by the Master cascade below) and must keep it.
+    // Switching away from the Any Joker row clears a stale free pick.
     const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
-    if (!row?.is_joker && d.source_table !== 'crew_card') {
+    if (!row?.is_joker) {
         d.free_choice_source_id = null;
         d.free_choice_source_character_id = null;
         d.free_choice_label = null;
@@ -480,48 +474,6 @@ const onCatalogChange = (position: number) => {
     // the previously-selected action might no longer be eligible.
     d.applied_to_action_index = -1;
     d.applied_to_action_id = null;
-};
-
-// ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
-// Top-level list mixes generic (master_id === null) rows with a "Choose from
-// a Master" sentinel; picking that reveals a Master select, then a second
-// select scoped to that master's own rows — so the stored attribution always
-// matches the actual card, instead of an unrelated free-text "borrowed from".
-const CREW_CARD_FROM_MASTER = '__from_master__';
-
-const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
-
-const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
-
-const onCrewCardTopChange = (position: number, v: string) => {
-    const d = advDrafts.value[position];
-    if (!d) return;
-    if (v === CREW_CARD_FROM_MASTER) {
-        d.crew_card_master_mode = true;
-        d.catalog_id = null;
-        d.free_choice_source_character_id = null;
-        d.crew_card_choice_id = null;
-        return;
-    }
-    d.crew_card_master_mode = false;
-    d.free_choice_source_character_id = null;
-    d.catalog_id = v === '__none__' ? null : Number(v);
-    onCatalogChange(position);
-};
-
-const onCrewCardMasterChange = (position: number, v: string) => {
-    const d = advDrafts.value[position];
-    if (!d) return;
-    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
-    d.catalog_id = null;
-    d.crew_card_choice_id = null;
-};
-
-const onCrewCardMasterRowChange = (position: number, v: string) => {
-    const d = advDrafts.value[position];
-    if (!d) return;
-    d.catalog_id = v === '__none__' ? null : Number(v);
-    onCatalogChange(position);
 };
 
 // ───────── Any Joker free-choice search (Action/Ability tables, pg 49/51) ─────────
@@ -695,9 +647,11 @@ const submitAdvanceLeader = () => {
                 const isAbility = d.source_table === 'ability';
                 const isSummoning = d.source_table === 'summoning';
                 const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
+                const isCrewCard = d.source_table === 'crew_card';
                 return {
                     source_table: d.source_table,
                     catalog_id: d.catalog_id,
+                    crew_card_source: isCrewCard ? (selectedDraftRow(adv.position_in_xp_track)?.source ?? 'campaign_crew_card') : undefined,
                     applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
                     applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
                     applied_to_custom_character_id:
@@ -1053,6 +1007,9 @@ const finalize = () =>
                         </Button>
                     </div>
                 </div>
+                <p v-if="barterTotalCc > aftermath.crew.scrip" class="text-right text-xs text-destructive">
+                    Not enough scrip — needs {{ barterTotalCc }}, have {{ aftermath.crew.scrip }}.
+                </p>
             </CardContent>
         </Card>
 
@@ -1158,7 +1115,6 @@ const finalize = () =>
                                 </SelectContent>
                             </Select>
                             <Select
-                                v-if="advDrafts[adv.position_in_xp_track].source_table !== 'crew_card'"
                                 :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
                                 @update:model-value="
                                     (v) => {
@@ -1177,84 +1133,27 @@ const finalize = () =>
                                         :key="row.id"
                                         :value="row.id.toString()"
                                     >
-                                        {{ row.name }}
+                                        {{ row.name }}<template v-if="row.source === 'crew_upgrade'"> (keyword-matched)</template>
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <!-- Crew Card: flat list of generic effects, or cascade Master → their own card (pg 32, 54) -->
-                            <div v-if="advDrafts[adv.position_in_xp_track].source_table === 'crew_card'" class="space-y-2">
-                                <Select
-                                    :model-value="
-                                        advDrafts[adv.position_in_xp_track].crew_card_master_mode
-                                            ? CREW_CARD_FROM_MASTER
-                                            : (advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__')
-                                    "
-                                    @update:model-value="(v) => onCrewCardTopChange(adv.position_in_xp_track, v as string)"
-                                >
-                                    <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                        <SelectValue placeholder="— pick a row —" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">— pick a row —</SelectItem>
-                                        <SelectItem :value="CREW_CARD_FROM_MASTER">Choose from a Master…</SelectItem>
-                                        <SelectItem v-for="row in crewCardGenericRows" :key="row.id" :value="row.id.toString()">
-                                            {{ row.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <div v-if="advDrafts[adv.position_in_xp_track].crew_card_master_mode" class="space-y-2 rounded border p-2">
-                                    <div>
-                                        <Label class="text-[11px] text-muted-foreground">Master</Label>
-                                        <Select
-                                            :model-value="
-                                                advDrafts[adv.position_in_xp_track].free_choice_source_character_id?.toString() ?? '__none__'
-                                            "
-                                            @update:model-value="(v) => onCrewCardMasterChange(adv.position_in_xp_track, v as string)"
-                                        >
-                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                <SelectValue placeholder="— pick a master —" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__none__">— pick a master —</SelectItem>
-                                                <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
-                                                    m.name
-                                                }}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div v-if="advDrafts[adv.position_in_xp_track].free_choice_source_character_id !== null">
-                                        <Label class="text-[11px] text-muted-foreground">Their Crew Card</Label>
-                                        <Select
-                                            :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
-                                            @update:model-value="(v) => onCrewCardMasterRowChange(adv.position_in_xp_track, v as string)"
-                                        >
-                                            <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                <SelectValue placeholder="— pick a card —" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__none__">— pick a card —</SelectItem>
-                                                <SelectItem
-                                                    v-for="row in crewCardRowsForMaster(
-                                                        advDrafts[adv.position_in_xp_track].free_choice_source_character_id,
-                                                    )"
-                                                    :key="row.id"
-                                                    :value="row.id.toString()"
-                                                    >{{ row.name }}</SelectItem
-                                                >
-                                            </SelectContent>
-                                        </Select>
-                                        <p
-                                            v-if="
-                                                crewCardRowsForMaster(advDrafts[adv.position_in_xp_track].free_choice_source_character_id).length ===
-                                                0
-                                            "
-                                            class="mt-1 text-[11px] text-muted-foreground"
-                                        >
-                                            No Crew Card catalog rows are linked to this master yet.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <!-- Crew Card: tokens/markers a keyword-matched Crew Card Upgrade grants directly (pg 32, 54) -->
+                            <p
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
+                                    ((selectedDraftRow(adv.position_in_xp_track)?.tokens?.length ?? 0) > 0 ||
+                                        (selectedDraftRow(adv.position_in_xp_track)?.markers?.length ?? 0) > 0)
+                                "
+                                class="text-[11px] text-muted-foreground"
+                            >
+                                Also grants:
+                                <template v-for="t in selectedDraftRow(adv.position_in_xp_track)?.tokens ?? []" :key="'t' + t.id"
+                                    >{{ t.name }} token
+                                </template>
+                                <template v-for="m in selectedDraftRow(adv.position_in_xp_track)?.markers ?? []" :key="'m' + m.id"
+                                    >{{ m.name }} marker
+                                </template>
+                            </p>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                             <div v-if="isSelectedRowJoker(adv.position_in_xp_track)" class="space-y-1 rounded border p-2">
                                 <p v-if="advDrafts[adv.position_in_xp_track].free_choice_label" class="text-xs font-medium">
@@ -1608,6 +1507,9 @@ const finalize = () =>
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
                 </div>
+                <p v-if="doctorAttempts.length > aftermath.crew.scrip" class="text-right text-xs text-destructive">
+                    Not enough scrip — doctor attempts cost {{ doctorAttempts.length }}, have {{ aftermath.crew.scrip }}.
+                </p>
             </CardContent>
         </Card>
 

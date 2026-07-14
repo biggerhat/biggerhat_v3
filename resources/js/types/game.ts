@@ -54,6 +54,7 @@ export interface CrewMember {
     willpower: number | null;
     speed: number | null;
     size: number | null;
+    characteristics: string[];
     cost: number;
     station: string | null;
     hiring_category: string;

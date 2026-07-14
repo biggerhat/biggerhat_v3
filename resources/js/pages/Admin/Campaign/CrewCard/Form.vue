@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
-import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
@@ -20,6 +18,11 @@ interface ActionOption {
     type: string | null;
 }
 
+interface AbilityOption {
+    id: number;
+    name: string;
+}
+
 interface SelectedAction {
     id: string;
     name: string;
@@ -27,12 +30,15 @@ interface SelectedAction {
     is_signature: boolean;
 }
 
+interface SelectedAbility {
+    id: string;
+    name: string;
+}
+
 interface CrewCardRow {
     id: number;
     name: string;
     description: string | null;
-    master_id: number | null;
-    master_type: 'official' | 'custom' | null;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -43,39 +49,19 @@ interface CrewCardRow {
 const props = defineProps<{
     item?: CrewCardRow | null;
     all_actions: ActionOption[];
-    all_abilities: { id: number; name: string }[];
-    masters: { id: number; display_name: string }[];
-    custom_masters: { id: number; display_name: string }[];
+    all_abilities: AbilityOption[];
 }>();
 
 const form = ref({
     name: '',
     description: null as string | null,
-    master_id: null as number | null,
-    master_type: null as 'official' | 'custom' | null,
     requires_token_choice: false,
     requires_marker_choice: false,
     requires_upgrade_type_choice: false,
-    ability_ids: [] as string[],
 });
 
-// The master Select combines official masters and custom-built Campaign
-// Leaders into one dropdown; the option value encodes which table the id
-// belongs to ("official:5" / "custom:3") since ids collide across tables.
-const masterSelectValue = computed(() => (form.value.master_id ? `${form.value.master_type ?? 'official'}:${form.value.master_id}` : '__none__'));
-const onMasterSelect = (v: string) => {
-    if (v === '__none__') {
-        form.value.master_id = null;
-        form.value.master_type = null;
-        return;
-    }
-    const [type, id] = v.split(':');
-    form.value.master_type = type as 'official' | 'custom';
-    form.value.master_id = Number(id);
-};
-
-// Actions are managed as a list of {id, name, type, is_signature} objects
-// so each entry can carry the pivot signature flag.
+// Actions are managed as a list of {id, name, type, is_signature, borrow_exclusion}
+// objects so each entry can carry its own pivot data.
 const selectedActions = ref<SelectedAction[]>([]);
 
 // Action search — filter all_actions by name, excluding already-selected ids.
@@ -93,10 +79,28 @@ const addAction = (opt: ActionOption) => {
 
 const removeAction = (idx: number) => selectedActions.value.splice(idx, 1);
 
+// Abilities: same inline list pattern as actions, minus the type/signature fields.
+const selectedAbilities = ref<SelectedAbility[]>([]);
+
+const abilitySearch = ref('');
+const filteredAbilityOptions = computed(() => {
+    const q = abilitySearch.value.toLowerCase().trim();
+    const selectedIds = new Set(selectedAbilities.value.map((a) => a.id));
+    return props.all_abilities.filter((a) => !selectedIds.has(String(a.id)) && (!q || a.name.toLowerCase().includes(q)));
+});
+
+const addAbility = (opt: AbilityOption) => {
+    selectedAbilities.value.push({ id: String(opt.id), name: opt.name });
+    abilitySearch.value = '';
+};
+
+const removeAbility = (idx: number) => selectedAbilities.value.splice(idx, 1);
+
 const submit = () => {
     const payload = {
         ...form.value,
         actions: selectedActions.value.map((a) => ({ id: Number(a.id), is_signature: a.is_signature })),
+        abilities: selectedAbilities.value.map((a) => ({ id: Number(a.id) })),
     };
     if (props.item) router.post(route('admin.campaign.crew-cards.update', props.item.id), payload);
     else router.post(route('admin.campaign.crew-cards.store'), payload);
@@ -106,20 +110,21 @@ onMounted(() => {
     if (!props.item) return;
     form.value.name = props.item.name;
     form.value.description = props.item.description;
-    form.value.master_id = props.item.master_id;
-    form.value.master_type = props.item.master_type;
     form.value.requires_token_choice = props.item.requires_token_choice;
     form.value.requires_marker_choice = props.item.requires_marker_choice;
     form.value.requires_upgrade_type_choice = props.item.requires_upgrade_type_choice;
-    form.value.ability_ids = props.item.abilities.map((a) => String(a.id));
 
-    // Pre-populate selected actions from existing pivot data.
+    // Pre-populate selected actions/abilities from existing pivot data.
     const actionLookup = new Map(props.all_actions.map((a) => [a.id, a]));
     selectedActions.value = props.item.actions.map((a) => ({
         id: String(a.id),
         name: a.name,
         type: actionLookup.get(a.id)?.type ?? null,
         is_signature: a.is_signature,
+    }));
+    selectedAbilities.value = props.item.abilities.map((a) => ({
+        id: String(a.id),
+        name: a.name,
     }));
 });
 </script>
@@ -142,43 +147,12 @@ onMounted(() => {
                     <Textarea id="description" v-model="form.description" rows="5" placeholder="The rule text that appears on the card..." />
                     <InputError :message="usePage().props.errors.description" />
                 </div>
-                <div>
-                    <Label>Master</Label>
-                    <p class="mb-1 text-xs text-muted-foreground">
-                        The master this card is actually printed on. Leave unset for a generic effect not tied to one master.
-                    </p>
-                    <Select :model-value="masterSelectValue" @update:model-value="(v) => onMasterSelect(v as string)">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="— generic, no master —" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">— generic, no master —</SelectItem>
-                            <SelectGroup>
-                                <SelectLabel>Official Masters</SelectLabel>
-                                <SelectItem v-for="m in masters" :key="'official:' + m.id" :value="'official:' + m.id">{{ m.display_name }}</SelectItem>
-                            </SelectGroup>
-                            <SelectGroup v-if="custom_masters.length">
-                                <SelectLabel>Custom Campaign Leaders</SelectLabel>
-                                <SelectItem v-for="m in custom_masters" :key="'custom:' + m.id" :value="'custom:' + m.id">
-                                    {{ m.display_name }}
-                                </SelectItem>
-                            </SelectGroup>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="usePage().props.errors.master_id" />
-                    <InputError :message="usePage().props.errors.master_type" />
-                </div>
-
                 <!-- Actions: inline list with per-action signature checkbox -->
                 <div>
                     <Label>Linked Actions</Label>
                     <div class="mt-1 space-y-1">
                         <EmptyState v-if="selectedActions.length === 0" compact title="No actions linked yet" description="" />
-                        <div
-                            v-for="(action, idx) in selectedActions"
-                            :key="action.id + '-' + idx"
-                            class="flex items-center gap-2 rounded-md border px-2 py-1.5"
-                        >
+                        <div v-for="(action, idx) in selectedActions" :key="action.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
                             <span class="flex-1 truncate text-sm font-medium">{{ action.name }}</span>
                             <Badge v-if="action.type" variant="secondary" class="shrink-0 px-1 py-0 text-[10px]">{{ action.type }}</Badge>
                             <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
@@ -212,16 +186,37 @@ onMounted(() => {
                     <InputError :message="usePage().props.errors['actions']" />
                 </div>
 
+                <!-- Abilities: same inline list pattern as Actions -->
                 <div>
                     <Label>Linked Abilities</Label>
-                    <SearchableMultiselect
-                        v-model="form.ability_ids"
-                        placeholder="Search abilities..."
-                        :options="all_abilities"
-                        option-value="id"
-                        option-label="name"
-                    />
-                    <InputError :message="usePage().props.errors.ability_ids" />
+                    <div class="mt-1 space-y-1">
+                        <EmptyState v-if="selectedAbilities.length === 0" compact title="No abilities linked yet" description="" />
+                        <div v-for="(ability, idx) in selectedAbilities" :key="ability.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                            <span class="flex-1 truncate text-sm font-medium">{{ ability.name }}</span>
+                            <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAbility(idx)">
+                                <X class="size-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Search to add more abilities -->
+                    <div class="relative mt-2">
+                        <Input v-model="abilitySearch" placeholder="Search abilities to add..." class="h-8 text-sm" />
+                        <div
+                            v-if="abilitySearch.length > 0 && filteredAbilityOptions.length"
+                            class="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md"
+                        >
+                            <button
+                                v-for="opt in filteredAbilityOptions"
+                                :key="opt.id"
+                                class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                @click="addAbility(opt)"
+                            >
+                                <span class="flex-1 truncate">{{ opt.name }}</span>
+                            </button>
+                            <p v-if="filteredAbilityOptions.length === 0" class="px-2 py-1.5 text-xs text-muted-foreground">No matches.</p>
+                        </div>
+                    </div>
+                    <InputError :message="usePage().props.errors['abilities']" />
                 </div>
 
                 <div class="space-y-2">

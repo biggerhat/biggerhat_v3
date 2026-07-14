@@ -29,6 +29,8 @@ use Illuminate\Support\Str;
  * @property int|null $keyword_1_id
  * @property int|null $keyword_2_id
  * @property int|null $crew_card_effect_id
+ * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
+ * @property string|null $crew_card_front_image generated image combining the starter effect + every held Tier-4 borrow — see CombinedCrewCardEffects
  * @property int $scrip
  * @property int $total_wins
  * @property \Carbon\CarbonImmutable|null $retired_at

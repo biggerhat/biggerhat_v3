@@ -64,6 +64,10 @@ class StoreLeaderAdvancementRequest extends FormRequest
             // server-side against the constrained pool, this is just the id.
             'crew_card_choice' => ['nullable', 'array'],
             'crew_card_choice.id' => ['nullable'],
+            // Crew Card table (pg 32, 54): which of the two Tier-4 pools
+            // catalog_id resolves against — the fixed generic catalog
+            // (default) or a real keyword-matched Crew Card Upgrade.
+            'crew_card_source' => ['nullable', 'string', 'in:campaign_crew_card,crew_upgrade'],
         ];
     }
 }

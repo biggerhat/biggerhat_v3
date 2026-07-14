@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\Campaign\CrewCardBorrowExclusionEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\CrewUpgradeRestrictionEnum;
 use App\Enums\FactionEnum;
@@ -48,6 +49,7 @@ class CrewAdminController extends Controller
                 'id' => $action->id,
                 'restriction' => $action->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'is_signature' => (bool) $action->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'borrow_exclusion' => $action->pivot->borrow_exclusion, // @phpstan-ignore property.notFound (pivot from MorphToMany)
             ];
         }
         foreach ($upgrade->abilities as $ability) {
@@ -56,6 +58,7 @@ class CrewAdminController extends Controller
                 'id' => $ability->id,
                 'restriction' => $ability->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'is_signature' => false,
+                'borrow_exclusion' => $ability->pivot->borrow_exclusion, // @phpstan-ignore property.notFound (pivot from MorphToMany)
             ];
         }
         foreach ($upgrade->triggers as $trigger) {
@@ -64,6 +67,7 @@ class CrewAdminController extends Controller
                 'id' => $trigger->id,
                 'restriction' => $trigger->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'is_signature' => false,
+                'borrow_exclusion' => $trigger->pivot->borrow_exclusion, // @phpstan-ignore property.notFound (pivot from MorphToMany)
             ];
         }
 
@@ -138,6 +142,11 @@ class CrewAdminController extends Controller
             'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name'])->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
             'triggers' => fn () => Trigger::orderBy('name')->get(['id', 'name'])->map(fn (Trigger $t) => ['id' => $t->id, 'name' => $t->name]),
             'crew_upgrade_restrictions' => fn () => CrewUpgradeRestrictionEnum::toSelectOptions(),
+            // Tier-4 Crew Card Advancement (pg 32, 54) may not borrow an
+            // effect referencing a power bar or causing a card swap — flag
+            // which of this Crew Upgrade's own actions/abilities/triggers
+            // are excluded from that borrowing pool.
+            'borrow_exclusion_options' => fn () => CrewCardBorrowExclusionEnum::toSelectOptions(),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ];
     }
@@ -167,6 +176,7 @@ class CrewAdminController extends Controller
             'upgradeable_rows.*.id' => ['required', 'integer'],
             'upgradeable_rows.*.restriction' => ['nullable', 'string', Rule::enum(CrewUpgradeRestrictionEnum::class)],
             'upgradeable_rows.*.is_signature' => ['sometimes', 'boolean'],
+            'upgradeable_rows.*.borrow_exclusion' => ['nullable', 'string', Rule::enum(CrewCardBorrowExclusionEnum::class)],
             'hiring_rules_type' => ['nullable', 'string', 'in:fixed_crew,required_hires'],
             'alternate_leader' => ['nullable', 'integer', 'exists:characters,id'],
             'any_faction' => ['nullable'],
@@ -257,14 +267,16 @@ class CrewAdminController extends Controller
         $upgrade->actions()->sync([]);
         foreach ($upgradeableRows as $row) {
             $restriction = $row['restriction'] ?? null;
+            $borrowExclusion = $row['borrow_exclusion'] ?? null;
             $id = (int) $row['id'];
             match ($row['type']) {
                 'action' => $upgrade->actions()->attach($id, [
                     'is_signature_action' => (bool) ($row['is_signature'] ?? false),
                     'restriction' => $restriction,
+                    'borrow_exclusion' => $borrowExclusion,
                 ]),
-                'ability' => $abilitySync[$id] = ['restriction' => $restriction],
-                'trigger' => $triggerSync[$id] = ['restriction' => $restriction],
+                'ability' => $abilitySync[$id] = ['restriction' => $restriction, 'borrow_exclusion' => $borrowExclusion],
+                'trigger' => $triggerSync[$id] = ['restriction' => $restriction, 'borrow_exclusion' => $borrowExclusion],
                 default => throw new \UnexpectedValueException("Unknown upgradeable row type: {$row['type']}"),
             };
         }

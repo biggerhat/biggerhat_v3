@@ -102,6 +102,20 @@ class CustomCharacterController extends Controller
     {
         $this->authorize('delete', $customCharacter);
 
+        // A Campaign Leader/Totem is referenced by that crew's advancement
+        // log, injuries, and every game it's been hired into — deleting it
+        // here (soft-delete, but Eloquent's global scope hides it from every
+        // normal query just the same) silently breaks the crew, with no
+        // affordance in this generic editor to reassign a replacement.
+        // Checked regardless of `current`: a superseded (replaced) Leader
+        // row is still the historical record for past logged games.
+        if ($customCharacter->is_campaign_leader || $customCharacter->is_campaign_totem) {
+            return response()->json([
+                'success' => false,
+                'message' => "{$customCharacter->display_name} is tied to a Campaign crew and can't be deleted here — it's still referenced by that crew's advancement log and game history.",
+            ], 422);
+        }
+
         $customCharacter->delete();
 
         return response()->json(['success' => true]);

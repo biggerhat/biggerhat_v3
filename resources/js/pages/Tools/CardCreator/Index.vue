@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/composables/useToast';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -25,6 +26,9 @@ interface CustomCharacter {
     health: number;
     share_code: string;
     updated_at: string;
+    // Campaign Leader/Totem instances can't be deleted here — see performDelete().
+    is_campaign_leader: boolean;
+    is_campaign_totem: boolean;
 }
 
 interface CustomUpgrade {
@@ -45,16 +49,25 @@ const props = defineProps<{
     upgrades: CustomUpgrade[];
 }>();
 
+const toast = useToast();
+
 const activeTab = ref<'characters' | 'crew_cards' | 'upgrades'>('characters');
 
 const crewCards = computed(() => props.upgrades.filter((u) => u.domain === 'crew'));
 const characterUpgrades = computed(() => props.upgrades.filter((u) => u.domain === 'character'));
+
+// A Leader/Totem tied to a Campaign crew can't be deleted here — it's still
+// referenced by that crew's advancement log and every game it's been hired
+// into. Server-enforced (see CustomCharacterController::destroy()); this
+// just keeps the user from hitting the error in the first place.
+const isCampaignLinked = (character: CustomCharacter) => character.is_campaign_leader || character.is_campaign_totem;
 
 const deleteDialogOpen = ref(false);
 const deleteTarget = ref<{ id: number; display_name: string; type: 'character' | 'upgrade' } | null>(null);
 const deleting = ref(false);
 
 const confirmDeleteCharacter = (character: CustomCharacter) => {
+    if (isCampaignLinked(character)) return;
     deleteTarget.value = { id: character.id, display_name: character.display_name, type: 'character' };
     deleteDialogOpen.value = true;
 };
@@ -71,12 +84,20 @@ const performDelete = async () => {
         deleteTarget.value.type === 'character'
             ? route('tools.card_creator.destroy', deleteTarget.value.id)
             : route('tools.card_creator.upgrades.destroy', deleteTarget.value.id);
-    await fetch(deleteRoute, {
+    const response = await fetch(deleteRoute, {
         method: 'DELETE',
         headers: { 'X-CSRF-TOKEN': csrfToken() },
     });
     deleting.value = false;
     deleteDialogOpen.value = false;
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        toast.error(body?.message ?? 'Could not delete — please try again.');
+        deleteTarget.value = null;
+        return;
+    }
+
     deleteTarget.value = null;
     router.reload({ only: ['characters', 'upgrades'] });
 };
@@ -175,6 +196,7 @@ const stationLabel = (station: string | null) => {
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
                             <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white">Campaign</Badge>
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
@@ -204,8 +226,10 @@ const stationLabel = (station: string | null) => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs text-destructive hover:bg-destructive/10"
-                                    aria-label="Delete"
+                                    :disabled="isCampaignLinked(character)"
+                                    :class="['text-xs', !isCampaignLinked(character) && 'text-destructive hover:bg-destructive/10']"
+                                    :aria-label="isCampaignLinked(character) ? 'Cannot delete — tied to a Campaign crew' : 'Delete'"
+                                    :title="isCampaignLinked(character) ? 'Tied to a Campaign crew — delete from the crew instead' : undefined"
                                     @click="confirmDeleteCharacter(character)"
                                 >
                                     <Trash2 class="size-3" />

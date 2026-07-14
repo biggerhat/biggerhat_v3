@@ -4,27 +4,29 @@ namespace App\Models\Campaign;
 
 use App\Models\Ability;
 use App\Models\Action;
-use App\Models\Character;
-use App\Models\CustomCharacter;
 use Database\Factories\Campaign\CampaignCrewCardFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * A starting Crew Card option for the Starting Arsenal wizard (pg 15).
+ * A starting Crew Card option for the Starting Arsenal wizard (pg 15) —
+ * also borrowable via Tier-4 Crew Card Advancement (pg 32, 54) as the
+ * always-generic fallback pool alongside the real, keyword-matched
+ * Crew Card Upgrade catalog (see AftermathCatalog::advancementCatalogs()).
  *
  * These replace the interim approach of tagging Ability rows with
  * is_crew_card_effect=true — crew cards can have richer structure than
  * a single ability description allows.
  *
+ * Deliberately has no "master this is printed on" field — it's a shared
+ * catalog row any crew can pick, so any master/faction theming is derived
+ * live from the holding crew's own current Leader at display time instead.
+ *
  * @property int $id
  * @property string $name
  * @property string|null $description
- * @property int|null $master_id the master this card is actually printed on (nullable — some rows are generic/unassigned)
- * @property string|null $master_type Character::class or CustomCharacter::class — a Crew Card can be printed on a custom-built Campaign Leader, not just an official master
  * @property bool $requires_token_choice
  * @property bool $requires_marker_choice
  * @property bool $requires_upgrade_type_choice
@@ -33,7 +35,6 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
- * @property-read Character|CustomCharacter|null $master
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
@@ -79,14 +80,5 @@ class CampaignCrewCard extends Model
     public function crews(): HasMany
     {
         return $this->hasMany(CampaignCrew::class, 'crew_card_effect_id');
-    }
-
-    /**
-     * The master this card is actually printed on — either an official
-     * Character or a custom-built Campaign Leader (CustomCharacter).
-     */
-    public function master(): MorphTo
-    {
-        return $this->morphTo();
     }
 }

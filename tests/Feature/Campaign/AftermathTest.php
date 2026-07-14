@@ -428,6 +428,30 @@ it('Phase 6 red joker sends the model to the Lucky Miss table instead of an inju
     expect($model->fresh()->gained_lucky_miss_ids)->toEqual([$luckyMiss->id]);
 });
 
+it('Phase 6 red joker with an Ability-linked Lucky Miss permanently grants that Ability to the model', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Uncanny Luck']);
+    $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['flip_value' => 8, 'is_doppelganger' => false, 'ability_id' => $ability->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['arsenal_model_id' => $model->id, 'is_red_joker' => true, 'lucky_miss_flip_value' => 8],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($model->fresh()->gained_lucky_miss_ids)->toEqual([$luckyMiss->id]);
+    expect($model->fresh()->gainedAbilities->pluck('name')->all())->toBe(['Uncanny Luck']);
+});
+
 it('Phase 6 black joker (Traitor) defects the model to the opponent crew with its injuries', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1522,9 +1546,7 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
     $starterEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Starter Effect']);
     $crew->update(['crew_card_effect_id' => $starterEffect->id]);
 
-    // A generic (master_id null) row — one of the book-native starting crew
-    // card effects (pg 15-16), not tied to any master. Rulebook confirms this
-    // path needs no master attribution at all, unlike a master-tied pick.
+    // One of the book-native starting crew card effects (pg 15-16).
     $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Effect']);
 
     $this->actingAs($user)
@@ -1546,8 +1568,7 @@ it('Phase 4 Crew Card advancement stacks onto CampaignCrewCardAdvancement withou
     $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
     expect($stacked)->toHaveCount(1);
     expect($stacked->first()->crew_card_effect_id)->toBe($borrowedEffect->id);
-    expect($stacked->first()->source_master_id)->toBeNull();
-    expect($stacked->first()->source_master_type)->toBeNull();
+    expect($stacked->first()->crew_card_effect_type)->toBe(\App\Models\Campaign\CampaignCrewCard::class);
 });
 
 it('Phase 4 Crew Card advancement requiring a token choice stores the resolved pick, and rejects one outside the pool', function () {
@@ -1610,7 +1631,7 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
     expect($stacked->crew_card_choice)->toMatchArray(['type' => 'token', 'id' => $token->id, 'name' => 'Fast']);
 });
 
-it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outside the leader\'s keywords', function () {
+it('advancement_catalogs.crew_card includes a keyword-matched Crew Card Upgrade, tagged crew_upgrade', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1618,14 +1639,67 @@ it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outs
         'current_phase' => 4,
         'hand_drawn' => [],
     ]);
-    $leaderKeyword = \App\Models\Keyword::factory()->create();
-    $otherKeyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $leaderKeyword->id, 'name' => $leaderKeyword->name]]]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
 
-    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $master->keywords()->attach($otherKeyword);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($master)->create();
+    $matching = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value, 'name' => 'Matching Card']);
+    $matching->keywords()->attach($keyword);
+    $unrelatedKeyword = \App\Models\Keyword::factory()->create();
+    $nonMatching = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value, 'name' => 'Non-Matching Card']);
+    $nonMatching->keywords()->attach($unrelatedKeyword);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($matching, $nonMatching) {
+            $rows = collect($rows);
+            $match = $rows->firstWhere('id', $matching->id);
+
+            return $match
+                && $match['source'] === 'crew_upgrade'
+                && ! $rows->contains(fn ($r) => $r['id'] === $nonMatching->id && ($r['source'] ?? null) === 'crew_upgrade');
+        }));
+});
+
+it('advancement_catalogs.crew_card excludes a keyword-matched Crew Card Upgrade with a power-bar-excluded action (pg 32, 54)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $excluded = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $excluded->keywords()->attach($keyword);
+    $action = \App\Models\Action::factory()->create();
+    $excluded->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', fn ($rows) => ! collect($rows)
+            ->contains(fn ($r) => $r['id'] === $excluded->id && ($r['source'] ?? null) === 'crew_upgrade')));
+});
+
+it('Phase 4 Crew Card advancement (crew_upgrade source) grants a keyword-matched Crew Card Upgrade', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($keyword);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
@@ -1634,7 +1708,43 @@ it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outs
             'lost' => false,
             'advancements' => [[
                 'source_table' => 'crew_card',
-                'catalog_id' => $borrowedEffect->id,
+                'catalog_id' => $upgrade->id,
+                'crew_card_source' => 'crew_upgrade',
+                'position_in_xp_track' => 6,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
+    expect($stacked)->toHaveCount(1);
+    expect($stacked->first()->crew_card_effect_id)->toBe($upgrade->id);
+    expect($stacked->first()->crew_card_effect_type)->toBe(\App\Models\Upgrade::class);
+});
+
+it('Phase 4 Crew Card advancement (crew_upgrade source) rejects a card that does not share the crew\'s keyword', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $crew->update(['keyword_1_id' => \App\Models\Keyword::factory()->create()->id]);
+
+    $otherKeyword = \App\Models\Keyword::factory()->create();
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($otherKeyword);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $upgrade->id,
+                'crew_card_source' => 'crew_upgrade',
                 'position_in_xp_track' => 6,
             ]],
         ])
@@ -1644,7 +1754,7 @@ it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outs
     expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
-it('Phase 4 Crew Card advancement derives source_master_id from the catalog row, not the client', function () {
+it('Phase 4 Crew Card advancement (crew_upgrade source) rejects a card with a power-bar-excluded action', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1652,15 +1762,15 @@ it('Phase 4 Crew Card advancement derives source_master_id from the catalog row,
         'current_phase' => 4,
         'hand_drawn' => [],
     ]);
+    buildLeaderFor($crew, $user);
     $keyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+    $crew->update(['keyword_1_id' => $keyword->id]);
 
-    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $master->keywords()->attach($keyword);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($master)->create();
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($keyword);
+    $action = \App\Models\Action::factory()->create();
+    $upgrade->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
 
-    // No free_choice submitted at all — the row's own master_id is authoritative.
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
             'bruiser_killed_non_peon' => false,
@@ -1668,20 +1778,18 @@ it('Phase 4 Crew Card advancement derives source_master_id from the catalog row,
             'lost' => false,
             'advancements' => [[
                 'source_table' => 'crew_card',
-                'catalog_id' => $borrowedEffect->id,
+                'catalog_id' => $upgrade->id,
+                'crew_card_source' => 'crew_upgrade',
                 'position_in_xp_track' => 6,
-                'free_choice' => null,
             ]],
         ])
         ->assertRedirect();
 
-    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
-    expect($stacked)->toHaveCount(1);
-    expect($stacked->first()->source_master_id)->toBe($master->id);
-    expect($stacked->first()->source_master_type)->toBe(\App\Models\Character::class);
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
-it('Phase 4 Crew Card advancement derives source_master from a custom-built Campaign Leader catalog row', function () {
+it('advancement_catalogs.crew_card exposes the generated card image', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1689,87 +1797,21 @@ it('Phase 4 Crew Card advancement derives source_master from a custom-built Camp
         'current_phase' => 4,
         'hand_drawn' => [],
     ]);
-    $keyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
+    buildLeaderFor($crew, $user);
 
-    // An unrelated ally's custom-built Leader sharing the same keyword — the
-    // crew card it's printed on can be borrowed from without belonging to
-    // this crew.
-    $customMaster = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_leader' => true,
-        'current' => true,
-        'name' => 'AllyLeader',
-        'tag' => 'ally',
-        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
-        'health' => 14,
-        'defense' => 5,
-        'willpower' => 5,
-        'speed' => 6,
-        'base' => 30,
-        'keywords' => [['id' => $keyword->id, 'name' => $keyword->name]],
+    $row = \App\Models\Campaign\CampaignCrewCard::factory()->create([
+        'name' => 'Imaged Effect',
+        'front_image' => 'campaign-crew-cards/123/front.png',
     ]);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forCustomMaster($customMaster)->create();
 
     $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
-            'bruiser_killed_non_peon' => false,
-            'strategist_interacted' => false,
-            'lost' => false,
-            'advancements' => [[
-                'source_table' => 'crew_card',
-                'catalog_id' => $borrowedEffect->id,
-                'position_in_xp_track' => 6,
-                'free_choice' => null,
-            ]],
-        ])
-        ->assertRedirect();
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($row) {
+            $match = collect($rows)->firstWhere('id', $row->id);
 
-    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
-    expect($stacked)->toHaveCount(1);
-    expect($stacked->first()->source_master_id)->toBe($customMaster->id);
-    expect($stacked->first()->source_master_type)->toBe(\App\Models\CustomCharacter::class);
-    expect($stacked->first()->sourceMaster)->toBeInstanceOf(\App\Models\CustomCharacter::class);
-});
-
-it('Phase 4 Crew Card advancement ignores a client-submitted master that does not match the catalog row', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 4,
-        'hand_drawn' => [],
-    ]);
-    $keyword = \App\Models\Keyword::factory()->create();
-    $leader = buildLeaderFor($crew, $user);
-    $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
-
-    $realMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $realMaster->keywords()->attach($keyword);
-    $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->forOfficialMaster($realMaster)->create();
-
-    // A second, unrelated eligible master the client tries to spoof as the source.
-    $spoofedMaster = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $spoofedMaster->keywords()->attach($keyword);
-
-    $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
-            'bruiser_killed_non_peon' => false,
-            'strategist_interacted' => false,
-            'lost' => false,
-            'advancements' => [[
-                'source_table' => 'crew_card',
-                'catalog_id' => $borrowedEffect->id,
-                'position_in_xp_track' => 6,
-                'free_choice' => ['source_character_id' => $spoofedMaster->id],
-            ]],
-        ])
-        ->assertRedirect();
-
-    $stacked = \App\Models\Campaign\CampaignCrewCardAdvancement::where('campaign_crew_id', $crew->id)->get();
-    expect($stacked)->toHaveCount(1);
-    expect($stacked->first()->source_master_id)->toBe($realMaster->id);
+            return $match && $match['front_image'] === 'campaign-crew-cards/123/front.png';
+        }));
 });
 
 it('Phase 4 rejects a Totem Advancement when the crew already has a totem', function () {

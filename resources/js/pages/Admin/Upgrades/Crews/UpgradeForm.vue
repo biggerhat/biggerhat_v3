@@ -29,6 +29,7 @@ interface UpgradeableRow {
     id: string | null;
     restriction: string | null;
     is_signature: boolean;
+    borrow_exclusion: string | null;
 }
 
 const props = defineProps<{
@@ -44,6 +45,7 @@ const props = defineProps<{
     abilities?: CatalogItem[];
     triggers?: CatalogItem[];
     crew_upgrade_restrictions?: SelectOpt[];
+    borrow_exclusion_options?: SelectOpt[];
     upgradeable_rows?: UpgradeableRow[];
     hiring_rules_fields?: Record<string, any> | null;
     game_mode_types?: SelectOpt[];
@@ -72,7 +74,7 @@ const formInfo = ref({
 });
 
 const addRow = () => {
-    formInfo.value.upgradeable_rows.push({ type: '', id: null, restriction: null, is_signature: false });
+    formInfo.value.upgradeable_rows.push({ type: '', id: null, restriction: null, is_signature: false, borrow_exclusion: null });
 };
 
 const removeRow = (index: number) => {
@@ -109,6 +111,7 @@ onMounted(() => {
             id: r.id != null ? String(r.id) : null,
             restriction: r.restriction ?? null,
             is_signature: r.is_signature ?? false,
+            borrow_exclusion: r.borrow_exclusion ?? null,
         }));
     }
 
@@ -323,6 +326,24 @@ onMounted(() => {
                                             <SelectItem value="">No restriction</SelectItem>
                                             <SelectItem v-for="opt in props.crew_upgrade_restrictions" :key="opt.value" :value="opt.value">
                                                 {{ opt.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <!-- Tier-4 borrow exclusion (pg 32, 54) -->
+                                <div class="w-56 shrink-0">
+                                    <Select
+                                        :model-value="row.borrow_exclusion ?? ''"
+                                        @update:model-value="(v) => (row.borrow_exclusion = v || null)"
+                                    >
+                                        <SelectTrigger class="h-8 text-xs">
+                                            <SelectValue placeholder="Eligible to borrow" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">Eligible to borrow</SelectItem>
+                                            <SelectItem v-for="opt in props.borrow_exclusion_options" :key="opt.value" :value="opt.value">
+                                                Excluded — {{ opt.name }}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

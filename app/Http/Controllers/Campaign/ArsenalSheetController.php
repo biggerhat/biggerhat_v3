@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers\Campaign;
 
+use App\Enums\Campaign\AdvancementTableEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
+use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Renders a crew's Arsenal Sheet — the canonical public artifact described on
@@ -71,7 +76,6 @@ class ArsenalSheetController extends Controller
             // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
             'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'crewCardAdvancements.crewCardEffect.abilities',
-            'crewCardAdvancements.sourceMaster:id,display_name',
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
@@ -80,6 +84,9 @@ class ArsenalSheetController extends Controller
                 // First standard miniature provides the card image for CharacterCardView.
                 'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',
                 'injuries.injury:id,name,description',
+                // Real Abilities gained permanently outside the base
+                // Character catalog row (currently only via Lucky Miss, pg 36).
+                'gainedAbilities:id,name,description',
             ]),
         ]);
 
@@ -133,7 +140,7 @@ class ArsenalSheetController extends Controller
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -148,7 +155,6 @@ class ArsenalSheetController extends Controller
                     // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
                     'crew_card_advancements' => $crew->crewCardAdvancements->map(fn ($adv) => [
                         'id' => $adv->id,
-                        'source_master_name' => $adv->sourceMaster?->display_name,
                         'effect' => $adv->crewCardEffect
                             ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
                             : null,
@@ -170,6 +176,9 @@ class ArsenalSheetController extends Controller
                             ->map(fn ($id) => $luckyMissNames[$id] ?? null)
                             ->filter()
                             ->values(),
+                        // Real Abilities gained permanently from a Lucky Miss
+                        // result (pg 36) — additive to the model's base Character abilities.
+                        'gained_abilities' => $m->gainedAbilities->map(fn (Ability $a) => $this->shapeGainedAbility($a))->values()->all(),
                     ]),
                 ],
             ),
@@ -185,21 +194,49 @@ class ArsenalSheetController extends Controller
                     ->where('custom_character_id', $leader->id)
                     ->orderBy('position_in_xp_track')
                     ->get()
-                    ->map(fn (CampaignLeaderAdvancement $a) => [
-                        'id' => $a->id,
-                        'position_in_xp_track' => $a->position_in_xp_track,
-                        'source_table' => $a->source_table->value,
-                        'catalog_id' => $a->catalog_core_id,
-                        'free_choice' => $a->free_choice,
-                        'applied_to_custom_character_id' => $a->applied_to_custom_character_id,
-                        'from_equipment_id' => $a->from_equipment_id,
-                    ])
+                    ->map(function (CampaignLeaderAdvancement $a) use ($crew) {
+                        // Any Joker (Action/Ability, pg 49/51) free-picks an
+                        // ally's own action/ability — resolve the ally's name
+                        // so the log reads as "from Rusty Alyce", not a bare id.
+                        $freeChoiceSourceName = null;
+                        $sourceCharacterId = $a->free_choice['source_character_id'] ?? null;
+                        if ($sourceCharacterId && in_array($a->source_table, [AdvancementTableEnum::Action, AdvancementTableEnum::Ability], true)) {
+                            $freeChoiceSourceName = Character::query()->whereKey($sourceCharacterId)->value('display_name');
+                        }
+
+                        // Tier-4 Crew Card (pg 32, 54) — resolve the effect's
+                        // own name. `advancement_catalogs.crew_card` excludes effects
+                        // this crew already holds (so the same effect can't be
+                        // picked twice), so once an effect is taken, the
+                        // client-side catalog lookup used to resolve every
+                        // other table's name can no longer find it — resolve
+                        // it here instead, from the already-eager-loaded
+                        // `crewCardAdvancements` bookkeeping row. catalog_core_id
+                        // === the CampaignCrewCard id for this table (see
+                        // LeaderAdvancementService::resolveCoreCatalogId()).
+                        $heldCrewCard = $a->source_table === AdvancementTableEnum::CrewCard
+                            ? $crew->crewCardAdvancements->firstWhere('crew_card_effect_id', $a->catalog_core_id)
+                            : null;
+
+                        return [
+                            'id' => $a->id,
+                            'position_in_xp_track' => $a->position_in_xp_track,
+                            'source_table' => $a->source_table->value,
+                            'catalog_id' => $a->catalog_core_id,
+                            'free_choice' => $a->free_choice,
+                            'free_choice_source_name' => $freeChoiceSourceName,
+                            'crew_card_name' => $heldCrewCard?->crewCardEffect?->name,
+                            'applied_to_custom_character_id' => $a->applied_to_custom_character_id,
+                            'applied_to_action_index' => $a->applied_to_action_index,
+                            'from_equipment_id' => $a->from_equipment_id,
+                            'acquired_at' => $a->acquired_at,
+                        ];
+                    })
                 : [],
             // Advancement-table catalogs (same source the Aftermath uses) — used
             // to resolve taken-advancement names for everyone and to drive the
             // owner's pick-an-advancement UI.
             'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs($crew) : null,
-            'eligible_masters' => $leader ? AftermathCatalog::eligibleMasters($crew) : null,
             'crew_card_choice_options' => $leader ? AftermathCatalog::crewCardChoiceOptions($crew) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any
@@ -214,19 +251,10 @@ class ArsenalSheetController extends Controller
             ],
             // Optional per-game journal entries (not a rules mechanic) —
             // written at the end of the Aftermath's Log Game flow, shown here
-            // in chronological order.
-            'story_log' => CampaignAftermath::query()
-                ->where('campaign_crew_id', $crew->id)
-                ->whereNotNull('story_entry')
-                ->with('campaignGame:id,week_number,crew_a_id,crew_b_id')
-                ->orderBy('created_at')
-                ->get()
-                ->map(fn (CampaignAftermath $a) => [
-                    'id' => $a->id,
-                    'week_number' => $a->campaignGame->week_number,
-                    'story_entry' => $a->story_entry,
-                    'created_at' => $a->created_at,
-                ]),
+            // in chronological order, each with an auto-computed tally of
+            // what actually changed that week (pulled from tables that are
+            // already per-aftermath-linked — no new schema needed).
+            'story_log' => $this->storyLog($crew),
             'view_mode' => [
                 'is_member' => $isMember,
                 'is_owner' => $isOwner,
@@ -250,5 +278,68 @@ class ArsenalSheetController extends Controller
         }
 
         return ['id' => $injury->id, 'name' => $injury->name, 'description' => $injury->description];
+    }
+
+    /**
+     * @return array{id: int, name: string, description: string|null}
+     */
+    private function shapeGainedAbility(Ability $ability): array
+    {
+        return ['id' => $ability->id, 'name' => $ability->name, 'description' => $ability->description];
+    }
+
+    /**
+     * Optional per-game journal (not a rules mechanic) — written at the end
+     * of the Aftermath's Log Game flow, shown chronologically. Each entry
+     * gets an auto-computed tally of what changed that week — injuries,
+     * Back-Alley Doctor attempts/outcomes, Lucky Misses, and Those Who
+     * Thirst pickups — all pulled from tables that already carry a
+     * `campaign_aftermath_id`/`acquired_aftermath_id` link, so no new schema
+     * is needed. Batched (not per-row) to avoid an N+1 across every week.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function storyLog(CampaignCrew $crew): array
+    {
+        $aftermaths = CampaignAftermath::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->whereNotNull('story_entry')
+            ->with('campaignGame:id,week_number,crew_a_id,crew_b_id')
+            ->orderBy('created_at')
+            ->get();
+
+        $aftermathIds = $aftermaths->pluck('id');
+
+        $injuryCounts = CampaignArsenalModelInjury::query()
+            ->whereIn('acquired_aftermath_id', $aftermathIds)
+            ->selectRaw('acquired_aftermath_id, count(*) as total')
+            ->groupBy('acquired_aftermath_id')
+            ->pluck('total', 'acquired_aftermath_id');
+
+        $doctorRows = DB::table('campaign_aftermath_doctor')
+            ->whereIn('campaign_aftermath_id', $aftermathIds)
+            ->get(['campaign_aftermath_id', 'outcome']);
+        $doctorCounts = $doctorRows->countBy('campaign_aftermath_id');
+        $luckyMissCounts = $doctorRows->where('outcome', 'lucky_miss_reflip')->countBy('campaign_aftermath_id');
+
+        $ttwCounts = CampaignEquipment::query()
+            ->whereIn('acquired_aftermath_id', $aftermathIds)
+            ->where('source', 'joker')
+            ->selectRaw('acquired_aftermath_id, count(*) as total')
+            ->groupBy('acquired_aftermath_id')
+            ->pluck('total', 'acquired_aftermath_id');
+
+        return $aftermaths->map(fn (CampaignAftermath $a) => [
+            'id' => $a->id,
+            'week_number' => $a->campaignGame->week_number,
+            'story_entry' => $a->story_entry,
+            'created_at' => $a->created_at,
+            'tally' => [
+                'injuries' => (int) ($injuryCounts[$a->id] ?? 0),
+                'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),
+                'lucky_misses' => (int) ($luckyMissCounts[$a->id] ?? 0),
+                'ttw_pickups' => (int) ($ttwCounts[$a->id] ?? 0),
+            ],
+        ])->all();
     }
 }

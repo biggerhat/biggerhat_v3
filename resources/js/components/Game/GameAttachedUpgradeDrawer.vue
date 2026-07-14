@@ -101,23 +101,22 @@ const emit = defineEmits<{
                         />
                     </div>
                     <!-- No card art uploaded — show the effect text instead of a blank preview. -->
-                    <p
-                        v-else-if="!upgrade.description && !upgrade.actions?.length && !upgrade.abilities?.length"
-                        class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground"
-                    >
-                        No description available.
-                    </p>
-                    <p v-else-if="upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
-                        {{ upgrade.description }}
-                    </p>
-                    <p v-if="upgrade.front_image && upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
-                        {{ upgrade.description }}
-                    </p>
-                    <!-- Granted actions/abilities (Campaign equipment, pg 19) — full rules text, not just flavor. -->
-                    <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="max-h-[40dvh] space-y-2 overflow-y-auto px-4 pb-2">
-                        <ActionCard v-for="(a, i) in upgrade.actions ?? []" :key="`eq-action-${i}`" :action="a" :hide-footer="true" />
-                        <AbilityCard v-for="(ab, i) in upgrade.abilities ?? []" :key="`eq-ability-${i}`" :ability="ab" :hide-footer="true" />
-                    </div>
+                    <template v-else>
+                        <p
+                            v-if="!upgrade.description && !upgrade.actions?.length && !upgrade.abilities?.length"
+                            class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground"
+                        >
+                            No description available.
+                        </p>
+                        <p v-else-if="upgrade.description" class="px-4 pb-2 text-sm leading-relaxed text-muted-foreground">
+                            {{ upgrade.description }}
+                        </p>
+                        <!-- Granted actions/abilities (Campaign equipment, pg 19) — full rules text, not just flavor. -->
+                        <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="max-h-[40dvh] space-y-2 overflow-y-auto px-4 pb-2">
+                            <ActionCard v-for="(a, i) in upgrade.actions ?? []" :key="`eq-action-${i}`" :action="a" :hide-footer="true" />
+                            <AbilityCard v-for="(ab, i) in upgrade.abilities ?? []" :key="`eq-ability-${i}`" :ability="ab" :hide-footer="true" />
+                        </div>
+                    </template>
                 </template>
                 <DrawerFooter class="shrink-0 pt-2">
                     <DrawerClose as-child>

@@ -20,6 +20,35 @@ it('serves the cached print PDF without re-rendering', function () {
     expect($resp->getContent())->toStartWith('%PDF');
 });
 
+it('sends no-cache headers on the print route — the cache path is versioned by template, not card content', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put(app(BonanzaDeckPdfGenerator::class)->cachePath(), '%PDF-1.4 fake');
+
+    $resp = $this->get(route('tools.bonanza_loot_deck.print'));
+
+    $resp->assertOk();
+    expect($resp->headers->get('cache-control'))->toContain('no-store');
+});
+
+it('BonanzaDeck Blade renders {{+}} and {{-}} as font glyphs, not literal braces', function () {
+    $card = LootCard::create([
+        'slug' => 'twist-test', 'name' => 'Twist Test', 'suit' => 'crow', 'value' => 2, 'value_label' => '2', 'sort_order' => 1,
+        'effect_a' => 'Gains a {{+}} to duels. Suffers a {{-}} to defense.',
+    ]);
+    $card->load([
+        'sideAActions.triggers', 'sideBActions.triggers',
+        'sideAAbilities', 'sideBAbilities',
+        'sideATriggers', 'sideBTriggers',
+    ]);
+
+    $html = View::make('PDF.BonanzaDeck', ['cards' => collect([$card])])->render();
+
+    expect($html)->not->toContain('{{+}}');
+    expect($html)->not->toContain('{{-}}');
+    expect($html)->toContain('<span class="gi">+</span>');
+    expect($html)->toContain('<span class="gi">-</span>');
+});
+
 it('BonanzaDeck Blade renders a soulstone glyph for a stone-cost trigger, both standalone and action-nested', function () {
     $standaloneTrigger = Trigger::factory()->create(['name' => 'Standalone Trig', 'stone_cost' => 1, 'suits' => null]);
     $nestedTrigger = Trigger::factory()->create(['name' => 'Nested Trig', 'stone_cost' => 2, 'suits' => null]);

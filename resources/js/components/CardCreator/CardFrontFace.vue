@@ -72,8 +72,8 @@ const nameFontSize = computed(() => {
 
 const abilityFontSize = computed(() => {
     const total = props.abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0);
-    if (total > 800) return 'text-xs leading-5';
-    if (total > 500) return 'text-sm leading-5';
+    if (total > 1200) return 'text-xs leading-5';
+    if (total > 800) return 'text-sm leading-5';
     return 'text-base leading-6';
 });
 </script>

@@ -74,9 +74,9 @@ const contentScale = computed(() => {
         const triggerChars = a.triggers.reduce((ts, t) => ts + (t.description?.length ?? 0) + t.name.length, 0);
         return sum + (a.description?.length ?? 0) + a.name.length + triggerChars;
     }, 0);
-    if (actionChars > 1500) return 'scale-sm';
-    if (actionChars > 1000) return 'scale-md';
-    if (actionChars > 600) return 'scale-lg';
+    if (actionChars > 2200) return 'scale-sm';
+    if (actionChars > 1500) return 'scale-md';
+    if (actionChars > 900) return 'scale-lg';
     return 'scale-xl';
 });
 </script>

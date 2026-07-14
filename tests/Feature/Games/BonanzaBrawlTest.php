@@ -99,6 +99,36 @@ it('jumps a Bonanza game straight to InProgress when the user submits their mast
     expect($members->first()->hiring_category)->toBe('lone');
 });
 
+it('copies the master\'s characteristics onto the Bonanza lone GameCrewMember', function () {
+    $creator = User::factory()->create();
+
+    $game = Game::factory()->bonanza()->create([
+        'creator_id' => $creator->id,
+        'is_solo' => true,
+        'status' => GameStatusEnum::MasterSelect,
+    ]);
+
+    $arc = Character::factory()->create([
+        'station' => 'master',
+        'faction' => 'arcanists',
+        'name' => 'Rasputina',
+        'display_name' => 'Rasputina',
+    ]);
+    Miniature::factory()->for($arc, 'character')->create();
+    $versatile = \App\Models\Characteristic::factory()->create(['name' => 'Versatile']);
+    $arc->characteristics()->attach($versatile);
+
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $creator->id, 'slot' => 1, 'faction' => 'arcanists']);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => null, 'slot' => 2, 'opponent_name' => 'Opponent']);
+
+    $this->actingAs($creator)->postJson(route('games.setup.master', $game->uuid), [
+        'master_name' => 'Rasputina',
+    ])->assertOk();
+
+    $member = GameCrewMember::where('game_id', $game->id)->firstOrFail();
+    expect($member->characteristics)->toBe(['Versatile']);
+});
+
 it('forces a Bonanza game to solo mode regardless of the form input', function () {
     $user = User::factory()->create();
 

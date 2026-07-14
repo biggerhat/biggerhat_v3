@@ -2,6 +2,7 @@
 
 namespace App\Models\Campaign;
 
+use App\Models\Ability;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -101,6 +103,22 @@ class CampaignArsenalModel extends Model
     }
 
     /**
+     * Real Abilities this specific model instance has permanently gained
+     * outside its base Character catalog row — currently only via a Lucky
+     * Miss result naming one (pg 36). Additive: never touches the base
+     * Character's own ability list, which is shared across every crew that
+     * hires it.
+     *
+     * @return BelongsToMany<Ability, $this>
+     */
+    public function gainedAbilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Ability::class, 'campaign_arsenal_model_abilities')
+            ->withPivot('source')
+            ->withTimestamps();
+    }
+
+    /**
      * Attach one injury upgrade per the Determine Injuries rules (pg 34):
      *   - Peons and already-annihilated models never gain injuries.
      *   - A self-annihilating result (e.g. "Killed Off") removes the model.
@@ -175,6 +193,10 @@ class CampaignArsenalModel extends Model
      * Lucky Miss results are beneficial and never affect Campaign Rating.
      * Duplicates are ignored. (The "Doppelganger" any-joker result is handled
      * separately — it creates a copied arsenal model, not an upgrade here.)
+     *
+     * When the catalog row names a real Ability, it's also permanently
+     * attached via `gainedAbilities()` — Campaign-scoped only, this never
+     * touches the base Character's own ability list.
      */
     public function applyLuckyMiss(int $luckyMissId): void
     {
@@ -182,6 +204,11 @@ class CampaignArsenalModel extends Model
         if (! in_array($luckyMissId, $current, true)) {
             $current[] = $luckyMissId;
             $this->update(['gained_lucky_miss_ids' => $current]);
+        }
+
+        $abilityId = LuckyMiss::query()->whereKey($luckyMissId)->value('ability_id');
+        if ($abilityId && ! $this->gainedAbilities()->where('ability_id', $abilityId)->exists()) {
+            $this->gainedAbilities()->attach($abilityId, ['source' => 'lucky_miss']);
         }
     }
 

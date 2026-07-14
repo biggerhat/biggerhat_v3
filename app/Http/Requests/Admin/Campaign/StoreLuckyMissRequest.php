@@ -19,6 +19,7 @@ class StoreLuckyMissRequest extends FormRequest
             'body' => ['required', 'string'],
             'flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
             'is_doppelganger' => ['required', 'boolean'],
+            'ability_id' => ['nullable', 'integer', 'exists:abilities,id'],
         ];
     }
 }

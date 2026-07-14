@@ -135,9 +135,10 @@ watch(inviteSearch, (q) => {
         return;
     }
     inviteSearchTimer = setTimeout(async () => {
-        const res = await fetch(route('users.search') + '?q=' + encodeURIComponent(q.trim()), {
-            headers: { Accept: 'application/json' },
-        });
+        const res = await fetch(
+            route('users.search') + '?q=' + encodeURIComponent(q.trim()) + '&exclude_campaign_id=' + props.campaign.id,
+            { headers: { Accept: 'application/json' } },
+        );
         if (res.ok) {
             const data = await res.json();
             inviteSearchResults.value = data.users ?? [];
@@ -180,6 +181,12 @@ onMounted(async () => {
 
 // Public invite link + QR.
 const qrDialogOpen = ref(false);
+
+// Per-invitation share link + QR — the only way an email-only invitee (no
+// account yet) can currently discover a pending invitation, since there's no
+// outbound email delivery for invites.
+const inviteQrTarget = ref<InvitationRow | null>(null);
+const inviteQrUrl = computed(() => (inviteQrTarget.value ? route('campaigns.invitations.show', inviteQrTarget.value.token) : ''));
 const regenerateJoinLink = async (campaignId: number) => {
     if (
         !(await confirmDialog({
@@ -442,7 +449,10 @@ const deleteCampaign = async (id: number) => {
                     <ul class="space-y-2">
                         <li v-for="inv in campaign.invitations" :key="inv.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
                             <span>{{ inv.user?.name ?? inv.user?.email ?? inv.email }}</span>
-                            <Button variant="ghost" size="sm" @click="revokeInvite(campaign.id, inv.id)">Revoke</Button>
+                            <div class="flex items-center gap-1">
+                                <Button variant="ghost" size="sm" @click="inviteQrTarget = inv">Link / QR</Button>
+                                <Button variant="ghost" size="sm" @click="revokeInvite(campaign.id, inv.id)">Revoke</Button>
+                            </div>
                         </li>
                     </ul>
                 </div>
@@ -454,6 +464,16 @@ const deleteCampaign = async (id: number) => {
             v-model:open="qrDialogOpen"
             :url="route('campaigns.join', campaign.uuid)"
             title="Campaign Invite Link"
+        />
+
+        <!-- Per-invitation share link — since email-only invitees currently
+             have no other way to discover a pending invitation. -->
+        <QRCodeDialog
+            v-if="inviteQrTarget"
+            :open="inviteQrTarget !== null"
+            @update:open="(v: boolean) => { if (!v) inviteQrTarget = null; }"
+            :url="inviteQrUrl"
+            title="Invitation Link"
         />
 
         <div v-if="is_organizer && (campaign.status === 'planning' || campaign.status === 'ended')" class="mt-8 flex justify-end">

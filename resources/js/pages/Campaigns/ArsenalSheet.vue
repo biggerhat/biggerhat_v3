@@ -2,9 +2,10 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, getFactionVar, triggerDownload } from '@/components/CardCreator/utils';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import FactionLogo from '@/components/FactionLogo.vue';
 import GameText from '@/components/GameText.vue';
 import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +64,9 @@ interface CrewCardEffectRow {
     id: number;
     name: string;
     body: string;
+    // Server-generated card image (App\Services\Campaign\CrewCardImageGenerator).
+    // Null until the first render lands — falls back to the text rendering below.
+    front_image: string | null;
     actions: CrewCardLinkedAction[];
     abilities: CrewCardLinkedAbility[];
 }
@@ -168,6 +172,8 @@ interface ArsenalRow {
     injuries: InjuryItem[];
     gained_characteristics: string[];
     lucky_miss: string[];
+    // Real Abilities gained permanently from a Lucky Miss result (pg 36).
+    gained_abilities: InjuryItem[];
 }
 
 interface CrewData {
@@ -181,8 +187,12 @@ interface CrewData {
     keyword_two: KeywordRow | null;
     crew_card_effect: CrewCardEffectRow | null;
     // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter effect.
-    crew_card_advancements: Array<{ id: number; source_master_name: string | null; effect: CrewCardEffectRow | null }>;
+    crew_card_advancements: Array<{ id: number; effect: CrewCardEffectRow | null }>;
     crew_card_choice: { type: string; id: number; name: string } | null;
+    // Combined generated card (starter + every held Tier-4 borrow, including
+    // restriction qualifier text) — regenerated whenever the held effect set
+    // changes. Null until the first render lands.
+    crew_card_front_image: string | null;
     arsenal_models: ArsenalRow[];
 }
 
@@ -237,8 +247,15 @@ interface AdvancementTaken {
     source_table: string;
     catalog_id: number | null;
     free_choice: Record<string, unknown> | null;
+    // Any Joker (Action/Ability, pg 49/51) — the ally an action/ability was freely picked from.
+    free_choice_source_name: string | null;
+    // Tier-4 Crew Card (pg 32, 54) — resolved server-side since the catalog
+    // lookup used for every other table excludes effects already held.
+    crew_card_name: string | null;
     applied_to_custom_character_id: number | null;
+    applied_to_action_index: number;
     from_equipment_id: number | null;
+    acquired_at: string;
 }
 interface CatalogRow {
     id: number;
@@ -281,10 +298,14 @@ interface CatalogRow {
     requires_token_choice?: boolean;
     requires_marker_choice?: boolean;
     requires_upgrade_type_choice?: boolean;
-    // Crew Card table only — the master this card is actually printed on
-    // (null = generic, listed directly rather than via the Master cascade).
-    master_id?: number | null;
-    master_name?: string | null;
+    // Crew Card table only — which of the two Tier-4 pools this row came from
+    // (pg 32, 54): the fixed generic catalog, or a real keyword-matched Crew
+    // Card Upgrade. Submitted back as crew_card_source alongside catalog_id.
+    source?: 'campaign_crew_card' | 'crew_upgrade';
+    // crew_upgrade rows only — tokens/markers granted directly alongside the
+    // card's actions/abilities (no separate constrained-pool choice step).
+    tokens?: Array<{ id: number; name: string }>;
+    markers?: Array<{ id: number; name: string }>;
 }
 type AdvancementCatalogs = Record<string, CatalogRow[]>;
 interface ChoiceOption {
@@ -309,13 +330,20 @@ const props = defineProps<{
     equipment: EquipmentItem[];
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
-    // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
-    eligible_masters?: Array<{ id: number; name: string }> | null;
     // Constrained pool for crew cards that require a token/marker/upgrade
     // choice (pg 17-18) — same pool Starting Arsenal uses.
     crew_card_choice_options?: CrewCardChoiceOptions | null;
     // Optional per-game journal entries, chronological.
-    story_log: Array<{ id: number; week_number: number | null; story_entry: string; created_at: string }>;
+    story_log: Array<{
+        id: number;
+        week_number: number | null;
+        story_entry: string;
+        created_at: string;
+        // Auto-computed tally of what changed that week (pg 34-35 injuries,
+        // Back-Alley Doctor, Lucky Miss, Those Who Thirst) — same week the
+        // freeform entry was written for.
+        tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number };
+    }>;
 }>();
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
@@ -403,50 +431,6 @@ const deriveJokerColor = (position: number): 'red' | 'black' | null => {
     return row.is_red_joker ? 'red' : 'black';
 };
 
-// ───────── Crew Card Effect: Master cascade (pg 32, 54) ─────────
-// Top-level list mixes generic (master_id === null) rows with a "Choose from
-// a Master" sentinel; picking that reveals a Master select, then a second
-// select scoped to that master's own rows — so the stored attribution always
-// matches the actual card, instead of an unrelated free-text "borrowed from".
-const CREW_CARD_FROM_MASTER = '__from_master__';
-
-const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
-
-const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
-
-const onCrewCardTopChange = (position: number, v: string) => {
-    const d = drafts.value[position];
-    if (!d) return;
-    if (v === CREW_CARD_FROM_MASTER) {
-        d.crew_card_master_mode = true;
-        d.catalog_id = null;
-        d.free_choice_source_character_id = null;
-        d.crew_card_choice_id = null;
-        return;
-    }
-    d.crew_card_master_mode = false;
-    d.free_choice_source_character_id = null;
-    d.catalog_id = v === '__none__' ? null : Number(v);
-    d.applied_to_action_index = -1;
-    d.applied_to_action_id = null;
-    d.crew_card_choice_id = null;
-};
-
-const onCrewCardMasterChange = (position: number, v: string) => {
-    const d = drafts.value[position];
-    if (!d) return;
-    d.free_choice_source_character_id = v === '__none__' ? null : Number(v);
-    d.catalog_id = null;
-    d.crew_card_choice_id = null;
-};
-
-const onCrewCardMasterRowChange = (position: number, v: string) => {
-    const d = drafts.value[position];
-    if (!d) return;
-    d.catalog_id = v === '__none__' ? null : Number(v);
-    d.crew_card_choice_id = null;
-};
-
 const SOURCE_TABLE_LABELS: Record<string, string> = {
     attack_mod: 'Attack Modification',
     tactical_mod: 'Tactical Modification',
@@ -458,16 +442,39 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
 };
 
 const advancementName = (a: AdvancementTaken): string =>
+    // Crew Card (pg 32, 54): resolved server-side, since the catalog list
+    // excludes effects this crew already holds (can't be picked twice).
+    a.crew_card_name ??
     catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ??
     SOURCE_TABLE_LABELS[a.source_table] ??
     a.source_table.replace(/_/g, ' ');
 
-// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader
-// (the default), shown for Totem/Equipment so the log records where it went.
+// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader's
+// own action (the default), shown for Totem/Equipment/the specific Leader
+// action so the log records exactly where the effect went.
 const advancementTargetLabel = (a: AdvancementTaken): string | null => {
     if (a.from_equipment_id != null) return props.equipment.find((e) => e.id === a.from_equipment_id)?.name ?? 'Equipment';
     if (a.applied_to_custom_character_id != null) return 'Totem';
+    if (a.applied_to_action_index >= 0) return props.leader?.actions?.[a.applied_to_action_index]?.name ?? null;
     return null;
+};
+
+// Extra attribution context beyond the name/target — who a free-picked
+// action/ability came from. Returns null when there's nothing more to say.
+const advancementContext = (a: AdvancementTaken): string | null => {
+    if (a.free_choice_source_name) return `Any Joker — from ${a.free_choice_source_name}`;
+    return null;
+};
+
+// Story Log tally line — only mentions the counters that actually happened
+// that week, so a quiet week's entry stays free of "0" noise.
+const storyTallyParts = (tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number }): string[] => {
+    const parts: string[] = [];
+    if (tally.injuries > 0) parts.push(`Injuries: ${tally.injuries}`);
+    if (tally.doctor_attempts > 0) parts.push(`Doctor: ${tally.doctor_attempts}`);
+    if (tally.lucky_misses > 0) parts.push(`Lucky Miss: ${tally.lucky_misses}`);
+    if (tally.ttw_pickups > 0) parts.push(`TTW pickup: ${tally.ttw_pickups}`);
+    return parts;
 };
 
 // Per-slot picker drafts. Seed reactively: Inertia reuses this component
@@ -488,18 +495,13 @@ interface AdvDraft {
     target_equipment_id: number | null;
     applied_to_action_index: number;
     applied_to_action_id: number | null;
-    // Any Joker (Action/Ability, pg 49/51) + Crew Card's borrowed-from master
-    // (pg 32, 54) both resolve through free_choice.
+    // Any Joker free-choice pick (Action/Ability, pg 49/51).
     free_choice_source_id: number | null;
     free_choice_source_character_id: number | null;
     free_choice_label: string | null;
     // Crew Card table only (pg 17-18): the token/marker/upgrade-type pick a
     // borrowed effect requires, if any.
     crew_card_choice_id: number | string | null;
-    // Crew Card table only: true while browsing a specific master's own
-    // cards (the "Choose from a Master" cascade) rather than picking a
-    // generic row directly from the flat list.
-    crew_card_master_mode: boolean;
 }
 const drafts = ref<Record<number, AdvDraft>>({});
 watch(
@@ -521,7 +523,6 @@ watch(
                     free_choice_source_character_id: null,
                     free_choice_label: null,
                     crew_card_choice_id: null,
-                    crew_card_master_mode: false,
                 };
             }
         }
@@ -631,6 +632,7 @@ const logAdvancement = (position: number) => {
         position_in_xp_track: position,
         source_table: d.source_table,
         catalog_id: d.catalog_id,
+        crew_card_source: d.source_table === 'crew_card' ? (selectedDraftRow(position)?.source ?? 'campaign_crew_card') : undefined,
         joker_color: isTrigger ? deriveJokerColor(position) : undefined,
         free_choice:
             d.free_choice_source_id || d.free_choice_source_character_id
@@ -666,7 +668,7 @@ const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) =>
 // ───────── Card viewer (equipment / crew card / injury — Dialog) ─────────
 type CardView =
     | { kind: 'equipment'; title: string; equipment: EquipmentItem }
-    | { kind: 'crew'; title: string; effect: CrewCardEffectRow }
+    | { kind: 'crew'; title: string; cards: Array<{ title: string; effect: CrewCardEffectRow }> }
     | { kind: 'injury'; title: string; description: string | null };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
@@ -675,25 +677,34 @@ const viewEquipment = (equipment: EquipmentItem) => {
 const viewInjury = (injury: InjuryItem) => {
     viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
 };
-// Merges the starter effect with every currently-held Tier-4 borrowed effect
-// (pg 32, 54) into one combined card view, so newly-added borrowed effects
-// show up here too instead of only in the plain-text "Borrowed Effects" list.
+// Each held Crew Card effect (the starter + every currently-held Tier-4
+// borrowed effect, pg 32, 54) has its own generated card image, so this
+// shows a list of individually-rendered cards rather than merging their text
+// into one — a generated image can't be "merged" the way plain text was.
+// Crew Card art is deliberately un-themed (it's shared catalog content any
+// crew could hold) — the faction/Leader banner around it below is live,
+// sourced from this crew's own current Leader, not baked into the image.
 const viewCrewCard = () => {
     const starter = props.crew.crew_card_effect;
     if (!starter) return;
-    const borrowed = props.crew.crew_card_advancements.map((a) => a.effect).filter((e): e is CrewCardEffectRow => e !== null);
-    const merged: CrewCardEffectRow = {
-        id: starter.id,
-        name: starter.name,
-        body: starter.body,
-        actions: [...starter.actions, ...borrowed.flatMap((e) => e.actions)],
-        abilities: [...starter.abilities, ...borrowed.flatMap((e) => e.abilities)],
+    const borrowed = props.crew.crew_card_advancements
+        .filter((a): a is typeof a & { effect: CrewCardEffectRow } => a.effect !== null)
+        .map((a) => ({ title: a.effect.name, effect: a.effect }));
+    viewCard.value = {
+        kind: 'crew',
+        title: starter.name,
+        cards: [{ title: starter.name, effect: starter }, ...borrowed],
     };
-    viewCard.value = { kind: 'crew', title: starter.name, effect: merged };
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
 };
+
+// Crew Card art is un-themed shared catalog content (see viewCrewCard() above)
+// — this crew's own current Leader/faction is shown as live UI chrome around
+// the rendered image instead, so it's always correct for whoever's actually
+// holding the card and never needs the art regenerated.
+const crewCardFactionVar = computed(() => getFactionVar(props.leader?.faction ?? null));
 
 // ───────── Unit card preview (Drawer) ─────────
 const unitPreviewRow = ref<ArsenalRow | null>(null);
@@ -1151,12 +1162,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div v-if="crew.crew_card_advancements.length" class="mt-3 space-y-3 border-t pt-3">
                             <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
                             <div v-for="adv in crew.crew_card_advancements" :key="adv.id" class="space-y-1">
-                                <p class="text-sm font-medium">
-                                    {{ adv.effect?.name }}
-                                    <span v-if="adv.source_master_name" class="text-xs font-normal text-muted-foreground">
-                                        — borrowed from {{ adv.source_master_name }}
-                                    </span>
-                                </p>
+                                <p class="text-sm font-medium">{{ adv.effect?.name }}</p>
                                 <p v-if="adv.effect?.body" class="text-xs text-muted-foreground">
                                     <GameText :text="adv.effect.body" />
                                 </p>
@@ -1225,7 +1231,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                     drafts[slot.position].free_choice_source_character_id = null;
                                                     drafts[slot.position].free_choice_label = null;
                                                     drafts[slot.position].crew_card_choice_id = null;
-                                                    drafts[slot.position].crew_card_master_mode = false;
                                                 }
                                             "
                                         >
@@ -1239,7 +1244,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </SelectContent>
                                         </Select>
                                         <Select
-                                            v-if="drafts[slot.position].source_table !== 'crew_card'"
                                             :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
                                             @update:model-value="
                                                 (v) => {
@@ -1260,81 +1264,25 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                     :key="row.id"
                                                     :value="row.id.toString()"
                                                 >
-                                                    {{ row.name }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
-                                            v-if="drafts[slot.position].source_table === 'crew_card'"
-                                            :model-value="
-                                                drafts[slot.position].crew_card_master_mode
-                                                    ? CREW_CARD_FROM_MASTER
-                                                    : (drafts[slot.position].catalog_id?.toString() ?? '__none__')
-                                            "
-                                            @update:model-value="(v) => onCrewCardTopChange(slot.position, v as string)"
-                                        >
-                                            <SelectTrigger class="h-8 min-w-0 flex-1 text-foreground">
-                                                <SelectValue placeholder="— pick —" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__none__">— pick —</SelectItem>
-                                                <SelectItem :value="CREW_CARD_FROM_MASTER">Choose from a Master…</SelectItem>
-                                                <SelectItem v-for="row in crewCardGenericRows" :key="row.id" :value="row.id.toString()">
-                                                    {{ row.name }}
+                                                    {{ row.name }}<template v-if="row.source === 'crew_upgrade'"> (keyword-matched)</template>
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <Button size="sm" @click="logAdvancement(slot.position)">Log</Button>
                                     </div>
-                                    <!-- Crew Card Master cascade: Master, then their own card (pg 32, 54) -->
-                                    <div
-                                        v-if="drafts[slot.position].source_table === 'crew_card' && drafts[slot.position].crew_card_master_mode"
-                                        class="space-y-2 rounded border p-2"
+                                    <!-- Crew Card: tokens/markers a keyword-matched Crew Card Upgrade grants directly (pg 32, 54) -->
+                                    <p
+                                        v-if="
+                                            drafts[slot.position].source_table === 'crew_card' &&
+                                            ((selectedDraftRow(slot.position)?.tokens?.length ?? 0) > 0 ||
+                                                (selectedDraftRow(slot.position)?.markers?.length ?? 0) > 0)
+                                        "
+                                        class="text-[11px] text-muted-foreground"
                                     >
-                                        <div>
-                                            <Label class="text-[11px] text-muted-foreground">Master</Label>
-                                            <Select
-                                                :model-value="drafts[slot.position].free_choice_source_character_id?.toString() ?? '__none__'"
-                                                @update:model-value="(v) => onCrewCardMasterChange(slot.position, v as string)"
-                                            >
-                                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                    <SelectValue placeholder="— pick a master —" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__none__">— pick a master —</SelectItem>
-                                                    <SelectItem v-for="m in eligible_masters ?? []" :key="m.id" :value="m.id.toString()">{{
-                                                        m.name
-                                                    }}</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div v-if="drafts[slot.position].free_choice_source_character_id !== null">
-                                            <Label class="text-[11px] text-muted-foreground">Their Crew Card</Label>
-                                            <Select
-                                                :model-value="drafts[slot.position].catalog_id?.toString() ?? '__none__'"
-                                                @update:model-value="(v) => onCrewCardMasterRowChange(slot.position, v as string)"
-                                            >
-                                                <SelectTrigger class="h-8 w-full text-xs text-foreground">
-                                                    <SelectValue placeholder="— pick a card —" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__none__">— pick a card —</SelectItem>
-                                                    <SelectItem
-                                                        v-for="row in crewCardRowsForMaster(drafts[slot.position].free_choice_source_character_id)"
-                                                        :key="row.id"
-                                                        :value="row.id.toString()"
-                                                        >{{ row.name }}</SelectItem
-                                                    >
-                                                </SelectContent>
-                                            </Select>
-                                            <p
-                                                v-if="crewCardRowsForMaster(drafts[slot.position].free_choice_source_character_id).length === 0"
-                                                class="mt-1 text-[11px] text-muted-foreground"
-                                            >
-                                                No Crew Card catalog rows are linked to this master yet.
-                                            </p>
-                                        </div>
-                                    </div>
+                                        Also grants:
+                                        <template v-for="t in selectedDraftRow(slot.position)?.tokens ?? []" :key="'t' + t.id">{{ t.name }} token </template>
+                                        <template v-for="m in selectedDraftRow(slot.position)?.markers ?? []" :key="'m' + m.id">{{ m.name }} marker </template>
+                                    </p>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                                     <div v-if="isSelectedRowJoker(slot.position)" class="space-y-1 rounded border p-2">
                                         <p v-if="drafts[slot.position].free_choice_label" class="text-xs font-medium">
@@ -1626,6 +1574,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 model.injuries.length ||
                                 model.gained_characteristics.length ||
                                 model.lucky_miss.length ||
+                                model.gained_abilities.length ||
                                 model.acquired_via === 'doppelganger' ||
                                 model.acquired_via === 'traitor'
                             "
@@ -1648,6 +1597,17 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
                             <Badge v-for="lm in model.lucky_miss" :key="`l-${lm}`" class="bg-green-600 text-[10px] text-white hover:bg-green-600">
                                 {{ lm }}
+                            </Badge>
+                            <Badge
+                                v-for="ab in model.gained_abilities"
+                                :key="`a-${ab.id}`"
+                                class="cursor-pointer bg-blue-600 text-[10px] text-white hover:bg-blue-600"
+                                role="button"
+                                tabindex="0"
+                                @click.stop="viewInjury(ab)"
+                                @keydown.enter.stop="viewInjury(ab)"
+                            >
+                                {{ ab.name }}
                             </Badge>
                         </div>
                     </div>
@@ -1710,14 +1670,16 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <li
                         v-for="a in [...leader_advancements].sort((x, y) => x.position_in_xp_track - y.position_in_xp_track)"
                         :key="a.id"
-                        class="flex items-center justify-between rounded-md border p-2 text-sm"
+                        class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border p-2 text-sm"
                     >
-                        <span class="flex items-center gap-2">
+                        <span class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
                             <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
                             <span class="font-medium">{{ advancementName(a) }}</span>
                             <Badge v-if="advancementTargetLabel(a)" variant="outline" class="text-[10px]">{{ advancementTargetLabel(a) }}</Badge>
+                            <span v-if="advancementContext(a)" class="text-[11px] text-muted-foreground">{{ advancementContext(a) }}</span>
                         </span>
+                        <span v-if="a.acquired_at" class="text-[10px] text-muted-foreground">{{ new Date(a.acquired_at).toLocaleDateString() }}</span>
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No advancements yet" description="" />
@@ -1738,6 +1700,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
                         </div>
                         <p class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
+                        <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-[11px] text-muted-foreground">
+                            {{ storyTallyParts(entry.tally).join(' · ') }}
+                        </p>
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No story entries yet" description="Written at the end of Log Game, if you want one." />
@@ -1788,16 +1753,36 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 </div>
 
                 <!-- Crew card -->
-                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-3">
-                    <p v-if="viewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="viewCard.effect.body" /></p>
-                    <div v-if="viewCard.effect.abilities.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                        <AbilityCard v-for="ab in viewCard.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
+                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-4">
+                    <!-- Leader/faction context is this crew's own, live — not baked into the shared card art. -->
+                    <div v-if="leader" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <FactionLogo :faction="leader.faction" class-name="size-4 shrink-0" />
+                        <span>Held by <span class="font-medium text-foreground">{{ leader.display_name }}</span>'s crew</span>
                     </div>
-                    <div v-if="viewCard.effect.actions.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                        <ActionCard v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
-                    </div>
+
+                    <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
+                    <img
+                        v-if="crew.crew_card_front_image"
+                        :src="'/storage/' + crew.crew_card_front_image"
+                        :alt="viewCard.title"
+                        class="max-h-[600px] rounded-md border-2"
+                        :style="leader ? { borderColor: `hsl(var(${crewCardFactionVar}))` } : {}"
+                    />
+                    <!-- Fallback text rendering while the combined image hasn't generated yet -->
+                    <template v-else>
+                        <div v-for="(c, idx) in viewCard.cards" :key="`crewcard-${c.effect.id}-${idx}`" :class="idx > 0 ? 'border-t pt-4' : ''">
+                            <p class="mb-1.5 text-xs font-medium">{{ c.title }}</p>
+                            <p v-if="c.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="c.effect.body" /></p>
+                            <div v-if="c.effect.abilities.length" class="mt-2 space-y-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                                <AbilityCard v-for="ab in c.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
+                            </div>
+                            <div v-if="c.effect.actions.length" class="mt-2 space-y-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                                <ActionCard v-for="ac in c.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Injury -->

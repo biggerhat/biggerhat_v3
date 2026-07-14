@@ -8,6 +8,7 @@ use App\Enums\MessageTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
+use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
@@ -213,6 +214,8 @@ class StartingArsenalController extends Controller
                 $this->saveCrewCardToCardCreator($userId, (int) $data['crew_card_effect_id'], $crewCardName, $crew->faction?->value);
             }
         });
+
+        GenerateCombinedCrewCardImage::dispatch($crew->id)->afterCommit();
 
         return redirect()->route('campaigns.crews.starting-arsenal.edit', [$campaign, $crew])
             ->withMessage("Starting arsenal saved ({$totalCost} ss spent, {$leftoverScrip} scrip leftover).");

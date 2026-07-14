@@ -292,6 +292,10 @@ Route::prefix('tools')->name('tools.')->group(function () {
         // bare front/back faces only, no page chrome. Public/unauthenticated like `share`
         // above (same unguessable share_code trust model), hit only by the queue worker.
         Route::get('/capture/{shareCode}', [CustomCharacterController::class, 'capture'])->name('capture');
+        // Same pattern for Campaign Crew Cards (App\Services\Campaign\CrewCardImageGenerator)
+        // — admin catalog content, not a user secret, so a raw id is fine.
+        Route::get('/capture/crew-card/{crewCard}', [\App\Http\Controllers\Campaign\CrewCardCaptureController::class, 'show'])
+            ->name('capture_crew_card');
 
         Route::middleware('auth')->group(function () {
             Route::get('/', [CustomCharacterController::class, 'index'])->name('index');

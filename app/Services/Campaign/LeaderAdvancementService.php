@@ -225,7 +225,21 @@ class LeaderAdvancementService
             // starting crew card effects (pg 15-16) — those need no master
             // attribution at all, and are exactly the master_id-null rows.
             if ($table === AdvancementTableEnum::CrewCard && $catalogId !== null) {
-                $crewCardForSource = CampaignCrewCard::find($catalogId);
+                $crewCardForSource = CampaignCrewCard::query()->with('actions', 'abilities')->find($catalogId);
+
+                // Tier-4 Crew Card Advancement (pg 32, 54): "Effects that
+                // reference a power bar or cause the crew card to be swapped
+                // with a different crew card may not be chosen." Mirrors the
+                // client-side catalog filter in AftermathCatalog::
+                // advancementCatalogs() — checked again here since the
+                // catalog_id is client-submitted and could be stale/tampered.
+                $hasExcludedEffect = $crewCardForSource && (
+                    $crewCardForSource->actions->contains(fn (Action $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+                    || $crewCardForSource->abilities->contains(fn (Ability $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+                );
+                if ($hasExcludedEffect) {
+                    return 'This Crew Card effect references a power bar or crew-card swap and cannot be borrowed via advancement.';
+                }
 
                 if ($crewCardForSource && $crewCardForSource->master_id !== null) {
                     $keywordIds = array_column($leader->keywords ?? [], 'id');

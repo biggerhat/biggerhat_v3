@@ -431,3 +431,224 @@ it('exposes the leader Leadership Experience track with filled boxes', function 
             fn ($t) => collect($t)->where('filled', true)->count() === 2 && count($t) === 39,
         ));
 });
+
+it('eligible_masters includes homebrew Leaders sharing a crew keyword, not just official Characters', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    // This crew's own Leader (required for the sheet to compute eligible_masters at all).
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Sheet Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+
+    $officialMaster = Character::factory()->create([
+        'station' => \App\Enums\CharacterStationEnum::Master->value,
+        'faction' => FactionEnum::Resurrectionists->value,
+    ]);
+    $officialMaster->keywords()->attach($crew->keyword_1_id);
+
+    // A homebrew Leader belonging to some other crew, printed with the same
+    // keyword as this crew — should be eligible to borrow a Crew Card from.
+    $homebrewMaster = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Homebrew Master',
+        'display_name' => 'Homebrew Master',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+        'keywords' => [['id' => $crew->keyword_1_id, 'name' => 'Test Keyword']],
+    ]);
+
+    // A homebrew "Leader" that's stale (current = false) should NOT show up.
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'is_campaign_leader' => true,
+        'current' => false,
+        'name' => 'Stale Homebrew Master',
+        'display_name' => 'Stale Homebrew Master',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+        'keywords' => [['id' => $crew->keyword_1_id, 'name' => 'Test Keyword']],
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('eligible_masters', function ($masters) use ($officialMaster, $homebrewMaster) {
+            $byId = collect($masters)->keyBy('id');
+
+            return $byId->has($officialMaster->id)
+                && $byId->get($officialMaster->id)['master_type'] === 'official'
+                && $byId->has($homebrewMaster->id)
+                && $byId->get($homebrewMaster->id)['master_type'] === 'custom'
+                && ! $byId->keys()->contains(fn ($id) => \App\Models\CustomCharacter::find($id)?->name === 'Stale Homebrew Master');
+        }));
+});
+
+it('leader_advancements resolves a held Crew Card effect\'s name + source master, since the catalog list excludes held effects', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Log Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+
+    $borrowedEffect = CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
+    $master = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $borrowedEffect->id,
+        'source_master_id' => $master->id,
+        'source_master_type' => Character::class,
+    ]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::CrewCard->value,
+        'catalog_core_id' => $borrowedEffect->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leader_advancements.0.crew_card_name', 'Borrowed Boon')
+            ->where('leader_advancements.0.crew_card_master_name', $master->fresh()->display_name)
+            ->has('leader_advancements.0.acquired_at')
+        );
+});
+
+it('leader_advancements resolves the ally an Any-Joker action/ability was freely picked from', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Joker Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+
+    $ally = Character::factory()->create(['name' => 'Rusty Alyce']);
+    $ability = \App\Models\Ability::factory()->create();
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::Ability->value,
+        'catalog_core_id' => $ability->id,
+        'free_choice' => ['source_id' => $ability->id, 'source_character_id' => $ally->id],
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('leader_advancements.0.free_choice_source_name', 'Rusty Alyce'));
+});
+
+it('story_log entries carry an auto-computed tally of injuries/doctor/lucky-miss/TTW for that same week', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $game = \App\Models\Campaign\CampaignGame::factory()->create(['campaign_id' => $campaign->id, 'crew_a_id' => $crew->id, 'week_number' => 4]);
+    $aftermath = \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+        'story_entry' => 'A rough week.',
+    ]);
+
+    $hired = Character::factory()->create(['faction' => FactionEnum::Resurrectionists->value]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $hired->id]);
+    $injuryUpgrade = \App\Models\Upgrade::factory()->campaignInjury()->create();
+
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $injuryUpgrade->id,
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $injuryUpgrade->id,
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    \Illuminate\Support\Facades\DB::table('campaign_aftermath_doctor')->insert([
+        [
+            'campaign_aftermath_id' => $aftermath->id,
+            'target_arsenal_model_id' => $arsenalModel->id,
+            'flip_value' => 13,
+            'outcome' => 'lucky_miss_reflip',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'campaign_aftermath_id' => $aftermath->id,
+            'target_arsenal_model_id' => $arsenalModel->id,
+            'flip_value' => 3,
+            'outcome' => 'removed',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $ttwEquipment = \App\Models\Upgrade::factory()->campaignEquipmentTtw()->create();
+    \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $ttwEquipment->id,
+        'source' => 'joker',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('story_log.0.tally.injuries', 2)
+            ->where('story_log.0.tally.doctor_attempts', 2)
+            ->where('story_log.0.tally.lucky_misses', 1)
+            ->where('story_log.0.tally.ttw_pickups', 1)
+        );
+});
+
+it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss result', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $char = Character::factory()->create(['cost' => 6]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $char->id]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Uncanny Luck', 'description' => 'Once per turn...']);
+    $model->gainedAbilities()->attach($ability->id, ['source' => 'lucky_miss']);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models.0.gained_abilities.0.name', 'Uncanny Luck')
+            ->where('crew.arsenal_models.0.gained_abilities.0.description', 'Once per turn...')
+        );
+});

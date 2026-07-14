@@ -26,6 +26,13 @@ class PrintBonanzaLootDeckController extends Controller
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="bonanza-loot-deck.pdf"',
+            // The cache filename is versioned by *template* hash only, not by
+            // card content — a card-text edit regenerates the same path, so
+            // without this header a browser (or CDN) serving this exact URL
+            // from a previous visit would keep showing the stale PDF forever,
+            // even though the server-side file has genuinely been rebuilt.
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
         ]);
     }
 }

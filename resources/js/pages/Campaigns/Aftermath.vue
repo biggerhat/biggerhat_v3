@@ -105,7 +105,7 @@ const props = defineProps<{
     injury_catalog?: InjuryCatalogRow[] | null;
     traitor_target_crews?: TraitorCrewRow[] | null;
     // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
-    eligible_masters?: Array<{ id: number; name: string }> | null;
+    eligible_masters?: Array<{ id: number; name: string; master_type: 'official' | 'custom' }> | null;
     // Constrained pool for crew cards that require a token/marker/upgrade
     // choice (pg 17-18) — same pool Starting Arsenal uses.
     crew_card_choice_options?: CrewCardChoiceOptions | null;
@@ -292,7 +292,10 @@ interface CatalogRow {
     requires_upgrade_type_choice?: boolean;
     // Crew Card table only — the master this card is actually printed on
     // (null = generic, listed directly rather than via the Master cascade).
+    // master_type disambiguates official Character ids from CustomCharacter
+    // ids, which live in separate tables and can collide.
     master_id?: number | null;
+    master_type?: 'official' | 'custom';
     master_name?: string | null;
 }
 interface ChoiceOption {
@@ -491,7 +494,16 @@ const CREW_CARD_FROM_MASTER = '__from_master__';
 
 const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
 
-const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
+// masterId alone isn't enough to disambiguate — official Character ids and
+// CustomCharacter (homebrew Leader) ids live in separate tables and can
+// collide, so the row's own master_type must match the selected master's.
+const eligibleMasterType = (masterId: number | null): 'official' | 'custom' | null =>
+    (props.eligible_masters ?? []).find((m) => m.id === masterId)?.master_type ?? null;
+
+const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => {
+    const masterType = eligibleMasterType(masterId) ?? 'official';
+    return catalogRowsFor('crew_card').filter((r) => r.master_id === masterId && (r.master_type ?? 'official') === masterType);
+};
 
 const onCrewCardTopChange = (position: number, v: string) => {
     const d = advDrafts.value[position];
@@ -1053,6 +1065,9 @@ const finalize = () =>
                         </Button>
                     </div>
                 </div>
+                <p v-if="barterTotalCc > aftermath.crew.scrip" class="text-right text-xs text-destructive">
+                    Not enough scrip — needs {{ barterTotalCc }}, have {{ aftermath.crew.scrip }}.
+                </p>
             </CardContent>
         </Card>
 
@@ -1608,6 +1623,9 @@ const finalize = () =>
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
                 </div>
+                <p v-if="doctorAttempts.length > aftermath.crew.scrip" class="text-right text-xs text-destructive">
+                    Not enough scrip — doctor attempts cost {{ doctorAttempts.length }}, have {{ aftermath.crew.scrip }}.
+                </p>
             </CardContent>
         </Card>
 

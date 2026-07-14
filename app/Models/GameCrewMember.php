@@ -27,6 +27,7 @@ class GameCrewMember extends Model
             'attached_upgrades' => 'array',
             'attached_tokens' => 'array',
             'attached_markers' => 'array',
+            'characteristics' => 'array',
         ];
     }
 

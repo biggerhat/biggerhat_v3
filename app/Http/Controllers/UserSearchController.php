@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Campaign\CampaignInvitation;
+use App\Models\Campaign\CampaignPlayer;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,9 +29,23 @@ class UserSearchController extends Controller
         // Prefix match keeps the query index-friendly.
         $escaped = addcslashes($q, '\\%_');
 
+        // Optional: the Campaign invite picker passes its own campaign id so
+        // already-joined/already-invited users don't show up as pickable
+        // results (they'd just bounce off CampaignInvitationController's own
+        // validation on submit otherwise). Opt-in only — the plain
+        // friend-request search box passes nothing and is unaffected.
+        $excludeCampaignId = $request->integer('exclude_campaign_id') ?: null;
+
         $users = User::query()
             ->where('id', '!=', $request->user()->id)
             ->where('name', 'like', $escaped.'%')
+            ->when($excludeCampaignId, fn ($q) => $q
+                ->whereNotIn('id', CampaignPlayer::query()->where('campaign_id', $excludeCampaignId)->pluck('user_id'))
+                ->whereNotIn('id', CampaignInvitation::query()
+                    ->where('campaign_id', $excludeCampaignId)
+                    ->pending()
+                    ->whereNotNull('user_id')
+                    ->pluck('user_id')))
             ->orderBy('name')
             ->limit(10)
             ->get(['id', 'name']);

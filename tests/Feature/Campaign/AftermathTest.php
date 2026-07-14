@@ -428,6 +428,30 @@ it('Phase 6 red joker sends the model to the Lucky Miss table instead of an inju
     expect($model->fresh()->gained_lucky_miss_ids)->toEqual([$luckyMiss->id]);
 });
 
+it('Phase 6 red joker with an Ability-linked Lucky Miss permanently grants that Ability to the model', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 6,
+        'hand_drawn' => [],
+    ]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id]);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Uncanny Luck']);
+    $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['flip_value' => 8, 'is_doppelganger' => false, 'ability_id' => $ability->id]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.determine-injuries', $aftermath), [
+            'flips' => [
+                ['arsenal_model_id' => $model->id, 'is_red_joker' => true, 'lucky_miss_flip_value' => 8],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($model->fresh()->gained_lucky_miss_ids)->toEqual([$luckyMiss->id]);
+    expect($model->fresh()->gainedAbilities->pluck('name')->all())->toBe(['Uncanny Luck']);
+});
+
 it('Phase 6 black joker (Traitor) defects the model to the opponent crew with its injuries', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1635,6 +1659,94 @@ it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outs
             'advancements' => [[
                 'source_table' => 'crew_card',
                 'catalog_id' => $borrowedEffect->id,
+                'position_in_xp_track' => 6,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
+});
+
+it('advancement_catalogs.crew_card excludes a card with a power-bar-excluded action or ability (pg 32, 54)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+
+    $eligible = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Eligible Effect']);
+
+    $excludedViaAction = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Power Bar Effect']);
+    $action = \App\Models\Action::factory()->create();
+    $excludedViaAction->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
+
+    $excludedViaAbility = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Card Swap Effect']);
+    $ability = \App\Models\Ability::factory()->create();
+    $excludedViaAbility->abilities()->attach($ability->id, ['borrow_exclusion' => 'card_swap']);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($eligible, $excludedViaAction, $excludedViaAbility) {
+            $ids = collect($rows)->pluck('id');
+
+            return $ids->contains($eligible->id)
+                && ! $ids->contains($excludedViaAction->id)
+                && ! $ids->contains($excludedViaAbility->id);
+        }));
+});
+
+it('advancement_catalogs.crew_card exposes the generated card image', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+
+    $row = \App\Models\Campaign\CampaignCrewCard::factory()->create([
+        'name' => 'Imaged Effect',
+        'front_image' => 'campaign-crew-cards/123/front.png',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($row) {
+            $match = collect($rows)->firstWhere('id', $row->id);
+
+            return $match && $match['front_image'] === 'campaign-crew-cards/123/front.png';
+        }));
+});
+
+it('Phase 4 Crew Card advancement rejects a card with a power-bar-excluded action (pg 32, 54)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+
+    $excludedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create();
+    $action = \App\Models\Action::factory()->create();
+    $excludedEffect->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $excludedEffect->id,
                 'position_in_xp_track' => 6,
             ]],
         ])

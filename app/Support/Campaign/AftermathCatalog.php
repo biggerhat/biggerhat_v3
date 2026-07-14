@@ -397,16 +397,30 @@ class AftermathCatalog
                 ->with(['actions:id,name', 'abilities:id,name', 'master:id,faction,display_name'])
                 ->orderBy('name')
                 ->get()
+                // Tier-4 Crew Card Advancement (pg 32, 54): "Effects that
+                // reference a power bar or cause the crew card to be swapped
+                // with a different crew card may not be chosen." The app
+                // borrows a whole CampaignCrewCard row as one unit (not
+                // individual actions/abilities within it), so any excluded
+                // action/ability makes the whole card ineligible to borrow —
+                // it's unaffected as that crew's own starter effect.
+                ->reject(fn (CampaignCrewCard $c) => $c->actions->contains(fn (Action $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
+                    || $c->abilities->contains(fn (Ability $a) => $a->pivot->borrow_exclusion !== null)) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
                 ->map(fn (CampaignCrewCard $c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'body' => $c->description,
+                    'front_image' => $c->front_image,
                     'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
                     'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
                     // The master this card is actually printed on (null =
                     // generic, not yet assigned) — drives the cascading
                     // Master → their own Crew Card picker (pg 32, 54).
+                    // master_type disambiguates official Character ids from
+                    // CustomCharacter ids, which live in separate tables and
+                    // can collide.
                     'master_id' => $c->master_id,
+                    'master_type' => $c->master_type === CustomCharacter::class ? 'custom' : 'official',
                     'master_name' => $c->master?->display_name,
                     // Whether taking this borrowed effect also requires picking
                     // a token/marker/upgrade type from the constrained pool
@@ -421,9 +435,13 @@ class AftermathCatalog
 
     /**
      * Masters sharing one of the crew's keywords — the eligible "borrow
-     * from" source for a Tier-4 Crew Card advancement (pg 32, 54).
+     * from" source for a Tier-4 Crew Card advancement (pg 32, 54). Includes
+     * both official Characters and homebrew Leaders (CustomCharacter), since
+     * `CampaignCrewCard::master()` supports both via its polymorphic
+     * `master_id`/`master_type` (mirrors `CrewCardAdminController::
+     * formProps()`'s own official+custom master lists).
      *
-     * @return array<int, array{id: int, name: string}>
+     * @return array<int, array{id: int, name: string, master_type: 'official'|'custom'}>
      */
     public static function eligibleMasters(CampaignCrew $crew): array
     {
@@ -432,12 +450,22 @@ class AftermathCatalog
             return [];
         }
 
-        return Character::query()
+        $officialMasters = Character::query()
             ->where('station', CharacterStationEnum::Master->value)
             ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-            ->orderBy('display_name')
             ->get(['id', 'display_name'])
-            ->map(fn (Character $c) => ['id' => $c->id, 'name' => $c->display_name])
+            ->map(fn (Character $c) => ['id' => $c->id, 'name' => $c->display_name, 'master_type' => 'official']);
+
+        $customMasters = CustomCharacter::query()
+            ->where('is_campaign_leader', true)
+            ->where('current', true)
+            ->get(['id', 'display_name', 'keywords'])
+            ->filter(fn (CustomCharacter $c) => collect($c->keywords ?? [])->pluck('id')->filter()->intersect($keywordIds)->isNotEmpty())
+            ->map(fn (CustomCharacter $c) => ['id' => $c->id, 'name' => $c->display_name, 'master_type' => 'custom']);
+
+        return $officialMasters->concat($customMasters)
+            ->sortBy('name')
+            ->values()
             ->all();
     }
 

@@ -17,6 +17,7 @@ interface LuckyMissRow {
     name: string;
     flip_value: number | null;
     is_doppelganger: boolean;
+    ability: { id: number; name: string } | null;
 }
 
 const globalSearchFilter: FilterFn<LuckyMissRow> = (row, _columnId, filterValue) => {
@@ -33,6 +34,11 @@ const columns: ColumnDef<LuckyMissRow>[] = [
         accessorKey: 'flip_value',
         header: () => h('div', {}, 'Flip'),
         cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.original.flip_value ?? 'Joker'),
+    },
+    {
+        id: 'ability',
+        header: () => h('div', {}, 'Ability'),
+        cell: ({ row }) => (row.original.ability ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => row.original.ability!.name) : null),
     },
     {
         id: 'flags',

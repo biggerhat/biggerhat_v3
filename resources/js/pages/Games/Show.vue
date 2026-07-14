@@ -182,6 +182,9 @@ interface CrewCardEffect {
     id: number;
     name: string;
     body: string | null;
+    // Server-generated card image (App\Services\Campaign\CrewCardImageGenerator).
+    // Null until the first render lands — falls back to the text rendering below.
+    front_image: string | null;
     actions: CrewCardActionData[];
     abilities: CrewCardAbilityData[];
 }
@@ -4369,21 +4372,30 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     leave-to-class="max-h-0 opacity-0"
                                 >
                                     <div v-if="expandedMyCrewCardEffect" class="mt-2 space-y-2 overflow-hidden">
-                                        <p v-if="myCrewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground">
-                                            <GameText :text="myCrewCard.effect.body" />
-                                        </p>
-                                        <ActionCard
-                                            v-for="(a, i) in myCrewCard.effect.actions"
-                                            :key="`mycc-action-${i}`"
-                                            :action="a"
-                                            :hide-footer="true"
+                                        <img
+                                            v-if="myCrewCard.effect.front_image"
+                                            :src="'/storage/' + myCrewCard.effect.front_image"
+                                            :alt="myCrewCard.effect.name"
+                                            class="max-h-96 cursor-pointer rounded-md border"
+                                            @click="openCardFullscreen({ src: '/storage/' + myCrewCard.effect.front_image, title: myCrewCard.effect.name })"
                                         />
-                                        <AbilityCard
-                                            v-for="(ab, i) in myCrewCard.effect.abilities"
-                                            :key="`mycc-ability-${i}`"
-                                            :ability="ab"
-                                            :hide-footer="true"
-                                        />
+                                        <template v-else>
+                                            <p v-if="myCrewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                                <GameText :text="myCrewCard.effect.body" />
+                                            </p>
+                                            <ActionCard
+                                                v-for="(a, i) in myCrewCard.effect.actions"
+                                                :key="`mycc-action-${i}`"
+                                                :action="a"
+                                                :hide-footer="true"
+                                            />
+                                            <AbilityCard
+                                                v-for="(ab, i) in myCrewCard.effect.abilities"
+                                                :key="`mycc-ability-${i}`"
+                                                :ability="ab"
+                                                :hide-footer="true"
+                                            />
+                                        </template>
                                         <template v-for="adv in myCrewCard.borrowed" :key="`mycc-borrowed-${adv.id}`">
                                             <div v-if="adv.effect" class="border-t pt-2">
                                                 <p class="text-xs font-medium">
@@ -4392,21 +4404,30 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         >— borrowed from {{ adv.source_master_name }}</span
                                                     >
                                                 </p>
-                                                <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
-                                                    <GameText :text="adv.effect.body" />
-                                                </p>
-                                                <ActionCard
-                                                    v-for="(a, i) in adv.effect.actions"
-                                                    :key="`mycc-badv-action-${adv.id}-${i}`"
-                                                    :action="a"
-                                                    :hide-footer="true"
+                                                <img
+                                                    v-if="adv.effect.front_image"
+                                                    :src="'/storage/' + adv.effect.front_image"
+                                                    :alt="adv.effect.name"
+                                                    class="mt-1 max-h-96 cursor-pointer rounded-md border"
+                                                    @click="openCardFullscreen({ src: '/storage/' + adv.effect.front_image, title: adv.effect.name })"
                                                 />
-                                                <AbilityCard
-                                                    v-for="(ab, i) in adv.effect.abilities"
-                                                    :key="`mycc-badv-ability-${adv.id}-${i}`"
-                                                    :ability="ab"
-                                                    :hide-footer="true"
-                                                />
+                                                <template v-else>
+                                                    <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                                        <GameText :text="adv.effect.body" />
+                                                    </p>
+                                                    <ActionCard
+                                                        v-for="(a, i) in adv.effect.actions"
+                                                        :key="`mycc-badv-action-${adv.id}-${i}`"
+                                                        :action="a"
+                                                        :hide-footer="true"
+                                                    />
+                                                    <AbilityCard
+                                                        v-for="(ab, i) in adv.effect.abilities"
+                                                        :key="`mycc-badv-ability-${adv.id}-${i}`"
+                                                        :ability="ab"
+                                                        :hide-footer="true"
+                                                    />
+                                                </template>
                                             </div>
                                         </template>
                                     </div>
@@ -4526,6 +4547,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                             <span v-if="member.size" title="Size"
                                                 ><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span
+                                            >
+                                            <span
+                                                v-if="member.characteristics?.length"
+                                                class="text-[10px] font-normal italic text-white/70 sm:text-[9px]"
+                                                :title="member.characteristics.join(', ')"
+                                                >({{ member.characteristics.join(', ') }})</span
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->
@@ -5015,6 +5042,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                             <span v-if="member.size" title="Size"
                                                 ><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span
+                                            >
+                                            <span
+                                                v-if="member.characteristics?.length"
+                                                class="text-[10px] font-normal italic text-white/70 sm:text-[9px]"
+                                                :title="member.characteristics.join(', ')"
+                                                >({{ member.characteristics.join(', ') }})</span
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->

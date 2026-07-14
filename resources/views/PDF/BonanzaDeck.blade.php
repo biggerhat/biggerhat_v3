@@ -46,12 +46,15 @@
         'joker' => ['border' => '#d97706', 'header' => '#fef3c7', 'divider' => '#fffbeb', 'glyph' => '#b45309'],
     ];
 
-    // Render game-text tokens ({{crow}}, {{soulstone}} …) as font glyphs;
-    // leave plain text otherwise.
+    // Render game-text tokens ({{crow}}, {{soulstone}}, {{+}}, {{-}} …) as font
+    // glyphs; leave plain text otherwise. `\w+|[+-]` mirrors GameText.vue's own
+    // token regex exactly — a plain `\w+` here would silently drop {{+}}/{{-}}
+    // (the Positive/Negative Twist modifier, used constantly in card text),
+    // leaking the raw "{{+}}" into the printed PDF instead of a glyph.
     $renderTokens = function (?string $text) use ($glyphs): string {
         if (! $text) return '';
         $escaped = e($text);
-        return preg_replace_callback('/\{\{\s*(\w+)\s*\}\}/', function ($m) use ($glyphs) {
+        return preg_replace_callback('/\{\{\s*(\w+|[+-])\s*\}\}/', function ($m) use ($glyphs) {
             $key = strtolower($m[1]);
             if (isset($glyphs[$key])) {
                 return '<span class="gi">' . $glyphs[$key] . '</span>';

@@ -67,13 +67,14 @@ class CampaignCrewCard extends Model
     public function actions(): BelongsToMany
     {
         return $this->belongsToMany(Action::class, 'campaign_crew_card_actions')
-            ->withPivot('is_signature_action');
+            ->withPivot('is_signature_action', 'borrow_exclusion');
     }
 
     /** @return BelongsToMany<Ability, $this> */
     public function abilities(): BelongsToMany
     {
-        return $this->belongsToMany(Ability::class, 'campaign_crew_card_abilities');
+        return $this->belongsToMany(Ability::class, 'campaign_crew_card_abilities')
+            ->withPivot('borrow_exclusion');
     }
 
     public function crews(): HasMany

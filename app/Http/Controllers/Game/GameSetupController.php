@@ -699,6 +699,7 @@ class GameSetupController extends Controller
                     'willpower' => $campaignLeader->willpower,
                     'speed' => $campaignLeader->speed,
                     'size' => $campaignLeader->size,
+                    'characteristics' => $campaignLeader->characteristics ?? [],
                     'cost' => 0,
                     'station' => 'master',
                     'hiring_category' => 'leader',
@@ -733,6 +734,7 @@ class GameSetupController extends Controller
                     'willpower' => $campaignTotem->willpower,
                     'speed' => $campaignTotem->speed,
                     'size' => $campaignTotem->size,
+                    'characteristics' => $campaignTotem->characteristics ?? [],
                     'cost' => 0,
                     'station' => null,
                     'hiring_category' => 'totem',
@@ -797,7 +799,18 @@ class GameSetupController extends Controller
                 $injuryUpgrades = $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id);
                 $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$arsenalModel->id] ?? []);
 
-                $this->createCrewMember($game, $player, $character, $category, $effectiveCost, $sortOrder++, $miniatureSelections, $miniatureIndexes, $attachedUpgrades);
+                $this->createCrewMember(
+                    $game,
+                    $player,
+                    $character,
+                    $category,
+                    $effectiveCost,
+                    $sortOrder++,
+                    $miniatureSelections,
+                    $miniatureIndexes,
+                    $attachedUpgrades,
+                    $arsenalModel->gained_characteristics ?? [],
+                );
             }
 
             return;
@@ -807,7 +820,7 @@ class GameSetupController extends Controller
             return;
         }
 
-        $master = Character::with('miniatures', 'keywords')
+        $master = Character::with('miniatures', 'keywords', 'characteristics')
             ->find($crewBuild->master_id);
 
         if (! $master) {
@@ -829,7 +842,7 @@ class GameSetupController extends Controller
 
         // Add totem
         if ($master->has_totem_id) {
-            $totem = Character::with('miniatures')->find($master->has_totem_id);
+            $totem = Character::with('miniatures', 'characteristics')->find($master->has_totem_id);
             if ($totem) {
                 $totemCount = max(1, $totem->count ?? 1);
                 for ($i = 0; $i < $totemCount; $i++) {
@@ -885,6 +898,7 @@ class GameSetupController extends Controller
                 'willpower' => $customEntry['willpower'] ?? null,
                 'speed' => $customEntry['speed'] ?? null,
                 'size' => $customEntry['size'] ?? null,
+                'characteristics' => $customEntry['characteristics'] ?? [],
                 'cost' => $effectiveCost,
                 'station' => $customEntry['station'] ?? null,
                 'hiring_category' => $category,
@@ -948,6 +962,8 @@ class GameSetupController extends Controller
                 'front_image' => $entry['front_image'],
                 'back_image' => $entry['back_image'],
                 'description' => $entry['description'],
+                'actions' => $entry['actions'],
+                'abilities' => $entry['abilities'],
             ];
         }
 
@@ -999,7 +1015,7 @@ class GameSetupController extends Controller
             ->where('game_player_id', $player->id)
             ->delete();
 
-        $character = Character::with('miniatures')->find($player->master_id);
+        $character = Character::with('miniatures', 'characteristics')->find($player->master_id);
         if (! $character) {
             return;
         }
@@ -1010,7 +1026,10 @@ class GameSetupController extends Controller
         $this->createCrewMember($game, $player, $character, 'lone', 0, 0, [], $miniatureIndexes);
     }
 
-    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = [], array $attachedUpgrades = []): void
+    /**
+     * @param  array<int, string>  $extraCharacteristics  Campaign-gained characteristics (pg 34) to merge with the character's base ones — e.g. CampaignArsenalModel::gained_characteristics.
+     */
+    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = [], array $attachedUpgrades = [], array $extraCharacteristics = []): void
     {
         // Use the miniature selected in the Crew Builder, or fall back to first.
         // miniature_selections can be { "charId": miniatureId } (single) or { "charId": [id1, id2, ...] } (multi).
@@ -1043,6 +1062,7 @@ class GameSetupController extends Controller
             'willpower' => $character->willpower,
             'speed' => $character->speed,
             'size' => $character->size,
+            'characteristics' => $character->characteristics->pluck('name')->merge($extraCharacteristics)->unique()->values()->all(),
             'cost' => $cost,
             'station' => $character->station?->value,
             'hiring_category' => $category,

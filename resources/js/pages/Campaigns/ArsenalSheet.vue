@@ -63,6 +63,9 @@ interface CrewCardEffectRow {
     id: number;
     name: string;
     body: string;
+    // Server-generated card image (App\Services\Campaign\CrewCardImageGenerator).
+    // Null until the first render lands — falls back to the text rendering below.
+    front_image: string | null;
     actions: CrewCardLinkedAction[];
     abilities: CrewCardLinkedAbility[];
 }
@@ -168,6 +171,8 @@ interface ArsenalRow {
     injuries: InjuryItem[];
     gained_characteristics: string[];
     lucky_miss: string[];
+    // Real Abilities gained permanently from a Lucky Miss result (pg 36).
+    gained_abilities: InjuryItem[];
 }
 
 interface CrewData {
@@ -237,8 +242,16 @@ interface AdvancementTaken {
     source_table: string;
     catalog_id: number | null;
     free_choice: Record<string, unknown> | null;
+    // Any Joker (Action/Ability, pg 49/51) — the ally an action/ability was freely picked from.
+    free_choice_source_name: string | null;
+    // Tier-4 Crew Card (pg 32, 54) — resolved server-side since the catalog
+    // lookup used for every other table excludes effects already held.
+    crew_card_name: string | null;
+    crew_card_master_name: string | null;
     applied_to_custom_character_id: number | null;
+    applied_to_action_index: number;
     from_equipment_id: number | null;
+    acquired_at: string;
 }
 interface CatalogRow {
     id: number;
@@ -283,7 +296,10 @@ interface CatalogRow {
     requires_upgrade_type_choice?: boolean;
     // Crew Card table only — the master this card is actually printed on
     // (null = generic, listed directly rather than via the Master cascade).
+    // master_type disambiguates official Character ids from CustomCharacter
+    // ids, which live in separate tables and can collide.
     master_id?: number | null;
+    master_type?: 'official' | 'custom';
     master_name?: string | null;
 }
 type AdvancementCatalogs = Record<string, CatalogRow[]>;
@@ -310,12 +326,21 @@ const props = defineProps<{
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
     // Masters sharing a crew keyword — the Tier-4 Crew Card "borrow from" pick.
-    eligible_masters?: Array<{ id: number; name: string }> | null;
+    eligible_masters?: Array<{ id: number; name: string; master_type: 'official' | 'custom' }> | null;
     // Constrained pool for crew cards that require a token/marker/upgrade
     // choice (pg 17-18) — same pool Starting Arsenal uses.
     crew_card_choice_options?: CrewCardChoiceOptions | null;
     // Optional per-game journal entries, chronological.
-    story_log: Array<{ id: number; week_number: number | null; story_entry: string; created_at: string }>;
+    story_log: Array<{
+        id: number;
+        week_number: number | null;
+        story_entry: string;
+        created_at: string;
+        // Auto-computed tally of what changed that week (pg 34-35 injuries,
+        // Back-Alley Doctor, Lucky Miss, Those Who Thirst) — same week the
+        // freeform entry was written for.
+        tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number };
+    }>;
 }>();
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
@@ -412,7 +437,16 @@ const CREW_CARD_FROM_MASTER = '__from_master__';
 
 const crewCardGenericRows = computed<CatalogRow[]>(() => catalogRowsFor('crew_card').filter((r) => r.master_id == null));
 
-const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => catalogRowsFor('crew_card').filter((r) => r.master_id === masterId);
+// masterId alone isn't enough to disambiguate — official Character ids and
+// CustomCharacter (homebrew Leader) ids live in separate tables and can
+// collide, so the row's own master_type must match the selected master's.
+const eligibleMasterType = (masterId: number | null): 'official' | 'custom' | null =>
+    (props.eligible_masters ?? []).find((m) => m.id === masterId)?.master_type ?? null;
+
+const crewCardRowsForMaster = (masterId: number | null): CatalogRow[] => {
+    const masterType = eligibleMasterType(masterId) ?? 'official';
+    return catalogRowsFor('crew_card').filter((r) => r.master_id === masterId && (r.master_type ?? 'official') === masterType);
+};
 
 const onCrewCardTopChange = (position: number, v: string) => {
     const d = drafts.value[position];
@@ -458,16 +492,42 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
 };
 
 const advancementName = (a: AdvancementTaken): string =>
+    // Crew Card (pg 32, 54): resolved server-side, since the catalog list
+    // excludes effects this crew already holds (can't be picked twice).
+    a.crew_card_name ??
     catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ??
     SOURCE_TABLE_LABELS[a.source_table] ??
     a.source_table.replace(/_/g, ' ');
 
-// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader
-// (the default), shown for Totem/Equipment so the log records where it went.
+// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader's
+// own action (the default), shown for Totem/Equipment/the specific Leader
+// action so the log records exactly where the effect went.
 const advancementTargetLabel = (a: AdvancementTaken): string | null => {
     if (a.from_equipment_id != null) return props.equipment.find((e) => e.id === a.from_equipment_id)?.name ?? 'Equipment';
     if (a.applied_to_custom_character_id != null) return 'Totem';
+    if (a.applied_to_action_index >= 0) return props.leader?.actions?.[a.applied_to_action_index]?.name ?? null;
     return null;
+};
+
+// Extra attribution context beyond the name/target — who a free-picked
+// action/ability came from, or which master a Crew Card effect was borrowed
+// from. Returns null when there's nothing more to say (e.g. a generic,
+// unattributed Crew Card effect).
+const advancementContext = (a: AdvancementTaken): string | null => {
+    if (a.source_table === 'crew_card') return a.crew_card_master_name ? `Borrowed from ${a.crew_card_master_name}` : null;
+    if (a.free_choice_source_name) return `Any Joker — from ${a.free_choice_source_name}`;
+    return null;
+};
+
+// Story Log tally line — only mentions the counters that actually happened
+// that week, so a quiet week's entry stays free of "0" noise.
+const storyTallyParts = (tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number }): string[] => {
+    const parts: string[] = [];
+    if (tally.injuries > 0) parts.push(`Injuries: ${tally.injuries}`);
+    if (tally.doctor_attempts > 0) parts.push(`Doctor: ${tally.doctor_attempts}`);
+    if (tally.lucky_misses > 0) parts.push(`Lucky Miss: ${tally.lucky_misses}`);
+    if (tally.ttw_pickups > 0) parts.push(`TTW pickup: ${tally.ttw_pickups}`);
+    return parts;
 };
 
 // Per-slot picker drafts. Seed reactively: Inertia reuses this component
@@ -666,7 +726,7 @@ const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) =>
 // ───────── Card viewer (equipment / crew card / injury — Dialog) ─────────
 type CardView =
     | { kind: 'equipment'; title: string; equipment: EquipmentItem }
-    | { kind: 'crew'; title: string; effect: CrewCardEffectRow }
+    | { kind: 'crew'; title: string; cards: Array<{ title: string; sourceMasterName: string | null; effect: CrewCardEffectRow }> }
     | { kind: 'injury'; title: string; description: string | null };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
@@ -675,21 +735,21 @@ const viewEquipment = (equipment: EquipmentItem) => {
 const viewInjury = (injury: InjuryItem) => {
     viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
 };
-// Merges the starter effect with every currently-held Tier-4 borrowed effect
-// (pg 32, 54) into one combined card view, so newly-added borrowed effects
-// show up here too instead of only in the plain-text "Borrowed Effects" list.
+// Each held Crew Card effect (the starter + every currently-held Tier-4
+// borrowed effect, pg 32, 54) has its own generated card image, so this
+// shows a list of individually-rendered cards rather than merging their text
+// into one — a generated image can't be "merged" the way plain text was.
 const viewCrewCard = () => {
     const starter = props.crew.crew_card_effect;
     if (!starter) return;
-    const borrowed = props.crew.crew_card_advancements.map((a) => a.effect).filter((e): e is CrewCardEffectRow => e !== null);
-    const merged: CrewCardEffectRow = {
-        id: starter.id,
-        name: starter.name,
-        body: starter.body,
-        actions: [...starter.actions, ...borrowed.flatMap((e) => e.actions)],
-        abilities: [...starter.abilities, ...borrowed.flatMap((e) => e.abilities)],
+    const borrowed = props.crew.crew_card_advancements
+        .filter((a): a is typeof a & { effect: CrewCardEffectRow } => a.effect !== null)
+        .map((a) => ({ title: a.effect.name, sourceMasterName: a.source_master_name, effect: a.effect }));
+    viewCard.value = {
+        kind: 'crew',
+        title: starter.name,
+        cards: [{ title: starter.name, sourceMasterName: null, effect: starter }, ...borrowed],
     };
-    viewCard.value = { kind: 'crew', title: starter.name, effect: merged };
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
@@ -1626,6 +1686,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 model.injuries.length ||
                                 model.gained_characteristics.length ||
                                 model.lucky_miss.length ||
+                                model.gained_abilities.length ||
                                 model.acquired_via === 'doppelganger' ||
                                 model.acquired_via === 'traitor'
                             "
@@ -1648,6 +1709,17 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
                             <Badge v-for="lm in model.lucky_miss" :key="`l-${lm}`" class="bg-green-600 text-[10px] text-white hover:bg-green-600">
                                 {{ lm }}
+                            </Badge>
+                            <Badge
+                                v-for="ab in model.gained_abilities"
+                                :key="`a-${ab.id}`"
+                                class="cursor-pointer bg-blue-600 text-[10px] text-white hover:bg-blue-600"
+                                role="button"
+                                tabindex="0"
+                                @click.stop="viewInjury(ab)"
+                                @keydown.enter.stop="viewInjury(ab)"
+                            >
+                                {{ ab.name }}
                             </Badge>
                         </div>
                     </div>
@@ -1710,14 +1782,16 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <li
                         v-for="a in [...leader_advancements].sort((x, y) => x.position_in_xp_track - y.position_in_xp_track)"
                         :key="a.id"
-                        class="flex items-center justify-between rounded-md border p-2 text-sm"
+                        class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border p-2 text-sm"
                     >
-                        <span class="flex items-center gap-2">
+                        <span class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
                             <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
                             <span class="font-medium">{{ advancementName(a) }}</span>
                             <Badge v-if="advancementTargetLabel(a)" variant="outline" class="text-[10px]">{{ advancementTargetLabel(a) }}</Badge>
+                            <span v-if="advancementContext(a)" class="text-[11px] text-muted-foreground">{{ advancementContext(a) }}</span>
                         </span>
+                        <span v-if="a.acquired_at" class="text-[10px] text-muted-foreground">{{ new Date(a.acquired_at).toLocaleDateString() }}</span>
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No advancements yet" description="" />
@@ -1738,6 +1812,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
                         </div>
                         <p class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
+                        <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-[11px] text-muted-foreground">
+                            {{ storyTallyParts(entry.tally).join(' · ') }}
+                        </p>
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No story entries yet" description="Written at the end of Log Game, if you want one." />
@@ -1788,15 +1865,29 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 </div>
 
                 <!-- Crew card -->
-                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-3">
-                    <p v-if="viewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="viewCard.effect.body" /></p>
-                    <div v-if="viewCard.effect.abilities.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                        <AbilityCard v-for="ab in viewCard.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
-                    </div>
-                    <div v-if="viewCard.effect.actions.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                        <ActionCard v-for="ac in viewCard.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
+                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-4">
+                    <div v-for="(c, idx) in viewCard.cards" :key="`crewcard-${c.effect.id}-${idx}`" :class="idx > 0 ? 'border-t pt-4' : ''">
+                        <p class="mb-1.5 text-xs font-medium">
+                            {{ c.title }}
+                            <span v-if="c.sourceMasterName" class="text-muted-foreground">— borrowed from {{ c.sourceMasterName }}</span>
+                        </p>
+                        <img
+                            v-if="c.effect.front_image"
+                            :src="'/storage/' + c.effect.front_image"
+                            :alt="c.effect.name"
+                            class="max-h-[600px] rounded-md border"
+                        />
+                        <template v-else>
+                            <p v-if="c.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="c.effect.body" /></p>
+                            <div v-if="c.effect.abilities.length" class="mt-2 space-y-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                                <AbilityCard v-for="ab in c.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
+                            </div>
+                            <div v-if="c.effect.actions.length" class="mt-2 space-y-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                                <ActionCard v-for="ac in c.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
+                            </div>
+                        </template>
                     </div>
                 </div>
 

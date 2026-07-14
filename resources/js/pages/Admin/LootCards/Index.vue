@@ -46,6 +46,13 @@ const pdfGeneratedLabel = computed(() => {
     return new Date(pdfGeneratedAt.value * 1000).toLocaleString();
 });
 
+// The cache path is versioned by *template* hash only, not by card content —
+// a regenerate produces the exact same URL as before, served as a static
+// asset (bypasses Laravel entirely, so no Cache-Control header can apply
+// here). Without a cache-buster, "Download" would keep opening the browser's
+// cached copy of that URL even after a successful regeneration.
+const downloadUrl = computed(() => (pdfUrl.value && pdfGeneratedAt.value ? `${pdfUrl.value}?v=${pdfGeneratedAt.value}` : pdfUrl.value));
+
 const regeneratePdf = () => {
     pdfStatus.value = 'generating';
     pdfError.value = null;
@@ -134,7 +141,7 @@ const deleteCard = async (card: LootCardRow) => {
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <a v-if="pdfUrl" :href="pdfUrl" target="_blank" rel="noopener">
+                    <a v-if="pdfUrl" :href="downloadUrl" target="_blank" rel="noopener">
                         <Button size="sm" variant="outline" class="gap-1.5"> <Download class="size-4" /> Download </Button>
                     </a>
                     <Button size="sm" variant="outline" class="gap-1.5" :disabled="pdfStatus === 'generating'" @click="regeneratePdf">

@@ -220,6 +220,66 @@ it('update re-assigns master_id from an official master to a custom Leader', fun
     expect($fresh->master)->toBeInstanceOf(CustomCharacter::class);
 });
 
+it('store persists a Tier-4 borrow exclusion reason on an action and an ability', function () {
+    $action = \App\Models\Action::factory()->create();
+    $ability = \App\Models\Ability::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.campaign.crew-cards.store'), [
+            'name' => 'Excluded Effects',
+            'requires_token_choice' => false,
+            'requires_marker_choice' => false,
+            'requires_upgrade_type_choice' => false,
+            'actions' => [
+                ['id' => $action->id, 'is_signature' => false, 'borrow_exclusion' => 'power_bar'],
+            ],
+            'abilities' => [
+                ['id' => $ability->id, 'borrow_exclusion' => 'card_swap'],
+            ],
+        ])
+        ->assertRedirect();
+
+    $row = CampaignCrewCard::firstWhere('name', 'Excluded Effects');
+    expect($row->actions->first()->pivot->borrow_exclusion)->toBe('power_bar');
+    expect($row->abilities->first()->pivot->borrow_exclusion)->toBe('card_swap');
+});
+
+it('store rejects an invalid borrow_exclusion value', function () {
+    $action = \App\Models\Action::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.campaign.crew-cards.store'), [
+            'name' => 'Bad Exclusion',
+            'requires_token_choice' => false,
+            'requires_marker_choice' => false,
+            'requires_upgrade_type_choice' => false,
+            'actions' => [
+                ['id' => $action->id, 'is_signature' => false, 'borrow_exclusion' => 'not_a_real_reason'],
+            ],
+        ])
+        ->assertSessionHasErrors('actions.0.borrow_exclusion');
+});
+
+it('update clears a borrow_exclusion back to eligible', function () {
+    $action = \App\Models\Action::factory()->create();
+    $row = CampaignCrewCard::factory()->create();
+    $row->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.campaign.crew-cards.update', $row->id), [
+            'name' => $row->name,
+            'requires_token_choice' => false,
+            'requires_marker_choice' => false,
+            'requires_upgrade_type_choice' => false,
+            'actions' => [
+                ['id' => $action->id, 'is_signature' => false, 'borrow_exclusion' => null],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($row->fresh()->actions->first()->pivot->borrow_exclusion)->toBeNull();
+});
+
 it('delete removes the crew card', function () {
     $row = CampaignCrewCard::factory()->create();
 

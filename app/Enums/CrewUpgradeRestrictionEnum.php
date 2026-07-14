@@ -25,6 +25,8 @@ enum CrewUpgradeRestrictionEnum: string implements HasDefaultEnumMethods
     case FriendlyKeywordMinion = 'friendly_keyword_minion';
     case FriendlyUniqueKeywordAndKeywordWithTheLivingCharacteristic = 'friendly_unique_keyword_and_keyword_with_living_characteristic';
     case FriendlyNonGaminKeyword = 'friendly_non_gamin_keyword';
+    // No keyword qualifier — some crew cards just say "Friendly models gain...".
+    case Friendly = 'friendly';
 
     public function descriptor(CrewUpgradeRestrictionDescriptorTypeEnum $descriptorType): string
     {

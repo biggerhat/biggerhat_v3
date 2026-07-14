@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Campaign;
 
+use App\Enums\Campaign\CrewCardBorrowExclusionEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\PermissionEnum;
 use Illuminate\Foundation\Http\FormRequest;
@@ -39,8 +40,12 @@ class StoreCrewCardRequest extends FormRequest
             'actions' => ['nullable', 'array'],
             'actions.*.id' => ['required', 'integer', 'exists:actions,id'],
             'actions.*.is_signature' => ['required', 'boolean'],
-            'ability_ids' => ['nullable', 'array'],
-            'ability_ids.*' => ['integer', 'exists:abilities,id'],
+            // Tier-4 Crew Card Advancement (pg 32, 54) may not borrow an
+            // effect referencing a power bar or causing a card swap.
+            'actions.*.borrow_exclusion' => ['nullable', Rule::enum(CrewCardBorrowExclusionEnum::class)],
+            'abilities' => ['nullable', 'array'],
+            'abilities.*.id' => ['required', 'integer', 'exists:abilities,id'],
+            'abilities.*.borrow_exclusion' => ['nullable', Rule::enum(CrewCardBorrowExclusionEnum::class)],
         ];
     }
 }

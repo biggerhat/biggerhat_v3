@@ -210,6 +210,51 @@ it('blocks a non-owner from deleting a character', function () {
     expect(CustomCharacter::find($character->id))->not->toBeNull();
 });
 
+it('blocks deleting a Campaign Leader — it\'s still referenced by the crew\'s advancement log and game history', function () {
+    $user = User::factory()->create();
+    $leader = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.destroy', $leader->id))
+        ->assertStatus(422)
+        ->assertJson(['success' => false]);
+
+    expect(CustomCharacter::find($leader->id))->not->toBeNull();
+});
+
+it('blocks deleting a Campaign Totem for the same reason', function () {
+    $user = User::factory()->create();
+    $totem = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'is_campaign_totem' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.destroy', $totem->id))
+        ->assertStatus(422);
+
+    expect(CustomCharacter::find($totem->id))->not->toBeNull();
+});
+
+it('blocks deleting a superseded (non-current) Campaign Leader row too — it\'s still historical game data', function () {
+    $user = User::factory()->create();
+    $oldLeader = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+        'current' => false,
+        'replaced_at' => now(),
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.destroy', $oldLeader->id))
+        ->assertStatus(422);
+
+    expect(CustomCharacter::find($oldLeader->id))->not->toBeNull();
+});
+
 it('serves the public share page without auth, regardless of is_public', function () {
     $user = User::factory()->create();
     $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'is_public' => false]));

@@ -43,15 +43,23 @@ class CrewCardAdminController extends Controller
         return [
             'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'type']),
             'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
+            // `faction` must be selected even though the form never reads it —
+            // both models append a computed `faction_color` attribute on every
+            // serialization (Character::getFactionColorAttribute() /
+            // CustomCharacter's equivalent), and that accessor reads `faction`
+            // unconditionally. Under strict-attribute mode (Model::shouldBeStrict())
+            // a column-scoped select without it throws MissingAttributeException
+            // the moment Inertia serializes this prop — this crashed the Crew
+            // Card create/edit admin page in production.
             'masters' => fn () => Character::where('station', CharacterStationEnum::Master->value)
                 ->orderBy('display_name')
-                ->get(['id', 'display_name']),
+                ->get(['id', 'display_name', 'faction']),
             // Custom-built Campaign Leaders are also eligible — a Crew Card
             // can be printed on a homebrew master, not just an official one.
             'custom_masters' => fn () => CustomCharacter::where('is_campaign_leader', true)
                 ->where('current', true)
                 ->orderBy('display_name')
-                ->get(['id', 'display_name']),
+                ->get(['id', 'display_name', 'faction']),
             'borrow_exclusion_options' => fn () => CrewCardBorrowExclusionEnum::toSelectOptions(),
         ];
     }

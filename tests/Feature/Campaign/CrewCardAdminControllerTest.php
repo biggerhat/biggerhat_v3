@@ -82,6 +82,31 @@ it('index flags a custom-Leader-linked crew card as custom', function () {
             ->where('items.0.master_is_custom', true));
 });
 
+it('create page renders without a MissingAttributeException when masters/custom_masters exist', function () {
+    // Regression: `masters`/`custom_masters` selected only ['id', 'display_name'],
+    // but both Character and CustomCharacter append a computed `faction_color`
+    // attribute on every serialization, and that accessor unconditionally
+    // reads `faction` — under Model::shouldBeStrict(), a column-scoped select
+    // without it throws the moment Inertia serializes the prop. This crashed
+    // the Crew Card create/edit admin page in production with a 500.
+    Character::factory()->create(['station' => CharacterStationEnum::Master->value]);
+    customLeader();
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.campaign.crew-cards.create'))
+        ->assertOk();
+});
+
+it('edit page renders without a MissingAttributeException when masters/custom_masters exist', function () {
+    Character::factory()->create(['station' => CharacterStationEnum::Master->value]);
+    customLeader();
+    $row = CampaignCrewCard::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.campaign.crew-cards.edit', $row->id))
+        ->assertOk();
+});
+
 it('store creates a crew card linked to a master', function () {
     $master = Character::factory()->create(['station' => CharacterStationEnum::Master->value]);
 

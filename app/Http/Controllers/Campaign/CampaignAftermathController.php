@@ -108,7 +108,6 @@ class CampaignAftermathController extends Controller
                 : null,
             'xp_track' => fn () => $aftermath->current_phase === 4 ? $this->loadXpTrackForCrew($aftermath) : null,
             'advancement_catalogs' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::advancementCatalogs($aftermath->crew) : null,
-            'eligible_masters' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::eligibleMasters($aftermath->crew) : null,
             'crew_card_choice_options' => fn () => $aftermath->current_phase === 4 ? AftermathCatalog::crewCardChoiceOptions($aftermath->crew) : null,
             // Phase 6 review screen: a rundown of what Phases 1-5 already
             // committed, so the player can sanity-check before the final,
@@ -946,6 +945,9 @@ class CampaignAftermathController extends Controller
             // borrowed effect requires, if any — see StoreLeaderAdvancementRequest.
             'advancements.*.crew_card_choice' => ['nullable', 'array'],
             'advancements.*.crew_card_choice.id' => ['nullable'],
+            // Crew Card table (pg 32, 54): which of the two Tier-4 pools
+            // catalog_id resolves against — see StoreLeaderAdvancementRequest.
+            'advancements.*.crew_card_source' => ['nullable', 'string', 'in:campaign_crew_card,crew_upgrade'],
         ]);
 
         $aftermath->loadMissing('crew');

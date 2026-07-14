@@ -521,18 +521,16 @@ class GameController extends Controller
             ->where('base_game_id', $game->id)
             ->with([
                 'campaign:id,name,current_week,length_weeks',
-                'crewA:id,share_code,name,user_id,crew_card_effect_id',
-                'crewB:id,share_code,name,user_id,crew_card_effect_id',
+                'crewA:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image',
+                'crewB:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image',
                 'crewA.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewA.crewCardEffect.abilities',
                 'crewA.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewA.crewCardAdvancements.crewCardEffect.abilities',
-                'crewA.crewCardAdvancements.sourceMaster:id,display_name',
                 'crewB.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewB.crewCardEffect.abilities',
                 'crewB.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewB.crewCardAdvancements.crewCardEffect.abilities',
-                'crewB.crewCardAdvancements.sourceMaster:id,display_name',
             ])
             ->first();
 
@@ -567,7 +565,7 @@ class GameController extends Controller
             // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
             // effects. Not surfaced anywhere else in Game Tracker.
             'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
-            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => []],
+            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => [], 'front_image' => null],
         ];
     }
 
@@ -591,7 +589,6 @@ class GameController extends Controller
             'crewCardEffect.abilities',
             'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'crewCardAdvancements.crewCardEffect.abilities',
-            'crewCardAdvancements.sourceMaster:id,display_name',
         ]);
         $this->applyCrewCardSignatureFlags($campaignCrew);
 
@@ -608,7 +605,7 @@ class GameController extends Controller
             'encounter_size' => 0,
             'week_number' => $campaignCrew->campaign->current_week,
             'crew_a_card' => $this->campaignCrewCardPayload($campaignCrew),
-            'crew_b_card' => ['effect' => null, 'borrowed' => []],
+            'crew_b_card' => ['effect' => null, 'borrowed' => [], 'front_image' => null],
         ];
     }
 
@@ -625,21 +622,42 @@ class GameController extends Controller
     }
 
     /**
-     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>}
+     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null}
      */
     private function campaignCrewCardPayload(\App\Models\Campaign\CampaignCrew $crew): array
     {
         return [
-            'effect' => $crew->crewCardEffect
-                ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description])
-                : null,
+            'effect' => $this->crewCardEffectPayload($crew->crewCardEffect),
             'borrowed' => $crew->crewCardAdvancements->map(fn (\App\Models\Campaign\CampaignCrewCardAdvancement $adv) => [
                 'id' => $adv->id,
-                'source_master_name' => $adv->sourceMaster?->display_name,
-                'effect' => $adv->crewCardEffect
-                    ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
-                    : null,
+                'effect' => $this->crewCardEffectPayload($adv->crewCardEffect),
             ])->all(),
+            // Combined generated card (starter + every held Tier-4 borrow,
+            // including restriction qualifier text) — see CombinedCrewCardEffects.
+            'front_image' => $crew->crew_card_front_image,
+        ];
+    }
+
+    /**
+     * Shapes either possible crew-card-effect source (the generic
+     * `CampaignCrewCard` catalog or a real keyword-matched `Upgrade`) into
+     * the identical wire shape the Game Tracker's CrewCardEffect interface
+     * expects — a plain `toArray()` would leak the Upgrade model's many
+     * unrelated admin/catalog columns into this payload.
+     */
+    private function crewCardEffectPayload(\App\Models\Campaign\CampaignCrewCard|\App\Models\Upgrade|null $effect): ?array
+    {
+        if (! $effect) {
+            return null;
+        }
+
+        return [
+            'id' => $effect->id,
+            'name' => $effect->name,
+            'body' => $effect->description,
+            'front_image' => $effect->front_image,
+            'actions' => $effect->actions,
+            'abilities' => $effect->abilities,
         ];
     }
 

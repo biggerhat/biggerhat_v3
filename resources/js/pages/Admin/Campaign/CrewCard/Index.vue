@@ -15,8 +15,6 @@ import { h, ref } from 'vue';
 interface CrewCardRow {
     id: number;
     name: string;
-    master: { id: number; display_name: string } | null;
-    master_is_custom: boolean;
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
@@ -31,17 +29,6 @@ const columns: ColumnDef<CrewCardRow>[] = [
         accessorKey: 'name',
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
-    },
-    {
-        id: 'master',
-        header: () => h('div', {}, 'Master'),
-        cell: ({ row }) => {
-            if (!row.original.master) return h('span', { class: 'text-xs text-muted-foreground' }, 'generic');
-            return h('div', { class: 'flex items-center gap-1.5' }, [
-                h('span', { class: 'text-sm' }, row.original.master.display_name),
-                row.original.master_is_custom ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => 'Custom') : null,
-            ]);
-        },
     },
     {
         id: 'flags',

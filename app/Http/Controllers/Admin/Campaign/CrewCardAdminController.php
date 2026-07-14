@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin\Campaign;
 
-use App\Enums\CharacterStationEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Campaign\StoreCrewCardRequest;
 use App\Http\Requests\Admin\Campaign\UpdateCrewCardRequest;
@@ -10,26 +9,18 @@ use App\Jobs\Campaign\GenerateCrewCardImage;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\CampaignCrewCard;
-use App\Models\Character;
-use App\Models\CustomCharacter;
 use Illuminate\Http\Request;
 
 class CrewCardAdminController extends Controller
 {
-    /** Wire-format master type ('official'/'custom', matching the Card Creator's own source_type vocabulary) <-> the morph column's actual FQCN. */
-    private const MASTER_TYPE_MAP = ['official' => Character::class, 'custom' => CustomCharacter::class];
-
     public function index(Request $request)
     {
         return inertia('Admin/Campaign/CrewCard/Index', [
             'items' => CampaignCrewCard::orderBy('name')
-                ->with('master:id,faction,display_name')
-                ->get(['id', 'name', 'master_id', 'master_type', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice'])
+                ->get(['id', 'name', 'requires_token_choice', 'requires_marker_choice', 'requires_upgrade_type_choice'])
                 ->map(fn (CampaignCrewCard $c) => [
                     'id' => $c->id,
                     'name' => $c->name,
-                    'master' => $c->master ? ['id' => $c->master->id, 'display_name' => $c->master->display_name] : null,
-                    'master_is_custom' => $c->master_type === CustomCharacter::class,
                     'requires_token_choice' => $c->requires_token_choice,
                     'requires_marker_choice' => $c->requires_marker_choice,
                     'requires_upgrade_type_choice' => $c->requires_upgrade_type_choice,
@@ -42,23 +33,6 @@ class CrewCardAdminController extends Controller
         return [
             'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'type']),
             'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
-            // `faction` must be selected even though the form never reads it —
-            // both models append a computed `faction_color` attribute on every
-            // serialization (Character::getFactionColorAttribute() /
-            // CustomCharacter's equivalent), and that accessor reads `faction`
-            // unconditionally. Under strict-attribute mode (Model::shouldBeStrict())
-            // a column-scoped select without it throws MissingAttributeException
-            // the moment Inertia serializes this prop — this crashed the Crew
-            // Card create/edit admin page in production.
-            'masters' => fn () => Character::where('station', CharacterStationEnum::Master->value)
-                ->orderBy('display_name')
-                ->get(['id', 'display_name', 'faction']),
-            // Custom-built Campaign Leaders are also eligible — a Crew Card
-            // can be printed on a homebrew master, not just an official one.
-            'custom_masters' => fn () => CustomCharacter::where('is_campaign_leader', true)
-                ->where('current', true)
-                ->orderBy('display_name')
-                ->get(['id', 'display_name', 'faction']),
         ];
     }
 
@@ -78,18 +52,14 @@ class CrewCardAdminController extends Controller
         ])->values());
 
         return inertia('Admin/Campaign/CrewCard/Form', array_merge(
-            [
-                'item' => array_merge($crewCard->toArray(), [
-                    'master_type' => array_search($crewCard->master_type, self::MASTER_TYPE_MAP, true) ?: null,
-                ]),
-            ],
+            ['item' => $crewCard->toArray()],
             $this->formProps(),
         ));
     }
 
     public function store(StoreCrewCardRequest $request)
     {
-        $validated = $this->resolveMasterType($request->validated());
+        $validated = $request->validated();
         $actionsInput = $validated['actions'] ?? [];
         $abilitiesInput = $validated['abilities'] ?? [];
         unset($validated['actions'], $validated['abilities']);
@@ -104,7 +74,7 @@ class CrewCardAdminController extends Controller
 
     public function update(UpdateCrewCardRequest $request, CampaignCrewCard $crewCard)
     {
-        $validated = $this->resolveMasterType($request->validated());
+        $validated = $request->validated();
         $actionsInput = $validated['actions'] ?? [];
         $abilitiesInput = $validated['abilities'] ?? [];
         unset($validated['actions'], $validated['abilities']);
@@ -115,23 +85,6 @@ class CrewCardAdminController extends Controller
         GenerateCrewCardImage::dispatch($crewCard->id)->afterCommit();
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$crewCard->name} updated.");
-    }
-
-    /**
-     * Swaps the validated payload's wire-format `master_type` ('official'/
-     * 'custom') for the real morph FQCN the `master_id` column pairs with —
-     * null master_id means no master at all, so master_type follows it.
-     *
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function resolveMasterType(array $validated): array
-    {
-        $validated['master_type'] = $validated['master_id'] ?? null
-            ? self::MASTER_TYPE_MAP[$validated['master_type'] ?? 'official'] ?? Character::class
-            : null;
-
-        return $validated;
     }
 
     /**

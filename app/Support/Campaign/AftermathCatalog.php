@@ -22,6 +22,8 @@ use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Character;
 use App\Models\CustomCharacter;
+use App\Models\Marker;
+use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Builder;
@@ -285,13 +287,24 @@ class AftermathCatalog
     {
         // Tier-4 Crew Card: exclude effects the crew already holds (its
         // starter effect + any effects already borrowed) so the same effect
-        // can't be picked twice.
-        $heldCrewCardIds = $crew
-            ? array_values(array_filter([
-                $crew->crew_card_effect_id,
-                ...$crew->crewCardAdvancements()->pluck('crew_card_effect_id')->all(),
-            ]))
-            : [];
+        // can't be picked twice. Split by source type since CampaignCrewCard
+        // and Upgrade ids can collide across the two tables.
+        $heldCampaignCrewCardIds = [];
+        $heldUpgradeIds = [];
+        if ($crew) {
+            $heldCampaignCrewCardIds = array_values(array_filter([$crew->crew_card_effect_id]));
+            foreach ($crew->crewCardAdvancements as $advancement) {
+                if ($advancement->crew_card_effect_type === Upgrade::class) {
+                    $heldUpgradeIds[] = $advancement->crew_card_effect_id;
+                } else {
+                    $heldCampaignCrewCardIds[] = $advancement->crew_card_effect_id;
+                }
+            }
+        }
+
+        // Tier-4 Crew Card (pg 32, 54): masters' own keywords, used to filter
+        // the keyword-matched Crew Card Upgrade pool below.
+        $keywordIds = $crew ? array_values(array_filter([$crew->keyword_1_id, $crew->keyword_2_id])) : [];
 
         return [
             'attack_mod' => self::attackTacticalAdvancements(AdvancementAttackMod::class),
@@ -392,72 +405,64 @@ class AftermathCatalog
                     'triggers' => self::triggerSummaries($a->triggers),
                 ])
                 ->all(),
-            'crew_card' => CampaignCrewCard::query()
-                ->when(! empty($heldCrewCardIds), fn ($q) => $q->whereNotIn('id', $heldCrewCardIds))
-                ->with(['actions:id,name', 'abilities:id,name', 'master:id,faction,display_name'])
-                ->orderBy('name')
-                ->get()
-                ->map(fn (CampaignCrewCard $c) => [
-                    'id' => $c->id,
-                    'name' => $c->name,
-                    'body' => $c->description,
-                    'front_image' => $c->front_image,
-                    'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
-                    'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
-                    // The master this card is actually printed on (null =
-                    // generic, not yet assigned) — drives the cascading
-                    // Master → their own Crew Card picker (pg 32, 54).
-                    // master_type disambiguates official Character ids from
-                    // CustomCharacter ids, which live in separate tables and
-                    // can collide.
-                    'master_id' => $c->master_id,
-                    'master_type' => $c->master_type === CustomCharacter::class ? 'custom' : 'official',
-                    'master_name' => $c->master?->display_name,
-                    // Whether taking this borrowed effect also requires picking
-                    // a token/marker/upgrade type from the constrained pool
-                    // (pg 17-18) — same mechanism as the Starting Arsenal pick.
-                    'requires_token_choice' => (bool) $c->requires_token_choice,
-                    'requires_marker_choice' => (bool) $c->requires_marker_choice,
-                    'requires_upgrade_type_choice' => (bool) $c->requires_upgrade_type_choice,
-                ])
-                ->all(),
+            // Tier-4 Crew Card (pg 32, 54) pool: rulebook allows either (a) the
+            // fixed pg 15-16 generic list — the same catalog Starting Arsenal
+            // draws from, source 'campaign_crew_card' — or (b) any real Crew
+            // Card Upgrade sharing one of the crew's keywords, source
+            // 'crew_upgrade'. No master-selection step: keyword membership on
+            // the Upgrade itself is the sole eligibility gate.
+            'crew_card' => [
+                ...CampaignCrewCard::query()
+                    ->when(! empty($heldCampaignCrewCardIds), fn ($q) => $q->whereNotIn('id', $heldCampaignCrewCardIds))
+                    ->with(['actions:id,name', 'abilities:id,name'])
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (CampaignCrewCard $c) => [
+                        'id' => $c->id,
+                        'source' => 'campaign_crew_card',
+                        'name' => $c->name,
+                        'body' => $c->description,
+                        'front_image' => $c->front_image,
+                        'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
+                        'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
+                        // Whether taking this borrowed effect also requires picking
+                        // a token/marker/upgrade type from the constrained pool
+                        // (pg 17-18) — same mechanism as the Starting Arsenal pick.
+                        'requires_token_choice' => (bool) $c->requires_token_choice,
+                        'requires_marker_choice' => (bool) $c->requires_marker_choice,
+                        'requires_upgrade_type_choice' => (bool) $c->requires_upgrade_type_choice,
+                    ])
+                    ->all(),
+                ...(empty($keywordIds) ? [] : Upgrade::query()
+                    ->forCrews()
+                    ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+                    ->when(! empty($heldUpgradeIds), fn ($q) => $q->whereNotIn('id', $heldUpgradeIds))
+                    ->with(['actions:id,name', 'abilities:id,name', 'triggers:id,name', 'tokens:id,name', 'markers:id,name'])
+                    ->orderBy('name')
+                    ->get()
+                    // An excluded action/ability/trigger (pg 32, 54: "references
+                    // a power bar or causes the crew card to be swapped") makes
+                    // the whole card ineligible to borrow.
+                    ->reject(fn (Upgrade $u) => $u->actions->contains(fn (Action $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        || $u->abilities->contains(fn (Ability $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        || $u->triggers->contains(fn (Trigger $t) => $t->pivot->borrow_exclusion !== null)) // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                    ->map(fn (Upgrade $u) => [
+                        'id' => $u->id,
+                        'source' => 'crew_upgrade',
+                        'name' => $u->name,
+                        'body' => $u->description,
+                        'front_image' => $u->front_image,
+                        'actions' => $u->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
+                        'abilities' => $u->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
+                        // Granted directly alongside the card's actions/abilities
+                        // — no separate constrained-pool choice step, unlike the
+                        // generic catalog above.
+                        'tokens' => $u->tokens->map(fn (Token $t) => ['id' => $t->id, 'name' => $t->name]),
+                        'markers' => $u->markers->map(fn (Marker $m) => ['id' => $m->id, 'name' => $m->name]),
+                    ])
+                    ->all()),
+            ],
         ];
-    }
-
-    /**
-     * Masters sharing one of the crew's keywords — the eligible "borrow
-     * from" source for a Tier-4 Crew Card advancement (pg 32, 54). Includes
-     * both official Characters and homebrew Leaders (CustomCharacter), since
-     * `CampaignCrewCard::master()` supports both via its polymorphic
-     * `master_id`/`master_type` (mirrors `CrewCardAdminController::
-     * formProps()`'s own official+custom master lists).
-     *
-     * @return array<int, array{id: int, name: string, master_type: 'official'|'custom'}>
-     */
-    public static function eligibleMasters(CampaignCrew $crew): array
-    {
-        $keywordIds = array_values(array_filter([$crew->keyword_1_id, $crew->keyword_2_id]));
-        if (empty($keywordIds)) {
-            return [];
-        }
-
-        $officialMasters = Character::query()
-            ->where('station', CharacterStationEnum::Master->value)
-            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-            ->get(['id', 'display_name'])
-            ->map(fn (Character $c) => ['id' => $c->id, 'name' => $c->display_name, 'master_type' => 'official']);
-
-        $customMasters = CustomCharacter::query()
-            ->where('is_campaign_leader', true)
-            ->where('current', true)
-            ->get(['id', 'display_name', 'keywords'])
-            ->filter(fn (CustomCharacter $c) => collect($c->keywords ?? [])->pluck('id')->filter()->intersect($keywordIds)->isNotEmpty())
-            ->map(fn (CustomCharacter $c) => ['id' => $c->id, 'name' => $c->display_name, 'master_type' => 'custom']);
-
-        return $officialMasters->concat($customMasters)
-            ->sortBy('name')
-            ->values()
-            ->all();
     }
 
     /**

@@ -76,7 +76,6 @@ class ArsenalSheetController extends Controller
             // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
             'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'crewCardAdvancements.crewCardEffect.abilities',
-            'crewCardAdvancements.sourceMaster:id,display_name',
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
@@ -141,7 +140,7 @@ class ArsenalSheetController extends Controller
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -156,7 +155,6 @@ class ArsenalSheetController extends Controller
                     // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
                     'crew_card_advancements' => $crew->crewCardAdvancements->map(fn ($adv) => [
                         'id' => $adv->id,
-                        'source_master_name' => $adv->sourceMaster?->display_name,
                         'effect' => $adv->crewCardEffect
                             ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
                             : null,
@@ -207,8 +205,7 @@ class ArsenalSheetController extends Controller
                         }
 
                         // Tier-4 Crew Card (pg 32, 54) — resolve the effect's
-                        // own name + which master (if any) it came from.
-                        // `advancement_catalogs.crew_card` excludes effects
+                        // own name. `advancement_catalogs.crew_card` excludes effects
                         // this crew already holds (so the same effect can't be
                         // picked twice), so once an effect is taken, the
                         // client-side catalog lookup used to resolve every
@@ -229,7 +226,6 @@ class ArsenalSheetController extends Controller
                             'free_choice' => $a->free_choice,
                             'free_choice_source_name' => $freeChoiceSourceName,
                             'crew_card_name' => $heldCrewCard?->crewCardEffect?->name,
-                            'crew_card_master_name' => $heldCrewCard?->sourceMaster?->display_name,
                             'applied_to_custom_character_id' => $a->applied_to_custom_character_id,
                             'applied_to_action_index' => $a->applied_to_action_index,
                             'from_equipment_id' => $a->from_equipment_id,
@@ -241,7 +237,6 @@ class ArsenalSheetController extends Controller
             // to resolve taken-advancement names for everyone and to drive the
             // owner's pick-an-advancement UI.
             'advancement_catalogs' => $leader ? AftermathCatalog::advancementCatalogs($crew) : null,
-            'eligible_masters' => $leader ? AftermathCatalog::eligibleMasters($crew) : null,
             'crew_card_choice_options' => $leader ? AftermathCatalog::crewCardChoiceOptions($crew) : null,
             'totem' => $totem,
             // The crew's earned equipment (pg 20 Barter) — attachable to any

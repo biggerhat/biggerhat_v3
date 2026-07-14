@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Campaign;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Support\Campaign\CombinedCrewCardEffects;
 use Inertia\Response;
 
 /**
  * Headless-Chrome capture target for App\Services\Campaign\CrewCardImageGenerator
- * — bare CrewCardFace only, no page chrome. Public/unauthenticated like
- * CustomCharacterController::capture (same trust model: catalog content, not
- * a user secret), hit only by the queue worker.
+ * and CombinedCrewCardImageGenerator — bare card face only, no page chrome.
+ * Public/unauthenticated like CustomCharacterController::capture (same trust
+ * model: catalog/crew content, not a user secret), hit only by the queue worker.
  */
 class CrewCardCaptureController extends Controller
 {
@@ -21,15 +23,12 @@ class CrewCardCaptureController extends Controller
         $crewCard->load([
             'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'abilities',
-            'master:id,faction,display_name',
         ]);
 
         return inertia('CardCreator/CaptureCrewCard', [
             'card' => [
                 'name' => $crewCard->name,
                 'body' => $crewCard->description,
-                'masterName' => $crewCard->master?->display_name,
-                'masterFaction' => $crewCard->master?->faction?->value,
                 'abilities' => $crewCard->abilities->map(fn (Ability $a) => [
                     'name' => $a->name,
                     'suits' => $a->suits,
@@ -60,6 +59,21 @@ class CrewCardCaptureController extends Controller
                     ])->all(),
                 ]),
             ],
+        ]);
+    }
+
+    /**
+     * The combined per-crew card (starter effect + every held Tier-4 borrow,
+     * pg 15-16 / 32 / 54) — see CombinedCrewCardEffects for the shared
+     * builder and how restriction qualifiers are resolved.
+     */
+    public function combined(CampaignCrew $crew): Response
+    {
+        CombinedCrewCardEffects::eagerLoad($crew);
+
+        return inertia('CardCreator/CaptureCombinedCrewCard', [
+            'crewName' => $crew->name,
+            'items' => CombinedCrewCardEffects::build($crew),
         ]);
     }
 }

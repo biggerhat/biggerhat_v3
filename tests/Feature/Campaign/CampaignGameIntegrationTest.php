@@ -98,12 +98,10 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
     $crewA->update(['crew_card_effect_id' => $starter->id]);
 
     $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
-    $master = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
     \App\Models\Campaign\CampaignCrewCardAdvancement::create([
         'campaign_crew_id' => $crewA->id,
         'crew_card_effect_id' => $borrowedEffect->id,
-        'source_master_id' => $master->id,
-        'source_master_type' => Character::class,
+        'crew_card_effect_type' => \App\Models\Campaign\CampaignCrewCard::class,
     ]);
 
     $this->actingAs($userA)
@@ -114,7 +112,6 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
             ->where('campaign_context.crew_a_card.effect.body', 'Starter body text.')
             ->where('campaign_context.crew_a_card.effect.front_image', 'campaign-crew-cards/1/front.png')
             ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
-            ->where('campaign_context.crew_a_card.borrowed.0.source_master_name', $master->fresh()->display_name)
             ->where('campaign_context.crew_b_card.effect', null)
         );
 });

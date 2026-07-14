@@ -50,9 +50,8 @@ it('queues a card regeneration when a Crew Card is updated', function () {
     Bus::assertDispatched(GenerateCrewCardImage::class, fn ($job) => $job->crewCardId === $row->id);
 });
 
-it('capture page renders name, body, master, and linked actions/abilities for the queue worker to screenshot', function () {
-    $master = \App\Models\Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
-    $row = CampaignCrewCard::factory()->forOfficialMaster($master)->create(['name' => 'Ice Reflection', 'description' => 'Body text here.']);
+it('capture page renders name, body, and linked actions/abilities for the queue worker to screenshot', function () {
+    $row = CampaignCrewCard::factory()->create(['name' => 'Ice Reflection', 'description' => 'Body text here.']);
     $action = \App\Models\Action::factory()->create(['name' => 'Icy Grasp']);
     $ability = \App\Models\Ability::factory()->create(['name' => 'Frozen Heart']);
     $row->actions()->attach($action->id, ['is_signature_action' => true]);
@@ -64,22 +63,8 @@ it('capture page renders name, body, master, and linked actions/abilities for th
             ->component('CardCreator/CaptureCrewCard')
             ->where('card.name', 'Ice Reflection')
             ->where('card.body', 'Body text here.')
-            ->where('card.masterName', $master->display_name)
-            ->where('card.masterFaction', $master->faction->value)
             ->where('card.actions.0.name', 'Icy Grasp')
             ->where('card.actions.0.is_signature', true)
             ->where('card.abilities.0.name', 'Frozen Heart')
-        );
-});
-
-it('capture page renders a generic (no master) Crew Card without error', function () {
-    $row = CampaignCrewCard::factory()->create(['name' => 'Generic Effect']);
-
-    $this->get(route('tools.card_creator.capture_crew_card', $row->id))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('card.name', 'Generic Effect')
-            ->where('card.masterName', null)
-            ->where('card.masterFaction', null)
         );
 });

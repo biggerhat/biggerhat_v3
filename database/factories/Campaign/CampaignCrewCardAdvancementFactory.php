@@ -19,7 +19,7 @@ class CampaignCrewCardAdvancementFactory extends Factory
         return [
             'campaign_crew_id' => CampaignCrew::factory(),
             'crew_card_effect_id' => CampaignCrewCard::factory(),
-            'source_master_id' => null,
+            'crew_card_effect_type' => CampaignCrewCard::class,
             'acquired_aftermath_id' => null,
         ];
     }

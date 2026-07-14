@@ -432,70 +432,7 @@ it('exposes the leader Leadership Experience track with filled boxes', function 
         ));
 });
 
-it('eligible_masters includes homebrew Leaders sharing a crew keyword, not just official Characters', function () {
-    $owner = sheetUser();
-    [$campaign, $crew] = crewFor2($owner);
-
-    // This crew's own Leader (required for the sheet to compute eligible_masters at all).
-    \App\Models\CustomCharacter::create([
-        'user_id' => $owner->id,
-        'campaign_crew_id' => $crew->id,
-        'is_campaign_leader' => true,
-        'current' => true,
-        'name' => 'Sheet Leader',
-        'faction' => FactionEnum::Resurrectionists->value,
-        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
-        'base' => 30,
-    ]);
-
-    $officialMaster = Character::factory()->create([
-        'station' => \App\Enums\CharacterStationEnum::Master->value,
-        'faction' => FactionEnum::Resurrectionists->value,
-    ]);
-    $officialMaster->keywords()->attach($crew->keyword_1_id);
-
-    // A homebrew Leader belonging to some other crew, printed with the same
-    // keyword as this crew — should be eligible to borrow a Crew Card from.
-    $homebrewMaster = \App\Models\CustomCharacter::create([
-        'user_id' => $owner->id,
-        'is_campaign_leader' => true,
-        'current' => true,
-        'name' => 'Homebrew Master',
-        'display_name' => 'Homebrew Master',
-        'faction' => FactionEnum::Resurrectionists->value,
-        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
-        'base' => 30,
-        'keywords' => [['id' => $crew->keyword_1_id, 'name' => 'Test Keyword']],
-    ]);
-
-    // A homebrew "Leader" that's stale (current = false) should NOT show up.
-    \App\Models\CustomCharacter::create([
-        'user_id' => $owner->id,
-        'is_campaign_leader' => true,
-        'current' => false,
-        'name' => 'Stale Homebrew Master',
-        'display_name' => 'Stale Homebrew Master',
-        'faction' => FactionEnum::Resurrectionists->value,
-        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
-        'base' => 30,
-        'keywords' => [['id' => $crew->keyword_1_id, 'name' => 'Test Keyword']],
-    ]);
-
-    $this->actingAs($owner)
-        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('eligible_masters', function ($masters) use ($officialMaster, $homebrewMaster) {
-            $byId = collect($masters)->keyBy('id');
-
-            return $byId->has($officialMaster->id)
-                && $byId->get($officialMaster->id)['master_type'] === 'official'
-                && $byId->has($homebrewMaster->id)
-                && $byId->get($homebrewMaster->id)['master_type'] === 'custom'
-                && ! $byId->keys()->contains(fn ($id) => \App\Models\CustomCharacter::find($id)?->name === 'Stale Homebrew Master');
-        }));
-});
-
-it('leader_advancements resolves a held Crew Card effect\'s name + source master, since the catalog list excludes held effects', function () {
+it('leader_advancements resolves a held Crew Card effect\'s name, since the catalog list excludes held effects', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
 
@@ -511,12 +448,10 @@ it('leader_advancements resolves a held Crew Card effect\'s name + source master
     ]);
 
     $borrowedEffect = CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
-    $master = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Master->value]);
     \App\Models\Campaign\CampaignCrewCardAdvancement::create([
         'campaign_crew_id' => $crew->id,
         'crew_card_effect_id' => $borrowedEffect->id,
-        'source_master_id' => $master->id,
-        'source_master_type' => Character::class,
+        'crew_card_effect_type' => CampaignCrewCard::class,
     ]);
     \App\Models\Campaign\CampaignLeaderAdvancement::create([
         'custom_character_id' => $leader->id,
@@ -532,7 +467,6 @@ it('leader_advancements resolves a held Crew Card effect\'s name + source master
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('leader_advancements.0.crew_card_name', 'Borrowed Boon')
-            ->where('leader_advancements.0.crew_card_master_name', $master->fresh()->display_name)
             ->has('leader_advancements.0.acquired_at')
         );
 });

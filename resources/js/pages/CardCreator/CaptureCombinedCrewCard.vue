@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CrewCardFace from '@/components/CardCreator/CrewCardFace.vue';
+import CombinedCrewCardFace from '@/components/CardCreator/CombinedCrewCardFace.vue';
 import { Head } from '@inertiajs/vue3';
 
 // Headless-capture-only page — see CardCreator/Capture.vue for why layout is
@@ -16,7 +16,7 @@ interface TriggerData {
 interface ActionData {
     name: string;
     type: string;
-    is_signature: boolean;
+    is_signature?: boolean;
     stone_cost: number;
     range: number | null;
     range_type: string | null;
@@ -40,25 +40,20 @@ interface AbilityData {
 }
 
 defineProps<{
-    card: {
-        name: string;
-        body: string | null;
-        abilities: AbilityData[];
-        actions: ActionData[];
-    };
+    crewName: string;
+    items: Array<{ type: 'action' | 'ability' | 'trigger'; qualifier: string | null; data: ActionData | AbilityData | TriggerData }>;
 }>();
 </script>
 
 <template>
     <Head title="Crew Card capture" />
 
-    <!-- Single face only — unlike a full Leader/Totem stat card, a Crew Card
-         has no separate front/back split. Same fixed 550x950 pixel size so
-         App\Services\Campaign\CrewCardImageGenerator's Browsershot capture
-         has a deterministic bounding box. -->
+    <!-- Single face only, same fixed 550x950 pixel size as CaptureCrewCard —
+         App\Services\Campaign\CombinedCrewCardImageGenerator's Browsershot
+         capture has a deterministic bounding box. -->
     <div class="bg-transparent p-8">
         <div id="card-crew" style="width: 550px; height: 950px">
-            <CrewCardFace :name="card.name" :body="card.body" :abilities="card.abilities" :actions="card.actions" />
+            <CombinedCrewCardFace :crew-name="crewName" :items="items" />
         </div>
     </div>
 </template>

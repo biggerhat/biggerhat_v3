@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
-import FactionLogo from '@/components/FactionLogo.vue';
+import { formatRange, splitSuits } from '@/components/CardCreator/utils';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import { computed } from 'vue';
@@ -44,18 +43,15 @@ interface AbilityData {
 const props = defineProps<{
     name: string;
     body: string | null;
-    masterName: string | null;
-    // A Crew Card isn't itself factioned — theme off its printed master's
-    // faction when it has one, falling back to a neutral scheme for generic,
-    // unassigned effects (pg 15-16).
-    masterFaction: string | null;
     abilities: AbilityData[];
     actions: ActionData[];
 }>();
 
-const factionVar = computed(() => getFactionVar(props.masterFaction));
-const borderGradient = computed(() => factionGradient(factionVar.value, null));
-
+// A Crew Card is shared catalog content any crew can hold (its starter
+// and/or a Tier-4 borrow), so this face is always neutrally themed — a
+// crew's own faction/Leader context is layered on live around the rendered
+// image at display time instead (Arsenal Sheet, Game Tracker), not baked in
+// here.
 const nameFontSize = computed(() => {
     const len = props.name.length;
     if (len > 32) return 'text-base';
@@ -82,24 +78,15 @@ const contentScale = computed(() => {
 </script>
 
 <template>
-    <div
-        class="card-face card-crew relative flex h-full w-full flex-col overflow-hidden rounded-lg bg-neutral-900 text-white"
-        :style="masterFaction ? { '--faction-color': `var(${factionVar})` } : {}"
-    >
+    <div class="card-face card-crew relative flex h-full w-full flex-col overflow-hidden rounded-lg bg-neutral-900 text-white">
         <!-- Border -->
-        <div class="h-1.5 w-full" :style="{ background: borderGradient }" />
+        <div class="h-1.5 w-full" style="background: hsl(var(--primary))" />
 
         <!-- Header -->
-        <div
-            class="flex items-center gap-2 px-3 py-2.5"
-            :style="{ background: masterFaction ? `hsl(var(${factionVar}) / 0.15)` : 'rgba(255,255,255,0.06)' }"
-        >
-            <FactionLogo v-if="masterFaction" :faction="masterFaction" class-name="size-6 shrink-0" />
+        <div class="flex items-center gap-2 px-3 py-2.5" style="background: rgba(255, 255, 255, 0.06)">
             <div class="min-w-0 flex-1">
                 <div class="font-bold leading-snug" :class="nameFontSize">{{ name }}</div>
-                <div class="mt-0.5 text-[11px] uppercase tracking-wider text-white/60">
-                    Crew Card<span v-if="masterName"> — {{ masterName }}</span>
-                </div>
+                <div class="mt-0.5 text-[11px] uppercase tracking-wider text-white/60">Crew Card</div>
             </div>
         </div>
 
@@ -108,7 +95,7 @@ const contentScale = computed(() => {
             v-if="body"
             class="px-3 py-2 text-white/85"
             :class="contentScale === 'scale-sm' ? 'text-xs leading-5' : contentScale === 'scale-md' ? 'text-sm leading-5' : 'text-base leading-6'"
-            :style="{ background: masterFaction ? `hsl(var(${factionVar}) / 0.08)` : 'rgba(255,255,255,0.03)' }"
+            style="background: rgba(255, 255, 255, 0.03)"
         >
             <GameText :text="body" icon-class="h-3.5 inline-block align-text-bottom" />
         </div>
@@ -134,12 +121,7 @@ const contentScale = computed(() => {
 
         <!-- Actions -->
         <div class="flex-1 overflow-hidden px-2.5 py-2">
-            <div
-                v-for="action in actions"
-                :key="action.name"
-                class="mb-1.5 rounded"
-                :style="{ background: masterFaction ? `hsl(var(${factionVar}) / 0.08)` : 'rgba(255,255,255,0.04)' }"
-            >
+            <div v-for="action in actions" :key="action.name" class="mb-1.5 rounded" style="background: rgba(255, 255, 255, 0.04)">
                 <div
                     class="flex items-center px-1.5 py-1"
                     :class="contentScale === 'scale-sm' ? 'text-[11px]' : contentScale === 'scale-md' ? 'text-xs' : 'text-sm'"
@@ -216,6 +198,6 @@ const contentScale = computed(() => {
         </div>
 
         <!-- Border -->
-        <div class="h-1 w-full" :style="{ background: borderGradient }" />
+        <div class="h-1 w-full" style="background: hsl(var(--primary))" />
     </div>
 </template>

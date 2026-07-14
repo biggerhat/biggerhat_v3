@@ -29,6 +29,7 @@ import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
+import { getFactionVar } from '@/components/CardCreator/utils';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
@@ -190,7 +191,11 @@ interface CrewCardEffect {
 }
 interface CampaignCrewCardPayload {
     effect: CrewCardEffect | null;
-    borrowed: Array<{ id: number; source_master_name: string | null; effect: CrewCardEffect | null }>;
+    borrowed: Array<{ id: number; effect: CrewCardEffect | null }>;
+    // Combined generated card (starter + every held Tier-4 borrow, including
+    // restriction qualifier text) — regenerated whenever the held effect set
+    // changes. Null until the first render lands.
+    front_image: string | null;
 }
 
 const props = defineProps<{
@@ -1375,6 +1380,13 @@ const myCrewCard = computed<CampaignCrewCardPayload | null>(() => {
     return mySlot.value === 1 ? props.campaign_context.crew_a_card : props.campaign_context.crew_b_card;
 });
 const expandedMyCrewCardEffect = ref(false);
+// Crew Card art is un-themed shared catalog content — this player's own
+// master/faction (already resolved for this game) is shown as a live border
+// around the rendered image instead of anything baked into the art.
+const myCrewCardBorderStyle = computed(() => {
+    const faction = myPlayer.value?.faction;
+    return faction ? { borderColor: `hsl(var(${getFactionVar(faction)}))` } : {};
+});
 
 const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     const payload: Record<string, any> = { active_crew_upgrade_id: upgradeId };
@@ -2673,56 +2685,62 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     class="mt-2 space-y-2 rounded-md border bg-background p-2 text-foreground"
                 >
                     <template v-if="side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect">
-                        <p class="text-sm font-medium">
-                            {{ (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.name }}
-                        </p>
-                        <p
-                            v-if="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.body"
-                            class="text-xs leading-relaxed text-muted-foreground"
-                        >
-                            <GameText :text="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)!.body!" />
-                        </p>
-                        <ActionCard
-                            v-for="(a, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.actions ??
-                            []"
-                            :key="`cc-action-${side}-${i}`"
-                            :action="a"
-                            :hide-footer="true"
+                        <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
+                        <img
+                            v-if="(side === 'a' ? campaign_context.crew_a_card : campaign_context.crew_b_card).front_image"
+                            :src="'/storage/' + (side === 'a' ? campaign_context.crew_a_card : campaign_context.crew_b_card).front_image"
+                            class="max-h-96 rounded-md border"
+                            :alt="`${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`"
                         />
-                        <AbilityCard
-                            v-for="(ab, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.abilities ??
-                            []"
-                            :key="`cc-ability-${side}-${i}`"
-                            :ability="ab"
-                            :hide-footer="true"
-                        />
-                        <template
-                            v-for="adv in side === 'a' ? campaign_context.crew_a_card.borrowed : campaign_context.crew_b_card.borrowed"
-                            :key="`cc-borrowed-${side}-${adv.id}`"
-                        >
-                            <div v-if="adv.effect" class="border-t pt-2">
-                                <p class="text-xs font-medium">
-                                    {{ adv.effect.name }}
-                                    <span v-if="adv.source_master_name" class="text-muted-foreground"
-                                        >— borrowed from {{ adv.source_master_name }}</span
-                                    >
-                                </p>
-                                <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
-                                    <GameText :text="adv.effect.body" />
-                                </p>
-                                <ActionCard
-                                    v-for="(a, i) in adv.effect.actions"
-                                    :key="`cc-badv-action-${side}-${adv.id}-${i}`"
-                                    :action="a"
-                                    :hide-footer="true"
+                        <template v-else>
+                            <p class="text-sm font-medium">
+                                {{ (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.name }}
+                            </p>
+                            <p
+                                v-if="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.body"
+                                class="text-xs leading-relaxed text-muted-foreground"
+                            >
+                                <GameText
+                                    :text="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)!.body!"
                                 />
-                                <AbilityCard
-                                    v-for="(ab, i) in adv.effect.abilities"
-                                    :key="`cc-badv-ability-${side}-${adv.id}-${i}`"
-                                    :ability="ab"
-                                    :hide-footer="true"
-                                />
-                            </div>
+                            </p>
+                            <ActionCard
+                                v-for="(a, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)
+                                    ?.actions ?? []"
+                                :key="`cc-action-${side}-${i}`"
+                                :action="a"
+                                :hide-footer="true"
+                            />
+                            <AbilityCard
+                                v-for="(ab, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)
+                                    ?.abilities ?? []"
+                                :key="`cc-ability-${side}-${i}`"
+                                :ability="ab"
+                                :hide-footer="true"
+                            />
+                            <template
+                                v-for="adv in side === 'a' ? campaign_context.crew_a_card.borrowed : campaign_context.crew_b_card.borrowed"
+                                :key="`cc-borrowed-${side}-${adv.id}`"
+                            >
+                                <div v-if="adv.effect" class="border-t pt-2">
+                                    <p class="text-xs font-medium">{{ adv.effect.name }}</p>
+                                    <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                        <GameText :text="adv.effect.body" />
+                                    </p>
+                                    <ActionCard
+                                        v-for="(a, i) in adv.effect.actions"
+                                        :key="`cc-badv-action-${side}-${adv.id}-${i}`"
+                                        :action="a"
+                                        :hide-footer="true"
+                                    />
+                                    <AbilityCard
+                                        v-for="(ab, i) in adv.effect.abilities"
+                                        :key="`cc-badv-ability-${side}-${adv.id}-${i}`"
+                                        :ability="ab"
+                                        :hide-footer="true"
+                                    />
+                                </div>
+                            </template>
                         </template>
                     </template>
                 </div>
@@ -4372,13 +4390,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     leave-to-class="max-h-0 opacity-0"
                                 >
                                     <div v-if="expandedMyCrewCardEffect" class="mt-2 space-y-2 overflow-hidden">
+                                        <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
                                         <img
-                                            v-if="myCrewCard.effect.front_image"
-                                            :src="'/storage/' + myCrewCard.effect.front_image"
-                                            :alt="myCrewCard.effect.name"
-                                            class="max-h-96 cursor-pointer rounded-md border"
-                                            @click="openCardFullscreen({ src: '/storage/' + myCrewCard.effect.front_image, title: myCrewCard.effect.name })"
+                                            v-if="myCrewCard.front_image"
+                                            :src="'/storage/' + myCrewCard.front_image"
+                                            :alt="`${myPlayer?.master_name ?? 'My'} Crew Card`"
+                                            class="max-h-96 cursor-pointer rounded-md border-2"
+                                            :style="myCrewCardBorderStyle"
+                                            @click="openCardFullscreen({ src: '/storage/' + myCrewCard.front_image, title: 'Crew Card' })"
                                         />
+                                        <!-- Fallback text rendering while the combined image hasn't generated yet -->
                                         <template v-else>
                                             <p v-if="myCrewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground">
                                                 <GameText :text="myCrewCard.effect.body" />
@@ -4395,23 +4416,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 :ability="ab"
                                                 :hide-footer="true"
                                             />
-                                        </template>
-                                        <template v-for="adv in myCrewCard.borrowed" :key="`mycc-borrowed-${adv.id}`">
-                                            <div v-if="adv.effect" class="border-t pt-2">
-                                                <p class="text-xs font-medium">
-                                                    {{ adv.effect.name }}
-                                                    <span v-if="adv.source_master_name" class="text-muted-foreground"
-                                                        >— borrowed from {{ adv.source_master_name }}</span
-                                                    >
-                                                </p>
-                                                <img
-                                                    v-if="adv.effect.front_image"
-                                                    :src="'/storage/' + adv.effect.front_image"
-                                                    :alt="adv.effect.name"
-                                                    class="mt-1 max-h-96 cursor-pointer rounded-md border"
-                                                    @click="openCardFullscreen({ src: '/storage/' + adv.effect.front_image, title: adv.effect.name })"
-                                                />
-                                                <template v-else>
+                                            <template v-for="adv in myCrewCard.borrowed" :key="`mycc-borrowed-${adv.id}`">
+                                                <div v-if="adv.effect" class="border-t pt-2">
+                                                    <p class="text-xs font-medium">{{ adv.effect.name }}</p>
                                                     <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
                                                         <GameText :text="adv.effect.body" />
                                                     </p>
@@ -4427,8 +4434,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         :ability="ab"
                                                         :hide-footer="true"
                                                     />
-                                                </template>
-                                            </div>
+                                                </div>
+                                            </template>
                                         </template>
                                     </div>
                                 </Transition>

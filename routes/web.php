@@ -296,6 +296,9 @@ Route::prefix('tools')->name('tools.')->group(function () {
         // — admin catalog content, not a user secret, so a raw id is fine.
         Route::get('/capture/crew-card/{crewCard}', [\App\Http\Controllers\Campaign\CrewCardCaptureController::class, 'show'])
             ->name('capture_crew_card');
+        // The combined per-crew card (App\Services\Campaign\CombinedCrewCardImageGenerator).
+        Route::get('/capture/crew-card-combined/{crew}', [\App\Http\Controllers\Campaign\CrewCardCaptureController::class, 'combined'])
+            ->name('capture_crew_card_combined');
 
         Route::middleware('auth')->group(function () {
             Route::get('/', [CustomCharacterController::class, 'index'])->name('index');
